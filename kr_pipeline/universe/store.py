@@ -27,8 +27,13 @@ def upsert_stocks(conn: Connection, df: pd.DataFrame) -> int:
 
 
 def mark_delisted(conn: Connection, *, current_tickers: set[str], on_date: date) -> int:
-    """현재 universe 에 없는, 아직 delisted_at 이 NULL 인 종목을 폐지 처리."""
-    tickers_list = list(current_tickers) if current_tickers else ["__none__"]
+    """현재 universe 에 없는, 아직 delisted_at 이 NULL 인 종목을 폐지 처리.
+
+    Safety: current_tickers 가 비어 있으면 (fetch 실패 등) 아무것도 하지 않음.
+    """
+    if not current_tickers:
+        return 0
+    tickers_list = list(current_tickers)
     with conn.cursor() as cur:
         cur.execute(
             """
