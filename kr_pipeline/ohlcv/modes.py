@@ -141,6 +141,7 @@ def run(
         else:
             stats = _run_upsert(conn, tickers, start, end, max_workers, mode)
         state["warnings"].extend(stats.warnings)
+        state["rows_affected"] = stats.rows_affected
         return stats
 
 

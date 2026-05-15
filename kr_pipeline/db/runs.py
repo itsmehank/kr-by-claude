@@ -40,21 +40,22 @@ def finish_run(
 
 @contextmanager
 def run_tracking(conn: Connection, *, pipeline: str, mode: str, params: dict) -> Iterator[dict]:
-    """yields a dict {run_id: int, warnings: list[str]}.
+    """yields a dict {run_id: int, warnings: list[str], rows_affected: int | None}.
 
-    Caller may append to warnings list during work; warnings are recorded as JSON
-    in pipeline_runs.error on successful completion. Status stays 'success'.
+    Caller may append to warnings list during work and set rows_affected before
+    exiting the with-block. On success, both warnings and rows_affected are
+    persisted via finish_run.
     """
     run_id = start_run(conn, pipeline=pipeline, mode=mode, params=params)
     conn.commit()
-    state: dict = {"run_id": run_id, "warnings": []}
+    state: dict = {"run_id": run_id, "warnings": [], "rows_affected": None}
     try:
         yield state
         # success path with possible warnings
         warnings_json: str | None = None
         if state["warnings"]:
             warnings_json = json.dumps({"warnings": state["warnings"]}, ensure_ascii=False)
-        finish_run(conn, run_id, status="success", error=warnings_json)
+        finish_run(conn, run_id, status="success", rows_affected=state["rows_affected"], error=warnings_json)
         conn.commit()
     except Exception as e:
         conn.rollback()

@@ -179,5 +179,6 @@ def run(
 
         warnings = _run_sanity_checks(conn)
         state["warnings"].extend(warnings)
+        state["rows_affected"] = rows_total
 
     return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)
