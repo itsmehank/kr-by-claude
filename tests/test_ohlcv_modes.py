@@ -94,3 +94,113 @@ def test_full_refresh_records_persistent_failures(monkeypatch, db):
             cur.execute("DELETE FROM daily_prices WHERE ticker = '005930'")
             cur.execute("DELETE FROM stocks WHERE ticker = '005930'")
         db.commit()
+
+
+def test_sanity_checks_coverage_warning(db):
+    """활성 종목 100개 중 50개만 최근 일봉 들어왔으면 경고."""
+    from kr_pipeline.ohlcv.modes import _run_sanity_checks, Mode
+
+    # Seed: 100 active stocks
+    with db.cursor() as cur:
+        for i in range(100):
+            cur.execute(
+                "INSERT INTO stocks (ticker, name, market) VALUES (%s, %s, 'KOSPI') ON CONFLICT DO NOTHING",
+                (f"{i:06d}", f"종목{i}"),
+            )
+        # 50 stocks with daily_prices for 2026-05-14
+        for i in range(50):
+            cur.execute("""
+                INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
+                VALUES (%s, '2026-05-14', 100, 100, 100, 100, 100, 100, 100)
+                ON CONFLICT DO NOTHING
+            """, (f"{i:06d}",))
+    db.commit()
+
+    try:
+        warnings = _run_sanity_checks(db, Mode.INCREMENTAL)
+        coverage_warnings = [w for w in warnings if w.startswith("coverage_low")]
+        assert len(coverage_warnings) == 1
+        assert "50/100" in coverage_warnings[0]
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker ~ '^[0-9]{6}$'")
+            cur.execute("DELETE FROM stocks WHERE ticker ~ '^[0-9]{6}$'")
+        db.commit()
+
+
+def test_sanity_checks_no_warning_when_coverage_high(db):
+    """80% 이상 커버리지면 경고 없음."""
+    from kr_pipeline.ohlcv.modes import _run_sanity_checks, Mode
+
+    with db.cursor() as cur:
+        for i in range(100):
+            cur.execute(
+                "INSERT INTO stocks (ticker, name, market) VALUES (%s, %s, 'KOSPI') ON CONFLICT DO NOTHING",
+                (f"{i:06d}", f"종목{i}"),
+            )
+        for i in range(90):
+            cur.execute("""
+                INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
+                VALUES (%s, '2026-05-14', 100, 100, 100, 100, 100, 100, 100)
+                ON CONFLICT DO NOTHING
+            """, (f"{i:06d}",))
+    db.commit()
+
+    try:
+        warnings = _run_sanity_checks(db, Mode.INCREMENTAL)
+        coverage_warnings = [w for w in warnings if w.startswith("coverage_low")]
+        assert coverage_warnings == []
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker ~ '^[0-9]{6}$'")
+            cur.execute("DELETE FROM stocks WHERE ticker ~ '^[0-9]{6}$'")
+        db.commit()
+
+
+def test_sanity_checks_bad_prices_warning(db):
+    """close 또는 adj_close 가 0 이하인 행이 있으면 경고."""
+    from kr_pipeline.ohlcv.modes import _run_sanity_checks, Mode
+
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('005930', '삼성', 'KOSPI') ON CONFLICT DO NOTHING")
+        cur.execute("""
+            INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
+            VALUES ('005930', '2026-05-14', 70000, 71000, 69000, 0, 0, 1000, 1000)
+            ON CONFLICT DO NOTHING
+        """)
+    db.commit()
+
+    try:
+        warnings = _run_sanity_checks(db, Mode.INCREMENTAL)
+        bad_warnings = [w for w in warnings if w.startswith("bad_prices")]
+        assert len(bad_warnings) == 1
+        assert "1" in bad_warnings[0]
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker = '005930'")
+            cur.execute("DELETE FROM stocks WHERE ticker = '005930'")
+        db.commit()
+
+
+def test_sanity_checks_skips_coverage_for_full_refresh(db):
+    """full-refresh 는 커버리지 검증을 건너뜀."""
+    from kr_pipeline.ohlcv.modes import _run_sanity_checks, Mode
+
+    with db.cursor() as cur:
+        for i in range(10):
+            cur.execute(
+                "INSERT INTO stocks (ticker, name, market) VALUES (%s, %s, 'KOSPI') ON CONFLICT DO NOTHING",
+                (f"{i:06d}", f"종목{i}"),
+            )
+        # 0 stocks with daily_prices → would be 0% coverage in incremental
+    db.commit()
+
+    try:
+        warnings = _run_sanity_checks(db, Mode.FULL_REFRESH)
+        coverage_warnings = [w for w in warnings if w.startswith("coverage_low")]
+        assert coverage_warnings == []
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker ~ '^[0-9]{6}$'")
+            cur.execute("DELETE FROM stocks WHERE ticker ~ '^[0-9]{6}$'")
+        db.commit()

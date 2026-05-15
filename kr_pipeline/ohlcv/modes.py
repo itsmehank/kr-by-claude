@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from enum import Enum
 import logging
@@ -65,6 +65,52 @@ def _load_active_tickers(conn: Connection, limit: int | None = None) -> list[str
 class RunStats:
     rows_affected: int
     failures: list[tuple[str, str]]
+    warnings: list[str] = field(default_factory=list)
+
+
+def _run_sanity_checks(conn: Connection, mode: Mode) -> list[str]:
+    """OHLCV 적재 후 데이터 sanity 검증. 경고 메시지 리스트 반환 (실패 아님).
+
+    검증 항목:
+    1. 최근 영업일 커버리지: daily_prices 의 가장 최근 날짜에 들어온 종목 수가
+       활성 universe 의 80% 미만이면 경고.
+    2. 가격 이상치: close <= 0 또는 adj_close <= 0 인 행이 있으면 경고.
+
+    full-refresh 모드는 새 행을 추가하지 않으므로 커버리지 검증을 건너뜀.
+    """
+    warnings: list[str] = []
+
+    with conn.cursor() as cur:
+        # 검증 1: 최근 영업일 커버리지 (full-refresh 제외)
+        if mode != Mode.FULL_REFRESH:
+            cur.execute("""
+                SELECT COUNT(DISTINCT ticker)
+                  FROM daily_prices
+                 WHERE date = (SELECT MAX(date) FROM daily_prices)
+            """)
+            coverage_count = cur.fetchone()[0] or 0
+
+            cur.execute("SELECT COUNT(*) FROM stocks WHERE delisted_at IS NULL")
+            active_count = cur.fetchone()[0] or 0
+
+            if active_count > 0:
+                ratio = coverage_count / active_count
+                if ratio < 0.80:
+                    warnings.append(
+                        f"coverage_low: 최근 영업일 일봉 수신 종목 {coverage_count}/{active_count} "
+                        f"({ratio*100:.1f}%, 임계 80%)"
+                    )
+
+        # 검증 2: 이상치
+        cur.execute("""
+            SELECT COUNT(*) FROM daily_prices
+             WHERE close <= 0 OR adj_close <= 0
+        """)
+        bad_price_count = cur.fetchone()[0] or 0
+        if bad_price_count > 0:
+            warnings.append(f"bad_prices: {bad_price_count} 행이 close 또는 adj_close <= 0")
+
+    return warnings
 
 
 def run(
@@ -89,13 +135,16 @@ def run(
     tickers = _load_active_tickers(conn, limit=limit_tickers)
     log.info(f"tickers to process: {len(tickers)}")
 
-    with run_tracking(conn, pipeline="ohlcv", mode=mode.value, params={**params, "start": str(start), "end": str(end)}):
+    with run_tracking(conn, pipeline="ohlcv", mode=mode.value, params={**params, "start": str(start), "end": str(end)}) as state:
         if mode == Mode.FULL_REFRESH:
-            return _run_full_refresh(conn, tickers, start, end, max_workers)
-        return _run_upsert(conn, tickers, start, end, max_workers)
+            stats = _run_full_refresh(conn, tickers, start, end, max_workers, mode)
+        else:
+            stats = _run_upsert(conn, tickers, start, end, max_workers, mode)
+        state["warnings"].extend(stats.warnings)
+        return stats
 
 
-def _run_upsert(conn, tickers, start, end, max_workers) -> RunStats:
+def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
     successes, failures = fetch_many(tickers, start, end, max_workers=max_workers)
     rows_total = 0
     for ticker, (raw, adj) in successes.items():
@@ -121,10 +170,11 @@ def _run_upsert(conn, tickers, start, end, max_workers) -> RunStats:
         upsert_index_daily(conn, idx_rows)
         conn.commit()
 
-    return RunStats(rows_affected=rows_total, failures=failures)
+    warnings = _run_sanity_checks(conn, mode)
+    return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)
 
 
-def _run_full_refresh(conn, tickers, start, end, max_workers) -> RunStats:
+def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.FULL_REFRESH) -> RunStats:
     """수정종가만 갱신. 종목별 실패는 끝에서 1회 재시도."""
     import time
     from kr_pipeline.ohlcv.fetch import fetch_adj_only
@@ -164,4 +214,5 @@ def _run_full_refresh(conn, tickers, start, end, max_workers) -> RunStats:
         if failures:
             log.warning(f"After retry, {len(failures)} tickers still failed")
 
-    return RunStats(rows_affected=rows_total, failures=failures)
+    warnings = _run_sanity_checks(conn, mode)
+    return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)

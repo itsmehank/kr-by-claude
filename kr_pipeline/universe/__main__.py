@@ -19,7 +19,7 @@ def main() -> int:
     today = date.today()
 
     with connect(cfg.database_url) as conn:
-        with run_tracking(conn, pipeline="universe", mode="full", params={"on_date": today.isoformat()}) as _run_id:
+        with run_tracking(conn, pipeline="universe", mode="full", params={"on_date": today.isoformat()}) as _state:
             log.info(f"Fetching universe for {today}")
             df = fetch_universe(today)
             log.info(f"Fetched {len(df)} raw tickers")

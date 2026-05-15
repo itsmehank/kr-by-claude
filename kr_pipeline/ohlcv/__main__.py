@@ -37,6 +37,9 @@ def main() -> int:
         log.info(f"DONE rows_affected={stats.rows_affected} failures={len(stats.failures)}")
         if stats.failures:
             log.warning(f"Failed tickers: {[t for t, _ in stats.failures[:20]]}")
+        if stats.warnings:
+            for w in stats.warnings:
+                log.warning(f"sanity: {w}")
     return 0
 
 
