@@ -1,0 +1,14 @@
+# kr-by-claude 일봉 파이프라인 cron 등록 예시
+# crontab -e 로 등록. PROJECT_DIR 와 PATH 는 환경에 맞게 수정.
+
+PROJECT_DIR=/home/me/kr-by-claude
+LOG_DIR=/var/log/kr_pipeline
+
+# 매일 18:30 KST, 일봉 incremental (월~금)
+30 18 * * 1-5  cd $PROJECT_DIR && uv run python -m kr_pipeline.ohlcv --mode=incremental --window-days=30 >> $LOG_DIR/ohlcv.log 2>&1
+
+# 매월 1일 02:00, 수정종가 full-refresh
+0  2 1 * *     cd $PROJECT_DIR && uv run python -m kr_pipeline.ohlcv --mode=full-refresh >> $LOG_DIR/ohlcv.log 2>&1
+
+# 매월 1일 04:00, 종목 마스터 갱신
+0  4 1 * *     cd $PROJECT_DIR && uv run python -m kr_pipeline.universe >> $LOG_DIR/universe.log 2>&1
