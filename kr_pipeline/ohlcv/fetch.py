@@ -40,6 +40,15 @@ def fetch_ohlcv_pair(ticker: str, start: date, end: date) -> tuple[pd.DataFrame,
 
 
 @with_retry(attempts=3, wait_seconds=1.0)
+def fetch_adj_only(ticker: str, start: date, end: date) -> pd.DataFrame:
+    """수정종가만 가져옴 (full-refresh 전용).
+
+    fetch_ohlcv_pair 와 달리 raw 호출 안 함. adjusted=True 만 한 번 호출.
+    """
+    return _fetch_one(ticker, start, end, adjusted=True)
+
+
+@with_retry(attempts=3, wait_seconds=1.0)
 def fetch_index(index_code: str, start: date, end: date) -> pd.DataFrame:
     df = stock.get_index_ohlcv(
         start.strftime("%Y%m%d"),

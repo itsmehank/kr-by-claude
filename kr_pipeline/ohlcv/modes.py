@@ -125,22 +125,43 @@ def _run_upsert(conn, tickers, start, end, max_workers) -> RunStats:
 
 
 def _run_full_refresh(conn, tickers, start, end, max_workers) -> RunStats:
-    """수정종가만 갱신."""
-    from kr_pipeline.ohlcv.fetch import _fetch_one
+    """수정종가만 갱신. 종목별 실패는 끝에서 1회 재시도."""
     import time
+    from kr_pipeline.ohlcv.fetch import fetch_adj_only
+
+    def _process_ticker(ticker: str) -> int:
+        """한 종목의 수정종가를 가져와 업데이트. 영향받은 행 수 반환."""
+        adj = fetch_adj_only(ticker, start, end)
+        if adj.empty:
+            return 0
+        rows = [(ticker, r["date"], float(r["close"])) for _, r in adj.iterrows()]
+        affected = update_adj_close_only(conn, rows)
+        conn.commit()
+        return affected
 
     rows_total = 0
-    failures = []
-    for ticker in tickers:
+    failures: list[tuple[str, str]] = []
+    for i, ticker in enumerate(tickers, 1):
         try:
-            adj = _fetch_one(ticker, start, end, adjusted=True)
-            if adj.empty:
-                continue
-            rows = [(ticker, r["date"], float(r["close"])) for _, r in adj.iterrows()]
-            rows_total += update_adj_close_only(conn, rows)
-            conn.commit()
+            rows_total += _process_ticker(ticker)
             time.sleep(0.1)
         except Exception as e:
             failures.append((ticker, str(e)))
+        if i % 100 == 0:
+            log.info(f"full-refresh progress: {i}/{len(tickers)} (failures so far: {len(failures)})")
+
+    # 1차 실패 재시도 (fetch_many 와 같은 패턴)
+    if failures:
+        log.warning(f"Retrying {len(failures)} failed tickers in full-refresh")
+        retry_failures: list[tuple[str, str]] = []
+        for ticker, _ in failures:
+            try:
+                rows_total += _process_ticker(ticker)
+                time.sleep(0.2)  # 살짝 더 긴 sleep 으로 부드럽게 재시도
+            except Exception as e:
+                retry_failures.append((ticker, str(e)))
+        failures = retry_failures
+        if failures:
+            log.warning(f"After retry, {len(failures)} tickers still failed")
 
     return RunStats(rows_affected=rows_total, failures=failures)
