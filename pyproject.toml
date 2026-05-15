@@ -1,0 +1,27 @@
+[project]
+name = "kr-pipeline"
+version = "0.1.0"
+description = "Korean stock daily OHLCV ingestion pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "pykrx>=1.0.45",
+    "psycopg[binary]>=3.1",
+    "pandas>=2.2",
+    "tenacity>=8.2",
+    "python-dotenv>=1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.12",
+    "freezegun>=1.4",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
