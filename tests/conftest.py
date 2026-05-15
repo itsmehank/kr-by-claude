@@ -4,7 +4,9 @@ from pathlib import Path
 
 import psycopg
 import pytest
+from dotenv import load_dotenv
 
+load_dotenv()
 
 SCHEMA_PATH = Path(__file__).parent.parent / "kr_pipeline" / "db" / "schema.sql"
 
@@ -18,12 +20,9 @@ def test_db_url() -> str:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _setup_schema():
-    url = os.environ.get("TEST_DATABASE_URL")
-    if not url:
-        return
+def _setup_schema(test_db_url):
     subprocess.run(
-        ["psql", url, "-f", str(SCHEMA_PATH)],
+        ["psql", test_db_url, "-f", str(SCHEMA_PATH)],
         check=True, capture_output=True,
     )
 

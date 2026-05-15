@@ -1,3 +1,5 @@
+import pytest
+
 from kr_pipeline.common.retry import with_retry
 
 
@@ -16,7 +18,6 @@ def test_retry_succeeds_on_third_attempt():
 
 
 def test_retry_gives_up_after_max_attempts():
-    import pytest
     attempts = []
 
     @with_retry(attempts=2, wait_seconds=0)
