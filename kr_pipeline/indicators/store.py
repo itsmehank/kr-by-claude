@@ -13,6 +13,14 @@ PHASE_A_COLUMNS_DAILY = [
     "rs_line_in_decline_7m",
     "minervini_c1", "minervini_c2", "minervini_c3",
     "minervini_c4", "minervini_c5", "minervini_c6", "minervini_c7",
+    # V2: 거래량 지표
+    "volume",
+    "avg_volume_50d",
+    "volume_ratio_50d",
+    "pocket_pivot_flag",
+    "volume_dry_up_flag",
+    "up_down_volume_ratio_50d",
+    "distribution_day_flag",
 ]
 
 
@@ -105,6 +113,11 @@ PHASE_A_COLUMNS_WEEKLY = [
     "rs_line_in_decline_7m",
     "minervini_c1", "minervini_c2", "minervini_c3",
     "minervini_c4", "minervini_c5", "minervini_c6", "minervini_c7",
+    # V2: 거래량 지표
+    "volume",
+    "avg_volume_10w",
+    "volume_ratio_10w",
+    "up_down_volume_ratio_10w",
 ]
 
 
