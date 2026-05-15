@@ -50,3 +50,35 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     params        JSONB
 );
 CREATE INDEX IF NOT EXISTS idx_pipeline_runs_recent ON pipeline_runs(pipeline, started_at DESC);
+
+-- ====== Weekly (#1.5) ======
+
+CREATE TABLE IF NOT EXISTS weekly_prices (
+    ticker          VARCHAR(10)   NOT NULL REFERENCES stocks(ticker),
+    week_end_date   DATE          NOT NULL,
+    open            NUMERIC(12,2) NOT NULL,
+    high            NUMERIC(12,2) NOT NULL,
+    low             NUMERIC(12,2) NOT NULL,
+    close           NUMERIC(12,2) NOT NULL,
+    adj_close       NUMERIC(12,4) NOT NULL,
+    volume          BIGINT        NOT NULL,
+    value           BIGINT        NOT NULL,
+    trading_days    SMALLINT      NOT NULL,
+    updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (ticker, week_end_date)
+);
+CREATE INDEX IF NOT EXISTS idx_weekly_prices_date ON weekly_prices(week_end_date);
+
+CREATE TABLE IF NOT EXISTS weekly_index (
+    index_code      VARCHAR(10)   NOT NULL,
+    week_end_date   DATE          NOT NULL,
+    open            NUMERIC(12,2) NOT NULL,
+    high            NUMERIC(12,2) NOT NULL,
+    low             NUMERIC(12,2) NOT NULL,
+    close           NUMERIC(12,2) NOT NULL,
+    volume          BIGINT,
+    value           BIGINT,
+    trading_days    SMALLINT      NOT NULL,
+    updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (index_code, week_end_date)
+);
