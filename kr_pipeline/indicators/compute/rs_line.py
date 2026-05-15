@@ -23,12 +23,6 @@ def compute_rs_line_52w_high_and_date(
     high = rs_line.rolling(window=window, min_periods=window).max()
 
     # argmax 위치 → 해당 날짜 (rolling apply 로 idx 추적)
-    def _argmax_date(window_values):
-        if window_values.isna().any():
-            return None
-        max_pos = window_values.values.argmax()
-        return window_values.index[max_pos]
-
     high_date = rs_line.rolling(window=window, min_periods=window).apply(
         lambda x: x.values.argmax(),
         raw=False,

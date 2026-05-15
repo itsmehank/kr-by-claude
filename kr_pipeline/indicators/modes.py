@@ -99,7 +99,11 @@ def compute_date_range(
 
 def _market_to_index_code(market: str) -> str:
     """KOSPI → '1001', KOSDAQ → '2001'."""
-    return "1001" if market == "KOSPI" else "2001"
+    if market == "KOSPI":
+        return "1001"
+    if market == "KOSDAQ":
+        return "2001"
+    raise ValueError(f"Unknown market: {market!r} — expected 'KOSPI' or 'KOSDAQ'")
 
 
 def _as_float(v) -> float | None:
@@ -279,6 +283,54 @@ def _run_sanity_checks_daily(conn: Connection, upsert_end: date) -> list[str]:
         cur.execute("""
             SELECT COUNT(*) FILTER (WHERE minervini_pass = TRUE), COUNT(*)
               FROM daily_indicators WHERE date = %s AND minervini_pass IS NOT NULL
+        """, (upsert_end,))
+        pass_cnt, eval_cnt = cur.fetchone()
+        if eval_cnt and eval_cnt > 0:
+            ratio = (pass_cnt or 0) / eval_cnt
+            if ratio == 0 or ratio > 0.50:
+                warnings.append(f"minervini_pass_rate_odd: {ratio*100:.1f}% (정상 1-15%)")
+    return warnings
+
+
+def _run_sanity_checks_weekly(conn: Connection, upsert_end: date) -> list[str]:
+    """주봉 지표 sanity 검증 — daily 패턴 미러."""
+    warnings = []
+    with conn.cursor() as cur:
+        # 1. 커버리지
+        cur.execute("SELECT COUNT(*) FROM weekly_indicators WHERE week_end_date = %s", (upsert_end,))
+        ind_count = cur.fetchone()[0] or 0
+        cur.execute("SELECT COUNT(*) FROM weekly_prices WHERE week_end_date = %s", (upsert_end,))
+        prc_count = cur.fetchone()[0] or 0
+        if prc_count > 0:
+            ratio = ind_count / prc_count
+            if ratio < 0.95:
+                warnings.append(f"coverage_low: 주봉 지표 행 {ind_count}/{prc_count} ({ratio*100:.1f}%, 임계 95%)")
+
+        # 2. SMA NULL 비율 (40w 사용)
+        cur.execute("""
+            SELECT COUNT(*) FILTER (WHERE sma_40w IS NULL), COUNT(*)
+              FROM weekly_indicators WHERE week_end_date = %s
+        """, (upsert_end,))
+        null_count, total = cur.fetchone()
+        if total > 0:
+            null_ratio = (null_count or 0) / total
+            if null_ratio > 0.30:
+                warnings.append(f"sma_40w_null_ratio_high: {null_ratio*100:.1f}% (임계 30%)")
+
+        # 3. RS Rating 분포
+        cur.execute("""
+            SELECT MAX(rs_rating), MIN(rs_rating), COUNT(rs_rating)
+              FROM weekly_indicators WHERE week_end_date = %s
+        """, (upsert_end,))
+        mx, mn, cnt = cur.fetchone()
+        if cnt and cnt > 1000:
+            if mx != 99 or mn != 0:
+                warnings.append(f"rs_rating_distribution_odd: max={mx}, min={mn}, count={cnt}")
+
+        # 4. 미너비니 통과율
+        cur.execute("""
+            SELECT COUNT(*) FILTER (WHERE minervini_pass = TRUE), COUNT(*)
+              FROM weekly_indicators WHERE week_end_date = %s AND minervini_pass IS NOT NULL
         """, (upsert_end,))
         pass_cnt, eval_cnt = cur.fetchone()
         if eval_cnt and eval_cnt > 0:
@@ -518,6 +570,8 @@ def run_weekly(
         conn.commit()
         log.info(f"Phase C weekly: {mn_affected} updated")
 
+        warnings = _run_sanity_checks_weekly(conn, load_end)
+        state["warnings"].extend(warnings)
         state["rows_affected"] = rows_total
 
-    return RunStats(rows_affected=rows_total, failures=failures)
+    return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)
