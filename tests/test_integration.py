@@ -15,12 +15,16 @@ pytestmark = pytest.mark.integration
 
 
 def test_universe_then_ohlcv_incremental_smoke(test_db_url):
-    """소규모 universe + 5일 incremental 이 정상 동작."""
+    """소규모 universe + 7일 incremental 이 정상 동작.
+
+    Cleans up after itself so subsequent unit tests see empty stocks/daily_prices/pipeline_runs.
+    """
     with connect(test_db_url) as conn:
         # 1) 작은 universe 시드 (삼성전자, SK하이닉스)
         with conn.cursor() as cur:
             cur.execute("DELETE FROM daily_prices")
             cur.execute("DELETE FROM stocks")
+            cur.execute("DELETE FROM pipeline_runs")
         import pandas as pd
         df = pd.DataFrame([
             {"ticker": "005930", "name": "삼성전자", "market": "KOSPI", "sector": None},
@@ -29,14 +33,23 @@ def test_universe_then_ohlcv_incremental_smoke(test_db_url):
         upsert_stocks(conn, df)
         conn.commit()
 
-        # 2) 5일 incremental
-        stats = run(conn, Mode.INCREMENTAL, window_days=7, limit_tickers=2, max_workers=2)
+        try:
+            # 2) 7일 incremental
+            stats = run(conn, Mode.INCREMENTAL, window_days=7, limit_tickers=2, max_workers=2)
 
-        # 3) 검증
-        assert stats.rows_affected > 0
-        with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM daily_prices")
-            assert cur.fetchone()[0] > 0
-            cur.execute("SELECT pipeline, mode, status FROM pipeline_runs ORDER BY id DESC LIMIT 1")
-            row = cur.fetchone()
-            assert row == ("ohlcv", "incremental", "success")
+            # 3) 검증
+            assert stats.rows_affected > 0
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM daily_prices")
+                assert cur.fetchone()[0] > 0
+                cur.execute("SELECT pipeline, mode, status FROM pipeline_runs ORDER BY id DESC LIMIT 1")
+                row = cur.fetchone()
+                assert row == ("ohlcv", "incremental", "success")
+        finally:
+            # 4) 정리 — 후속 unit test 격리를 위해
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM daily_prices")
+                cur.execute("DELETE FROM index_daily")
+                cur.execute("DELETE FROM pipeline_runs")
+                cur.execute("DELETE FROM stocks")
+            conn.commit()
