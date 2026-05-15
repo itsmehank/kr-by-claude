@@ -75,4 +75,29 @@ SELECT
 FROM daily_indicators
 WHERE date = (SELECT MAX(date) FROM daily_indicators)
 GROUP BY 1 ORDER BY 1 DESC;
+
+-- 오늘의 Pocket Pivot 종목 (V2)
+SELECT i.date, s.ticker, s.name, s.sector, i.volume_ratio_50d, i.rs_rating
+  FROM daily_indicators i
+  JOIN stocks s USING (ticker)
+ WHERE i.date = (SELECT MAX(date) FROM daily_indicators)
+   AND i.pocket_pivot_flag = TRUE
+ ORDER BY i.volume_ratio_50d DESC;
+
+-- 최근 25 영업일 시장 distribution day 누적 (#4 시장 추세 판정 입력)
+SELECT date, 
+       COUNT(*) FILTER (WHERE distribution_day_flag = TRUE) AS distribution_count
+  FROM daily_indicators
+ WHERE date >= (SELECT MAX(date) FROM daily_indicators) - INTERVAL '40 days'
+ GROUP BY date
+ ORDER BY date DESC LIMIT 25;
+
+-- Volume dry-up + RS Rating 강세 (base 형성 후보)
+SELECT i.date, s.ticker, s.name, i.volume_ratio_50d, i.rs_rating
+  FROM daily_indicators i
+  JOIN stocks s USING (ticker)
+ WHERE i.date = (SELECT MAX(date) FROM daily_indicators)
+   AND i.volume_dry_up_flag = TRUE
+   AND i.rs_rating >= 70
+ ORDER BY i.rs_rating DESC LIMIT 20;
 ```
