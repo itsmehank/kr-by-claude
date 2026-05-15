@@ -174,3 +174,25 @@ CREATE TABLE IF NOT EXISTS weekly_indicators (
 CREATE INDEX IF NOT EXISTS idx_weekly_indicators_date ON weekly_indicators(week_end_date);
 CREATE INDEX IF NOT EXISTS idx_weekly_indicators_minervini ON weekly_indicators(week_end_date, minervini_pass)
     WHERE minervini_pass = TRUE;
+
+-- ====== Indicators V2: Volume (#2-V2) ======
+
+ALTER TABLE daily_indicators
+    ADD COLUMN IF NOT EXISTS volume                    NUMERIC(20,2),
+    ADD COLUMN IF NOT EXISTS avg_volume_50d            NUMERIC(20,2),
+    ADD COLUMN IF NOT EXISTS volume_ratio_50d          NUMERIC(10,4),
+    ADD COLUMN IF NOT EXISTS pocket_pivot_flag         BOOLEAN,
+    ADD COLUMN IF NOT EXISTS volume_dry_up_flag        BOOLEAN,
+    ADD COLUMN IF NOT EXISTS up_down_volume_ratio_50d  NUMERIC(10,4),
+    ADD COLUMN IF NOT EXISTS distribution_day_flag     BOOLEAN;
+
+CREATE INDEX IF NOT EXISTS idx_daily_indicators_pocket_pivot
+    ON daily_indicators(date) WHERE pocket_pivot_flag = TRUE;
+CREATE INDEX IF NOT EXISTS idx_daily_indicators_distribution
+    ON daily_indicators(date) WHERE distribution_day_flag = TRUE;
+
+ALTER TABLE weekly_indicators
+    ADD COLUMN IF NOT EXISTS volume                    NUMERIC(20,2),
+    ADD COLUMN IF NOT EXISTS avg_volume_10w            NUMERIC(20,2),
+    ADD COLUMN IF NOT EXISTS volume_ratio_10w          NUMERIC(10,4),
+    ADD COLUMN IF NOT EXISTS up_down_volume_ratio_10w  NUMERIC(10,4);
