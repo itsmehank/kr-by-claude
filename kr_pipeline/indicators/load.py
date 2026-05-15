@@ -12,11 +12,14 @@ def load_daily_prices(
     start: date,
     end: date,
 ) -> pd.DataFrame:
-    """한 종목의 일봉 (date, adj_close)."""
+    """한 종목의 일봉 (date, adj_close, close, volume).
+
+    V2: split-adjusted volume 계산 위해 close, volume 도 가져옴.
+    """
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT date, adj_close
+            SELECT date, adj_close, close, volume
               FROM daily_prices
              WHERE ticker = %s AND date BETWEEN %s AND %s
              ORDER BY date
@@ -28,6 +31,8 @@ def load_daily_prices(
     df = pd.DataFrame(rows, columns=cols)
     if not df.empty:
         df["adj_close"] = df["adj_close"].astype(float)
+        df["close"] = df["close"].astype(float)
+        df["volume"] = df["volume"].astype(float)
     return df
 
 
@@ -57,10 +62,11 @@ def load_index_daily(
 
 
 def load_weekly_prices(conn: Connection, ticker: str, start: date, end: date) -> pd.DataFrame:
+    """한 종목의 주봉 (date, adj_close, close, volume). V2: close, volume 추가."""
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT week_end_date AS date, adj_close
+            SELECT week_end_date AS date, adj_close, close, volume
               FROM weekly_prices
              WHERE ticker = %s AND week_end_date BETWEEN %s AND %s
              ORDER BY week_end_date
@@ -72,6 +78,8 @@ def load_weekly_prices(conn: Connection, ticker: str, start: date, end: date) ->
     df = pd.DataFrame(rows, columns=cols)
     if not df.empty:
         df["adj_close"] = df["adj_close"].astype(float)
+        df["close"] = df["close"].astype(float)
+        df["volume"] = df["volume"].astype(float)
     return df
 
 
