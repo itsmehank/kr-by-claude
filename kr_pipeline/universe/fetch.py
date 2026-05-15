@@ -34,5 +34,5 @@ def fetch_universe(on_date: date) -> pd.DataFrame:
 def fetch_sectors(on_date: date, market: str) -> pd.DataFrame:
     """ticker → sector 매핑. 컬럼: ticker, sector."""
     df = stock.get_market_sector_classifications(on_date.strftime("%Y%m%d"), market=market)
-    df = df.reset_index().rename(columns={"티커": "ticker", "업종명": "sector"})
+    df = df.reset_index().rename(columns={"종목코드": "ticker", "업종명": "sector"})
     return df[["ticker", "sector"]]
