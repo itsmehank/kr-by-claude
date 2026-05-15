@@ -1,0 +1,101 @@
+"""주봉 집계 transform — 순수 함수, 외부 IO 없음."""
+from datetime import date
+import pandas as pd
+
+
+WEEKLY_COLUMNS = [
+    "week_end_date", "open", "high", "low", "close",
+    "adj_close", "volume", "value", "trading_days",
+]
+
+
+def aggregate_to_weekly(daily: pd.DataFrame) -> pd.DataFrame:
+    """일봉 DataFrame 을 주봉으로 집계.
+
+    입력 daily 컬럼: date, open, high, low, close, adj_close, volume, value
+    출력 컬럼: WEEKLY_COLUMNS
+
+    주 그룹화: ISO 주 (월~일). max(date) 가 week_end_date.
+    pykrx 는 휴장일 빼고 제공하므로 휴장 캘린더 불필요.
+    """
+    if daily.empty:
+        return pd.DataFrame(columns=WEEKLY_COLUMNS)
+
+    df = daily.copy()
+    df["date"] = pd.to_datetime(df["date"])
+    df["_period"] = df["date"].dt.to_period("W-SUN")
+
+    # 각 그룹을 정렬해서 첫/마지막 값 추출
+    df = df.sort_values(["_period", "date"])
+
+    grouped = df.groupby("_period")
+
+    agg = pd.DataFrame({
+        "week_end_date": grouped["date"].max().dt.date,
+        "open":          grouped["open"].first(),
+        "high":          grouped["high"].max(),
+        "low":           grouped["low"].min(),
+        "close":         grouped["close"].last(),
+        "adj_close":     grouped["adj_close"].last(),
+        "volume":        grouped["volume"].sum(),
+        "value":         grouped["value"].sum(),
+        "trading_days":  grouped["date"].count(),
+    }).reset_index(drop=True)
+
+    return agg[WEEKLY_COLUMNS]
+
+
+def drop_incomplete_weeks(weekly: pd.DataFrame, today: date) -> pd.DataFrame:
+    """현재 진행 중인 주 제외 (week_end_date 가 today 와 같은 ISO 주에 속하면 미완성).
+
+    토·일요일은 거래소가 쉬므로 이미 그 주는 완료된 것으로 간주한다.
+    """
+    if weekly.empty:
+        return weekly
+
+    # 토(5), 일(6)이면 그 주 거래는 완료 → 제거할 미완성 주 없음
+    if today.weekday() >= 5:
+        return weekly.reset_index(drop=True)
+
+    today_period = pd.Period(today, freq="W-SUN")
+    we_period = pd.to_datetime(weekly["week_end_date"]).dt.to_period("W-SUN")
+    return weekly[we_period != today_period].reset_index(drop=True)
+
+
+def to_weekly_rows(ticker: str, weekly: pd.DataFrame) -> list[tuple]:
+    """weekly_prices.executemany 용 tuple 리스트."""
+    return [
+        (
+            ticker,
+            r["week_end_date"],
+            int(r["open"]),
+            int(r["high"]),
+            int(r["low"]),
+            int(r["close"]),
+            float(r["adj_close"]),
+            int(r["volume"]),
+            int(r["value"]),
+            int(r["trading_days"]),
+        )
+        for _, r in weekly.iterrows()
+    ]
+
+
+def to_weekly_index_rows(index_code: str, weekly: pd.DataFrame) -> list[tuple]:
+    """weekly_index.executemany 용 tuple 리스트. volume/value NULL 가능."""
+    rows = []
+    for _, r in weekly.iterrows():
+        vol = r.get("volume")
+        val = r.get("value")
+        rows.append((
+            index_code,
+            r["week_end_date"],
+            int(r["open"]),
+            int(r["high"]),
+            int(r["low"]),
+            int(r["close"]),
+            int(vol) if vol is not None and not pd.isna(vol) else None,
+            int(val) if val is not None and not pd.isna(val) else None,
+            int(r["trading_days"]),
+        ))
+    return rows

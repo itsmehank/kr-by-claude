@@ -1,0 +1,167 @@
+from datetime import date
+import pandas as pd
+import pytest
+
+from kr_pipeline.weekly.transform import (
+    aggregate_to_weekly,
+    drop_incomplete_weeks,
+    to_weekly_rows,
+)
+
+
+def _daily(date_, o, h, l, c, adj, v, val):
+    return {
+        "date": date_,
+        "open": o, "high": h, "low": l, "close": c,
+        "adj_close": adj, "volume": v, "value": val,
+    }
+
+
+def test_aggregate_single_full_week():
+    """월~금 5일 일봉 → 1개 주봉."""
+    daily = pd.DataFrame([
+        _daily(date(2026, 5, 11), 100, 110, 95,  105, 105.0, 1000, 100000),   # Mon
+        _daily(date(2026, 5, 12), 105, 115, 100, 108, 108.0, 1100, 113200),   # Tue
+        _daily(date(2026, 5, 13), 108, 120, 102, 115, 115.0, 1200, 137400),   # Wed
+        _daily(date(2026, 5, 14), 115, 125, 110, 120, 120.0, 1300, 153400),   # Thu
+        _daily(date(2026, 5, 15), 120, 130, 115, 125, 125.0, 1400, 175000),   # Fri
+    ])
+    weekly = aggregate_to_weekly(daily)
+    assert len(weekly) == 1
+    row = weekly.iloc[0]
+    assert row["week_end_date"] == date(2026, 5, 15)
+    assert row["open"] == 100
+    assert row["high"] == 130
+    assert row["low"] == 95
+    assert row["close"] == 125
+    assert row["adj_close"] == 125.0
+    assert row["volume"] == 6000
+    assert row["value"] == 679000
+    assert row["trading_days"] == 5
+
+
+def test_aggregate_holiday_week_4_days():
+    """월요일 휴장. 화~금 4일치만 → trading_days=4, week_end_date=금."""
+    daily = pd.DataFrame([
+        _daily(date(2026, 5, 12), 105, 115, 100, 108, 108.0, 1100, 113200),
+        _daily(date(2026, 5, 13), 108, 120, 102, 115, 115.0, 1200, 137400),
+        _daily(date(2026, 5, 14), 115, 125, 110, 120, 120.0, 1300, 153400),
+        _daily(date(2026, 5, 15), 120, 130, 115, 125, 125.0, 1400, 175000),
+    ])
+    weekly = aggregate_to_weekly(daily)
+    assert len(weekly) == 1
+    row = weekly.iloc[0]
+    assert row["week_end_date"] == date(2026, 5, 15)
+    assert row["open"] == 105
+    assert row["trading_days"] == 4
+
+
+def test_aggregate_holiday_friday_thursday_closes_week():
+    """금요일 휴장. 월~목. week_end_date=목요일."""
+    daily = pd.DataFrame([
+        _daily(date(2026, 5, 11), 100, 110, 95,  105, 105.0, 1000, 100000),
+        _daily(date(2026, 5, 12), 105, 115, 100, 108, 108.0, 1100, 113200),
+        _daily(date(2026, 5, 13), 108, 120, 102, 115, 115.0, 1200, 137400),
+        _daily(date(2026, 5, 14), 115, 125, 110, 120, 120.0, 1300, 153400),
+    ])
+    weekly = aggregate_to_weekly(daily)
+    assert len(weekly) == 1
+    row = weekly.iloc[0]
+    assert row["week_end_date"] == date(2026, 5, 14)
+    assert row["close"] == 120
+    assert row["adj_close"] == 120.0
+    assert row["trading_days"] == 4
+
+
+def test_aggregate_multiple_weeks_split_correctly():
+    """2주치 일봉 → 2주봉. 주 경계 정확히 분리."""
+    daily = pd.DataFrame([
+        _daily(date(2026, 5, 4),  100, 100, 100, 100, 100.0, 100, 10000),
+        _daily(date(2026, 5, 8),  100, 100, 100, 200, 200.0, 100, 20000),
+        _daily(date(2026, 5, 11), 200, 200, 200, 200, 200.0, 100, 20000),
+        _daily(date(2026, 5, 15), 200, 200, 200, 300, 300.0, 100, 30000),
+    ])
+    weekly = aggregate_to_weekly(daily)
+    assert len(weekly) == 2
+    week1 = weekly[weekly["week_end_date"] == date(2026, 5, 8)].iloc[0]
+    week2 = weekly[weekly["week_end_date"] == date(2026, 5, 15)].iloc[0]
+    assert week1["close"] == 200
+    assert week2["close"] == 300
+
+
+def test_adj_close_takes_last_day_value_not_max():
+    """adj_close = 그 주 마지막 거래일의 adj_close (max 가 아님)."""
+    daily = pd.DataFrame([
+        _daily(date(2026, 5, 11), 100, 200, 100, 150, 75.0, 100, 15000),
+        _daily(date(2026, 5, 15), 150, 160, 140, 155, 77.5, 100, 15500),
+    ])
+    weekly = aggregate_to_weekly(daily)
+    assert weekly.iloc[0]["adj_close"] == 77.5
+
+
+def test_empty_daily_returns_empty_weekly():
+    """일봉 0행 → 주봉 0행."""
+    daily = pd.DataFrame(columns=["date", "open", "high", "low", "close", "adj_close", "volume", "value"])
+    weekly = aggregate_to_weekly(daily)
+    assert len(weekly) == 0
+    assert set(weekly.columns) >= {"week_end_date", "open", "high", "low", "close", "adj_close", "volume", "value", "trading_days"}
+
+
+def test_drop_incomplete_weeks_removes_current_week():
+    """today=2026-05-14 (목) 일 때 5/11~5/15 주는 미완성 → 제외."""
+    weekly = pd.DataFrame([
+        {"week_end_date": date(2026, 5, 8),  "close": 100},
+        {"week_end_date": date(2026, 5, 15), "close": 200},
+    ])
+    today = date(2026, 5, 14)
+    result = drop_incomplete_weeks(weekly, today)
+    assert list(result["week_end_date"]) == [date(2026, 5, 8)]
+
+
+def test_drop_incomplete_weeks_keeps_completed_week():
+    """today=2026-05-18 (월) 일 때 5/11~5/15 주는 완료 → 포함."""
+    weekly = pd.DataFrame([
+        {"week_end_date": date(2026, 5, 8),  "close": 100},
+        {"week_end_date": date(2026, 5, 15), "close": 200},
+    ])
+    today = date(2026, 5, 18)
+    result = drop_incomplete_weeks(weekly, today)
+    assert list(result["week_end_date"]) == [date(2026, 5, 8), date(2026, 5, 15)]
+
+
+def test_drop_incomplete_weeks_with_today_on_weekend():
+    """today=2026-05-16 (토) 일 때 5/11~5/15 주는 완료 → 포함."""
+    weekly = pd.DataFrame([
+        {"week_end_date": date(2026, 5, 15), "close": 200},
+    ])
+    today = date(2026, 5, 16)
+    result = drop_incomplete_weeks(weekly, today)
+    assert list(result["week_end_date"]) == [date(2026, 5, 15)]
+
+
+def test_to_weekly_rows_tuple_format():
+    """DataFrame → executemany 용 tuple 리스트."""
+    weekly = pd.DataFrame([{
+        "week_end_date": date(2026, 5, 15),
+        "open": 100, "high": 130, "low": 95, "close": 125,
+        "adj_close": 125.0, "volume": 6000, "value": 679000, "trading_days": 5,
+    }])
+    rows = to_weekly_rows("005930", weekly)
+    assert rows == [(
+        "005930", date(2026, 5, 15),
+        100, 130, 95, 125,
+        125.0, 6000, 679000, 5,
+    )]
+
+
+def test_aggregate_preserves_int_types_for_db():
+    """volume, value, trading_days 는 int 로 출력 가능."""
+    daily = pd.DataFrame([
+        _daily(date(2026, 5, 11), 100, 100, 100, 100, 100.0, 1000, 100000),
+        _daily(date(2026, 5, 15), 100, 100, 100, 100, 100.0, 2000, 200000),
+    ])
+    weekly = aggregate_to_weekly(daily)
+    row = weekly.iloc[0]
+    assert isinstance(int(row["volume"]), int)
+    assert isinstance(int(row["value"]), int)
+    assert isinstance(int(row["trading_days"]), int)
