@@ -56,11 +56,17 @@ def test_full_refresh_retries_failed_tickers_at_end(monkeypatch, db):
     import kr_pipeline.ohlcv.fetch as fetch_mod
     monkeypatch.setattr(fetch_mod, "fetch_adj_only", fake_fetch)
 
-    stats = modes._run_full_refresh(db, ["005930"], date_cls(2026, 5, 1), date_cls(2026, 5, 14), max_workers=1)
+    try:
+        stats = modes._run_full_refresh(db, ["005930"], date_cls(2026, 5, 1), date_cls(2026, 5, 14), max_workers=1)
 
-    assert call_count["n"] == 2  # 첫 시도 + 재시도
-    assert stats.failures == []   # 재시도 성공으로 failures 비어있음
-    assert stats.rows_affected == 1
+        assert call_count["n"] == 2  # 첫 시도 + 재시도
+        assert stats.failures == []   # 재시도 성공으로 failures 비어있음
+        assert stats.rows_affected == 1
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker = '005930' AND date = '2026-05-12'")
+            cur.execute("DELETE FROM stocks WHERE ticker = '005930'")
+        db.commit()
 
 
 def test_full_refresh_records_persistent_failures(monkeypatch, db):
@@ -77,8 +83,14 @@ def test_full_refresh_records_persistent_failures(monkeypatch, db):
     import kr_pipeline.ohlcv.fetch as fetch_mod
     monkeypatch.setattr(fetch_mod, "fetch_adj_only", always_fail)
 
-    stats = modes._run_full_refresh(db, ["005930"], date_cls(2026, 5, 1), date_cls(2026, 5, 14), max_workers=1)
+    try:
+        stats = modes._run_full_refresh(db, ["005930"], date_cls(2026, 5, 1), date_cls(2026, 5, 14), max_workers=1)
 
-    assert len(stats.failures) == 1
-    assert stats.failures[0][0] == "005930"
-    assert "permanent" in stats.failures[0][1]
+        assert len(stats.failures) == 1
+        assert stats.failures[0][0] == "005930"
+        assert "permanent" in stats.failures[0][1]
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker = '005930'")
+            cur.execute("DELETE FROM stocks WHERE ticker = '005930'")
+        db.commit()
