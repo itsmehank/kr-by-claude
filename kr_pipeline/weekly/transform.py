@@ -23,6 +23,13 @@ def aggregate_to_weekly(daily: pd.DataFrame) -> pd.DataFrame:
 
     df = daily.copy()
     df["date"] = pd.to_datetime(df["date"])
+
+    # None → NaN for volume/value so sum(min_count=1) preserves "all-NULL → NaN"
+    # (relevant for indexes where these are nullable in DB)
+    for col in ("volume", "value"):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
     df["_period"] = df["date"].dt.to_period("W-SUN")
 
     # 각 그룹을 정렬해서 첫/마지막 값 추출
@@ -37,8 +44,8 @@ def aggregate_to_weekly(daily: pd.DataFrame) -> pd.DataFrame:
         "low":           grouped["low"].min(),
         "close":         grouped["close"].last(),
         "adj_close":     grouped["adj_close"].last(),
-        "volume":        grouped["volume"].sum(),
-        "value":         grouped["value"].sum(),
+        "volume":        grouped["volume"].sum(min_count=1),   # all-NaN → NaN
+        "value":         grouped["value"].sum(min_count=1),
         "trading_days":  grouped["date"].count(),
     }).reset_index(drop=True)
 

@@ -165,3 +165,69 @@ def test_aggregate_preserves_int_types_for_db():
     assert isinstance(int(row["volume"]), int)
     assert isinstance(int(row["value"]), int)
     assert isinstance(int(row["trading_days"]), int)
+
+
+def test_aggregate_preserves_null_volume_for_indexes():
+    """volume/value 가 None 인 일봉 → 주봉 volume/value 도 None (NaN) 유지.
+
+    index_daily 처럼 volume/value 가 nullable 인 경우 0 으로 변환되지 않아야 함."""
+    daily = pd.DataFrame([
+        {"date": date(2026, 5, 11), "open": 100, "high": 100, "low": 100, "close": 100,
+         "adj_close": 100.0, "volume": None, "value": None},
+        {"date": date(2026, 5, 15), "open": 100, "high": 100, "low": 100, "close": 100,
+         "adj_close": 100.0, "volume": None, "value": None},
+    ])
+    weekly = aggregate_to_weekly(daily)
+    row = weekly.iloc[0]
+    # 모든 값이 None 이었으면 NaN 으로 유지 (0 아님)
+    assert pd.isna(row["volume"])
+    assert pd.isna(row["value"])
+
+
+def test_aggregate_partial_null_volume_sums_non_null():
+    """volume 일부가 None, 일부는 값. sum 은 값만 합산 (NaN 안 됨)."""
+    daily = pd.DataFrame([
+        {"date": date(2026, 5, 11), "open": 100, "high": 100, "low": 100, "close": 100,
+         "adj_close": 100.0, "volume": 1000, "value": 100000},
+        {"date": date(2026, 5, 15), "open": 100, "high": 100, "low": 100, "close": 100,
+         "adj_close": 100.0, "volume": None, "value": None},
+    ])
+    weekly = aggregate_to_weekly(daily)
+    row = weekly.iloc[0]
+    assert row["volume"] == 1000  # 1000 + NaN = 1000 (min_count=1)
+    assert row["value"] == 100000
+
+
+def test_to_weekly_index_rows_handles_nan_volume():
+    """to_weekly_index_rows 가 NaN volume/value 를 None 으로 변환."""
+    import numpy as np
+    from kr_pipeline.weekly.transform import to_weekly_index_rows
+    weekly = pd.DataFrame([{
+        "week_end_date": date(2026, 5, 15),
+        "open": 2500, "high": 2520, "low": 2490, "close": 2510,
+        "volume": np.nan, "value": np.nan, "trading_days": 5,
+    }])
+    rows = to_weekly_index_rows("1001", weekly)
+    assert rows == [(
+        "1001", date(2026, 5, 15),
+        2500, 2520, 2490, 2510,
+        None, None,  # ← NaN → None
+        5,
+    )]
+
+
+def test_to_weekly_index_rows_with_real_volume():
+    """to_weekly_index_rows 가 실제 volume/value 를 int 로 변환."""
+    from kr_pipeline.weekly.transform import to_weekly_index_rows
+    weekly = pd.DataFrame([{
+        "week_end_date": date(2026, 5, 15),
+        "open": 2500, "high": 2520, "low": 2490, "close": 2510,
+        "volume": 1000.0, "value": 1000000.0, "trading_days": 5,
+    }])
+    rows = to_weekly_index_rows("1001", weekly)
+    assert rows == [(
+        "1001", date(2026, 5, 15),
+        2500, 2520, 2490, 2510,
+        1000, 1000000,
+        5,
+    )]
