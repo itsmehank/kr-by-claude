@@ -1,6 +1,9 @@
 from datetime import date
 import pandas as pd
 from pykrx import stock
+# NOTE: StockTicker is an internal pykrx API (not re-exported by public modules).
+# We use it because pykrx.stock.get_market_ticker_list(date, market) returns
+# HTTP 400 from data.krx.co.kr in this environment. May break on pykrx upgrades.
 from pykrx.website.krx.market.ticker import StockTicker
 
 from kr_pipeline.common.retry import with_retry

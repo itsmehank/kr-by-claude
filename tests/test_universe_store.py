@@ -1,4 +1,5 @@
 from datetime import date
+import numpy as np
 import pandas as pd
 
 from kr_pipeline.universe.store import upsert_stocks, mark_delisted
@@ -42,6 +43,19 @@ def test_mark_delisted_does_nothing_on_empty_tickers(db):
     with db.cursor() as cur:
         cur.execute("SELECT delisted_at FROM stocks WHERE ticker = '005930'")
         assert cur.fetchone() == (None,)
+
+
+def test_upsert_normalizes_nan_sector_to_null(db):
+    """sector 컬럼이 NaN/None 이면 SQL NULL 로 저장되어야 함."""
+    df = pd.DataFrame([
+        {"ticker": "005930", "name": "삼성전자", "market": "KOSPI", "sector": np.nan},
+        {"ticker": "000660", "name": "SK하이닉스", "market": "KOSPI", "sector": None},
+    ])
+    upsert_stocks(db, df)
+    with db.cursor() as cur:
+        cur.execute("SELECT ticker, sector FROM stocks ORDER BY ticker")
+        rows = cur.fetchall()
+    assert rows == [("000660", None), ("005930", None)]
 
 
 def test_mark_delisted_sets_date_for_missing_tickers(db):

@@ -6,10 +6,12 @@ from psycopg import Connection
 def upsert_stocks(conn: Connection, df: pd.DataFrame) -> int:
     if df.empty:
         return 0
-    rows = [
-        (r["ticker"], r["name"], r["market"], r.get("sector"))
-        for _, r in df.iterrows()
-    ]
+    rows = []
+    for _, r in df.iterrows():
+        sector = r.get("sector")
+        if pd.isna(sector):
+            sector = None
+        rows.append((r["ticker"], r["name"], r["market"], sector))
     with conn.cursor() as cur:
         cur.executemany(
             """
