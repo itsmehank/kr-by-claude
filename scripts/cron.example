@@ -20,3 +20,15 @@ LOG_DIR=/var/log/kr_pipeline
 
 # 매월 1일 03:00, 주봉 full-refresh (일봉 full-refresh 02:00 이후 trigger)
 0 3 1 * *  cd $PROJECT_DIR && uv run python -m kr_pipeline.weekly --mode=full-refresh >> $LOG_DIR/weekly.log 2>&1
+
+# 평일 19:00 — 일봉 지표 (일봉 적재 18:30 의 30분 후)
+0 19 * * 1-5  cd $PROJECT_DIR && uv run python -m kr_pipeline.indicators --target=daily --mode=incremental --window-days=30 >> $LOG_DIR/indicators.log 2>&1
+
+# 매주 토요일 04:00 — 주봉 지표 (주봉 적재 03:00 의 1시간 후)
+0  4 * * 6    cd $PROJECT_DIR && uv run python -m kr_pipeline.indicators --target=weekly --mode=incremental --window-weeks=4 >> $LOG_DIR/indicators.log 2>&1
+
+# 매월 1일 03:00 — 일봉 지표 full-refresh (일봉 02:00 후)
+0  3 1 * *    cd $PROJECT_DIR && uv run python -m kr_pipeline.indicators --target=daily --mode=full-refresh >> $LOG_DIR/indicators.log 2>&1
+
+# 매월 1일 05:00 — 주봉 지표 full-refresh (주봉 04:00 후)
+0  5 1 * *    cd $PROJECT_DIR && uv run python -m kr_pipeline.indicators --target=weekly --mode=full-refresh >> $LOG_DIR/indicators.log 2>&1

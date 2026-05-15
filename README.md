@@ -16,6 +16,12 @@ KOSPI / KOSDAQ 일봉 데이터 적재 파이프라인 및 후속 분석 도구.
 - 주봉 백필: `uv run python -m kr_pipeline.weekly --mode=backfill`
 - 주봉 증분: `uv run python -m kr_pipeline.weekly --mode=incremental --window-weeks=4`
 - 주봉 재적재: `uv run python -m kr_pipeline.weekly --mode=full-refresh`
+- 지표 일봉 백필: `uv run python -m kr_pipeline.indicators --target=daily --mode=backfill`
+- 지표 일봉 증분: `uv run python -m kr_pipeline.indicators --target=daily --mode=incremental --window-days=30`
+- 지표 일봉 재적재: `uv run python -m kr_pipeline.indicators --target=daily --mode=full-refresh`
+- 지표 주봉 백필: `uv run python -m kr_pipeline.indicators --target=weekly --mode=backfill`
+- 지표 주봉 증분: `uv run python -m kr_pipeline.indicators --target=weekly --mode=incremental --window-weeks=4`
+- 지표 주봉 재적재: `uv run python -m kr_pipeline.indicators --target=weekly --mode=full-refresh`
 
 ## Cron 등록
 
@@ -45,4 +51,28 @@ SELECT ticker, COUNT(*) AS week_count
 FROM weekly_prices 
 GROUP BY ticker 
 ORDER BY 2 DESC LIMIT 10;
+
+-- 미너비니 통과 + RS Rating 80 이상 종목 (#4 분석 대상)
+SELECT i.date, s.ticker, s.name, s.sector, i.rs_rating, i.adj_close
+  FROM daily_indicators i
+  JOIN stocks s USING (ticker)
+ WHERE i.date = (SELECT MAX(date) FROM daily_indicators)
+   AND i.minervini_pass = TRUE
+   AND i.rs_rating >= 80
+ ORDER BY i.rs_rating DESC;
+
+-- 미너비니 8 조건 중 통과 개수 분포 (최근 영업일)
+SELECT 
+  (CASE WHEN minervini_c1 THEN 1 ELSE 0 END +
+   CASE WHEN minervini_c2 THEN 1 ELSE 0 END +
+   CASE WHEN minervini_c3 THEN 1 ELSE 0 END +
+   CASE WHEN minervini_c4 THEN 1 ELSE 0 END +
+   CASE WHEN minervini_c5 THEN 1 ELSE 0 END +
+   CASE WHEN minervini_c6 THEN 1 ELSE 0 END +
+   CASE WHEN minervini_c7 THEN 1 ELSE 0 END +
+   CASE WHEN minervini_c8 THEN 1 ELSE 0 END) AS conditions_passed,
+  COUNT(*) AS stock_count
+FROM daily_indicators
+WHERE date = (SELECT MAX(date) FROM daily_indicators)
+GROUP BY 1 ORDER BY 1 DESC;
 ```
