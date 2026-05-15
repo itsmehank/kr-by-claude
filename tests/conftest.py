@@ -18,9 +18,12 @@ def test_db_url() -> str:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _setup_schema(test_db_url):
+def _setup_schema():
+    url = os.environ.get("TEST_DATABASE_URL")
+    if not url:
+        return
     subprocess.run(
-        ["psql", test_db_url, "-f", str(SCHEMA_PATH)],
+        ["psql", url, "-f", str(SCHEMA_PATH)],
         check=True, capture_output=True,
     )
 
