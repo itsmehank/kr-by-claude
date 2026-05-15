@@ -89,6 +89,17 @@ def test_daily_backfill_end_to_end(test_db_url):
                 # INDTEST1 우상향 → rs_rating 더 높음
                 assert rs_dict["INDTEST1"] >= rs_dict["INDTEST2"]
 
+                # V2: volume columns populated
+                cur.execute("""
+                    SELECT volume, avg_volume_50d, volume_ratio_50d
+                      FROM daily_indicators
+                     WHERE ticker = 'INDTEST1' AND volume IS NOT NULL
+                     ORDER BY date DESC LIMIT 1
+                """)
+                v_row = cur.fetchone()
+                assert v_row is not None, "V2 volume columns should be populated"
+                assert v_row[0] > 0, "adj_volume should be positive"
+
                 # pipeline_runs 기록
                 cur.execute("""
                     SELECT pipeline, mode, status, rows_affected FROM pipeline_runs

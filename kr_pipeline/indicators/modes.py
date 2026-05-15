@@ -19,6 +19,10 @@ from kr_pipeline.indicators.compute.rs_line import (
 )
 from kr_pipeline.indicators.compute.rs_rating import compute_1y_return, assign_rs_rating_percentiles
 from kr_pipeline.indicators.compute.minervini import compute_minervini_c1_to_c7
+from kr_pipeline.indicators.compute.volume import (
+    split_adjusted_volume, avg_volume, volume_ratio,
+    pocket_pivot, volume_dry_up, up_down_volume_ratio, distribution_day,
+)
 from kr_pipeline.indicators.load import (
     load_daily_prices, load_index_daily, load_weekly_prices, load_weekly_index,
     load_active_tickers_with_market,
@@ -142,12 +146,28 @@ def _process_ticker_daily(
 
     adj_close = df["adj_close"]
 
+    # V2: split-adjusted volume + 거래량 기초 지표 계산
+    close = df["close"]
+    volume_raw = df["volume"]
+    adj_volume = split_adjusted_volume(volume_raw, close, adj_close)
+    avg_vol_50 = avg_volume(adj_volume, window=50)
+    vol_ratio_50 = volume_ratio(adj_volume, avg_vol_50)
+
+    is_up = adj_close > adj_close.shift(1)
+    is_down = adj_close < adj_close.shift(1)
+
     # SMAs
     sma_10 = sma(adj_close, 10)
     sma_21 = sma(adj_close, 21)
     sma_50 = sma(adj_close, 50)
     sma_150 = sma(adj_close, 150)
     sma_200 = sma(adj_close, 200)
+
+    # V2 거래량 파생 지표 (sma_50 필요하므로 SMAs 다음)
+    pp_flag = pocket_pivot(is_up, adj_volume, sma_50, adj_close, lookback=10)
+    vdu_flag = volume_dry_up(adj_volume, avg_vol_50, threshold=0.5)
+    ud_ratio_50 = up_down_volume_ratio(adj_volume, is_up, is_down, window=50)
+    dist_flag = distribution_day(is_down, adj_volume, avg_vol_50, threshold=1.25)
 
     # 52w
     w52h, w52l = w52_high_low(adj_close, window=252)
@@ -206,6 +226,14 @@ def _process_ticker_daily(
             "minervini_c5": _as_bool(mn["minervini_c5"].loc[d]),
             "minervini_c6": _as_bool(mn["minervini_c6"].loc[d]),
             "minervini_c7": _as_bool(mn["minervini_c7"].loc[d]),
+            # V2 거래량 지표
+            "volume": _as_float(adj_volume.loc[d]),
+            "avg_volume_50d": _as_float(avg_vol_50.loc[d]),
+            "volume_ratio_50d": _as_float(vol_ratio_50.loc[d]),
+            "pocket_pivot_flag": _as_bool(pp_flag.loc[d]),
+            "volume_dry_up_flag": _as_bool(vdu_flag.loc[d]),
+            "up_down_volume_ratio_50d": _as_float(ud_ratio_50.loc[d]),
+            "distribution_day_flag": _as_bool(dist_flag.loc[d]),
         }
         rows.append(row)
         one_y_returns_for_phase_b[d] = _as_float(one_y_ret.loc[d])
@@ -434,6 +462,17 @@ def _process_ticker_weekly(
     df = df.set_index("date").sort_index()
     adj_close = df["adj_close"]
 
+    # V2: split-adjusted volume + 거래량 기초 지표 계산 (주봉 window=10)
+    close = df["close"]
+    volume_raw = df["volume"]
+    adj_volume = split_adjusted_volume(volume_raw, close, adj_close)
+    avg_vol_10w = avg_volume(adj_volume, window=10)
+    vol_ratio_10w = volume_ratio(adj_volume, avg_vol_10w)
+
+    is_up = adj_close > adj_close.shift(1)
+    is_down = adj_close < adj_close.shift(1)
+    ud_ratio_10w = up_down_volume_ratio(adj_volume, is_up, is_down, window=10)
+
     sma_10w_s = sma(adj_close, 10)
     sma_30w_s = sma(adj_close, 30)
     sma_40w_s = sma(adj_close, 40)
@@ -483,6 +522,11 @@ def _process_ticker_weekly(
             "minervini_c5": _as_bool(mn["minervini_c5"].loc[d]),
             "minervini_c6": _as_bool(mn["minervini_c6"].loc[d]),
             "minervini_c7": _as_bool(mn["minervini_c7"].loc[d]),
+            # V2 거래량 지표
+            "volume": _as_float(adj_volume.loc[d]),
+            "avg_volume_10w": _as_float(avg_vol_10w.loc[d]),
+            "volume_ratio_10w": _as_float(vol_ratio_10w.loc[d]),
+            "up_down_volume_ratio_10w": _as_float(ud_ratio_10w.loc[d]),
         }
         rows.append(row)
         one_y_returns_for_phase_b[d] = _as_float(one_y_ret.loc[d])
