@@ -14,6 +14,14 @@ from kr_pipeline.ohlcv.store import upsert_daily_prices, update_adj_close_only, 
 log = logging.getLogger("kr_pipeline.ohlcv")
 
 
+def pd_isna(x):
+    import pandas as pd
+    try:
+        return pd.isna(x)
+    except Exception:
+        return x is None
+
+
 class Mode(str, Enum):
     BACKFILL = "backfill"
     INCREMENTAL = "incremental"
@@ -136,11 +144,3 @@ def _run_full_refresh(conn, tickers, start, end, max_workers) -> RunStats:
             failures.append((ticker, str(e)))
 
     return RunStats(rows_affected=rows_total, failures=failures)
-
-
-def pd_isna(x):
-    import pandas as pd
-    try:
-        return pd.isna(x)
-    except Exception:
-        return x is None

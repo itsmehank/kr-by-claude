@@ -1,6 +1,8 @@
 # kr-by-claude 일봉 파이프라인 cron 등록 예시
 # crontab -e 로 등록. PROJECT_DIR 와 PATH 는 환경에 맞게 수정.
 
+TZ=Asia/Seoul
+
 PROJECT_DIR=/home/me/kr-by-claude
 LOG_DIR=/var/log/kr_pipeline
 

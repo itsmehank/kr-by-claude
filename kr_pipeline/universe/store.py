@@ -20,7 +20,8 @@ def upsert_stocks(conn: Connection, df: pd.DataFrame) -> int:
             ON CONFLICT (ticker) DO UPDATE
                SET name = EXCLUDED.name,
                    market = EXCLUDED.market,
-                   sector = EXCLUDED.sector,
+                   sector = COALESCE(EXCLUDED.sector, stocks.sector),
+                   delisted_at = NULL,
                    updated_at = NOW()
             """,
             rows,

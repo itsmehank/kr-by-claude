@@ -76,3 +76,35 @@ def test_mark_delisted_sets_date_for_missing_tickers(db):
         assert cur.fetchone() == (date(2026, 5, 15),)
         cur.execute("SELECT delisted_at FROM stocks WHERE ticker = '005930'")
         assert cur.fetchone() == (None,)
+
+
+def test_upsert_does_not_wipe_existing_sector_with_null(db):
+    """sector=None 으로 들어오면 기존 값을 유지해야 함."""
+    df1 = pd.DataFrame([{"ticker": "005930", "name": "삼성전자", "market": "KOSPI", "sector": "전기·전자"}])
+    upsert_stocks(db, df1)
+
+    df2 = pd.DataFrame([{"ticker": "005930", "name": "삼성전자", "market": "KOSPI", "sector": None}])
+    upsert_stocks(db, df2)
+
+    with db.cursor() as cur:
+        cur.execute("SELECT sector FROM stocks WHERE ticker = '005930'")
+        assert cur.fetchone() == ("전기·전자",)
+
+
+def test_upsert_clears_delisted_at_when_ticker_reappears(db):
+    """delisted_at 이 세팅됐던 종목이 universe 에 다시 나타나면 NULL 로 복구."""
+    df = pd.DataFrame([{"ticker": "005930", "name": "삼성전자", "market": "KOSPI", "sector": None}])
+    upsert_stocks(db, df)
+
+    # 한 번 delist
+    mark_delisted(db, current_tickers=set(), on_date=date(2026, 5, 15))  # empty: should NOT delist (guard)
+    # 강제로 delisted_at 설정
+    with db.cursor() as cur:
+        cur.execute("UPDATE stocks SET delisted_at = '2026-01-01' WHERE ticker = '005930'")
+
+    # 다시 universe 에 등장
+    upsert_stocks(db, df)
+
+    with db.cursor() as cur:
+        cur.execute("SELECT delisted_at FROM stocks WHERE ticker = '005930'")
+        assert cur.fetchone() == (None,)
