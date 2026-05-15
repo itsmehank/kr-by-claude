@@ -13,6 +13,9 @@ KOSPI / KOSDAQ 일봉 데이터 적재 파이프라인 및 후속 분석 도구.
 - 일봉 백필: `uv run python -m kr_pipeline.ohlcv --mode=backfill --years=2`
 - 일봉 증분: `uv run python -m kr_pipeline.ohlcv --mode=incremental --window-days=30`
 - 수정종가 재적재: `uv run python -m kr_pipeline.ohlcv --mode=full-refresh`
+- 주봉 백필: `uv run python -m kr_pipeline.weekly --mode=backfill`
+- 주봉 증분: `uv run python -m kr_pipeline.weekly --mode=incremental --window-weeks=4`
+- 주봉 재적재: `uv run python -m kr_pipeline.weekly --mode=full-refresh`
 
 ## Cron 등록
 
@@ -30,4 +33,16 @@ SELECT COUNT(*) FROM stocks s WHERE s.delisted_at IS NULL AND NOT EXISTS (
   SELECT 1 FROM daily_prices d
   WHERE d.ticker = s.ticker AND d.date = (SELECT MAX(date) FROM daily_prices)
 );
+
+-- 가장 최근 주봉 종목 수
+SELECT week_end_date, COUNT(DISTINCT ticker) 
+FROM weekly_prices 
+WHERE week_end_date = (SELECT MAX(week_end_date) FROM weekly_prices)
+GROUP BY 1;
+
+-- 종목별 주봉 카운트 분포 (상위 10)
+SELECT ticker, COUNT(*) AS week_count 
+FROM weekly_prices 
+GROUP BY ticker 
+ORDER BY 2 DESC LIMIT 10;
 ```

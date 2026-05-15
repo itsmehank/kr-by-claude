@@ -14,3 +14,9 @@ LOG_DIR=/var/log/kr_pipeline
 
 # 매월 1일 04:00, 종목 마스터 갱신
 0  4 1 * *     cd $PROJECT_DIR && uv run python -m kr_pipeline.universe >> $LOG_DIR/universe.log 2>&1
+
+# 매주 토요일 03:00, 지난 주 주봉 incremental
+0 3 * * 6  cd $PROJECT_DIR && uv run python -m kr_pipeline.weekly --mode=incremental --window-weeks=4 >> $LOG_DIR/weekly.log 2>&1
+
+# 매월 1일 03:00, 주봉 full-refresh (일봉 full-refresh 02:00 이후 trigger)
+0 3 1 * *  cd $PROJECT_DIR && uv run python -m kr_pipeline.weekly --mode=full-refresh >> $LOG_DIR/weekly.log 2>&1
