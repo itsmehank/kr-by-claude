@@ -23,20 +23,11 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
     minervini = build_minervini_detail(conn, ticker, on_date)
     conditions_met = {k: v["passed"] for k, v in minervini.items()}
 
-    # rs_rating: c8의 values 에 있거나, 없으면 daily_indicators 에서 직접 조회
+    # rs_rating: c8의 values 에 있거나, 없으면 None
     rs_rating = next(
         (v["values"].get("rs_rating") for v in minervini.values() if "rs_rating" in v.get("values", {})),
         None,
     )
-    if rs_rating is None:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT rs_rating FROM daily_indicators WHERE ticker = %s AND date = %s",
-                (ticker, on_date),
-            )
-            rs_row = cur.fetchone()
-        if rs_row and rs_row[0] is not None:
-            rs_rating = int(rs_row[0])
 
     current = _build_current_metrics(conn, ticker, on_date)
     daily_ohlcv = _fetch_daily_ohlcv(conn, ticker, on_date, days=60)
