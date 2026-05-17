@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, TrendingUp } from "lucide-react";
+import {
+  LineChart,
+  CheckCircle2,
+  Image as ImageIcon,
+  FileArchive,
+  Settings2,
+} from "lucide-react";
 import { api, apiUrl } from "../lib/api";
 import type { DailyIndicator, Stock, MinerviniPassed } from "../lib/types";
 import { PriceChart } from "../components/charts/PriceChart";
@@ -15,6 +21,34 @@ function startStr(): string {
   d.setFullYear(d.getFullYear() - 1);
   return d.toISOString().slice(0, 10);
 }
+
+// ── Sub-components ─────────────────────────────────────────────────────────
+
+interface ToggleProps {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  color: string;
+  label: string;
+}
+
+function Toggle({ checked, onChange, color, label }: ToggleProps) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer text-data px-3 py-1.5 rounded-lg border border-hairline hover:border-accent transition-colors bg-cream">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="w-4 h-4"
+        style={{ accentColor: color }}
+      />
+      <span className="font-semibold" style={{ color }}>
+        {label}
+      </span>
+    </label>
+  );
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function ChartPage() {
   const { ticker } = useParams<{ ticker?: string }>();
@@ -30,22 +64,24 @@ export default function ChartPage() {
   const [showPocketPivot, setShowPocketPivot] = useState(false);
   const [showDistributionDay, setShowDistributionDay] = useState(false);
 
-  // Quick-select list from minervini-passed
   const { data: quickList } = useQuery<MinerviniPassed[]>({
     queryKey: ["minervini-passed-chart-select"],
-    queryFn: () => api<MinerviniPassed[]>("/indicators/minervini-passed?limit=20"),
+    queryFn: () =>
+      api<MinerviniPassed[]>("/indicators/minervini-passed?limit=20"),
     staleTime: 5 * 60 * 1000,
   });
 
-  // Stock meta
   const { data: stockMeta } = useQuery<Stock>({
     queryKey: ["stock", ticker],
     queryFn: () => api<Stock>(`/stocks/${ticker}`),
     enabled: !!ticker,
   });
 
-  // Chart data
-  const { data: chartData, isLoading: chartLoading, isError: chartError } = useQuery<DailyIndicator[]>({
+  const {
+    data: chartData,
+    isLoading: chartLoading,
+    isError: chartError,
+  } = useQuery<DailyIndicator[]>({
     queryKey: ["daily-indicators", ticker],
     queryFn: () =>
       api<DailyIndicator[]>(
@@ -63,137 +99,175 @@ export default function ChartPage() {
     }
   }
 
-  const latestData = chartData && chartData.length > 0 ? chartData[chartData.length - 1] : null;
+  const latestData =
+    chartData && chartData.length > 0 ? chartData[chartData.length - 1] : null;
 
   return (
-    <div className="space-y-5">
+    <div className="px-10 py-10 max-w-[1240px] mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <TrendingUp className="text-indigo-600" size={24} />
-        <h2 className="text-2xl font-bold">차트</h2>
-      </div>
+      <header className="flex items-end justify-between mb-8">
+        <div>
+          <div className="caps text-faint mb-2">Chart</div>
+          <h2 className="font-display text-display-xl font-bold tracking-tight leading-none">
+            차트
+          </h2>
+        </div>
+      </header>
 
-      {/* Controls bar */}
-      <div className="flex flex-wrap items-center gap-3 bg-gray-50 rounded-xl p-4 border border-gray-200">
-        {/* Ticker input */}
-        <form onSubmit={handleTickerSubmit} className="flex gap-2">
-          <input
-            type="text"
-            value={inputTicker}
-            onChange={(e) => setInputTicker(e.target.value)}
-            placeholder="종목코드 입력 (예: 005930)"
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-52 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-          />
-          <button
-            type="submit"
-            className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+      {/* Controls */}
+      <div className="bento p-5 mb-5">
+        <div className="flex flex-wrap items-end gap-4">
+          {/* Ticker input */}
+          <form
+            onSubmit={handleTickerSubmit}
+            className="flex flex-col gap-1.5"
           >
-            이동
-          </button>
-        </form>
+            <label className="caps">종목 코드</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={inputTicker}
+                onChange={(e) => setInputTicker(e.target.value)}
+                placeholder="예: 005930"
+                className="border border-hairline rounded-lg px-3 py-2 text-data bg-cream w-52 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-accent text-white rounded-lg text-data font-semibold hover:bg-accent-light transition-colors"
+              >
+                이동
+              </button>
+            </div>
+          </form>
 
-        {/* Quick select */}
-        {quickList && quickList.length > 0 && (
-          <select
-            value={ticker ?? ""}
-            onChange={(e) => {
-              if (e.target.value) navigate(`/chart/${e.target.value}`);
-            }}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-          >
-            <option value="">RS 상위 종목 선택</option>
-            {quickList.map((s) => (
-              <option key={s.ticker} value={s.ticker}>
-                {s.ticker} {s.name} (RS {s.rs_rating})
-              </option>
-            ))}
-          </select>
-        )}
+          {/* Quick select */}
+          {quickList && quickList.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <label className="caps">RS 상위 종목</label>
+              <select
+                value={ticker ?? ""}
+                onChange={(e) => {
+                  if (e.target.value) navigate(`/chart/${e.target.value}`);
+                }}
+                className="border border-hairline rounded-lg px-3 py-2 text-data bg-cream focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              >
+                <option value="">선택…</option>
+                {quickList.map((s) => (
+                  <option key={s.ticker} value={s.ticker}>
+                    {s.ticker} · {s.name} · RS {s.rs_rating}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-        {/* Daily/Weekly toggle */}
-        <div className="flex rounded-lg border border-gray-300 overflow-hidden text-sm font-medium">
-          <button className="px-3 py-1.5 bg-indigo-600 text-white">일간</button>
-          <button
-            className="px-3 py-1.5 bg-white text-gray-400 cursor-not-allowed"
-            disabled
-            title="준비중"
-          >
-            주간
-          </button>
+          {/* Daily/Weekly toggle */}
+          <div className="flex flex-col gap-1.5">
+            <label className="caps">시간 단위</label>
+            <div className="flex rounded-lg border border-hairline overflow-hidden text-data font-semibold bg-cream">
+              <button className="px-4 py-2 bg-accent text-white">일간</button>
+              <button
+                className="px-4 py-2 text-faint cursor-not-allowed"
+                disabled
+                title="준비중"
+              >
+                주간
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Stock meta strip */}
+      {/* Stock meta */}
       {ticker && (
-        <div className="flex flex-wrap items-center gap-4 px-4 py-3 bg-white rounded-xl border border-gray-200">
-          <div>
-            <span className="font-mono font-bold text-gray-800 text-lg">{ticker}</span>
-            {stockMeta ? (
-              <span className="ml-2 text-gray-600">{stockMeta.name}</span>
-            ) : (
-              <span className="ml-2 text-gray-400">...</span>
-            )}
-            {stockMeta?.sector && (
-              <span className="ml-2 text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                {stockMeta.sector}
+        <div className="bento p-5 mb-5">
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="flex items-baseline gap-3">
+              <span className="num font-bold text-data-lg text-ink">
+                {ticker}
               </span>
-            )}
-          </div>
-
-          {latestData ? (
-            <>
-              <div className="flex items-center gap-1 text-sm">
-                <span className="text-gray-500">종가</span>
-                <span className="font-mono font-semibold text-gray-800">
-                  {latestData.adj_close.toLocaleString("ko-KR")}
+              {stockMeta ? (
+                <span className="text-headline font-semibold text-ink">
+                  {stockMeta.name}
                 </span>
-              </div>
-              {latestData.rs_rating != null && (
-                <div className="flex items-center gap-1 text-sm">
-                  <span className="text-gray-500">RS</span>
-                  <span
-                    className={`font-mono font-semibold ${
-                      latestData.rs_rating >= 90
-                        ? "text-green-600"
-                        : latestData.rs_rating >= 70
-                        ? "text-yellow-600"
-                        : "text-gray-500"
-                    }`}
-                  >
-                    {latestData.rs_rating}
+              ) : (
+                <span className="text-muted">…</span>
+              )}
+              {stockMeta?.market && (
+                <span className="chip bg-tint-stone text-muted">
+                  {stockMeta.market}
+                </span>
+              )}
+              {stockMeta?.sector && (
+                <span className="chip bg-tint-blue text-accent">
+                  {stockMeta.sector}
+                </span>
+              )}
+            </div>
+
+            {latestData ? (
+              <div className="flex items-center gap-6 ml-auto">
+                <div>
+                  <div className="caps text-faint">종가</div>
+                  <div className="num text-data-md font-semibold mt-0.5">
+                    ₩{latestData.adj_close.toLocaleString("ko-KR")}
+                  </div>
+                </div>
+                {latestData.rs_rating != null && (
+                  <div>
+                    <div className="caps text-faint">RS</div>
+                    <div
+                      className={`num text-data-md font-bold mt-0.5 ${
+                        latestData.rs_rating >= 90
+                          ? "text-success"
+                          : latestData.rs_rating >= 70
+                          ? "text-amber"
+                          : "text-muted"
+                      }`}
+                    >
+                      {latestData.rs_rating}
+                    </div>
+                  </div>
+                )}
+                {latestData.minervini_pass && (
+                  <span className="chip bg-success-soft text-success inline-flex items-center gap-1.5">
+                    <CheckCircle2 size={14} />
+                    Minervini
                   </span>
-                </div>
-              )}
-              {latestData.minervini_pass && (
-                <div className="flex items-center gap-1 text-sm text-green-600">
-                  <CheckCircle2 size={15} />
-                  <span className="font-medium">Minervini</span>
-                </div>
-              )}
-            </>
-          ) : chartLoading ? (
-            <span className="text-sm text-gray-400">로딩 중...</span>
-          ) : null}
+                )}
+              </div>
+            ) : chartLoading ? (
+              <span className="text-muted ml-auto">로딩 중…</span>
+            ) : null}
+          </div>
         </div>
       )}
 
-      {/* Chart area */}
+      {/* Chart */}
       {!ticker ? (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-400 border border-dashed border-gray-300 rounded-xl">
-          <TrendingUp size={48} className="mb-3 opacity-30" />
-          <p className="text-lg">종목을 선택해주세요</p>
-          <p className="text-sm mt-1">종목코드를 입력하거나 RS 상위 종목에서 선택하세요</p>
+        <div className="bento p-16 text-center">
+          <LineChart
+            size={48}
+            className="text-faint mx-auto mb-4"
+            strokeWidth={1.5}
+          />
+          <p className="text-headline font-semibold text-ink mb-1">
+            종목을 선택해주세요
+          </p>
+          <p className="text-data text-muted">
+            종목코드를 입력하거나 RS 상위 종목에서 선택하세요
+          </p>
         </div>
       ) : chartLoading ? (
-        <div className="flex items-center justify-center py-20 text-gray-400">
-          <span>차트 데이터 로딩 중...</span>
+        <div className="bento p-16 text-center text-muted">
+          차트 데이터 로딩 중…
         </div>
       ) : chartError ? (
-        <div className="flex items-center justify-center py-20 text-red-500">
-          <span>데이터를 불러오지 못했습니다.</span>
+        <div className="bento p-16 text-center text-danger">
+          데이터를 불러오지 못했습니다.
         </div>
       ) : chartData && chartData.length > 0 ? (
-        <div className="rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bento p-2 mb-5 overflow-hidden">
           <PriceChart
             data={chartData}
             showSMA10={showSMA10}
@@ -208,92 +282,69 @@ export default function ChartPage() {
           />
         </div>
       ) : (
-        <div className="flex items-center justify-center py-20 text-gray-400">
-          <span>표시할 데이터가 없습니다.</span>
+        <div className="bento p-16 text-center text-muted">
+          표시할 데이터가 없습니다.
         </div>
       )}
 
-      {/* Toggle checkboxes */}
+      {/* Toggles */}
       {ticker && (
-        <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-3">
-          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide">차트 옵션</h3>
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
-            {/* SMA toggles */}
-            <label className="flex items-center gap-2 cursor-pointer text-sm">
-              <input
-                type="checkbox"
-                checked={showSMA50}
-                onChange={(e) => setShowSMA50(e.target.checked)}
-                className="accent-orange-500"
-              />
-              <span className="text-orange-600 font-medium">SMA 50</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-sm">
-              <input
-                type="checkbox"
-                checked={showSMA150}
-                onChange={(e) => setShowSMA150(e.target.checked)}
-                className="accent-blue-500"
-              />
-              <span className="text-blue-600 font-medium">SMA 150</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-sm">
-              <input
-                type="checkbox"
-                checked={showSMA200}
-                onChange={(e) => setShowSMA200(e.target.checked)}
-                className="accent-red-500"
-              />
-              <span className="text-red-600 font-medium">SMA 200</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-sm">
-              <input
-                type="checkbox"
-                checked={showSMA10}
-                onChange={(e) => setShowSMA10(e.target.checked)}
-                className="accent-purple-500"
-              />
-              <span className="text-purple-600 font-medium">SMA 10</span>
-            </label>
+        <div className="bento p-5 mb-5">
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="p-2 rounded-xl bg-tint-violet">
+              <Settings2 size={16} className="text-accent" strokeWidth={2} />
+            </div>
+            <div className="text-subhead font-bold text-ink">차트 옵션</div>
           </div>
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
-            {/* 52w & markers */}
-            <label className="flex items-center gap-2 cursor-pointer text-sm">
-              <input
-                type="checkbox"
-                checked={show52wHigh}
-                onChange={(e) => setShow52wHigh(e.target.checked)}
-                className="accent-green-500"
-              />
-              <span className="text-green-700 font-medium">52w High</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-sm">
-              <input
-                type="checkbox"
-                checked={show52wLow}
-                onChange={(e) => setShow52wLow(e.target.checked)}
-                className="accent-pink-500"
-              />
-              <span className="text-pink-600 font-medium">52w Low</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-sm">
-              <input
-                type="checkbox"
-                checked={showPocketPivot}
-                onChange={(e) => setShowPocketPivot(e.target.checked)}
-                className="accent-green-500"
-              />
-              <span className="text-green-700 font-medium">Pocket Pivot</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-sm">
-              <input
-                type="checkbox"
-                checked={showDistributionDay}
-                onChange={(e) => setShowDistributionDay(e.target.checked)}
-                className="accent-red-500"
-              />
-              <span className="text-red-600 font-medium">Distribution Day</span>
-            </label>
+          <div className="flex flex-wrap gap-2">
+            <Toggle
+              checked={showSMA50}
+              onChange={setShowSMA50}
+              color="#ea580c"
+              label="SMA 50"
+            />
+            <Toggle
+              checked={showSMA150}
+              onChange={setShowSMA150}
+              color="#2563eb"
+              label="SMA 150"
+            />
+            <Toggle
+              checked={showSMA200}
+              onChange={setShowSMA200}
+              color="#dc2626"
+              label="SMA 200"
+            />
+            <Toggle
+              checked={showSMA10}
+              onChange={setShowSMA10}
+              color="#9333ea"
+              label="SMA 10"
+            />
+            <Toggle
+              checked={show52wHigh}
+              onChange={setShow52wHigh}
+              color="#15803d"
+              label="52w High"
+            />
+            <Toggle
+              checked={show52wLow}
+              onChange={setShow52wLow}
+              color="#db2777"
+              label="52w Low"
+            />
+            <Toggle
+              checked={showPocketPivot}
+              onChange={setShowPocketPivot}
+              color="#15803d"
+              label="Pocket Pivot"
+            />
+            <Toggle
+              checked={showDistributionDay}
+              onChange={setShowDistributionDay}
+              color="#dc2626"
+              label="Distribution Day"
+            />
           </div>
         </div>
       )}
@@ -305,15 +356,17 @@ export default function ChartPage() {
             href={apiUrl(`/render/${ticker}/daily.png`)}
             target="_blank"
             download
-            className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-paper border border-hairline rounded-xl text-data font-semibold text-ink hover:border-accent transition-colors"
           >
+            <ImageIcon size={16} strokeWidth={2} />
             PNG 다운로드
           </a>
           <Link
             to={`/prompt/${ticker}`}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-accent text-white rounded-xl text-data font-semibold hover:bg-accent-light transition-colors"
           >
-            LLM 프롬프트
+            <FileArchive size={16} strokeWidth={2} />
+            LLM 프롬프트 ZIP
           </Link>
         </div>
       )}
