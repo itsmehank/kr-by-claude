@@ -1,17 +1,14 @@
 """matplotlib 차트 → PNG bytes. LLM 멀티모달 입력 + 사용자 PNG 다운로드용."""
 import io
-import logging
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 from matplotlib.figure import Figure
+from matplotlib.patches import Rectangle
 import pandas as pd
 from psycopg import Connection
-
-
-log = logging.getLogger("api.services.chart_render")
 
 COLOR_UP_CANDLE = "#26a69a"
 COLOR_DOWN_CANDLE = "#ef5350"
@@ -30,7 +27,7 @@ def render_daily_chart(conn: Connection, ticker: str, range_days: int = 365) -> 
         cur.execute(
             """
             SELECT p.date, p.open, p.high, p.low, p.close, p.adj_close, p.volume,
-                   i.sma_50, i.sma_150, i.sma_200, i.w52_high, i.w52_low, i.adj_close AS i_close,
+                   i.sma_50, i.sma_150, i.sma_200, i.w52_high, i.w52_low,
                    i.rs_line, i.rs_line_52w_high,
                    i.avg_volume_50d, i.pocket_pivot_flag, i.distribution_day_flag
               FROM daily_prices p
@@ -57,7 +54,7 @@ def render_weekly_chart(conn: Connection, ticker: str, range_weeks: int = 104) -
         cur.execute(
             """
             SELECT p.week_end_date AS date, p.open, p.high, p.low, p.close, p.adj_close, p.volume,
-                   i.sma_10w, i.sma_30w, i.sma_40w, i.w52_high, i.w52_low, i.adj_close AS i_close,
+                   i.sma_10w, i.sma_30w, i.sma_40w, i.w52_high, i.w52_low,
                    i.rs_line, i.rs_line_52w_high,
                    i.avg_volume_10w
               FROM weekly_prices p
@@ -78,7 +75,7 @@ def render_weekly_chart(conn: Connection, ticker: str, range_weeks: int = 104) -
     df = df.rename(columns={"sma_10w": "sma_50", "sma_30w": "sma_150", "sma_40w": "sma_200"})
     df["pocket_pivot_flag"] = False
     df["distribution_day_flag"] = False
-    df["avg_volume_50d"] = df.get("avg_volume_10w")
+    df["avg_volume_50d"] = df["avg_volume_10w"]
     return _render_ohlc_chart(df, title=f"{ticker} Weekly", x_label="Week End")
 
 
@@ -114,7 +111,9 @@ def _render_ohlc_chart(df: pd.DataFrame, title: str, x_label: str) -> bytes:
 
     ax_main.set_title(title, fontsize=14, fontweight="bold")
     ax_main.grid(True, alpha=0.3)
-    ax_main.legend(loc="upper left", fontsize=8, ncol=3)
+    handles, labels = ax_main.get_legend_handles_labels()
+    if handles:
+        ax_main.legend(handles, labels, loc="upper left", fontsize=8, ncol=3)
 
     vol_colors = [COLOR_UP_CANDLE if c >= o else COLOR_DOWN_CANDLE for c, o in zip(df["close"], df["open"])]
     ax_vol.bar(dates, df["volume"], color=vol_colors, alpha=0.6, width=0.8)
@@ -143,7 +142,6 @@ def _render_ohlc_chart(df: pd.DataFrame, title: str, x_label: str) -> bytes:
 
 def _draw_candlesticks(ax, dates, df) -> None:
     """간단한 캔들스틱."""
-    from matplotlib.patches import Rectangle
     width = 0.6
     for d, o, h, l, c in zip(dates, df["open"], df["high"], df["low"], df["close"]):
         color = COLOR_UP_CANDLE if c >= o else COLOR_DOWN_CANDLE
