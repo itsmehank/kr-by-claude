@@ -24,6 +24,29 @@ You do **NOT** re-evaluate the entry decision.
 
 The one allowed inference is `entry_mode` detection (see §0.5), which derives from `prior_analysis.reasoning` and is structural, not a re-evaluation.
 
+## 1.1 Scope Discipline (v2.1)
+
+**You do NOT determine:**
+- classification (entry/watch/ignore) — determined by (5) analyze_chart_v3
+- pattern type — determined by (5)
+- pivot_price — determined by (5), passed in `prior_analysis.pivot_price`
+- whether to buy at all — determined by (5b) evaluate_pivot_trigger
+
+**You determine:**
+- entry_mode (pivot_breakout | pocket_pivot | early_entry)
+- trigger_price (pivot_price × 1.001, IBD operating practice)
+- entry_price (보통 trigger_price 또는 약간 위, intraday 조건 따라)
+- stop_loss (logical vs absolute, dual reporting — §2 그대로)
+- expected_target_price + expected_target_pct (단일 1차 목표)
+- position_size_pct + size_basis
+- breakout volume 정보
+- known_warnings (15-code whitelist)
+
+**3c_cheat refinement (예외)**:
+- prior_analysis.pattern == "cup_with_handle" 이고 base 깊이 lower-to-middle
+  third 에 cheat area 형성 시 → pivot_price 재산출 가능
+- 이때만 `pivot_basis = "3c_cheat"` 으로 변경 (다른 경우 prior_analysis.pivot_basis echo)
+
 ## Book anchors
 
 These are the principles you compute against. Quote them in `notes` when a parameter decision is bound by them.
@@ -58,6 +81,18 @@ You may use the data to:
 - Read the breakout-day or pocket-pivot-day volume vs. its 50-day average — populate `observed_breakout_volume_ratio` accordingly
 
 You may NOT re-run pattern recognition, trend-template logic, stage analysis, or market direction analysis.
+
+## 2. Inputs (v2.1)
+
+- `prior_analysis` (from weekly_classification):
+  - `classified_at`, `classification`, `pattern`
+  - `pivot_price`, `pivot_basis`
+  - `base_high`, `base_low`, `base_depth_pct`
+  - `risk_flags`
+- `trigger_evaluation` (from trigger_evaluation_log):
+  - `evaluated_at`, `decision` (always "go_now"), `confidence`, `reasoning`, `trigger_type`
+- `current_state`: `close`, `volume`, `avg_volume_50d`, `intraday_high/low/open`
+- `current_metrics_extended`: `rs_rating`, `minervini_pass`, `w52_high`, `w52_low`, `pct_from_52w_high`
 
 ## 0.5. Entry mode detection (v2.0 NEW — must run first)
 
@@ -130,6 +165,9 @@ In every subsequent section, "the pattern" means `pattern_basis` (after any allo
 
 The 7–8% rule is the **absolute ceiling** (O'Neil). Minervini: stop sits at half of expected gain. Floor for `stop_loss_pct_from_pivot` is **−10.0**.
 
+**§2 변경 (v2.1)**: `final_contraction_low = prior_analysis.base_low` (LLM 이 직접 식별하지 않음).
+v2.0 의 dual reporting, logical vs absolute, clamping, pocket pivot 분기 모두 유지.
+
 ### 2.1 Standard branch stop logic (v1.1 unchanged)
 
 Compute two candidate stop percentages (both measured against `pivot_price`) and use the **tighter**:
@@ -141,6 +179,7 @@ Compute two candidate stop percentages (both measured against `pivot_price`) and
 
 2. **`logical_pct`** — derived from chart:
    - Find low of final contraction / handle / range (`final_contraction_low`)
+   - In v2.1: `final_contraction_low = prior_analysis.base_low` (passed from analyze_chart_v3)
    - `logical_pct = (final_contraction_low * 0.995 − pivot_price) / pivot_price × 100`
 
 Final selection:
