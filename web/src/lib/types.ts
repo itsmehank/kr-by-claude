@@ -9,6 +9,12 @@ export interface Stock {
 export interface DailyIndicator {
   date: string;
   adj_close: number;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+  volume: number | null;
+  avg_volume_50d: number | null;
   sma_10: number | null;
   sma_21: number | null;
   sma_50: number | null;

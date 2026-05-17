@@ -5,6 +5,12 @@ from pydantic import BaseModel
 class DailyIndicatorOut(BaseModel):
     date: date
     adj_close: float
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
+    close: float | None = None
+    volume: int | None = None
+    avg_volume_50d: float | None = None
     sma_10: float | None = None
     sma_21: float | None = None
     sma_50: float | None = None

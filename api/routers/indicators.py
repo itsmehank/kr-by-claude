@@ -18,29 +18,40 @@ def get_daily(ticker: str, start: date | None = None, end: date | None = None,
         end = date.today()
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT date, adj_close, sma_10, sma_21, sma_50, sma_150, sma_200,
-                   w52_high, w52_low, rs_line, rs_rating, minervini_pass,
-                   volume_ratio_50d, pocket_pivot_flag, distribution_day_flag
-              FROM daily_indicators
-             WHERE ticker = %s AND date BETWEEN %s AND %s
-             ORDER BY date
+            SELECT i.date, i.adj_close,
+                   p.open, p.high, p.low, p.close, p.volume,
+                   i.avg_volume_50d,
+                   i.sma_10, i.sma_21, i.sma_50, i.sma_150, i.sma_200,
+                   i.w52_high, i.w52_low, i.rs_line, i.rs_rating, i.minervini_pass,
+                   i.volume_ratio_50d, i.pocket_pivot_flag, i.distribution_day_flag
+              FROM daily_indicators i
+              LEFT JOIN daily_prices p
+                ON p.ticker = i.ticker AND p.date = i.date
+             WHERE i.ticker = %s AND i.date BETWEEN %s AND %s
+             ORDER BY i.date
         """, (ticker, start, end))
         rows = cur.fetchall()
     return [DailyIndicatorOut(
         date=r[0], adj_close=float(r[1]),
-        sma_10=float(r[2]) if r[2] else None,
-        sma_21=float(r[3]) if r[3] else None,
-        sma_50=float(r[4]) if r[4] else None,
-        sma_150=float(r[5]) if r[5] else None,
-        sma_200=float(r[6]) if r[6] else None,
-        w52_high=float(r[7]) if r[7] else None,
-        w52_low=float(r[8]) if r[8] else None,
-        rs_line=float(r[9]) if r[9] else None,
-        rs_rating=r[10],
-        minervini_pass=r[11],
-        volume_ratio_50d=float(r[12]) if r[12] else None,
-        pocket_pivot_flag=r[13],
-        distribution_day_flag=r[14],
+        open=float(r[2]) if r[2] is not None else None,
+        high=float(r[3]) if r[3] is not None else None,
+        low=float(r[4]) if r[4] is not None else None,
+        close=float(r[5]) if r[5] is not None else None,
+        volume=int(r[6]) if r[6] is not None else None,
+        avg_volume_50d=float(r[7]) if r[7] is not None else None,
+        sma_10=float(r[8]) if r[8] is not None else None,
+        sma_21=float(r[9]) if r[9] is not None else None,
+        sma_50=float(r[10]) if r[10] is not None else None,
+        sma_150=float(r[11]) if r[11] is not None else None,
+        sma_200=float(r[12]) if r[12] is not None else None,
+        w52_high=float(r[13]) if r[13] is not None else None,
+        w52_low=float(r[14]) if r[14] is not None else None,
+        rs_line=float(r[15]) if r[15] is not None else None,
+        rs_rating=r[16],
+        minervini_pass=r[17],
+        volume_ratio_50d=float(r[18]) if r[18] is not None else None,
+        pocket_pivot_flag=r[19],
+        distribution_day_flag=r[20],
     ) for r in rows]
 
 

@@ -12,13 +12,25 @@ import { api, apiUrl } from "../lib/api";
 import type { DailyIndicator, Stock, MinerviniPassed } from "../lib/types";
 import { PriceChart } from "../components/charts/PriceChart";
 
+const PERIODS = [
+  { id: "1W", label: "1주", days: 7 },
+  { id: "1M", label: "1개월", days: 30 },
+  { id: "3M", label: "3개월", days: 90 },
+  { id: "6M", label: "6개월", days: 180 },
+  { id: "1Y", label: "1년", days: 365 },
+  { id: "2Y", label: "2년", days: 730 },
+  { id: "MAX", label: "전체", days: 3650 },
+] as const;
+type PeriodId = (typeof PERIODS)[number]["id"];
+
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function startStr(): string {
+function startForPeriod(period: PeriodId): string {
+  const p = PERIODS.find((x) => x.id === period)!;
   const d = new Date();
-  d.setFullYear(d.getFullYear() - 1);
+  d.setDate(d.getDate() - p.days);
   return d.toISOString().slice(0, 10);
 }
 
@@ -55,12 +67,16 @@ export default function ChartPage() {
   const navigate = useNavigate();
 
   const [inputTicker, setInputTicker] = useState("");
+  const [period, setPeriod] = useState<PeriodId>("6M");
+
   const [showSMA10, setShowSMA10] = useState(false);
   const [showSMA50, setShowSMA50] = useState(true);
   const [showSMA150, setShowSMA150] = useState(true);
   const [showSMA200, setShowSMA200] = useState(true);
-  const [show52wHigh, setShow52wHigh] = useState(true);
-  const [show52wLow, setShow52wLow] = useState(true);
+  const [show52wHigh, setShow52wHigh] = useState(false);
+  const [show52wLow, setShow52wLow] = useState(false);
+  const [showVolume, setShowVolume] = useState(true);
+  const [showVolumeSMA, setShowVolumeSMA] = useState(true);
   const [showPocketPivot, setShowPocketPivot] = useState(false);
   const [showDistributionDay, setShowDistributionDay] = useState(false);
 
@@ -82,10 +98,12 @@ export default function ChartPage() {
     isLoading: chartLoading,
     isError: chartError,
   } = useQuery<DailyIndicator[]>({
-    queryKey: ["daily-indicators", ticker],
+    queryKey: ["daily-indicators", ticker, period],
     queryFn: () =>
       api<DailyIndicator[]>(
-        `/indicators/daily/${ticker}?start=${startStr()}&end=${todayStr()}`
+        `/indicators/daily/${ticker}?start=${startForPeriod(
+          period
+        )}&end=${todayStr()}`
       ),
     enabled: !!ticker,
   });
@@ -118,10 +136,7 @@ export default function ChartPage() {
       <div className="bento p-5 mb-5">
         <div className="flex flex-wrap items-end gap-4">
           {/* Ticker input */}
-          <form
-            onSubmit={handleTickerSubmit}
-            className="flex flex-col gap-1.5"
-          >
+          <form onSubmit={handleTickerSubmit} className="flex flex-col gap-1.5">
             <label className="caps">종목 코드</label>
             <div className="flex gap-2">
               <input
@@ -129,7 +144,7 @@ export default function ChartPage() {
                 value={inputTicker}
                 onChange={(e) => setInputTicker(e.target.value)}
                 placeholder="예: 005930"
-                className="border border-hairline rounded-lg px-3 py-2 text-data bg-cream w-52 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                className="border border-hairline rounded-lg px-3 py-2 text-data bg-cream w-44 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
               />
               <button
                 type="submit"
@@ -161,18 +176,23 @@ export default function ChartPage() {
             </div>
           )}
 
-          {/* Daily/Weekly toggle */}
+          {/* Period toggle */}
           <div className="flex flex-col gap-1.5">
-            <label className="caps">시간 단위</label>
+            <label className="caps">기간</label>
             <div className="flex rounded-lg border border-hairline overflow-hidden text-data font-semibold bg-cream">
-              <button className="px-4 py-2 bg-accent text-white">일간</button>
-              <button
-                className="px-4 py-2 text-faint cursor-not-allowed"
-                disabled
-                title="준비중"
-              >
-                주간
-              </button>
+              {PERIODS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setPeriod(p.id)}
+                  className={`px-3 py-2 transition-colors ${
+                    period === p.id
+                      ? "bg-accent text-white"
+                      : "text-muted hover:text-ink hover:bg-paper"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -276,9 +296,11 @@ export default function ChartPage() {
             showSMA200={showSMA200}
             show52wHigh={show52wHigh}
             show52wLow={show52wLow}
+            showVolume={showVolume}
+            showVolumeSMA={showVolumeSMA}
             showPocketPivot={showPocketPivot}
             showDistributionDay={showDistributionDay}
-            height={500}
+            height={600}
           />
         </div>
       ) : (
@@ -334,9 +356,21 @@ export default function ChartPage() {
               label="52w Low"
             />
             <Toggle
+              checked={showVolume}
+              onChange={setShowVolume}
+              color="#525252"
+              label="거래량"
+            />
+            <Toggle
+              checked={showVolumeSMA}
+              onChange={setShowVolumeSMA}
+              color="#525252"
+              label="거래량 SMA 50"
+            />
+            <Toggle
               checked={showPocketPivot}
               onChange={setShowPocketPivot}
-              color="#15803d"
+              color="#16a34a"
               label="Pocket Pivot"
             />
             <Toggle
