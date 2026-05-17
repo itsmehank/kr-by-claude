@@ -49,6 +49,21 @@ export interface SectorHeatmap {
   avg_return_pct: number | null;
 }
 
+export interface SectorTimeseriesPoint {
+  date: string;
+  value: number;
+}
+
+export interface SectorTimeseries {
+  sector: string;
+  points: SectorTimeseriesPoint[];
+}
+
+export interface SectorTimeseriesResponse {
+  lookback_days: number;
+  series: SectorTimeseries[];
+}
+
 export interface MarketContext {
   date: string;
   index_code: string;

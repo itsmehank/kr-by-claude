@@ -2,8 +2,15 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from psycopg import Connection
 
+from collections import defaultdict
+
 from api.deps import get_conn
-from api.schemas.heatmap import SectorHeatmapOut
+from api.schemas.heatmap import (
+    SectorHeatmapOut,
+    SectorTimeseries,
+    SectorTimeseriesPoint,
+    SectorTimeseriesResponse,
+)
 
 
 router = APIRouter(prefix="/api/heatmap", tags=["heatmap"])
@@ -84,3 +91,61 @@ def get_sectors(
         )
         for r in rows
     ]
+
+
+@router.get("/sectors/timeseries", response_model=SectorTimeseriesResponse)
+def get_sectors_timeseries(
+    lookback_days: int = 365,
+    conn: Connection = Depends(get_conn),
+):
+    """섹터별 누적 수익률 시계열 (각 종목 시작값 정규화 후 sector 평균)."""
+    if lookback_days < 1 or lookback_days > 365 * 5:
+        raise HTTPException(400, "lookback_days must be 1..1825")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            WITH
+              latest AS (SELECT MAX(date) AS d_end FROM daily_indicators),
+              window_range AS (
+                SELECT d_end, (d_end - (%s || ' days')::interval)::date AS d_start
+                  FROM latest
+              ),
+              start_prices AS (
+                SELECT i.ticker, i.adj_close AS p0
+                  FROM daily_indicators i, window_range wr
+                 WHERE i.date = (
+                    SELECT MIN(d2.date)
+                      FROM daily_indicators d2
+                     WHERE d2.ticker = i.ticker AND d2.date >= wr.d_start
+                 )
+              )
+            SELECT
+              s.sector,
+              i.date,
+              AVG((i.adj_close - sp.p0) / sp.p0 * 100)::FLOAT AS cum_return_pct
+              FROM daily_indicators i
+              JOIN stocks s        ON s.ticker = i.ticker
+              JOIN start_prices sp ON sp.ticker = i.ticker
+              JOIN window_range wr ON i.date >= wr.d_start
+             WHERE s.sector IS NOT NULL
+               AND s.delisted_at IS NULL
+               AND sp.p0 > 0
+             GROUP BY s.sector, i.date
+             ORDER BY s.sector, i.date
+            """,
+            (lookback_days,),
+        )
+        rows = cur.fetchall()
+
+    by_sector: dict[str, list[SectorTimeseriesPoint]] = defaultdict(list)
+    for sector, d, val in rows:
+        by_sector[sector].append(
+            SectorTimeseriesPoint(date=d, value=float(val) if val is not None else 0.0)
+        )
+
+    series = [
+        SectorTimeseries(sector=sector, points=points)
+        for sector, points in sorted(by_sector.items())
+    ]
+    return SectorTimeseriesResponse(lookback_days=lookback_days, series=series)

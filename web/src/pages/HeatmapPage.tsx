@@ -1,9 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { LayoutGrid, Filter, X, ChevronRight } from "lucide-react";
+import { LayoutGrid, Filter, X, ChevronRight, Activity } from "lucide-react";
 import { api } from "../lib/api";
-import type { SectorHeatmap, MinerviniPassed } from "../lib/types";
+import type {
+  SectorHeatmap,
+  MinerviniPassed,
+  SectorTimeseriesResponse,
+} from "../lib/types";
+import { SectorTimeseriesChart } from "../components/charts/SectorTimeseriesChart";
 
 // ── period ──────────────────────────────────────────────────────────────────
 
@@ -142,6 +147,15 @@ export default function HeatmapPage() {
     queryFn: () =>
       api<MinerviniPassed[]>("/indicators/minervini-passed?min_rs=0&limit=500"),
     enabled: selectedSector !== null,
+  });
+
+  const timeseriesQuery = useQuery<SectorTimeseriesResponse>({
+    queryKey: ["sector-timeseries", 365],
+    queryFn: () =>
+      api<SectorTimeseriesResponse>(
+        "/heatmap/sectors/timeseries?lookback_days=365"
+      ),
+    staleTime: 5 * 60_000,
   });
 
   const sectors: SectorHeatmap[] = (sectorsQuery.data ?? [])
@@ -306,6 +320,37 @@ export default function HeatmapPage() {
               />
             ))}
           </div>
+        )}
+      </section>
+
+      {/* Sector timeseries chart */}
+      <section className="bento p-6 mb-6">
+        <div className="flex items-center gap-2.5 mb-5">
+          <div className="p-2 rounded-xl bg-tint-violet">
+            <Activity size={16} className="text-accent" strokeWidth={2} />
+          </div>
+          <div className="flex-1">
+            <div className="text-subhead font-bold text-ink">주도 섹터 흐름</div>
+            <div className="text-data-xs text-muted mt-0.5">
+              누적 수익률 시계열 · 12개월
+            </div>
+          </div>
+        </div>
+
+        {timeseriesQuery.isLoading && (
+          <div className="text-muted py-12 text-center">로딩 중…</div>
+        )}
+        {timeseriesQuery.isError && (
+          <div className="text-danger py-12 text-center">로딩 실패</div>
+        )}
+        {timeseriesQuery.data && timeseriesQuery.data.series.length === 0 && (
+          <div className="text-muted py-12 text-center">데이터 없음</div>
+        )}
+        {timeseriesQuery.data && timeseriesQuery.data.series.length > 0 && (
+          <SectorTimeseriesChart
+            series={timeseriesQuery.data.series}
+            height={400}
+          />
         )}
       </section>
 
