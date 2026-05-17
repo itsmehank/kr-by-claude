@@ -16,6 +16,7 @@ import ChartPage from "./pages/ChartPage";
 import MinerviniPage from "./pages/MinerviniPage";
 import PromptPage from "./pages/PromptPage";
 import SignalsPage from "./pages/SignalsPage";
+import PerformancePage from "./pages/PerformancePage";
 import { api } from "./lib/api";
 import type { PipelineRun } from "./lib/types";
 import { relativeTime, stalenessLevel } from "./lib/utils";
@@ -174,6 +175,7 @@ function App() {
           <Route path="/chart/:ticker" element={<ChartPage />} />
           <Route path="/minervini" element={<MinerviniPage />} />
           <Route path="/signals" element={<SignalsPage />} />
+          <Route path="/performance" element={<PerformancePage />} />
           <Route path="/prompt" element={<PromptPage />} />
           <Route path="/prompt/:ticker" element={<PromptPage />} />
         </Routes>
