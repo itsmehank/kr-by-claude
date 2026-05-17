@@ -2,6 +2,109 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-cream text-ink antialiased;
+    font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv01", "calt";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* tabular numbers everywhere mono is used */
+  .font-mono,
+  [data-tabular],
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* serif italic gives a touch of editorial */
+  em,
+  .italic {
+    font-style: italic;
+  }
+
+  /* Selection */
+  ::selection {
+    background: #1a1a1a;
+    color: #f8f4e8;
+  }
+
+  /* Subtle scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #d4cdb8;
+    border: 2px solid #f8f4e8;
+    border-radius: 0;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9a9a9a;
+  }
+}
+
+@layer components {
+  /* Small-caps editorial label */
+  .caps {
+    @apply uppercase tracking-caps text-caption font-medium text-muted;
+  }
+
+  /* Section divider — hairline */
+  .hairline {
+    @apply border-hairline;
+  }
+
+  /* Number emphasis — large mono with tabular figures */
+  .num {
+    @apply font-mono tabular-nums;
+  }
+
+  /* Editorial display headline */
+  .display {
+    @apply font-display font-medium;
+  }
+
+  /* Subtle hover for clickable rows */
+  .row-clickable {
+    @apply transition-colors duration-150 cursor-pointer;
+  }
+  .row-clickable:hover {
+    background: rgba(26, 26, 26, 0.04);
+  }
+
+  /* Pill / chip — minimal, no rounded */
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 text-caption uppercase tracking-caps border;
+  }
+}
+
+@layer utilities {
+  .text-pos {
+    @apply text-ink;
+  }
+  .text-neg {
+    @apply text-accent;
+  }
+  /* Disable Webkit number spinners in inputs */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 }
