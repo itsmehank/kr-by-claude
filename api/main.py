@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import stocks, indicators, heatmap, render, prompts, runs, market_context
+from api.routers import stocks, indicators, heatmap, render, prompts, runs, market_context, signals, performance
 
 
 app = FastAPI(title="kr-by-claude API", version="0.1.0")
@@ -22,6 +22,8 @@ app.include_router(render.router)
 app.include_router(prompts.router)
 app.include_router(runs.router)
 app.include_router(market_context.router)
+app.include_router(signals.router)
+app.include_router(performance.router)
 
 
 @app.get("/api/health")
