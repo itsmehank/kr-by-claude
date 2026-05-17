@@ -11,6 +11,7 @@ def test_build_market_context_kospi(db):
               (date, index_code, current_status, distribution_day_count_last_25,
                last_follow_through_day, days_since_follow_through, pct_stocks_above_200d_ma, computation_notes)
             VALUES ('2026-05-17', '1001', 'confirmed_uptrend', 2, '2026-04-12', 35, 47.3, '{}')
+            ON CONFLICT (date, index_code) DO NOTHING
             """
         )
     db.commit()
