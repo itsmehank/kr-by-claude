@@ -1,5 +1,5 @@
 from datetime import date, timedelta
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from psycopg import Connection
 
 from api.deps import get_conn
@@ -8,6 +8,7 @@ from api.schemas.indicator import (
     MinerviniPassedOut,
     WeeklyIndicatorOut,
 )
+from api.services.minervini_detail_builder import build_minervini_detail
 
 
 router = APIRouter(prefix="/api/indicators", tags=["indicators"])
@@ -107,6 +108,32 @@ def get_weekly(
         )
         for r in rows
     ]
+
+
+@router.get("/minervini-detail/{ticker}")
+def get_minervini_detail(
+    ticker: str,
+    date_: date | None = None,
+    conn: Connection = Depends(get_conn),
+):
+    """8조건 detail (passed, description, values, margin_pct)."""
+    if date_ is None:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT MAX(date) FROM daily_indicators WHERE ticker = %s",
+                (ticker,),
+            )
+            row = cur.fetchone()
+        if not row or not row[0]:
+            raise HTTPException(404, f"No data for ticker: {ticker}")
+        date_ = row[0]
+
+    detail = build_minervini_detail(conn, ticker, date_)
+    return {
+        "ticker": ticker,
+        "date": date_.isoformat(),
+        "detail": detail,
+    }
 
 
 @router.get("/minervini-passed", response_model=list[MinerviniPassedOut])

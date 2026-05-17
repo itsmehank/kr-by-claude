@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
@@ -18,6 +19,8 @@ import type {
 } from "../lib/types";
 import { InfoTooltip } from "../components/ui/InfoTooltip";
 import { Skeleton, SkeletonRow } from "../components/ui/Skeleton";
+import { RunDetailModal } from "../components/ui/RunDetailModal";
+import { relativeTime } from "../lib/utils";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -36,18 +39,6 @@ function statusTone(status: string): "up" | "down" | "neutral" {
   if (status === "confirmed_uptrend" || status === "rally_attempt") return "up";
   if (status === "downtrend" || status === "correction") return "down";
   return "neutral";
-}
-
-function relativeTime(iso: string | null): string {
-  if (!iso) return "—";
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "방금 전";
-  if (mins < 60) return `${mins}분 전`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}시간 전`;
-  const days = Math.floor(hours / 24);
-  return `${days}일 전`;
 }
 
 function todayParts() {
@@ -329,6 +320,7 @@ function RunStatus({ status }: RunStatusProps) {
 export default function HomePage() {
   const navigate = useNavigate();
   const { yyyy, mm, dd, weekdayKr } = todayParts();
+  const [openRunId, setOpenRunId] = useState<number | null>(null);
 
   const stocksQ = useQuery<Stock[]>({
     queryKey: ["snapshot", "stocks"],
@@ -538,9 +530,10 @@ export default function HomePage() {
           {runsQ.data && runsQ.data.length > 0 && (
             <div className="space-y-1.5">
               {runsQ.data.map((run) => (
-                <div
+                <button
                   key={run.id}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg"
+                  onClick={() => setOpenRunId(run.id)}
+                  className="row-clickable w-full flex items-center gap-3 px-3 py-2 text-left"
                 >
                   <div className="num text-data-xs text-faint w-6 shrink-0">
                     {run.id}
@@ -554,12 +547,14 @@ export default function HomePage() {
                     </div>
                   </div>
                   <RunStatus status={run.status} />
-                </div>
+                </button>
               ))}
             </div>
           )}
         </section>
       </div>
+
+      <RunDetailModal runId={openRunId} onClose={() => setOpenRunId(null)} />
     </div>
   );
 }

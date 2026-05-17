@@ -45,6 +45,7 @@ def render_daily_chart(conn: Connection, ticker: str, range_days: int = 365) -> 
         return _render_empty_chart(f"{ticker} (no data)")
 
     df = pd.DataFrame(rows, columns=cols).sort_values("date").reset_index(drop=True)
+    df = _coerce_numeric(df)
     return _render_ohlc_chart(df, title=f"{ticker} Daily", x_label="Date")
 
 
@@ -76,7 +77,26 @@ def render_weekly_chart(conn: Connection, ticker: str, range_weeks: int = 104) -
     df["pocket_pivot_flag"] = False
     df["distribution_day_flag"] = False
     df["avg_volume_50d"] = df["avg_volume_10w"]
+    df = _coerce_numeric(df)
     return _render_ohlc_chart(df, title=f"{ticker} Weekly", x_label="Week End")
+
+
+def _coerce_numeric(df: pd.DataFrame) -> pd.DataFrame:
+    """psycopg 의 Decimal/int 컬럼을 float 으로 일괄 변환.
+
+    Decimal × float 연산 (예: low * 0.99) 시 TypeError 방지.
+    """
+    numeric_cols = [
+        "open", "high", "low", "close", "adj_close", "volume",
+        "sma_50", "sma_150", "sma_200",
+        "w52_high", "w52_low",
+        "rs_line", "rs_line_52w_high",
+        "avg_volume_50d",
+    ]
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
 
 
 def _render_ohlc_chart(df: pd.DataFrame, title: str, x_label: str) -> bytes:

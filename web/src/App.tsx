@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import { Routes, Route, NavLink } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   LayoutGrid,
@@ -11,6 +13,9 @@ import HeatmapPage from "./pages/HeatmapPage";
 import ChartPage from "./pages/ChartPage";
 import MinerviniPage from "./pages/MinerviniPage";
 import PromptPage from "./pages/PromptPage";
+import { api } from "./lib/api";
+import type { PipelineRun } from "./lib/types";
+import { relativeTime, stalenessLevel } from "./lib/utils";
 
 interface NavItem {
   to: string;
@@ -26,6 +31,76 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/minervini", label: "Minervini", kr: "미너비니", Icon: Sparkles },
   { to: "/prompt", label: "LLM Prompt", kr: "LLM 프롬프트", Icon: FileArchive },
 ];
+
+const PIPELINE_LABELS: Record<string, string> = {
+  ohlcv: "OHLCV",
+  weekly: "Weekly",
+  indicators_daily: "Indicators (D)",
+  indicators_weekly: "Indicators (W)",
+  market_context: "Market Ctx",
+  corporate_actions: "Corp Actions",
+  universe: "Universe",
+};
+
+function SystemStatus() {
+  const runsQ = useQuery<PipelineRun[]>({
+    queryKey: ["system-status-runs"],
+    queryFn: () => api<PipelineRun[]>("/runs?limit=50"),
+    staleTime: 60_000,
+  });
+
+  const latestByPipeline = useMemo(() => {
+    if (!runsQ.data) return [];
+    const map = new Map<string, PipelineRun>();
+    for (const r of runsQ.data) {
+      if (!map.has(r.pipeline)) map.set(r.pipeline, r);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [runsQ.data]);
+
+  if (runsQ.isLoading)
+    return (
+      <div className="px-6 py-4 border-t border-hairline">
+        <div className="caps text-faint">시스템 상태</div>
+        <div className="text-data-xs text-faint mt-2">로딩 중…</div>
+      </div>
+    );
+  if (latestByPipeline.length === 0) return null;
+
+  return (
+    <div className="px-6 py-4 border-t border-hairline">
+      <div className="caps text-faint mb-2">시스템 상태</div>
+      <div className="space-y-1.5 text-data-xs">
+        {latestByPipeline.map(([pipeline, run]) => {
+          const ts = run.finished_at ?? run.started_at;
+          const level = stalenessLevel(ts);
+          const dotClass =
+            level === "fresh"
+              ? "bg-success"
+              : level === "stale"
+              ? "bg-warning"
+              : "bg-danger";
+          return (
+            <div
+              key={pipeline}
+              className="flex items-baseline justify-between gap-2"
+            >
+              <span className="text-muted truncate flex items-center gap-1.5 min-w-0">
+                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotClass}`} />
+                <span className="truncate">
+                  {PIPELINE_LABELS[pipeline] ?? pipeline}
+                </span>
+              </span>
+              <span className="num text-faint shrink-0">
+                {relativeTime(ts)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function App() {
   return (
@@ -76,7 +151,9 @@ function App() {
           ))}
         </nav>
 
-        <div className="px-6 py-5 border-t border-hairline">
+        <SystemStatus />
+
+        <div className="px-6 py-4 border-t border-hairline">
           <div className="caps text-faint">Methodology</div>
           <div className="mt-1.5 text-data-xs text-muted leading-relaxed">
             Minervini Trend Template · O'Neil CAN SLIM
