@@ -196,3 +196,19 @@ ALTER TABLE weekly_indicators
     ADD COLUMN IF NOT EXISTS avg_volume_10w            NUMERIC(20,2),
     ADD COLUMN IF NOT EXISTS volume_ratio_10w          NUMERIC(10,4),
     ADD COLUMN IF NOT EXISTS up_down_volume_ratio_10w  NUMERIC(10,4);
+
+-- ====== Market Context (#2.5) ======
+
+CREATE TABLE IF NOT EXISTS market_context_daily (
+    date                             DATE          NOT NULL,
+    index_code                       VARCHAR(10)   NOT NULL,           -- '1001' (KOSPI) / '2001' (KOSDAQ)
+    current_status                   VARCHAR(20)   NOT NULL,           -- confirmed_uptrend / rally_attempt / correction / downtrend
+    distribution_day_count_last_25   SMALLINT,
+    last_follow_through_day          DATE,
+    days_since_follow_through        SMALLINT,
+    pct_stocks_above_200d_ma         NUMERIC(5,2),
+    computation_notes                TEXT,
+    updated_at                       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (date, index_code)
+);
+CREATE INDEX IF NOT EXISTS idx_market_context_date ON market_context_daily(date);
