@@ -242,3 +242,142 @@ CREATE INDEX IF NOT EXISTS idx_corp_actions_event_type_date
 CREATE INDEX IF NOT EXISTS idx_corp_actions_recent_distress
     ON corporate_actions(event_date DESC)
     WHERE event_type IN ('reverse_split', 'capital_reduction');
+
+-- ─── #4 LLM Runner 스키마 (B v3 갭 1-8 day-1 통합) ───────────────
+
+-- Phase B-A1 강화 필터 (drawdown ≤ 50%, KR calibrate)
+ALTER TABLE daily_indicators
+  ADD COLUMN IF NOT EXISTS drawdown_52w_pct      NUMERIC(5,2),
+  ADD COLUMN IF NOT EXISTS drawdown_filter_pass  BOOLEAN;
+
+-- 주말 (5) + 평일 daily-delta 분류 결과 (append-only)
+CREATE TABLE IF NOT EXISTS weekly_classification (
+  symbol               VARCHAR(10) NOT NULL,
+  classified_at        TIMESTAMPTZ NOT NULL,
+  market               VARCHAR(10) NOT NULL,
+  classification       VARCHAR(10) NOT NULL,
+  pattern              VARCHAR(50),
+
+  pivot_price          NUMERIC(12, 4),
+  pivot_basis          VARCHAR(30),
+  base_high            NUMERIC(12, 4),
+  base_low             NUMERIC(12, 4),
+  base_depth_pct       NUMERIC(5, 2),
+  base_start_date      DATE,
+
+  risk_flags           JSONB,
+  confidence           NUMERIC(3, 2),
+  reasoning            TEXT,
+
+  source               VARCHAR(20) NOT NULL,
+  expires_at           TIMESTAMPTZ,
+
+  llm_call_duration_s  NUMERIC(8, 2),
+  llm_input_tokens     INTEGER,
+  llm_output_tokens    INTEGER,
+
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (symbol, classified_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_weekly_classification_active
+  ON weekly_classification (symbol)
+  WHERE classification IN ('entry', 'watch');
+
+CREATE INDEX IF NOT EXISTS idx_weekly_classification_recent
+  ON weekly_classification (classified_at DESC);
+
+-- (5b) 호출 이력 (append-only, 단순 abort 모델 — severity 없음)
+CREATE TABLE IF NOT EXISTS trigger_evaluation_log (
+  symbol                  VARCHAR(10) NOT NULL,
+  evaluated_at            TIMESTAMPTZ NOT NULL,
+  trigger_type            VARCHAR(20) NOT NULL,
+
+  close                   NUMERIC(12, 4),
+  volume                  BIGINT,
+  pivot_price             NUMERIC(12, 4),
+
+  decision                VARCHAR(10) NOT NULL,
+  confidence              NUMERIC(3, 2),
+  reasoning               TEXT,
+  abort_reason            VARCHAR(60),
+
+  prior_classification_at TIMESTAMPTZ NOT NULL,
+
+  llm_call_duration_s     NUMERIC(8, 2),
+  llm_input_tokens        INTEGER,
+  llm_output_tokens       INTEGER,
+
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (symbol, evaluated_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_trigger_log_recent
+  ON trigger_evaluation_log (evaluated_at DESC);
+
+-- (6) 매수 파라미터 (v2.0 의 17 필드 그대로)
+CREATE TABLE IF NOT EXISTS entry_params (
+  symbol                                  VARCHAR(10) NOT NULL,
+  signal_at                               TIMESTAMPTZ NOT NULL,
+
+  entry_mode                              VARCHAR(30),
+  trigger_price                           NUMERIC(12, 4),
+  entry_price                             NUMERIC(12, 4),
+
+  stop_loss                               NUMERIC(12, 4),
+  stop_loss_pct_from_pivot                NUMERIC(6, 2),
+  stop_loss_pct_from_current_price        NUMERIC(6, 2),
+  stop_loss_basis                         VARCHAR(30),
+
+  expected_target_price                   NUMERIC(12, 4),
+  expected_target_pct                     NUMERIC(6, 2),
+  risk_reward_ratio                       NUMERIC(5, 2),
+
+  position_size_pct                       NUMERIC(5, 2),
+  position_size_basis                     TEXT,
+
+  breakout_volume_requirement             VARCHAR(30),
+  observed_breakout_volume_ratio          NUMERIC(5, 2),
+
+  known_warnings                          JSONB,
+  other_warnings                          TEXT,
+  notes                                   TEXT,
+
+  trigger_evaluation_at                   TIMESTAMPTZ NOT NULL,
+  prior_classification_at                 TIMESTAMPTZ NOT NULL,
+
+  llm_call_duration_s                     NUMERIC(8, 2),
+  llm_input_tokens                        INTEGER,
+  llm_output_tokens                       INTEGER,
+
+  created_at                              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (symbol, signal_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_entry_params_recent ON entry_params (signal_at DESC);
+
+-- 시그널 사후 평가 (cron backfill)
+CREATE TABLE IF NOT EXISTS signal_performance (
+  symbol               VARCHAR(10) NOT NULL,
+  signal_at            TIMESTAMPTZ NOT NULL,
+  entry_price          NUMERIC(12, 4) NOT NULL,
+
+  price_1w             NUMERIC(12, 4),
+  price_2w             NUMERIC(12, 4),
+  price_4w             NUMERIC(12, 4),
+  price_8w             NUMERIC(12, 4),
+
+  return_1w_pct        NUMERIC(8, 2),
+  return_2w_pct        NUMERIC(8, 2),
+  return_4w_pct        NUMERIC(8, 2),
+  return_8w_pct        NUMERIC(8, 2),
+
+  market_return_1w_pct NUMERIC(8, 2),
+  market_return_2w_pct NUMERIC(8, 2),
+  market_return_4w_pct NUMERIC(8, 2),
+  market_return_8w_pct NUMERIC(8, 2),
+
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (symbol, signal_at),
+  FOREIGN KEY (symbol, signal_at) REFERENCES entry_params(symbol, signal_at)
+);
