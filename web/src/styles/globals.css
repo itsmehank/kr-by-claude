@@ -22,23 +22,16 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* tabular numbers everywhere mono is used */
   .font-mono,
   [data-tabular],
   table {
     font-variant-numeric: tabular-nums;
   }
 
-  /* serif italic gives a touch of editorial */
-  em,
-  .italic {
-    font-style: italic;
-  }
-
   /* Selection */
   ::selection {
-    background: #1a1a1a;
-    color: #f8f4e8;
+    background: #1e3a8a;
+    color: #ffffff;
   }
 
   /* Subtle scrollbar */
@@ -50,45 +43,45 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #d4cdb8;
-    border: 2px solid #f8f4e8;
-    border-radius: 0;
+    background: #e2e8f0;
+    border: 2px solid #ffffff;
+    border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #9a9a9a;
+    background: #94a3b8;
   }
 }
 
 @layer components {
-  /* Small-caps editorial label */
+  /* Small caps label */
   .caps {
     @apply uppercase tracking-caps text-caption font-medium text-muted;
   }
 
-  /* Section divider — hairline */
+  /* Hairline border helper */
   .hairline {
     @apply border-hairline;
   }
 
-  /* Number emphasis — large mono with tabular figures */
+  /* Tabular monospace */
   .num {
     @apply font-mono tabular-nums;
   }
 
-  /* Editorial display headline */
+  /* Display headline — sans bold */
   .display {
-    @apply font-display font-medium;
+    @apply font-display font-bold;
   }
 
-  /* Subtle hover for clickable rows */
+  /* Clickable row hover */
   .row-clickable {
     @apply transition-colors duration-150 cursor-pointer;
   }
   .row-clickable:hover {
-    background: rgba(26, 26, 26, 0.04);
+    background: #f8fafc;
   }
 
-  /* Pill / chip — minimal, no rounded */
+  /* Pill / chip */
   .chip {
     @apply inline-flex items-center gap-1.5 px-2 py-0.5 text-caption uppercase tracking-caps border;
   }
@@ -96,12 +89,11 @@
 
 @layer utilities {
   .text-pos {
-    @apply text-ink;
+    @apply text-success;
   }
   .text-neg {
-    @apply text-accent;
+    @apply text-danger;
   }
-  /* Disable Webkit number spinners in inputs */
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;

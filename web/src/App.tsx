@@ -23,19 +23,17 @@ const NAV_ITEMS: NavItem[] = [
 function App() {
   return (
     <div className="min-h-screen flex bg-cream">
-      <aside className="w-[260px] shrink-0 border-r border-hairline flex flex-col">
-        <div className="px-8 pt-10 pb-12">
-          <div className="caps text-faint mb-2">est. 2026</div>
-          <h1 className="display text-display-md leading-none">
-            kr<span className="italic font-light text-accent">·</span>by
-            <span className="italic font-light text-accent">·</span>claude
+      <aside className="w-[240px] shrink-0 border-r border-hairline flex flex-col">
+        <div className="px-6 pt-8 pb-10">
+          <h1 className="display text-display-md tracking-tight leading-none">
+            kr-by-claude
           </h1>
-          <div className="mt-2 text-data-xs text-muted font-mono">
-            Korean equities · Minervini methodology
+          <div className="caps text-faint mt-2">
+            korean equities · v0.1
           </div>
         </div>
 
-        <nav className="px-8 flex-1 space-y-px">
+        <nav className="px-3 flex-1 space-y-0.5">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
@@ -43,8 +41,10 @@ function App() {
               end={item.to === "/"}
               className={({ isActive }) =>
                 [
-                  "group block py-3 border-b border-hairline transition-colors",
-                  isActive ? "text-ink" : "text-muted hover:text-ink",
+                  "group block px-3 py-2.5 rounded-md transition-colors",
+                  isActive
+                    ? "bg-accent-soft text-ink"
+                    : "text-muted hover:text-ink hover:bg-paper",
                 ].join(" ")
               }
             >
@@ -52,35 +52,30 @@ function App() {
                 <div className="flex items-baseline gap-3">
                   <span
                     className={[
-                      "font-mono text-data-xs tabular-nums",
+                      "num text-data-xs",
                       isActive ? "text-accent" : "text-faint",
                     ].join(" ")}
                   >
                     {item.index}
                   </span>
-                  <div className="flex-1">
-                    <div className="font-display text-headline leading-tight">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-subhead font-semibold leading-tight">
                       {item.kr}
                     </div>
-                    <div className="caps text-data-xs mt-0.5 text-faint">
+                    <div className="caps text-data-xs mt-0.5 text-faint group-hover:text-muted">
                       {item.label}
                     </div>
                   </div>
-                  {isActive && (
-                    <span className="text-accent font-display italic text-data-lg leading-none">
-                      §
-                    </span>
-                  )}
                 </div>
               )}
             </NavLink>
           ))}
         </nav>
 
-        <div className="px-8 py-6 border-t border-hairline">
-          <div className="caps text-faint">colophon</div>
-          <div className="mt-2 text-data-xs text-muted leading-relaxed">
-            Pretendard · Cormorant Garamond · JetBrains Mono
+        <div className="px-6 py-5 border-t border-hairline">
+          <div className="caps text-faint">Methodology</div>
+          <div className="mt-1.5 text-data-xs text-muted leading-relaxed">
+            Minervini Trend Template · O'Neil CAN SLIM
           </div>
         </div>
       </aside>

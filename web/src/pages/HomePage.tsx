@@ -44,7 +44,7 @@ function todayParts() {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
-  const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
+  const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
   return { yyyy, mm, dd, weekday };
 }
 
@@ -70,16 +70,16 @@ function SnapshotCell({
   else if (error) display = "err";
   else display = (value ?? 0).toLocaleString();
   return (
-    <div className="px-10 py-8">
+    <div className="px-8 py-7">
+      <div className="caps mb-3">{label}</div>
       <div
         className={[
-          "num text-data-xl tracking-tight",
+          "num text-data-xl tracking-tight font-medium",
           emphasis ? "text-accent" : "text-ink",
         ].join(" ")}
       >
         {display}
       </div>
-      <div className="caps mt-3">{label}</div>
     </div>
   );
 }
@@ -93,67 +93,64 @@ interface MarketCellProps {
 function MarketCell({ context, title, code }: MarketCellProps) {
   if (!context) {
     return (
-      <div className="px-10 py-8 bg-paper/40">
-        <div className="flex items-baseline justify-between mb-6">
+      <div className="px-8 py-7">
+        <div className="flex items-baseline justify-between mb-5">
           <div>
-            <div className="font-display text-display-md leading-none">{title}</div>
-            <div className="caps text-faint mt-2">Index · {code}</div>
+            <div className="display text-display-md leading-none">{title}</div>
+            <div className="caps text-faint mt-1.5">Index · {code}</div>
           </div>
         </div>
-        <div className="text-data text-faint italic font-display">
-          No data available
-        </div>
+        <div className="text-data text-faint">No data available</div>
       </div>
     );
   }
 
   const tone = statusTone(context.current_status);
-  const arrow = tone === "up" ? "↗" : tone === "down" ? "↘" : "→";
-  const statusColor =
+  const toneClass =
     tone === "down"
-      ? "text-accent"
+      ? "text-danger"
       : tone === "up"
       ? "text-success"
       : "text-muted";
+  const dotClass =
+    tone === "down"
+      ? "bg-danger"
+      : tone === "up"
+      ? "bg-success"
+      : "bg-faint";
 
   return (
-    <div className="px-10 py-8 bg-paper/40">
-      <div className="flex items-baseline justify-between mb-1">
-        <div className="font-display text-display-md leading-none">{title}</div>
-        <div className={["num text-data-lg", statusColor].join(" ")}>
-          {arrow}
+    <div className="px-8 py-7">
+      <div className="flex items-baseline justify-between mb-5">
+        <div>
+          <div className="display text-display-md leading-none">{title}</div>
+          <div className="caps text-faint mt-1.5">Index · {code}</div>
+        </div>
+        <div className={["caps inline-flex items-center gap-2", toneClass].join(" ")}>
+          <span className={["h-1.5 w-1.5 rounded-full", dotClass].join(" ")} />
+          {tone === "up" ? "up" : tone === "down" ? "down" : "neutral"}
         </div>
       </div>
-      <div className="caps text-faint mb-6">Index · {code}</div>
 
-      <div
-        className={[
-          "font-display italic text-headline mb-8 border-l-2 pl-3",
-          tone === "down"
-            ? "text-accent border-accent"
-            : tone === "up"
-            ? "text-ink border-success"
-            : "text-muted border-hairline",
-        ].join(" ")}
-      >
+      <div className={["text-headline font-semibold mb-6", toneClass].join(" ")}>
         {statusLabel(context.current_status)}
       </div>
 
       <dl className="grid grid-cols-[1fr_auto] gap-y-3 items-baseline">
-        <dt className="caps">Distribution Days · 25d</dt>
-        <dd className="num text-data-md">
+        <dt className="caps">Distribution · 25d</dt>
+        <dd className="num text-data-md font-medium">
           {context.distribution_day_count_last_25_sessions ?? "—"}
         </dd>
 
         <dt className="caps">Breadth · &gt; SMA-200</dt>
-        <dd className="num text-data-md">
+        <dd className="num text-data-md font-medium">
           {context.pct_stocks_above_200d_ma != null
             ? `${context.pct_stocks_above_200d_ma.toFixed(1)}%`
             : "—"}
         </dd>
 
         <dt className="caps">Last Follow-through</dt>
-        <dd className="num text-data">
+        <dd className="num text-data text-muted">
           {context.last_follow_through_day ?? "—"}
           {context.days_since_follow_through != null && (
             <span className="text-faint ml-2">
@@ -173,15 +170,15 @@ function RunStatus({ status }: RunStatusProps) {
   if (status === "success") {
     return (
       <span className="caps text-success inline-flex items-center gap-1.5">
-        <span className="text-data">✓</span>
+        <span className="h-1.5 w-1.5 rounded-full bg-success" />
         success
       </span>
     );
   }
   if (status === "failed" || status === "error") {
     return (
-      <span className="caps text-accent inline-flex items-center gap-1.5">
-        <span className="text-data">✗</span>
+      <span className="caps text-danger inline-flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-danger" />
         {status}
       </span>
     );
@@ -189,7 +186,7 @@ function RunStatus({ status }: RunStatusProps) {
   if (status === "running") {
     return (
       <span className="caps text-warning inline-flex items-center gap-1.5">
-        <span className="text-data animate-pulse">●</span>
+        <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
         running
       </span>
     );
@@ -235,50 +232,41 @@ export default function HomePage() {
   const kosdaq = marketQ.data?.find((m) => m.index_code === "2001");
 
   return (
-    <div className="px-16 py-12 max-w-[1140px] mx-auto">
-      {/* ── Masthead ───────────────────────────────────────────────────── */}
-      <header className="flex items-end justify-between pb-8 mb-16 border-b border-hairline">
+    <div className="px-14 py-12 max-w-[1180px] mx-auto">
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <header className="flex items-end justify-between pb-6 mb-12 border-b border-hairline">
         <div>
-          <div className="caps text-faint mb-4">
-            No. 001 · Daily Brief
-          </div>
-          <h2 className="display text-display-xl leading-[0.95] tracking-tight">
-            Today's
-            <br />
-            Overview
-            <span className="italic font-light text-accent">.</span>
+          <div className="caps text-faint mb-2">Overview</div>
+          <h2 className="display text-display-xl tracking-tight leading-none">
+            오늘의 시장
           </h2>
         </div>
         <div className="text-right shrink-0 pl-12">
-          <div className="caps text-faint">Date</div>
-          <div className="num text-data-md mt-1.5">
-            {yyyy} · {mm} · {dd}
+          <div className="num text-data-md text-ink">
+            {yyyy}-{mm}-{dd}
           </div>
-          <div className="caps text-faint mt-5">Weekday</div>
-          <div className="font-display italic text-data-md mt-1">
-            {weekday}
-          </div>
+          <div className="caps text-faint mt-1">{weekday}</div>
         </div>
       </header>
 
-      {/* ── Today's Snapshot ──────────────────────────────────────────── */}
-      <section className="mb-20">
-        <div className="flex items-baseline justify-between mb-5">
-          <div className="caps">Today's Snapshot</div>
+      {/* ── Snapshot ─────────────────────────────────────────────────── */}
+      <section className="mb-14">
+        <div className="flex items-baseline justify-between mb-4">
+          <div className="text-subhead font-semibold text-ink">Snapshot</div>
           <div className="caps text-faint">3 metrics</div>
         </div>
-        <div className="grid grid-cols-3 border-y border-hairline divide-x divide-hairline">
+        <div className="grid grid-cols-3 border border-hairline rounded-md divide-x divide-hairline bg-cream">
           <SnapshotCell
             value={stocksQ.data?.length}
             loading={stocksQ.isLoading}
             error={stocksQ.isError}
-            label="Active stocks · 활성 종목"
+            label="Active stocks"
           />
           <SnapshotCell
             value={minerviniQ.data?.length}
             loading={minerviniQ.isLoading}
             error={minerviniQ.isError}
-            label="Minervini pass · RS ≥ 70"
+            label="Minervini · RS ≥ 70"
           />
           <SnapshotCell
             value={minervini80Q.data?.length}
@@ -290,24 +278,24 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Market Context ────────────────────────────────────────────── */}
-      <section className="mb-20">
-        <div className="flex items-baseline justify-between mb-5">
-          <div className="caps">Market Context</div>
-          <div className="caps text-faint">Korea · KOSPI · KOSDAQ</div>
+      {/* ── Market Context ───────────────────────────────────────────── */}
+      <section className="mb-14">
+        <div className="flex items-baseline justify-between mb-4">
+          <div className="text-subhead font-semibold text-ink">Market Context</div>
+          <div className="caps text-faint">KOSPI · KOSDAQ</div>
         </div>
         {marketQ.isLoading && (
-          <div className="border border-hairline px-10 py-8 text-faint italic font-display">
+          <div className="border border-hairline rounded-md px-8 py-7 text-muted">
             Loading market data…
           </div>
         )}
         {marketQ.isError && (
-          <div className="border border-hairline px-10 py-8 text-accent font-display italic">
+          <div className="border border-hairline rounded-md px-8 py-7 text-danger">
             Failed to load market context.
           </div>
         )}
         {marketQ.data && (
-          <div className="grid grid-cols-2 border border-hairline divide-x divide-hairline">
+          <div className="grid grid-cols-2 border border-hairline rounded-md divide-x divide-hairline bg-cream">
             <MarketCell context={kospi} title="KOSPI" code="1001" />
             <MarketCell context={kosdaq} title="KOSDAQ" code="2001" />
           </div>
@@ -315,25 +303,20 @@ export default function HomePage() {
       </section>
 
       {/* ── Bottom row ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-[7fr_5fr] gap-12">
-        {/* Top RS */}
+      <div className="grid grid-cols-[7fr_5fr] gap-10">
         <section>
-          <div className="flex items-baseline justify-between mb-5">
-            <div className="caps">Top Ten · RS Rating</div>
+          <div className="flex items-baseline justify-between mb-4">
+            <div className="text-subhead font-semibold text-ink">
+              Top Ten · RS Rating
+            </div>
             <div className="caps text-faint">Minervini ✓</div>
           </div>
-          {topRsQ.isLoading && (
-            <div className="text-faint italic font-display">Loading…</div>
-          )}
+          {topRsQ.isLoading && <div className="text-muted">Loading…</div>}
           {topRsQ.isError && (
-            <div className="text-accent italic font-display">
-              Failed to load.
-            </div>
+            <div className="text-danger">Failed to load.</div>
           )}
           {topRsQ.data && topRsQ.data.length === 0 && (
-            <div className="text-faint italic font-display">
-              No qualifying stocks today.
-            </div>
+            <div className="text-muted">No qualifying stocks today.</div>
           )}
           {topRsQ.data && topRsQ.data.length > 0 && (
             <table className="w-full">
@@ -358,12 +341,12 @@ export default function HomePage() {
                     </td>
                     <td className="py-3 num text-data">{row.ticker}</td>
                     <td
-                      className="py-3 text-data truncate max-w-[140px]"
+                      className="py-3 text-data truncate max-w-[160px]"
                       title={row.name}
                     >
                       {row.name}
                     </td>
-                    <td className="py-3 num text-data text-right font-medium">
+                    <td className="py-3 num text-data text-right font-semibold">
                       {row.rs_rating}
                     </td>
                     <td className="py-3 num text-data text-right text-muted">
@@ -376,20 +359,17 @@ export default function HomePage() {
           )}
         </section>
 
-        {/* Recent Runs */}
         <section>
-          <div className="flex items-baseline justify-between mb-5">
-            <div className="caps">Pipeline Runs</div>
+          <div className="flex items-baseline justify-between mb-4">
+            <div className="text-subhead font-semibold text-ink">
+              Pipeline Runs
+            </div>
             <div className="caps text-faint">latest 8</div>
           </div>
-          {runsQ.isLoading && (
-            <div className="text-faint italic font-display">Loading…</div>
-          )}
-          {runsQ.isError && (
-            <div className="text-accent italic font-display">Failed to load.</div>
-          )}
+          {runsQ.isLoading && <div className="text-muted">Loading…</div>}
+          {runsQ.isError && <div className="text-danger">Failed to load.</div>}
           {runsQ.data && runsQ.data.length === 0 && (
-            <div className="text-faint italic font-display">No recent runs.</div>
+            <div className="text-muted">No recent runs.</div>
           )}
           {runsQ.data && runsQ.data.length > 0 && (
             <table className="w-full">
@@ -431,17 +411,6 @@ export default function HomePage() {
           )}
         </section>
       </div>
-
-      {/* ── Footer rule ──────────────────────────────────────────────── */}
-      <footer className="mt-24 pt-6 border-t border-hairline flex justify-between items-baseline">
-        <div className="caps text-faint">
-          kr-by-claude · Korean equities daily brief
-        </div>
-        <div className="caps text-faint">
-          {yyyy}.{mm}.{dd} ·{" "}
-          <span className="font-display italic">vol I</span>
-        </div>
-      </footer>
     </div>
   );
 }

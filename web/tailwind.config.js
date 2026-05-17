@@ -4,23 +4,35 @@ export default {
   theme: {
     extend: {
       colors: {
-        cream: "#f8f4e8",
-        paper: "#f0eadc",
-        ink: "#1a1a1a",
-        muted: "#5a5a5a",
-        faint: "#9a9a9a",
-        hairline: "#d4cdb8",
+        // Surfaces
+        cream: "#ffffff",        // body background
+        paper: "#f8fafc",        // elevated / sub-surface (slate-50)
+        // Text
+        ink: "#0f172a",          // primary (slate-900)
+        muted: "#64748b",        // secondary (slate-500)
+        faint: "#94a3b8",        // tertiary (slate-400)
+        // Borders
+        hairline: "#e2e8f0",     // slate-200
+        // Accents
         accent: {
-          DEFAULT: "#8b0000",
-          light: "#c97171",
-          soft: "#e8c4c4",
+          DEFAULT: "#1e3a8a",    // navy (blue-900)
+          light: "#3b82f6",      // blue-500
+          soft: "#dbeafe",       // blue-100
         },
-        success: "#2d5016",
-        warning: "#8b6914",
-        danger: "#8b0000",
+        // Semantic
+        success: "#15803d",      // green-700
+        warning: "#b45309",      // amber-700
+        danger: "#b91c1c",       // red-700
       },
       fontFamily: {
-        display: ['"Cormorant Garamond"', "Georgia", "serif"],
+        display: [
+          '"Pretendard Variable"',
+          "Pretendard",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "system-ui",
+          "sans-serif",
+        ],
         sans: [
           '"Pretendard Variable"',
           "Pretendard",
@@ -38,25 +50,25 @@ export default {
         ],
       },
       fontSize: {
-        "display-2xl": ["80px", { lineHeight: "0.95", letterSpacing: "-0.02em" }],
-        "display-xl": ["56px", { lineHeight: "1.0", letterSpacing: "-0.015em" }],
-        "display-lg": ["40px", { lineHeight: "1.05", letterSpacing: "-0.01em" }],
-        "display-md": ["28px", { lineHeight: "1.15", letterSpacing: "-0.005em" }],
-        headline: ["20px", { lineHeight: "1.3" }],
-        subhead: ["15px", { lineHeight: "1.4", letterSpacing: "0.01em" }],
+        "display-2xl": ["64px", { lineHeight: "1.05", letterSpacing: "-0.025em" }],
+        "display-xl": ["44px", { lineHeight: "1.1", letterSpacing: "-0.02em" }],
+        "display-lg": ["32px", { lineHeight: "1.15", letterSpacing: "-0.015em" }],
+        "display-md": ["22px", { lineHeight: "1.2", letterSpacing: "-0.01em" }],
+        headline: ["18px", { lineHeight: "1.35", letterSpacing: "-0.005em" }],
+        subhead: ["14px", { lineHeight: "1.4" }],
         body: ["14px", { lineHeight: "1.55" }],
-        caption: ["11px", { lineHeight: "1.4", letterSpacing: "0.08em" }],
-        "data-xl": ["36px", { lineHeight: "1.0", letterSpacing: "-0.02em" }],
-        "data-lg": ["24px", { lineHeight: "1.1", letterSpacing: "-0.01em" }],
-        "data-md": ["16px", { lineHeight: "1.2" }],
+        caption: ["11px", { lineHeight: "1.4", letterSpacing: "0.06em" }],
+        "data-xl": ["32px", { lineHeight: "1.05", letterSpacing: "-0.02em" }],
+        "data-lg": ["20px", { lineHeight: "1.15", letterSpacing: "-0.01em" }],
+        "data-md": ["15px", { lineHeight: "1.25" }],
         data: ["13px", { lineHeight: "1.4" }],
         "data-xs": ["11px", { lineHeight: "1.3" }],
       },
       letterSpacing: {
-        caps: "0.14em",
+        caps: "0.1em",
       },
       borderColor: {
-        DEFAULT: "#d4cdb8",
+        DEFAULT: "#e2e8f0",
       },
     },
   },
