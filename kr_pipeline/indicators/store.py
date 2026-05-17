@@ -21,6 +21,9 @@ PHASE_A_COLUMNS_DAILY = [
     "volume_dry_up_flag",
     "up_down_volume_ratio_50d",
     "distribution_day_flag",
+    # B v3 Phase B-A1: drawdown 필터
+    "drawdown_52w_pct",
+    "drawdown_filter_pass",
 ]
 
 
