@@ -46,6 +46,7 @@ export interface SectorHeatmap {
   avg_rs_rating: number | null;
   minervini_pass_count: number;
   minervini_pass_rate: number;
+  avg_return_pct: number | null;
 }
 
 export interface MarketContext {

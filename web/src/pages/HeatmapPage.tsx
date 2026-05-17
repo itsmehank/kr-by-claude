@@ -5,7 +5,19 @@ import { LayoutGrid, Filter, X, ChevronRight } from "lucide-react";
 import { api } from "../lib/api";
 import type { SectorHeatmap, MinerviniPassed } from "../lib/types";
 
-// ── helpers ────────────────────────────────────────────────────────────────
+// ── period ──────────────────────────────────────────────────────────────────
+
+const PERIODS = [
+  { id: "1d", label: "1일" },
+  { id: "1w", label: "1주" },
+  { id: "1m", label: "1개월" },
+  { id: "3m", label: "3개월" },
+  { id: "6m", label: "6개월" },
+  { id: "12m", label: "12개월" },
+] as const;
+type PeriodId = (typeof PERIODS)[number]["id"];
+
+// ── color mapping by return ─────────────────────────────────────────────────
 
 interface TileStyle {
   bg: string;
@@ -13,38 +25,40 @@ interface TileStyle {
   border: string;
 }
 
-function tileStyle(avg: number | null): TileStyle {
-  if (avg === null) {
+function tileStyle(ret: number | null): TileStyle {
+  if (ret === null) {
     return { bg: "bg-tint-stone", text: "text-faint", border: "border-hairline" };
   }
-  if (avg >= 80) {
+  if (ret >= 20)
     return {
       bg: "bg-success",
       text: "text-white",
       border: "border-success",
     };
-  }
-  if (avg >= 60) {
+  if (ret >= 10)
     return {
       bg: "bg-tint-mint",
       text: "text-success",
       border: "border-success/30",
     };
-  }
-  if (avg >= 40) {
+  if (ret >= 0)
     return {
-      bg: "bg-tint-stone",
-      text: "text-muted",
-      border: "border-hairline",
+      bg: "bg-success-soft",
+      text: "text-success",
+      border: "border-success/20",
     };
-  }
-  if (avg >= 20) {
+  if (ret >= -10)
+    return {
+      bg: "bg-danger-soft",
+      text: "text-danger",
+      border: "border-danger/20",
+    };
+  if (ret >= -20)
     return {
       bg: "bg-tint-rose",
       text: "text-danger",
       border: "border-danger/30",
     };
-  }
   return {
     bg: "bg-danger",
     text: "text-white",
@@ -52,7 +66,13 @@ function tileStyle(avg: number | null): TileStyle {
   };
 }
 
-// ── sub-components ──────────────────────────────────────────────────────────
+function fmtPct(v: number | null): string {
+  if (v === null) return "—";
+  const sign = v > 0 ? "+" : "";
+  return `${sign}${v.toFixed(1)}%`;
+}
+
+// ── components ──────────────────────────────────────────────────────────────
 
 interface SectorTileProps {
   sector: SectorHeatmap;
@@ -61,7 +81,7 @@ interface SectorTileProps {
 }
 
 function SectorTile({ sector, selected, onClick }: SectorTileProps) {
-  const style = tileStyle(sector.avg_rs_rating);
+  const style = tileStyle(sector.avg_return_pct);
   return (
     <button
       onClick={onClick}
@@ -75,14 +95,22 @@ function SectorTile({ sector, selected, onClick }: SectorTileProps) {
       >
         {sector.sector}
       </span>
-      <span className="num text-data-lg font-bold leading-none mt-1">
-        {sector.avg_rs_rating !== null
-          ? Math.round(sector.avg_rs_rating)
-          : "—"}
+      <span className="num text-data-lg font-bold leading-none mt-1.5">
+        {fmtPct(sector.avg_return_pct)}
       </span>
-      <span className="text-data-xs opacity-75 mt-1">
-        {sector.minervini_pass_count}/{sector.stock_count}
-      </span>
+      <div className="flex items-baseline justify-between text-data-xs opacity-80 mt-1.5">
+        <span>
+          RS{" "}
+          <span className="num font-semibold">
+            {sector.avg_rs_rating !== null
+              ? Math.round(sector.avg_rs_rating)
+              : "—"}
+          </span>
+        </span>
+        <span className="num">
+          {sector.minervini_pass_count}/{sector.stock_count}
+        </span>
+      </div>
     </button>
   );
 }
@@ -94,16 +122,18 @@ const RS_OPTIONS = [0, 40, 60, 70, 80, 90] as const;
 export default function HeatmapPage() {
   const navigate = useNavigate();
 
+  const [period, setPeriod] = useState<PeriodId>("1m");
   const [date, setDate] = useState<string>("");
   const [minRs, setMinRs] = useState<number>(0);
   const [mineOnly, setMineOnly] = useState<boolean>(false);
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
 
   const sectorsQuery = useQuery<SectorHeatmap[]>({
-    queryKey: ["heatmap-sectors", date],
+    queryKey: ["heatmap-sectors", date, period],
     queryFn: () => {
-      const qs = date ? `?date_=${encodeURIComponent(date)}` : "";
-      return api<SectorHeatmap[]>(`/heatmap/sectors${qs}`);
+      const params = new URLSearchParams({ period });
+      if (date) params.set("date_", date);
+      return api<SectorHeatmap[]>(`/heatmap/sectors?${params}`);
     },
   });
 
@@ -111,16 +141,22 @@ export default function HeatmapPage() {
     queryKey: ["minervini-passed-all"],
     queryFn: () =>
       api<MinerviniPassed[]>("/indicators/minervini-passed?min_rs=0&limit=500"),
-    staleTime: 60_000,
     enabled: selectedSector !== null,
   });
 
-  const sectors: SectorHeatmap[] = (sectorsQuery.data ?? []).filter((s) => {
-    if (minRs > 0 && (s.avg_rs_rating === null || s.avg_rs_rating < minRs))
-      return false;
-    if (mineOnly && s.minervini_pass_rate <= 0) return false;
-    return true;
-  });
+  const sectors: SectorHeatmap[] = (sectorsQuery.data ?? [])
+    .filter((s) => {
+      if (minRs > 0 && (s.avg_rs_rating === null || s.avg_rs_rating < minRs))
+        return false;
+      if (mineOnly && s.minervini_pass_rate <= 0) return false;
+      return true;
+    })
+    // sort by return desc (강한 sector 먼저)
+    .sort((a, b) => {
+      if (a.avg_return_pct === null) return 1;
+      if (b.avg_return_pct === null) return -1;
+      return b.avg_return_pct - a.avg_return_pct;
+    });
 
   const drilldownStocks: MinerviniPassed[] = (minerviniQuery.data ?? [])
     .filter((it) => it.sector === selectedSector)
@@ -157,9 +193,29 @@ export default function HeatmapPage() {
         </div>
 
         <div className="flex flex-wrap items-end gap-5">
+          {/* Period */}
+          <div className="flex flex-col gap-1.5">
+            <label className="caps">기간</label>
+            <div className="flex rounded-lg border border-hairline overflow-hidden text-data font-semibold bg-cream">
+              {PERIODS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setPeriod(p.id)}
+                  className={`px-3 py-1.5 transition-colors ${
+                    period === p.id
+                      ? "bg-accent text-white"
+                      : "text-muted hover:text-ink hover:bg-paper"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Date */}
           <div className="flex flex-col gap-1.5">
-            <label className="caps">날짜</label>
+            <label className="caps">기준일</label>
             <div className="flex items-center gap-2">
               <input
                 type="date"
@@ -215,16 +271,19 @@ export default function HeatmapPage() {
       {/* Sector grid */}
       <section className="mb-6">
         <div className="flex items-baseline justify-between mb-4">
-          <div className="text-subhead font-bold text-ink">전체 섹터</div>
+          <div className="text-subhead font-bold text-ink">
+            섹터별 수익률
+            <span className="text-data-xs text-muted ml-2 font-normal">
+              · {PERIODS.find((p) => p.id === period)?.label}
+            </span>
+          </div>
           <div className="caps text-faint">
-            색상: RS Rating · 빨강 ≤ 회색 ≤ 초록
+            색상: 수익률 · 빨강 ≤ 회색 ≤ 초록
           </div>
         </div>
 
         {sectorsQuery.isLoading && (
-          <div className="bento p-8 text-center text-muted">
-            로딩 중…
-          </div>
+          <div className="bento p-8 text-center text-muted">로딩 중…</div>
         )}
         {sectorsQuery.isError && (
           <div className="bento p-8 text-center text-danger">
