@@ -379,5 +379,5 @@ CREATE TABLE IF NOT EXISTS signal_performance (
 
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (symbol, signal_at),
-  FOREIGN KEY (symbol, signal_at) REFERENCES entry_params(symbol, signal_at)
+  FOREIGN KEY (symbol, signal_at) REFERENCES entry_params(symbol, signal_at) ON DELETE CASCADE
 );
