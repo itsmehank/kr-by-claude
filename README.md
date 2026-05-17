@@ -22,6 +22,9 @@ KOSPI / KOSDAQ 일봉 데이터 적재 파이프라인 및 후속 분석 도구.
 - 지표 주봉 백필: `uv run python -m kr_pipeline.indicators --target=weekly --mode=backfill`
 - 지표 주봉 증분: `uv run python -m kr_pipeline.indicators --target=weekly --mode=incremental --window-weeks=4`
 - 지표 주봉 재적재: `uv run python -m kr_pipeline.indicators --target=weekly --mode=full-refresh`
+- 시장 컨텍스트 백필: `uv run python -m kr_pipeline.market_context --mode=backfill`
+- 시장 컨텍스트 증분: `uv run python -m kr_pipeline.market_context --mode=incremental --window-days=30`
+- 시장 컨텍스트 재적재: `uv run python -m kr_pipeline.market_context --mode=full-refresh`
 
 ## Cron 등록
 
@@ -100,4 +103,21 @@ SELECT i.date, s.ticker, s.name, i.volume_ratio_50d, i.rs_rating
    AND i.volume_dry_up_flag = TRUE
    AND i.rs_rating >= 70
  ORDER BY i.rs_rating DESC LIMIT 20;
+
+-- 오늘의 시장 컨텍스트 (KOSPI + KOSDAQ)
+SELECT date, index_code, current_status, 
+       distribution_day_count_last_25, 
+       last_follow_through_day, 
+       days_since_follow_through,
+       pct_stocks_above_200d_ma
+  FROM market_context_daily
+ WHERE date = (SELECT MAX(date) FROM market_context_daily)
+ ORDER BY index_code;
+
+-- 최근 30 일 KOSPI 시장 추세 변화
+SELECT date, current_status, distribution_day_count_last_25, pct_stocks_above_200d_ma
+  FROM market_context_daily
+ WHERE index_code = '1001'
+   AND date >= (SELECT MAX(date) FROM market_context_daily) - INTERVAL '30 days'
+ ORDER BY date DESC;
 ```
