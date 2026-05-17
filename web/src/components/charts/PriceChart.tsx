@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import {
   createChart,
   createSeriesMarkers,
-  lineSeries as LineSeries,
+  LineSeries,
   ColorType,
 } from "lightweight-charts";
 import type { SeriesMarker, Time } from "lightweight-charts";
