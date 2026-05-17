@@ -23,6 +23,7 @@ dev = [
     "pytest>=8.0",
     "pytest-mock>=3.12",
     "freezegun>=1.4",
+    "httpx>=0.28.1",
 ]
 
 [tool.pytest.ini_options]
