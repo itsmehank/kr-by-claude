@@ -102,3 +102,23 @@ export interface PipelineRun {
   started_at: string | null;
   finished_at: string | null;
 }
+
+export interface Signal {
+  symbol: string;
+  name: string | null;
+  sector: string | null;
+  market: string | null;
+  signal_at: string;
+  entry_mode: string | null;
+  trigger_price: number | null;
+  entry_price: number;
+  stop_loss: number;
+  stop_loss_pct_from_pivot: number | null;
+  stop_loss_pct_from_current_price: number | null;
+  expected_target_price: number | null;
+  expected_target_pct: number | null;
+  risk_reward_ratio: number | null;
+  position_size_pct: number | null;
+  known_warnings: string[];
+  notes: string | null;
+}

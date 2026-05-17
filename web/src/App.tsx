@@ -7,12 +7,15 @@ import {
   LineChart,
   Sparkles,
   FileArchive,
+  Zap,
+  TrendingUp,
 } from "lucide-react";
 import HomePage from "./pages/HomePage";
 import HeatmapPage from "./pages/HeatmapPage";
 import ChartPage from "./pages/ChartPage";
 import MinerviniPage from "./pages/MinerviniPage";
 import PromptPage from "./pages/PromptPage";
+import SignalsPage from "./pages/SignalsPage";
 import { api } from "./lib/api";
 import type { PipelineRun } from "./lib/types";
 import { relativeTime, stalenessLevel } from "./lib/utils";
@@ -29,6 +32,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/heatmap", label: "Sectors", kr: "섹터 히트맵", Icon: LayoutGrid },
   { to: "/chart", label: "Chart", kr: "차트", Icon: LineChart },
   { to: "/minervini", label: "Minervini", kr: "미너비니", Icon: Sparkles },
+  { to: "/signals", label: "Signals", kr: "시그널", Icon: Zap },
+  { to: "/performance", label: "Performance", kr: "시그널 성과", Icon: TrendingUp },
   { to: "/prompt", label: "LLM Prompt", kr: "LLM 프롬프트", Icon: FileArchive },
 ];
 
@@ -168,6 +173,7 @@ function App() {
           <Route path="/chart" element={<ChartPage />} />
           <Route path="/chart/:ticker" element={<ChartPage />} />
           <Route path="/minervini" element={<MinerviniPage />} />
+          <Route path="/signals" element={<SignalsPage />} />
           <Route path="/prompt" element={<PromptPage />} />
           <Route path="/prompt/:ticker" element={<PromptPage />} />
         </Routes>
