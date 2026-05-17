@@ -27,13 +27,13 @@ def run(
     if as_of is None:
         as_of = date.today()
 
-    # 오늘 (5b) 결과 중 go_now 추출
+    # 오늘 (5b) 결과 중 go_now 추출 (UTC 기준 날짜 비교)
     with conn.cursor() as cur:
         cur.execute(
             """
             SELECT symbol, evaluated_at, prior_classification_at
               FROM trigger_evaluation_log
-             WHERE evaluated_at::date = %s
+             WHERE (evaluated_at AT TIME ZONE 'UTC')::date = %s
                AND decision = 'go_now'
              ORDER BY evaluated_at
             """,

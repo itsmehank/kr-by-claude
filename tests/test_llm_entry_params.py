@@ -15,7 +15,8 @@ def test_entry_params_processes_go_now_only(db, mocker):
                 base_high, base_low, base_depth_pct, source)
                VALUES
                ('EP1', %s, 'KOSPI', 'entry', 'cup_with_handle', 80, 'handle_high', 80, 70, 12.5, 'weekend'),
-               ('EP2', %s, 'KOSPI', 'entry', 'flat_base', 60, 'range_high', 60, 55, 8.3, 'weekend')""",
+               ('EP2', %s, 'KOSPI', 'entry', 'flat_base', 60, 'range_high', 60, 55, 8.3, 'weekend')
+               ON CONFLICT (symbol, classified_at) DO NOTHING""",
             (prior_at, prior_at),
         )
         cur.execute(
@@ -24,7 +25,8 @@ def test_entry_params_processes_go_now_only(db, mocker):
                 decision, prior_classification_at)
                VALUES
                ('EP1', %s, 'breakout', 82, 2000000, 80, 'go_now', %s),
-               ('EP2', %s, 'breakout', 61, 1500000, 60, 'wait', %s)""",
+               ('EP2', %s, 'breakout', 61, 1500000, 60, 'wait', %s)
+               ON CONFLICT (symbol, evaluated_at) DO NOTHING""",
             (eval_time, prior_at, eval_time, prior_at),
         )
         # daily_indicators + daily_prices for current_state
@@ -48,11 +50,20 @@ def test_entry_params_processes_go_now_only(db, mocker):
 
     from kr_pipeline.llm_runner.entry_params import run
 
-    result = run(db, dry_run=True, as_of=today)
-
-    # EP1 만 go_now → 1 entry_params row
     with db.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM entry_params WHERE symbol='EP1'")
-        assert cur.fetchone()[0] == 1
+        before_ep1 = cur.fetchone()[0]
         cur.execute("SELECT COUNT(*) FROM entry_params WHERE symbol='EP2'")
-        assert cur.fetchone()[0] == 0
+        before_ep2 = cur.fetchone()[0]
+
+    result = run(db, dry_run=True, as_of=today)
+
+    # EP1 만 go_now → 1 새 entry_params row, EP2 는 wait → 추가 없음
+    with db.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM entry_params WHERE symbol='EP1'")
+        after_ep1 = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM entry_params WHERE symbol='EP2'")
+        after_ep2 = cur.fetchone()[0]
+
+    assert after_ep1 - before_ep1 == 1
+    assert after_ep2 - before_ep2 == 0

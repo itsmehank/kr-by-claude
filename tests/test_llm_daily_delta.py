@@ -21,6 +21,13 @@ def test_daily_delta_dry_run(db, mocker):
         return_value=b"fake_zip",
     )
 
+    # 최근 7일 분류 제거해야 delta 가 DD1 을 신규 후보로 인식
+    with db.cursor() as cur:
+        cur.execute(
+            "DELETE FROM weekly_classification WHERE symbol='DD1'"
+        )
+    db.commit()
+
     from kr_pipeline.llm_runner.daily_delta import run
 
     with db.cursor() as cur:

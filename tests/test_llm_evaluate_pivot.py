@@ -12,7 +12,8 @@ def test_evaluate_pivot_dry_run(db, mocker):
                (symbol, classified_at, market, classification, pattern,
                 pivot_price, pivot_basis, base_high, base_low, base_depth_pct, source)
                VALUES ('EV1', %s, 'KOSPI', 'entry', 'cup_with_handle',
-                       80, 'handle_high', 80, 70, 12.5, 'weekend')""",
+                       80, 'handle_high', 80, 70, 12.5, 'weekend')
+               ON CONFLICT (symbol, classified_at) DO NOTHING""",
             (prior_at,),
         )
         # Today's bar — breakout
