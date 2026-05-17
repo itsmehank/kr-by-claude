@@ -7,6 +7,7 @@ import {
   Building2,
   Trophy,
   Activity,
+  ChevronRight,
 } from "lucide-react";
 import { api } from "../lib/api";
 import type {
@@ -15,6 +16,8 @@ import type {
   MarketContext,
   PipelineRun,
 } from "../lib/types";
+import { InfoTooltip } from "../components/ui/InfoTooltip";
+import { Skeleton, SkeletonRow } from "../components/ui/Skeleton";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -56,7 +59,16 @@ function todayParts() {
   return { yyyy, mm, dd, weekdayKr };
 }
 
-// ── Cards ──────────────────────────────────────────────────────────────────
+// ── Empty state ────────────────────────────────────────────────────────────
+
+interface EmptyProps {
+  label?: string;
+}
+function EmptyState({ label = "데이터 없음" }: EmptyProps) {
+  return <div className="text-data text-muted py-2">{label}</div>;
+}
+
+// ── Sub-components ─────────────────────────────────────────────────────────
 
 interface StatBentoProps {
   Icon: typeof Layers;
@@ -67,6 +79,7 @@ interface StatBentoProps {
   loading: boolean;
   error: boolean;
   subLabel?: string;
+  onClick?: () => void;
 }
 
 function StatBento({
@@ -78,26 +91,66 @@ function StatBento({
   loading,
   error,
   subLabel,
+  onClick,
 }: StatBentoProps) {
-  let display: string;
-  if (loading) display = "—";
-  else if (error) display = "오류";
-  else display = (value ?? 0).toLocaleString();
+  const clickable = !!onClick;
   return (
-    <div className="bento p-6">
+    <div
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
+      className={`bento p-6 ${
+        clickable ? "bento-clickable group" : ""
+      }`}
+    >
       <div className="flex items-center justify-between mb-5">
-        <div className={["p-2 rounded-xl", iconBg].join(" ")}>
-          <Icon size={18} className={iconColor} strokeWidth={2} />
+        <div className={["p-2.5 rounded-xl", iconBg].join(" ")}>
+          <Icon size={20} className={iconColor} strokeWidth={2} />
         </div>
-        {subLabel && (
-          <span className="caps text-faint">{subLabel}</span>
-        )}
+        <div className="flex items-center gap-2">
+          {subLabel && <span className="caps text-faint">{subLabel}</span>}
+          {clickable && (
+            <ChevronRight
+              size={16}
+              className="text-faint group-hover:text-accent transition-colors"
+            />
+          )}
+        </div>
       </div>
       <div className="text-subhead text-muted font-medium mb-2">{label}</div>
-      <div className="num text-data-xl font-semibold tracking-tight text-ink">
-        {display}
-      </div>
+      {loading ? (
+        <Skeleton height={44} width="60%" />
+      ) : error ? (
+        <div className="num text-data-xl font-semibold text-danger">오류</div>
+      ) : (
+        <div className="num text-data-xl font-semibold tracking-tight text-ink">
+          {(value ?? 0).toLocaleString()}
+        </div>
+      )}
     </div>
+  );
+}
+
+interface DataLabelProps {
+  label: string;
+  tip: React.ReactNode;
+}
+function DataLabel({ label, tip }: DataLabelProps) {
+  return (
+    <span className="caps inline-flex items-center">
+      {label}
+      <InfoTooltip>{tip}</InfoTooltip>
+    </span>
   );
 }
 
@@ -131,7 +184,7 @@ function MarketBento({ context, title, code, tint }: MarketBentoProps) {
             <div className="text-data-xs text-muted mt-1">Index · {code}</div>
           </div>
         </div>
-        <div className="text-muted">데이터 없음</div>
+        <EmptyState label="시장 데이터 없음" />
       </div>
     );
   }
@@ -144,11 +197,7 @@ function MarketBento({ context, title, code, tint }: MarketBentoProps) {
       ? "text-success"
       : "text-muted";
   const dotClass =
-    tone === "down"
-      ? "bg-danger"
-      : tone === "up"
-      ? "bg-success"
-      : "bg-faint";
+    tone === "down" ? "bg-danger" : tone === "up" ? "bg-success" : "bg-faint";
   const toneKr = tone === "up" ? "상승" : tone === "down" ? "하락" : "중립";
 
   return (
@@ -165,12 +214,7 @@ function MarketBento({ context, title, code, tint }: MarketBentoProps) {
             <div className="text-data-xs text-muted mt-1">Index · {code}</div>
           </div>
         </div>
-        <span
-          className={[
-            "chip bg-paper",
-            toneClass,
-          ].join(" ")}
-        >
+        <span className={["chip bg-paper", toneClass].join(" ")}>
           <span className={["h-1.5 w-1.5 rounded-full", dotClass].join(" ")} />
           {toneKr}
         </span>
@@ -182,23 +226,65 @@ function MarketBento({ context, title, code, tint }: MarketBentoProps) {
 
       <dl className="grid grid-cols-3 gap-4">
         <div>
-          <dt className="caps mb-1.5">Distribution</dt>
-          <dd className="num text-data-lg font-semibold">
+          <dt>
+            <DataLabel
+              label="Distribution"
+              tip={
+                <>
+                  <div className="font-semibold mb-1">Distribution Day</div>
+                  <div>
+                    지수가 -0.2% 이상 하락 + 거래량 전일 대비 증가한 날. 기관 매도 신호.
+                    최근 25일 중 5일 이상이면 약세장 시사.
+                  </div>
+                  <div className="text-faint mt-1 text-data-xs">
+                    O'Neil HTMMIS Ch.9
+                  </div>
+                </>
+              }
+            />
+          </dt>
+          <dd className="num text-data-lg font-semibold mt-1.5">
             {context.distribution_day_count_last_25_sessions ?? "—"}
             <span className="text-data text-muted ml-1 font-normal">/25d</span>
           </dd>
         </div>
         <div>
-          <dt className="caps mb-1.5">Breadth</dt>
-          <dd className="num text-data-lg font-semibold">
+          <dt>
+            <DataLabel
+              label="Breadth"
+              tip={
+                <>
+                  <div className="font-semibold mb-1">Market Breadth</div>
+                  <div>
+                    전체 종목 중 200일 이평선 위에 있는 비율. 시장 폭 지표.
+                    &gt; 60% 강세, &lt; 40% 약세 시사.
+                  </div>
+                </>
+              }
+            />
+          </dt>
+          <dd className="num text-data-lg font-semibold mt-1.5">
             {context.pct_stocks_above_200d_ma != null
               ? `${context.pct_stocks_above_200d_ma.toFixed(1)}%`
               : "—"}
           </dd>
         </div>
         <div>
-          <dt className="caps mb-1.5">FTD</dt>
-          <dd className="num text-data-md font-semibold text-muted">
+          <dt>
+            <DataLabel
+              label="FTD"
+              tip={
+                <>
+                  <div className="font-semibold mb-1">Follow-Through Day</div>
+                  <div>
+                    시장 바닥 후 4-7일째 +1.7% 이상 상승 + 거래량 증가한 첫 강세 신호.
+                    신규 상승장 진입 트리거.
+                  </div>
+                </>
+              }
+            />
+          </dt>
+          <dd className="num text-data-md font-semibold mt-1.5 text-muted">
             {context.last_follow_through_day ?? "—"}
           </dd>
         </div>
@@ -213,7 +299,7 @@ interface RunStatusProps {
 function RunStatus({ status }: RunStatusProps) {
   if (status === "success") {
     return (
-      <span className="chip bg-success/10 text-success">
+      <span className="chip bg-success-soft text-success">
         <span className="h-1.5 w-1.5 rounded-full bg-success" />
         success
       </span>
@@ -221,7 +307,7 @@ function RunStatus({ status }: RunStatusProps) {
   }
   if (status === "failed" || status === "error") {
     return (
-      <span className="chip bg-danger/10 text-danger">
+      <span className="chip bg-danger-soft text-danger">
         <span className="h-1.5 w-1.5 rounded-full bg-danger" />
         {status}
       </span>
@@ -229,7 +315,7 @@ function RunStatus({ status }: RunStatusProps) {
   }
   if (status === "running") {
     return (
-      <span className="chip bg-amber/10 text-amber">
+      <span className="chip bg-amber-soft text-amber">
         <span className="h-1.5 w-1.5 rounded-full bg-amber animate-pulse" />
         running
       </span>
@@ -314,6 +400,7 @@ export default function HomePage() {
           value={minerviniQ.data?.length}
           loading={minerviniQ.isLoading}
           error={minerviniQ.isError}
+          onClick={() => navigate("/minervini?min_rs=70")}
         />
         <StatBento
           Icon={Star}
@@ -324,15 +411,22 @@ export default function HomePage() {
           value={minervini80Q.data?.length}
           loading={minervini80Q.isLoading}
           error={minervini80Q.isError}
+          onClick={() => navigate("/minervini?min_rs=80")}
         />
       </div>
 
-      {/* Row 2: 2 market cards (large) */}
+      {/* Row 2: 2 market cards */}
       <div className="grid grid-cols-2 gap-5 mb-5">
         {marketQ.isLoading && (
           <>
-            <div className="bento p-7 text-muted">시장 데이터 로딩…</div>
-            <div className="bento p-7 text-muted">시장 데이터 로딩…</div>
+            <div className="bento p-7">
+              <Skeleton height={28} width="50%" className="mb-4" />
+              <Skeleton height={20} width="70%" />
+            </div>
+            <div className="bento p-7">
+              <Skeleton height={28} width="50%" className="mb-4" />
+              <Skeleton height={20} width="70%" />
+            </div>
           </>
         )}
         {marketQ.isError && (
@@ -353,7 +447,7 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Row 3: Top RS (wide) + Runs */}
+      {/* Row 3: Top RS + Runs */}
       <div className="grid grid-cols-[7fr_5fr] gap-5">
         <section className="bento p-6">
           <div className="flex items-center justify-between mb-5">
@@ -366,18 +460,22 @@ export default function HomePage() {
                   RS Rating Top 10
                 </div>
                 <div className="text-data-xs text-muted mt-0.5">
-                  Minervini 통과 종목
+                  미너비니 통과 종목
                 </div>
               </div>
             </div>
           </div>
 
-          {topRsQ.isLoading && <div className="text-muted py-4">로딩…</div>}
-          {topRsQ.isError && (
-            <div className="text-danger py-4">로딩 실패</div>
+          {topRsQ.isLoading && (
+            <div className="space-y-1">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <SkeletonRow key={i} cols={5} />
+              ))}
+            </div>
           )}
+          {topRsQ.isError && <EmptyState label="로딩 실패" />}
           {topRsQ.data && topRsQ.data.length === 0 && (
-            <div className="text-muted py-4">통과 종목 없음</div>
+            <EmptyState label="통과 종목 없음" />
           )}
           {topRsQ.data && topRsQ.data.length > 0 && (
             <div className="space-y-0.5">
@@ -421,19 +519,21 @@ export default function HomePage() {
                 <div className="text-subhead font-bold text-ink">
                   파이프라인 이력
                 </div>
-                <div className="text-data-xs text-muted mt-0.5">
-                  최근 8개
-                </div>
+                <div className="text-data-xs text-muted mt-0.5">최근 8개</div>
               </div>
             </div>
           </div>
 
-          {runsQ.isLoading && <div className="text-muted py-4">로딩…</div>}
-          {runsQ.isError && (
-            <div className="text-danger py-4">로딩 실패</div>
+          {runsQ.isLoading && (
+            <div className="space-y-1">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <SkeletonRow key={i} cols={4} />
+              ))}
+            </div>
           )}
+          {runsQ.isError && <EmptyState label="로딩 실패" />}
           {runsQ.data && runsQ.data.length === 0 && (
-            <div className="text-muted py-4">이력 없음</div>
+            <EmptyState label="이력 없음" />
           )}
           {runsQ.data && runsQ.data.length > 0 && (
             <div className="space-y-1.5">
