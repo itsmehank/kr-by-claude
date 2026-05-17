@@ -131,6 +131,30 @@ Examine the RS Line series in `indicators_recent_60d`:
 - **Weak leadership**: RS Line declining or flat while price advances over the past 4-8 weeks (negative divergence). Consider adding `volume_contraction_on_advance` if volume also declining, or demote to `watch`.
 - **Neutral**: RS Line trending up roughly in line with price — no special note required.
 
+### 4.7 Pivot Price 산출 (entry/watch 분류 시 필수)
+
+베이스 패턴 식별 직후, 다음 규칙으로 pivot price 와 base 정보 산출:
+
+| pattern         | pivot_price                       | pivot_basis     |
+|-----------------|-----------------------------------|-----------------|
+| flat_base       | range_high + 0.1                  | range_high      |
+| cup_with_handle | handle_high + 0.1                 | handle_high     |
+| vcp             | final_T_high + 0.1                | final_T_high    |
+| double_bottom   | mid_W_peak + 0.1 (두 low 사이 최고점) | mid_W_peak     |
+| none            | null                              | null            |
+
+base_high, base_low: 베이스 구간의 high/low 값
+base_depth_pct: (base_high - base_low) / base_high * 100
+base_start_date: 베이스 시작 추정 날짜 (ISO 형식 "YYYY-MM-DD")
+
+ignore 분류 시 pivot/base 6 필드 모두 null.
+
+**중요 — stop_loss 출력 안 함**: stop_loss 는 (6) calculate_entry_params 가
+base_low + pivot 받아서 산출함. (5) 에서는 base_low 만 정확히 식별.
+
+**중요 — 3c_cheat refinement 안 함**: cup_with_handle 만 식별. 3c_cheat
+판정은 (6) 이 base 깊이의 lower-to-middle 위치 보고 자체 적용.
+
 ### 5. Risk Flags
 
 Select from **exactly this taxonomy** (no other values are permitted):
@@ -201,11 +225,18 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
 
 ```json
 {
-  "classification": "entry|watch|ignore",
-  "confidence": 0.85,
-  "reasoning": "12-week flat base, pivot $192.60 (base high $192.50 + $0.10). Breakout 2026-03-15 on 2.3× vol. RS 89, RS Line at new high before price. Market confirmed uptrend, 2 dist days. SMA stack clean. +12% above SMA-50.",
-  "pattern": "flat_base|cup_with_handle|vcp|double_bottom|none",
-  "risk_flags": ["extended_from_ma"]
+  "classification": "entry | watch | ignore",
+  "pattern": "flat_base | cup_with_handle | vcp | double_bottom | none",
+  "confidence": 0.0,
+  "reasoning": "≤500자",
+  "risk_flags": ["..."],
+
+  "pivot_price": 82500.1,
+  "pivot_basis": "handle_high | range_high | final_T_high | mid_W_peak | null",
+  "base_high": 82500.0,
+  "base_low": 75000.0,
+  "base_depth_pct": 9.1,
+  "base_start_date": "2026-03-15"
 }
 ```
 
@@ -221,7 +252,7 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
 
 - Do not output any text outside the JSON object.
 - Do not invent data not in the input (e.g., do not speculate about earnings dates, news catalysts).
-- Do not give entry parameters here (pivot price, stop loss, position size) — that is a separate task (`calculate_entry_params`).
+- Do not give entry parameters here (stop loss, position size) — that is a separate task (`calculate_entry_params`). pivot_price and base fields ARE output by this prompt (§4.7).
 - Do not include Trend Template positive signals (high RS Rating, price above MAs, blue dot, RS Line leadership) as risk_flags.
 - Do not invent risk flags outside the 13-value taxonomy.
 - Do not invent new pattern names outside the 5-value taxonomy.
