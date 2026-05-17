@@ -4,25 +4,46 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Surfaces
-        cream: "#ffffff",        // body background
-        paper: "#f8fafc",        // elevated / sub-surface (slate-50)
+        // Surfaces — warm whites
+        cream: "#fafaf9",        // body bg (stone-50)
+        paper: "#ffffff",        // pure white card surface
         // Text
-        ink: "#0f172a",          // primary (slate-900)
-        muted: "#64748b",        // secondary (slate-500)
-        faint: "#94a3b8",        // tertiary (slate-400)
-        // Borders
-        hairline: "#e2e8f0",     // slate-200
-        // Accents
+        ink: "#18181b",          // zinc-900
+        muted: "#71717a",        // zinc-500
+        faint: "#a1a1aa",        // zinc-400
+        // Borders — barely visible
+        hairline: "#e4e4e7",     // zinc-200
+        // Primary accent
         accent: {
-          DEFAULT: "#1e3a8a",    // navy (blue-900)
+          DEFAULT: "#2563eb",    // blue-600
           light: "#3b82f6",      // blue-500
-          soft: "#dbeafe",       // blue-100
+          soft: "#eff6ff",       // blue-50
+        },
+        // Secondary accent
+        amber: {
+          DEFAULT: "#f59e0b",    // amber-500
+          soft: "#fffbeb",       // amber-50
+          mid: "#fef3c7",        // amber-100
         },
         // Semantic
-        success: "#15803d",      // green-700
-        warning: "#b45309",      // amber-700
-        danger: "#b91c1c",       // red-700
+        success: {
+          DEFAULT: "#16a34a",    // green-600
+          soft: "#f0fdf4",       // green-50
+        },
+        warning: "#b45309",
+        danger: {
+          DEFAULT: "#dc2626",    // red-600
+          soft: "#fef2f2",       // red-50
+        },
+        // Pastel tints for bento cards
+        tint: {
+          blue: "#eff6ff",       // blue-50
+          amber: "#fffbeb",      // amber-50
+          rose: "#fef2f2",       // red-50
+          mint: "#ecfdf5",       // green-50
+          stone: "#f5f5f4",      // stone-100
+          violet: "#f5f3ff",     // violet-50
+        },
       },
       fontFamily: {
         display: [
@@ -50,25 +71,34 @@ export default {
         ],
       },
       fontSize: {
-        "display-2xl": ["64px", { lineHeight: "1.05", letterSpacing: "-0.025em" }],
-        "display-xl": ["44px", { lineHeight: "1.1", letterSpacing: "-0.02em" }],
-        "display-lg": ["32px", { lineHeight: "1.15", letterSpacing: "-0.015em" }],
-        "display-md": ["22px", { lineHeight: "1.2", letterSpacing: "-0.01em" }],
-        headline: ["18px", { lineHeight: "1.35", letterSpacing: "-0.005em" }],
+        "display-2xl": ["56px", { lineHeight: "1.05", letterSpacing: "-0.03em" }],
+        "display-xl": ["40px", { lineHeight: "1.1", letterSpacing: "-0.025em" }],
+        "display-lg": ["28px", { lineHeight: "1.2", letterSpacing: "-0.02em" }],
+        "display-md": ["20px", { lineHeight: "1.25", letterSpacing: "-0.01em" }],
+        headline: ["17px", { lineHeight: "1.35" }],
         subhead: ["14px", { lineHeight: "1.4" }],
         body: ["14px", { lineHeight: "1.55" }],
-        caption: ["11px", { lineHeight: "1.4", letterSpacing: "0.06em" }],
-        "data-xl": ["32px", { lineHeight: "1.05", letterSpacing: "-0.02em" }],
-        "data-lg": ["20px", { lineHeight: "1.15", letterSpacing: "-0.01em" }],
-        "data-md": ["15px", { lineHeight: "1.25" }],
+        caption: ["11px", { lineHeight: "1.4", letterSpacing: "0.04em" }],
+        "data-xl": ["44px", { lineHeight: "1.0", letterSpacing: "-0.03em" }],
+        "data-lg": ["28px", { lineHeight: "1.15", letterSpacing: "-0.015em" }],
+        "data-md": ["18px", { lineHeight: "1.25", letterSpacing: "-0.005em" }],
         data: ["13px", { lineHeight: "1.4" }],
         "data-xs": ["11px", { lineHeight: "1.3" }],
       },
       letterSpacing: {
-        caps: "0.1em",
+        caps: "0.04em",
+      },
+      borderRadius: {
+        "2xl": "16px",
+        "3xl": "24px",
+      },
+      boxShadow: {
+        bento: "0 1px 2px rgba(24, 24, 27, 0.04), 0 4px 12px rgba(24, 24, 27, 0.04)",
+        "bento-hover":
+          "0 2px 4px rgba(24, 24, 27, 0.06), 0 8px 24px rgba(24, 24, 27, 0.08)",
       },
       borderColor: {
-        DEFAULT: "#e2e8f0",
+        DEFAULT: "#e4e4e7",
       },
     },
   },

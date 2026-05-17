@@ -1,4 +1,11 @@
 import { Routes, Route, NavLink } from "react-router-dom";
+import {
+  LayoutDashboard,
+  LayoutGrid,
+  LineChart,
+  Sparkles,
+  FileArchive,
+} from "lucide-react";
 import HomePage from "./pages/HomePage";
 import HeatmapPage from "./pages/HeatmapPage";
 import ChartPage from "./pages/ChartPage";
@@ -9,64 +16,61 @@ interface NavItem {
   to: string;
   label: string;
   kr: string;
-  index: string;
+  Icon: typeof LayoutDashboard;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/", label: "Overview", kr: "총괄", index: "01" },
-  { to: "/heatmap", label: "Sectors", kr: "섹터 히트맵", index: "02" },
-  { to: "/chart", label: "Chart", kr: "차트", index: "03" },
-  { to: "/minervini", label: "Minervini", kr: "미너비니", index: "04" },
-  { to: "/prompt", label: "LLM Prompt", kr: "LLM 프롬프트", index: "05" },
+  { to: "/", label: "Overview", kr: "총괄", Icon: LayoutDashboard },
+  { to: "/heatmap", label: "Sectors", kr: "섹터 히트맵", Icon: LayoutGrid },
+  { to: "/chart", label: "Chart", kr: "차트", Icon: LineChart },
+  { to: "/minervini", label: "Minervini", kr: "미너비니", Icon: Sparkles },
+  { to: "/prompt", label: "LLM Prompt", kr: "LLM 프롬프트", Icon: FileArchive },
 ];
 
 function App() {
   return (
     <div className="min-h-screen flex bg-cream">
-      <aside className="w-[240px] shrink-0 border-r border-hairline flex flex-col">
-        <div className="px-6 pt-8 pb-10">
-          <h1 className="display text-display-md tracking-tight leading-none">
+      <aside className="w-[244px] shrink-0 flex flex-col bg-cream border-r border-hairline">
+        <div className="px-6 pt-8 pb-8">
+          <h1 className="font-display text-display-md font-bold tracking-tight leading-none">
             kr-by-claude
           </h1>
-          <div className="caps text-faint mt-2">
-            korean equities · v0.1
+          <div className="text-data-xs text-muted mt-2 leading-relaxed">
+            Korean equities · v0.1
           </div>
         </div>
 
-        <nav className="px-3 flex-1 space-y-0.5">
-          {NAV_ITEMS.map((item) => (
+        <nav className="px-3 flex-1 space-y-1">
+          {NAV_ITEMS.map(({ to, label, kr, Icon }) => (
             <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === "/"}
+              key={to}
+              to={to}
+              end={to === "/"}
               className={({ isActive }) =>
                 [
-                  "group block px-3 py-2.5 rounded-md transition-colors",
+                  "group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all",
                   isActive
-                    ? "bg-accent-soft text-ink"
-                    : "text-muted hover:text-ink hover:bg-paper",
+                    ? "bg-paper shadow-bento text-ink"
+                    : "text-muted hover:bg-paper/60 hover:text-ink",
                 ].join(" ")
               }
             >
               {({ isActive }) => (
-                <div className="flex items-baseline gap-3">
-                  <span
-                    className={[
-                      "num text-data-xs",
-                      isActive ? "text-accent" : "text-faint",
-                    ].join(" ")}
-                  >
-                    {item.index}
-                  </span>
+                <>
+                  <Icon
+                    size={18}
+                    className={isActive ? "text-accent" : "text-faint"}
+                    strokeWidth={1.75}
+                  />
                   <div className="flex-1 min-w-0">
                     <div className="text-subhead font-semibold leading-tight">
-                      {item.kr}
+                      {kr}
                     </div>
-                    <div className="caps text-data-xs mt-0.5 text-faint group-hover:text-muted">
-                      {item.label}
+                    <div className="text-data-xs text-faint mt-0.5">
+                      {label}
                     </div>
                   </div>
-                </div>
+                </>
               )}
             </NavLink>
           ))}
