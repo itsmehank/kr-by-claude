@@ -44,3 +44,16 @@ LOG_DIR=/var/log/kr_pipeline
 
 # 매월 1일 06:00 — corp_code 매핑 갱신
 0  6 1 * *  cd $PROJECT_DIR && uv run python -m kr_pipeline.corporate_actions --mode=refresh-mapping >> $LOG_DIR/corporate_actions.log 2>&1
+
+# ─── #4 LLM Analysis Runner (B v3 갭 1-8 day-1 통합) ───────────────────────
+# 장 마감 (15:30 KST) 후 30분 버퍼 + 각 10분 간격.
+# 일봉/지표/시장컨텍스트는 위 cron 으로 이미 수행되므로 16:30 부터 LLM runner 실행.
+
+# 평일 16:30 — 평일 LLM runner: daily-delta + trigger + (5b) + (6) + perf backfill
+30 16 * * 1-5  cd $PROJECT_DIR && uv run python -m kr_pipeline.llm_runner --mode=full-daily >> $LOG_DIR/llm_runner.log 2>&1
+
+# 토 03:20 — 주말 (5) batch (주봉/주봉지표 03:00/03:10 후)
+20  3 * * 6    cd $PROJECT_DIR && uv run python -m kr_pipeline.llm_runner --mode=weekend >> $LOG_DIR/llm_runner.log 2>&1
+
+# 매일 23:00 — signal_performance backfill (시그널 N일 후 가격 채우기)
+0  23 * * *    cd $PROJECT_DIR && uv run python -m kr_pipeline.llm_runner --mode=performance >> $LOG_DIR/llm_runner.log 2>&1
