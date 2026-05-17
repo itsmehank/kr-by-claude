@@ -38,3 +38,9 @@ LOG_DIR=/var/log/kr_pipeline
 
 # 매월 1일 03:30 — 시장 컨텍스트 full-refresh (일봉 지표 03:00 후)
 30  3 1 * *    cd $PROJECT_DIR && uv run python -m kr_pipeline.market_context --mode=full-refresh >> $LOG_DIR/market_context.log 2>&1
+
+# 매주 토요일 04:30 — corporate actions incremental (주봉 04:00 의 30 분 후)
+30 4 * * 6  cd $PROJECT_DIR && uv run python -m kr_pipeline.corporate_actions --mode=incremental --window-days=7 >> $LOG_DIR/corporate_actions.log 2>&1
+
+# 매월 1일 06:00 — corp_code 매핑 갱신
+0  6 1 * *  cd $PROJECT_DIR && uv run python -m kr_pipeline.corporate_actions --mode=refresh-mapping >> $LOG_DIR/corporate_actions.log 2>&1

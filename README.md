@@ -25,6 +25,9 @@ KOSPI / KOSDAQ 일봉 데이터 적재 파이프라인 및 후속 분석 도구.
 - 시장 컨텍스트 백필: `uv run python -m kr_pipeline.market_context --mode=backfill`
 - 시장 컨텍스트 증분: `uv run python -m kr_pipeline.market_context --mode=incremental --window-days=30`
 - 시장 컨텍스트 재적재: `uv run python -m kr_pipeline.market_context --mode=full-refresh`
+- 기업행위 매핑 갱신: `uv run python -m kr_pipeline.corporate_actions --mode=refresh-mapping`
+- 기업행위 백필: `uv run python -m kr_pipeline.corporate_actions --mode=backfill --years=5`
+- 기업행위 증분: `uv run python -m kr_pipeline.corporate_actions --mode=incremental --window-days=7`
 
 ## Cron 등록
 
@@ -120,4 +123,24 @@ SELECT date, current_status, distribution_day_count_last_25, pct_stocks_above_20
  WHERE index_code = '1001'
    AND date >= (SELECT MAX(date) FROM market_context_daily) - INTERVAL '30 days'
  ORDER BY date DESC;
+
+-- 12주 이내 역분할 발생 종목 (LLM 분석 우선 제외 대상)
+SELECT ticker, event_date, event_type, ratio, raw_disclosure_title
+  FROM corporate_actions
+ WHERE event_type IN ('reverse_split', 'capital_reduction')
+   AND event_date >= CURRENT_DATE - INTERVAL '84 days'
+ ORDER BY event_date DESC;
+
+-- 최근 1년 이벤트 종류 분포
+SELECT event_type, COUNT(*) AS cnt
+  FROM corporate_actions
+ WHERE event_date >= CURRENT_DATE - INTERVAL '1 year'
+ GROUP BY event_type
+ ORDER BY cnt DESC;
+
+-- 매핑 없는 활성 종목 (refresh-mapping 필요한지 확인)
+SELECT COUNT(*) AS missing_mapping
+  FROM stocks s
+ WHERE s.delisted_at IS NULL
+   AND NOT EXISTS (SELECT 1 FROM dart_corp_codes d WHERE d.stock_code = s.ticker);
 ```
