@@ -10,6 +10,7 @@ dependencies = [
     "tenacity>=8.2",
     "python-dotenv>=1.0",
     "setuptools>=69",  # pykrx imports pkg_resources at module load; uv does not inject setuptools by default, so we declare it explicitly
+    "requests>=2.31",
 ]
 
 [dependency-groups]

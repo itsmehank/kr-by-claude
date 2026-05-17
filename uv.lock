@@ -417,6 +417,7 @@ dependencies = [
     { name = "psycopg", extra = ["binary"] },
     { name = "pykrx" },
     { name = "python-dotenv" },
+    { name = "requests" },
     { name = "setuptools" },
     { name = "tenacity" },
 ]
@@ -434,6 +435,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], specifier = ">=3.1" },
     { name = "pykrx", specifier = ">=1.2.8" },
     { name = "python-dotenv", specifier = ">=1.0" },
+    { name = "requests", specifier = ">=2.31" },
     { name = "setuptools", specifier = ">=69" },
     { name = "tenacity", specifier = ">=8.2" },
 ]

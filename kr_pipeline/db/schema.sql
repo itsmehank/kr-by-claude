@@ -212,3 +212,33 @@ CREATE TABLE IF NOT EXISTS market_context_daily (
     PRIMARY KEY (date, index_code)
 );
 CREATE INDEX IF NOT EXISTS idx_market_context_date ON market_context_daily(date);
+
+-- ====== Corporate Actions (#2.6) ======
+
+CREATE TABLE IF NOT EXISTS dart_corp_codes (
+    stock_code  VARCHAR(10)  PRIMARY KEY,
+    corp_code   VARCHAR(20)  NOT NULL,
+    corp_name   VARCHAR(200),
+    modify_date DATE,
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS corporate_actions (
+    id                    BIGSERIAL    PRIMARY KEY,
+    ticker                VARCHAR(10)  NOT NULL REFERENCES stocks(ticker),
+    event_date            DATE         NOT NULL,
+    event_type            VARCHAR(30)  NOT NULL,
+    ratio                 VARCHAR(50),
+    note                  TEXT,
+    dart_rcept_no         VARCHAR(20),
+    raw_disclosure_title  TEXT,
+    fetched_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    UNIQUE (ticker, event_date, event_type, dart_rcept_no)
+);
+CREATE INDEX IF NOT EXISTS idx_corp_actions_ticker_date
+    ON corporate_actions(ticker, event_date DESC);
+CREATE INDEX IF NOT EXISTS idx_corp_actions_event_type_date
+    ON corporate_actions(event_type, event_date DESC);
+CREATE INDEX IF NOT EXISTS idx_corp_actions_recent_distress
+    ON corporate_actions(event_date DESC)
+    WHERE event_type IN ('reverse_split', 'capital_reduction');
