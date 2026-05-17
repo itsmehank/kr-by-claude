@@ -1,5 +1,4 @@
-import type { Config } from "tailwindcss";
-
+/** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
@@ -43,14 +42,14 @@ export default {
         "display-xl": ["56px", { lineHeight: "1.0", letterSpacing: "-0.015em" }],
         "display-lg": ["40px", { lineHeight: "1.05", letterSpacing: "-0.01em" }],
         "display-md": ["28px", { lineHeight: "1.15", letterSpacing: "-0.005em" }],
-        "headline": ["20px", { lineHeight: "1.3" }],
-        "subhead": ["15px", { lineHeight: "1.4", letterSpacing: "0.01em" }],
-        "body": ["14px", { lineHeight: "1.55" }],
-        "caption": ["11px", { lineHeight: "1.4", letterSpacing: "0.08em" }],
+        headline: ["20px", { lineHeight: "1.3" }],
+        subhead: ["15px", { lineHeight: "1.4", letterSpacing: "0.01em" }],
+        body: ["14px", { lineHeight: "1.55" }],
+        caption: ["11px", { lineHeight: "1.4", letterSpacing: "0.08em" }],
         "data-xl": ["36px", { lineHeight: "1.0", letterSpacing: "-0.02em" }],
         "data-lg": ["24px", { lineHeight: "1.1", letterSpacing: "-0.01em" }],
         "data-md": ["16px", { lineHeight: "1.2" }],
-        "data": ["13px", { lineHeight: "1.4" }],
+        data: ["13px", { lineHeight: "1.4" }],
         "data-xs": ["11px", { lineHeight: "1.3" }],
       },
       letterSpacing: {
@@ -62,4 +61,4 @@ export default {
     },
   },
   plugins: [],
-} satisfies Config;
+};
