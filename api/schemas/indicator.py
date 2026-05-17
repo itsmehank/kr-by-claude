@@ -34,3 +34,21 @@ class MinerviniPassedOut(BaseModel):
     adj_close: float
     volume_ratio_50d: float | None = None
     pocket_pivot_flag: bool | None = None
+
+
+class WeeklyIndicatorOut(BaseModel):
+    date: date  # week_end_date
+    adj_close: float
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
+    close: float | None = None
+    volume: int | None = None
+    sma_10w: float | None = None
+    sma_30w: float | None = None
+    sma_40w: float | None = None
+    w52_high: float | None = None
+    w52_low: float | None = None
+    rs_line: float | None = None
+    rs_rating: int | None = None
+    minervini_pass: bool | None = None

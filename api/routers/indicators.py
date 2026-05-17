@@ -3,7 +3,11 @@ from fastapi import APIRouter, Depends
 from psycopg import Connection
 
 from api.deps import get_conn
-from api.schemas.indicator import DailyIndicatorOut, MinerviniPassedOut
+from api.schemas.indicator import (
+    DailyIndicatorOut,
+    MinerviniPassedOut,
+    WeeklyIndicatorOut,
+)
 
 
 router = APIRouter(prefix="/api/indicators", tags=["indicators"])
@@ -53,6 +57,56 @@ def get_daily(ticker: str, start: date | None = None, end: date | None = None,
         pocket_pivot_flag=r[19],
         distribution_day_flag=r[20],
     ) for r in rows]
+
+
+@router.get("/weekly/{ticker}", response_model=list[WeeklyIndicatorOut])
+def get_weekly(
+    ticker: str,
+    start: date | None = None,
+    end: date | None = None,
+    conn: Connection = Depends(get_conn),
+):
+    if start is None:
+        start = date.today() - timedelta(days=365 * 2)
+    if end is None:
+        end = date.today()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT i.week_end_date, i.adj_close,
+                   p.open, p.high, p.low, p.close, p.volume,
+                   i.sma_10w, i.sma_30w, i.sma_40w,
+                   i.w52_high, i.w52_low,
+                   i.rs_line, i.rs_rating, i.minervini_pass
+              FROM weekly_indicators i
+              LEFT JOIN weekly_prices p
+                ON p.ticker = i.ticker AND p.week_end_date = i.week_end_date
+             WHERE i.ticker = %s AND i.week_end_date BETWEEN %s AND %s
+             ORDER BY i.week_end_date
+            """,
+            (ticker, start, end),
+        )
+        rows = cur.fetchall()
+    return [
+        WeeklyIndicatorOut(
+            date=r[0],
+            adj_close=float(r[1]),
+            open=float(r[2]) if r[2] is not None else None,
+            high=float(r[3]) if r[3] is not None else None,
+            low=float(r[4]) if r[4] is not None else None,
+            close=float(r[5]) if r[5] is not None else None,
+            volume=int(r[6]) if r[6] is not None else None,
+            sma_10w=float(r[7]) if r[7] is not None else None,
+            sma_30w=float(r[8]) if r[8] is not None else None,
+            sma_40w=float(r[9]) if r[9] is not None else None,
+            w52_high=float(r[10]) if r[10] is not None else None,
+            w52_low=float(r[11]) if r[11] is not None else None,
+            rs_line=float(r[12]) if r[12] is not None else None,
+            rs_rating=r[13],
+            minervini_pass=r[14],
+        )
+        for r in rows
+    ]
 
 
 @router.get("/minervini-passed", response_model=list[MinerviniPassedOut])

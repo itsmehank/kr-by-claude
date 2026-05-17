@@ -64,6 +64,24 @@ export interface SectorTimeseriesResponse {
   series: SectorTimeseries[];
 }
 
+export interface WeeklyIndicator {
+  date: string;
+  adj_close: number;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+  volume: number | null;
+  sma_10w: number | null;
+  sma_30w: number | null;
+  sma_40w: number | null;
+  w52_high: number | null;
+  w52_low: number | null;
+  rs_line: number | null;
+  rs_rating: number | null;
+  minervini_pass: boolean | null;
+}
+
 export interface MarketContext {
   date: string;
   index_code: string;

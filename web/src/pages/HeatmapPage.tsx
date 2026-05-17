@@ -22,6 +22,24 @@ const PERIODS = [
 ] as const;
 type PeriodId = (typeof PERIODS)[number]["id"];
 
+const TIMESERIES_PERIODS = [
+  { id: "1m", label: "1M", days: 30 },
+  { id: "3m", label: "3M", days: 90 },
+  { id: "6m", label: "6M", days: 180 },
+  { id: "12m", label: "12M", days: 365 },
+  { id: "24m", label: "24M", days: 730 },
+  { id: "max", label: "MAX", days: 365 * 5 },
+] as const;
+type TimeseriesPeriodId = (typeof TIMESERIES_PERIODS)[number]["id"];
+
+const TOP_N_OPTIONS = [
+  { id: 5, label: "상위 5" },
+  { id: 10, label: "상위 10" },
+  { id: 20, label: "상위 20" },
+  { id: "all", label: "전체" },
+] as const;
+type TopNId = (typeof TOP_N_OPTIONS)[number]["id"];
+
 // ── color mapping by return ─────────────────────────────────────────────────
 
 interface TileStyle {
@@ -133,6 +151,12 @@ export default function HeatmapPage() {
   const [mineOnly, setMineOnly] = useState<boolean>(false);
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
 
+  // Timeseries chart controls
+  const [tsPeriod, setTsPeriod] = useState<TimeseriesPeriodId>("12m");
+  const [topN, setTopN] = useState<TopNId>(10);
+  const tsDays =
+    TIMESERIES_PERIODS.find((p) => p.id === tsPeriod)?.days ?? 365;
+
   const sectorsQuery = useQuery<SectorHeatmap[]>({
     queryKey: ["heatmap-sectors", date, period],
     queryFn: () => {
@@ -150,10 +174,10 @@ export default function HeatmapPage() {
   });
 
   const timeseriesQuery = useQuery<SectorTimeseriesResponse>({
-    queryKey: ["sector-timeseries", 365],
+    queryKey: ["sector-timeseries", tsDays],
     queryFn: () =>
       api<SectorTimeseriesResponse>(
-        "/heatmap/sectors/timeseries?lookback_days=365"
+        `/heatmap/sectors/timeseries?lookback_days=${tsDays}`
       ),
     staleTime: 5 * 60_000,
   });
@@ -325,14 +349,55 @@ export default function HeatmapPage() {
 
       {/* Sector timeseries chart */}
       <section className="bento p-6 mb-6">
-        <div className="flex items-center gap-2.5 mb-5">
+        <div className="flex items-start gap-2.5 mb-5">
           <div className="p-2 rounded-xl bg-tint-violet">
             <Activity size={16} className="text-accent" strokeWidth={2} />
           </div>
           <div className="flex-1">
             <div className="text-subhead font-bold text-ink">주도 섹터 흐름</div>
             <div className="text-data-xs text-muted mt-0.5">
-              누적 수익률 시계열 · 12개월
+              누적 수익률 시계열 · 수익률 내림차순
+            </div>
+          </div>
+        </div>
+
+        {/* TS controls */}
+        <div className="flex flex-wrap items-end gap-5 mb-5">
+          <div className="flex flex-col gap-1.5">
+            <label className="caps">기간</label>
+            <div className="flex rounded-lg border border-hairline overflow-hidden text-data font-semibold bg-cream">
+              {TIMESERIES_PERIODS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setTsPeriod(p.id)}
+                  className={`px-3 py-1.5 transition-colors ${
+                    tsPeriod === p.id
+                      ? "bg-accent text-white"
+                      : "text-muted hover:text-ink hover:bg-paper"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="caps">표시 섹터</label>
+            <div className="flex rounded-lg border border-hairline overflow-hidden text-data font-semibold bg-cream">
+              {TOP_N_OPTIONS.map((opt) => (
+                <button
+                  key={String(opt.id)}
+                  onClick={() => setTopN(opt.id)}
+                  className={`px-3 py-1.5 transition-colors ${
+                    topN === opt.id
+                      ? "bg-accent text-white"
+                      : "text-muted hover:text-ink hover:bg-paper"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -349,7 +414,8 @@ export default function HeatmapPage() {
         {timeseriesQuery.data && timeseriesQuery.data.series.length > 0 && (
           <SectorTimeseriesChart
             series={timeseriesQuery.data.series}
-            height={400}
+            topN={topN}
+            height={420}
           />
         )}
       </section>
