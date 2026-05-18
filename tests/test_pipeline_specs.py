@@ -31,6 +31,7 @@ def test_each_spec_has_required_fields():
         assert "module" in spec
         assert "modes" in spec and len(spec["modes"]) > 0
         assert "default_cron" in spec
+        assert "schedule_label" in spec
         assert "pipeline_db_name" in spec
         for mode in spec["modes"]:
             assert "id" in mode
@@ -100,6 +101,15 @@ def test_each_spec_has_description():
         assert "description" in spec, f"{spec['id']} 누락"
         assert isinstance(spec["description"], str)
         assert len(spec["description"]) > 10
+
+
+def test_each_spec_has_schedule_label():
+    from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS
+
+    for spec in PIPELINE_SPECS:
+        assert "schedule_label" in spec, f"{spec['id']} 누락"
+        assert isinstance(spec["schedule_label"], str)
+        assert len(spec["schedule_label"]) > 0
 
 
 def test_pipeline_db_name_matches_existing_runs():

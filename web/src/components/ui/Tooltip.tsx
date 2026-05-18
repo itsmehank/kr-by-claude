@@ -6,7 +6,7 @@ interface TooltipProps {
   maxWidth?: string;
 }
 
-export function Tooltip({ content, children, maxWidth = "max-w-xs" }: TooltipProps) {
+export function Tooltip({ content, children, maxWidth = "max-w-md" }: TooltipProps) {
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<"top" | "bottom">("top");
   const wrapRef = useRef<HTMLSpanElement>(null);
@@ -38,7 +38,7 @@ export function Tooltip({ content, children, maxWidth = "max-w-xs" }: TooltipPro
             placement === "top" ? "bottom-full mb-2" : "top-full mt-2"
           } z-50 ${maxWidth} pointer-events-none`}
         >
-          <span className="block bg-ink text-paper text-data-xs leading-relaxed rounded-lg px-3 py-2 shadow-bento whitespace-normal">
+          <span className="block bg-ink text-paper text-data-xs leading-relaxed rounded-lg px-3 py-2 shadow-bento whitespace-normal min-w-[260px]">
             {content}
           </span>
         </span>

@@ -125,6 +125,7 @@ def get_summary(conn: Connection = Depends(get_conn)):
                 "description": spec["description"],
                 "module": spec["module"],
                 "cron_expression": spec["default_cron"],
+                "schedule_label": spec["schedule_label"],
                 "last_run": last_run,
                 "next_scheduled": _next_scheduled(spec["default_cron"]),
                 "modes": spec["modes"],

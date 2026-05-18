@@ -27,6 +27,7 @@ PIPELINE_SPECS: list[dict] = [
             {"id": "default", "label": "전체 갱신", "args": [], "is_heavy": False},
         ],
         "default_cron": "0 4 1 * *",
+        "schedule_label": "월 1회",
     },
     {
         "id": "ohlcv",
@@ -44,6 +45,7 @@ PIPELINE_SPECS: list[dict] = [
              "args": ["--mode=backfill", "--years=1"], "is_heavy": True},
         ],
         "default_cron": "30 18 * * 1-5",
+        "schedule_label": "평일 매일",
     },
     {
         "id": "weekly",
@@ -61,6 +63,7 @@ PIPELINE_SPECS: list[dict] = [
              "args": ["--mode=backfill"], "is_heavy": True},
         ],
         "default_cron": "0 3 * * 6",
+        "schedule_label": "주 1회 (토)",
     },
     {
         "id": "corporate-actions",
@@ -78,6 +81,7 @@ PIPELINE_SPECS: list[dict] = [
              "args": ["--mode=refresh-mapping"], "is_heavy": True},
         ],
         "default_cron": "30 4 * * 6",
+        "schedule_label": "주 1회 (토)",
     },
 
     # ─── 지표 계산 ────────────────────────────────────────────────
@@ -98,6 +102,7 @@ PIPELINE_SPECS: list[dict] = [
              "args": ["--target=daily", "--mode=backfill"], "is_heavy": True},
         ],
         "default_cron": "0 19 * * 1-5",
+        "schedule_label": "평일 매일",
     },
     {
         "id": "indicators-weekly",
@@ -116,6 +121,7 @@ PIPELINE_SPECS: list[dict] = [
              "args": ["--target=weekly", "--mode=backfill"], "is_heavy": True},
         ],
         "default_cron": "0 4 * * 6",
+        "schedule_label": "주 1회 (토)",
     },
     {
         "id": "market-context",
@@ -133,6 +139,7 @@ PIPELINE_SPECS: list[dict] = [
              "args": ["--mode=backfill"], "is_heavy": True},
         ],
         "default_cron": "30 19 * * 1-5",
+        "schedule_label": "평일 매일",
     },
 
     # ─── LLM 분석 ────────────────────────────────────────────────
@@ -150,6 +157,7 @@ PIPELINE_SPECS: list[dict] = [
              "args": ["--mode=full-daily"], "is_heavy": True},
         ],
         "default_cron": "30 16 * * 1-5",
+        "schedule_label": "평일 매일",
     },
     {
         "id": "llm-weekend",
@@ -165,6 +173,7 @@ PIPELINE_SPECS: list[dict] = [
              "args": ["--mode=weekend"], "is_heavy": True},
         ],
         "default_cron": "20 3 * * 6",
+        "schedule_label": "주 1회 (토)",
     },
     {
         "id": "llm-performance",
@@ -178,6 +187,7 @@ PIPELINE_SPECS: list[dict] = [
              "args": ["--mode=performance"], "is_heavy": True},
         ],
         "default_cron": "0 23 * * *",
+        "schedule_label": "매일",
     },
 ]
 

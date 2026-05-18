@@ -139,6 +139,7 @@ export interface PipelineSpec {
   pipeline_db_name: string;
   modes: PipelineMode[];
   default_cron: string;
+  schedule_label: string;
 }
 
 export interface PipelineSummary {
@@ -148,6 +149,7 @@ export interface PipelineSummary {
   description: string;
   module: string;
   cron_expression: string;
+  schedule_label: string;
   last_run: {
     id: number;
     status: string;

@@ -506,8 +506,9 @@ export default function RunnerPage() {
                           <span className="text-faint">이력 없음</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 num text-data text-muted">
-                        {formatNextSchedule(p.next_scheduled)}
+                      <td className="px-4 py-3 text-data text-muted">
+                        <div className="num">{formatNextSchedule(p.next_scheduled)}</div>
+                        <div className="text-data-xs text-faint mt-0.5">{p.schedule_label}</div>
                       </td>
                       <td className="px-4 py-3">
                         {p.last_run ? <StatusChip status={p.last_run.status} /> : <span className="text-faint">—</span>}
