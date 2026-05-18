@@ -104,10 +104,12 @@ def test_diff_managed_block_shows_changes():
 
 
 def test_default_cron_lines_contains_three_modes():
-    """default LLM runner cron 라인 3종 (full-daily, weekend, performance)."""
+    """default cron 라인에 LLM 3종 (full-daily, weekend, performance) 포함 확인.
+    PIPELINE_SPECS 기반 동적 생성이므로 총 10개 (data 4 + indicators 3 + llm 3).
+    """
     from kr_pipeline.llm_runner.cron_manager import DEFAULT_CRON_LINES
 
-    assert len(DEFAULT_CRON_LINES) == 3
+    assert len(DEFAULT_CRON_LINES) == 10
     assert any("full-daily" in line for line in DEFAULT_CRON_LINES)
     assert any("weekend" in line for line in DEFAULT_CRON_LINES)
     assert any("performance" in line for line in DEFAULT_CRON_LINES)

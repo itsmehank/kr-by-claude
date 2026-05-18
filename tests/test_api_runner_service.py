@@ -79,3 +79,50 @@ def test_spawn_subprocess_returns_pid(mocker):
     assert "--mode=weekend" in args
     assert "--dry-run" in args
     assert "--limit=5" in args
+
+
+def test_check_can_run_pipeline_with_mode_prefix(db):
+    """indicators-daily vs indicators-weekly: 같은 pipeline_db_name 이지만 mode_prefix 로 구분."""
+    from datetime import datetime, timezone
+    from api.services.runner_service import check_can_run_pipeline
+
+    with db.cursor() as cur:
+        cur.execute(
+            """INSERT INTO pipeline_runs (pipeline, mode, status, started_at, finished_at)
+               VALUES ('indicators', 'daily-incremental', 'success', %s, %s)""",
+            (datetime.now(timezone.utc), datetime.now(timezone.utc)),
+        )
+
+    result = check_can_run_pipeline(db, pipeline_id="indicators-daily")
+    assert result["can_run"] is False
+    assert result["reason"] == "duplicate"
+
+    result = check_can_run_pipeline(db, pipeline_id="indicators-weekly")
+    assert result["can_run"] is True
+
+
+def test_spawn_pipeline_universe(mocker):
+    from api.services.runner_service import spawn_pipeline
+
+    fake_proc = mocker.Mock()
+    fake_proc.pid = 55555
+    mock_popen = mocker.patch("subprocess.Popen", return_value=fake_proc)
+
+    result = spawn_pipeline("universe", "default")
+    assert result["pid"] == 55555
+    args = mock_popen.call_args[0][0]
+    assert "kr_pipeline.universe" in args
+
+
+def test_spawn_pipeline_with_indicator_target(mocker):
+    from api.services.runner_service import spawn_pipeline
+
+    fake_proc = mocker.Mock()
+    fake_proc.pid = 66666
+    mock_popen = mocker.patch("subprocess.Popen", return_value=fake_proc)
+
+    result = spawn_pipeline("indicators-weekly", "incremental")
+    args = mock_popen.call_args[0][0]
+    assert "kr_pipeline.indicators" in args
+    assert "--target=weekly" in args
+    assert "--mode=incremental" in args

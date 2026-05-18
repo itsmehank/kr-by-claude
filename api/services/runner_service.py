@@ -135,3 +135,115 @@ def spawn_runner(
         start_new_session=True,  # 부모 종료해도 살아있게
     )
     return {"pid": proc.pid, "command": " ".join(cmd)}
+
+
+from kr_pipeline.llm_runner.pipeline_specs import get_spec, get_mode_args
+
+
+def check_can_run_pipeline(
+    conn,
+    pipeline_id: str,
+    *,
+    force: bool = False,
+) -> dict:
+    """PIPELINE_SPECS 기반 중복 방지 체크.
+
+    pipeline_id 가 'indicators-daily' / 'indicators-weekly' 같이 같은
+    pipeline_db_name 을 공유하면 mode_prefix 로 구분 (pipeline_runs.mode
+    가 'daily-' 또는 'weekly-' 로 시작하는 행만).
+    """
+    spec = get_spec(pipeline_id)
+    if spec is None:
+        return {"can_run": False, "reason": "unknown_pipeline"}
+
+    pipeline_db = spec["pipeline_db_name"]
+    mode_prefix = spec.get("mode_prefix")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, started_at, mode FROM pipeline_runs
+             WHERE pipeline = %s AND status = 'running'
+             ORDER BY id DESC LIMIT 5
+            """,
+            (pipeline_db,),
+        )
+        running_rows = cur.fetchall()
+
+    for row in running_rows:
+        run_id, started_at, mode = row
+        if _matches_mode_prefix(mode, mode_prefix):
+            return {
+                "can_run": False,
+                "reason": "already_running",
+                "existing_run_id": run_id,
+                "existing_run_summary": {"started_at": started_at.isoformat()},
+            }
+
+    if force:
+        return {"can_run": True, "reason": "ok", "existing_run_id": None}
+
+    today = date.today()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, started_at, finished_at, rows_affected, mode
+              FROM pipeline_runs
+             WHERE pipeline = %s
+               AND status = 'success'
+               AND (started_at AT TIME ZONE 'Asia/Seoul')::date = %s
+             ORDER BY id DESC LIMIT 5
+            """,
+            (pipeline_db, today),
+        )
+        success_rows = cur.fetchall()
+
+    for row in success_rows:
+        run_id, started_at, finished_at, rows_affected, mode = row
+        if _matches_mode_prefix(mode, mode_prefix):
+            return {
+                "can_run": False,
+                "reason": "duplicate",
+                "existing_run_id": run_id,
+                "existing_run_summary": {
+                    "started_at": started_at.isoformat(),
+                    "finished_at": finished_at.isoformat() if finished_at else None,
+                    "rows_affected": rows_affected,
+                },
+            }
+
+    return {"can_run": True, "reason": "ok", "existing_run_id": None}
+
+
+def _matches_mode_prefix(mode, prefix) -> bool:
+    if prefix is None:
+        return True
+    if mode is None:
+        return False
+    return mode.startswith(prefix)
+
+
+def spawn_pipeline(pipeline_id: str, mode_id: str) -> dict:
+    """PIPELINE_SPECS 기반 subprocess spawn."""
+    spec = get_spec(pipeline_id)
+    if spec is None:
+        raise ValueError(f"unknown pipeline: {pipeline_id}")
+
+    args = get_mode_args(pipeline_id, mode_id)
+    if args is None:
+        raise ValueError(f"unknown mode {mode_id} for {pipeline_id}")
+
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOG_DIR / "cron.log"
+
+    cmd = ["uv", "run", "python", "-m", spec["module"], *args]
+
+    log_file = log_path.open("a")
+    proc = subprocess.Popen(
+        cmd,
+        cwd=str(PROJECT_DIR),
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    return {"pid": proc.pid, "command": " ".join(cmd)}

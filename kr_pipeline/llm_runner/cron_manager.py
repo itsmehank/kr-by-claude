@@ -120,11 +120,14 @@ def diff_managed_block(current_lines: list[str], new_lines: list[str]) -> list[s
 
 PROJECT_DIR = Path(__file__).parent.parent.parent  # repo root
 
-DEFAULT_CRON_LINES = [
-    f"30 16 * * 1-5  cd {PROJECT_DIR} && uv run python -m kr_pipeline.llm_runner --mode=full-daily >> $HOME/.kr-by-claude/llm_runner.log 2>&1",
-    f"20  3 * * 6    cd {PROJECT_DIR} && uv run python -m kr_pipeline.llm_runner --mode=weekend >> $HOME/.kr-by-claude/llm_runner.log 2>&1",
-    f"0  23 * * *    cd {PROJECT_DIR} && uv run python -m kr_pipeline.llm_runner --mode=performance >> $HOME/.kr-by-claude/llm_runner.log 2>&1",
-]
+
+def _get_default_cron_lines() -> list[str]:
+    """PIPELINE_SPECS 기반 동적 생성. 순환 import 회피 위해 함수 안에서 import."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_default_cron_lines
+    return get_default_cron_lines()
+
+
+DEFAULT_CRON_LINES = _get_default_cron_lines()
 
 
 def register(lines: list[str] | None = None) -> tuple[Path, str]:
