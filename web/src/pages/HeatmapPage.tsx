@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import type {
   SectorHeatmap,
   MinerviniPassed,
+  SectorStock,
   SectorTimeseriesResponse,
 } from "../lib/types";
 import { SectorTimeseriesChart } from "../components/charts/SectorTimeseriesChart";
@@ -150,6 +151,7 @@ export default function HeatmapPage() {
   const [minRs, setMinRs] = useState<number>(0);
   const [mineOnly, setMineOnly] = useState<boolean>(false);
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"passed" | "all">("passed");
 
   // Timeseries chart controls
   const [tsPeriod, setTsPeriod] = useState<TimeseriesPeriodId>("12m");
@@ -171,6 +173,15 @@ export default function HeatmapPage() {
     queryFn: () =>
       api<MinerviniPassed[]>("/indicators/minervini-passed?min_rs=0&limit=500"),
     enabled: selectedSector !== null,
+  });
+
+  const sectorStocksQuery = useQuery<SectorStock[]>({
+    queryKey: ["sector-stocks", selectedSector],
+    queryFn: () =>
+      api<SectorStock[]>(
+        `/indicators/by-sector?sector=${encodeURIComponent(selectedSector!)}&limit=20`
+      ),
+    enabled: selectedSector !== null && viewMode === "all",
   });
 
   const timeseriesQuery = useQuery<SectorTimeseriesResponse>({
@@ -202,6 +213,7 @@ export default function HeatmapPage() {
 
   const handleTileClick = (sector: string) => {
     setSelectedSector((prev) => (prev === sector ? null : sector));
+    setViewMode("passed");
   };
 
   return (
@@ -432,7 +444,9 @@ export default function HeatmapPage() {
                 {selectedSector}
               </div>
               <div className="text-data-xs text-muted mt-0.5">
-                {drilldownStocks.length}개 종목
+                {viewMode === "passed"
+                  ? `${drilldownStocks.length}개 종목`
+                  : `${sectorStocksQuery.data?.length ?? 0}개 종목`}
               </div>
             </div>
             <button
@@ -443,44 +457,120 @@ export default function HeatmapPage() {
             </button>
           </div>
 
-          {minerviniQuery.isLoading && (
-            <div className="text-muted py-4">로딩 중…</div>
+          {/* View mode toggle */}
+          <div className="flex items-center gap-2 mb-3">
+            <button
+              onClick={() => setViewMode("passed")}
+              className={`px-3 py-1.5 rounded-lg text-data-xs font-semibold ${
+                viewMode === "passed"
+                  ? "bg-accent text-white"
+                  : "bg-paper border border-hairline text-muted"
+              }`}
+            >
+              미너비니 통과만
+            </button>
+            <button
+              onClick={() => setViewMode("all")}
+              className={`px-3 py-1.5 rounded-lg text-data-xs font-semibold ${
+                viewMode === "all"
+                  ? "bg-accent text-white"
+                  : "bg-paper border border-hairline text-muted"
+              }`}
+            >
+              전체 종목 (RS 상위 20)
+            </button>
+          </div>
+
+          {/* passed mode */}
+          {viewMode === "passed" && (
+            <>
+              {minerviniQuery.isLoading && (
+                <div className="text-muted py-4">로딩 중…</div>
+              )}
+              {minerviniQuery.isError && (
+                <div className="text-danger py-4">로딩 실패</div>
+              )}
+              {minerviniQuery.isSuccess && drilldownStocks.length === 0 && (
+                <div className="text-muted py-4">
+                  미너비니 통과 종목이 없습니다.
+                </div>
+              )}
+              {drilldownStocks.length > 0 && (
+                <div className="space-y-0.5">
+                  {drilldownStocks.map((stock) => (
+                    <button
+                      key={stock.ticker}
+                      onClick={() => navigate(`/chart/${stock.ticker}`)}
+                      className="row-clickable w-full px-3 py-2.5 flex items-center gap-4"
+                    >
+                      <div className="num text-data text-muted w-16 shrink-0 text-left">
+                        {stock.ticker}
+                      </div>
+                      <div className="text-data text-ink flex-1 text-left truncate">
+                        {stock.name}
+                      </div>
+                      <div className="num text-data-md font-semibold text-ink w-12 text-right">
+                        {Math.round(stock.rs_rating)}
+                      </div>
+                      <div className="num text-data text-muted w-24 text-right">
+                        ₩{stock.adj_close.toLocaleString()}
+                      </div>
+                      {stock.pocket_pivot_flag && (
+                        <span className="chip bg-success-soft text-success">PP</span>
+                      )}
+                      <ChevronRight size={16} className="text-faint shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
-          {minerviniQuery.isError && (
-            <div className="text-danger py-4">로딩 실패</div>
-          )}
-          {minerviniQuery.isSuccess && drilldownStocks.length === 0 && (
-            <div className="text-muted py-4">
-              미너비니 통과 종목이 없습니다.
-            </div>
-          )}
-          {drilldownStocks.length > 0 && (
-            <div className="space-y-0.5">
-              {drilldownStocks.map((stock) => (
-                <button
-                  key={stock.ticker}
-                  onClick={() => navigate(`/chart/${stock.ticker}`)}
-                  className="row-clickable w-full px-3 py-2.5 flex items-center gap-4"
-                >
-                  <div className="num text-data text-muted w-16 shrink-0 text-left">
-                    {stock.ticker}
-                  </div>
-                  <div className="text-data text-ink flex-1 text-left truncate">
-                    {stock.name}
-                  </div>
-                  <div className="num text-data-md font-semibold text-ink w-12 text-right">
-                    {Math.round(stock.rs_rating)}
-                  </div>
-                  <div className="num text-data text-muted w-24 text-right">
-                    ₩{stock.adj_close.toLocaleString()}
-                  </div>
-                  {stock.pocket_pivot_flag && (
-                    <span className="chip bg-success-soft text-success">PP</span>
-                  )}
-                  <ChevronRight size={16} className="text-faint shrink-0" />
-                </button>
-              ))}
-            </div>
+
+          {/* all mode */}
+          {viewMode === "all" && (
+            <>
+              {sectorStocksQuery.isLoading && (
+                <div className="text-muted py-4">로딩 중…</div>
+              )}
+              {sectorStocksQuery.isError && (
+                <div className="text-danger py-4">로딩 실패</div>
+              )}
+              {sectorStocksQuery.isSuccess &&
+                (sectorStocksQuery.data ?? []).length === 0 && (
+                  <div className="text-muted py-4">종목이 없습니다.</div>
+                )}
+              {(sectorStocksQuery.data ?? []).length > 0 && (
+                <div className="space-y-0.5">
+                  {(sectorStocksQuery.data ?? []).map((stock) => (
+                    <button
+                      key={stock.ticker}
+                      onClick={() => navigate(`/chart/${stock.ticker}`)}
+                      className="row-clickable w-full px-3 py-2.5 flex items-center gap-4"
+                    >
+                      <div className="num text-data text-muted w-16 shrink-0 text-left">
+                        {stock.ticker}
+                      </div>
+                      <div className="text-data text-ink flex-1 text-left truncate">
+                        {stock.name}
+                      </div>
+                      <div className="num text-data-md font-semibold text-ink w-12 text-right">
+                        {stock.rs_rating !== null ? stock.rs_rating : "—"}
+                      </div>
+                      <div className="num text-data text-muted w-24 text-right">
+                        ₩{stock.adj_close.toLocaleString()}
+                      </div>
+                      {stock.pocket_pivot_flag && (
+                        <span className="chip bg-success-soft text-success">PP</span>
+                      )}
+                      {stock.minervini_pass && (
+                        <span className="chip bg-success-soft text-success">✓ 미너비니</span>
+                      )}
+                      <ChevronRight size={16} className="text-faint shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
       )}

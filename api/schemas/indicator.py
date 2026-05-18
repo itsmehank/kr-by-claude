@@ -36,6 +36,18 @@ class MinerviniPassedOut(BaseModel):
     pocket_pivot_flag: bool | None = None
 
 
+class SectorStockOut(BaseModel):
+    ticker: str
+    name: str
+    sector: str | None = None
+    market: str
+    rs_rating: int | None = None
+    adj_close: float
+    volume_ratio_50d: float | None = None
+    pocket_pivot_flag: bool | None = None
+    minervini_pass: bool
+
+
 class WeeklyIndicatorOut(BaseModel):
     date: date  # week_end_date
     adj_close: float

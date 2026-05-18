@@ -40,6 +40,18 @@ export interface MinerviniPassed {
   pocket_pivot_flag: boolean | null;
 }
 
+export interface SectorStock {
+  ticker: string;
+  name: string;
+  sector: string | null;
+  market: string;
+  rs_rating: number | null;
+  adj_close: number;
+  volume_ratio_50d: number | null;
+  pocket_pivot_flag: boolean | null;
+  minervini_pass: boolean;
+}
+
 export interface SectorHeatmap {
   sector: string;
   stock_count: number;

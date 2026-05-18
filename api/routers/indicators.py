@@ -6,6 +6,7 @@ from api.deps import get_conn
 from api.schemas.indicator import (
     DailyIndicatorOut,
     MinerviniPassedOut,
+    SectorStockOut,
     WeeklyIndicatorOut,
 )
 from api.services.minervini_detail_builder import build_minervini_detail
@@ -158,4 +159,36 @@ def get_minervini_passed(date_: date | None = None, min_rs: int = 70, limit: int
         ticker=r[0], name=r[1], sector=r[2], rs_rating=r[3], adj_close=float(r[4]),
         volume_ratio_50d=float(r[5]) if r[5] else None,
         pocket_pivot_flag=r[6],
+    ) for r in rows]
+
+
+@router.get("/by-sector", response_model=list[SectorStockOut])
+def get_by_sector(
+    sector: str,
+    date_: date | None = None,
+    limit: int = 20,
+    conn: Connection = Depends(get_conn),
+):
+    """섹터 안의 전체 종목 (RS rating 내림차순, 상위 N개)."""
+    if date_ is None:
+        with conn.cursor() as cur:
+            cur.execute("SELECT MAX(date) FROM daily_indicators")
+            row = cur.fetchone()
+        date_ = row[0] if row and row[0] else date.today()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT i.ticker, s.name, s.sector, s.market, i.rs_rating, i.adj_close,
+                   i.volume_ratio_50d, i.pocket_pivot_flag, i.minervini_pass
+              FROM daily_indicators i
+              JOIN stocks s ON s.ticker = i.ticker
+             WHERE i.date = %s AND s.sector = %s AND s.delisted_at IS NULL
+             ORDER BY i.rs_rating DESC NULLS LAST
+             LIMIT %s
+        """, (date_, sector, limit))
+        rows = cur.fetchall()
+    return [SectorStockOut(
+        ticker=r[0], name=r[1], sector=r[2], market=r[3], rs_rating=r[4], adj_close=float(r[5]),
+        volume_ratio_50d=float(r[6]) if r[6] else None,
+        pocket_pivot_flag=r[7],
+        minervini_pass=bool(r[8]) if r[8] is not None else False,
     ) for r in rows]
