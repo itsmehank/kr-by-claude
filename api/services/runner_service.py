@@ -14,6 +14,8 @@ from pathlib import Path
 
 from psycopg import Connection
 
+from kr_pipeline.llm_runner.pipeline_specs import get_spec, get_mode_args
+
 
 PROJECT_DIR = Path(__file__).parent.parent.parent.resolve()
 LOG_DIR = Path.home() / ".kr-by-claude"
@@ -135,9 +137,6 @@ def spawn_runner(
         start_new_session=True,  # 부모 종료해도 살아있게
     )
     return {"pid": proc.pid, "command": " ".join(cmd)}
-
-
-from kr_pipeline.llm_runner.pipeline_specs import get_spec, get_mode_args
 
 
 def check_can_run_pipeline(
