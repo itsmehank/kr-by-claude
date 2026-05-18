@@ -123,11 +123,21 @@ export interface Signal {
   notes: string | null;
 }
 
+export interface ModeParam {
+  name: string;
+  label: string;
+  type: "int";
+  default: number;
+  min: number;
+  max: number;
+}
+
 export interface PipelineMode {
   id: string;
   label: string;
   args: string[];
   is_heavy: boolean;
+  params?: ModeParam[];
 }
 
 export interface PipelineSpec {

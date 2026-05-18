@@ -24,6 +24,7 @@ interface RunDialogProps {
 export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) {
   const [modeId, setModeId] = useState<string>("");
   const [force, setForce] = useState(false);
+  const [paramValues, setParamValues] = useState<Record<string, number>>({});
   const [conflict, setConflict] = useState<{
     reason: string;
     existing_run_id: number | null;
@@ -41,12 +42,29 @@ export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) 
       setModeId(initialModeId ?? pipeline.modes[0]?.id ?? "");
       setForce(false);
       setConflict(null);
+      setParamValues({});
     } else {
       setModeId("");
       setForce(false);
       setConflict(null);
+      setParamValues({});
     }
   }, [pipeline, initialModeId]);
+
+  useEffect(() => {
+    if (!pipeline) {
+      setParamValues({});
+      return;
+    }
+    const mode = pipeline.modes.find((m) => m.id === modeId);
+    if (mode?.params) {
+      const defaults: Record<string, number> = {};
+      for (const p of mode.params) defaults[p.name] = p.default;
+      setParamValues(defaults);
+    } else {
+      setParamValues({});
+    }
+  }, [modeId, pipeline]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -59,6 +77,7 @@ export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) 
           pipeline_id: pipeline.pipeline_id,
           mode_id: modeId,
           force,
+          params: paramValues,
         }),
       });
       if (res.status === 409) {
@@ -113,6 +132,28 @@ export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) 
             ))}
           </div>
         </div>
+
+        {selectedMode?.params && selectedMode.params.length > 0 && (
+          <div>
+            <label className="caps block mb-2">파라미터</label>
+            <div className="space-y-2">
+              {selectedMode.params.map((p) => (
+                <div key={p.name} className="flex items-center gap-2">
+                  <span className="text-data text-ink w-20">{p.label}</span>
+                  <input
+                    type="number"
+                    min={p.min}
+                    max={p.max}
+                    value={paramValues[p.name] ?? p.default}
+                    onChange={(e) => setParamValues({...paramValues, [p.name]: parseInt(e.target.value) || p.default})}
+                    className="w-24 px-3 py-1.5 border border-hairline rounded-lg text-data num"
+                  />
+                  <span className="text-data-xs text-faint">({p.min}~{p.max})</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {isHeavy && (
           <div className="bg-amber-soft border border-amber/30 rounded-xl p-3">

@@ -217,8 +217,12 @@ def check_can_run_pipeline(
     return {"can_run": True, "reason": "ok", "existing_run_id": None}
 
 
-def spawn_pipeline(pipeline_id: str, mode_id: str) -> dict:
-    """PIPELINE_SPECS 기반 subprocess spawn."""
+def spawn_pipeline(pipeline_id: str, mode_id: str, params: dict | None = None) -> dict:
+    """PIPELINE_SPECS 기반 subprocess spawn.
+
+    params: 사용자가 UI 에서 입력한 모드별 추가 인자 (e.g., {"years": 3}).
+    모드의 params 정의를 참고해 --{name}={value} 형태로 cmd 에 append.
+    """
     spec = get_spec(pipeline_id)
     if spec is None:
         raise ValueError(f"unknown pipeline: {pipeline_id}")
@@ -227,10 +231,18 @@ def spawn_pipeline(pipeline_id: str, mode_id: str) -> dict:
     if args is None:
         raise ValueError(f"unknown mode {mode_id} for {pipeline_id}")
 
+    # mode 의 params 정의를 가져와 사용자 입력 또는 default 적용
+    mode = next((m for m in spec["modes"] if m["id"] == mode_id), None)
+    mode_params = mode.get("params", []) if mode else []
+    extra_args = []
+    for p in mode_params:
+        value = (params or {}).get(p["name"], p["default"])
+        extra_args.append(f"--{p['name']}={value}")
+
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     log_path = LOG_DIR / "cron.log"
 
-    cmd = ["uv", "run", "python", "-m", spec["module"], *args]
+    cmd = ["uv", "run", "python", "-m", spec["module"], *args, *extra_args]
 
     log_file = log_path.open("a")
     try:

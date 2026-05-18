@@ -114,6 +114,33 @@ def test_spawn_pipeline_universe(mocker):
     assert "kr_pipeline.universe" in args
 
 
+def test_spawn_pipeline_appends_user_params(mocker):
+    """params={'years': 3} 가 --years=3 으로 cmd 에 append."""
+    from api.services.runner_service import spawn_pipeline
+
+    fake_proc = mocker.Mock()
+    fake_proc.pid = 77777
+    mock_popen = mocker.patch("subprocess.Popen", return_value=fake_proc)
+
+    spawn_pipeline("ohlcv", "backfill", params={"years": 3})
+    args = mock_popen.call_args[0][0]
+    assert "--years=3" in args
+    assert "--mode=backfill" in args
+
+
+def test_spawn_pipeline_uses_param_default_when_not_provided(mocker):
+    """params 안 주면 mode 의 default 사용."""
+    from api.services.runner_service import spawn_pipeline
+
+    fake_proc = mocker.Mock()
+    fake_proc.pid = 88888
+    mock_popen = mocker.patch("subprocess.Popen", return_value=fake_proc)
+
+    spawn_pipeline("ohlcv", "backfill")  # params 없음
+    args = mock_popen.call_args[0][0]
+    assert "--years=2" in args  # ohlcv backfill default = 2
+
+
 def test_spawn_pipeline_with_indicator_target(mocker):
     from api.services.runner_service import spawn_pipeline
 

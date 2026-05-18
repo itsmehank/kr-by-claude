@@ -28,6 +28,23 @@ def test_run_universe_spawns(client, mocker):
         assert data["pipeline_id"] == "universe"
 
 
+def test_run_with_params(client, mocker):
+    fake_proc = mocker.Mock()
+    fake_proc.pid = 11111
+    mock_popen = mocker.patch("subprocess.Popen", return_value=fake_proc)
+
+    r = client.post("/api/runner/run", json={
+        "pipeline_id": "ohlcv",
+        "mode_id": "backfill",
+        "force": True,  # 오늘 success 있어도 강제 실행
+        "params": {"years": 3}
+    })
+    assert r.status_code in (200, 409)
+    if r.status_code == 200:
+        args = mock_popen.call_args[0][0]
+        assert "--years=3" in args
+
+
 def test_run_duplicate_returns_409(client, db):
     from datetime import datetime, timezone
     from api.deps import get_conn

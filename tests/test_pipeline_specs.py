@@ -174,6 +174,50 @@ def test_depends_on_referential_integrity():
             assert dep in all_ids, f"{spec['id']} depends_on '{dep}' 존재하지 않음"
 
 
+def test_modes_have_params_when_applicable():
+    """params 가 있는 모드는 ohlcv.backfill, corporate-actions.backfill 만."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+
+    # ohlcv backfill: years param
+    ohlcv_backfill = next(m for m in get_spec("ohlcv")["modes"] if m["id"] == "backfill")
+    assert "params" in ohlcv_backfill
+    assert len(ohlcv_backfill["params"]) == 1
+    p = ohlcv_backfill["params"][0]
+    assert p["name"] == "years"
+    assert p["type"] == "int"
+    assert p["default"] == 2
+
+    # corporate-actions backfill: years param default 5
+    ca_backfill = next(m for m in get_spec("corporate-actions")["modes"] if m["id"] == "backfill")
+    assert ca_backfill["params"][0]["default"] == 5
+
+
+def test_backfill_removed_from_redundant_pipelines():
+    """weekly, indicators-daily/weekly, market-context 의 backfill 모드는 full-refresh 와 중복이므로 제거됨."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+
+    for pid in ["weekly", "indicators-daily", "indicators-weekly", "market-context"]:
+        mode_ids = {m["id"] for m in get_spec(pid)["modes"]}
+        assert "backfill" not in mode_ids, f"{pid} 에 backfill 아직 있음"
+
+
+def test_renamed_labels():
+    """주요 모드 label 변경 확인."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+
+    ohlcv_fr = next(m for m in get_spec("ohlcv")["modes"] if m["id"] == "full-refresh")
+    assert ohlcv_fr["label"] == "보유 기간 재정정"
+
+    ohlcv_bf = next(m for m in get_spec("ohlcv")["modes"] if m["id"] == "backfill")
+    assert ohlcv_bf["label"] == "과거 N년 적재"
+
+    weekly_fr = next(m for m in get_spec("weekly")["modes"] if m["id"] == "full-refresh")
+    assert weekly_fr["label"] == "보유 기간 재집계"
+
+    ind_fr = next(m for m in get_spec("indicators-daily")["modes"] if m["id"] == "full-refresh")
+    assert ind_fr["label"] == "전체 기간 재계산"
+
+
 def test_known_dependency_mapping():
     """확정된 핵심 의존 관계 검증."""
     from kr_pipeline.llm_runner.pipeline_specs import get_spec

@@ -16,6 +16,7 @@ class RunRequest(BaseModel):
     pipeline_id: str
     mode_id: str = "default"
     force: bool = False
+    params: dict | None = None
 
 
 @router.post("/run")
@@ -37,7 +38,7 @@ def run(req: RunRequest, conn: Connection = Depends(get_conn)):
         )
 
     try:
-        spawn_result = spawn_pipeline(req.pipeline_id, req.mode_id)
+        spawn_result = spawn_pipeline(req.pipeline_id, req.mode_id, params=req.params)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
