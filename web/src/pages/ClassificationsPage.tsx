@@ -7,6 +7,7 @@ import {
   LineChart,
   RefreshCw,
   AlertTriangle,
+  Info,
 } from "lucide-react";
 import { api } from "../lib/api";
 import type { Classification } from "../lib/types";
@@ -324,7 +325,21 @@ export default function ClassificationsPage() {
       <section className="bento p-4 mb-6">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
           <div className="flex items-center gap-2">
-            <span className="caps text-faint">최근</span>
+            <span className="caps text-faint">분류 기간</span>
+            <Tooltip
+              content={
+                <div className="leading-relaxed">
+                  선택한 기간 내에 분류된 적이 있는 종목만 표시.
+                  한 종목이 여러 번 분류되었다면 그 중 가장 최신 1건만 응답.
+                  <br /><br />
+                  예: '14일' = 직전 14일 안에 분류된 종목들, 종목당 최신 분류 1건.
+                </div>
+              }
+            >
+              <span className="text-faint cursor-help">
+                <Info size={11} />
+              </span>
+            </Tooltip>
             <select
               value={filters.lookback_days}
               onChange={(e) => setFilters({ ...filters, lookback_days: parseInt(e.target.value, 10) })}
