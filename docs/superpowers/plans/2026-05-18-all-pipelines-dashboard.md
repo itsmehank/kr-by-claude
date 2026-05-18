@@ -244,7 +244,7 @@ PIPELINE_SPECS: list[dict] = [
         "label": "Indicators (일봉)",
         "module": "kr_pipeline.indicators",
         "pipeline_db_name": "indicators",
-        "params_filter": {"target": "daily"},
+        "mode_prefix": "daily-",  # pipeline_runs.mode 가 'daily-' 로 시작하는 행만
         "modes": [
             {"id": "incremental", "label": "증분 (30일)",
              "args": ["--target=daily", "--mode=incremental", "--window-days=30"]},
@@ -261,7 +261,7 @@ PIPELINE_SPECS: list[dict] = [
         "label": "Indicators (주봉)",
         "module": "kr_pipeline.indicators",
         "pipeline_db_name": "indicators",
-        "params_filter": {"target": "weekly"},
+        "mode_prefix": "weekly-",  # pipeline_runs.mode 가 'weekly-' 로 시작하는 행만
         "modes": [
             {"id": "incremental", "label": "증분 (4주)",
              "args": ["--target=weekly", "--mode=incremental", "--window-weeks=4"]},
@@ -418,20 +418,21 @@ def check_can_run_pipeline(
     """PIPELINE_SPECS 기반 중복 방지 체크.
 
     pipeline_id 가 'indicators-daily' / 'indicators-weekly' 같이 같은
-    pipeline_db_name 을 공유하면 params_filter 로 구분.
+    pipeline_db_name 을 공유하면 mode_prefix 로 구분 (pipeline_runs.mode
+    가 'daily-' 또는 'weekly-' 로 시작하는 행만).
     """
     spec = get_spec(pipeline_id)
     if spec is None:
         return {"can_run": False, "reason": "unknown_pipeline"}
 
     pipeline_db = spec["pipeline_db_name"]
-    params_filter = spec.get("params_filter")
+    mode_prefix = spec.get("mode_prefix")  # None 또는 'daily-' / 'weekly-'
 
     # 1. running 체크
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT id, started_at, params FROM pipeline_runs
+            SELECT id, started_at, mode FROM pipeline_runs
              WHERE pipeline = %s AND status = 'running'
              ORDER BY id DESC LIMIT 5
             """,
@@ -440,8 +441,8 @@ def check_can_run_pipeline(
         running_rows = cur.fetchall()
 
     for row in running_rows:
-        run_id, started_at, params = row
-        if _matches_filter(params, params_filter):
+        run_id, started_at, mode = row
+        if _matches_mode_prefix(mode, mode_prefix):
             return {
                 "can_run": False,
                 "reason": "already_running",
@@ -457,7 +458,7 @@ def check_can_run_pipeline(
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT id, started_at, finished_at, rows_affected, params
+            SELECT id, started_at, finished_at, rows_affected, mode
               FROM pipeline_runs
              WHERE pipeline = %s
                AND status = 'success'
@@ -469,8 +470,8 @@ def check_can_run_pipeline(
         success_rows = cur.fetchall()
 
     for row in success_rows:
-        run_id, started_at, finished_at, rows_affected, params = row
-        if _matches_filter(params, params_filter):
+        run_id, started_at, finished_at, rows_affected, mode = row
+        if _matches_mode_prefix(mode, mode_prefix):
             return {
                 "can_run": False,
                 "reason": "duplicate",
@@ -485,13 +486,13 @@ def check_can_run_pipeline(
     return {"can_run": True, "reason": "ok", "existing_run_id": None}
 
 
-def _matches_filter(params: dict | None, filter_: dict | None) -> bool:
-    """params_filter 가 None 이면 무조건 매치. 있으면 모든 key/value 매치."""
-    if filter_ is None:
+def _matches_mode_prefix(mode: str | None, prefix: str | None) -> bool:
+    """mode_prefix 가 None 이면 무조건 매치. 있으면 mode.startswith(prefix)."""
+    if prefix is None:
         return True
-    if params is None:
+    if mode is None:
         return False
-    return all(params.get(k) == v for k, v in filter_.items())
+    return mode.startswith(prefix)
 
 
 def spawn_pipeline(
@@ -549,16 +550,16 @@ DEFAULT_CRON_LINES = _get_default_cron_lines()
 `tests/test_api_runner_service.py` 끝에 append:
 
 ```python
-def test_check_can_run_pipeline_with_target_filter(db):
-    """indicators-daily vs indicators-weekly: 같은 pipeline_db_name 이지만 params_filter 로 구분."""
+def test_check_can_run_pipeline_with_mode_prefix(db):
+    """indicators-daily vs indicators-weekly: 같은 pipeline_db_name 이지만 mode_prefix 로 구분."""
     from datetime import datetime, timezone
     from api.services.runner_service import check_can_run_pipeline
 
     with db.cursor() as cur:
         cur.execute(
-            """INSERT INTO pipeline_runs (pipeline, mode, status, started_at, finished_at, params)
-               VALUES ('indicators', 'incremental', 'success', %s, %s, %s::jsonb)""",
-            (datetime.now(timezone.utc), datetime.now(timezone.utc), '{"target": "daily"}'),
+            """INSERT INTO pipeline_runs (pipeline, mode, status, started_at, finished_at)
+               VALUES ('indicators', 'daily-incremental', 'success', %s, %s)""",
+            (datetime.now(timezone.utc), datetime.now(timezone.utc)),
         )
 
     # daily 는 오늘 success 있음 → 거부
@@ -666,12 +667,12 @@ def get_summary(conn: Connection = Depends(get_conn)):
     with conn.cursor() as cur:
         for spec in PIPELINE_SPECS:
             pipeline_db = spec["pipeline_db_name"]
-            params_filter = spec.get("params_filter")
+            mode_prefix = spec.get("mode_prefix")
 
-            # 같은 pipeline_db_name 의 최근 5건 중 params_filter 매치하는 첫 row
+            # 같은 pipeline_db_name 의 최근 10건 중 mode_prefix 매치하는 첫 row
             cur.execute(
                 """
-                SELECT id, status, rows_affected, error, started_at, finished_at, params
+                SELECT id, status, rows_affected, error, started_at, finished_at, mode
                   FROM pipeline_runs
                  WHERE pipeline = %s
                  ORDER BY id DESC LIMIT 10
@@ -681,8 +682,8 @@ def get_summary(conn: Connection = Depends(get_conn)):
             rows = cur.fetchall()
             last_run = None
             for row in rows:
-                params = row[6]
-                if _matches_filter(params, params_filter):
+                mode = row[6]
+                if _matches_mode_prefix(mode, mode_prefix):
                     started = row[4]
                     finished = row[5]
                     duration_s = (
@@ -714,12 +715,12 @@ def get_summary(conn: Connection = Depends(get_conn)):
     return {"pipelines": result}
 
 
-def _matches_filter(params, filter_):
-    if filter_ is None:
+def _matches_mode_prefix(mode, prefix):
+    if prefix is None:
         return True
-    if params is None:
+    if mode is None:
         return False
-    return all(params.get(k) == v for k, v in filter_.items())
+    return mode.startswith(prefix)
 ```
 
 기존 `MODE_SCHEDULES` 와 LLM 만 처리하던 코드는 제거. `_next_scheduled` 는 그대로 유지.
@@ -1514,8 +1515,8 @@ Expected: clean.
 
 ✅ **Placeholder 없음**: 모든 step 에 실제 코드.
 
-⚠️ **알려진 한계**:
-- `pipeline_runs.params` JSONB 가 `target` 필드를 갖는지 indicators 파이프라인에서 확인 필요. 만약 없으면 `params_filter` 매칭 실패 → 자율 실행자가 `kr_pipeline/indicators/modes.py` 확인 후 params 에 target 추가하거나 다른 분기 방식 채택.
+⚠️ **알려진 한계** (해결됨):
+- indicators 의 daily/weekly 구분은 `pipeline_runs.mode` 컬럼이 이미 `daily-backfill`, `weekly-incremental` 식으로 prefix 를 가지고 있어서 `mode_prefix` 로 식별 가능. DB 확인 결과 indicators/modes.py 수정 불필요.
 - `--dry-run` 같은 LLM runner 전용 옵션이 다른 모듈에서 invalid 인데, PIPELINE_SPECS 가 그걸 어떻게 분기하는지: 각 mode 의 args 에 명시적으로 포함시킴 (현재 LLM modes 만 `--dry-run` 있음, 다른 모듈은 없음). OK.
 
 ⚠️ **Type consistency**:
