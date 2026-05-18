@@ -1,24 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Play,
-  Clock,
-  AlertTriangle,
   CheckCircle2,
   XCircle,
+  Clock,
   Settings,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import { api, apiUrl } from "../lib/api";
 import type {
   RunSummaryResponse,
-  RunSummaryMode,
+  PipelineSummary,
   CronStatus,
   CronPreview,
-  RunResponse,
 } from "../lib/types";
 import { relativeTime } from "../lib/utils";
 import { Modal } from "../components/ui/Modal";
+
+
+const GROUP_LABELS: Record<string, string> = {
+  data: "데이터 적재",
+  indicators: "지표 계산",
+  llm: "LLM 분석",
+};
+
+const GROUP_ORDER = ["data", "indicators", "llm"];
 
 
 function formatDuration(seconds: number | null): string {
@@ -27,109 +35,163 @@ function formatDuration(seconds: number | null): string {
   return `${Math.floor(seconds / 60)}분 ${Math.floor(seconds % 60)}초`;
 }
 
+function formatNextSchedule(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const time = d.toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${date} ${time}`;
+}
+
 
 function StatusChip({ status }: { status: string }) {
-  if (status === "success") {
-    return (
-      <span className="chip bg-success-soft text-success">
-        <CheckCircle2 size={11} />
-        성공
-      </span>
-    );
-  }
-  if (status === "failed" || status === "error") {
-    return (
-      <span className="chip bg-danger-soft text-danger">
-        <XCircle size={11} />
-        실패
-      </span>
-    );
-  }
-  if (status === "running") {
-    return (
-      <span className="chip bg-amber-soft text-amber">
-        <Clock size={11} className="animate-pulse" />
-        실행 중
-      </span>
-    );
-  }
+  if (status === "success")
+    return <span className="chip bg-success-soft text-success"><CheckCircle2 size={11} />성공</span>;
+  if (status === "failed" || status === "error")
+    return <span className="chip bg-danger-soft text-danger"><XCircle size={11} />실패</span>;
+  if (status === "running")
+    return <span className="chip bg-amber-soft text-amber"><Clock size={11} className="animate-pulse" />실행 중</span>;
   return <span className="chip bg-tint-stone text-muted">{status}</span>;
 }
 
 
-interface RunCardProps {
-  mode: RunSummaryMode;
-  onRun: (mode: string) => void;
+interface RunDialogProps {
+  pipeline: PipelineSummary | null;
+  onClose: () => void;
 }
 
-function RunCard({ mode, onRun }: RunCardProps) {
-  const last = mode.last_run;
-  const nextDate = mode.next_scheduled ? new Date(mode.next_scheduled) : null;
+function RunDialog({ pipeline, onClose }: RunDialogProps) {
+  const [modeId, setModeId] = useState<string>("");
+  const [force, setForce] = useState(false);
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (pipeline) {
+      setModeId(pipeline.modes[0]?.id ?? "");
+      setForce(false);
+    } else {
+      setModeId("");
+      setForce(false);
+    }
+  }, [pipeline]);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!pipeline) throw new Error("no pipeline");
+      const res = await fetch(apiUrl("/runner/run"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pipeline_id: pipeline.pipeline_id,
+          mode_id: modeId,
+          force,
+        }),
+      });
+      if (res.status === 409) {
+        const err = await res.json();
+        throw new Error(`DUPLICATE:${JSON.stringify(err.detail)}`);
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["runs-summary"] });
+      onClose();
+    },
+  });
+
+  if (pipeline === null) return null;
+
+  const selectedMode = pipeline.modes.find((m) => m.id === modeId);
+  const isHeavy = selectedMode
+    ? selectedMode.label.includes("전체") ||
+      selectedMode.label.includes("백필") ||
+      selectedMode.label.includes("실제")
+    : false;
 
   return (
-    <div className="bento p-6 flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3">
+    <Modal
+      open={pipeline !== null}
+      onClose={onClose}
+      title={`수동 실행 — ${pipeline.label}`}
+      subtitle={pipeline.module}
+    >
+      <div className="px-6 py-5 space-y-4">
         <div>
-          <div className="text-subhead font-bold text-ink">
-            {mode.mode === "weekend"
-              ? "주말 분류"
-              : mode.mode === "full-daily"
-              ? "평일 전체 분석"
-              : "성과 backfill"}
-          </div>
-          <div className="text-data-xs text-muted mt-0.5">
-            {mode.description}
+          <label className="caps block mb-2">실행 모드</label>
+          <div className="flex flex-col gap-2">
+            {pipeline.modes.map((m) => (
+              <label
+                key={m.id}
+                className="flex items-center gap-2 cursor-pointer p-2 border border-hairline rounded-lg hover:border-accent"
+              >
+                <input
+                  type="radio"
+                  name="mode"
+                  value={m.id}
+                  checked={modeId === m.id}
+                  onChange={(e) => setModeId(e.target.value)}
+                  className="accent-accent"
+                />
+                <span className="text-data text-ink">{m.label}</span>
+                <span className="num text-data-xs text-faint ml-auto">
+                  {m.args.join(" ")}
+                </span>
+              </label>
+            ))}
           </div>
         </div>
-        <button
-          onClick={() => onRun(mode.mode)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-lg text-data font-semibold hover:bg-accent-light transition-colors"
-        >
-          <Play size={13} />
-          수동 실행
-        </button>
-      </div>
 
-      <div className="grid grid-cols-2 gap-3 text-data-xs">
-        <div>
-          <div className="caps text-faint mb-1">마지막 실행</div>
-          {last ? (
-            <>
-              <StatusChip status={last.status} />
-              <div className="num mt-1.5 text-ink">
-                {last.rows_affected != null
-                  ? `${last.rows_affected.toLocaleString()}건 처리`
-                  : "—"}
+        {isHeavy && (
+          <div className="bg-amber-soft border border-amber/30 rounded-xl p-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={16} className="text-amber shrink-0 mt-0.5" />
+              <div className="text-data text-amber">
+                무거운 작업입니다 (수 분 ~ 수 시간 소요 가능, 또는 LLM 비용 발생).
               </div>
-              <div className="text-muted mt-0.5">
-                {relativeTime(last.started_at)} ·{" "}
-                {formatDuration(last.duration_seconds)}
-              </div>
-            </>
-          ) : (
-            <div className="text-faint">이력 없음</div>
-          )}
+            </div>
+          </div>
+        )}
+
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={force}
+            onChange={(e) => setForce(e.target.checked)}
+            className="w-4 h-4 accent-accent"
+          />
+          <span className="text-data text-ink">
+            오늘 이미 성공한 경우에도 강제 재실행 (force)
+          </span>
+        </label>
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-paper border border-hairline rounded-lg text-data font-semibold"
+          >
+            취소
+          </button>
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={!modeId || mutation.isPending}
+            className="px-4 py-2 bg-accent text-white rounded-lg text-data font-semibold disabled:opacity-50"
+          >
+            {mutation.isPending ? "실행 중…" : "실행"}
+          </button>
         </div>
-        <div>
-          <div className="caps text-faint mb-1">다음 예정</div>
-          {nextDate ? (
-            <>
-              <div className="num text-ink">
-                {nextDate.toLocaleDateString("ko-KR")}
-              </div>
-              <div className="text-muted mt-0.5">
-                {nextDate.toLocaleTimeString("ko-KR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </div>
-            </>
-          ) : (
-            <div className="text-faint">미스케줄</div>
-          )}
-        </div>
+
+        {mutation.isError && (
+          <div className="text-danger text-data-xs">{String(mutation.error)}</div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -155,9 +217,7 @@ function CronManagerSection() {
 
   const mutation = useMutation({
     mutationFn: async (action: "register" | "unregister") => {
-      const res = await fetch(apiUrl(`/cron/${action}`), {
-        method: "POST",
-      });
+      const res = await fetch(apiUrl(`/cron/${action}`), { method: "POST" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
     },
@@ -168,18 +228,16 @@ function CronManagerSection() {
   });
 
   return (
-    <section className="bento p-6">
+    <section className="bento p-6 mt-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-xl bg-tint-violet">
             <Settings size={16} className="text-accent" strokeWidth={2} />
           </div>
           <div>
-            <div className="text-subhead font-bold text-ink">
-              Cron 등록 관리
-            </div>
+            <div className="text-subhead font-bold text-ink">Cron 통합 관리</div>
             <div className="text-data-xs text-muted mt-0.5">
-              평일/주말/일일 cron 자동 등록 (마커 + 자동 백업)
+              모든 cron 작업 (데이터/지표/LLM) 자동 등록 또는 해제. 한 마커 안에서 일괄.
             </div>
           </div>
         </div>
@@ -198,7 +256,7 @@ function CronManagerSection() {
 
       {statusQ.data && (
         <>
-          <div className="num text-data-xs text-muted bg-cream border border-hairline rounded-xl p-3 mb-4 max-h-32 overflow-y-auto">
+          <div className="num text-data-xs text-muted bg-cream border border-hairline rounded-xl p-3 mb-4 max-h-48 overflow-y-auto">
             {statusQ.data.registered ? (
               <pre className="whitespace-pre-wrap">
                 {statusQ.data.lines.join("\n")}
@@ -207,7 +265,6 @@ function CronManagerSection() {
               <span className="text-faint">등록된 cron 라인 없음</span>
             )}
           </div>
-
           <div className="flex gap-2">
             {!statusQ.data.registered && (
               <button
@@ -252,14 +309,12 @@ function CronManagerSection() {
                     : "변경 없음"}
                 </pre>
               </div>
-
               <div>
                 <div className="caps mb-2">변경 후 전체 crontab</div>
                 <pre className="num text-data-xs bg-cream border border-hairline rounded-xl p-3 max-h-64 overflow-auto whitespace-pre-wrap">
                   {previewQ.data.new_crontab_preview}
                 </pre>
               </div>
-
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setPreviewAction(null)}
@@ -283,7 +338,6 @@ function CronManagerSection() {
                     : "해제 적용"}
                 </button>
               </div>
-
               {mutation.isError && (
                 <div className="text-danger text-data-xs">
                   {String(mutation.error)}
@@ -298,142 +352,6 @@ function CronManagerSection() {
 }
 
 
-interface RunDialogProps {
-  mode: string | null;
-  onClose: () => void;
-}
-
-function RunDialog({ mode, onClose }: RunDialogProps) {
-  const [dryRun, setDryRun] = useState(true);
-  const [limit, setLimit] = useState<number | "">(5);
-  const [confirmReal, setConfirmReal] = useState(false);
-  const qc = useQueryClient();
-
-  const mutation = useMutation({
-    mutationFn: async (req: {
-      mode: string;
-      dry_run: boolean;
-      limit: number | null;
-      force?: boolean;
-    }) => {
-      const res = await fetch(apiUrl("/runner/run"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(req),
-      });
-      if (res.status === 409) {
-        const err = await res.json();
-        throw new Error(`DUPLICATE:${JSON.stringify(err.detail)}`);
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json() as Promise<RunResponse>;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["runs-summary"] });
-      onClose();
-    },
-  });
-
-  if (mode === null) return null;
-  const canSubmit = dryRun || confirmReal;
-
-  return (
-    <Modal
-      open={mode !== null}
-      onClose={onClose}
-      title={`수동 실행 — ${mode}`}
-      subtitle="비용 보호: 실제 LLM 호출은 명시적 확인 필요"
-    >
-      <div className="px-6 py-5 space-y-4">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={dryRun}
-            onChange={(e) => {
-              setDryRun(e.target.checked);
-              setConfirmReal(false);
-            }}
-            className="w-4 h-4 accent-accent"
-          />
-          <span className="text-data font-semibold text-ink">
-            Dry-run (LLM 호출 안 함, 흐름만 검증)
-          </span>
-        </label>
-
-        {!dryRun && (
-          <div className="bg-amber-soft border border-amber/30 rounded-xl p-3">
-            <div className="flex items-start gap-2 mb-2">
-              <AlertTriangle size={16} className="text-amber shrink-0 mt-0.5" />
-              <div className="text-data text-amber font-semibold">
-                실제 LLM 호출 — 비용 발생
-              </div>
-            </div>
-            <div className="text-data-xs text-muted mb-2">
-              {mode === "weekend"
-                ? "약 100-200 LLM 호출 예상"
-                : mode === "full-daily"
-                ? "약 30-60 LLM 호출 예상"
-                : "LLM 호출 없음 (계산만)"}
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={confirmReal}
-                onChange={(e) => setConfirmReal(e.target.checked)}
-                className="w-4 h-4 accent-danger"
-              />
-              <span className="text-data text-ink">
-                이해했고 실제 호출하겠습니다
-              </span>
-            </label>
-          </div>
-        )}
-
-        <div>
-          <label className="caps block mb-1.5">종목 수 제한</label>
-          <input
-            type="number"
-            value={limit}
-            onChange={(e) =>
-              setLimit(e.target.value === "" ? "" : Number(e.target.value))
-            }
-            className="border border-hairline rounded-lg px-3 py-2 text-data bg-cream w-32"
-          />
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-paper border border-hairline rounded-lg text-data font-semibold"
-          >
-            취소
-          </button>
-          <button
-            onClick={() =>
-              mutation.mutate({
-                mode,
-                dry_run: dryRun,
-                limit: limit === "" ? null : limit,
-              })
-            }
-            disabled={!canSubmit || mutation.isPending}
-            className="px-4 py-2 bg-accent text-white rounded-lg text-data font-semibold disabled:opacity-50"
-          >
-            {mutation.isPending ? "실행 중…" : "실행"}
-          </button>
-        </div>
-
-        {mutation.isError && (
-          <div className="text-danger text-data-xs">
-            {String(mutation.error)}
-          </div>
-        )}
-      </div>
-    </Modal>
-  );
-}
-
-
 export default function RunnerPage() {
   const qc = useQueryClient();
   const summaryQ = useQuery<RunSummaryResponse>({
@@ -442,7 +360,7 @@ export default function RunnerPage() {
     refetchInterval: 30_000,
   });
 
-  const [runMode, setRunMode] = useState<string | null>(null);
+  const [runPipeline, setRunPipeline] = useState<PipelineSummary | null>(null);
 
   return (
     <div className="px-10 py-10 max-w-[1240px] mx-auto">
@@ -450,8 +368,11 @@ export default function RunnerPage() {
         <div>
           <div className="caps text-faint mb-2">Runner</div>
           <h2 className="font-display text-display-xl font-bold tracking-tight leading-none">
-            LLM 분석 운영
+            분석 운영
           </h2>
+          <div className="text-data-xs text-muted mt-2">
+            모든 cron 작업 (데이터 적재 / 지표 / LLM) 모니터링 + 수동 실행 + Cron 통합 관리
+          </div>
         </div>
         <button
           onClick={() => qc.invalidateQueries()}
@@ -462,15 +383,86 @@ export default function RunnerPage() {
         </button>
       </header>
 
-      <div className="grid grid-cols-3 gap-5 mb-6">
-        {summaryQ.data?.modes.map((m) => (
-          <RunCard key={m.mode} mode={m} onRun={setRunMode} />
-        ))}
-      </div>
+      <section className="bento p-2 mb-6 overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-hairline">
+              <th className="caps text-left px-4 py-3">그룹</th>
+              <th className="caps text-left px-4 py-3">작업</th>
+              <th className="caps text-left px-4 py-3">마지막 실행</th>
+              <th className="caps text-left px-4 py-3">다음 예정</th>
+              <th className="caps text-left px-4 py-3">상태</th>
+              <th className="caps text-center px-4 py-3 w-20">실행</th>
+            </tr>
+          </thead>
+          <tbody>
+            {summaryQ.isLoading && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-muted">
+                  로딩 중…
+                </td>
+              </tr>
+            )}
+            {summaryQ.data &&
+              GROUP_ORDER.flatMap((group) =>
+                summaryQ.data!.pipelines
+                  .filter((p) => p.group === group)
+                  .map((p, idx) => (
+                    <tr
+                      key={p.pipeline_id}
+                      className="border-b border-hairline last:border-b-0 hover:bg-cream"
+                    >
+                      <td className="px-4 py-3 text-data text-muted">
+                        {idx === 0 ? GROUP_LABELS[group] : ""}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-data text-ink font-medium">
+                          {p.label}
+                        </div>
+                        <div className="num text-data-xs text-faint mt-0.5">
+                          {p.module}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-data text-muted">
+                        {p.last_run ? (
+                          <>
+                            <div>{relativeTime(p.last_run.started_at)}</div>
+                            <div className="text-data-xs text-faint mt-0.5">
+                              {p.last_run.rows_affected != null
+                                ? `${p.last_run.rows_affected.toLocaleString()}건 · `
+                                : ""}
+                              {formatDuration(p.last_run.duration_seconds)}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-faint">이력 없음</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 num text-data text-muted">
+                        {formatNextSchedule(p.next_scheduled)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {p.last_run ? <StatusChip status={p.last_run.status} /> : <span className="text-faint">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => setRunPipeline(p)}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-accent text-white hover:bg-accent-light"
+                          title="수동 실행"
+                        >
+                          <Play size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+              )}
+          </tbody>
+        </table>
+      </section>
 
       <CronManagerSection />
 
-      <RunDialog mode={runMode} onClose={() => setRunMode(null)} />
+      <RunDialog pipeline={runPipeline} onClose={() => setRunPipeline(null)} />
     </div>
   );
 }

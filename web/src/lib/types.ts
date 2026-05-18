@@ -123,11 +123,28 @@ export interface Signal {
   notes: string | null;
 }
 
-export interface RunSummaryMode {
-  mode: string;
-  pipeline: string;
+export interface PipelineMode {
+  id: string;
+  label: string;
+  args: string[];
+}
+
+export interface PipelineSpec {
+  id: string;
+  group: string;
+  label: string;
+  module: string;
+  pipeline_db_name: string;
+  modes: PipelineMode[];
+  default_cron: string;
+}
+
+export interface PipelineSummary {
+  pipeline_id: string;
+  group: string;
+  label: string;
+  module: string;
   cron_expression: string;
-  description: string;
   last_run: {
     id: number;
     status: string;
@@ -138,10 +155,11 @@ export interface RunSummaryMode {
     duration_seconds: number | null;
   } | null;
   next_scheduled: string | null;
+  modes: PipelineMode[];
 }
 
 export interface RunSummaryResponse {
-  modes: RunSummaryMode[];
+  pipelines: PipelineSummary[];
 }
 
 export interface CronStatus {
@@ -161,8 +179,8 @@ export interface CronPreview {
 }
 
 export interface RunResponse {
-  mode: string;
-  dry_run: boolean;
+  pipeline_id: string;
+  mode_id: string;
   pid: number;
   command: string;
 }
