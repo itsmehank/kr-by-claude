@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import stocks, indicators, heatmap, render, prompts, runs, market_context, signals, performance, runner, pipelines
+from api.routers import stocks, indicators, heatmap, render, prompts, runs, market_context, signals, performance, runner, pipelines, classifications
 from api.routers import cron as cron_router
 
 
@@ -28,6 +28,7 @@ app.include_router(performance.router)
 app.include_router(runner.router)
 app.include_router(cron_router.router)
 app.include_router(pipelines.router)
+app.include_router(classifications.router)
 
 
 @app.get("/api/health")
