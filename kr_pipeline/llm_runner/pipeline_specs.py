@@ -28,6 +28,10 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "0 4 1 * *",
         "schedule_label": "월 1회",
+        "long_description": "KOSPI/KOSDAQ 의 모든 상장 종목 (이름·섹터·시장) 을 수집해 stocks 테이블에 갱신합니다.\n\n새로 상장되거나 폐지된 종목을 반영하는 작업으로, 다른 모든 분석 작업의 기준이 되는 종목 마스터를 관리합니다.\n\n선행 작업: 없음 (외부 KRX API 만 사용)\n실행 빈도: 월 1회 — 종목 변화가 잦지 않음.",
+        "inputs": [],
+        "outputs": ["stocks"],
+        "depends_on": [],
     },
     {
         "id": "ohlcv",
@@ -46,6 +50,10 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "30 18 * * 1-5",
         "schedule_label": "평일 매일",
+        "long_description": "각 종목의 일별 OHLCV (시가·고가·저가·종가·거래량) 를 KRX 에서 수집해 daily_prices 테이블에 적재합니다.\n\n증분 모드는 직전 30일을 다시 가져와 정정사항을 반영하고, 백필 모드는 1년 이상 거슬러 올라갑니다.\n\n선행 작업: 없음 (외부 KRX API)\n후속 작업: weekly (주봉 집계), indicators-daily (지표 계산), llm-performance (현재가 비교)",
+        "inputs": [],
+        "outputs": ["daily_prices"],
+        "depends_on": [],
     },
     {
         "id": "weekly",
@@ -64,6 +72,10 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "0 3 * * 6",
         "schedule_label": "주 1회 (토)",
+        "long_description": "daily_prices 데이터를 주 단위로 집계해 weekly_prices 테이블을 만듭니다.\n\n한 주의 시가는 월요일 시가, 종가는 금요일 종가, 고가·저가는 주중 최대·최소, 거래량은 합계입니다.\n\n선행 작업: ohlcv (일봉 데이터 필수)\n후속 작업: indicators-weekly (주봉 지표 계산)",
+        "inputs": ["daily_prices"],
+        "outputs": ["weekly_prices"],
+        "depends_on": ["ohlcv"],
     },
     {
         "id": "corporate-actions",
@@ -82,6 +94,10 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "30 4 * * 6",
         "schedule_label": "주 1회 (토)",
+        "long_description": "액면분할·배당·합병 등 corporate action 이력을 수집해 corporate_actions 테이블에 적재합니다.\n\n이 데이터는 주가의 조정 계수 (adj_close) 를 계산할 때 사용되며, 잘못된 액면분할 처리는 잘못된 지표로 이어집니다.\n\n선행 작업: 없음 (외부 KRX/DART API)\n후속 작업: indicators-daily, indicators-weekly (지표 계산 시 가격 조정)",
+        "inputs": [],
+        "outputs": ["corporate_actions"],
+        "depends_on": [],
     },
 
     # ─── 지표 계산 ────────────────────────────────────────────────
@@ -103,6 +119,10 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "0 19 * * 1-5",
         "schedule_label": "평일 매일",
+        "long_description": "일봉 OHLCV 데이터를 기반으로 기술 지표를 계산해 daily_indicators 테이블에 적재합니다.\n\n계산 항목:\n- 이동평균선 (10/21/50/150/200일)\n- 52주 고가·저가\n- RS Rating (시장 대비 상대강도)\n- Minervini Trend Template 통과 여부\n- Pocket Pivot / Distribution Day\n\n선행 작업: ohlcv, corporate-actions (가격 조정 적용)\n후속 작업: market-context, llm-full-daily, llm-weekend",
+        "inputs": ["daily_prices", "corporate_actions"],
+        "outputs": ["daily_indicators"],
+        "depends_on": ["ohlcv", "corporate-actions"],
     },
     {
         "id": "indicators-weekly",
@@ -122,6 +142,10 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "0 4 * * 6",
         "schedule_label": "주 1회 (토)",
+        "long_description": "주봉 OHLCV 데이터를 기반으로 주봉 기준 기술 지표를 계산해 weekly_indicators 테이블에 적재합니다.\n\n계산 항목:\n- 이동평균선 (10/30/40주)\n- 52주 고가·저가\n- RS Rating (주봉 기준)\n- Minervini Trend Template 통과 여부\n\n선행 작업: weekly, corporate-actions\n후속 작업: llm-weekend",
+        "inputs": ["weekly_prices", "corporate_actions"],
+        "outputs": ["weekly_indicators"],
+        "depends_on": ["weekly", "corporate-actions"],
     },
     {
         "id": "market-context",
@@ -140,6 +164,10 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "30 19 * * 1-5",
         "schedule_label": "평일 매일",
+        "long_description": "시장 전반 상황 — KOSPI 와 KOSDAQ 각각의 추세 단계, distribution day 수, follow-through day, 200일선 위 종목 비율 등 — 을 계산해 market_context_daily 테이블에 적재합니다.\n\n각 종목의 LLM 분석 시 그 종목 시장의 컨텍스트를 함께 전달해 LLM 이 시장 분위기를 고려한 판단을 할 수 있게 합니다.\n\n선행 작업: indicators-daily (200일선 위 종목 비율 계산에 필요)\n후속 작업: llm-full-daily, llm-weekend",
+        "inputs": ["daily_indicators", "daily_prices"],
+        "outputs": ["market_context_daily"],
+        "depends_on": ["indicators-daily"],
     },
 
     # ─── LLM 분석 ────────────────────────────────────────────────
@@ -158,6 +186,10 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "30 16 * * 1-5",
         "schedule_label": "평일 매일",
+        "long_description": "신규 종목 분류 → 진입 시그널 생성 → 직전 시그널 평가 → 성과 backfill 을 LLM 으로 통합 처리합니다.\n\nLLM 에 전달되는 payload 에는 일봉 OHLCV, 지표, 시장 컨텍스트, 액면분할 이력이 모두 포함됩니다.\n\n선행 작업: indicators-daily, market-context (오늘 데이터)\n후속 작업: 없음 (분석 결과는 신호 테이블에 직접 적재)",
+        "inputs": ["daily_indicators", "market_context_daily", "daily_prices"],
+        "outputs": ["entry_params", "signal_performance"],
+        "depends_on": ["indicators-daily", "market-context"],
     },
     {
         "id": "llm-weekend",
@@ -174,6 +206,10 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "20 3 * * 6",
         "schedule_label": "주 1회 (토)",
+        "long_description": "평일 분석에서 누락된 전체 종목을 LLM 으로 batch 분류합니다.\n\nMinervini Trend Stage (accumulation / advancing / distribution / declining) 4단계 판정 + 핵심 코멘트 1~2 줄.\n\n토요일 새벽 03:20 에 실행되며, 직전 금요일 데이터를 기준으로 분류합니다.\n\n선행 작업: indicators-daily, indicators-weekly, market-context (금요일 기준)\n후속 작업: 없음",
+        "inputs": ["daily_indicators", "weekly_indicators", "market_context_daily"],
+        "outputs": ["weekly_classification"],
+        "depends_on": ["indicators-daily", "indicators-weekly", "market-context"],
     },
     {
         "id": "llm-performance",
@@ -188,6 +224,10 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "0 23 * * *",
         "schedule_label": "매일",
+        "long_description": "기존에 LLM 이 생성한 진입 시그널의 실현 성과를 backfill 합니다.\n\n진입 후 최고가·최저가·현재가를 비교해 RR (risk-reward), 최대 손익 등을 계산해 signal_performance 테이블에 적재합니다.\n\nLLM 호출은 없음 — 가격 데이터만으로 계산.\n\n선행 작업: ohlcv (현재가 + 과거 가격)\n후속 작업: 없음",
+        "inputs": ["daily_prices", "entry_params"],
+        "outputs": ["signal_performance"],
+        "depends_on": ["ohlcv"],
     },
 ]
 

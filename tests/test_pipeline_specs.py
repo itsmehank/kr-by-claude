@@ -33,6 +33,10 @@ def test_each_spec_has_required_fields():
         assert "default_cron" in spec
         assert "schedule_label" in spec
         assert "pipeline_db_name" in spec
+        assert "long_description" in spec
+        assert "inputs" in spec
+        assert "outputs" in spec
+        assert "depends_on" in spec
         for mode in spec["modes"]:
             assert "id" in mode
             assert "label" in mode
@@ -126,3 +130,60 @@ def test_pipeline_db_name_matches_existing_runs():
     assert get_spec("llm-full-daily")["pipeline_db_name"] == "llm_daily_delta"
     assert get_spec("llm-weekend")["pipeline_db_name"] == "llm_weekend"
     assert get_spec("llm-performance")["pipeline_db_name"] == "llm_performance"
+
+
+def test_each_spec_has_long_description():
+    """모든 spec 은 long_description (>20자) 을 가져야 함."""
+    from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS
+
+    for spec in PIPELINE_SPECS:
+        assert "long_description" in spec, f"{spec['id']} 누락"
+        assert isinstance(spec["long_description"], str)
+        assert len(spec["long_description"]) > 20, f"{spec['id']} 너무 짧음"
+
+
+def test_each_spec_has_io_tables():
+    """모든 spec 은 inputs / outputs (list[str]) 를 가져야 함."""
+    from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS
+
+    for spec in PIPELINE_SPECS:
+        assert "inputs" in spec and isinstance(spec["inputs"], list), f"{spec['id']} inputs 누락"
+        assert "outputs" in spec and isinstance(spec["outputs"], list), f"{spec['id']} outputs 누락"
+        for t in spec["inputs"] + spec["outputs"]:
+            assert isinstance(t, str)
+        assert len(spec["outputs"]) > 0, f"{spec['id']} outputs 비어있음"
+
+
+def test_each_spec_has_depends_on():
+    """모든 spec 은 depends_on (list[str]) 을 가져야 함."""
+    from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS
+
+    for spec in PIPELINE_SPECS:
+        assert "depends_on" in spec and isinstance(spec["depends_on"], list), f"{spec['id']} depends_on 누락"
+        for dep in spec["depends_on"]:
+            assert isinstance(dep, str)
+
+
+def test_depends_on_referential_integrity():
+    """depends_on 의 모든 id 가 PIPELINE_SPECS 에 실제 존재해야 함."""
+    from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS
+
+    all_ids = {s["id"] for s in PIPELINE_SPECS}
+    for spec in PIPELINE_SPECS:
+        for dep in spec["depends_on"]:
+            assert dep in all_ids, f"{spec['id']} depends_on '{dep}' 존재하지 않음"
+
+
+def test_known_dependency_mapping():
+    """확정된 핵심 의존 관계 검증."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+
+    assert get_spec("universe")["depends_on"] == []
+    assert get_spec("ohlcv")["depends_on"] == []
+    assert "ohlcv" in get_spec("weekly")["depends_on"]
+    assert set(get_spec("indicators-daily")["depends_on"]) == {"ohlcv", "corporate-actions"}
+    assert set(get_spec("indicators-weekly")["depends_on"]) == {"weekly", "corporate-actions"}
+    assert get_spec("market-context")["depends_on"] == ["indicators-daily"]
+    assert set(get_spec("llm-full-daily")["depends_on"]) == {"indicators-daily", "market-context"}
+    assert set(get_spec("llm-weekend")["depends_on"]) == {"indicators-daily", "indicators-weekly", "market-context"}
+    assert get_spec("llm-performance")["depends_on"] == ["ohlcv"]
