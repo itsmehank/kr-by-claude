@@ -294,7 +294,7 @@ function ClassificationGroup({
   if (rows.length === 0) return null;
 
   return (
-    <section className="bento mb-4 overflow-hidden">
+    <section className="bento mb-4">
       <div
         onClick={() => setGroupOpen(!groupOpen)}
         className="flex items-center gap-2 px-4 py-3 cursor-pointer hover:bg-cream"
