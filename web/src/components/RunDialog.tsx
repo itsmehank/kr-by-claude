@@ -24,7 +24,7 @@ interface RunDialogProps {
 export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) {
   const [modeId, setModeId] = useState<string>("");
   const [force, setForce] = useState(false);
-  const [paramValues, setParamValues] = useState<Record<string, number>>({});
+  const [paramValues, setParamValues] = useState<Record<string, number | undefined>>({});
   const [conflict, setConflict] = useState<{
     reason: string;
     existing_run_id: number | null;
@@ -144,8 +144,22 @@ export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) 
                     type="number"
                     min={p.min}
                     max={p.max}
-                    value={paramValues[p.name] ?? p.default}
-                    onChange={(e) => setParamValues({...paramValues, [p.name]: parseInt(e.target.value) || p.default})}
+                    value={paramValues[p.name] ?? ""}
+                    placeholder={`기본 ${p.default}`}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "") {
+                        setParamValues({ ...paramValues, [p.name]: undefined });
+                      } else {
+                        const n = parseInt(v, 10);
+                        if (!isNaN(n)) setParamValues({ ...paramValues, [p.name]: n });
+                      }
+                    }}
+                    onBlur={() => {
+                      if (paramValues[p.name] == null) {
+                        setParamValues({ ...paramValues, [p.name]: p.default });
+                      }
+                    }}
                     className="w-24 px-3 py-1.5 border border-hairline rounded-lg text-data num"
                   />
                   <span className="text-data-xs text-faint">({p.min}~{p.max})</span>
