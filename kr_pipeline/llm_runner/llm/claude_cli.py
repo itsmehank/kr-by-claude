@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import random
 import subprocess
 import time
@@ -162,9 +163,20 @@ def call_claude(
         prompt_text += json.dumps(payload_inline, ensure_ascii=False, indent=2)
         prompt_text += "\n```\n"
 
-    cmd = ["claude", "--print"]
+    cmd = ["claude", "--print", "--permission-mode", "bypassPermissions"]
+
+    # 첨부 파일들의 디렉토리를 --add-dir 로 등록 (claude CLI 최신 API)
+    attach_dirs: set[str] = set()
     for att in attachments or []:
-        cmd.extend(["--attach", att])
+        attach_dirs.add(os.path.dirname(os.path.abspath(att)))
+    for d in attach_dirs:
+        cmd.extend(["--add-dir", d])
+
+    # prompt 안에 파일 reference 를 @absolute_path 형식으로 추가
+    if attachments:
+        prompt_text += "\n\n## 첨부 파일\n\n다음 파일들을 참고하세요:\n"
+        for att in attachments:
+            prompt_text += f"- @{os.path.abspath(att)}\n"
 
     last_error = None
     for attempt, delay in enumerate([0] + RETRY_DELAYS):

@@ -94,3 +94,54 @@ def test_call_claude_raises_after_3_retries(mocker):
         call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
     # 1차 시도 (즉시) + 3회 재시도 = 4 호출. plan loop: for attempt, delay in enumerate([0] + RETRY_DELAYS) → 4 iterations.
     assert mock_run.call_count == 4
+
+
+def test_call_claude_uses_add_dir_not_attach(mocker, tmp_path):
+    """attachments 가 있으면 --attach 대신 --add-dir + @path reference 를 사용해야 함."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+
+    # 첨부 파일 준비
+    att_file = tmp_path / "data.zip"
+    att_file.write_bytes(b"PK\x03\x04test")
+
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[],
+        returncode=0,
+        stdout='{"classification": "watch", "pattern": "flat_base"}',
+        stderr="",
+    )
+
+    call_claude(
+        prompt_file="analyze_chart_v3.md",
+        attachments=[str(att_file)],
+        dry_run=False,
+    )
+
+    call_args = mock_run.call_args[0][0]
+
+    # --attach 는 없어야 함
+    assert "--attach" not in call_args
+
+    # --add-dir 가 있어야 함
+    assert "--add-dir" in call_args
+    add_dir_idx = call_args.index("--add-dir")
+    assert str(att_file.parent) == call_args[add_dir_idx + 1]
+
+    # --permission-mode bypassPermissions 가 있어야 함
+    assert "--permission-mode" in call_args
+    perm_idx = call_args.index("--permission-mode")
+    assert call_args[perm_idx + 1] == "bypassPermissions"
+
+    # stdin 으로 전달된 prompt 에 @absolute_path 가 포함되어야 함
+    input_text = mock_run.call_args[1]["input"]
+    assert f"@{att_file}" in input_text
+
+
+def test_call_claude_no_longer_uses_attach_in_source():
+    """source code 에 --attach 가 더 이상 없어야 함 (regression guard)."""
+    from pathlib import Path
+    src = Path(__file__).parent.parent / "kr_pipeline" / "llm_runner" / "llm" / "claude_cli.py"
+    content = src.read_text()
+    assert "--attach" not in content, "claude_cli.py 에서 --attach 옵션이 제거되어야 함"
+    assert "--add-dir" in content, "claude_cli.py 가 --add-dir 를 사용해야 함"
