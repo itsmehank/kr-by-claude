@@ -129,13 +129,16 @@ def spawn_runner(
         cmd.append(f"--ticker={ticker}")
 
     log_file = log_path.open("a")
-    proc = subprocess.Popen(
-        cmd,
-        cwd=str(PROJECT_DIR),
-        stdout=log_file,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,  # 부모 종료해도 살아있게
-    )
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=str(PROJECT_DIR),
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,  # 부모 종료해도 살아있게
+        )
+    finally:
+        log_file.close()
     return {"pid": proc.pid, "command": " ".join(cmd)}
 
 
@@ -230,11 +233,14 @@ def spawn_pipeline(pipeline_id: str, mode_id: str) -> dict:
     cmd = ["uv", "run", "python", "-m", spec["module"], *args]
 
     log_file = log_path.open("a")
-    proc = subprocess.Popen(
-        cmd,
-        cwd=str(PROJECT_DIR),
-        stdout=log_file,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-    )
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=str(PROJECT_DIR),
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    finally:
+        log_file.close()
     return {"pid": proc.pid, "command": " ".join(cmd)}
