@@ -49,6 +49,57 @@ const CLASSIFICATION_TONES: Record<string, string> = {
   ignore: "bg-tint-stone text-muted",
 };
 
+const PATTERN_DESCRIPTIONS: Record<string, string> = {
+  flat_base:
+    "5~7주 횡보 통합, depth ≤15% — Cup-with-handle 이후 자주 등장하는 2차 base (Box 형태).",
+  cup_with_handle:
+    "U자 컵 (12~33% 조정, 깊으면 50%까지) + cup 상반부에 형성된 짧은 손잡이 (8~12% pullback), 7주~수개월. O'Neil 의 가장 흔한 정통 패턴.",
+  vcp:
+    "Volatility Contraction Pattern — 변동성과 거래량이 단계적으로 줄어드는 통합 (Minervini).",
+  double_bottom:
+    "W 형태 이중 바닥. 두 번째 저점이 첫 저점을 살짝 undercut(shakeout). Buy point 는 W 중앙 peak (top of middle peak, 우측). 두 번째 바닥에서 매수는 너무 이름.",
+  none:
+    "Base 패턴 식별되지 않음.",
+};
+
+const RISK_FLAG_DESCRIPTIONS: Record<string, string> = {
+  climax_run:
+    "1~3주에 가격 25%+ 상승 + 가장 큰 주봉/거래량 — Minervini Stage 3 climax 경고.",
+  late_stage_base:
+    "현재 Stage 2 advance 의 3번째 이상 base. O'Neil: base 3~4는 경계, Minervini: base 4+ 위험.",
+  extended_from_ma:
+    "50일 이평선 위 15%+ — 추격 진입 위험 (실무 휴리스틱; O'Neil 원전은 pivot 에서 5~10%+ 추격 시 늦은 매수).",
+  faulty_pivot:
+    "Pivot 의 형태적 결함 (wedging handle, handle이 base 하반부, V자 즉시 신고가, 거래량 없는 돌파 등).",
+  low_volume_breakout:
+    "돌파 거래량이 50일 평균의 1.5배 미만 (O'Neil: 50% above average 가 최소).",
+  narrow_base:
+    "패턴별 최소 기간보다 짧은 base.",
+  wide_and_loose:
+    "주봉 변동폭이 erratic / 시장 조정 대비 2.5배 초과 — 거래 어려운 base (O'Neil).",
+  prior_uptrend_insufficient:
+    "52주 저점 대비 25% 미만 상승 — Minervini Trend Template #5 위반 (Stage 2 진입 부족).",
+  volume_contraction_on_advance:
+    "상승 중 거래량 감소 — 수요 약화 / 기관 매수 부족 신호 (O'Neil: lost appetite).",
+  reverse_split_distortion:
+    "최근 12주 내 reverse split — 가격 왜곡 가능 (실무 휴리스틱, 책 원전 아님).",
+  unfavorable_market_context:
+    "시장 downtrend/correction 또는 distribution day 5개 이상 (25 sessions; O'Neil 의 '4~5주' 중 느슨한 쪽, IBD/Dr.K 표준은 20일).",
+  etf_methodology_mismatch:
+    "ETF/fund — Minervini/O'Neil 개별 leadership 종목 방법론 적용 안 됨.",
+  thin_liquidity_us_only:
+    "(US only) 일평균 거래대금 $5M 미만 (실무 변형; O'Neil disciple 원전은 35~50만 주 최소).",
+};
+
+const FIELD_TOOLTIPS = {
+  pivot:
+    "베이스 안에서 거래량 동반으로 이 가격을 돌파하면 buy point (Minervini/O'Neil 진입 기준).",
+  base:
+    "가격 통합 구간 (low~high, 형성 시작일~현재). depth = 고점 대비 저점 하락률. 매물 소화 후 새 추세 시작.",
+  confidence:
+    "LLM 의 분류 자신감 (0~1). 데이터 부족 / 모호한 패턴 / 시장 컨텍스트 불리 시 낮아짐.",
+};
+
 
 function buildQueryString(filters: Filters): string {
   const params = new URLSearchParams();
@@ -86,14 +137,28 @@ function RowHeader({
         {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
       </span>
       <span className="num text-data text-ink shrink-0">{row.symbol}</span>
-      <span className="text-data text-ink truncate flex-1 min-w-0">{row.name}</span>
+      <span className="text-data text-ink truncate min-w-0">{row.name}</span>
+      <span className="text-data-xs text-faint shrink-0 whitespace-nowrap">
+        {row.sector && `· ${row.sector}`}
+        {row.market && ` · ${row.market}`}
+      </span>
+      <div className="flex-1" />
       <ClassificationChip classification={row.classification} />
       {row.pattern && (
-        <span className="text-data-xs text-muted">{row.pattern}</span>
+        <Tooltip content={PATTERN_DESCRIPTIONS[row.pattern] ?? row.pattern}>
+          <span className="text-data-xs text-muted cursor-help underline decoration-dotted decoration-faint underline-offset-2">
+            {row.pattern}
+          </span>
+        </Tooltip>
       )}
       {row.confidence != null && (
-        <span className="num text-data-xs text-faint shrink-0">
+        <span className="num text-data-xs text-faint shrink-0 flex items-center gap-1">
           conf {row.confidence.toFixed(2)}
+          <Tooltip content={FIELD_TOOLTIPS.confidence}>
+            <span className="cursor-help text-faint">
+              <Info size={11} />
+            </span>
+          </Tooltip>
         </span>
       )}
       <Tooltip
@@ -122,7 +187,14 @@ function RowDetails({ row }: { row: Classification }) {
       <div className="grid grid-cols-2 gap-4 text-data-xs">
         {row.pivot_price != null && (
           <div>
-            <div className="caps text-faint">Pivot</div>
+            <div className="caps text-faint flex items-center gap-1">
+              Pivot
+              <Tooltip content={FIELD_TOOLTIPS.pivot}>
+                <span className="cursor-help">
+                  <Info size={10} />
+                </span>
+              </Tooltip>
+            </div>
             <div className="num text-data text-ink">
               {row.pivot_price.toLocaleString()}{" "}
               {row.pivot_basis && (
@@ -133,7 +205,14 @@ function RowDetails({ row }: { row: Classification }) {
         )}
         {row.base_high != null && row.base_low != null && (
           <div>
-            <div className="caps text-faint">Base</div>
+            <div className="caps text-faint flex items-center gap-1">
+              Base
+              <Tooltip content={FIELD_TOOLTIPS.base}>
+                <span className="cursor-help">
+                  <Info size={10} />
+                </span>
+              </Tooltip>
+            </div>
             <div className="num text-data text-ink">
               {row.base_low.toLocaleString()} ~ {row.base_high.toLocaleString()}
               {row.base_depth_pct != null && (
@@ -152,9 +231,11 @@ function RowDetails({ row }: { row: Classification }) {
           <div className="caps text-faint mb-1">Risk Flags</div>
           <div className="flex flex-wrap gap-1">
             {row.risk_flags.map((flag) => (
-              <span key={flag} className="chip bg-amber-soft text-amber">
-                <AlertTriangle size={11} /> {flag}
-              </span>
+              <Tooltip key={flag} content={RISK_FLAG_DESCRIPTIONS[flag] ?? flag}>
+                <span className="chip bg-amber-soft text-amber cursor-help">
+                  <AlertTriangle size={11} /> {flag}
+                </span>
+              </Tooltip>
             ))}
           </div>
         </div>
@@ -170,6 +251,7 @@ function RowDetails({ row }: { row: Classification }) {
       )}
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-data-xs text-faint num">
+        {row.analyzed_for_date && <span>기준일: {row.analyzed_for_date}</span>}
         <span>source: {row.source}</span>
         {row.llm_call_duration_s != null && (
           <span>duration: {row.llm_call_duration_s.toFixed(1)}s</span>
@@ -184,6 +266,8 @@ function RowDetails({ row }: { row: Classification }) {
 
       <Link
         to={`/chart/${row.symbol}`}
+        target="_blank"
+        rel="noopener noreferrer"
         onClick={(e) => e.stopPropagation()}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-lg text-data-xs font-semibold hover:bg-accent-light"
       >
