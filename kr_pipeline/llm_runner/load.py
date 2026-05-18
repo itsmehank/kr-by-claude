@@ -7,15 +7,21 @@ from psycopg import Connection
 
 
 def get_qualifying_tickers(conn: Connection, as_of: date | None = None) -> list[dict]:
-    """오늘 결정론 필터 통과 종목 (주말 (5) batch 대상).
+    """주말 (5) batch 후보 종목 조회.
+
+    as_of 가 주어지면 그 날짜 이하 가장 최근 daily_indicators 의 날짜를 찾아 사용.
+    (평일 수동 실행 시 오늘 데이터 없으면 직전 영업일 사용 — 토요일 cron 시나리오와 일관.)
+    as_of=None 이면 daily_indicators 의 전체 MAX(date) 사용.
 
     Returns: [{"symbol", "market"}, ...]
     """
-    if as_of is None:
-        with conn.cursor() as cur:
+    with conn.cursor() as cur:
+        if as_of is None:
             cur.execute("SELECT MAX(date) FROM daily_indicators")
-            row = cur.fetchone()
-        as_of = row[0] if row and row[0] else date.today()
+        else:
+            cur.execute("SELECT MAX(date) FROM daily_indicators WHERE date <= %s", (as_of,))
+        row = cur.fetchone()
+        target_date = row[0] if row and row[0] else (as_of or date.today())
 
     with conn.cursor() as cur:
         cur.execute(
@@ -29,7 +35,7 @@ def get_qualifying_tickers(conn: Connection, as_of: date | None = None) -> list[
                AND s.delisted_at IS NULL
              ORDER BY i.ticker
             """,
-            (as_of,),
+            (target_date,),
         )
         return [{"symbol": r[0], "market": r[1]} for r in cur.fetchall()]
 
