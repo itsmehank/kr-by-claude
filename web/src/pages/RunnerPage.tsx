@@ -17,7 +17,7 @@ import type {
   CronStatus,
   CronPreview,
 } from "../lib/types";
-import { relativeTime } from "../lib/utils";
+import { relativeTime, formatDuration, formatKst } from "../lib/utils";
 import { Modal } from "../components/ui/Modal";
 import { Tooltip } from "../components/ui/Tooltip";
 import { RunDialog } from "../components/RunDialog";
@@ -32,12 +32,6 @@ const GROUP_LABELS: Record<string, string> = {
 const GROUP_ORDER = ["data", "indicators", "llm"];
 
 
-function formatDuration(seconds: number | null): string {
-  if (seconds == null) return "—";
-  if (seconds < 60) return `${seconds.toFixed(0)}초`;
-  return `${Math.floor(seconds / 60)}분 ${Math.floor(seconds % 60)}초`;
-}
-
 function formatNextSchedule(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -50,19 +44,6 @@ function formatNextSchedule(iso: string | null): string {
     minute: "2-digit",
   });
   return `${date} ${time}`;
-}
-
-function formatKst(iso: string): string {
-  return new Date(iso).toLocaleString("ko-KR", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
 }
 
 

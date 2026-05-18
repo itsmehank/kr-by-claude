@@ -3,6 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  ArrowDownToLine,
+  ArrowUpFromLine,
   Play,
   CheckCircle2,
   XCircle,
@@ -11,29 +13,10 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import type { PipelineDetail, PipelineRef } from "../lib/types";
-import { relativeTime } from "../lib/utils";
+import { relativeTime, formatDuration, formatKst } from "../lib/utils";
 import { Tooltip } from "../components/ui/Tooltip";
 import { RunDialog, type RunDialogPipeline } from "../components/RunDialog";
 
-
-function formatDuration(seconds: number | null): string {
-  if (seconds == null) return "—";
-  if (seconds < 60) return `${seconds.toFixed(0)}초`;
-  return `${Math.floor(seconds / 60)}분 ${Math.floor(seconds % 60)}초`;
-}
-
-function formatKst(iso: string): string {
-  return new Date(iso).toLocaleString("ko-KR", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-}
 
 
 function StatusChip({ status }: { status: string }) {
@@ -78,9 +61,8 @@ export default function PipelinePage() {
     return <div className="px-10 py-10 text-muted">로딩 중…</div>;
   }
   if (q.isError) {
-    const msg = (q.error as Error)?.message ?? "";
-    const is404 = msg.includes(": 404");
-    if (is404) {
+    const status = (q.error as { status?: number })?.status;
+    if (status === 404) {
       return (
         <div className="px-10 py-10 max-w-[1240px] mx-auto">
           <Link to="/runner" className="flex items-center gap-1.5 text-data text-muted hover:text-ink mb-6">
@@ -157,7 +139,9 @@ export default function PipelinePage() {
       <section className="bento p-6 mb-6">
         <div className="grid grid-cols-2 gap-6">
           <div>
-            <div className="caps text-faint mb-3">입력 (읽음)</div>
+            <div className="caps text-faint mb-3 flex items-center gap-1.5">
+              <ArrowDownToLine size={11} /> 입력 (읽음)
+            </div>
             {p.inputs.length === 0 ? (
               <div className="text-data-xs text-faint">없음 (외부 API)</div>
             ) : (
@@ -172,7 +156,9 @@ export default function PipelinePage() {
             )}
           </div>
           <div>
-            <div className="caps text-faint mb-3">출력 (씀)</div>
+            <div className="caps text-faint mb-3 flex items-center gap-1.5">
+              <ArrowUpFromLine size={11} /> 출력 (씀)
+            </div>
             <ul className="space-y-1">
               {p.outputs.map((t) => (
                 <li key={t} className="num text-data text-ink flex items-center gap-1.5">

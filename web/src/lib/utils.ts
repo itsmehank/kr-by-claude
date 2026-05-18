@@ -37,3 +37,22 @@ export function stalenessLevel(
   if (hours < 24 * 7) return "stale";
   return "old";
 }
+
+export function formatDuration(seconds: number | null): string {
+  if (seconds == null) return "—";
+  if (seconds < 60) return `${seconds.toFixed(0)}초`;
+  return `${Math.floor(seconds / 60)}분 ${Math.floor(seconds % 60)}초`;
+}
+
+export function formatKst(iso: string): string {
+  return new Date(iso).toLocaleString("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
