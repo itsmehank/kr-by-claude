@@ -19,6 +19,7 @@ import PromptPage from "./pages/PromptPage";
 import SignalsPage from "./pages/SignalsPage";
 import PerformancePage from "./pages/PerformancePage";
 import RunnerPage from "./pages/RunnerPage";
+import PipelinePage from "./pages/PipelinePage";
 import { api } from "./lib/api";
 import type { PipelineRun } from "./lib/types";
 import { relativeTime, stalenessLevel } from "./lib/utils";
@@ -180,6 +181,7 @@ function App() {
           <Route path="/signals" element={<SignalsPage />} />
           <Route path="/performance" element={<PerformancePage />} />
           <Route path="/runner" element={<RunnerPage />} />
+          <Route path="/runner/:pipelineId" element={<PipelinePage />} />
           <Route path="/prompt" element={<PromptPage />} />
           <Route path="/prompt/:ticker" element={<PromptPage />} />
         </Routes>

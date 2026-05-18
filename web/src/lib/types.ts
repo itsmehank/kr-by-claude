@@ -196,3 +196,36 @@ export interface RunConflict {
   existing_run_summary: Record<string, unknown> | null;
   message: string;
 }
+
+export interface PipelineRef {
+  id: string;
+  label: string;
+}
+
+export interface PipelineRecentRun {
+  id: number;
+  mode: string;
+  status: string;
+  started_at: string | null;
+  finished_at: string | null;
+  rows_affected: number | null;
+  duration_seconds: number | null;
+  error: string | null;
+}
+
+export interface PipelineDetail {
+  id: string;
+  group: string;
+  label: string;
+  description: string;
+  long_description: string;
+  module: string;
+  schedule_label: string;
+  default_cron: string;
+  inputs: string[];
+  outputs: string[];
+  depends_on: PipelineRef[];
+  consumed_by: PipelineRef[];
+  modes: PipelineMode[];
+  recent_runs: PipelineRecentRun[];
+}

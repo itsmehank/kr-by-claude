@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Play,
@@ -298,7 +299,12 @@ export default function RunnerPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-data text-ink font-medium">{p.label}</span>
+                          <Link
+                            to={`/runner/${p.pipeline_id}`}
+                            className="text-data text-ink font-medium hover:text-accent"
+                          >
+                            {p.label}
+                          </Link>
                           <Tooltip content={p.description}>
                             <span className="text-faint hover:text-muted cursor-help" aria-label="작업 설명">
                               <Info size={13} />
