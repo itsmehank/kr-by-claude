@@ -42,7 +42,7 @@ def run(
 
     for symbol in new_tickers:
         try:
-            _process_one(conn, symbol, dry_run=dry_run)
+            _process_one(conn, symbol, dry_run=dry_run, as_of=as_of)
             processed += 1
             conn.commit()
         except Exception as e:
@@ -58,7 +58,7 @@ def run(
     }
 
 
-def _process_one(conn: Connection, symbol: str, *, dry_run: bool) -> None:
+def _process_one(conn: Connection, symbol: str, *, dry_run: bool, as_of: date) -> None:
     with conn.cursor() as cur:
         cur.execute("SELECT market FROM stocks WHERE ticker = %s", (symbol,))
         row = cur.fetchone()
@@ -90,4 +90,5 @@ def _process_one(conn: Connection, symbol: str, *, dry_run: bool) -> None:
         source="daily_delta",
         llm_meta={"duration_s": (finished - started).total_seconds(),
                   "input_tokens": None, "output_tokens": None},
+        analyzed_for_date=as_of,
     )

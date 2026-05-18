@@ -20,6 +20,7 @@ class ClassificationRow(BaseModel):
     reasoning: str | None
     source: str
     classified_at: datetime
+    analyzed_for_date: date | None
     expires_at: datetime | None
     llm_call_duration_s: float | None
     llm_input_tokens: int | None

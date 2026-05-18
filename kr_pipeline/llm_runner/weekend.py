@@ -54,7 +54,7 @@ def run(
         symbol = c["symbol"]
         market = c["market"]
         try:
-            _process_one(conn, symbol, market, dry_run=dry_run)
+            _process_one(conn, symbol, market, dry_run=dry_run, as_of=as_of)
             processed += 1
             conn.commit()
         except Exception as e:
@@ -68,7 +68,7 @@ def run(
     for symbol in failed_tickers:
         try:
             market = next(c["market"] for c in candidates if c["symbol"] == symbol)
-            _process_one(conn, symbol, market, dry_run=dry_run)
+            _process_one(conn, symbol, market, dry_run=dry_run, as_of=as_of)
             processed += 1
             conn.commit()
         except Exception as e:
@@ -92,6 +92,7 @@ def _process_one(
     market: str,
     *,
     dry_run: bool,
+    as_of: date,
 ) -> None:
     """단일 종목 (5) 호출 + INSERT."""
     started = datetime.now(timezone.utc)
@@ -128,4 +129,5 @@ def _process_one(
             "input_tokens": None,  # CLI 출력에서 추출 어려움
             "output_tokens": None,
         },
+        analyzed_for_date=as_of,
     )

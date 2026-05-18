@@ -1,7 +1,7 @@
 """DB 쓰기 — weekly_classification, trigger_evaluation_log, entry_params."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import json
 
 from psycopg import Connection
@@ -19,6 +19,7 @@ def insert_classification(
     result: dict,
     source: str,
     llm_meta: dict,
+    analyzed_for_date: date | None = None,
 ) -> None:
     """weekly_classification 에 분류 결과 INSERT.
 
@@ -32,12 +33,12 @@ def insert_classification(
         cur.execute(
             """
             INSERT INTO weekly_classification
-              (symbol, classified_at, market, classification, pattern,
+              (symbol, classified_at, analyzed_for_date, market, classification, pattern,
                pivot_price, pivot_basis, base_high, base_low, base_depth_pct, base_start_date,
                risk_flags, confidence, reasoning,
                source, expires_at,
                llm_call_duration_s, llm_input_tokens, llm_output_tokens)
-            VALUES (%s, %s, %s, %s, %s,
+            VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s, %s,
@@ -47,6 +48,7 @@ def insert_classification(
             (
                 symbol,
                 classified_at,
+                analyzed_for_date,
                 market,
                 result["classification"],
                 result.get("pattern"),

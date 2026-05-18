@@ -255,6 +255,7 @@ ALTER TABLE daily_indicators
 CREATE TABLE IF NOT EXISTS weekly_classification (
   symbol               VARCHAR(10) NOT NULL,
   classified_at        TIMESTAMPTZ NOT NULL,
+  analyzed_for_date    DATE,
   market               VARCHAR(10) NOT NULL,
   classification       VARCHAR(10) NOT NULL,
   pattern              VARCHAR(50),

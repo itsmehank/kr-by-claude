@@ -121,3 +121,42 @@ def test_sort_confidence_desc(client, seed_classifications):
 def test_unknown_sort_returns_400(client):
     r = client.get("/api/classifications?sort=invalid")
     assert r.status_code == 400
+
+
+def test_analyzed_for_date_in_response(client, db):
+    """analyzed_for_date 가 채워진 행은 응답에 그 값으로 전달됨."""
+    def override():
+        yield db
+    app.dependency_overrides[get_conn] = override
+    try:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol = 'CLSTESTAFD'")
+            cur.execute("DELETE FROM stocks WHERE ticker = 'CLSTESTAFD'")
+            cur.execute(
+                """INSERT INTO stocks (ticker, name, market, sector, listed_at)
+                   VALUES ('CLSTESTAFD','TestAFD','KOSPI','금융','2020-01-01')"""
+            )
+            cur.execute(
+                """INSERT INTO weekly_classification
+                     (symbol, classified_at, analyzed_for_date, market,
+                      classification, source, created_at)
+                   VALUES ('CLSTESTAFD', NOW() - INTERVAL '1 day', '2026-05-15',
+                           'KOSPI', 'watch', 'weekend', NOW())"""
+            )
+        db.commit()
+
+        r = client.get("/api/classifications?lookback_days=30")
+        row = next(r_ for r_ in r.json() if r_["symbol"] == "CLSTESTAFD")
+        assert row["analyzed_for_date"] == "2026-05-15"
+    finally:
+        app.dependency_overrides.pop(get_conn, None)
+
+
+def test_response_includes_analyzed_for_date_field_for_legacy_rows(client, seed_classifications):
+    """기존 seed (analyzed_for_date 미지정) 도 응답에 키 존재 + None."""
+    r = client.get("/api/classifications?lookback_days=30")
+    test_rows = [row for row in r.json() if row["symbol"].startswith("CLSTEST")]
+    for row in test_rows:
+        assert "analyzed_for_date" in row
+        if row["symbol"] in ("CLSTEST01", "CLSTEST02", "CLSTEST03"):
+            assert row["analyzed_for_date"] is None
