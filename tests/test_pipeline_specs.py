@@ -63,6 +63,34 @@ def test_get_mode_args_unknown_returns_none():
     assert get_mode_args("ohlcv", "nonexistent") is None
 
 
+def test_modes_have_is_heavy_flag():
+    """모든 mode 는 is_heavy 플래그를 가져야 함."""
+    from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS
+
+    for spec in PIPELINE_SPECS:
+        for mode in spec["modes"]:
+            assert "is_heavy" in mode, f"{spec['id']}.{mode['id']} 누락"
+            assert isinstance(mode["is_heavy"], bool)
+
+
+def test_incremental_modes_not_heavy():
+    """incremental / dry-run 모드는 heavy 아님."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+
+    assert get_spec("ohlcv")["modes"][0]["is_heavy"] is False  # incremental
+    assert get_spec("llm-full-daily")["modes"][0]["is_heavy"] is False  # dry-run default
+
+
+def test_backfill_modes_are_heavy():
+    """backfill / real LLM 모드는 heavy."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+
+    ohlcv_backfill = next(m for m in get_spec("ohlcv")["modes"] if m["id"] == "backfill")
+    assert ohlcv_backfill["is_heavy"] is True
+    llm_real = next(m for m in get_spec("llm-full-daily")["modes"] if m["id"] == "real")
+    assert llm_real["is_heavy"] is True
+
+
 def test_pipeline_db_name_matches_existing_runs():
     """pipeline_db_name 이 pipeline_runs 의 실제 pipeline 값과 매칭."""
     from kr_pipeline.llm_runner.pipeline_specs import get_spec

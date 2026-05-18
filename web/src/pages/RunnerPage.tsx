@@ -109,11 +109,7 @@ function RunDialog({ pipeline, onClose }: RunDialogProps) {
   if (pipeline === null) return null;
 
   const selectedMode = pipeline.modes.find((m) => m.id === modeId);
-  const isHeavy = selectedMode
-    ? selectedMode.label.includes("전체") ||
-      selectedMode.label.includes("백필") ||
-      selectedMode.label.includes("실제")
-    : false;
+  const isHeavy = selectedMode?.is_heavy ?? false;
 
   return (
     <Modal

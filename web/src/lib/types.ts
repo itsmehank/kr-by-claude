@@ -127,6 +127,7 @@ export interface PipelineMode {
   id: string;
   label: string;
   args: string[];
+  is_heavy: boolean;
 }
 
 export interface PipelineSpec {
