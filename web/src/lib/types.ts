@@ -134,6 +134,7 @@ export interface PipelineSpec {
   id: string;
   group: string;
   label: string;
+  description: string;
   module: string;
   pipeline_db_name: string;
   modes: PipelineMode[];
@@ -144,6 +145,7 @@ export interface PipelineSummary {
   pipeline_id: string;
   group: string;
   label: string;
+  description: string;
   module: string;
   cron_expression: string;
   last_run: {

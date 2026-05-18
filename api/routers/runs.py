@@ -122,6 +122,7 @@ def get_summary(conn: Connection = Depends(get_conn)):
                 "pipeline_id": spec["id"],
                 "group": spec["group"],
                 "label": spec["label"],
+                "description": spec["description"],
                 "module": spec["module"],
                 "cron_expression": spec["default_cron"],
                 "last_run": last_run,

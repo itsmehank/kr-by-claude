@@ -27,6 +27,7 @@ def test_each_spec_has_required_fields():
         assert "id" in spec
         assert "group" in spec
         assert "label" in spec
+        assert "description" in spec
         assert "module" in spec
         assert "modes" in spec and len(spec["modes"]) > 0
         assert "default_cron" in spec
@@ -89,6 +90,16 @@ def test_backfill_modes_are_heavy():
     assert ohlcv_backfill["is_heavy"] is True
     llm_real = next(m for m in get_spec("llm-full-daily")["modes"] if m["id"] == "real")
     assert llm_real["is_heavy"] is True
+
+
+def test_each_spec_has_description():
+    """모든 spec 는 description 을 가져야 함."""
+    from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS
+
+    for spec in PIPELINE_SPECS:
+        assert "description" in spec, f"{spec['id']} 누락"
+        assert isinstance(spec["description"], str)
+        assert len(spec["description"]) > 10
 
 
 def test_pipeline_db_name_matches_existing_runs():

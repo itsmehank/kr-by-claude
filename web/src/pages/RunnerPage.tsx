@@ -8,6 +8,7 @@ import {
   Settings,
   RefreshCw,
   AlertTriangle,
+  Info,
 } from "lucide-react";
 import { api, apiUrl } from "../lib/api";
 import type {
@@ -18,6 +19,7 @@ import type {
 } from "../lib/types";
 import { relativeTime } from "../lib/utils";
 import { Modal } from "../components/ui/Modal";
+import { Tooltip } from "../components/ui/Tooltip";
 
 
 const GROUP_LABELS: Record<string, string> = {
@@ -448,8 +450,13 @@ export default function RunnerPage() {
                         {idx === 0 ? GROUP_LABELS[group] : ""}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-data text-ink font-medium">
-                          {p.label}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-data text-ink font-medium">{p.label}</span>
+                          <Tooltip content={p.description}>
+                            <span className="text-faint hover:text-muted cursor-help" aria-label="작업 설명">
+                              <Info size={13} />
+                            </span>
+                          </Tooltip>
                         </div>
                         <div className="num text-data-xs text-faint mt-0.5">
                           {p.module}

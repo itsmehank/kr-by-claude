@@ -20,6 +20,7 @@ PIPELINE_SPECS: list[dict] = [
         "id": "universe",
         "group": "data",
         "label": "Universe (종목 목록)",
+        "description": "KOSPI/KOSDAQ 상장 종목 목록 (이름·섹터·시장) 을 수집해 stocks 테이블에 갱신.",
         "module": "kr_pipeline.universe",
         "pipeline_db_name": "universe",
         "modes": [
@@ -31,6 +32,7 @@ PIPELINE_SPECS: list[dict] = [
         "id": "ohlcv",
         "group": "data",
         "label": "OHLCV (일봉)",
+        "description": "각 종목의 일별 OHLCV (시가·고가·저가·종가·거래량) 를 KRX 에서 수집.",
         "module": "kr_pipeline.ohlcv",
         "pipeline_db_name": "ohlcv",
         "modes": [
@@ -47,6 +49,7 @@ PIPELINE_SPECS: list[dict] = [
         "id": "weekly",
         "group": "data",
         "label": "Weekly (주봉)",
+        "description": "일봉 데이터를 주봉 OHLCV 로 집계 (월 시가 → 금 종가, 주중 고저, 거래량 합).",
         "module": "kr_pipeline.weekly",
         "pipeline_db_name": "weekly",
         "modes": [
@@ -63,6 +66,7 @@ PIPELINE_SPECS: list[dict] = [
         "id": "corporate-actions",
         "group": "data",
         "label": "Corporate Actions",
+        "description": "액면분할·배당·합병 등 corporate action 이력 수집 — 주가 조정 계수 (adj_close) 계산의 기반.",
         "module": "kr_pipeline.corporate_actions",
         "pipeline_db_name": "corporate_actions",
         "modes": [
@@ -81,6 +85,7 @@ PIPELINE_SPECS: list[dict] = [
         "id": "indicators-daily",
         "group": "indicators",
         "label": "Indicators (일봉)",
+        "description": "일봉 기반 기술 지표 계산 — 10/21/50/150/200일 이평선, 52주 고·저, RS rating, Minervini Trend Template 통과 여부, pocket pivot / distribution day.",
         "module": "kr_pipeline.indicators",
         "pipeline_db_name": "indicators",
         "mode_prefix": "daily-",
@@ -98,6 +103,7 @@ PIPELINE_SPECS: list[dict] = [
         "id": "indicators-weekly",
         "group": "indicators",
         "label": "Indicators (주봉)",
+        "description": "주봉 기반 기술 지표 계산 — 10/30/40주 이평선, 52주 고·저, RS rating, Minervini Trend Template 통과 여부.",
         "module": "kr_pipeline.indicators",
         "pipeline_db_name": "indicators",
         "mode_prefix": "weekly-",
@@ -115,6 +121,7 @@ PIPELINE_SPECS: list[dict] = [
         "id": "market-context",
         "group": "indicators",
         "label": "Market Context",
+        "description": "시장 전반 컨텍스트 — KOSPI 추세, distribution day 카운트, follow-through day, 200일선 위 종목 비율.",
         "module": "kr_pipeline.market_context",
         "pipeline_db_name": "market_context",
         "modes": [
@@ -133,6 +140,7 @@ PIPELINE_SPECS: list[dict] = [
         "id": "llm-full-daily",
         "group": "llm",
         "label": "LLM 평일 전체 분석",
+        "description": "LLM 으로 평일 통합 분석 — 신규 후보 분류 → 진입 시그널 생성 → 직전 시그널 평가 → 성과 backfill 한 번에.",
         "module": "kr_pipeline.llm_runner",
         "pipeline_db_name": "llm_daily_delta",
         "modes": [
@@ -147,6 +155,7 @@ PIPELINE_SPECS: list[dict] = [
         "id": "llm-weekend",
         "group": "llm",
         "label": "LLM 주말 분류",
+        "description": "LLM 으로 주말 전체 종목 batch 분류 — Trend Stage 4단계 (accumulation / advancing / distribution / declining) 판정.",
         "module": "kr_pipeline.llm_runner",
         "pipeline_db_name": "llm_weekend",
         "modes": [
@@ -161,6 +170,7 @@ PIPELINE_SPECS: list[dict] = [
         "id": "llm-performance",
         "group": "llm",
         "label": "LLM 성과 backfill",
+        "description": "기존 signal 의 실현 성과 backfill — 진입 후 최고가·최저가·현재가 대비 RR 계산.",
         "module": "kr_pipeline.llm_runner",
         "pipeline_db_name": "llm_performance",
         "modes": [
