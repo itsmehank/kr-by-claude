@@ -1,36 +1,11 @@
-from datetime import date, datetime
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Connection
-from pydantic import BaseModel
 
 from api.deps import get_conn
+from api.schemas.classification import ClassificationRow
 
 
 router = APIRouter(prefix="/api/classifications", tags=["classifications"])
-
-
-class ClassificationRow(BaseModel):
-    symbol: str
-    name: str
-    market: str
-    sector: str | None
-    classification: str
-    pattern: str | None
-    pivot_price: float | None
-    pivot_basis: str | None
-    base_high: float | None
-    base_low: float | None
-    base_depth_pct: float | None
-    base_start_date: date | None
-    risk_flags: list[str]
-    confidence: float | None
-    reasoning: str | None
-    source: str
-    classified_at: datetime
-    expires_at: datetime | None
-    llm_call_duration_s: float | None
-    llm_input_tokens: int | None
-    llm_output_tokens: int | None
 
 
 SORT_CLAUSES = {
@@ -50,7 +25,9 @@ def get_classifications(
     conn: Connection = Depends(get_conn),
 ):
     """LLM 분류 결과 — 종목별 최신 1건 (DISTINCT ON), 필터 + 정렬 + 제한."""
-    sort_clause = SORT_CLAUSES.get(sort, SORT_CLAUSES["classified_at_desc"])
+    if sort not in SORT_CLAUSES:
+        raise HTTPException(400, f"Unknown sort: {sort}. Allowed: {list(SORT_CLAUSES.keys())}")
+    sort_clause = SORT_CLAUSES[sort]
 
     sql = f"""
         WITH latest AS (

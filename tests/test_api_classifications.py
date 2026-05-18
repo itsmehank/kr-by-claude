@@ -1,5 +1,4 @@
 import pytest
-from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 
 from api.main import app
@@ -117,3 +116,8 @@ def test_sort_confidence_desc(client, seed_classifications):
     test_rows = [row for row in r.json() if row["symbol"].startswith("CLSTEST")]
     confs = [row["confidence"] for row in test_rows]
     assert confs == sorted(confs, reverse=True)
+
+
+def test_unknown_sort_returns_400(client):
+    r = client.get("/api/classifications?sort=invalid")
+    assert r.status_code == 400
