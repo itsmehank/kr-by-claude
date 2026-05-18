@@ -71,12 +71,16 @@ def main() -> int:
             else:
                 result = {}
 
-            # rows_affected 추정 — 가능한 값 추출
+            # rows_affected / total_count 추정 — 가능한 값 추출
             if isinstance(result, dict):
                 state["rows_affected"] = (
                     result.get("processed")
                     or result.get("rows_affected")
                     or result.get("count")
+                )
+                state["total_count"] = (
+                    result.get("candidates")
+                    or result.get("total")
                 )
 
     logging.getLogger("kr_pipeline.llm_runner").info(

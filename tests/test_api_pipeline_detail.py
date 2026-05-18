@@ -89,3 +89,25 @@ def test_modes_include_is_heavy(client):
     for m in modes:
         assert "is_heavy" in m
         assert isinstance(m["is_heavy"], bool)
+
+
+def test_recent_runs_include_total_count(client, db):
+    """recent_runs 의 각 row 에 total_count 필드 포함 (NULL 가능)."""
+    def override_get_conn():
+        yield db
+    app.dependency_overrides[get_conn] = override_get_conn
+    try:
+        with db.cursor() as cur:
+            cur.execute(
+                """INSERT INTO pipeline_runs (pipeline, mode, status, started_at, finished_at, rows_affected, total_count)
+                   VALUES ('indicators', 'daily-incremental', 'success', %s, %s, 65, 65)""",
+                (datetime.now(timezone.utc), datetime.now(timezone.utc)),
+            )
+        db.commit()
+
+        r = client.get("/api/pipelines/indicators-daily")
+        assert r.status_code == 200
+        for run in r.json()["recent_runs"]:
+            assert "total_count" in run
+    finally:
+        app.dependency_overrides.pop(get_conn, None)

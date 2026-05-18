@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     finished_at   TIMESTAMPTZ,
     status        VARCHAR(20)  NOT NULL,
     rows_affected BIGINT,
+    total_count   BIGINT,
     error         TEXT,
     params        JSONB
 );

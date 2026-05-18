@@ -241,7 +241,7 @@ export default function PipelinePage() {
                 <th className="caps text-left py-2">시각</th>
                 <th className="caps text-left py-2">모드</th>
                 <th className="caps text-left py-2">상태</th>
-                <th className="caps text-right py-2">rows</th>
+                <th className="caps text-right py-2">처리 / 대상</th>
                 <th className="caps text-right py-2">소요</th>
               </tr>
             </thead>
@@ -271,6 +271,9 @@ export default function PipelinePage() {
                   <td className="py-2"><StatusChip status={r.status} /></td>
                   <td className="py-2 num text-data text-muted text-right">
                     {r.rows_affected != null ? r.rows_affected.toLocaleString() : "—"}
+                    {r.total_count != null && (
+                      <span className="text-faint"> / {r.total_count.toLocaleString()}</span>
+                    )}
                   </td>
                   <td className="py-2 num text-data text-muted text-right">
                     {formatDuration(r.duration_seconds)}

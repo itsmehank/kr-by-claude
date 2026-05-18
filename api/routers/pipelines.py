@@ -44,7 +44,7 @@ def get_pipeline_detail(pipeline_id: str, conn: Connection = Depends(get_conn)):
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT id, mode, status, started_at, finished_at, rows_affected, error
+            SELECT id, mode, status, started_at, finished_at, rows_affected, total_count, error
               FROM pipeline_runs
              WHERE pipeline = %s
              ORDER BY id DESC LIMIT 10
@@ -55,7 +55,7 @@ def get_pipeline_detail(pipeline_id: str, conn: Connection = Depends(get_conn)):
 
     recent_runs = []
     for row in rows:
-        run_id, mode, status, started, finished, rows_affected, error = row
+        run_id, mode, status, started, finished, rows_affected, total_count, error = row
         if not matches_mode_prefix(mode, mode_prefix):
             continue
         duration_s = (
@@ -70,6 +70,7 @@ def get_pipeline_detail(pipeline_id: str, conn: Connection = Depends(get_conn)):
             "started_at": started.isoformat() if started else None,
             "finished_at": finished.isoformat() if finished else None,
             "rows_affected": rows_affected,
+            "total_count": total_count,
             "duration_seconds": duration_s,
             "error": error,
         })

@@ -25,37 +25,45 @@ def finish_run(
     *,
     status: str,
     rows_affected: int | None = None,
+    total_count: int | None = None,
     error: str | None = None,
 ) -> None:
     with conn.cursor() as cur:
         cur.execute(
             """
             UPDATE pipeline_runs
-               SET finished_at = %s, status = %s, rows_affected = %s, error = %s
+               SET finished_at = %s, status = %s, rows_affected = %s,
+                   total_count = %s, error = %s
              WHERE id = %s
             """,
-            (datetime.now(timezone.utc), status, rows_affected, error, run_id),
+            (datetime.now(timezone.utc), status, rows_affected, total_count, error, run_id),
         )
 
 
 @contextmanager
 def run_tracking(conn: Connection, *, pipeline: str, mode: str, params: dict) -> Iterator[dict]:
-    """yields a dict {run_id: int, warnings: list[str], rows_affected: int | None}.
+    """yields a dict {run_id: int, warnings: list[str], rows_affected: int | None, total_count: int | None}.
 
-    Caller may append to warnings list during work and set rows_affected before
-    exiting the with-block. On success, both warnings and rows_affected are
+    Caller may append to warnings list during work and set rows_affected /
+    total_count before exiting the with-block. On success, all values are
     persisted via finish_run.
     """
     run_id = start_run(conn, pipeline=pipeline, mode=mode, params=params)
     conn.commit()
-    state: dict = {"run_id": run_id, "warnings": [], "rows_affected": None}
+    state: dict = {"run_id": run_id, "warnings": [], "rows_affected": None, "total_count": None}
     try:
         yield state
         # success path with possible warnings
         warnings_json: str | None = None
         if state["warnings"]:
             warnings_json = json.dumps({"warnings": state["warnings"]}, ensure_ascii=False)
-        finish_run(conn, run_id, status="success", rows_affected=state["rows_affected"], error=warnings_json)
+        finish_run(
+            conn, run_id,
+            status="success",
+            rows_affected=state["rows_affected"],
+            total_count=state["total_count"],
+            error=warnings_json,
+        )
         conn.commit()
     except Exception as e:
         conn.rollback()

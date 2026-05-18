@@ -80,6 +80,7 @@ def run(
 
     return {
         "processed": processed,
+        "candidates": len(candidates),
         "failures": len(retry_failures),
         "failed_tickers": [t for t, _ in retry_failures],
     }

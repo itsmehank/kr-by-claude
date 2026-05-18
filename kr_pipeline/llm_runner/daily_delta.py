@@ -50,7 +50,12 @@ def run(
             failed.append(symbol)
             conn.rollback()
 
-    return {"processed": processed, "failures": len(failed), "failed_tickers": failed}
+    return {
+        "processed": processed,
+        "candidates": len(new_tickers),
+        "failures": len(failed),
+        "failed_tickers": failed,
+    }
 
 
 def _process_one(conn: Connection, symbol: str, *, dry_run: bool) -> None:

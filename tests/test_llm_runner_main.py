@@ -24,7 +24,7 @@ def _make_mock_run_tracking(captured: dict | None = None):
     """run_tracking contextmanager mock — state dict 를 yield 하고 종료 후 captured 에 저장."""
     @contextmanager
     def mock_tracking(conn, *, pipeline, mode, params):
-        state = {"run_id": 1, "warnings": [], "rows_affected": None}
+        state = {"run_id": 1, "warnings": [], "rows_affected": None, "total_count": None}
         yield state
         if captured is not None:
             captured.update(state)
@@ -126,6 +126,37 @@ def test_main_sets_rows_affected_from_result(mocker):
 
     assert rc == 0
     assert captured.get("rows_affected") == 42
+
+
+def test_main_sets_total_count_from_result(mocker):
+    """result dict 의 candidates 값이 state['total_count'] 에 반영되어야 함."""
+    mock_conn = _make_mock_conn()
+    captured: dict = {}
+
+    mocker.patch(
+        "kr_pipeline.common.config.Config.load",
+        return_value=MagicMock(database_url="postgresql://test"),
+    )
+    mocker.patch(
+        "kr_pipeline.llm_runner.__main__.connect",
+        side_effect=_make_mock_connect(mock_conn),
+    )
+    mocker.patch(
+        "kr_pipeline.llm_runner.__main__.run_tracking",
+        side_effect=_make_mock_run_tracking(captured),
+    )
+    mocker.patch(
+        "kr_pipeline.llm_runner.modes.run_weekend",
+        return_value={"processed": 60, "candidates": 65, "failures": 5},
+    )
+
+    from kr_pipeline.llm_runner.__main__ import main
+    with patch.object(sys, "argv", ["llm_runner", "--mode=weekend", "--dry-run"]):
+        rc = main()
+
+    assert rc == 0
+    assert captured.get("rows_affected") == 60
+    assert captured.get("total_count") == 65
 
 
 def test_pipeline_db_name_mapping_covers_all_modes():
