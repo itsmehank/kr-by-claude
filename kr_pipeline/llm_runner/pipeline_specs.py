@@ -195,6 +195,10 @@ PIPELINE_SPECS: list[dict] = [
         "modes": [
             {"id": "default", "label": "주말 batch (dry-run)",
              "args": ["--mode=weekend", "--dry-run"], "is_heavy": False},
+            {"id": "test", "label": "테스트 (N개만 실제 호출)",
+             "args": ["--mode=weekend"], "is_heavy": True,
+             "params": [{"name": "limit", "label": "종목 수", "type": "int",
+                         "default": 3, "min": 1, "max": 20}]},
             {"id": "real", "label": "주말 batch (실제 호출)",
              "args": ["--mode=weekend"], "is_heavy": True},
         ],
