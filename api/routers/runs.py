@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from psycopg import Connection
 
 from api.deps import get_conn
+from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS
 
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
@@ -42,26 +43,6 @@ def list_runs(
     ]
 
 
-# 평일/주말 모드별 cron 스케줄 (cron.example 과 일치)
-MODE_SCHEDULES = {
-    "full-daily": {
-        "pipeline": "llm_daily_delta",  # full-daily 의 첫 단계 = daily_delta
-        "cron": "30 16 * * 1-5",
-        "description": "평일 16:30 — daily-delta + evaluate + entry + performance",
-    },
-    "weekend": {
-        "pipeline": "llm_weekend",
-        "cron": "20 3 * * 6",
-        "description": "토요일 03:20 — 전체 후보 (5) 분류",
-    },
-    "performance": {
-        "pipeline": "llm_performance",
-        "cron": "0 23 * * *",
-        "description": "매일 23:00 — signal_performance backfill",
-    },
-}
-
-
 def _next_scheduled(cron: str, now: datetime | None = None) -> str | None:
     """간단한 cron next-fire 계산 (월~금/토 기준). croniter 없이 직접 계산."""
     if now is None:
@@ -96,45 +77,66 @@ def _next_scheduled(cron: str, now: datetime | None = None) -> str | None:
     return None
 
 
+def _matches_mode_prefix(mode, prefix):
+    if prefix is None:
+        return True
+    if mode is None:
+        return False
+    return mode.startswith(prefix)
+
+
 @router.get("/summary")
 def get_summary(conn: Connection = Depends(get_conn)):
-    """모드별 마지막 실행 + 다음 예정 시각."""
+    """모든 pipeline 의 last_run + next_scheduled."""
     result = []
     with conn.cursor() as cur:
-        for mode, sched in MODE_SCHEDULES.items():
+        for spec in PIPELINE_SPECS:
+            pipeline_db = spec["pipeline_db_name"]
+            mode_prefix = spec.get("mode_prefix")
+
             cur.execute(
                 """
-                SELECT id, status, rows_affected, error, started_at, finished_at
+                SELECT id, status, rows_affected, error, started_at, finished_at, mode
                   FROM pipeline_runs
                  WHERE pipeline = %s
-                 ORDER BY id DESC LIMIT 1
+                 ORDER BY id DESC LIMIT 10
                 """,
-                (sched["pipeline"],),
+                (pipeline_db,),
             )
-            row = cur.fetchone()
+            rows = cur.fetchall()
             last_run = None
-            if row:
-                started = row[4]
-                finished = row[5]
-                duration_s = (finished - started).total_seconds() if started and finished else None
-                last_run = {
-                    "id": row[0],
-                    "status": row[1],
-                    "rows_affected": row[2],
-                    "error": row[3],
-                    "started_at": started.isoformat() if started else None,
-                    "finished_at": finished.isoformat() if finished else None,
-                    "duration_seconds": duration_s,
-                }
+            for row in rows:
+                mode = row[6]
+                if _matches_mode_prefix(mode, mode_prefix):
+                    started = row[4]
+                    finished = row[5]
+                    duration_s = (
+                        (finished - started).total_seconds()
+                        if started and finished
+                        else None
+                    )
+                    last_run = {
+                        "id": row[0],
+                        "status": row[1],
+                        "rows_affected": row[2],
+                        "error": row[3],
+                        "started_at": started.isoformat() if started else None,
+                        "finished_at": finished.isoformat() if finished else None,
+                        "duration_seconds": duration_s,
+                    }
+                    break
+
             result.append({
-                "mode": mode,
-                "pipeline": sched["pipeline"],
-                "cron_expression": sched["cron"],
-                "description": sched["description"],
+                "pipeline_id": spec["id"],
+                "group": spec["group"],
+                "label": spec["label"],
+                "module": spec["module"],
+                "cron_expression": spec["default_cron"],
                 "last_run": last_run,
-                "next_scheduled": _next_scheduled(sched["cron"]),
+                "next_scheduled": _next_scheduled(spec["default_cron"]),
+                "modes": spec["modes"],
             })
-    return {"modes": result}
+    return {"pipelines": result}
 
 
 @router.get("/{run_id}")

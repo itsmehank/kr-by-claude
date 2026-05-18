@@ -1,4 +1,4 @@
-"""GET /api/runs/summary — 모드별 마지막 실행 + 다음 스케줄."""
+"""GET /api/runs/summary — pipeline 별 마지막 실행 + 다음 스케줄."""
 import pytest
 from fastapi.testclient import TestClient
 from api.main import app
@@ -9,21 +9,23 @@ def client():
     return TestClient(app)
 
 
-def test_summary_returns_all_modes(client):
+def test_summary_returns_all_pipelines(client):
     r = client.get("/api/runs/summary")
     assert r.status_code == 200
     data = r.json()
-    assert "modes" in data
-    mode_names = {m["mode"] for m in data["modes"]}
-    assert {"weekend", "full-daily", "performance"}.issubset(mode_names)
+    assert "pipelines" in data
+    pipeline_ids = {p["pipeline_id"] for p in data["pipelines"]}
+    assert {"llm-full-daily", "llm-weekend", "llm-performance"}.issubset(pipeline_ids)
 
 
-def test_summary_each_mode_has_required_fields(client):
+def test_summary_each_pipeline_has_required_fields(client):
     r = client.get("/api/runs/summary")
     data = r.json()
-    for m in data["modes"]:
-        assert "mode" in m
-        assert "pipeline" in m
-        assert "last_run" in m   # None or {id, status, started_at, ...}
-        assert "next_scheduled" in m  # ISO string or null
-        assert "cron_expression" in m
+    for p in data["pipelines"]:
+        assert "pipeline_id" in p
+        assert "group" in p
+        assert "label" in p
+        assert "last_run" in p   # None or {id, status, started_at, ...}
+        assert "next_scheduled" in p  # ISO string or null
+        assert "cron_expression" in p
+        assert "modes" in p
