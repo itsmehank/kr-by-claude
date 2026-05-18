@@ -9,6 +9,7 @@ import {
   FileArchive,
   Zap,
   TrendingUp,
+  Wrench,
 } from "lucide-react";
 import HomePage from "./pages/HomePage";
 import HeatmapPage from "./pages/HeatmapPage";
@@ -17,6 +18,7 @@ import MinerviniPage from "./pages/MinerviniPage";
 import PromptPage from "./pages/PromptPage";
 import SignalsPage from "./pages/SignalsPage";
 import PerformancePage from "./pages/PerformancePage";
+import RunnerPage from "./pages/RunnerPage";
 import { api } from "./lib/api";
 import type { PipelineRun } from "./lib/types";
 import { relativeTime, stalenessLevel } from "./lib/utils";
@@ -35,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/minervini", label: "Minervini", kr: "미너비니", Icon: Sparkles },
   { to: "/signals", label: "Signals", kr: "시그널", Icon: Zap },
   { to: "/performance", label: "Performance", kr: "시그널 성과", Icon: TrendingUp },
+  { to: "/runner", label: "Runner", kr: "분석 운영", Icon: Wrench },
   { to: "/prompt", label: "LLM Prompt", kr: "LLM 프롬프트", Icon: FileArchive },
 ];
 
@@ -176,6 +179,7 @@ function App() {
           <Route path="/minervini" element={<MinerviniPage />} />
           <Route path="/signals" element={<SignalsPage />} />
           <Route path="/performance" element={<PerformancePage />} />
+          <Route path="/runner" element={<RunnerPage />} />
           <Route path="/prompt" element={<PromptPage />} />
           <Route path="/prompt/:ticker" element={<PromptPage />} />
         </Routes>
