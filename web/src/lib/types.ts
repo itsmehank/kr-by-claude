@@ -251,3 +251,27 @@ export interface PipelineDetail {
   modes: PipelineMode[];
   recent_runs: PipelineRecentRun[];
 }
+
+export interface Classification {
+  symbol: string;
+  name: string;
+  market: string;
+  sector: string | null;
+  classification: string;
+  pattern: string | null;
+  pivot_price: number | null;
+  pivot_basis: string | null;
+  base_high: number | null;
+  base_low: number | null;
+  base_depth_pct: number | null;
+  base_start_date: string | null;
+  risk_flags: string[];
+  confidence: number | null;
+  reasoning: string | null;
+  source: string;
+  classified_at: string;
+  expires_at: string | null;
+  llm_call_duration_s: number | null;
+  llm_input_tokens: number | null;
+  llm_output_tokens: number | null;
+}

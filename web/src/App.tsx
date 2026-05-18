@@ -10,6 +10,7 @@ import {
   Zap,
   TrendingUp,
   Wrench,
+  ListChecks,
 } from "lucide-react";
 import HomePage from "./pages/HomePage";
 import HeatmapPage from "./pages/HeatmapPage";
@@ -19,6 +20,7 @@ import PromptPage from "./pages/PromptPage";
 import SignalsPage from "./pages/SignalsPage";
 import PerformancePage from "./pages/PerformancePage";
 import RunnerPage from "./pages/RunnerPage";
+import ClassificationsPage from "./pages/ClassificationsPage";
 import PipelinePage from "./pages/PipelinePage";
 import { api } from "./lib/api";
 import type { PipelineRun } from "./lib/types";
@@ -38,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/minervini", label: "Minervini", kr: "미너비니", Icon: Sparkles },
   { to: "/signals", label: "Signals", kr: "시그널", Icon: Zap },
   { to: "/performance", label: "Performance", kr: "시그널 성과", Icon: TrendingUp },
+  { to: "/classifications", label: "Classifications", kr: "LLM 분류", Icon: ListChecks },
   { to: "/runner", label: "Runner", kr: "분석 운영", Icon: Wrench },
   { to: "/prompt", label: "LLM Prompt", kr: "LLM 프롬프트", Icon: FileArchive },
 ];
@@ -180,6 +183,7 @@ function App() {
           <Route path="/minervini" element={<MinerviniPage />} />
           <Route path="/signals" element={<SignalsPage />} />
           <Route path="/performance" element={<PerformancePage />} />
+          <Route path="/classifications" element={<ClassificationsPage />} />
           <Route path="/runner" element={<RunnerPage />} />
           <Route path="/runner/:pipelineId" element={<PipelinePage />} />
           <Route path="/prompt" element={<PromptPage />} />
