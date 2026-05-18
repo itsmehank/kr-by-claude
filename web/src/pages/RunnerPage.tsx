@@ -51,6 +51,19 @@ function formatNextSchedule(iso: string | null): string {
   return `${date} ${time}`;
 }
 
+function formatKst(iso: string): string {
+  return new Date(iso).toLocaleString("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
 
 function StatusChip({ status }: { status: string }) {
   if (status === "success")
@@ -465,7 +478,23 @@ export default function RunnerPage() {
                       <td className="px-4 py-3 text-data text-muted">
                         {p.last_run ? (
                           <>
-                            <div>{relativeTime(p.last_run.started_at)}</div>
+                            <Tooltip
+                              content={
+                                <>
+                                  {p.last_run.started_at && (
+                                    <div className="num">시작: {formatKst(p.last_run.started_at)}</div>
+                                  )}
+                                  {p.last_run.finished_at && (
+                                    <div className="num">종료: {formatKst(p.last_run.finished_at)}</div>
+                                  )}
+                                  <div className="text-faint mt-1">(KST)</div>
+                                </>
+                              }
+                            >
+                              <span className="cursor-help underline decoration-dotted decoration-faint underline-offset-2">
+                                {relativeTime(p.last_run.started_at)}
+                              </span>
+                            </Tooltip>
                             <div className="text-data-xs text-faint mt-0.5">
                               {p.last_run.rows_affected != null
                                 ? `${p.last_run.rows_affected.toLocaleString()}건 · `
