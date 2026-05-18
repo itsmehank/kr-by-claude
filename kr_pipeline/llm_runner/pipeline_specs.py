@@ -189,6 +189,15 @@ def get_mode_args(pipeline_id: str, mode_id: str) -> list[str] | None:
     return None
 
 
+def matches_mode_prefix(mode: str | None, prefix: str | None) -> bool:
+    """mode_prefix 가 None 이면 무조건 매치. 있으면 mode.startswith(prefix)."""
+    if prefix is None:
+        return True
+    if mode is None:
+        return False
+    return mode.startswith(prefix)
+
+
 def get_default_cron_lines() -> list[str]:
     """PIPELINE_SPECS 의 default_cron + 첫 번째 mode args 로 cron 라인 생성."""
     from pathlib import Path

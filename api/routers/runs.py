@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from psycopg import Connection
 
 from api.deps import get_conn
-from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS
+from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS, matches_mode_prefix
 
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
@@ -77,14 +77,6 @@ def _next_scheduled(cron: str, now: datetime | None = None) -> str | None:
     return None
 
 
-def _matches_mode_prefix(mode, prefix):
-    if prefix is None:
-        return True
-    if mode is None:
-        return False
-    return mode.startswith(prefix)
-
-
 @router.get("/summary")
 def get_summary(conn: Connection = Depends(get_conn)):
     """모든 pipeline 의 last_run + next_scheduled."""
@@ -107,7 +99,7 @@ def get_summary(conn: Connection = Depends(get_conn)):
             last_run = None
             for row in rows:
                 mode = row[6]
-                if _matches_mode_prefix(mode, mode_prefix):
+                if matches_mode_prefix(mode, mode_prefix):
                     started = row[4]
                     finished = row[5]
                     duration_s = (

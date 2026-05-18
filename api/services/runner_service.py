@@ -14,7 +14,7 @@ from pathlib import Path
 
 from psycopg import Connection
 
-from kr_pipeline.llm_runner.pipeline_specs import get_spec, get_mode_args
+from kr_pipeline.llm_runner.pipeline_specs import get_spec, get_mode_args, matches_mode_prefix
 
 
 PROJECT_DIR = Path(__file__).parent.parent.parent.resolve()
@@ -171,7 +171,7 @@ def check_can_run_pipeline(
 
     for row in running_rows:
         run_id, started_at, mode = row
-        if _matches_mode_prefix(mode, mode_prefix):
+        if matches_mode_prefix(mode, mode_prefix):
             return {
                 "can_run": False,
                 "reason": "already_running",
@@ -199,7 +199,7 @@ def check_can_run_pipeline(
 
     for row in success_rows:
         run_id, started_at, finished_at, rows_affected, mode = row
-        if _matches_mode_prefix(mode, mode_prefix):
+        if matches_mode_prefix(mode, mode_prefix):
             return {
                 "can_run": False,
                 "reason": "duplicate",
@@ -212,14 +212,6 @@ def check_can_run_pipeline(
             }
 
     return {"can_run": True, "reason": "ok", "existing_run_id": None}
-
-
-def _matches_mode_prefix(mode, prefix) -> bool:
-    if prefix is None:
-        return True
-    if mode is None:
-        return False
-    return mode.startswith(prefix)
 
 
 def spawn_pipeline(pipeline_id: str, mode_id: str) -> dict:

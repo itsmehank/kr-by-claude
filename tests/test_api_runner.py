@@ -43,6 +43,7 @@ def test_run_duplicate_returns_409(client, db):
                    VALUES ('llm_performance', 'performance', 'success', %s, %s)""",
                 (datetime.now(timezone.utc), datetime.now(timezone.utc)),
             )
+        db.commit()
 
         r = client.post("/api/runner/run", json={"pipeline_id": "llm-performance", "mode_id": "default"})
         assert r.status_code == 409
