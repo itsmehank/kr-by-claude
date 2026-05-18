@@ -101,3 +101,58 @@ def test_diff_managed_block_shows_changes():
     diff = diff_managed_block(current_lines, new_lines)
     assert any("-old_a" in line for line in diff)
     assert any("+new_a" in line for line in diff)
+
+
+def test_default_cron_lines_contains_three_modes():
+    """default LLM runner cron 라인 3종 (full-daily, weekend, performance)."""
+    from kr_pipeline.llm_runner.cron_manager import DEFAULT_CRON_LINES
+
+    assert len(DEFAULT_CRON_LINES) == 3
+    assert any("full-daily" in line for line in DEFAULT_CRON_LINES)
+    assert any("weekend" in line for line in DEFAULT_CRON_LINES)
+    assert any("performance" in line for line in DEFAULT_CRON_LINES)
+
+
+def test_register_and_unregister_flow(monkeypatch, tmp_path):
+    """register → 마커 안 라인 있음 → unregister → 마커 사라짐."""
+    from kr_pipeline.llm_runner import cron_manager as cm
+
+    state = {"crontab": "0 5 * * * /user_backup\n"}
+
+    def fake_get():
+        return state["crontab"]
+
+    def fake_install(text):
+        state["crontab"] = text
+
+    monkeypatch.setattr(cm, "get_current_crontab", fake_get)
+    monkeypatch.setattr(cm, "install_crontab", fake_install)
+    monkeypatch.setattr(cm, "BACKUP_DIR", tmp_path)
+
+    backup1, new_text = cm.register()
+    assert "kr-by-claude-llm-runner BEGIN" in state["crontab"]
+    assert "--mode=full-daily" in state["crontab"]
+    assert "/user_backup" in state["crontab"]
+    assert backup1.exists()
+
+    backup2, new_text = cm.unregister()
+    assert "kr-by-claude-llm-runner" not in state["crontab"]
+    assert "/user_backup" in state["crontab"]
+    assert backup2.exists()
+
+
+def test_register_is_idempotent(monkeypatch, tmp_path):
+    """이미 등록된 상태에서 register 다시 호출 — 마커 한 번만 존재."""
+    from kr_pipeline.llm_runner import cron_manager as cm
+
+    state = {"crontab": ""}
+    monkeypatch.setattr(cm, "get_current_crontab", lambda: state["crontab"])
+    monkeypatch.setattr(
+        cm, "install_crontab", lambda text: state.update(crontab=text)
+    )
+    monkeypatch.setattr(cm, "BACKUP_DIR", tmp_path)
+
+    cm.register()
+    cm.register()
+    # 마커 BEGIN 이 1회만 등장
+    assert state["crontab"].count("kr-by-claude-llm-runner BEGIN") == 1

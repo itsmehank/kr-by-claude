@@ -116,3 +116,71 @@ def diff_managed_block(current_lines: list[str], new_lines: list[str]) -> list[s
         line for line in diff
         if not line.startswith("@@") and not line.startswith("---") and not line.startswith("+++")
     ]
+
+
+PROJECT_DIR = Path(__file__).parent.parent.parent  # repo root
+
+DEFAULT_CRON_LINES = [
+    f"30 16 * * 1-5  cd {PROJECT_DIR} && uv run python -m kr_pipeline.llm_runner --mode=full-daily >> $HOME/.kr-by-claude/llm_runner.log 2>&1",
+    f"20  3 * * 6    cd {PROJECT_DIR} && uv run python -m kr_pipeline.llm_runner --mode=weekend >> $HOME/.kr-by-claude/llm_runner.log 2>&1",
+    f"0  23 * * *    cd {PROJECT_DIR} && uv run python -m kr_pipeline.llm_runner --mode=performance >> $HOME/.kr-by-claude/llm_runner.log 2>&1",
+]
+
+
+def register(lines: list[str] | None = None) -> tuple[Path, str]:
+    """LLM runner cron 라인을 등록.
+
+    Returns: (backup_path, new_crontab_text)
+    """
+    if lines is None:
+        lines = DEFAULT_CRON_LINES
+
+    current = get_current_crontab()
+    backup_path = backup_crontab(current)
+
+    new_text = replace_managed_block(current, lines)
+    install_crontab(new_text)
+
+    # 일관성 검증
+    installed = get_current_crontab()
+    if extract_managed_lines(installed) != lines:
+        # 롤백
+        install_crontab(current)
+        raise RuntimeError(
+            f"crontab install verification failed; rolled back. Backup at {backup_path}"
+        )
+    return backup_path, new_text
+
+
+def unregister() -> tuple[Path, str]:
+    """LLM runner cron 영역 제거.
+
+    Returns: (backup_path, new_crontab_text)
+    """
+    current = get_current_crontab()
+    backup_path = backup_crontab(current)
+
+    new_text = remove_managed_block(current)
+    install_crontab(new_text)
+
+    # 검증
+    installed = get_current_crontab()
+    if BEGIN_MARKER in installed:
+        install_crontab(current)
+        raise RuntimeError(
+            f"crontab unregister verification failed; rolled back. Backup at {backup_path}"
+        )
+    return backup_path, new_text
+
+
+def get_status() -> dict:
+    """현재 cron 등록 상태 + 마커 안 라인 + 다음 예정 시각 정보."""
+    current = get_current_crontab()
+    managed = extract_managed_lines(current)
+    return {
+        "registered": len(managed) > 0,
+        "lines": managed,
+        "default_lines": DEFAULT_CRON_LINES,
+        "marker_begin": BEGIN_MARKER,
+        "marker_end": END_MARKER,
+    }
