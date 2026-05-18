@@ -1,0 +1,79 @@
+"""PIPELINE_SPECS 검증 — 모든 cron 작업 정의."""
+
+
+def test_pipeline_specs_has_required_groups():
+    from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS
+
+    groups = {s["group"] for s in PIPELINE_SPECS}
+    assert {"data", "indicators", "llm"}.issubset(groups)
+
+
+def test_pipeline_specs_has_all_modules():
+    from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS
+
+    ids = {s["id"] for s in PIPELINE_SPECS}
+    required = {
+        "universe", "ohlcv", "weekly", "corporate-actions",
+        "indicators-daily", "indicators-weekly", "market-context",
+        "llm-full-daily", "llm-weekend", "llm-performance",
+    }
+    assert required.issubset(ids), f"missing: {required - ids}"
+
+
+def test_each_spec_has_required_fields():
+    from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS
+
+    for spec in PIPELINE_SPECS:
+        assert "id" in spec
+        assert "group" in spec
+        assert "label" in spec
+        assert "module" in spec
+        assert "modes" in spec and len(spec["modes"]) > 0
+        assert "default_cron" in spec
+        assert "pipeline_db_name" in spec
+        for mode in spec["modes"]:
+            assert "id" in mode
+            assert "label" in mode
+            assert "args" in mode
+
+
+def test_get_spec_by_id():
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+
+    spec = get_spec("ohlcv")
+    assert spec is not None
+    assert spec["module"] == "kr_pipeline.ohlcv"
+    assert any(m["id"] == "incremental" for m in spec["modes"])
+
+
+def test_get_spec_returns_none_for_unknown():
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+    assert get_spec("nonexistent") is None
+
+
+def test_get_mode_returns_args():
+    from kr_pipeline.llm_runner.pipeline_specs import get_mode_args
+
+    args = get_mode_args("ohlcv", "incremental")
+    assert "--mode=incremental" in args
+
+
+def test_get_mode_args_unknown_returns_none():
+    from kr_pipeline.llm_runner.pipeline_specs import get_mode_args
+    assert get_mode_args("ohlcv", "nonexistent") is None
+
+
+def test_pipeline_db_name_matches_existing_runs():
+    """pipeline_db_name 이 pipeline_runs 의 실제 pipeline 값과 매칭."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+
+    assert get_spec("universe")["pipeline_db_name"] == "universe"
+    assert get_spec("ohlcv")["pipeline_db_name"] == "ohlcv"
+    assert get_spec("weekly")["pipeline_db_name"] == "weekly"
+    assert get_spec("indicators-daily")["pipeline_db_name"] == "indicators"
+    assert get_spec("indicators-weekly")["pipeline_db_name"] == "indicators"
+    assert get_spec("market-context")["pipeline_db_name"] == "market_context"
+    assert get_spec("corporate-actions")["pipeline_db_name"] == "corporate_actions"
+    assert get_spec("llm-full-daily")["pipeline_db_name"] == "llm_daily_delta"
+    assert get_spec("llm-weekend")["pipeline_db_name"] == "llm_weekend"
+    assert get_spec("llm-performance")["pipeline_db_name"] == "llm_performance"
