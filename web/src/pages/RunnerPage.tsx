@@ -69,21 +69,30 @@ interface RunDialogProps {
 function RunDialog({ pipeline, onClose }: RunDialogProps) {
   const [modeId, setModeId] = useState<string>("");
   const [force, setForce] = useState(false);
+  const [conflict, setConflict] = useState<{
+    reason: string;
+    existing_run_id: number | null;
+    existing_run_summary: { started_at?: string; finished_at?: string | null; rows_affected?: number | null } | null;
+    message: string;
+  } | null>(null);
   const qc = useQueryClient();
 
   useEffect(() => {
     if (pipeline) {
       setModeId(pipeline.modes[0]?.id ?? "");
       setForce(false);
+      setConflict(null);
     } else {
       setModeId("");
       setForce(false);
+      setConflict(null);
     }
   }, [pipeline]);
 
   const mutation = useMutation({
     mutationFn: async () => {
       if (!pipeline) throw new Error("no pipeline");
+      setConflict(null);
       const res = await fetch(apiUrl("/runner/run"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -95,7 +104,8 @@ function RunDialog({ pipeline, onClose }: RunDialogProps) {
       });
       if (res.status === 409) {
         const err = await res.json();
-        throw new Error(`DUPLICATE:${JSON.stringify(err.detail)}`);
+        setConflict(err.detail);
+        throw new Error("conflict");
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
@@ -183,7 +193,33 @@ function RunDialog({ pipeline, onClose }: RunDialogProps) {
           </button>
         </div>
 
-        {mutation.isError && (
+        {conflict && (
+          <div className="bg-amber-soft border border-amber/30 rounded-xl p-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={16} className="text-amber shrink-0 mt-0.5" />
+              <div className="text-data text-amber flex-1">
+                <div className="font-semibold mb-1">
+                  {conflict.reason === "already_running" ? "현재 실행 중" : "오늘 이미 성공"}
+                </div>
+                <div className="text-data-xs">{conflict.message}</div>
+                {conflict.existing_run_summary?.started_at && (
+                  <div className="num text-data-xs text-faint mt-1">
+                    시작: {new Date(conflict.existing_run_summary.started_at).toLocaleString("ko-KR")}
+                    {conflict.existing_run_summary.rows_affected != null &&
+                      ` · ${conflict.existing_run_summary.rows_affected.toLocaleString()}건`}
+                  </div>
+                )}
+                {conflict.reason === "duplicate" && (
+                  <div className="text-data-xs mt-1">
+                    "force" 체크박스로 재실행할 수 있습니다.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {mutation.isError && mutation.error.message !== "conflict" && (
           <div className="text-danger text-data-xs">{String(mutation.error)}</div>
         )}
       </div>
