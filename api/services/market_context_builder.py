@@ -7,10 +7,10 @@ INDEX_CODE_MAP = {"KOSPI": "1001", "KOSDAQ": "2001"}
 
 
 def build_market_context(conn: Connection, market: str, on_date: date) -> dict:
-    """주어진 (market, on_date) 의 market_context_daily 행을 dict 로 변환.
+    """주어진 (market, on_date) 이하 가장 최근 market_context_daily 행을 dict 로 변환.
 
-    행 없으면 모든 필드 None (null).
-    날짜는 ISO 문자열로 변환.
+    오늘 행 없으면 직전 평일 데이터로 fallback (LLM 분석이 market-context 적재 전에
+    돌아도 가장 최근 시장 상태를 쓰도록). 어떤 행도 없으면 모든 필드 None.
     """
     index_code = INDEX_CODE_MAP.get(market)
     if index_code is None:
@@ -23,7 +23,8 @@ def build_market_context(conn: Connection, market: str, on_date: date) -> dict:
                    last_follow_through_day, days_since_follow_through,
                    pct_stocks_above_200d_ma
               FROM market_context_daily
-             WHERE date = %s AND index_code = %s
+             WHERE date <= %s AND index_code = %s
+             ORDER BY date DESC LIMIT 1
             """,
             (on_date, index_code),
         )
