@@ -183,7 +183,7 @@ def test_known_dependency_mapping():
     assert "ohlcv" in get_spec("weekly")["depends_on"]
     assert set(get_spec("indicators-daily")["depends_on"]) == {"ohlcv", "corporate-actions"}
     assert set(get_spec("indicators-weekly")["depends_on"]) == {"weekly", "corporate-actions"}
-    assert get_spec("market-context")["depends_on"] == ["indicators-daily"]
-    assert set(get_spec("llm-full-daily")["depends_on"]) == {"indicators-daily", "market-context"}
+    assert set(get_spec("market-context")["depends_on"]) == {"indicators-daily", "ohlcv"}
+    assert set(get_spec("llm-full-daily")["depends_on"]) == {"indicators-daily", "market-context", "ohlcv"}
     assert set(get_spec("llm-weekend")["depends_on"]) == {"indicators-daily", "indicators-weekly", "market-context"}
-    assert get_spec("llm-performance")["depends_on"] == ["ohlcv"]
+    assert set(get_spec("llm-performance")["depends_on"]) == {"ohlcv", "llm-full-daily"}

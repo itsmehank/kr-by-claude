@@ -164,10 +164,10 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "30 19 * * 1-5",
         "schedule_label": "평일 매일",
-        "long_description": "시장 전반 상황 — KOSPI 와 KOSDAQ 각각의 추세 단계, distribution day 수, follow-through day, 200일선 위 종목 비율 등 — 을 계산해 market_context_daily 테이블에 적재합니다.\n\n각 종목의 LLM 분석 시 그 종목 시장의 컨텍스트를 함께 전달해 LLM 이 시장 분위기를 고려한 판단을 할 수 있게 합니다.\n\n선행 작업: indicators-daily (200일선 위 종목 비율 계산에 필요)\n후속 작업: llm-full-daily, llm-weekend",
+        "long_description": "시장 전반 상황 — KOSPI 와 KOSDAQ 각각의 추세 단계, distribution day 수, follow-through day, 200일선 위 종목 비율 등 — 을 계산해 market_context_daily 테이블에 적재합니다.\n\n각 종목의 LLM 분석 시 그 종목 시장의 컨텍스트를 함께 전달해 LLM 이 시장 분위기를 고려한 판단을 할 수 있게 합니다.\n\n선행 작업: indicators-daily, ohlcv (200일선 위 종목 비율 + KOSPI/KOSDAQ 지수 일봉)\n후속 작업: llm-full-daily, llm-weekend",
         "inputs": ["daily_indicators", "daily_prices"],
         "outputs": ["market_context_daily"],
-        "depends_on": ["indicators-daily"],
+        "depends_on": ["indicators-daily", "ohlcv"],
     },
 
     # ─── LLM 분석 ────────────────────────────────────────────────
@@ -186,10 +186,10 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "30 16 * * 1-5",
         "schedule_label": "평일 매일",
-        "long_description": "신규 종목 분류 → 진입 시그널 생성 → 직전 시그널 평가 → 성과 backfill 을 LLM 으로 통합 처리합니다.\n\nLLM 에 전달되는 payload 에는 일봉 OHLCV, 지표, 시장 컨텍스트, 액면분할 이력이 모두 포함됩니다.\n\n선행 작업: indicators-daily, market-context (오늘 데이터)\n후속 작업: 없음 (분석 결과는 신호 테이블에 직접 적재)",
+        "long_description": "신규 종목 분류 → 진입 시그널 생성 → 직전 시그널 평가 → 성과 backfill 을 LLM 으로 통합 처리합니다.\n\nLLM 에 전달되는 payload 에는 일봉 OHLCV, 지표, 시장 컨텍스트, 액면분할 이력이 모두 포함됩니다.\n\n선행 작업: indicators-daily, market-context, ohlcv (오늘 데이터)\n후속 작업: 없음 (분석 결과는 신호 테이블에 직접 적재)",
         "inputs": ["daily_indicators", "market_context_daily", "daily_prices"],
         "outputs": ["entry_params", "signal_performance"],
-        "depends_on": ["indicators-daily", "market-context"],
+        "depends_on": ["indicators-daily", "market-context", "ohlcv"],
     },
     {
         "id": "llm-weekend",
@@ -224,10 +224,10 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "0 23 * * *",
         "schedule_label": "매일",
-        "long_description": "기존에 LLM 이 생성한 진입 시그널의 실현 성과를 backfill 합니다.\n\n진입 후 최고가·최저가·현재가를 비교해 RR (risk-reward), 최대 손익 등을 계산해 signal_performance 테이블에 적재합니다.\n\nLLM 호출은 없음 — 가격 데이터만으로 계산.\n\n선행 작업: ohlcv (현재가 + 과거 가격)\n후속 작업: 없음",
+        "long_description": "기존에 LLM 이 생성한 진입 시그널의 실현 성과를 backfill 합니다.\n\n진입 후 최고가·최저가·현재가를 비교해 RR (risk-reward), 최대 손익 등을 계산해 signal_performance 테이블에 적재합니다.\n\nLLM 호출은 없음 — 가격 데이터만으로 계산.\n\n선행 작업: ohlcv (현재가 + 과거 가격), llm-full-daily (평가 대상 시그널)\n후속 작업: 없음",
         "inputs": ["daily_prices", "entry_params"],
         "outputs": ["signal_performance"],
-        "depends_on": ["ohlcv"],
+        "depends_on": ["ohlcv", "llm-full-daily"],
     },
 ]
 
