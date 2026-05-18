@@ -38,8 +38,11 @@ from kr_pipeline.indicators.store import (
 
 log = logging.getLogger("kr_pipeline.indicators")
 
-LOOKBACK_DAYS = 252       # 52w high/low + 1y return
-LOOKBACK_WEEKS = 52
+# 캘린더 일 — 252 거래일 + 휴일 여유 (한국 거래일 ≈ 245/365, 안전 마진 포함).
+# timedelta(days=) 가 캘린더 일 단위이므로 거래일이 아니라 캘린더 일로 환산해야
+# sma_200 / rs_rating 등 200~252 거래일 lookback 지표가 NULL 없이 채워짐.
+LOOKBACK_DAYS = 400       # 252 거래일 ≈ 375 캘린더 일 + 25일 안전 마진
+LOOKBACK_WEEKS = 60       # 52 주 + 8 주 안전 마진 (휴일 분포)
 
 
 class Mode(str, Enum):

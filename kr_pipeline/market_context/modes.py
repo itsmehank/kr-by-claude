@@ -21,7 +21,9 @@ from kr_pipeline.market_context.store import upsert_market_context
 
 log = logging.getLogger("kr_pipeline.market_context")
 
-LOOKBACK_DAYS = 252           # SMA-200 + yearly high lookback (FTD lookback 90 보다 큼)
+# 캘린더 일 — 200~252 거래일 lookback (SMA-200 + yearly high) 보장용.
+# timedelta(days=) 가 캘린더 단위이므로 거래일을 캘린더 일로 환산.
+LOOKBACK_DAYS = 400           # 252 거래일 ≈ 375 캘린더 일 + 안전 마진
 
 
 INDICES = [
