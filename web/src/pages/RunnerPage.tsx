@@ -430,7 +430,7 @@ export default function RunnerPage() {
         </button>
       </header>
 
-      <section className="bento p-2 mb-6 overflow-hidden">
+      <section className="bento p-2 mb-6">
         <table className="w-full">
           <thead>
             <tr className="border-b border-hairline">
