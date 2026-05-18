@@ -1,0 +1,81 @@
+"""runner_service — subprocess 실행 + 중복/동시 방지."""
+from datetime import datetime, date, timezone, timedelta
+
+
+def test_check_recent_success_today_blocks_rerun(db):
+    """오늘 같은 모드 success run 있으면 재실행 거부."""
+    from api.services.runner_service import check_can_run
+
+    with db.cursor() as cur:
+        cur.execute(
+            """INSERT INTO pipeline_runs (pipeline, mode, status, started_at, finished_at, rows_affected)
+               VALUES ('llm_weekend', 'weekend', 'success', %s, %s, 100)""",
+            (datetime.now(timezone.utc), datetime.now(timezone.utc)),
+        )
+
+    result = check_can_run(db, mode="weekend")
+    assert result["can_run"] is False
+    assert result["reason"] == "duplicate"
+    assert result["existing_run_id"] is not None
+
+
+def test_check_recent_failed_allows_rerun(db):
+    """최근 fail 은 재실행 허용."""
+    from api.services.runner_service import check_can_run
+
+    with db.cursor() as cur:
+        cur.execute(
+            """INSERT INTO pipeline_runs (pipeline, mode, status, started_at, finished_at)
+               VALUES ('llm_daily_delta', 'daily-delta', 'failed', %s, %s)""",
+            (datetime.now(timezone.utc), datetime.now(timezone.utc)),
+        )
+
+    result = check_can_run(db, mode="daily-delta")
+    assert result["can_run"] is True
+
+
+def test_check_running_blocks_rerun(db):
+    """현재 running 인 모드 재실행 거부."""
+    from api.services.runner_service import check_can_run
+
+    with db.cursor() as cur:
+        cur.execute(
+            """INSERT INTO pipeline_runs (pipeline, mode, status, started_at)
+               VALUES ('llm_weekend', 'weekend', 'running', %s)""",
+            (datetime.now(timezone.utc),),
+        )
+
+    result = check_can_run(db, mode="weekend")
+    assert result["can_run"] is False
+    assert result["reason"] == "already_running"
+
+
+def test_check_force_bypasses_duplicate(db):
+    """force=True 면 중복 무시."""
+    from api.services.runner_service import check_can_run
+
+    with db.cursor() as cur:
+        cur.execute(
+            """INSERT INTO pipeline_runs (pipeline, mode, status, started_at, finished_at)
+               VALUES ('llm_weekend', 'weekend', 'success', %s, %s)""",
+            (datetime.now(timezone.utc), datetime.now(timezone.utc)),
+        )
+
+    result = check_can_run(db, mode="weekend", force=True)
+    assert result["can_run"] is True
+
+
+def test_spawn_subprocess_returns_pid(mocker):
+    """subprocess.Popen 호출되고 PID 반환."""
+    from api.services.runner_service import spawn_runner
+
+    fake_proc = mocker.Mock()
+    fake_proc.pid = 12345
+    mock_popen = mocker.patch("subprocess.Popen", return_value=fake_proc)
+
+    result = spawn_runner(mode="weekend", dry_run=True, limit=5)
+    assert result["pid"] == 12345
+    args = mock_popen.call_args[0][0]
+    assert "--mode=weekend" in args
+    assert "--dry-run" in args
+    assert "--limit=5" in args
