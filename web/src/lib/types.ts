@@ -122,3 +122,54 @@ export interface Signal {
   known_warnings: string[];
   notes: string | null;
 }
+
+export interface RunSummaryMode {
+  mode: string;
+  pipeline: string;
+  cron_expression: string;
+  description: string;
+  last_run: {
+    id: number;
+    status: string;
+    rows_affected: number | null;
+    error: string | null;
+    started_at: string | null;
+    finished_at: string | null;
+    duration_seconds: number | null;
+  } | null;
+  next_scheduled: string | null;
+}
+
+export interface RunSummaryResponse {
+  modes: RunSummaryMode[];
+}
+
+export interface CronStatus {
+  registered: boolean;
+  lines: string[];
+  default_lines: string[];
+  marker_begin: string;
+  marker_end: string;
+}
+
+export interface CronPreview {
+  action: "register" | "unregister";
+  current_lines: string[];
+  new_lines: string[];
+  diff: string[];
+  new_crontab_preview: string;
+}
+
+export interface RunResponse {
+  mode: string;
+  dry_run: boolean;
+  pid: number;
+  command: string;
+}
+
+export interface RunConflict {
+  reason: string;
+  existing_run_id: number | null;
+  existing_run_summary: Record<string, unknown> | null;
+  message: string;
+}
