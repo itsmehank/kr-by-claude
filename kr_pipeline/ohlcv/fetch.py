@@ -9,6 +9,25 @@ from pykrx import stock
 from kr_pipeline.common.retry import with_retry
 
 
+# pykrx 의 IndexTicker.get_name 은 KRX 의 "코드 → 한국어 이름" 매핑 lookup 인데,
+# KRX 응답 형식 변화로 빈 DataFrame 받아 KeyError 발생할 수 있음 (2026-05 관찰).
+# 그 이름은 DataFrame.columns.name 메타데이터에만 쓰이고 우리 시스템은 안 사용.
+# 실패 시 dummy 이름 반환해서 인덱스 OHLCV 자체는 정상 받도록 안전망.
+try:
+    from pykrx.website.krx.market.ticker import IndexTicker as _IndexTicker
+    _orig_index_get_name = _IndexTicker.get_name
+
+    def _safe_index_get_name(self, ticker):
+        try:
+            return _orig_index_get_name(self, ticker)
+        except Exception:
+            return f"INDEX_{ticker}"
+
+    _IndexTicker.get_name = _safe_index_get_name
+except ImportError:
+    pass
+
+
 log = logging.getLogger("kr_pipeline.ohlcv.fetch")
 
 
