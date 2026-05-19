@@ -35,7 +35,7 @@ def get_classifications(
                  symbol, classified_at, analyzed_for_date, market, classification, pattern,
                  pivot_price, pivot_basis, base_high, base_low, base_depth_pct,
                  base_start_date, risk_flags, confidence, reasoning, source,
-                 expires_at, llm_call_duration_s, llm_input_tokens, llm_output_tokens
+                 llm_call_duration_s, llm_input_tokens, llm_output_tokens
             FROM weekly_classification
            WHERE classified_at >= NOW() - (%(lookback_days)s || ' days')::interval
            ORDER BY symbol, classified_at DESC
@@ -44,7 +44,7 @@ def get_classifications(
                l.classification, l.pattern, l.pivot_price, l.pivot_basis,
                l.base_high, l.base_low, l.base_depth_pct, l.base_start_date,
                l.risk_flags, l.confidence, l.reasoning, l.source,
-               l.classified_at, l.analyzed_for_date, l.expires_at,
+               l.classified_at, l.analyzed_for_date,
                l.llm_call_duration_s, l.llm_input_tokens, l.llm_output_tokens
           FROM latest l
           JOIN stocks s ON s.ticker = l.symbol
@@ -88,9 +88,8 @@ def get_classifications(
             source=r[15],
             classified_at=r[16],
             analyzed_for_date=r[17],
-            expires_at=r[18],
-            llm_call_duration_s=float(r[19]) if r[19] is not None else None,
-            llm_input_tokens=r[20],
-            llm_output_tokens=r[21],
+            llm_call_duration_s=float(r[18]) if r[18] is not None else None,
+            llm_input_tokens=r[19],
+            llm_output_tokens=r[20],
         ))
     return result

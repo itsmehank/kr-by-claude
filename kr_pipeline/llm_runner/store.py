@@ -1,13 +1,10 @@
 """DB 쓰기 — weekly_classification, trigger_evaluation_log, entry_params."""
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 import json
 
 from psycopg import Connection
-
-
-WATCH_EXPIRES_WEEKS = 8
 
 
 def insert_classification(
@@ -25,10 +22,6 @@ def insert_classification(
 
     source: 'weekend' | 'daily_delta'
     """
-    expires_at = None
-    if result["classification"] == "watch":
-        expires_at = classified_at + timedelta(weeks=WATCH_EXPIRES_WEEKS)
-
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -36,12 +29,12 @@ def insert_classification(
               (symbol, classified_at, analyzed_for_date, market, classification, pattern,
                pivot_price, pivot_basis, base_high, base_low, base_depth_pct, base_start_date,
                risk_flags, confidence, reasoning,
-               source, expires_at,
+               source,
                llm_call_duration_s, llm_input_tokens, llm_output_tokens)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
-                    %s, %s,
+                    %s,
                     %s, %s, %s)
             ON CONFLICT (symbol, classified_at) DO NOTHING
             """,
@@ -62,7 +55,6 @@ def insert_classification(
                 result.get("confidence"),
                 result.get("reasoning"),
                 source,
-                expires_at,
                 llm_meta.get("duration_s"),
                 llm_meta.get("input_tokens"),
                 llm_meta.get("output_tokens"),

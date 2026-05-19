@@ -272,7 +272,6 @@ export interface Classification {
   source: string;
   classified_at: string;
   analyzed_for_date: string | null;
-  expires_at: string | null;
   llm_call_duration_s: number | null;
   llm_input_tokens: number | null;
   llm_output_tokens: number | null;

@@ -272,7 +272,6 @@ CREATE TABLE IF NOT EXISTS weekly_classification (
   reasoning            TEXT,
 
   source               VARCHAR(20) NOT NULL,
-  expires_at           TIMESTAMPTZ,
 
   llm_call_duration_s  NUMERIC(8, 2),
   llm_input_tokens     INTEGER,

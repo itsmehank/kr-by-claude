@@ -165,9 +165,6 @@ function RowHeader({
         content={
           <>
             <div className="num">분류: {formatKst(row.classified_at)}</div>
-            {row.expires_at && (
-              <div className="num">만료: {formatKst(row.expires_at)}</div>
-            )}
             <div className="text-faint mt-1">(KST)</div>
           </>
         }
