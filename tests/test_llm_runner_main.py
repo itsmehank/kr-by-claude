@@ -1,15 +1,26 @@
 """llm_runner __main__ — run_tracking 호출 검증."""
 import sys
 from contextlib import contextmanager
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 
 def _make_mock_conn():
-    """run_tracking 이 내부적으로 쓰는 conn 메서드를 갖춘 mock."""
+    """run_tracking 이 내부적으로 쓰는 conn 메서드를 갖춘 mock.
+
+    fetchone 은 두 가지 호출에 응답해야 함:
+    1. __main__ 의 SELECT MAX(date) FROM daily_indicators — date 반환
+    2. run_tracking 의 INSERT ... RETURNING id — 정수 (run_id) 반환
+
+    side_effect 로 순차 응답.
+    """
     conn = MagicMock()
     conn.cursor.return_value.__enter__ = lambda s: s
     conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
-    conn.cursor.return_value.fetchone.return_value = (1,)
+    conn.cursor.return_value.fetchone.side_effect = [
+        (date(2026, 5, 19),),  # __main__ 의 MAX(date)
+        (1,),                  # run_tracking 의 RETURNING id
+    ]
     return conn
 
 
