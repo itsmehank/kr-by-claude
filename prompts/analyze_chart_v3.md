@@ -102,6 +102,14 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 - If `market_context` shows a transition from `downtrend` to `confirmed_uptrend` within the past 60 sessions, allow depth up to 50% (O'Neil exception for bear-market recovery cup formations).
 - Depth > 50% in any market: invalid, use `none`.
 
+**`high_tight_flag`** — A rare and powerful pattern. **Flagpole**: stock advances 100–120%+ in **4–8 weeks**. **Flag**: sideways consolidation of no more than 25% over **3–6 weeks**. Total duration 7–14 weeks. Difficult to interpret accurately — use only with high confidence. Risk_flag `narrow_base` does NOT apply to this pattern (the flag period is intentionally short by definition). Source: O'Neil HMM 'High Tight Flag' / Minervini Power Play.
+
+**`3c_cheat`** — **Early entry pivot** in the **lower or middle third of a cup that has not yet completed** (Minervini's "3-C" or "cheat area"). Same cup-with-handle structure, but the buy point is earlier than the standard handle pivot. Lower volume requirement than standard breakout. In `reasoning`, explicitly note "3-C / cheat early entry within cup". Source: Minervini *Trade Like a Stock Market Wizard* ch.10 / *Think & Trade Like a Champion* ch.7.
+
+**`base_on_base`** — First base breaks out and advances but is **unable to increase a normal 20–30%** because the general market begins another leg down. Stock builds a **second consolidation just on top of the previous base**. Strong signal during **latter stages of a bear market** — aggressive new leadership in the next bull phase. Second base typically 5–15 weeks. Source: O'Neil HMM 'Base on Top of a Base'.
+
+**`ascending_base`** — **Three pullbacks of 10–20%**, each low point being **higher than the preceding one**. Forms over 9–16 weeks while the **general market is declining** — indicates a leadership stock relatively immune to market pressure. Source: O'Neil HMM 'Ascending Base'.
+
 **Discipline rule**: If structural elements are absent or ambiguous, use `none` rather than forcing a misnomer. Wide-and-loose, short, or erratic action is NOT a recognized base pattern. When in doubt, choose `none`.
 
 ### 4.5. Pocket Pivot Alternative Entry (Morales/Kacher)
@@ -140,8 +148,12 @@ Examine the RS Line series in `indicators_recent_60d`:
 | flat_base       | range_high + 0.1                  | range_high      |
 | cup_with_handle | handle_high + 0.1                 | handle_high     |
 | vcp             | final_T_high + 0.1                | final_T_high    |
-| double_bottom   | mid_W_peak + 0.1 (두 low 사이 최고점) | mid_W_peak     |
-| none            | null                              | null            |
+| double_bottom   | mid_W_peak + 0.1 (두 low 사이 최고점) | mid_W_peak        |
+| high_tight_flag | top of flag (highest point of consolidation)  | top_of_flag       |
+| 3c_cheat        | high of cheat area (low/mid cup pivot)        | cheat_pivot       |
+| base_on_base    | top of second (upper) base                    | top_of_upper_base |
+| ascending_base  | top of third pullback peak                    | top_of_third_peak |
+| none            | null                              | null              |
 
 base_high, base_low: 베이스 구간의 high/low 값
 base_depth_pct: (base_high - base_low) / base_high * 100
@@ -178,7 +190,7 @@ Select from **exactly this taxonomy** (no other values are permitted):
 **Three inviolable rules — violation makes the output invalid:**
 
 1. **Trend Template positive traits NEVER go in risk_flags.** High RS Rating, price above MAs, MA alignment, blue dot — these are strengths. RS Rating ≥ 95 is not a risk. Do not flag it.
-2. **Reasoning ↔ flags consistency**: If your `reasoning` names a risk (e.g., "climax run", "wide-and-loose", "extended from MA", "market in correction"), the corresponding flag MUST appear in `risk_flags`. Conversely, every flag in `risk_flags` must be supported by something concrete in reasoning or the underlying data.
+2. **Reasoning ↔ flags consistency**: If your `reasoning` (across all 5 markdown sections) names a risk (e.g., "climax run", "wide-and-loose", "extended from MA", "market in correction"), the corresponding flag MUST appear in `risk_flags`. Conversely, every flag in `risk_flags` must be supported by something concrete in reasoning or the underlying data.
 3. **Liquidity scope**: `thin_liquidity_us_only` applies ONLY to US individual stocks. For KR stocks (KOSPI/KOSDAQ) or ETFs, do not evaluate or report liquidity.
 
 ### 6. Stock-Level Distribution Check
@@ -226,7 +238,7 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
 ```json
 {
   "classification": "entry | watch | ignore",
-  "pattern": "flat_base | cup_with_handle | vcp | double_bottom | none",
+  "pattern": "flat_base | cup_with_handle | vcp | double_bottom | high_tight_flag | 3c_cheat | base_on_base | ascending_base | none",
   "confidence": 0.0,
   "reasoning": "≤500자",
   "risk_flags": ["..."],
@@ -242,8 +254,44 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
 
 ## Constraints
 
-- `reasoning`: max 500 characters. Concise, factual, references specific numbers when possible. Must mention market context status, base structure, pivot/breakout if applicable, and key flags. If pocket pivot entry, mark it explicitly.
-- `pattern`: must be exactly one of: `flat_base`, `cup_with_handle`, `vcp`, `double_bottom`, `none`.
+- `reasoning`: **max 1500 characters**. Written in **Korean** using **markdown** with **5 mandatory sections** in this exact order. Each section is a `**Heading**` (bold) followed by a paragraph (no `#` heading marks — only bold).
+
+  Required section order and contents:
+
+  ```
+  **시장 컨텍스트**
+  KOSPI/KOSDAQ 추세 단계 (confirmed_uptrend / under_pressure / correction 등),
+  distribution day 카운트, follow-through day, 200d MA breadth 비율.
+  한 줄 결론 — 종목 진입에 우호적/불리 평가.
+
+  **Base 구조**
+  식별한 base 패턴 + 형성 기간 + depth + pivot 가격.
+  수치 인용 시 의미 부연 (예: "depth 8.5% — Minervini 안정 base 기준 15% 이내, 매물 소화 양호").
+  RS Line 의 leadership 여부 (52w high 갱신 전후 시기).
+
+  **진입 시그널**
+  거래량 동반 돌파 / pocket pivot / breakout 발생 여부.
+  없으면 "미확인" 으로 명시.
+  거래량 비율 인용 시 책 기준 (O'Neil 1.5×) 과 비교.
+
+  **핵심 위험**
+  risk_flags 각각이 왜 발생했는지 + 그 의미 + 진입 시 대응
+  (예: "late_stage_base — 3번째 base, 진입 시 손절 폭을 평소보다 좁히는 것이 안전").
+
+  **결론**
+  classification 결정 이유 + 향후 시나리오
+  (예: "watch — 돌파 확인 시 entry 승격, 시장 약화 시 ignore 강등").
+  ```
+
+  Tone & style:
+  - 친절하고 명료한 한국어. **투자 경험 1~3년차 개인투자자가 이해할 수 있게**.
+  - 단순 수치만 적지 말고 **그 의미** 함께 (예: 'depth 8.5%' → 'depth 8.5% (15% 임계 이내, 안정적)').
+  - Stage 2 / base count / pocket pivot 같은 전문 용어 사용 시 **한 줄 부연 설명**.
+  - 결론만 적지 말고 **왜 그렇게 분류했는지 추론 과정** 명시.
+  - 각 판단의 책 원전 (예: "Minervini Trend Template #5", "O'Neil HMM 'Cup with Handle'") 짧게 언급.
+  - If pocket pivot entry, mark it explicitly in '진입 시그널'.
+  - If 3-C / cheat early entry, mark it explicitly in '진입 시그널' or '결론'.
+- `pattern`: must be exactly one of: `flat_base`, `cup_with_handle`, `vcp`, `double_bottom`, `high_tight_flag`, `3c_cheat`, `base_on_base`, `ascending_base`, `none`.
 - `risk_flags`: array (possibly empty `[]`). Use ONLY the 13 values from the taxonomy table in §5.
 - If confidence < 0.5, default to `watch` with low confidence and explain in `reasoning`.
 - `confidence` must be in [0.0, 1.0]. Adjustments per §8 are applied to a base estimate and then clamped.
