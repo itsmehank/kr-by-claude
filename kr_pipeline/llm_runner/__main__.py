@@ -91,6 +91,7 @@ def main() -> int:
                     result.get("candidates")
                     or result.get("total")
                 )
+                state["details"] = result
 
     logging.getLogger("kr_pipeline.llm_runner").info(
         "DONE %s: %s", args.mode, json.dumps(result)

@@ -183,3 +183,38 @@ def test_pipeline_db_name_mapping_covers_all_modes():
     assert PIPELINE_DB_NAME_BY_MODE["performance"] == "llm_performance"
     # daily-delta 와 full-daily 는 같은 pipeline_db_name 공유
     assert PIPELINE_DB_NAME_BY_MODE["daily-delta"] == "llm_daily_delta"
+
+
+def test_main_sets_details_from_result():
+    """state['details'] 가 LLM runner 의 result dict 그대로 채워짐."""
+    mock_conn = _make_mock_conn()
+    captured: dict = {}
+
+    test_args = ["llm_runner", "--mode=full-daily"]
+    with patch.object(sys, "argv", test_args):
+        with patch("kr_pipeline.llm_runner.__main__.Config") as cfg:
+            cfg.load.return_value = MagicMock(database_url="postgresql://test")
+            with patch(
+                "kr_pipeline.llm_runner.__main__.connect",
+                side_effect=_make_mock_connect(mock_conn),
+            ):
+                with patch(
+                    "kr_pipeline.llm_runner.__main__.run_tracking",
+                    side_effect=_make_mock_run_tracking(captured),
+                ):
+                    with patch(
+                        "kr_pipeline.llm_runner.modes.run_full_daily",
+                        return_value={
+                            "daily_delta": {"processed": 5, "candidates": 10},
+                            "evaluate": {"evaluated": 3, "active": 20, "triggered": 3},
+                            "entry": {"processed": 1},
+                            "performance": {"backfilled": 7},
+                        },
+                    ):
+                        from kr_pipeline.llm_runner.__main__ import main
+                        rc = main()
+
+    assert rc == 0
+    state = captured
+    assert state["details"]["daily_delta"]["processed"] == 5
+    assert state["details"]["evaluate"]["active"] == 20

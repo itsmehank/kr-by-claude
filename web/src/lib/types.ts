@@ -232,6 +232,7 @@ export interface PipelineRecentRun {
   finished_at: string | null;
   rows_affected: number | null;
   total_count: number | null;
+  details: Record<string, unknown> | null;
   duration_seconds: number | null;
   error: string | null;
 }

@@ -68,7 +68,12 @@ def run(
             failed.append(a["symbol"])
             conn.rollback()
 
-    return {"evaluated": evaluated, "failures": len(failed)}
+    return {
+        "evaluated": evaluated,
+        "failures": len(failed),
+        "active": len(active),
+        "triggered": len(triggered),
+    }
 
 
 def _process_one(conn, active_row, trig_type, *, dry_run, as_of):

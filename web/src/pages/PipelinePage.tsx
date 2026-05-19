@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -10,6 +10,8 @@ import {
   XCircle,
   Clock,
   Database,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { api } from "../lib/api";
 import type { PipelineDetail, PipelineRef } from "../lib/types";
@@ -18,6 +20,25 @@ import { Tooltip } from "../components/ui/Tooltip";
 import { RunDialog, type RunDialogPipeline } from "../components/RunDialog";
 
 
+
+const SUB_STEP_LABELS: Record<string, string> = {
+  daily_delta: "신규 후보 분류",
+  evaluate: "Watch/Entry 트리거 평가",
+  entry: "매수 계획 (entry_params)",
+  performance: "시그널 성과 추적",
+};
+
+const SUB_STEP_FIELD_LABELS: Record<string, string> = {
+  processed: "처리",
+  candidates: "후보",
+  evaluated: "평가",
+  active: "활성",
+  triggered: "트리거",
+  failures: "실패",
+  backfilled: "갱신",
+  count: "건수",
+  rows_affected: "rows",
+};
 
 function StatusChip({ status }: { status: string }) {
   if (status === "success")
@@ -48,6 +69,16 @@ export default function PipelinePage() {
     pipeline: RunDialogPipeline;
     initialModeId?: string;
   } | null>(null);
+  const [expandedRuns, setExpandedRuns] = useState<Set<number>>(new Set());
+
+  const toggleRun = (id: number) => {
+    setExpandedRuns((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const q = useQuery<PipelineDetail>({
     queryKey: ["pipeline", pipelineId],
@@ -238,6 +269,7 @@ export default function PipelinePage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-hairline">
+                <th className="caps text-left py-2 w-4"></th>
                 <th className="caps text-left py-2">시각</th>
                 <th className="caps text-left py-2">모드</th>
                 <th className="caps text-left py-2">상태</th>
@@ -246,40 +278,80 @@ export default function PipelinePage() {
               </tr>
             </thead>
             <tbody>
-              {p.recent_runs.map((r) => (
-                <tr key={r.id} className="border-b border-hairline last:border-b-0">
-                  <td className="py-2 text-data text-muted">
-                    {r.started_at && (
-                      <Tooltip
-                        content={
-                          <>
-                            <div className="num">시작: {formatKst(r.started_at)}</div>
-                            {r.finished_at && (
-                              <div className="num">종료: {formatKst(r.finished_at)}</div>
-                            )}
-                            <div className="text-faint mt-1">(KST)</div>
-                          </>
-                        }
-                      >
-                        <span className="cursor-help underline decoration-dotted decoration-faint underline-offset-2">
-                          {relativeTime(r.started_at)}
-                        </span>
-                      </Tooltip>
+              {p.recent_runs.map((r) => {
+                const hasDetails = r.details && typeof r.details === "object" && Object.keys(r.details).length > 0;
+                const expanded = expandedRuns.has(r.id);
+                return (
+                  <Fragment key={r.id}>
+                    <tr
+                      className={`border-b border-hairline ${hasDetails ? "cursor-pointer hover:bg-cream" : ""}`}
+                      onClick={hasDetails ? () => toggleRun(r.id) : undefined}
+                    >
+                      <td className="py-2 w-4">
+                        {hasDetails && (
+                          <span className="text-faint inline-block">
+                            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 text-data text-muted">
+                        {r.started_at && (
+                          <Tooltip
+                            content={
+                              <>
+                                <div className="num">시작: {formatKst(r.started_at)}</div>
+                                {r.finished_at && (
+                                  <div className="num">종료: {formatKst(r.finished_at)}</div>
+                                )}
+                                <div className="text-faint mt-1">(KST)</div>
+                              </>
+                            }
+                          >
+                            <span className="cursor-help underline decoration-dotted decoration-faint underline-offset-2">
+                              {relativeTime(r.started_at)}
+                            </span>
+                          </Tooltip>
+                        )}
+                      </td>
+                      <td className="py-2 num text-data-xs text-muted">{r.mode}</td>
+                      <td className="py-2"><StatusChip status={r.status} /></td>
+                      <td className="py-2 num text-data text-muted text-right">
+                        {r.rows_affected != null ? r.rows_affected.toLocaleString() : "—"}
+                        {r.total_count != null && (
+                          <span className="text-faint"> / {r.total_count.toLocaleString()}</span>
+                        )}
+                      </td>
+                      <td className="py-2 num text-data text-muted text-right">
+                        {formatDuration(r.duration_seconds)}
+                      </td>
+                    </tr>
+                    {expanded && hasDetails && (
+                      <tr className="border-b border-hairline last:border-b-0 bg-cream/40">
+                        <td colSpan={6} className="py-3 px-6">
+                          <div className="caps text-faint mb-2">세부 결과</div>
+                          <ul className="space-y-1 text-data-xs">
+                            {Object.entries(r.details as Record<string, unknown>).map(([stepKey, stepValue]) => {
+                              const label = SUB_STEP_LABELS[stepKey] ?? stepKey;
+                              const fields = stepValue && typeof stepValue === "object"
+                                ? (stepValue as Record<string, unknown>)
+                                : {};
+                              const parts = Object.entries(fields)
+                                .filter(([k]) => k !== "failed_tickers")
+                                .map(([k, v]) => `${SUB_STEP_FIELD_LABELS[k] ?? k} ${v}`);
+                              return (
+                                <li key={stepKey} className="text-data text-ink">
+                                  <span className="font-semibold">{label}:</span>{" "}
+                                  <span className="text-muted">{parts.join(" · ") || "(no data)"}</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                  <td className="py-2 num text-data-xs text-muted">{r.mode}</td>
-                  <td className="py-2"><StatusChip status={r.status} /></td>
-                  <td className="py-2 num text-data text-muted text-right">
-                    {r.rows_affected != null ? r.rows_affected.toLocaleString() : "—"}
-                    {r.total_count != null && (
-                      <span className="text-faint"> / {r.total_count.toLocaleString()}</span>
-                    )}
-                  </td>
-                  <td className="py-2 num text-data text-muted text-right">
-                    {formatDuration(r.duration_seconds)}
-                  </td>
-                </tr>
-              ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         )}

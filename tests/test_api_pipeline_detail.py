@@ -111,3 +111,11 @@ def test_recent_runs_include_total_count(client, db):
             assert "total_count" in run
     finally:
         app.dependency_overrides.pop(get_conn, None)
+
+
+def test_recent_runs_include_details(client):
+    """recent_runs 의 각 row 에 details 필드 포함 (NULL 가능)."""
+    r = client.get("/api/pipelines/llm-full-daily")
+    assert r.status_code == 200
+    for run in r.json()["recent_runs"]:
+        assert "details" in run

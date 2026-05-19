@@ -27,16 +27,18 @@ def finish_run(
     rows_affected: int | None = None,
     total_count: int | None = None,
     error: str | None = None,
+    details: dict | None = None,
 ) -> None:
     with conn.cursor() as cur:
         cur.execute(
             """
             UPDATE pipeline_runs
                SET finished_at = %s, status = %s, rows_affected = %s,
-                   total_count = %s, error = %s
+                   total_count = %s, error = %s, details = %s::jsonb
              WHERE id = %s
             """,
-            (datetime.now(timezone.utc), status, rows_affected, total_count, error, run_id),
+            (datetime.now(timezone.utc), status, rows_affected, total_count,
+             error, json.dumps(details) if details is not None else None, run_id),
         )
 
 
@@ -50,7 +52,7 @@ def run_tracking(conn: Connection, *, pipeline: str, mode: str, params: dict) ->
     """
     run_id = start_run(conn, pipeline=pipeline, mode=mode, params=params)
     conn.commit()
-    state: dict = {"run_id": run_id, "warnings": [], "rows_affected": None, "total_count": None}
+    state: dict = {"run_id": run_id, "warnings": [], "rows_affected": None, "total_count": None, "details": None}
     try:
         yield state
         # success path with possible warnings
@@ -63,6 +65,7 @@ def run_tracking(conn: Connection, *, pipeline: str, mode: str, params: dict) ->
             rows_affected=state["rows_affected"],
             total_count=state["total_count"],
             error=warnings_json,
+            details=state["details"],
         )
         conn.commit()
     except Exception as e:
