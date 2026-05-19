@@ -81,6 +81,12 @@ def _process_one(conn: Connection, symbol: str, *, dry_run: bool, as_of: date) -
         Path(zip_path).unlink(missing_ok=True)
 
     finished = datetime.now(timezone.utc)
+
+    if dry_run:
+        log.info("dry-run: skipping DB insert for %s (mock result %s)",
+                 symbol, result.get("classification"))
+        return
+
     insert_classification(
         conn,
         symbol=symbol,

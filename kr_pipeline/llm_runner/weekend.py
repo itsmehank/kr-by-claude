@@ -117,6 +117,11 @@ def _process_one(
     finished = datetime.now(timezone.utc)
     duration_s = (finished - started).total_seconds()
 
+    if dry_run:
+        log.info("dry-run: skipping DB insert for %s (mock result %s)",
+                 symbol, result.get("classification"))
+        return
+
     insert_classification(
         conn,
         symbol=symbol,
@@ -126,7 +131,7 @@ def _process_one(
         source="weekend",
         llm_meta={
             "duration_s": duration_s,
-            "input_tokens": None,  # CLI 출력에서 추출 어려움
+            "input_tokens": None,
             "output_tokens": None,
         },
         analyzed_for_date=as_of,

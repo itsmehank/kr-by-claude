@@ -71,6 +71,11 @@ def _process_one(conn, symbol, eval_at, prior_at, *, dry_run):
         dry_run=dry_run,
     )
     finished = datetime.now(timezone.utc)
+
+    if dry_run:
+        log.info("dry-run: skipping DB insert for %s (mock entry plan)", symbol)
+        return
+
     insert_entry_params(
         conn,
         symbol=symbol,

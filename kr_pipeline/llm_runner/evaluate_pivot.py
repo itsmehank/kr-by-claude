@@ -84,6 +84,12 @@ def _process_one(conn, active_row, trig_type, *, dry_run, as_of):
     )
 
     finished = datetime.now(timezone.utc)
+
+    if dry_run:
+        log.info("dry-run: skipping DB insert for %s (mock decision %s)",
+                 symbol, result.get("decision"))
+        return
+
     insert_trigger_log(
         conn,
         symbol=symbol,
