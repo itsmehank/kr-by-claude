@@ -240,7 +240,7 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
   "classification": "entry | watch | ignore",
   "pattern": "flat_base | cup_with_handle | vcp | double_bottom | high_tight_flag | 3c_cheat | base_on_base | ascending_base | none",
   "confidence": 0.0,
-  "reasoning": "≤500자",
+  "reasoning": "≤1500자 (markdown, 5 sections)",
   "risk_flags": ["..."],
 
   "pivot_price": 82500.1,
@@ -303,7 +303,7 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
 - Do not give entry parameters here (stop loss, position size) — that is a separate task (`calculate_entry_params`). pivot_price and base fields ARE output by this prompt (§4.7).
 - Do not include Trend Template positive signals (high RS Rating, price above MAs, blue dot, RS Line leadership) as risk_flags.
 - Do not invent risk flags outside the 13-value taxonomy.
-- Do not invent new pattern names outside the 5-value taxonomy.
+- Do not invent new pattern names outside the 9-value taxonomy.
 - Do not classify as `entry` when `market_context.current_status` is downtrend/correction/unconfirmed_rally — this is a hard rule per §3.5.
 
 ## Input Payload
