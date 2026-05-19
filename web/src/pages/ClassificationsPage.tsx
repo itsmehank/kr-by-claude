@@ -13,6 +13,7 @@ import { api } from "../lib/api";
 import type { Classification } from "../lib/types";
 import { relativeTime, formatKst } from "../lib/utils";
 import { Tooltip } from "../components/ui/Tooltip";
+import ReactMarkdown from "react-markdown";
 
 
 type SortOption = "classified_at_desc" | "confidence_desc";
@@ -60,6 +61,14 @@ const PATTERN_DESCRIPTIONS: Record<string, string> = {
     "W 형태 이중 바닥. 두 번째 저점이 첫 저점을 살짝 undercut(shakeout). Buy point 는 W 중앙 peak (top of middle peak, 우측). 두 번째 바닥에서 매수는 너무 이름.",
   none:
     "Base 패턴 식별되지 않음.",
+  high_tight_flag:
+    "4~8주에 가격 100~120%+ 상승(깃대) 후 3~6주간 25% 이내 횡보(깃발) — 매우 강한 매수 신호 (드문 패턴, O'Neil HMM 'High Tight Flag' / Minervini Power Play).",
+  "3c_cheat":
+    "Cup이 완성되기 전 중·하반부에서 형성되는 cheat 영역의 early entry pivot (Minervini Trade Like a Stock Market Wizard ch.10 / Think & Trade Like a Champion ch.7).",
+  base_on_base:
+    "1차 base 돌파 후 20~30% 상승 못 하고 위쪽에 2차 base 형성. Bear market 막판 강세 신호 (O'Neil HMM 'Base on Top of a Base').",
+  ascending_base:
+    "3번의 10~20% pullback이 점점 더 높은 저점에서 발생. 시장 약세기에 강한 종목 (O'Neil HMM 'Ascending Base').",
 };
 
 const RISK_FLAG_DESCRIPTIONS: Record<string, string> = {
@@ -241,8 +250,22 @@ function RowDetails({ row }: { row: Classification }) {
       {row.reasoning && (
         <div>
           <div className="caps text-faint mb-1">Reasoning</div>
-          <div className="text-data text-ink whitespace-pre-wrap bg-paper border border-hairline rounded-lg p-3 max-h-64 overflow-auto leading-relaxed">
-            {row.reasoning}
+          <div className="text-data text-ink bg-paper border border-hairline rounded-lg p-3 max-h-96 overflow-auto leading-relaxed">
+            <ReactMarkdown
+              components={{
+                p: ({ node: _node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                strong: ({ node: _node, ...props }) => (
+                  <strong className="font-semibold text-ink block mt-3 first:mt-0" {...props} />
+                ),
+                ul: ({ node: _node, ...props }) => <ul className="list-disc ml-5 my-1" {...props} />,
+                ol: ({ node: _node, ...props }) => <ol className="list-decimal ml-5 my-1" {...props} />,
+                code: ({ node: _node, ...props }) => (
+                  <code className="font-mono bg-cream px-1 rounded text-data-xs" {...props} />
+                ),
+              }}
+            >
+              {row.reasoning}
+            </ReactMarkdown>
           </div>
         </div>
       )}
