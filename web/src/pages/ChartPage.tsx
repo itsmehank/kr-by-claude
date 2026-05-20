@@ -23,6 +23,7 @@ import {
   type PriceChartBar,
   type TriggerOverlayEvent,
 } from "../components/charts/PriceChart";
+import { ChartMetaBar } from "../components/ChartMetaBar";
 import { ClassificationCard } from "../components/panels/ClassificationCard";
 import { IndicatorsCard } from "../components/panels/IndicatorsCard";
 import { EntrySignalCard } from "../components/panels/EntrySignalCard";
@@ -433,31 +434,41 @@ export default function ChartPage() {
           데이터를 불러오지 못했습니다.
         </div>
       ) : bars.length > 0 ? (
-        <div className="bento p-2 mb-5 overflow-hidden">
-          <PriceChart
-            data={bars}
-            timeframeLabel={timeframe === "daily" ? "Daily" : "Weekly"}
-            smaShortLabel={smaLabels.short}
-            smaMidLabel={smaLabels.mid}
-            smaLongLabel={smaLabels.long}
-            showSMAShort={showSMAShort}
-            showSMAMid={showSMAMid}
-            showSMALong={showSMALong}
-            showSMAExtra={timeframe === "daily" ? showSMAExtra : false}
-            show52wHigh={show52wHigh}
-            show52wLow={show52wLow}
-            showVolume={showVolume}
-            showVolumeSMA={showVolumeSMA && timeframe === "daily"}
-            showPocketPivot={showPocketPivot && timeframe === "daily"}
-            showDistributionDay={showDistributionDay && timeframe === "daily"}
-            height={600}
-            pivotPrice={pivotPrice}
-            stopLoss={stopLoss}
-            showPivotStop={showPivotStop}
-            showTriggerMarkers={showTriggerMarkers}
-            triggerEvents={triggerEvents}
-          />
-        </div>
+        <>
+          {ticker && (
+            <ChartMetaBar
+              ticker={ticker}
+              stockName={stockMeta?.name ?? null}
+              market={stockMeta?.market ?? null}
+              sector={stockMeta?.sector ?? null}
+            />
+          )}
+          <div className="bento p-2 mb-5 overflow-hidden">
+            <PriceChart
+              data={bars}
+              timeframeLabel={timeframe === "daily" ? "Daily" : "Weekly"}
+              smaShortLabel={smaLabels.short}
+              smaMidLabel={smaLabels.mid}
+              smaLongLabel={smaLabels.long}
+              showSMAShort={showSMAShort}
+              showSMAMid={showSMAMid}
+              showSMALong={showSMALong}
+              showSMAExtra={timeframe === "daily" ? showSMAExtra : false}
+              show52wHigh={show52wHigh}
+              show52wLow={show52wLow}
+              showVolume={showVolume}
+              showVolumeSMA={showVolumeSMA && timeframe === "daily"}
+              showPocketPivot={showPocketPivot && timeframe === "daily"}
+              showDistributionDay={showDistributionDay && timeframe === "daily"}
+              height={600}
+              pivotPrice={pivotPrice}
+              stopLoss={stopLoss}
+              showPivotStop={showPivotStop}
+              showTriggerMarkers={showTriggerMarkers}
+              triggerEvents={triggerEvents}
+            />
+          </div>
+        </>
       ) : (
         <div className="bento p-16 text-center text-muted">
           표시할 데이터가 없습니다.
