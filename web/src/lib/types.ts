@@ -277,3 +277,22 @@ export interface Classification {
   llm_input_tokens: number | null;
   llm_output_tokens: number | null;
 }
+
+export type TriggerDecision = "go_now" | "wait" | "abort";
+
+export interface Trigger {
+  symbol: string;
+  name: string | null;
+  market: string | null;
+  evaluated_at: string;          // ISO timestamp
+  trigger_type: string;
+  close: number | null;
+  volume: number | null;
+  avg_volume_50d_ratio: number | null;
+  pivot_price: number | null;
+  pivot_delta_pct: number | null;
+  decision: TriggerDecision;
+  confidence: number | null;
+  reasoning: string | null;
+  abort_reason: string | null;
+}

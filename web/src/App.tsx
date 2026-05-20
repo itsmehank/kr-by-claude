@@ -12,6 +12,7 @@ import {
   Wrench,
   ListChecks,
   BookOpen,
+  Activity,
 } from "lucide-react";
 import HomePage from "./pages/HomePage";
 import HeatmapPage from "./pages/HeatmapPage";
@@ -22,6 +23,7 @@ import SignalsPage from "./pages/SignalsPage";
 import PerformancePage from "./pages/PerformancePage";
 import RunnerPage from "./pages/RunnerPage";
 import ClassificationsPage from "./pages/ClassificationsPage";
+import TriggersPage from "./pages/TriggersPage";
 import LlmPipelinePage from "./pages/LlmPipelinePage";
 import PipelinePage from "./pages/PipelinePage";
 import { api } from "./lib/api";
@@ -43,6 +45,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/signals", label: "Signals", kr: "시그널", Icon: Zap },
   { to: "/performance", label: "Performance", kr: "시그널 성과", Icon: TrendingUp },
   { to: "/classifications", label: "Classifications", kr: "LLM 분류", Icon: ListChecks },
+  { to: "/triggers", label: "Triggers", kr: "트리거 이력", Icon: Activity },
   { to: "/docs/llm-pipeline", label: "LLM Pipeline Guide", kr: "LLM 분석 안내", Icon: BookOpen },
   { to: "/runner", label: "Runner", kr: "분석 운영", Icon: Wrench },
   { to: "/prompt", label: "LLM Prompt", kr: "LLM 프롬프트", Icon: FileArchive },
@@ -187,6 +190,7 @@ function App() {
           <Route path="/signals" element={<SignalsPage />} />
           <Route path="/performance" element={<PerformancePage />} />
           <Route path="/classifications" element={<ClassificationsPage />} />
+          <Route path="/triggers" element={<TriggersPage />} />
           <Route path="/docs/llm-pipeline" element={<LlmPipelinePage />} />
           <Route path="/runner" element={<RunnerPage />} />
           <Route path="/runner/:pipelineId" element={<PipelinePage />} />
