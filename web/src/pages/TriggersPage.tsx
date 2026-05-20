@@ -3,6 +3,13 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import type { Trigger, TriggerDecision } from "../lib/types";
+import {
+  InfoTooltip,
+  TRIGGER_TYPE_HELP,
+  DECISION_HELP,
+  VOLUME_RATIO_HELP,
+  PIVOT_DELTA_HELP,
+} from "../components/InfoTooltip";
 
 const DECISIONS: { value: TriggerDecision | ""; label: string }[] = [
   { value: "", label: "전체" },
@@ -165,10 +172,22 @@ export default function TriggersPage() {
               <thead className="bg-paper/60 text-faint">
                 <tr>
                   <th className="text-left px-3 py-1.5">종목</th>
-                  <th className="text-left px-3 py-1.5">트리거</th>
-                  <th className="text-left px-3 py-1.5">decision</th>
-                  <th className="text-right px-3 py-1.5">거래량비</th>
-                  <th className="text-right px-3 py-1.5">pivot대비</th>
+                  <th className="text-left px-3 py-1.5">
+                    트리거
+                    <InfoTooltip>{TRIGGER_TYPE_HELP}</InfoTooltip>
+                  </th>
+                  <th className="text-left px-3 py-1.5">
+                    decision
+                    <InfoTooltip>{DECISION_HELP}</InfoTooltip>
+                  </th>
+                  <th className="text-right px-3 py-1.5">
+                    거래량비
+                    <InfoTooltip>{VOLUME_RATIO_HELP}</InfoTooltip>
+                  </th>
+                  <th className="text-right px-3 py-1.5">
+                    pivot대비
+                    <InfoTooltip>{PIVOT_DELTA_HELP}</InfoTooltip>
+                  </th>
                   <th className="text-left px-3 py-1.5">reasoning</th>
                 </tr>
               </thead>

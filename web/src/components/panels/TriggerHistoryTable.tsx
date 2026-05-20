@@ -3,6 +3,13 @@ import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import type { Trigger, TriggerDecision } from "../../lib/types";
 import { Card } from "./Card";
+import {
+  InfoTooltip,
+  TRIGGER_TYPE_HELP,
+  DECISION_HELP,
+  VOLUME_RATIO_HELP,
+  PIVOT_DELTA_HELP,
+} from "../InfoTooltip";
 
 interface Props {
   ticker: string;
@@ -36,10 +43,22 @@ export function TriggerHistoryTable({ ticker, limit = 20 }: Props) {
         <thead className="text-faint">
           <tr>
             <th className="text-left py-1.5">시각</th>
-            <th className="text-left py-1.5">트리거</th>
-            <th className="text-left py-1.5">decision</th>
-            <th className="text-right py-1.5">거래량비</th>
-            <th className="text-right py-1.5">pivot대비</th>
+            <th className="text-left py-1.5">
+              트리거
+              <InfoTooltip>{TRIGGER_TYPE_HELP}</InfoTooltip>
+            </th>
+            <th className="text-left py-1.5">
+              decision
+              <InfoTooltip>{DECISION_HELP}</InfoTooltip>
+            </th>
+            <th className="text-right py-1.5">
+              거래량비
+              <InfoTooltip>{VOLUME_RATIO_HELP}</InfoTooltip>
+            </th>
+            <th className="text-right py-1.5">
+              pivot대비
+              <InfoTooltip>{PIVOT_DELTA_HELP}</InfoTooltip>
+            </th>
             <th className="text-left py-1.5">reasoning</th>
           </tr>
         </thead>
