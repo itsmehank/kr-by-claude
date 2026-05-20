@@ -14,8 +14,20 @@ import type {
   Stock,
   MinerviniPassed,
   WeeklyIndicator,
+  Classification,
+  Signal,
+  Trigger,
 } from "../lib/types";
-import { PriceChart, type PriceChartBar } from "../components/charts/PriceChart";
+import {
+  PriceChart,
+  type PriceChartBar,
+  type TriggerOverlayEvent,
+} from "../components/charts/PriceChart";
+import { ClassificationCard } from "../components/panels/ClassificationCard";
+import { IndicatorsCard } from "../components/panels/IndicatorsCard";
+import { EntrySignalCard } from "../components/panels/EntrySignalCard";
+import { PerformanceCard } from "../components/panels/PerformanceCard";
+import { TriggerHistoryTable } from "../components/panels/TriggerHistoryTable";
 
 const PERIODS = [
   { id: "1W", label: "1주", days: 7 },
@@ -131,6 +143,8 @@ export default function ChartPage() {
   const [showVolumeSMA, setShowVolumeSMA] = useState(true);
   const [showPocketPivot, setShowPocketPivot] = useState(false);
   const [showDistributionDay, setShowDistributionDay] = useState(false);
+  const [showPivotStop, setShowPivotStop] = useState(true);
+  const [showTriggerMarkers, setShowTriggerMarkers] = useState(true);
 
   const { data: quickList } = useQuery<MinerviniPassed[]>({
     queryKey: ["minervini-passed-chart-select"],
@@ -169,6 +183,27 @@ export default function ChartPage() {
     enabled: !!ticker && timeframe === "weekly",
   });
 
+  const classificationQ = useQuery<Classification[]>({
+    queryKey: ["chart-classification", ticker],
+    queryFn: () =>
+      api<Classification[]>(
+        `/classifications?ticker=${ticker}&lookback_days=60&limit=1`,
+      ),
+    enabled: !!ticker,
+  });
+
+  const signalQ = useQuery<Signal[]>({
+    queryKey: ["chart-signal", ticker],
+    queryFn: () => api<Signal[]>(`/signals?ticker=${ticker}&days=60`),
+    enabled: !!ticker,
+  });
+
+  const triggerQ = useQuery<Trigger[]>({
+    queryKey: ["chart-triggers", ticker],
+    queryFn: () => api<Trigger[]>(`/triggers?ticker=${ticker}&limit=50`),
+    enabled: !!ticker,
+  });
+
   const chartLoading = timeframe === "daily" ? dailyQ.isLoading : weeklyQ.isLoading;
   const chartError = timeframe === "daily" ? dailyQ.isError : weeklyQ.isError;
   const rawData = timeframe === "daily" ? dailyQ.data : weeklyQ.data;
@@ -179,6 +214,19 @@ export default function ChartPage() {
       ? (rawData as DailyIndicator[]).map(dailyToBar)
       : (rawData as WeeklyIndicator[]).map(weeklyToBar);
   }, [rawData, timeframe]);
+
+  const pivotPrice = classificationQ.data?.[0]?.pivot_price ?? null;
+  const stopLoss = signalQ.data?.[0]?.stop_loss ?? null;
+
+  const triggerEvents = useMemo<TriggerOverlayEvent[]>(() => {
+    return (triggerQ.data ?? []).map((t) => ({
+      date: t.evaluated_at.slice(0, 10),
+      decision: t.decision,
+      triggerType: t.trigger_type,
+      close: t.close,
+      reasoning: t.reasoning,
+    }));
+  }, [triggerQ.data]);
 
   const smaLabels =
     timeframe === "daily"
@@ -403,6 +451,11 @@ export default function ChartPage() {
             showPocketPivot={showPocketPivot && timeframe === "daily"}
             showDistributionDay={showDistributionDay && timeframe === "daily"}
             height={600}
+            pivotPrice={pivotPrice}
+            stopLoss={stopLoss}
+            showPivotStop={showPivotStop}
+            showTriggerMarkers={showTriggerMarkers}
+            triggerEvents={triggerEvents}
           />
         </div>
       ) : (
@@ -489,6 +542,18 @@ export default function ChartPage() {
                 />
               </>
             )}
+            <Toggle
+              checked={showPivotStop}
+              onChange={setShowPivotStop}
+              color="#2563eb"
+              label="Pivot/Stop 선"
+            />
+            <Toggle
+              checked={showTriggerMarkers}
+              onChange={setShowTriggerMarkers}
+              color="#16a34a"
+              label="트리거 마커"
+            />
           </div>
         </div>
       )}
@@ -513,6 +578,18 @@ export default function ChartPage() {
             LLM 프롬프트 ZIP
           </Link>
         </div>
+      )}
+
+      {ticker && (
+        <section className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ClassificationCard ticker={ticker} />
+          <IndicatorsCard ticker={ticker} />
+          <EntrySignalCard ticker={ticker} />
+          <PerformanceCard ticker={ticker} />
+          <div className="lg:col-span-2">
+            <TriggerHistoryTable ticker={ticker} />
+          </div>
+        </section>
       )}
     </div>
   );
