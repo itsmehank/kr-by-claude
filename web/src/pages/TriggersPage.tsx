@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
@@ -38,11 +38,21 @@ export default function TriggersPage() {
   const from = sp.get("from") ?? defaultFrom();
   const to = sp.get("to") ?? todayStr();
 
+  // 종목 입력은 매 키 입력마다 fetch 하지 않도록 local state + Enter/blur 시 URL 반영
+  const [tickerInput, setTickerInput] = useState(ticker);
+  useEffect(() => {
+    setTickerInput(ticker);
+  }, [ticker]);
+
   function updateParam(key: string, value: string) {
     const next = new URLSearchParams(sp);
     if (value) next.set(key, value);
     else next.delete(key);
     setSp(next);
+  }
+
+  function commitTicker() {
+    if (tickerInput !== ticker) updateParam("ticker", tickerInput.trim());
   }
 
   const q = useQuery<Trigger[]>({
@@ -79,9 +89,13 @@ export default function TriggersPage() {
           <label className="caps block mb-1">종목</label>
           <input
             type="text"
-            value={ticker}
+            value={tickerInput}
             placeholder="예: 005930"
-            onChange={(e) => updateParam("ticker", e.target.value)}
+            onChange={(e) => setTickerInput(e.target.value)}
+            onBlur={commitTicker}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitTicker();
+            }}
             className="px-3 py-1.5 border border-hairline rounded-lg bg-cream text-data"
           />
         </div>
