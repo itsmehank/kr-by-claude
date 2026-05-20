@@ -17,6 +17,7 @@ SORT_CLAUSES = {
 @router.get("", response_model=list[ClassificationRow])
 def get_classifications(
     lookback_days: int = 14,
+    ticker: str | None = None,
     classifications: list[str] | None = Query(default=None),
     sources: list[str] | None = Query(default=None),
     min_confidence: float = 0.0,
@@ -38,6 +39,7 @@ def get_classifications(
                  llm_call_duration_s, llm_input_tokens, llm_output_tokens
             FROM weekly_classification
            WHERE classified_at >= NOW() - (%(lookback_days)s || ' days')::interval
+             AND (%(ticker)s::text IS NULL OR symbol = %(ticker)s)
            ORDER BY symbol, classified_at DESC
         )
         SELECT l.symbol, s.name, l.market, s.sector,
@@ -57,6 +59,7 @@ def get_classifications(
 
     params = {
         "lookback_days": lookback_days,
+        "ticker": ticker,
         "classifications": classifications,
         "sources": sources,
         "min_confidence": min_confidence,

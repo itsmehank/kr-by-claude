@@ -160,3 +160,10 @@ def test_response_includes_analyzed_for_date_field_for_legacy_rows(client, seed_
         assert "analyzed_for_date" in row
         if row["symbol"] in ("CLSTEST01", "CLSTEST02", "CLSTEST03"):
             assert row["analyzed_for_date"] is None
+
+
+def test_ticker_filter_returns_only_that_symbol(client, seed_classifications):
+    r = client.get("/api/classifications?lookback_days=30&ticker=CLSTEST02")
+    rows = r.json()
+    assert {row["symbol"] for row in rows} == {"CLSTEST02"}
+    assert len(rows) == 1

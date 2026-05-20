@@ -10,7 +10,11 @@ router = APIRouter(prefix="/api/signals", tags=["signals"])
 
 
 @router.get("", response_model=list[SignalOut])
-def list_signals(days: int = 5, conn: Connection = Depends(get_conn)):
+def list_signals(
+    days: int = 5,
+    ticker: str | None = None,
+    conn: Connection = Depends(get_conn),
+):
     cutoff = date.today() - timedelta(days=days)
     with conn.cursor() as cur:
         cur.execute(
@@ -23,9 +27,10 @@ def list_signals(days: int = 5, conn: Connection = Depends(get_conn)):
               FROM entry_params ep
               JOIN stocks s ON s.ticker = ep.symbol
              WHERE ep.signal_at::date >= %s
+               AND (%s::text IS NULL OR ep.symbol = %s)
              ORDER BY ep.signal_at DESC
             """,
-            (cutoff,),
+            (cutoff, ticker, ticker),
         )
         rows = cur.fetchall()
     return [

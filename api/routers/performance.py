@@ -36,7 +36,11 @@ def get_stats(period: str = "2w", conn: Connection = Depends(get_conn)):
 
 
 @router.get("/signals")
-def list_perf_signals(limit: int = 50, conn: Connection = Depends(get_conn)):
+def list_perf_signals(
+    limit: int = 50,
+    ticker: str | None = None,
+    conn: Connection = Depends(get_conn),
+):
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -46,9 +50,10 @@ def list_perf_signals(limit: int = 50, conn: Connection = Depends(get_conn)):
                    sp.market_return_4w_pct, sp.market_return_8w_pct
               FROM signal_performance sp
               JOIN stocks s ON s.ticker = sp.symbol
+             WHERE (%s::text IS NULL OR sp.symbol = %s)
              ORDER BY sp.signal_at DESC LIMIT %s
             """,
-            (limit,),
+            (ticker, ticker, limit),
         )
         rows = cur.fetchall()
     return [
