@@ -35,7 +35,7 @@ function todayStr(): string {
 
 export function IndicatorsCard({ ticker }: Props) {
   const minQ = useQuery<MinerviniDetailResponse>({
-    queryKey: ["minervini-detail", ticker],
+    queryKey: ["indicators-card", "minervini-detail", ticker],
     queryFn: () =>
       api<MinerviniDetailResponse>(`/indicators/minervini-detail/${ticker}`),
     enabled: !!ticker,

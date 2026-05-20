@@ -8,11 +8,15 @@ interface Props {
 }
 
 const PERIODS = [
-  { key: "1w", label: "1주" },
-  { key: "2w", label: "2주" },
-  { key: "4w", label: "4주" },
-  { key: "8w", label: "8주" },
-] as const;
+  { label: "1주", returnKey: "return_1w_pct", marketKey: "market_return_1w_pct" },
+  { label: "2주", returnKey: "return_2w_pct", marketKey: "market_return_2w_pct" },
+  { label: "4주", returnKey: "return_4w_pct", marketKey: "market_return_4w_pct" },
+  { label: "8주", returnKey: "return_8w_pct", marketKey: "market_return_8w_pct" },
+] as const satisfies ReadonlyArray<{
+  label: string;
+  returnKey: keyof PerformanceSignal;
+  marketKey: keyof PerformanceSignal;
+}>;
 
 export function PerformanceCard({ ticker }: Props) {
   const q = useQuery<PerformanceSignal[]>({
@@ -44,16 +48,12 @@ export function PerformanceCard({ ticker }: Props) {
             </tr>
           </thead>
           <tbody>
-            {PERIODS.map(({ key, label }) => {
-              const r = p[`return_${key}_pct` as keyof PerformanceSignal] as
-                | number
-                | null;
-              const m = p[
-                `market_return_${key}_pct` as keyof PerformanceSignal
-              ] as number | null;
+            {PERIODS.map(({ label, returnKey, marketKey }) => {
+              const r = p[returnKey] as number | null;
+              const m = p[marketKey] as number | null;
               const alpha = r != null && m != null ? r - m : null;
               return (
-                <tr key={key} className="border-t border-hairline">
+                <tr key={returnKey} className="border-t border-hairline">
                   <td className="py-1">{label}</td>
                   <td
                     className={`py-1 text-right num ${
