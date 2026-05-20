@@ -24,6 +24,8 @@ class DailyIndicatorOut(BaseModel):
     volume_ratio_50d: float | None = None
     pocket_pivot_flag: bool | None = None
     distribution_day_flag: bool | None = None
+    drawdown_filter_pass: bool | None = None
+    drawdown_52w_pct: float | None = None
 
 
 class MinerviniPassedOut(BaseModel):

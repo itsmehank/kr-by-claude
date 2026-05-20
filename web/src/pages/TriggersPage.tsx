@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { api } from "../lib/api";
 import type { Trigger, TriggerDecision } from "../lib/types";
 import {
@@ -38,6 +39,16 @@ function todayStr(): string {
 export default function TriggersPage() {
   const [sp, setSp] = useSearchParams();
   const navigate = useNavigate();
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   const ticker = sp.get("ticker") ?? "";
   const decision = sp.get("decision") ?? "";
@@ -192,32 +203,53 @@ export default function TriggersPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((t) => (
-                  <tr
-                    key={`${t.symbol}-${t.evaluated_at}`}
-                    onClick={() => navigate(`/chart/${t.symbol}`)}
-                    className="border-t border-hairline cursor-pointer hover:bg-paper/40"
-                  >
-                    <td className="px-3 py-1.5 font-semibold">
-                      {t.symbol} <span className="text-muted">{t.name}</span>
-                    </td>
-                    <td className="px-3 py-1.5">{t.trigger_type}</td>
-                    <td className="px-3 py-1.5">
-                      <DecisionPill decision={t.decision} />
-                    </td>
-                    <td className="px-3 py-1.5 text-right num">
-                      {t.avg_volume_50d_ratio != null ? `${t.avg_volume_50d_ratio.toFixed(2)}×` : "—"}
-                    </td>
-                    <td className="px-3 py-1.5 text-right num">
-                      {t.pivot_delta_pct != null
-                        ? `${t.pivot_delta_pct >= 0 ? "+" : ""}${t.pivot_delta_pct.toFixed(2)}%`
-                        : "—"}
-                    </td>
-                    <td className="px-3 py-1.5 text-muted truncate max-w-md" title={t.reasoning ?? ""}>
-                      {t.reasoning ?? ""}
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((t) => {
+                  const key = `${t.symbol}-${t.evaluated_at}`;
+                  const isOpen = expanded.has(key);
+                  return (
+                    <tr
+                      key={key}
+                      className="border-t border-hairline align-top hover:bg-paper/40"
+                    >
+                      <td
+                        className="px-3 py-1.5 font-semibold cursor-pointer"
+                        onClick={() => navigate(`/chart/${t.symbol}`)}
+                      >
+                        {t.symbol} <span className="text-muted">{t.name}</span>
+                      </td>
+                      <td className="px-3 py-1.5">{t.trigger_type}</td>
+                      <td className="px-3 py-1.5">
+                        <DecisionPill decision={t.decision} />
+                      </td>
+                      <td className="px-3 py-1.5 text-right num">
+                        {t.avg_volume_50d_ratio != null ? `${t.avg_volume_50d_ratio.toFixed(2)}×` : "—"}
+                      </td>
+                      <td className="px-3 py-1.5 pr-6 text-right num">
+                        {t.pivot_delta_pct != null
+                          ? `${t.pivot_delta_pct >= 0 ? "+" : ""}${t.pivot_delta_pct.toFixed(2)}%`
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-1.5 text-muted">
+                        {t.reasoning ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(key)}
+                            className="flex items-start gap-1 text-left w-full hover:text-ink"
+                          >
+                            <span className="shrink-0 mt-0.5">
+                              {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                            </span>
+                            <span className={isOpen ? "whitespace-pre-wrap" : "truncate max-w-md"}>
+                              {t.reasoning}
+                            </span>
+                          </button>
+                        ) : (
+                          ""
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </section>

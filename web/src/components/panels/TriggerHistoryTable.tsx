@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { api } from "../../lib/api";
 import type { Trigger, TriggerDecision } from "../../lib/types";
 import { Card } from "./Card";
@@ -26,6 +28,8 @@ const DECISION_COLOR: Record<
 };
 
 export function TriggerHistoryTable({ ticker, limit = 20 }: Props) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
   const q = useQuery<Trigger[]>({
     queryKey: ["trigger-history", ticker, limit],
     queryFn: () => api<Trigger[]>(`/triggers?ticker=${ticker}&limit=${limit}`),
@@ -37,25 +41,34 @@ export function TriggerHistoryTable({ ticker, limit = 20 }: Props) {
     return <Card title="트리거 평가 이력">트리거 평가 이력이 없습니다.</Card>;
   }
 
+  function toggle(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   return (
     <Card title={`트리거 평가 이력 (최근 ${q.data.length}건)`}>
       <table className="w-full text-data">
         <thead className="text-faint">
           <tr>
-            <th className="text-left py-1.5">시각</th>
-            <th className="text-left py-1.5">
+            <th className="text-left py-1.5 pr-3">시각</th>
+            <th className="text-left py-1.5 pr-3">
               트리거
               <InfoTooltip>{TRIGGER_TYPE_HELP}</InfoTooltip>
             </th>
-            <th className="text-left py-1.5">
+            <th className="text-left py-1.5 pr-3">
               decision
               <InfoTooltip>{DECISION_HELP}</InfoTooltip>
             </th>
-            <th className="text-right py-1.5">
+            <th className="text-right py-1.5 pr-4">
               거래량비
               <InfoTooltip>{VOLUME_RATIO_HELP}</InfoTooltip>
             </th>
-            <th className="text-right py-1.5">
+            <th className="text-right py-1.5 pr-6">
               pivot대비
               <InfoTooltip>{PIVOT_DELTA_HELP}</InfoTooltip>
             </th>
@@ -65,16 +78,15 @@ export function TriggerHistoryTable({ ticker, limit = 20 }: Props) {
         <tbody>
           {q.data.map((t) => {
             const cfg = DECISION_COLOR[t.decision];
+            const key = `${t.symbol}-${t.evaluated_at}`;
+            const isOpen = expanded.has(key);
             return (
-              <tr
-                key={`${t.symbol}-${t.evaluated_at}`}
-                className="border-t border-hairline"
-              >
-                <td className="py-1.5 num text-data-xs">
+              <tr key={key} className="border-t border-hairline align-top">
+                <td className="py-1.5 pr-3 num text-data-xs">
                   {t.evaluated_at.slice(0, 16).replace("T", " ")}
                 </td>
-                <td className="py-1.5">{t.trigger_type}</td>
-                <td className="py-1.5">
+                <td className="py-1.5 pr-3">{t.trigger_type}</td>
+                <td className="py-1.5 pr-3">
                   <span
                     className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded ${cfg.bg} ${cfg.text}`}
                   >
@@ -82,21 +94,39 @@ export function TriggerHistoryTable({ ticker, limit = 20 }: Props) {
                     {t.decision}
                   </span>
                 </td>
-                <td className="py-1.5 text-right num">
+                <td className="py-1.5 pr-4 text-right num">
                   {t.avg_volume_50d_ratio != null
                     ? `${t.avg_volume_50d_ratio.toFixed(2)}×`
                     : "—"}
                 </td>
-                <td className="py-1.5 text-right num">
+                <td className="py-1.5 pr-6 text-right num">
                   {t.pivot_delta_pct != null
                     ? `${t.pivot_delta_pct >= 0 ? "+" : ""}${t.pivot_delta_pct.toFixed(2)}%`
                     : "—"}
                 </td>
-                <td
-                  className="py-1.5 text-muted truncate max-w-md"
-                  title={t.reasoning ?? ""}
-                >
-                  {t.reasoning ?? ""}
+                <td className="py-1.5 text-muted">
+                  {t.reasoning ? (
+                    <button
+                      type="button"
+                      onClick={() => toggle(key)}
+                      className="flex items-start gap-1 text-left w-full hover:text-ink"
+                    >
+                      <span className="shrink-0 mt-0.5">
+                        {isOpen ? (
+                          <ChevronDown size={12} />
+                        ) : (
+                          <ChevronRight size={12} />
+                        )}
+                      </span>
+                      <span
+                        className={isOpen ? "whitespace-pre-wrap" : "truncate"}
+                      >
+                        {t.reasoning}
+                      </span>
+                    </button>
+                  ) : (
+                    ""
+                  )}
                 </td>
               </tr>
             );
