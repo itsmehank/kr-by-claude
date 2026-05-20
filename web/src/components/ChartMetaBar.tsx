@@ -1,0 +1,195 @@
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../lib/api";
+import type { DailyIndicator, IndexDaily } from "../lib/types";
+
+interface Props {
+  ticker: string;
+  stockName: string | null;
+  market: string | null;
+  sector: string | null;
+}
+
+const MARKET_INDEX_CODE: Record<string, string> = {
+  KOSPI: "1001",
+  KOSDAQ: "2001",
+};
+
+function nDaysAgoISO(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// KST 기준 오늘이 속한 주의 월요일을 YYYY-MM-DD 로 반환.
+// getDay(): 0=일 1=월 ... 6=토. 일요일(0)이면 6일 전 월요일.
+function thisWeekMondayISO(): string {
+  const now = new Date();
+  const day = now.getDay();
+  const back = day === 0 ? 6 : day - 1;
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - back);
+  return mon.toISOString().slice(0, 10);
+}
+
+function pctChange(curr: number, base: number): number | null {
+  if (!base || base === 0) return null;
+  return ((curr - base) / base) * 100;
+}
+
+function formatPct(p: number | null): string {
+  if (p == null) return "—";
+  const sign = p >= 0 ? "+" : "";
+  return `${sign}${p.toFixed(2)}%`;
+}
+
+function pctClass(p: number | null): string {
+  if (p == null) return "text-muted";
+  return p > 0 ? "text-success" : p < 0 ? "text-danger" : "text-muted";
+}
+
+function formatVolume(v: number): string {
+  return v.toLocaleString();
+}
+
+interface ReturnsRow {
+  label: string;
+  daysAgo: number; // 1주=5, 1달=22, 3달=63 거래일
+}
+
+const RETURN_PERIODS: ReturnsRow[] = [
+  { label: "1주", daysAgo: 5 },
+  { label: "1달", daysAgo: 22 },
+  { label: "3달", daysAgo: 63 },
+];
+
+export function ChartMetaBar({ ticker, stockName, market, sector }: Props) {
+  const indexCode = market ? MARKET_INDEX_CODE[market] ?? null : null;
+
+  const stockQ = useQuery<DailyIndicator[]>({
+    queryKey: ["meta-bar-stock", ticker],
+    queryFn: () =>
+      api<DailyIndicator[]>(
+        `/indicators/daily/${ticker}?start=${nDaysAgoISO(180)}&end=${todayISO()}`,
+      ),
+    enabled: !!ticker,
+  });
+
+  const indexQ = useQuery<IndexDaily[]>({
+    queryKey: ["meta-bar-index", indexCode],
+    queryFn: () =>
+      api<IndexDaily[]>(
+        `/index/daily/${indexCode}?start=${nDaysAgoISO(180)}&end=${todayISO()}`,
+      ),
+    enabled: !!indexCode,
+  });
+
+  const returns = useMemo(() => {
+    const sb = stockQ.data ?? [];
+    const ib = indexQ.data ?? [];
+    return RETURN_PERIODS.map(({ label, daysAgo }) => {
+      const stockNow = sb[sb.length - 1]?.adj_close ?? null;
+      const stockBase = sb[sb.length - 1 - daysAgo]?.adj_close ?? null;
+      const stock = stockNow != null && stockBase != null
+        ? pctChange(stockNow, stockBase)
+        : null;
+
+      const idxNow = ib[ib.length - 1]?.close ?? null;
+      const idxBase = ib[ib.length - 1 - daysAgo]?.close ?? null;
+      const idx = idxNow != null && idxBase != null
+        ? pctChange(idxNow, idxBase)
+        : null;
+
+      return { label, stock, idx };
+    });
+  }, [stockQ.data, indexQ.data]);
+
+  const weekVolume = useMemo(() => {
+    const sb = stockQ.data ?? [];
+    if (sb.length === 0) return { sum: null as number | null, days: 0, sma50: null as number | null };
+    const monday = thisWeekMondayISO();
+    const week = sb.filter((d) => d.date >= monday && d.volume != null);
+    const sum = week.reduce((acc, d) => acc + (d.volume ?? 0), 0);
+    const sma50 = sb[sb.length - 1].avg_volume_50d ?? null;
+    return { sum: week.length > 0 ? sum : null, days: week.length, sma50 };
+  }, [stockQ.data]);
+
+  // 주간 일평균 vs SMA50 비교 (%)
+  const weekVsSma = useMemo(() => {
+    if (!weekVolume.sum || !weekVolume.days || !weekVolume.sma50) return null;
+    const dailyAvg = weekVolume.sum / weekVolume.days;
+    return pctChange(dailyAvg, weekVolume.sma50);
+  }, [weekVolume]);
+
+  const loading = stockQ.isLoading || (!!indexCode && indexQ.isLoading);
+  const error = stockQ.isError;
+
+  return (
+    <div className="bento p-4 mb-3">
+      <div className="text-data flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="num font-bold text-ink">{ticker}</span>
+        {stockName && <span className="font-semibold text-ink">{stockName}</span>}
+        {market && (
+          <>
+            <span className="text-faint">·</span>
+            <span className="text-muted">{market}</span>
+          </>
+        )}
+        {sector && (
+          <>
+            <span className="text-faint">·</span>
+            <span className="text-muted">{sector}</span>
+          </>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="mt-2 text-muted">불러오는 중…</div>
+      ) : error ? (
+        <div className="mt-2 text-muted">정보를 불러오지 못했습니다</div>
+      ) : (
+        <>
+          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-data">
+            {returns.map(({ label, stock, idx }) => (
+              <span key={label} className="inline-flex items-baseline gap-1.5">
+                <span className="caps text-faint">{label}</span>
+                <span className={`num font-semibold ${pctClass(stock)}`}>
+                  {formatPct(stock)}
+                </span>
+                {indexCode && (
+                  <span className={`num text-data-xs ${pctClass(idx)}`}>
+                    (시장 {formatPct(idx)})
+                  </span>
+                )}
+              </span>
+            ))}
+          </div>
+
+          <div className="mt-1 text-data text-muted">
+            <span className="caps text-faint">이번주 거래량</span>{" "}
+            <span className="num text-ink">
+              {weekVolume.sum != null ? formatVolume(weekVolume.sum) : "—"}
+            </span>{" "}
+            {weekVolume.days > 0 && (
+              <span className="text-faint">({weekVolume.days}일)</span>
+            )}
+            {" / "}
+            <span className="caps text-faint">SMA50</span>{" "}
+            <span className="num text-ink">
+              {weekVolume.sma50 != null ? formatVolume(weekVolume.sma50) : "—"}
+            </span>
+            {weekVsSma != null && (
+              <span className={`num ml-1.5 ${pctClass(weekVsSma)}`}>
+                ({formatPct(weekVsSma)})
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

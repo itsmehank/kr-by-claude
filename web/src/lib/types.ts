@@ -312,3 +312,12 @@ export interface PerformanceSignal {
   market_return_4w_pct: number | null;
   market_return_8w_pct: number | null;
 }
+
+export interface IndexDaily {
+  date: string;     // YYYY-MM-DD
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number | null;
+}
