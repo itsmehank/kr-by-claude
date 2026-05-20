@@ -74,8 +74,8 @@ def test_returns_triggers_with_stocks_join(client, seed_triggers):
 def test_volume_ratio_and_pivot_delta_calculated(client, seed_triggers):
     r = client.get("/api/triggers?ticker=TRGTEST01")
     row = r.json()[0]
-    # avg_volume_20d_ratio = 12000000 / 6600000 ≈ 1.818
-    assert row["avg_volume_20d_ratio"] == pytest.approx(1.818, rel=0.01)
+    # avg_volume_50d_ratio = 12000000 / 6600000 ≈ 1.818
+    assert row["avg_volume_50d_ratio"] == pytest.approx(1.818, rel=0.01)
     # pivot_delta_pct = (84000 - 82300) / 82300 * 100 ≈ 2.066
     assert row["pivot_delta_pct"] == pytest.approx(2.066, rel=0.01)
 

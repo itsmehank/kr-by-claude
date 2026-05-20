@@ -77,7 +77,7 @@ def list_triggers(
             close=close,
             volume=volume,
             pivot_price=pivot,
-            avg_volume_20d_ratio=vol_ratio,
+            avg_volume_50d_ratio=vol_ratio,
             pivot_delta_pct=pivot_delta,
             decision=r[9],
             confidence=float(r[10]) if r[10] is not None else None,

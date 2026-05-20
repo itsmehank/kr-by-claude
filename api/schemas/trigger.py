@@ -10,7 +10,7 @@ class TriggerOut(BaseModel):
     trigger_type: str
     close: float | None = None
     volume: int | None = None
-    avg_volume_20d_ratio: float | None = None
+    avg_volume_50d_ratio: float | None = None
     pivot_price: float | None = None
     pivot_delta_pct: float | None = None
     decision: str

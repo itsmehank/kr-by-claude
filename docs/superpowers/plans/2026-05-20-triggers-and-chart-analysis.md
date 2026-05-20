@@ -4,7 +4,7 @@
 
 **Goal:** trigger_evaluation_log 데이터를 API/UI 로 노출하는 `/triggers` 페이지를 추가하고, ChartPage 에 종목별 분석 결과 (분류 / 결정론 지표 / 매수 시그널 / 성과 / 트리거 이력) 와 차트 위 overlay (pivot/stop 선 + 트리거 마커) 를 통합한다.
 
-**Architecture:** 새 `GET /api/triggers` 라우터 (날짜/종목/decision/trigger_type 필터, stocks 조인, daily_indicators 의 avg_volume_20d 비율 계산). 기존 라우터 (classifications, signals, performance/signals) 에 `ticker` 옵션 쿼리 추가. 프론트는 `/triggers` 페이지 + ChartPage 아래 분석 카드 5개 (각 자체 fetch) + PriceChart overlay 확장.
+**Architecture:** 새 `GET /api/triggers` 라우터 (날짜/종목/decision/trigger_type 필터, stocks 조인, daily_indicators 의 avg_volume_50d 비율 계산). 기존 라우터 (classifications, signals, performance/signals) 에 `ticker` 옵션 쿼리 추가. 프론트는 `/triggers` 페이지 + ChartPage 아래 분석 카드 5개 (각 자체 fetch) + PriceChart overlay 확장.
 
 **Tech Stack:** FastAPI, psycopg, pytest, TestClient, React 19, TanStack Query, react-router-dom, recharts/d3 기반 PriceChart, Tailwind CSS, lucide-react.
 
@@ -64,7 +64,7 @@ class TriggerOut(BaseModel):
     trigger_type: str
     close: float | None = None
     volume: int | None = None
-    avg_volume_20d_ratio: float | None = None
+    avg_volume_50d_ratio: float | None = None
     pivot_price: float | None = None
     pivot_delta_pct: float | None = None
     decision: str
@@ -156,7 +156,7 @@ def seed_triggers(db):
         )
         cur.execute(
             """INSERT INTO daily_indicators
-                 (ticker, date, open, high, low, close, adj_close, volume, avg_volume_20d)
+                 (ticker, date, open, high, low, close, adj_close, volume, avg_volume_50d)
                VALUES
                  ('TRGTEST01', '2026-05-20', 80000, 85000, 80000, 84000, 84000, 12000000, 6600000),
                  ('TRGTEST02', '2026-05-19', 30000, 31000, 29800, 30200, 30200,  3000000, 2500000)"""
@@ -214,8 +214,8 @@ def test_returns_triggers_with_stocks_join(client, seed_triggers):
 def test_volume_ratio_and_pivot_delta_calculated(client, seed_triggers):
     r = client.get("/api/triggers?ticker=TRGTEST01")
     row = r.json()[0]
-    # avg_volume_20d_ratio = 12000000 / 6600000 ≈ 1.818
-    assert row["avg_volume_20d_ratio"] == pytest.approx(1.818, rel=0.01)
+    # avg_volume_50d_ratio = 12000000 / 6600000 ≈ 1.818
+    assert row["avg_volume_50d_ratio"] == pytest.approx(1.818, rel=0.01)
     # pivot_delta_pct = (84000 - 82300) / 82300 * 100 ≈ 2.066
     assert row["pivot_delta_pct"] == pytest.approx(2.066, rel=0.01)
 ```
@@ -259,7 +259,7 @@ def list_triggers(
         SELECT t.symbol, s.name, s.market,
                t.evaluated_at, t.trigger_type,
                t.close, t.volume, t.pivot_price,
-               di.avg_volume_20d,
+               di.avg_volume_50d,
                t.decision, t.confidence, t.reasoning, t.abort_reason
           FROM trigger_evaluation_log t
           LEFT JOIN stocks s ON s.ticker = t.symbol
@@ -308,7 +308,7 @@ def list_triggers(
             close=close,
             volume=volume,
             pivot_price=pivot,
-            avg_volume_20d_ratio=vol_ratio,
+            avg_volume_50d_ratio=vol_ratio,
             pivot_delta_pct=pivot_delta,
             decision=r[9],
             confidence=float(r[10]) if r[10] is not None else None,
@@ -388,7 +388,7 @@ git add api/schemas/trigger.py api/routers/triggers.py api/main.py tests/test_ap
 git commit -m "feat: add GET /api/triggers endpoint for trigger_evaluation_log
 
 종목/날짜/decision/trigger_type 필터, stocks 조인, daily_indicators 의
-avg_volume_20d 비율 + pivot_price 대비 % 응답 시 계산."
+avg_volume_50d 비율 + pivot_price 대비 % 응답 시 계산."
 ```
 
 ---
@@ -660,7 +660,7 @@ export interface Trigger {
   trigger_type: string;
   close: number | null;
   volume: number | null;
-  avg_volume_20d_ratio: number | null;
+  avg_volume_50d_ratio: number | null;
   pivot_price: number | null;
   pivot_delta_pct: number | null;
   decision: TriggerDecision;
@@ -884,7 +884,7 @@ export default function TriggersPage() {
                       <DecisionPill decision={t.decision} />
                     </td>
                     <td className="px-3 py-1.5 text-right num">
-                      {t.avg_volume_20d_ratio != null ? `${t.avg_volume_20d_ratio.toFixed(2)}×` : "—"}
+                      {t.avg_volume_50d_ratio != null ? `${t.avg_volume_50d_ratio.toFixed(2)}×` : "—"}
                     </td>
                     <td className="px-3 py-1.5 text-right num">
                       {t.pivot_delta_pct != null
@@ -1424,7 +1424,7 @@ export function TriggerHistoryTable({ ticker, limit = 20 }: Props) {
                   </span>
                 </td>
                 <td className="py-1.5 text-right num">
-                  {t.avg_volume_20d_ratio != null ? `${t.avg_volume_20d_ratio.toFixed(2)}×` : "—"}
+                  {t.avg_volume_50d_ratio != null ? `${t.avg_volume_50d_ratio.toFixed(2)}×` : "—"}
                 </td>
                 <td className="py-1.5 text-right num">
                   {t.pivot_delta_pct != null
@@ -1755,7 +1755,7 @@ git commit -m "feat: integrate analysis panels + overlay into ChartPage
 | 스펙 항목 | 구현 task |
 |---|---|
 | `GET /api/triggers` 라우터 + 필터 + 응답 | Task 1 |
-| `avg_volume_20d_ratio`, `pivot_delta_pct` 응답 시 계산 | Task 1 Step 7 |
+| `avg_volume_50d_ratio`, `pivot_delta_pct` 응답 시 계산 | Task 1 Step 7 |
 | 기존 endpoint `ticker` 필터 (signals/performance/classifications) | Task 2 |
 | 사이드바 NAV + Route `/triggers` | Task 3 Step 2 |
 | `/triggers` 페이지 (날짜 그룹 + 필터 + 행 클릭) | Task 3 |

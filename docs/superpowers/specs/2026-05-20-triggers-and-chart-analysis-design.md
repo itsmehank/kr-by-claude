@@ -57,7 +57,7 @@
     "trigger_type": "breakout",
     "close": 84000,
     "volume": 12345678,
-    "avg_volume_20d_ratio": 1.82,
+    "avg_volume_50d_ratio": 1.82,
     "pivot_price": 82300,
     "pivot_delta_pct": 2.07,
     "decision": "go_now",
@@ -69,7 +69,7 @@
 ```
 
 - `name`, `market` 은 `stocks` 테이블 조인.
-- `avg_volume_20d_ratio`, `pivot_delta_pct` 는 응답 시 계산 (`volume / avg_volume_20d` 는 `daily_indicators` 의 같은 날짜 행에서, `pivot_delta_pct` 는 `(close - pivot_price) / pivot_price * 100`).
+- `avg_volume_50d_ratio`, `pivot_delta_pct` 는 응답 시 계산 (`volume / avg_volume_50d` 는 `daily_indicators` 의 같은 날짜 행에서, `pivot_delta_pct` 는 `(close - pivot_price) / pivot_price * 100`).
 - 결과가 없으면 빈 배열 `[]`.
 
 **정렬**: `evaluated_at DESC`. (날짜 그룹 UI 는 프론트가 처리.)
