@@ -14,6 +14,14 @@ import type {
   MouseEventParams,
 } from "lightweight-charts";
 
+// 날짜에 한국어 요일 추가: "2026-05-20" → "2026-05-20 (수)"
+function withWeekday(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return iso;
+  const wd = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+  return `${iso} (${wd})`;
+}
+
 export interface PriceChartBar {
   date: string;
   open: number | null;
@@ -431,7 +439,7 @@ export function PriceChart({
           style={{ left: tooltip.x, top: tooltip.y }}
         >
           <div className="flex items-baseline justify-between mb-2">
-            <div className="num text-data-xs text-muted">{tooltip.date}</div>
+            <div className="num text-data-xs text-muted">{withWeekday(tooltip.date)}</div>
             <div className="caps text-faint">{timeframeLabel}</div>
           </div>
 
