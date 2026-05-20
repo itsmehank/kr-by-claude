@@ -33,6 +33,14 @@ export interface PriceChartBar {
   distribution_day_flag: boolean | null;
 }
 
+export interface TriggerOverlayEvent {
+  date: string; // YYYY-MM-DD (matches PriceChartBar.date)
+  decision: "go_now" | "wait" | "abort";
+  triggerType: string;
+  close: number | null;
+  reasoning: string | null;
+}
+
 export interface PriceChartProps {
   data: PriceChartBar[];
   timeframeLabel?: string;
@@ -50,6 +58,12 @@ export interface PriceChartProps {
   showPocketPivot?: boolean;
   showDistributionDay?: boolean;
   height?: number;
+  // 신규 overlay
+  pivotPrice?: number | null;
+  stopLoss?: number | null;
+  showPivotStop?: boolean;
+  showTriggerMarkers?: boolean;
+  triggerEvents?: TriggerOverlayEvent[];
 }
 
 interface TooltipState {
@@ -91,6 +105,11 @@ export function PriceChart({
   showPocketPivot = false,
   showDistributionDay = false,
   height = 600,
+  pivotPrice = null,
+  stopLoss = null,
+  showPivotStop = true,
+  showTriggerMarkers = true,
+  triggerEvents = [],
 }: PriceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -179,6 +198,35 @@ export function PriceChart({
     if (show52wHigh) addLine("w52_high", "#15803d", 2);
     if (show52wLow) addLine("w52_low", "#db2777", 2);
 
+    // ── Pivot / Stop loss horizontal lines ──
+    if (showPivotStop && pivotPrice != null && data.length > 0) {
+      const pivotSeries = chart.addSeries(LineSeries, {
+        color: "#2563eb",
+        lineWidth: 1,
+        lineStyle: 2, // dashed
+        priceLineVisible: false,
+        lastValueVisible: true,
+        title: "pivot",
+      });
+      pivotSeries.setData(
+        data.map((d) => ({ time: d.date as Time, value: pivotPrice })),
+      );
+    }
+
+    if (showPivotStop && stopLoss != null && data.length > 0) {
+      const stopSeries = chart.addSeries(LineSeries, {
+        color: "#dc2626",
+        lineWidth: 1,
+        lineStyle: 2,
+        priceLineVisible: false,
+        lastValueVisible: true,
+        title: "stop",
+      });
+      stopSeries.setData(
+        data.map((d) => ({ time: d.date as Time, value: stopLoss })),
+      );
+    }
+
     // ── Pane 1: Volume + SMA50V ──
     let volumeSeries: ReturnType<typeof chart.addSeries> | null = null;
     let volSmaSeries: ReturnType<typeof chart.addSeries> | null = null;
@@ -256,6 +304,23 @@ export function PriceChart({
             text: "DD",
           })
         );
+    }
+    // Trigger evaluation markers
+    if (showTriggerMarkers && triggerEvents.length > 0) {
+      const colorByDecision: Record<TriggerOverlayEvent["decision"], string> = {
+        go_now: "#16a34a",
+        wait: "#ca8a04",
+        abort: "#6b7280",
+      };
+      for (const e of triggerEvents) {
+        markers.push({
+          time: e.date as Time,
+          position: "aboveBar",
+          color: colorByDecision[e.decision],
+          shape: "circle",
+          text: e.decision,
+        });
+      }
     }
     if (markers.length > 0) {
       markers.sort((a, b) => String(a.time).localeCompare(String(b.time)));
@@ -339,6 +404,12 @@ export function PriceChart({
     showPocketPivot,
     showDistributionDay,
     height,
+    // 신규
+    pivotPrice,
+    stopLoss,
+    showPivotStop,
+    showTriggerMarkers,
+    triggerEvents,
   ]);
 
   const ohlcDeltaPct =
