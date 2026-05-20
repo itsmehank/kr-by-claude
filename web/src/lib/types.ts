@@ -25,6 +25,7 @@ export interface DailyIndicator {
   rs_line: number | null;
   rs_rating: number | null;
   minervini_pass: boolean | null;
+  drawdown_filter_pass: boolean | null;
   volume_ratio_50d: number | null;
   pocket_pivot_flag: boolean | null;
   distribution_day_flag: boolean | null;
@@ -295,4 +296,19 @@ export interface Trigger {
   confidence: number | null;
   reasoning: string | null;
   abort_reason: string | null;
+}
+
+export interface PerformanceSignal {
+  symbol: string;
+  name: string | null;
+  signal_at: string;
+  entry_price: number;
+  return_1w_pct: number | null;
+  return_2w_pct: number | null;
+  return_4w_pct: number | null;
+  return_8w_pct: number | null;
+  market_return_1w_pct: number | null;
+  market_return_2w_pct: number | null;
+  market_return_4w_pct: number | null;
+  market_return_8w_pct: number | null;
 }
