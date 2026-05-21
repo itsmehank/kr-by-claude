@@ -21,17 +21,41 @@ interface PipelineStage {
 
 const STAGES: PipelineStage[] = [
   {
+    id: "weekend",
+    order: 0,
+    label: "주말 batch — 전체 재분류",
+    summary:
+      "결정론 통과 모든 종목을 토 새벽 LLM 으로 재분류 (전체 갱신). daily_delta 와 같은 prompt, 차이는 입력 필터.",
+    targets:
+      "토요일 03:20 cron. daily_indicators 의 직전 금요일 행 기준 minervini_pass=TRUE AND drawdown_filter_pass=TRUE AND stocks.delisted_at IS NULL 전체.",
+    inputs: ["daily_indicators", "weekly_indicators", "market_context_daily", "corporate_actions", "stocks"],
+    outputs: ["weekly_classification (source='weekend')"],
+    deterministic: "결정론 필터 — minervini_pass + drawdown_filter_pass. 추가 게이트 없음.",
+    llm:
+      "analyze_chart_v3.md prompt (daily_delta 와 동일). ZIP 13개 파일 (payload.json + 일/주봉 OHLCV + 차트 PNG + 시장 컨텍스트 + corporate actions + minervini detail 등). 9개 base 패턴 + 13 risk flag taxonomy.",
+    decisions: ["entry", "watch", "ignore"],
+    actions:
+      "weekly_classification 에 INSERT (source='weekend'). ON CONFLICT (symbol, classified_at) DO NOTHING. 이전 분류가 있어도 새 row 추가 — '현재 분류'는 DISTINCT ON (symbol) ORDER BY classified_at DESC. Slack digest 알림 (entry/watch/ignore 카운트).",
+    sources: [
+      "Minervini Trend Template (8 conditions)",
+      "Minervini drawdown filter (≤50% from 52w high)",
+      "O'Neil HMM base patterns",
+    ],
+    codeRef: "kr_pipeline/llm_runner/weekend.py + modes.py:run_weekend",
+  },
+  {
     id: "daily_delta",
     order: 1,
     label: "신규 후보 분류",
-    summary: "오늘 새로 minervini_pass 통과한 종목을 LLM 으로 1차 분류",
+    summary:
+      "오늘 새로 결정론 통과한 신규 종목만 LLM 분류 — weekend 와 같은 prompt, 신규 종목만 다룸.",
     targets:
-      "daily_indicators 의 오늘 행 중 minervini_pass=TRUE AND drawdown_filter_pass=TRUE + 최근 7일 내 분류 이력 없음 (= 신규 후보).",
+      "daily_indicators 의 오늘 행 중 minervini_pass=TRUE AND drawdown_filter_pass=TRUE + 최근 7일 내 분류 이력 없음 (= 신규 후보). weekend 와의 차이: weekend 는 결정론 통과 전체를 매주 재분석. daily_delta 는 그 사이 평일에 새로 결정론 통과한 종목만 빠르게 분류.",
     inputs: ["daily_indicators", "daily_prices", "weekly_indicators", "market_context_daily"],
-    outputs: ["weekly_classification"],
+    outputs: ["weekly_classification (source='daily_delta')"],
     deterministic: "결정론 필터 — minervini_pass + drawdown_filter + 신규성 (7일).",
     llm:
-      "analyze_chart_v3.md prompt + zip 13개 파일 (payload.json + market_context + corporate_actions + minervini detail + daily/weekly chart 이미지 등). 9개 base 패턴 + 13 risk flag taxonomy 적용.",
+      "analyze_chart_v3.md prompt (weekend 와 동일) + zip 13개 파일 (payload.json + market_context + corporate_actions + minervini detail + daily/weekly chart 이미지 등). 9개 base 패턴 + 13 risk flag taxonomy 적용. 차이는 source 컬럼 ('daily_delta' vs 'weekend') 과 입력 필터 (신규성 추가).",
     decisions: ["watch", "entry", "ignore"],
     actions:
       "weekly_classification 에 INSERT (source='daily_delta'). watch/entry 는 evaluate_pivot 의 다음 평가 대상, ignore 는 7일 후 재진입 가능.",
@@ -53,7 +77,7 @@ const STAGES: PipelineStage[] = [
       "evaluate_pivot_trigger_v1.md prompt — 게이트 통과 종목만 호출. '이 트리거가 진짜인가, 가짜 신호인가, 보류인가' 판단.",
     decisions: ["go_now", "wait", "abort"],
     actions:
-      "trigger_evaluation_log 에 INSERT. 분류 자체는 변경 안 함 (prompt 명시). decision='go_now' 인 종목은 entry_params 가 자동 수집.",
+      "trigger_evaluation_log 에 INSERT. 분류 자체는 변경 안 함 (prompt 명시) — abort decision 이라도 weekly_classification 의 row 는 그대로 유지. 다음 토요일 weekend batch 에서 LLM 이 재분석 후 ignore 로 분류해야 비로소 강등됨. decision='go_now' 인 종목은 entry_params 가 자동 수집.",
     sources: [
       "O'Neil HMM ch.2 Volume Percent Change (1.5× breakout)",
       "Minervini buy/sell rules",
