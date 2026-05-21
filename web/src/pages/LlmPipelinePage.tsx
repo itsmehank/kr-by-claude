@@ -178,6 +178,26 @@ const TRIGGER_DECISION_MATRIX: Record<string, Record<string, MatrixCell | null>>
 
 const GLOSSARY: { term: string; meaning: string }[] = [
   {
+    term: "weekend batch",
+    meaning: "토 03:20 cron 으로 실행되는 LLM 분석 — 결정론 통과 모든 종목 재분류. weekly_classification 에 source='weekend' 로 INSERT.",
+  },
+  {
+    term: "결정론 필터",
+    meaning: "minervini_pass + drawdown_filter_pass. LLM 호출 전 무료 필터. daily_indicators 컬럼 직접 SELECT.",
+  },
+  {
+    term: "신규 종목 (daily_delta)",
+    meaning: "결정론 통과 + 최근 7일 분류 이력 없음. 평일 daily_delta 의 대상.",
+  },
+  {
+    term: "재분석 (weekend)",
+    meaning: "이미 분류된 종목도 weekend batch 마다 같은 prompt 로 다시 분류. 이전 분류와 다를 수 있음 (예: entry → ignore).",
+  },
+  {
+    term: "현재 분류",
+    meaning: "DISTINCT ON (symbol) ORDER BY classified_at DESC — 가장 최근 weekly_classification row 가 곧 '현재 상태'. UPDATE 안 함, append-only 설계.",
+  },
+  {
     term: "classification",
     meaning: "watch / entry / ignore — LLM 의 종목 정성 평가. weekly_classification.classification 컬럼. 자주 안 바뀜.",
   },
@@ -226,6 +246,18 @@ const FAQ: { q: string; a: string }[] = [
   {
     q: "dry-run 시 DB 영향은?",
     a: "0. mock LLM 응답 받고 응답 파싱까지는 진행 (검증), 그러나 store 호출 직전 가드로 INSERT skip. weekly_classification / trigger_evaluation_log / entry_params 모두 영향 없음.",
+  },
+  {
+    q: "주말 batch 와 daily_delta 가 같은 prompt 라면 둘 다 필요한가?",
+    a: "시점이 다름. weekend = 매주 한 번 전체 결산 (시각차 확보, 분류 갱신). daily_delta = 평일에 새로 결정론 통과한 종목을 7일 기다리지 않고 즉시 분류 (조기 포착). 결과적으로 모든 minervini 통과 종목은 주 1회 weekend 로 재분류되고, 그 사이 신규는 daily_delta 로 즉시 합류.",
+  },
+  {
+    q: "evaluate_pivot 의 abort 가 종목 분류를 ignore 로 바꾸나?",
+    a: "아니오. evaluate_pivot 은 trigger_evaluation_log 만 INSERT. weekly_classification 의 row 는 그대로. abort 가 누적되어도 분류는 entry 로 유지됨. 다음 weekend batch 에서 LLM 이 base 가 깨졌다고 판단하면 비로소 ignore 로 재분류.",
+  },
+  {
+    q: "한 종목이 한 주에 여러 번 분류될 수 있나?",
+    a: "가능. 예: 토 weekend (entry 재분석). 다음 평일에 daily_delta 가 같은 종목을 다시 분류할 수는 없음 (최근 7일 분류 이력 있어서 신규 아님). 다만 다음 주 토 weekend 에서 또 재분석되어 row 가 추가. 결국 한 종목은 weekend 마다 매주 1번 재분석.",
   },
 ];
 
