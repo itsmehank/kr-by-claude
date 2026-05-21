@@ -15,7 +15,7 @@
 - `trigger_type`: "breakout" | "invalidation"
 - `prior_analysis`: 주말 (5) 결과 (`classification`, `pattern`, `pivot_price`, `pivot_basis`, `base_high`, `base_low`, `base_depth_pct`, `risk_flags`, `reasoning`)
 - `recent_daily_ohlcv_20d`: 최근 20영업일 OHLCV 리스트
-- `current_metrics`: `close`, `volume`, `avg_volume_20d`, `volume_ratio`, `sma_50`
+- `current_metrics`: `close`, `volume`, `avg_volume_50d`, `volume_ratio`, `sma_50`
 - `recent_evaluation_history`: 최근 7일 (5b) 이력 (있을 때만)
 
 ## 3. Decision Logic
@@ -24,7 +24,7 @@
 
 `go_now` 조건 (모두 충족):
 - close > pivot_price (결정론 게이트 이미 확인. 재확인)
-- volume > avg_volume_20d × 1.4 (책 근거: O'Neil HTMMIS Ch.2 "Volume Percent Change")
+- volume > avg_volume_50d × 1.4 (책 근거: O'Neil HTMMIS Ch.2 "Volume Percent Change")
 - 종가가 일중 range 의 상단 1/3 (no intraday weakness)
 - spread (high − low) wide-and-loose 아님 (최대 평균 range 의 1.5x)
 - 최근 3일 distribution day 없음

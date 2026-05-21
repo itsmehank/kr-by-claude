@@ -6,7 +6,7 @@ def test_breakout_close_above_pivot_with_volume():
 
     result = evaluate(
         close=82500, pivot_price=80000,
-        volume=1_500_000, avg_volume_20d=1_000_000,
+        volume=1_500_000, avg_volume_50d=1_000_000,
         stop_loss=76000, sma_50=78000,
         classification="entry",
     )
@@ -18,7 +18,7 @@ def test_no_trigger_close_below_pivot_no_invalidation():
 
     result = evaluate(
         close=79000, pivot_price=80000,
-        volume=900_000, avg_volume_20d=1_000_000,
+        volume=900_000, avg_volume_50d=1_000_000,
         stop_loss=76000, sma_50=78000,
         classification="entry",
     )
@@ -31,7 +31,7 @@ def test_breakout_volume_insufficient_no_trigger():
 
     result = evaluate(
         close=82500, pivot_price=80000,
-        volume=1_100_000, avg_volume_20d=1_000_000,
+        volume=1_100_000, avg_volume_50d=1_000_000,
         stop_loss=76000, sma_50=78000,
         classification="entry",
     )
@@ -43,7 +43,7 @@ def test_invalidation_below_sma50():
 
     result = evaluate(
         close=75000, pivot_price=80000,
-        volume=1_200_000, avg_volume_20d=1_000_000,
+        volume=1_200_000, avg_volume_50d=1_000_000,
         stop_loss=76000, sma_50=78000,
         classification="entry",
     )
@@ -55,7 +55,7 @@ def test_invalidation_below_stop_loss():
 
     result = evaluate(
         close=75500, pivot_price=80000,
-        volume=900_000, avg_volume_20d=1_000_000,
+        volume=900_000, avg_volume_50d=1_000_000,
         stop_loss=76000, sma_50=77000,
         classification="entry",
     )
@@ -68,7 +68,7 @@ def test_watch_promotion_close_within_5pct_of_pivot():
 
     result = evaluate(
         close=76500, pivot_price=80000,
-        volume=1_000_000, avg_volume_20d=1_000_000,
+        volume=1_000_000, avg_volume_50d=1_000_000,
         stop_loss=72000, sma_50=75000,
         classification="watch",
     )

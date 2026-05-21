@@ -20,7 +20,7 @@ def evaluate(
     close: float,
     pivot_price: float,
     volume: int,
-    avg_volume_20d: float,
+    avg_volume_50d: float,
     stop_loss: float,
     sma_50: float,
     classification: str,
@@ -41,12 +41,12 @@ def evaluate(
 
     # 상향 트리거 (entry 분류 시)
     if classification == "entry":
-        if close > pivot_price and volume >= avg_volume_20d * BREAKOUT_VOLUME_MULTIPLIER:
+        if close > pivot_price and volume >= avg_volume_50d * BREAKOUT_VOLUME_MULTIPLIER:
             return "breakout"
 
     # watch 승격
     if classification == "watch":
-        if close >= pivot_price * PROMOTION_THRESHOLD_RATIO and volume >= avg_volume_20d:
+        if close >= pivot_price * PROMOTION_THRESHOLD_RATIO and volume >= avg_volume_50d:
             return "promotion"
 
     return None

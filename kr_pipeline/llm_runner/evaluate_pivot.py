@@ -36,14 +36,14 @@ def run(
     for a in active:
         if not all(
             a.get(k) is not None
-            for k in ("close", "pivot_price", "volume", "avg_volume_20d", "stop_loss", "sma_50")
+            for k in ("close", "pivot_price", "volume", "avg_volume_50d", "stop_loss", "sma_50")
         ):
             continue
         trig = evaluate_gate(
             close=a["close"],
             pivot_price=a["pivot_price"],
             volume=a["volume"],
-            avg_volume_20d=a["avg_volume_20d"],
+            avg_volume_50d=a["avg_volume_50d"],
             stop_loss=a["stop_loss"],
             sma_50=a["sma_50"],
             classification=a["classification"],

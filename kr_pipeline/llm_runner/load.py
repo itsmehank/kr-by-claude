@@ -74,7 +74,7 @@ def get_active_monitoring(conn: Connection) -> list[dict]:
 
 
 def get_active_with_current(conn: Connection, as_of: date | None = None) -> list[dict]:
-    """active 모니터링 + 오늘의 close/volume/sma_50/avg_volume_20d 조인."""
+    """active 모니터링 + 오늘의 close/volume/sma_50/avg_volume_50d 조인."""
     if as_of is None:
         with conn.cursor() as cur:
             cur.execute("SELECT MAX(date) FROM daily_indicators")
@@ -97,7 +97,7 @@ def get_active_with_current(conn: Connection, as_of: date | None = None) -> list
             (tickers, as_of),
         )
         current = {r[0]: {"close": float(r[1]), "volume": int(r[2]) if r[2] else 0,
-                          "avg_volume_20d": float(r[3]) if r[3] else 0,
+                          "avg_volume_50d": float(r[3]) if r[3] else 0,
                           "sma_50": float(r[4]) if r[4] else 0}
                    for r in cur.fetchall()}
 

@@ -107,7 +107,7 @@ def build_for_5b(
             {
                 "close": float(cur_row[0]) if cur_row else None,
                 "volume": int(cur_row[1]) if cur_row and cur_row[1] else None,
-                "avg_volume_20d": (
+                "avg_volume_50d": (
                     float(cur_row[2]) if cur_row and cur_row[2] else None
                 ),
                 "volume_ratio": (
