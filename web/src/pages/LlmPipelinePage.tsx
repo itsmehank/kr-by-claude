@@ -132,11 +132,12 @@ const STAGES: PipelineStage[] = [
 // Mermaid diagram sources
 
 const DIAGRAM_DATA_FLOW = `graph LR
-    A["새 minervini_pass<br/>통과 종목"] -->|daily_delta| B[("weekly_classification<br/>watch / entry / ignore")]
-    B -->|매일 활성 종목| C{"evaluate_pivot<br/>결정론 게이트"}
+    W["weekend batch<br/>(토 03:20, 전체 재분류)"] -->|source='weekend'| B[("weekly_classification<br/>watch / entry / ignore")]
+    A["daily_delta<br/>(평일, 신규만)"] -->|source='daily_delta'| B
+    B -->|매일 활성 종목<br/>DISTINCT ON| C{"evaluate_pivot<br/>결정론 게이트"}
     C -->|"breakout / promotion /<br/>invalidation"| D["LLM 평가"]
     D -->|"go_now / wait / abort"| E[("trigger_evaluation_log")]
-    E -->|"decision=go_now<br/>자동 수집"| F["entry_params<br/>LLM 호출"]
+    E -->|"decision='go_now'<br/>AND trigger_type='breakout'<br/>(promotion staging 안전장치)"| F["entry_params<br/>LLM 호출"]
     F --> G[("entry_params<br/>매수 계획 17 필드")]
     G -->|매일 자동| H["performance<br/>1주/2주/4주/8주 추적"]
     H --> I[("signal_performance")]
@@ -144,13 +145,14 @@ const DIAGRAM_DATA_FLOW = `graph LR
 
 const DIAGRAM_STATE = `stateDiagram-v2
     [*] --> Unclassified: minervini_pass 통과
-    Unclassified --> Watch: daily_delta watch
-    Unclassified --> Entry: daily_delta entry
-    Unclassified --> Ignore: daily_delta ignore
-    Watch --> Watch: evaluate_pivot wait/abort
-    Watch --> EntryParams: promotion + go_now
-    Entry --> Entry: evaluate_pivot wait/abort
+    Unclassified --> Watch: weekend/daily_delta watch
+    Unclassified --> Entry: weekend/daily_delta entry
+    Unclassified --> Ignore: weekend/daily_delta ignore
+    Watch --> Watch: evaluate_pivot wait/abort (분류 유지)
+    Watch --> Entry: weekend batch 재분석 시 승격
+    Entry --> Entry: evaluate_pivot wait/abort (분류 유지)
     Entry --> EntryParams: breakout + go_now
+    Entry --> Ignore: weekend batch 재분석 시 강등
     EntryParams --> Performance: 자동 추적
     Performance --> [*]: 90일 cutoff
     Ignore --> [*]: 7일 후 후보 재진입 가능

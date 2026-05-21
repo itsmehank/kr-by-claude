@@ -23,8 +23,10 @@ def find_new_tickers(conn: Connection, as_of: date | None = None) -> list[str]:
             """
             SELECT i.ticker
               FROM daily_indicators i
+              JOIN stocks s ON s.ticker = i.ticker
              WHERE i.date = %s
                AND i.minervini_pass = TRUE
+               AND s.delisted_at IS NULL
                AND NOT EXISTS (
                  SELECT 1 FROM weekly_classification wc
                   WHERE wc.symbol = i.ticker

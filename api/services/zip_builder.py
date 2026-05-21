@@ -48,7 +48,7 @@ README_TEMPLATE = """# LLM 분석 패키지
 - `corporate_actions.json`: 기업행위 이력 (audit)
 - `minervini.json`: 8 조건 detail (보조)
 - `daily.csv` / `weekly.csv`: 종목 시계열 (사람용)
-- `kospi_daily.csv` / `kospi_weekly.csv`: 시장 지수 시계열 (audit)
+- `market_index_daily.csv` / `market_index_weekly.csv`: 시장 지수 시계열 (audit)
 - `daily_chart.png` / `weekly_chart.png`: 차트 이미지 (LLM 멀티모달 입력)
 """
 
@@ -73,8 +73,8 @@ def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = Non
     daily_csv = build_daily_csv(conn, ticker, days=60)
     weekly_csv = build_weekly_csv(conn, ticker, weeks=104)
     index_code = INDEX_CODE_MAP.get(market, "1001")
-    kospi_daily_csv = build_index_csv(conn, index_code, "daily", lookback=60)
-    kospi_weekly_csv = build_index_csv(conn, index_code, "weekly", lookback=104)
+    market_index_daily_csv = build_index_csv(conn, index_code, "daily", lookback=60)
+    market_index_weekly_csv = build_index_csv(conn, index_code, "weekly", lookback=104)
 
     daily_chart_png = render_daily_chart(conn, ticker, range_days=365)
     weekly_chart_png = render_weekly_chart(conn, ticker, range_weeks=104)
@@ -99,8 +99,8 @@ def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = Non
         zf.writestr("minervini.json", json.dumps(minervini, ensure_ascii=False, indent=2))
         zf.writestr("daily.csv", daily_csv)
         zf.writestr("weekly.csv", weekly_csv)
-        zf.writestr("kospi_daily.csv", kospi_daily_csv)
-        zf.writestr("kospi_weekly.csv", kospi_weekly_csv)
+        zf.writestr("market_index_daily.csv", market_index_daily_csv)
+        zf.writestr("market_index_weekly.csv", market_index_weekly_csv)
         zf.writestr("daily_chart.png", daily_chart_png)
         zf.writestr("weekly_chart.png", weekly_chart_png)
     return buf.getvalue()

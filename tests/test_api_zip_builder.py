@@ -34,7 +34,7 @@ def test_build_analysis_zip_contains_13_files(db):
         "README.md", "prompt_step1_analyze.md", "prompt_step2_entry_params.md",
         "payload.json", "market_context.json", "corporate_actions.json",
         "minervini.json", "daily.csv", "weekly.csv",
-        "kospi_daily.csv", "kospi_weekly.csv",
+        "market_index_daily.csv", "market_index_weekly.csv",
         "daily_chart.png", "weekly_chart.png",
     }
 
