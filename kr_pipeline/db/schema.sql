@@ -247,7 +247,9 @@ CREATE INDEX IF NOT EXISTS idx_corp_actions_recent_distress
 
 -- ─── #4 LLM Runner 스키마 (B v3 갭 1-8 day-1 통합) ───────────────
 
--- Phase B-A1 강화 필터 (drawdown ≤ 50%, KR calibrate)
+-- drawdown 정보 컬럼 (정보값으로만 보존. LLM 게이트는 2026-05-21 제거)
+-- 공식: (w52_high - w52_low) / w52_high — rolling 252일 spread.
+-- 시간 순서 무시로 인한 false negative 문제로 게이트 사용 중단.
 ALTER TABLE daily_indicators
   ADD COLUMN IF NOT EXISTS drawdown_52w_pct      NUMERIC(5,2),
   ADD COLUMN IF NOT EXISTS drawdown_filter_pass  BOOLEAN;

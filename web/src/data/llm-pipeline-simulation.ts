@@ -62,7 +62,7 @@ export const SIMULATION_ROWS: SimRow[] = [
         modal: {
           title: "SYM_001 · 토 (W1) · weekend batch · 분류 = entry",
           inputs: [
-            { label: "결정론 필터", value: "minervini_pass=TRUE, drawdown_filter_pass=TRUE" },
+            { label: "결정론 필터", value: "minervini_pass=TRUE (Trend Template 8조건)" },
             { label: "패턴 분석", value: "cup_with_handle (handle 완성)" },
             { label: "시장 상태", value: "confirmed_uptrend, distribution_day_count=2" },
             { label: "RS Rating", value: "92" },
@@ -370,7 +370,7 @@ export const SIMULATION_ROWS: SimRow[] = [
         modal: {
           title: "SYM_006 · 화 · daily_delta · 신규 분류 = entry",
           inputs: [
-            { label: "트리거", value: "오늘 새로 minervini_pass + drawdown_filter_pass 통과" },
+            { label: "트리거", value: "오늘 새로 minervini_pass 통과 (Trend Template 8조건)" },
             { label: "최근 7일 분류 이력", value: "없음 (신규)" },
             { label: "패턴", value: "cup_with_handle (handle 7거래일 완성)" },
             { label: "pivot_price 후보", value: "98,500" },
@@ -437,7 +437,7 @@ export const SIMULATION_ROWS: SimRow[] = [
         modal: {
           title: "SYM_007 · 수 · daily_delta · 신규 분류 = watch",
           inputs: [
-            { label: "트리거", value: "오늘 새로 결정론 통과 (minervini_pass + drawdown_filter)" },
+            { label: "트리거", value: "오늘 새로 결정론 통과 (minervini_pass)" },
             { label: "패턴", value: "flat_base 형성 초기 (4주)" },
             { label: "RS Rating", value: "73" },
           ],
@@ -528,7 +528,7 @@ SIMULATION_ROWS.push(
   },
   {
     symbol: "SYM_010",
-    note: "결정론 미통과 — drawdown_filter_pass=FALSE (52w high 대비 -55%)",
+    note: "결정론 미통과 — minervini_pass=FALSE (예: SMA200 하락추세, Stage 4)",
     cells: {
       "2026-05-16": { notIncluded: true },
       "2026-05-23": { notIncluded: true },
