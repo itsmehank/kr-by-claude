@@ -50,7 +50,27 @@
 
 `go_now` 발생 안 함 (invalidation 트리거에서는).
 
-### 3.3 abort_reason 키워드 카탈로그
+### 3.3 trigger_type = "promotion"
+
+watch → entry 승격 staging (시스템 자체 설계, 책 근거 없음).
+이 시점에 close 는 pivot 의 95% 이상 도달했지만 **아직 pivot 미만일 수
+있음** → 매수 부적절. 분류 변경 역시 다음 weekend batch 의 LLM
+재분석이 처리하므로, 이 단계에서 결정해서는 안 됨.
+
+`go_now` 발생 안 함 (promotion 트리거에서는).
+- close > pivot 이면 다음 평일 breakout 트리거가 별도로 발생해 처리.
+- promotion → go_now → entry_params 직행은 pivot 미만 매수를 유발하므로
+  금지. 어떤 강도의 거래량이나 인트라데이 강세에서도 `go_now` 반환 금지.
+
+`wait`:
+- 거래량/일중 강도 검토 결과 베이스 신뢰성 유지.
+- 다음 평일 게이트 평가 또는 다음 weekend batch 의 entry 분류 검토 대기.
+
+`abort`:
+- 베이스 무효화 신호 (sma_50 이탈, distribution 누적, base_low 이탈 등).
+- 다음 weekend batch 에서 ignore 로 분류될 후보.
+
+### 3.4 abort_reason 키워드 카탈로그
 
 abort 시 다음 중 하나로 정형화:
 

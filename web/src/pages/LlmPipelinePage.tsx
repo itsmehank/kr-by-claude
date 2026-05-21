@@ -81,7 +81,7 @@ const STAGES: PipelineStage[] = [
     inputs: ["weekly_classification", "daily_indicators"],
     outputs: ["trigger_evaluation_log"],
     deterministic:
-      "결정론 트리거 게이트 (compute/trigger_gate.py): close < stop_loss 또는 close < sma_50 → invalidation. entry 종목: close > pivot AND volume >= 1.5× avg → breakout. watch 종목: close >= pivot × 0.95 AND volume >= avg → promotion.",
+      "결정론 트리거 게이트 (compute/trigger_gate.py): close < stop_loss 또는 close < sma_50 → invalidation. entry 종목: close > pivot AND volume >= avg_volume_50d (1.0×, 게이트는 거래량 죽지 않은 정도만 확인 — 1.4~1.5× 표준 / pocket pivot 예외 판정은 LLM 에 위임) → breakout. watch 종목: close >= pivot × 0.95 AND volume >= avg → promotion (책 근거 없음, 시스템 staging 트리거 — go_now 발생 금지, close > pivot 도달은 별도 breakout 트리거가 처리).",
     llm:
       "evaluate_pivot_trigger_v1.md prompt — 게이트 통과 종목만 호출. '이 트리거가 진짜인가, 가짜 신호인가, 보류인가' 판단.",
     decisions: ["go_now", "wait", "abort"],
@@ -171,9 +171,9 @@ const TRIGGER_DECISION_MATRIX: Record<string, Record<string, MatrixCell | null>>
     abort: { meaning: "가짜 돌파로 판정", next: "무시. 분류는 entry 유지" },
   },
   promotion: {
-    go_now: { meaning: "watch → pivot 95% 도달 + LLM 진입 추천", next: "entry_params 자동 생성 (분류는 watch 유지)" },
-    wait: { meaning: "근접했지만 LLM 보류", next: "다음 날 재평가" },
-    abort: { meaning: "가짜 신호", next: "watch 유지, 무시" },
+    go_now: null,
+    wait: { meaning: "watch → pivot 95% 근접 staging — close 아직 pivot 미만, 정상 흐름", next: "다음 평일 게이트 재평가. close > pivot 도달 시 breakout 트리거로 별도 처리" },
+    abort: { meaning: "base 무효화 신호 (sma_50 이탈 / distribution 누적)", next: "watch 유지하다 다음 weekend batch 에서 ignore 분류 후보" },
   },
   invalidation: {
     go_now: null,
@@ -242,7 +242,7 @@ const GLOSSARY: { term: string; meaning: string }[] = [
 const FAQ: { q: string; a: string }[] = [
   {
     q: "Watch 가 evaluate_pivot 의 LLM 결정으로 자동 entry 로 승격되지 않는 이유?",
-    a: "evaluate_pivot 의 prompt 가 명시적으로 '분류 재평가 금지' 정책. classification 은 weekend 또는 daily_delta 만 변경. evaluate_pivot 은 promotion 트리거 + go_now 결정 시 entry_params 만 생성 (분류는 watch 유지). 실질 매수 시그널은 entry_params 의 새 row 로 표현됨.",
+    a: "evaluate_pivot 의 prompt 가 명시적으로 '분류 재평가 금지' 정책. classification 은 weekend 또는 daily_delta 만 변경. promotion 트리거는 staging 신호일 뿐 매수 시그널이 아니며 (prompt §3.3), go_now 가 발생하지 않도록 코드 안전장치도 적용 (entry_params 는 trigger_type='breakout' 만 수집). watch 종목이 실제 매수되려면 다음 평일 close > pivot 으로 breakout 트리거가 별도 발생해야 함.",
   },
   {
     q: "Pivot 없는 watch 종목은 어떻게 되나?",

@@ -26,7 +26,28 @@ def test_no_trigger_close_below_pivot_no_invalidation():
 
 
 def test_breakout_volume_insufficient_no_trigger():
-    """가격 돌파했지만 거래량 1.5배 미달 → 트리거 없음."""
+    """가격 돌파했지만 거래량이 평균보다 낮음 → 트리거 없음.
+
+    게이트는 1.0× (평균 이상) 만 요구. 책 표준 (1.4-1.5×) 의 정밀 판정은
+    LLM 에 위임. 평균 미만은 명백한 저거래량 헛돌파 차단.
+    """
+    from kr_pipeline.llm_runner.compute.trigger_gate import evaluate
+
+    result = evaluate(
+        close=82500, pivot_price=80000,
+        volume=900_000, avg_volume_50d=1_000_000,
+        stop_loss=76000, sma_50=78000,
+        classification="entry",
+    )
+    assert result is None
+
+
+def test_breakout_at_1x_volume_triggers():
+    """가격 돌파 + 거래량 평균 이상 (1.1×) → breakout 트리거.
+
+    1.5× 표준 미달이라도 게이트는 통과 → LLM 이 pocket pivot / 거래량
+    1.4-1.5× 표준 / 일중 상단 1/3 등을 정밀 판정.
+    """
     from kr_pipeline.llm_runner.compute.trigger_gate import evaluate
 
     result = evaluate(
@@ -35,7 +56,7 @@ def test_breakout_volume_insufficient_no_trigger():
         stop_loss=76000, sma_50=78000,
         classification="entry",
     )
-    assert result is None
+    assert result == "breakout"
 
 
 def test_invalidation_below_sma50():

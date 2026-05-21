@@ -27,7 +27,11 @@ def run(
     if as_of is None:
         as_of = date.today()
 
-    # 오늘 (5b) 결과 중 go_now 추출 (UTC 기준 날짜 비교)
+    # 오늘 (5b) 결과 중 go_now 추출 (UTC 기준 날짜 비교).
+    # 안전장치: promotion 트리거는 staging 신호 — close 가 pivot 미만일 수
+    # 있어 매수 부적절. 만약 LLM 이 promotion 에 대해 go_now 결정해도
+    # entry_params 단계로 진입 금지 (prompt §3.3 명시). 안전장치는 prompt
+    # 위반 시에도 pivot 미만 매수 시그널이 생성되지 않도록 SQL 에서 강제.
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -35,6 +39,7 @@ def run(
               FROM trigger_evaluation_log
              WHERE (evaluated_at AT TIME ZONE 'UTC')::date = %s
                AND decision = 'go_now'
+               AND trigger_type = 'breakout'
              ORDER BY evaluated_at
             """,
             (as_of,),
