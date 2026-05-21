@@ -318,11 +318,21 @@ result = call_claude(
   - spread wide-and-loose 아님 (최대 평균 range × 1.5)
   - 최근 3일 distribution day 없음
 - `wait`: volume 1.2~1.4× 사이, 종가 중간 1/3
-- `abort`: base_low 이탈, sma_50 명확 이탈, 최근 5일 distribution day 3+ 발생
+- `abort`:
+  - base_low 이탈
+  - sma_50 명확 이탈 (close < sma_50 × 0.98 + 거래량)
+  - 최근 5일 distribution day 3+
+  - **돌파 직후 20일선 가드** (Minervini *TTLC* Ch.1): `days_since_classification` 작아 "돌파 직후" + `close < sma_21` 종가 이탈 + 거래량/추가 위반. **단독 sma_21 이탈은 wait** (책: "단독 무의미")
 
 ##### 3.3.2 trigger_type = "invalidation" (prompt §3.2)
-- `abort`: close < sma_50 (>2% 이탈) + 거래량 동반, close < prior_analysis.base_low
-- `wait`: 위 abort 조건 미충족 (단일 약세, 베이스 여전히 valid 가능)
+- `abort`:
+  - close < sma_50 (>2% 이탈) + 거래량 동반
+  - close < prior_analysis.base_low
+  - **돌파 직후 20일선 가드 보조** (Minervini *TTLC* Ch.1): "돌파 직후" 종목에서 close < sma_21 도 이미 위반 + 거래량 동반 → abort 신뢰성 증가
+- `wait`:
+  - 위 abort 조건 미충족 (단일 약세, 베이스 여전히 valid 가능)
+  - 단독 sma_21 이탈만으로는 wait
+  - squat (되밀림) 며칠~10일 reversal recovery 여지 (Minervini *TLSMW* Ch.10)
 - `go_now`: **발생 안 함**
 
 ##### 3.3.3 trigger_type = "promotion" (prompt §3.3, 2026-05-21 안전장치)
@@ -537,7 +547,7 @@ minervini_pass = (
 | 3 | 오늘 sma_200 > 22거래일 전 sma_200 | 22 거래일 (default) | minervini.py:31-32 | "MA200 trending up for ≥1 month (≥22 trading days)" |
 | 4 | sma_50 > sma_150 AND sma_150 > sma_200 | — | minervini.py:34 | "MA50 > MA150 > MA200" |
 | 5 | close > sma_50 | — | minervini.py:36 | "Price > MA50" |
-| 6 | close ≥ w52_low × 1.25 | **1.25×** | minervini.py:38 | "Price ≥ 52w-low × 1.25 to 1.30" (책 정확한 임계 §9.2 검토) |
+| 6 | close ≥ w52_low × 1.25 | **1.25×** | minervini.py:38 | TTLC Ch.6 조건 5: "+25%" (현재 코드 일치) / TLSMW Ch.5 조건 6: "+30%" — 두 저작 간 버전 차이, 우리는 최신작 채택 |
 | 7 | close ≥ w52_high × 0.75 | 0.75× | minervini.py:40 | "Price ≥ 52w-high × 0.75 (i.e., within 25% of 52w high)" |
 | 8 | rs_rating ≥ 70 | 70 | store.py:91 (SQL UPDATE SET) | "RS Rating ≥ 70" |
 
@@ -745,8 +755,8 @@ LLM 이 명시적 평가 없이 자동으로 추가하는 flag:
 
 #### 9.2 알려진 검토 사항
 
-##### 책 인용 정확성
-- **Minervini c6 임계 (1.25 vs 1.30)**: 코드는 1.25× 52w-low, 책 (TLSMW Ch.5) 의 정확한 원문 확인 필요. 본 페이지의 영어 인용 "Price ≥ 52w-low × 1.25 to 1.30" 는 추정 — 전문가에게 책 원문 인용 확인 권고.
+##### 책 인용 정확성 (전문가 자문 2026-05-22 완료)
+- **Minervini c6 임계 (1.25 vs 1.30) — 해결**: 두 저작이 다른 숫자 명시. *TLSMW* Ch.5 조건 6: +30% (1.30). *TTLC* Ch.6 조건 5: +25% (1.25, 최신작). 우리 코드 1.25 는 최신작과 일치 — 그대로 유지 + minervini.py:38 주석에 두 저작 차이 명시 완료 (commit `0e0976c`).
 
 ##### 코드 정합성 이슈
 - **daily_delta SQL `delisted_at` 필터 누락** (Part 2a 발견):
@@ -754,10 +764,9 @@ LLM 이 명시적 평가 없이 자동으로 추가하는 flag:
   - weekend `get_qualifying_tickers` 는 있음
   - 상장폐지 종목이 daily_indicators 에 행이 있다면 daily_delta 가 잡을 위험
   - **follow-up**: daily_delta SQL 에 stocks JOIN + delisted_at 필터 추가
-- **retry 정책 일관성 없음** (Part 2 발견):
-  - weekend 만 1회 retry (weekend.py:66-76)
-  - daily_delta / evaluate_pivot / entry_params 모두 retry 없음
-  - 의도된 차이 (weekend = 대량 batch, 평일 = 소량) 인지 누락인지 확인 필요
+- **retry 정책 일관성 없음 — 해결** (전문가 자문 2026-05-22):
+  - weekend 만 1회 retry, 평일 stage 는 없음
+  - 전문가 결론: 책 밖 (엔지니어링 영역). 현행이 데이터 일관성 관점에서 합리적 — weekend 는 대량 (실패 방치 시 일주일 손실), 평일은 소량 + 다음 날 cron 재후보. "통일을 위한 통일" 불필요. 코드 변경 없음.
 - **`kospi_daily/weekly.csv` 파일명 혼동** (Part 5 발견):
   - `zip_builder.py:102-103` 파일명 고정. 실제 내용은 종목 시장의 인덱스 (KOSDAQ 종목 시 KOSDAQ 인덱스).
   - **follow-up**: 파일명을 `market_index_daily.csv` / `market_index_weekly.csv` 등 일반화 권고
@@ -771,7 +780,13 @@ LLM 이 명시적 평가 없이 자동으로 추가하는 flag:
 - **follow-up**: 안내 페이지의 두 mermaid 다이어그램 정정
 
 ##### 시스템 설계 검토
-- **invalidation 에 SMA20 *가격* MA 추가**: Minervini *TTLC* Ch.1 — 돌파 직후 20일 가격선 종가 이탈 시 성공률 반감. 현재 invalidation 은 SMA50 만 보지만 SMA20 도 책 근거 분명. 별도 follow-up 검토.
+- **invalidation 에 SMA20 *가격* MA 추가 — 해결** (전문가 자문 2026-05-22):
+  - 책 직접 인용 확인: Minervini *TTLC* Ch.1 "WATCH THE 20-DAY LINE SOON AFTER A BASE BREAKOUT" — 돌파 직후 20일선 종가 이탈 시 성공률 "약 절반으로 줄어든다 (cut in about half)" 직접 표현.
+  - 단 책 단서: (1) 이것만으로 반드시 팔지 않음, (2) 단독으론 무의미, 추가 위반 동반 시 의미.
+  - **전문가 옵션 2 채택**: 게이트는 SMA-50 유지, SMA-21 (≈ 20-day line, sma_20 컬럼 신설 대신 기존 sma_21 사용) 은 LLM prompt 의 판단 재료로 추가. KR 변동성에서 단독 종가 이탈 하드 게이트는 false positive 다발 위험.
+  - 구현 완료 (commit `0e0976c`):
+    - `payload_lite.py`: `current_metrics.sma_21` 추가, `prior_analysis.days_since_classification` 추가
+    - `evaluate_pivot_trigger_v1.md` §3.1 breakout abort + §3.2 invalidation abort 에 20일선 가드 + "단독은 wait" 단서 + squat reversal recovery 여지
 
 #### 9.3 향후 모니터링
 
