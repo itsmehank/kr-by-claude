@@ -1,4 +1,14 @@
 import { MermaidDiagram } from "../components/MermaidDiagram";
+import { useState } from "react";
+import {
+  SIMULATION_DAYS,
+  SIMULATION_ROWS,
+  type SimDay,
+  type SimModal,
+  type SimRow,
+} from "../data/llm-pipeline-simulation";
+import { SimulationMatrix } from "./llm-pipeline/SimulationMatrix";
+import { SimulationModal } from "./llm-pipeline/SimulationModal";
 
 
 // ─────── 데이터 ───────────────────────────────────────────
@@ -459,6 +469,13 @@ function FaqSection() {
 
 
 export default function LlmPipelinePage() {
+  const [activeModal, setActiveModal] = useState<SimModal | null>(null);
+
+  function handleCellClick(row: SimRow, day: SimDay) {
+    const cell = row.cells[day.date];
+    if (cell?.modal) setActiveModal(cell.modal);
+  }
+
   return (
     <div className="px-10 py-10 max-w-[1240px] mx-auto">
       <header className="mb-8">
@@ -467,8 +484,9 @@ export default function LlmPipelinePage() {
           LLM 분석 안내
         </h2>
         <p className="text-data-xs text-muted mt-3 leading-relaxed">
-          평일 매일 실행되는 LLM full-daily 작업의 4 단계 흐름, 결정론 로직, LLM 로직, 책 원전 정리.
-          시스템 이해 + 향후 수정의 기반.
+          평일 4단계 (daily_delta → evaluate_pivot → entry_params → performance) 와
+          주말 1단계 (weekend batch) 의 흐름, 결정론 로직, LLM 로직, 책 원전 정리.
+          + 10 종목 1주일 시뮬레이션으로 처음 보는 사용자도 흐름 이해 가능.
         </p>
       </header>
 
@@ -487,7 +505,29 @@ export default function LlmPipelinePage() {
         <StageCard key={stage.id} stage={stage} />
       ))}
 
-      {/* ③ 종목 상태 전이도 */}
+      {/* ③ 1주일 시뮬레이션 */}
+      <section className="bento p-6 mb-4">
+        <h3 className="text-subhead font-bold text-ink mb-3">
+          1주일 시뮬레이션 — 10 종목이 어떻게 처리되나
+        </h3>
+        <p className="text-data-xs text-muted mb-4 leading-relaxed">
+          토(W1) → 다음 토(W2) 8 일 동안 10 종목 각각이 weekend / daily_delta / evaluate_pivot 에서 어떻게 처리되는지.
+          각 셀 클릭 시 LLM 입력 / 출력 / reasoning / 영향 상세.
+        </p>
+        <SimulationMatrix
+          days={SIMULATION_DAYS}
+          rows={SIMULATION_ROWS}
+          onCellClick={handleCellClick}
+        />
+      </section>
+
+      <SimulationModal
+        open={activeModal != null}
+        modal={activeModal}
+        onClose={() => setActiveModal(null)}
+      />
+
+      {/* ④ 종목 상태 전이도 */}
       <section className="bento p-6 mb-4">
         <h3 className="text-subhead font-bold text-ink mb-3">종목 상태 전이도</h3>
         <p className="text-data-xs text-muted mb-4 leading-relaxed">
@@ -497,13 +537,13 @@ export default function LlmPipelinePage() {
         <MermaidDiagram chart={DIAGRAM_STATE} idPrefix="state" />
       </section>
 
-      {/* ④ 트리거 × 결정 매트릭스 */}
+      {/* ⑤ 트리거 × 결정 매트릭스 */}
       <TriggerDecisionMatrix />
 
-      {/* ⑤ 용어집 */}
+      {/* ⑥ 용어집 */}
       <Glossary />
 
-      {/* ⑥ FAQ */}
+      {/* ⑦ FAQ */}
       <FaqSection />
     </div>
   );
