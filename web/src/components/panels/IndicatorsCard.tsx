@@ -72,16 +72,6 @@ export function IndicatorsCard({ ticker }: Props) {
           </span>
         </div>
         <div>
-          <span className="caps text-faint">Drawdown filter</span>{" "}
-          {latestDaily?.drawdown_filter_pass == null ? (
-            "—"
-          ) : latestDaily.drawdown_filter_pass ? (
-            <span className="text-green-700">통과</span>
-          ) : (
-            <span className="text-red-700">실패</span>
-          )}
-        </div>
-        <div>
           <div className="caps text-faint mb-1">Minervini 8조건</div>
           <ul className="space-y-1">
             {COND_KEYS.map((key) => {

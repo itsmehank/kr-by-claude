@@ -31,7 +31,6 @@ def get_qualifying_tickers(conn: Connection, as_of: date | None = None) -> list[
               JOIN stocks s ON s.ticker = i.ticker
              WHERE i.date = %s
                AND i.minervini_pass = TRUE
-               AND i.drawdown_filter_pass = TRUE
                AND s.delisted_at IS NULL
              ORDER BY i.ticker
             """,
