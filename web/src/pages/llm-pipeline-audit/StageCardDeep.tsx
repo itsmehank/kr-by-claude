@@ -7,7 +7,7 @@ interface Props {
 
 export function StageCardDeep({ stage }: Props) {
   return (
-    <div id={`stage-${stage.id}`} className="scroll-mt-20 mb-8">
+    <div id={`stage-${stage.id.replace(/_/g, "-")}`} className="scroll-mt-20 mb-8">
       <h3 className="text-subhead font-bold text-ink mb-3">
         {stage.num}. {stage.label}
       </h3>
