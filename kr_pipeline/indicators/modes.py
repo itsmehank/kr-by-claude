@@ -11,7 +11,7 @@ from psycopg import Connection
 
 from kr_pipeline.db.runs import run_tracking
 from kr_pipeline.indicators.compute.sma import sma
-from kr_pipeline.indicators.compute.high_low import w52_high_low, pct_from_high_low, compute_drawdown
+from kr_pipeline.indicators.compute.high_low import w52_high_low, pct_from_high_low
 from kr_pipeline.indicators.compute.rs_line import (
     compute_rs_line, compute_rs_line_52w_high_and_date,
     compute_rs_line_at_52w_high, compute_rs_line_uptrend,
@@ -238,10 +238,6 @@ def _process_ticker_daily(
             "up_down_volume_ratio_50d": _as_float(ud_ratio_50.loc[d]),
             "distribution_day_flag": _as_bool(dist_flag.loc[d]),
         }
-        # B v3 Phase B-A1: drawdown_52w_pct + drawdown_filter_pass
-        dd_pct, dd_pass = compute_drawdown(row["w52_high"], row["w52_low"])
-        row["drawdown_52w_pct"] = dd_pct
-        row["drawdown_filter_pass"] = dd_pass
         rows.append(row)
         one_y_returns_for_phase_b[d] = _as_float(one_y_ret.loc[d])
 

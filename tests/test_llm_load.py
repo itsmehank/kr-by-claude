@@ -17,9 +17,9 @@ def test_get_qualifying_tickers_falls_back_to_most_recent(db):
         )
         # 금요일 5/15 의 daily_indicators 만 적재 (월 5/18 데이터 없음)
         cur.execute(
-            """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass, drawdown_filter_pass)
-               VALUES ('TEST01','2026-05-15',1000.0, TRUE, TRUE),
-                      ('TEST02','2026-05-15',2000.0, TRUE, TRUE)"""
+            """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass)
+               VALUES ('TEST01','2026-05-15',1000.0, TRUE),
+                      ('TEST02','2026-05-15',2000.0, TRUE)"""
         )
     db.commit()
 
@@ -42,8 +42,8 @@ def test_get_qualifying_tickers_exact_match(db):
                VALUES ('TEST03','Test3','KOSDAQ','반도체','2020-01-01')"""
         )
         cur.execute(
-            """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass, drawdown_filter_pass)
-               VALUES ('TEST03','2026-05-16', 3000.0, TRUE, TRUE)"""
+            """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass)
+               VALUES ('TEST03','2026-05-16', 3000.0, TRUE)"""
         )
     db.commit()
 

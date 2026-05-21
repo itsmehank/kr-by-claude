@@ -14,8 +14,8 @@ def test_find_new_tickers(db):
         for t in ["A", "B", "C", "D"]:
             cur.execute(
                 """INSERT INTO daily_indicators
-                   (ticker, date, adj_close, minervini_pass, drawdown_filter_pass)
-                   VALUES (%s, %s, 100, TRUE, TRUE) ON CONFLICT DO NOTHING""",
+                   (ticker, date, adj_close, minervini_pass)
+                   VALUES (%s, %s, 100, TRUE) ON CONFLICT DO NOTHING""",
                 (t, today),
             )
         for t in ["A", "B"]:
@@ -42,8 +42,8 @@ def test_old_classification_does_not_block(db):
         )
         cur.execute(
             """INSERT INTO daily_indicators
-               (ticker, date, adj_close, minervini_pass, drawdown_filter_pass)
-               VALUES ('OLD', %s, 100, TRUE, TRUE) ON CONFLICT DO NOTHING""",
+               (ticker, date, adj_close, minervini_pass)
+               VALUES ('OLD', %s, 100, TRUE) ON CONFLICT DO NOTHING""",
             (today,),
         )
         cur.execute(

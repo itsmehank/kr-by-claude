@@ -1,7 +1,6 @@
 """주말 (5) analyze_chart_v3 batch.
 
 결정론 필터 (minervini_pass) 통과 종목 전체를 LLM 분석.
-drawdown_filter_pass 게이트는 2026-05-21 제거됨 (false negative 편향).
 """
 from __future__ import annotations
 

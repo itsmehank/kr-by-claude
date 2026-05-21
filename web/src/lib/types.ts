@@ -25,7 +25,6 @@ export interface DailyIndicator {
   rs_line: number | null;
   rs_rating: number | null;
   minervini_pass: boolean | null;
-  drawdown_filter_pass: boolean | null;
   volume_ratio_50d: number | null;
   pocket_pivot_flag: boolean | null;
   distribution_day_flag: boolean | null;

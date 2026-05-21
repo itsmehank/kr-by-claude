@@ -10,8 +10,8 @@ def test_daily_delta_dry_run(db, mocker):
         )
         cur.execute(
             """INSERT INTO daily_indicators
-               (ticker, date, adj_close, minervini_pass, drawdown_filter_pass)
-               VALUES ('DD1', %s, 100, TRUE, TRUE) ON CONFLICT DO NOTHING""",
+               (ticker, date, adj_close, minervini_pass)
+               VALUES ('DD1', %s, 100, TRUE) ON CONFLICT DO NOTHING""",
             (today,),
         )
     db.commit()

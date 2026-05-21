@@ -246,13 +246,10 @@ CREATE INDEX IF NOT EXISTS idx_corp_actions_recent_distress
     WHERE event_type IN ('reverse_split', 'capital_reduction');
 
 -- ─── #4 LLM Runner 스키마 (B v3 갭 1-8 day-1 통합) ───────────────
-
--- drawdown 정보 컬럼 (정보값으로만 보존. LLM 게이트는 2026-05-21 제거)
--- 공식: (w52_high - w52_low) / w52_high — rolling 252일 spread.
--- 시간 순서 무시로 인한 false negative 문제로 게이트 사용 중단.
-ALTER TABLE daily_indicators
-  ADD COLUMN IF NOT EXISTS drawdown_52w_pct      NUMERIC(5,2),
-  ADD COLUMN IF NOT EXISTS drawdown_filter_pass  BOOLEAN;
+-- (drawdown_52w_pct / drawdown_filter_pass 컬럼은 2026-05-21 제거 — false
+--  negative 80% 사유로 LLM 게이트 폐기 후 완전 정리. 마이그레이션:
+--  ALTER TABLE daily_indicators DROP COLUMN drawdown_52w_pct,
+--                               DROP COLUMN drawdown_filter_pass;)
 
 -- 주말 (5) + 평일 daily-delta 분류 결과 (append-only)
 CREATE TABLE IF NOT EXISTS weekly_classification (

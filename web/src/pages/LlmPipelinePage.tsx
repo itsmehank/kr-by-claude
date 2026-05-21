@@ -40,7 +40,7 @@ const STAGES: PipelineStage[] = [
       "토요일 03:20 cron. daily_indicators 의 직전 금요일 행 기준 minervini_pass=TRUE AND stocks.delisted_at IS NULL 전체.",
     inputs: ["daily_indicators", "weekly_indicators", "market_context_daily", "corporate_actions", "stocks"],
     outputs: ["weekly_classification (source='weekend')"],
-    deterministic: "결정론 필터 — minervini_pass (Trend Template 8조건). 이전 drawdown_filter_pass 게이트는 2026-05-21 제거 (false negative 80% 사유).",
+    deterministic: "결정론 필터 — minervini_pass (Trend Template 8조건).",
     llm:
       "analyze_chart_v3.md prompt (daily_delta 와 동일). ZIP 13개 파일 (payload.json + 일/주봉 OHLCV + 차트 PNG + 시장 컨텍스트 + corporate actions + minervini detail 등). 9개 base 패턴 + 13 risk flag taxonomy.",
     decisions: ["entry", "watch", "ignore"],
@@ -62,7 +62,7 @@ const STAGES: PipelineStage[] = [
       "daily_indicators 의 오늘 행 중 minervini_pass=TRUE + 최근 7일 내 분류 이력 없음 (= 신규 후보). weekend 와의 차이: weekend 는 결정론 통과 전체를 매주 재분석. daily_delta 는 그 사이 평일에 새로 결정론 통과한 종목만 빠르게 분류.",
     inputs: ["daily_indicators", "daily_prices", "weekly_indicators", "market_context_daily"],
     outputs: ["weekly_classification (source='daily_delta')"],
-    deterministic: "결정론 필터 — minervini_pass + 신규성 (7일). 이전 drawdown_filter_pass 게이트는 2026-05-21 제거.",
+    deterministic: "결정론 필터 — minervini_pass + 신규성 (7일).",
     llm:
       "analyze_chart_v3.md prompt (weekend 와 동일) + zip 13개 파일 (payload.json + market_context + corporate_actions + minervini detail + daily/weekly chart 이미지 등). 9개 base 패턴 + 13 risk flag taxonomy 적용. 차이는 source 컬럼 ('daily_delta' vs 'weekend') 과 입력 필터 (신규성 추가).",
     decisions: ["watch", "entry", "ignore"],
@@ -192,7 +192,7 @@ const GLOSSARY: { term: string; meaning: string }[] = [
   },
   {
     term: "결정론 필터",
-    meaning: "minervini_pass (Minervini Trend Template 8조건 통과). LLM 호출 전 무료 필터. 이전 drawdown_filter_pass 게이트는 2026-05-21 제거 — (w52_high − w52_low)/w52_high 공식이 시간 순서를 무시해 정통 강세 종목(저점 대비 100~300% 상승)을 false negative 로 배제하던 문제.",
+    meaning: "minervini_pass (Minervini Trend Template 8조건 통과). LLM 호출 전 무료 필터. daily_indicators 컬럼 직접 SELECT.",
   },
   {
     term: "신규 종목 (daily_delta)",

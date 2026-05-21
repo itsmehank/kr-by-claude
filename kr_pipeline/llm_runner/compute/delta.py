@@ -3,13 +3,6 @@
   T_today = daily_indicators WHERE minervini_pass = TRUE
   recently_classified = weekly_classification.symbol
     WHERE classified_at >= NOW() - INTERVAL '7 days'
-
-drawdown_filter_pass 게이트는 2026-05-21 제거됨.
-이유: rolling 252일 high-low 스프레드 (drawdown_52w_pct) 가 시간 순서를 무시해
-"폭락 후 회복" 과 "저점에서 꾸준한 상승" 을 구분 못함. Minervini 가 명시한
-"최고의 후보 (저점 대비 100~300%+ 상승)" 가 자동 탈락하던 false negative
-편향을 해소. % from 52w high/low 가 이미 LLM payload 에 포함되어 LLM 이
-판단함.
 """
 from datetime import date, timedelta
 

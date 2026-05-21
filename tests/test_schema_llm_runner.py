@@ -1,15 +1,4 @@
-"""신규 4 테이블 + drawdown 컬럼 마이그레이션 검증."""
-
-
-def test_drawdown_columns_exist(db):
-    with db.cursor() as cur:
-        cur.execute("""
-            SELECT column_name FROM information_schema.columns
-             WHERE table_name = 'daily_indicators'
-               AND column_name IN ('drawdown_52w_pct', 'drawdown_filter_pass')
-        """)
-        cols = {r[0] for r in cur.fetchall()}
-    assert cols == {"drawdown_52w_pct", "drawdown_filter_pass"}
+"""신규 4 테이블 마이그레이션 검증."""
 
 
 def test_weekly_classification_schema(db):

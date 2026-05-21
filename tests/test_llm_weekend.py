@@ -13,8 +13,8 @@ def test_weekend_batch_dry_run_creates_classifications(db, mocker):
             )
             cur.execute(
                 """INSERT INTO daily_indicators
-                   (ticker, date, adj_close, minervini_pass, drawdown_filter_pass)
-                   VALUES (%s, %s, 100, TRUE, TRUE) ON CONFLICT DO NOTHING""",
+                   (ticker, date, adj_close, minervini_pass)
+                   VALUES (%s, %s, 100, TRUE) ON CONFLICT DO NOTHING""",
                 (t, today),
             )
     db.commit()
