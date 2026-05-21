@@ -438,9 +438,7 @@ export default function ChartPage() {
           {ticker && (
             <ChartMetaBar
               ticker={ticker}
-              stockName={stockMeta?.name ?? null}
               market={stockMeta?.market ?? null}
-              sector={stockMeta?.sector ?? null}
             />
           )}
           <div className="bento p-2 mb-5 overflow-hidden">

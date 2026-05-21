@@ -85,6 +85,7 @@ export interface WeeklyIndicator {
   low: number | null;
   close: number | null;
   volume: number | null;
+  avg_volume_10w: number | null;
   sma_10w: number | null;
   sma_30w: number | null;
   sma_40w: number | null;

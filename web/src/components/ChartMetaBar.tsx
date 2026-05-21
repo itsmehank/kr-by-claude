@@ -1,13 +1,11 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import type { DailyIndicator, IndexDaily } from "../lib/types";
+import type { DailyIndicator, IndexDaily, WeeklyIndicator } from "../lib/types";
 
 interface Props {
   ticker: string;
-  stockName: string | null;
   market: string | null;
-  sector: string | null;
 }
 
 const MARKET_INDEX_CODE: Record<string, string> = {
@@ -25,7 +23,7 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-// KST 기준 오늘이 속한 주의 월요일을 YYYY-MM-DD 로 반환.
+// 오늘이 속한 주의 월요일을 YYYY-MM-DD 로 반환.
 // getDay(): 0=일 1=월 ... 6=토. 일요일(0)이면 6일 전 월요일.
 function thisWeekMondayISO(): string {
   const now = new Date();
@@ -67,7 +65,7 @@ const RETURN_PERIODS: ReturnsRow[] = [
   { label: "3달", daysAgo: 63 },
 ];
 
-export function ChartMetaBar({ ticker, stockName, market, sector }: Props) {
+export function ChartMetaBar({ ticker, market }: Props) {
   const indexCode = market ? MARKET_INDEX_CODE[market] ?? null : null;
 
   const stockQ = useQuery<DailyIndicator[]>({
@@ -75,6 +73,15 @@ export function ChartMetaBar({ ticker, stockName, market, sector }: Props) {
     queryFn: () =>
       api<DailyIndicator[]>(
         `/indicators/daily/${ticker}?start=${nDaysAgoISO(180)}&end=${todayISO()}`,
+      ),
+    enabled: !!ticker,
+  });
+
+  const weeklyQ = useQuery<WeeklyIndicator[]>({
+    queryKey: ["meta-bar-weekly", ticker],
+    queryFn: () =>
+      api<WeeklyIndicator[]>(
+        `/indicators/weekly/${ticker}?start=${nDaysAgoISO(120)}&end=${todayISO()}`,
       ),
     enabled: !!ticker,
   });
@@ -108,52 +115,45 @@ export function ChartMetaBar({ ticker, stockName, market, sector }: Props) {
     });
   }, [stockQ.data, indexQ.data]);
 
+  // 이번주 누적 거래량 + 진행 일수
   const weekVolume = useMemo(() => {
     const sb = stockQ.data ?? [];
-    if (sb.length === 0) return { sum: null as number | null, days: 0, sma50: null as number | null };
+    if (sb.length === 0) return { sum: null as number | null, days: 0 };
     const monday = thisWeekMondayISO();
     const week = sb.filter((d) => d.date >= monday && d.volume != null);
     const sum = week.reduce((acc, d) => acc + (d.volume ?? 0), 0);
-    const sma50 = sb[sb.length - 1].avg_volume_50d ?? null;
-    return { sum: week.length > 0 ? sum : null, days: week.length, sma50 };
+    return { sum: week.length > 0 ? sum : null, days: week.length };
   }, [stockQ.data]);
 
-  // 주간 일평균 vs SMA50 비교 (%)
-  const weekVsSma = useMemo(() => {
-    if (!weekVolume.sum || !weekVolume.days || !weekVolume.sma50) return null;
-    const dailyAvg = weekVolume.sum / weekVolume.days;
-    return pctChange(dailyAvg, weekVolume.sma50);
-  }, [weekVolume]);
+  // 주봉 10주 평균 거래량 (가장 최근 유효 값)
+  const weeklyAvg = useMemo<number | null>(() => {
+    const wb = weeklyQ.data ?? [];
+    for (let i = wb.length - 1; i >= 0; i--) {
+      const v = wb[i].avg_volume_10w;
+      if (v != null) return v;
+    }
+    return null;
+  }, [weeklyQ.data]);
 
-  const loading = stockQ.isLoading || (!!indexCode && indexQ.isLoading);
+  // 진행도: 이번주 누적 / 주간 평균 × 100
+  const weekProgress = useMemo<number | null>(() => {
+    if (!weekVolume.sum || !weeklyAvg) return null;
+    return (weekVolume.sum / weeklyAvg) * 100;
+  }, [weekVolume.sum, weeklyAvg]);
+
+  const loading =
+    stockQ.isLoading || weeklyQ.isLoading || (!!indexCode && indexQ.isLoading);
   const error = stockQ.isError;
 
   return (
     <div className="bento p-4 mb-3">
-      <div className="text-data flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="num font-bold text-ink">{ticker}</span>
-        {stockName && <span className="font-semibold text-ink">{stockName}</span>}
-        {market && (
-          <>
-            <span className="text-faint">·</span>
-            <span className="text-muted">{market}</span>
-          </>
-        )}
-        {sector && (
-          <>
-            <span className="text-faint">·</span>
-            <span className="text-muted">{sector}</span>
-          </>
-        )}
-      </div>
-
       {loading ? (
-        <div className="mt-2 text-muted">불러오는 중…</div>
+        <div className="text-muted">불러오는 중…</div>
       ) : error ? (
-        <div className="mt-2 text-muted">정보를 불러오지 못했습니다</div>
+        <div className="text-muted">정보를 불러오지 못했습니다</div>
       ) : (
         <>
-          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-data">
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-data">
             {returns.map(({ label, stock, idx }) => (
               <span key={label} className="inline-flex items-baseline gap-1.5">
                 <span className="caps text-faint">{label}</span>
@@ -170,21 +170,21 @@ export function ChartMetaBar({ ticker, stockName, market, sector }: Props) {
           </div>
 
           <div className="mt-1 text-data text-muted">
-            <span className="caps text-faint">이번주 거래량</span>{" "}
+            <span className="caps text-faint">이번주 누적</span>{" "}
             <span className="num text-ink">
               {weekVolume.sum != null ? formatVolume(weekVolume.sum) : "—"}
             </span>{" "}
             {weekVolume.days > 0 && (
-              <span className="text-faint">({weekVolume.days}일)</span>
+              <span className="text-faint">({weekVolume.days}/5일)</span>
             )}
             {" / "}
-            <span className="caps text-faint">SMA50</span>{" "}
+            <span className="caps text-faint">주간 평균 (10주)</span>{" "}
             <span className="num text-ink">
-              {weekVolume.sma50 != null ? formatVolume(weekVolume.sma50) : "—"}
+              {weeklyAvg != null ? formatVolume(weeklyAvg) : "—"}
             </span>
-            {weekVsSma != null && (
-              <span className={`num ml-1.5 ${pctClass(weekVsSma)}`}>
-                ({formatPct(weekVsSma)})
+            {weekProgress != null && (
+              <span className={`num ml-1.5 ${pctClass(weekProgress - 100)}`}>
+                (진행도 {weekProgress.toFixed(0)}%)
               </span>
             )}
           </div>

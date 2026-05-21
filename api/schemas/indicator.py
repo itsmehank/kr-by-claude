@@ -58,6 +58,7 @@ class WeeklyIndicatorOut(BaseModel):
     low: float | None = None
     close: float | None = None
     volume: int | None = None
+    avg_volume_10w: float | None = None
     sma_10w: float | None = None
     sma_30w: float | None = None
     sma_40w: float | None = None

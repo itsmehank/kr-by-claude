@@ -80,6 +80,7 @@ def get_weekly(
             """
             SELECT i.week_end_date, i.adj_close,
                    p.open, p.high, p.low, p.close, p.volume,
+                   i.avg_volume_10w,
                    i.sma_10w, i.sma_30w, i.sma_40w,
                    i.w52_high, i.w52_low,
                    i.rs_line, i.rs_rating, i.minervini_pass
@@ -101,14 +102,15 @@ def get_weekly(
             low=float(r[4]) if r[4] is not None else None,
             close=float(r[5]) if r[5] is not None else None,
             volume=int(r[6]) if r[6] is not None else None,
-            sma_10w=float(r[7]) if r[7] is not None else None,
-            sma_30w=float(r[8]) if r[8] is not None else None,
-            sma_40w=float(r[9]) if r[9] is not None else None,
-            w52_high=float(r[10]) if r[10] is not None else None,
-            w52_low=float(r[11]) if r[11] is not None else None,
-            rs_line=float(r[12]) if r[12] is not None else None,
-            rs_rating=r[13],
-            minervini_pass=r[14],
+            avg_volume_10w=float(r[7]) if r[7] is not None else None,
+            sma_10w=float(r[8]) if r[8] is not None else None,
+            sma_30w=float(r[9]) if r[9] is not None else None,
+            sma_40w=float(r[10]) if r[10] is not None else None,
+            w52_high=float(r[11]) if r[11] is not None else None,
+            w52_low=float(r[12]) if r[12] is not None else None,
+            rs_line=float(r[13]) if r[13] is not None else None,
+            rs_rating=r[14],
+            minervini_pass=r[15],
         )
         for r in rows
     ]
