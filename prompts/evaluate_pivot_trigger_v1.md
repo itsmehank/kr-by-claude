@@ -12,10 +12,10 @@
 ## 2. Inputs (JSON)
 
 - `symbol`, `name`, `market`, `evaluation_date`
-- `trigger_type`: "breakout" | "invalidation"
-- `prior_analysis`: 주말 (5) 결과 (`classification`, `pattern`, `pivot_price`, `pivot_basis`, `base_high`, `base_low`, `base_depth_pct`, `risk_flags`, `reasoning`)
+- `trigger_type`: "breakout" | "invalidation" | "promotion"
+- `prior_analysis`: 주말 (5) 결과 (`classified_at`, **`days_since_classification`** (분류 후 경과일), `classification`, `pattern`, `pivot_price`, `pivot_basis`, `base_high`, `base_low`, `base_depth_pct`, `risk_flags`, `reasoning`)
 - `recent_daily_ohlcv_20d`: 최근 20영업일 OHLCV 리스트
-- `current_metrics`: `close`, `volume`, `avg_volume_50d`, `volume_ratio`, `sma_50`
+- `current_metrics`: `close`, `volume`, `avg_volume_50d`, `volume_ratio`, `sma_50`, **`sma_21`** (≈ 20-day line, Minervini *Think & Trade Like a Champion* Ch.1 의 "20-day line" 가드용)
 - `recent_evaluation_history`: 최근 7일 (5b) 이력 (있을 때만)
 
 ## 3. Decision Logic
@@ -38,15 +38,29 @@
 - base_low 이탈 (today's low < base_low)
 - sma_50 명확 이탈 (close < sma_50 × 0.98 + 거래량 동반)
 - 최근 5일 distribution day 3+ 발생
+- **돌파 직후 20일선 가드 위반** (Minervini *TTLC* Ch.1 "WATCH THE 20-DAY LINE
+  SOON AFTER A BASE BREAKOUT"): `days_since_classification` 이 작아 "돌파
+  직후 (soon after)" 로 판단되고 (대략 분류 후 4주 이내), `close < sma_21`
+  종가 이탈 + 거래량 동반/추가 위반 (예: 직전 며칠 distribution 누적,
+  spread wide-and-loose 등). **단독 sma_21 이탈은 wait 로** — 책이 "단독으론
+  의미 없다 (not significant on its own)" 명시.
 
 ### 3.2 trigger_type = "invalidation"
 
 `abort`:
 - close < sma_50 (>2% 이탈) + 거래량 동반
 - close < prior_analysis.base_low
+- **돌파 직후 20일선 가드 추가 적용** (Minervini *TTLC* Ch.1): invalidation
+  트리거는 sma_50 이탈 시점에 발동되지만, `days_since_classification` 이 작아
+  "돌파 직후" 인 종목에서 `close < sma_21` 도 이미 위반 + 거래량 동반 시
+  abort 신뢰성 증가 (Minervini "성공률 약 절반으로 줄어든다 / cut in about
+  half" 표현).
 
 `wait`:
 - 위 abort 조건 충족 안 함 (단일 약세일, 베이스 여전히 valid 가능)
+- 단독 sma_21 종가 이탈만으로는 wait (책: 단독 무의미)
+- 단 squat (되밀림) 가능성 — 며칠~10일 reversal recovery 여지 (Minervini
+  *TLSMW* Ch.10).
 
 `go_now` 발생 안 함 (invalidation 트리거에서는).
 

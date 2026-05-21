@@ -53,7 +53,7 @@ def build_for_5b(
 
         cur.execute(
             """
-            SELECT adj_close, volume, avg_volume_50d, sma_50
+            SELECT adj_close, volume, avg_volume_50d, sma_50, sma_21
               FROM daily_indicators
              WHERE ticker = %s AND date <= %s
              ORDER BY date DESC LIMIT 1
@@ -82,6 +82,7 @@ def build_for_5b(
         "trigger_type": trigger_type,
         "prior_analysis": {
             "classified_at": prior[0].isoformat(),
+            "days_since_classification": (as_of - prior[0].date()).days,
             "classification": prior[1],
             "pattern": prior[2],
             "pivot_price": float(prior[3]) if prior[3] else None,
@@ -116,6 +117,7 @@ def build_for_5b(
                     else None
                 ),
                 "sma_50": float(cur_row[3]) if cur_row and cur_row[3] else None,
+                "sma_21": float(cur_row[4]) if cur_row and cur_row[4] else None,
             }
             if cur_row
             else {}

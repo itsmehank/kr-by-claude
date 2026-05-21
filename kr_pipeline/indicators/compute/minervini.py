@@ -35,6 +35,11 @@ def compute_minervini_c1_to_c7(df: pd.DataFrame, sma_200_lookback: int = 22) -> 
     # C5: close > sma_50
     out["minervini_c5"] = close > sma50
     # C6: close >= w52_low * 1.25
+    # 책 근거: Minervini *Think & Trade Like a Champion*, Ch.6 (최신작)
+    # "Trend Template Criteria" 조건 5 — 현재가가 52주 저가 대비 최소 25%
+    # 위. *Trade Like a Stock Market Wizard* Ch.5 조건 6 은 +30% (1.30)
+    # 으로 명시 (Wizard 본문은 "25-30% 상승" 으로도 서술). 두 저작 간 버전
+    # 차이이며 둘 다 책 근거 있음. 우리는 최신작 (Champion) 기준 1.25 채택.
     out["minervini_c6"] = close >= w52l * 1.25
     # C7: close >= w52_high * 0.75
     out["minervini_c7"] = close >= w52h * 0.75
