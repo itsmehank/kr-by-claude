@@ -288,8 +288,9 @@ position_size_pct (prompt §3.1-3.3):
         book: "Morales & Kacher, *Trade Like an O'Neil Disciple*",
         chapter: "Ch.5 'Pocket Pivot'",
         englishQuote:
-          "A pocket pivot is an early entry signal that occurs within a base, before the standard pivot point breakout.",
-        koreanSummary: "Pocket pivot entry 패턴.",
+          "A pocket pivot is an early entry signal that occurs within a base, before the standard pivot point breakout. Pocket pivots should only be bought when they occur above the 50-day moving average.",
+        koreanSummary:
+          "Pocket pivot entry 패턴. 필수 조건: 종가가 50일 이동평균 위 (2008 폭락 직후 같은 매우 드문 예외 제외, TLOND p.132). 거래량은 직전 10거래일 중 하락일 최대 거래량 초과.",
       },
     ],
     codeRefs: [
