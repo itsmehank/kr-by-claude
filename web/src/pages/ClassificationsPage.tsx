@@ -93,7 +93,7 @@ const RISK_FLAG_DESCRIPTIONS: Record<string, string> = {
   reverse_split_distortion:
     "최근 12주 내 reverse split — 가격 왜곡 가능 (실무 휴리스틱, 책 원전 아님).",
   unfavorable_market_context:
-    "시장 downtrend/correction 또는 distribution day 5개 이상 (25 sessions; O'Neil 의 '4~5주' 중 느슨한 쪽, IBD/Dr.K 표준은 20일).",
+    "시장 downtrend/correction 또는 distribution day 5개 이상 (25 sessions). O'Neil HMMS Ch.9 의 표준.",
   etf_methodology_mismatch:
     "ETF/fund — Minervini/O'Neil 개별 leadership 종목 방법론 적용 안 됨.",
   thin_liquidity_us_only:
