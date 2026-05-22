@@ -87,7 +87,7 @@ const RISK_FLAG_DESCRIPTIONS: Record<string, string> = {
   wide_and_loose:
     "주봉 변동폭이 erratic / 시장 조정 대비 2.5배 초과 — 거래 어려운 base (O'Neil).",
   prior_uptrend_insufficient:
-    "52주 저점 대비 25% 미만 상승 — Minervini Trend Template #5 위반 (Stage 2 진입 부족).",
+    "직전 base 대비 20% 미만 상승 — flat_base 패턴의 prior uptrend 요건 미달 (prompt §5). C6 (52주 저점 ×1.25) 와 다른 개념.",
   volume_contraction_on_advance:
     "상승 중 거래량 감소 — 수요 약화 / 기관 매수 부족 신호 (O'Neil: lost appetite).",
   reverse_split_distortion:
