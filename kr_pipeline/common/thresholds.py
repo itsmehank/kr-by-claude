@@ -57,6 +57,19 @@ PP_DOWN_VOL_LOOKBACK_DAYS: Final[int] = 10
 책: Morales & Kacher TLOND Ch.5 p.133 — 기본 10 일.
 선호: 변동성 큰 종목은 11-15 일 (책 단서, 적응형 미구현)."""
 
+# ===== Breakout Volume — 책 표준 (prompts/calculate_entry_params_v2_0.md §6.1) =====
+
+BREAKOUT_VOL_FLOOR: Final[float] = 1.4
+"""Breakout 거래량 허용 하한 (50일 평균 배수).
+책: O'Neil HMMS Ch.2 p.117 — '40% to 50% above normal'. 하한 = 40% (=1.4×).
+1.4×~1.5× 구간은 'preferred 미달' 경고 emit."""
+
+BREAKOUT_VOL_PREFERRED: Final[float] = 1.5
+"""Breakout 거래량 선호치 (50일 평균 배수).
+책: O'Neil HMMS p.117 / p.185 — '40% to 50% above normal', 선호 50%+.
+TLOND p.134 — 'standard breakout = 50% above average or more'.
+2026-05-22 (P0-1): 디폴트를 1.4× → 1.5× 로 상향, 1.4× 는 허용 하한."""
+
 # ===== Distribution Day - 종목 레벨 (kr_pipeline/indicators/compute/volume.py) =====
 
 STOCK_DISTRIBUTION_VOL_MULT: Final[float] = 1.0

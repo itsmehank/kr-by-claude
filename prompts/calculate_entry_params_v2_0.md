@@ -316,12 +316,14 @@ O'Neil's rule: breakout day volume should be **40–50% above the 50-day average
 | Value | When to choose |
 |---|---|
 | `ge_1.3x_50day_avg` | tight VCP only — `pattern_basis == "vcp"` with final contraction range ≤ 6% of pivot AND volume contracting through the contraction |
-| `ge_1.4x_50day_avg` | **default** — `flat_base`, `cup_with_handle`, `double_bottom`, standard `vcp` |
-| `ge_1.5x_50day_avg` | `pattern_basis == "3c_cheat"` (earliest entry) |
+| `ge_1.4x_50day_avg` | acceptable floor (book "40% above normal") — emit `breakout_volume_below_preferred_50pct` if observed in [1.4×, 1.5×) |
+| `ge_1.5x_50day_avg` | **default** — `flat_base`, `cup_with_handle`, `double_bottom`, standard `vcp` AND `pattern_basis == "3c_cheat"` (book preferred 50%+) |
 
 `observed_breakout_volume_ratio`: actual breakout-day volume / 50-day avg, rounded to 2 decimals. Range `[0.0, 20.0]`. `null` if no breakout occurred yet.
 
 Auto-warning: if observed < threshold(req) → emit `breakout_volume_below_requirement`.
+
+**Default selection (v2.1, P0-1)**: For standard patterns (`flat_base`, `cup_with_handle`, `double_bottom`, standard `vcp`, `3c_cheat`), default to `ge_1.5x_50day_avg` (책 선호치 50%). When observed ratio is in `[1.4, 1.5)` — i.e. ≥ floor but < preferred — emit `known_warnings: ["breakout_volume_below_preferred_50pct"]` and still allow entry.
 
 When choosing `ge_1.3x_50day_avg`: add `breakout_volume_requirement_relaxed`.
 
@@ -358,7 +360,7 @@ Multipliers cumulative. Apply all matching, then clamp.
 
 ## 8. Warnings — known + other (hybrid)
 
-### 8.1 `known_warnings` whitelist (v2.0: 15 codes)
+### 8.1 `known_warnings` whitelist (v2.1: 16 codes)
 
 | Code | Emit when |
 |---|---|
@@ -372,6 +374,7 @@ Multipliers cumulative. Apply all matching, then clamp.
 | `pattern_refined_to_3c_cheat` | `cup_with_handle` was refined to `3c_cheat` |
 | `extended_from_pivot_already` | `current_price > pivot_price * 1.03` — window shortened to 1 |
 | `breakout_volume_requirement_relaxed` | `ge_1.3x_50day_avg` was chosen (tight VCP only) |
+| `breakout_volume_below_preferred_50pct` | observed in [1.4×, 1.5×) — meets book floor (40%) but below preferred (50%) |
 | `stop_buffer_increased_for_shake_protection` | logical stop placed deliberately further below visible base low to avoid round-number shakeout |
 | `stop_distance_from_current_price_exceeds_book_limit` | `abs(stop_loss_pct_from_current_price) > 7.5` |
 | `breakout_volume_below_requirement` | populated `observed_breakout_volume_ratio` < requirement threshold |
@@ -485,7 +488,7 @@ Late-entry low-volume breakout example (v1.1-style NVST case, preserved for back
 | `breakout_volume_requirement` | exactly one of: `ge_1.3x_50day_avg`, `ge_1.4x_50day_avg`, `ge_1.5x_50day_avg`, `pocket_pivot_signature` |
 | `observed_breakout_volume_ratio` | null OR 0.0 ≤ x ≤ 20.0 |
 | `notes` | 50–600 characters; must reference entry_mode, stop binding rule, sizing tier, both stop_pct values, and any auto-warnings |
-| `known_warnings` | array from §8.1 whitelist (15 codes); no duplicates |
+| `known_warnings` | array from §8.1 whitelist (16 codes); no duplicates |
 | `other_warnings` | array of free-text strings; each 5–200 characters |
 | combined warnings | `len(known_warnings) + len(other_warnings) ≤ 6` (after auto-emit) |
 

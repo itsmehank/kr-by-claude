@@ -26,6 +26,11 @@ def test_pocket_pivot():
     assert thresholds.PP_DOWN_VOL_LOOKBACK_DAYS == 10
 
 
+def test_breakout_volume_constants():
+    assert thresholds.BREAKOUT_VOL_FLOOR == 1.4
+    assert thresholds.BREAKOUT_VOL_PREFERRED == 1.5
+
+
 def test_volume_constants():
     assert thresholds.STOCK_DISTRIBUTION_VOL_MULT == 1.0
     assert thresholds.VOLUME_DRY_UP_MULT == 0.5
