@@ -116,7 +116,10 @@ export const VOLUME_RATIO_HELP = (
         <span className="num font-semibold">1.50×</span> 이상 — breakout 의 거래량 요건.
       </li>
       <li>
-        <span className="num font-semibold">2.00×</span> 이상 — 강한 매수세 / pocket pivot 후보.
+        <span className="num font-semibold">2.00×</span> 이상 — 강한 매수세 (institutional buying).
+      </li>
+      <li>
+        <span className="font-semibold">Pocket pivot</span> — avg 배수 무관. 상승일 거래량이 직전 10거래일 중 하락일 최대 거래량을 초과 + 종가가 50일 이동평균 위 (Morales &amp; Kacher TLOND Ch.5 p.132-133).
       </li>
     </ul>
   </div>
