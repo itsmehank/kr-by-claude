@@ -9,11 +9,20 @@
 from datetime import date
 import pandas as pd
 
+from kr_pipeline.common.thresholds import (
+    FTD_PCT_THRESHOLD as _SSOT_FTD_PCT_THRESHOLD,
+    FTD_RALLY_WINDOW_MIN_DAYS,
+    FTD_RALLY_WINDOW_MAX_DAYS,
+    FTD_LOW_LOOKBACK_DAYS,
+)
 
-FTD_PCT_THRESHOLD = 1.4              # Kacher 권장 (책: 1.0%)
-FTD_RALLY_WINDOW_MIN = 3             # 책 명시
-FTD_RALLY_WINDOW_MAX = 15            # 책 명시
-FTD_LOW_LOOKBACK = 15                # rally start 후보 lookback
+# 기존 module-level 상수는 SSOT (kr_pipeline/common/thresholds.py) 로 이전.
+# 호환성을 위해 같은 이름 별칭 유지. 시장별 임계는 추후 (P2-1a) 별도 함수
+# 인자로 받도록 변경 예정 — 현재는 양 시장 동일 1.4% 사용.
+FTD_PCT_THRESHOLD = _SSOT_FTD_PCT_THRESHOLD["KOSPI"]  # = KOSDAQ 도 동일값
+FTD_RALLY_WINDOW_MIN = FTD_RALLY_WINDOW_MIN_DAYS
+FTD_RALLY_WINDOW_MAX = FTD_RALLY_WINDOW_MAX_DAYS
+FTD_LOW_LOOKBACK = FTD_LOW_LOOKBACK_DAYS
 
 
 def detect_last_ftd(
