@@ -91,6 +91,12 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 | `double_bottom` | Two lows near the same level; second undercuts first (W-shape, shakeout); 7+ weeks total duration; pivot at middle peak of W | O'Neil, *HMMS* Ch.2 |
 | `none` | No structure matching above. Use for climax runs, early-stage, wide-and-loose action, or ambiguous structure. |
 
+**Handle quality (cup_with_handle only) — all should hold or downgrade toward `none` / `watch`:**
+
+- **Handle depth ≤ 8–12% from its own peak** in a normal market, measured separately from the total cup depth. A handle deeper than ~12% is loose; treat the structure with caution. (O'Neil HMMS Ch.2 p.116: "A price drop in a proper handle should be contained within 8% to 12% of its peak during bull markets unless the stock forms a very large cup".)
+- **Handle low must sit above the stock's 10-week (≈ SMA-50 on the weekly chart) moving average** AND in the upper half of the cup. A handle in the lower half or below the 10-week line is failure-prone. (O'Neil HMMS Ch.2 p.116: "The handle should also be above the stock's 10-week moving average price line. Handles that form in the lower half ... or completely below the stock's 10-week line are weak and failure-prone".)
+- **Beware wedging handles**: if the handle's lows drift *upward* or run flat (rather than drifting down with a shakeout), the breakout is failure-prone and often signals a 3rd/4th-stage or laggard base. If a wedging handle is visible on the weekly chart, prefer `watch` and note "wedging handle" in reasoning; consider adding `late_stage_base` to `risk_flags`. (O'Neil HMMS Ch.2 p.116: "handles that consistently wedge up ... have a much higher probability of failing when they break out", and "tends to occur in third- or fourth-stage bases, in laggard stock bases".)
+
 **Pattern-specific minimum duration (for `narrow_base` flag):**
 - flat_base: < 5 weeks → narrow_base
 - cup_with_handle: < 7 weeks → narrow_base
