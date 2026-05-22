@@ -2,9 +2,33 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Environment / secrets
 .env
+.env.local
+.env.*.local
+web/.env
+web/.env.local
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+
+# Logs / databases
 *.log
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+
+# OS / IDE
 .DS_Store
+.idea/
+.vscode/
+
+# Build artifacts
 dist/
 *.egg-info/
 web/node_modules/
