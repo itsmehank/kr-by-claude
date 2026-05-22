@@ -8,8 +8,10 @@ from datetime import date, timedelta
 
 from psycopg import Connection
 
+from kr_pipeline.common.thresholds import RECENT_CLASSIFICATION_WINDOW_DAYS
 
-RECENT_WINDOW_DAYS = 7
+# 기존 module-level 상수는 SSOT 로 이전. 호환성 별칭 유지.
+RECENT_WINDOW_DAYS = RECENT_CLASSIFICATION_WINDOW_DAYS
 
 
 def find_new_tickers(conn: Connection, as_of: date | None = None) -> list[str]:
