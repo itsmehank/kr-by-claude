@@ -102,7 +102,9 @@ def distribution_day(
 ) -> pd.Series:
     """is_down_day AND adj_volume > avg_volume * threshold.
 
-    1.25 는 IBD/community 임계 (책 명시 아님).
-    종목 레벨에서 단순 is_down_day 사용. 시장 레벨 -0.2% 임계는 #4 에서 별도 처리.
+    2026-05-22 (P0-2): threshold default 1.25 → 1.0 정렬. prompt §6 의
+    정의 (close down ≥0.2% on volume > 1.0× of 50-day average) 와 일치.
+    is_down_day (현재 0% 컷) vs prompt 의 -0.2% 컷 차이는 별도 fix 대상이
+    아니며, LLM 이 §6 텍스트대로 OHLCV 재계산할 때 자연스럽게 -0.2% 적용.
     """
     return (is_down_day & (adj_volume > (avg_volume_series * threshold))).fillna(False)

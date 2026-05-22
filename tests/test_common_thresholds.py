@@ -27,7 +27,7 @@ def test_pocket_pivot():
 
 
 def test_volume_constants():
-    assert thresholds.STOCK_DISTRIBUTION_VOL_MULT == 1.25
+    assert thresholds.STOCK_DISTRIBUTION_VOL_MULT == 1.0
     assert thresholds.VOLUME_DRY_UP_MULT == 0.5
 
 

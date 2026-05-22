@@ -59,10 +59,11 @@ PP_DOWN_VOL_LOOKBACK_DAYS: Final[int] = 10
 
 # ===== Distribution Day - 종목 레벨 (kr_pipeline/indicators/compute/volume.py) =====
 
-STOCK_DISTRIBUTION_VOL_MULT: Final[float] = 1.25
+STOCK_DISTRIBUTION_VOL_MULT: Final[float] = 1.0
 """종목 레벨 distribution day 의 거래량 임계 (50일 평균 배수).
-주의: 책 표준 / prompt §6 와 불일치 (P0-2 에서 1.0× 로 정렬 예정).
-책 표준: O'Neil HMMS Ch.9 — 전일 거래량 초과 (avg 배수 아님)."""
+2026-05-22 (P0-2): 1.25 → 1.0 정렬 — prompt §6 의 정의 (close down ≥0.2%
+on volume > 1.0× of 50-day average) 와 일치. 책 표준 (O'Neil HMMS Ch.9:
+'전일 거래량 초과') 의 IBD 실무 근사."""
 
 # ===== Volume Dry-up (kr_pipeline/indicators/compute/volume.py) =====
 
