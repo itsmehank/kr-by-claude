@@ -198,6 +198,7 @@ Select from **exactly this taxonomy** (no other values are permitted):
 Separate from the market-level distribution count in `market_context`, evaluate the stock's own distribution pattern over the past 25 sessions:
 
 - A stock distribution day = close down ≥ 0.2% on volume > 1.0× of 50-day average.
+- **Use the `distribution_day_flag` series in `indicators_recent_60d` as the authoritative per-day signal for this count; the textual definition above describes how that flag is computed.** (Same convention as `pocket_pivot_flag` in §4.5 — column is authoritative.)
 - If 4+ distribution days within the past 25 sessions on the stock itself: this stock is being sold by institutions even while in Stage 2. Add `volume_contraction_on_advance` if volume is also drying up on up-days, or demote to `watch`.
 - A single distribution day is normal; clusters are warnings.
 
