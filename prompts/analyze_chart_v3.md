@@ -182,7 +182,7 @@ Select from **exactly this taxonomy** (no other values are permitted):
 | `climax_run` | Price up ≥25% in 1–3 weeks; largest weekly price spread and heaviest volume of the current move (Minervini Stage 3 warning) |
 | `late_stage_base` | 3rd or later base in the current Stage 2 advance |
 | `extended_from_ma` | Price > SMA-50 by more than 15% |
-| `faulty_pivot` | Pivot is at a prior resistance level that has failed 2+ times |
+| `faulty_pivot` | Pivot is at a prior resistance level that has failed 2+ times, OR the pivot sits atop a structurally faulty base feature — e.g. an immediate V-shaped new high without any pullback, or a breakout that lacks volume confirmation. (Handle-specific faults — wedging handle, lower-half handle, depth >12% — are covered in §4 cup_with_handle handle quality block.) |
 | `low_volume_breakout` | Breakout volume < 1.4× the 50-day average (O'Neil: 40-50% above normal at minimum) |
 | `narrow_base` | Base duration below pattern-specific minimum (see §4) |
 | `wide_and_loose` | Weekly price swings > 10–15% during the base; erratic, difficult to trade (O'Neil: 1.5–2.5× general market correction) |
