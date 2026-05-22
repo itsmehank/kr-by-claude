@@ -3,6 +3,8 @@
 from datetime import date
 from psycopg import Connection
 
+from kr_pipeline.common.thresholds import C8_RS_RATING_MIN
+
 
 PHASE_A_COLUMNS_DAILY = [
     "ticker", "date", "adj_close",
@@ -83,22 +85,22 @@ def update_daily_indicators_minervini_pass(
     start_date: date,
     end_date: date,
 ) -> int:
-    """단일 SQL UPDATE 로 c8 (rs_rating >= 70) 와 minervini_pass (c1..c8 ALL TRUE) 계산."""
+    """단일 SQL UPDATE 로 c8 (rs_rating >= C8_RS_RATING_MIN) 와 minervini_pass (c1..c8 ALL TRUE) 계산."""
     with conn.cursor() as cur:
         cur.execute(
             """
             UPDATE daily_indicators
-               SET minervini_c8 = (rs_rating >= 70),
+               SET minervini_c8 = (rs_rating >= %s),
                    minervini_pass = (
                        minervini_c1 IS TRUE AND minervini_c2 IS TRUE AND
                        minervini_c3 IS TRUE AND minervini_c4 IS TRUE AND
                        minervini_c5 IS TRUE AND minervini_c6 IS TRUE AND
-                       minervini_c7 IS TRUE AND (rs_rating >= 70)
+                       minervini_c7 IS TRUE AND (rs_rating >= %s)
                    ),
                    updated_at = NOW()
              WHERE date BETWEEN %s AND %s
             """,
-            (start_date, end_date),
+            (C8_RS_RATING_MIN, C8_RS_RATING_MIN, start_date, end_date),
         )
         return cur.rowcount
 
