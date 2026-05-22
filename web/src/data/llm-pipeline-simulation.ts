@@ -90,7 +90,7 @@ export const SIMULATION_ROWS: SimRow[] = [
             { label: "pivot_price", value: "84,500" },
             { label: "오늘 close", value: "85,200" },
             { label: "오늘 volume", value: "12,150,000 (1.82× avg_volume_20d)" },
-            { label: "결정론 게이트", value: "close > pivot AND volume ≥ 1.5× avg → breakout" },
+            { label: "결정론 게이트", value: "close > pivot AND volume ≥ avg (1.0×) → breakout (정밀 1.5× 선호치는 LLM)" },
           ],
           outputs: [
             { label: "decision", value: "go_now" },
@@ -264,7 +264,7 @@ export const SIMULATION_ROWS: SimRow[] = [
             { label: "confidence", value: "0.82" },
           ],
           reasoning: "VCP 완성. tight 한 4번째 contraction. 거래량 점진 감소. pivot 152,000.",
-          impact: "evaluate_pivot 의 entry 게이트. close > pivot + volume 1.5× 시 breakout.",
+          impact: "evaluate_pivot 의 entry 게이트. close > pivot + volume ≥ avg (1.0×) 시 breakout 트리거 (매수 확정 1.5× 는 LLM).",
         },
       },
       "2026-05-20": {

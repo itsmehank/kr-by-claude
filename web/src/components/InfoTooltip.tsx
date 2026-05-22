@@ -65,7 +65,7 @@ export const TRIGGER_TYPE_HELP = (
     <ul className="space-y-1.5">
       <li>
         <span className="font-semibold">breakout</span>{" "}
-        — 종가가 pivot 가격을 돌파 + 거래량 1.5× 이상.
+        — 종가가 pivot 가격을 돌파 + 거래량이 50일 평균 이상 (게이트 통과 = ≥ 1.0×). 매수 확정 (entry_params) 은 LLM 이 책 표준 1.5× 선호치 / 1.4× 허용 하한을 적용.
       </li>
       <li>
         <span className="font-semibold">promotion</span>{" "}
