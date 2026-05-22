@@ -6,8 +6,17 @@
 import numpy as np
 import pandas as pd
 
+from kr_pipeline.common.thresholds import (
+    C3_SMA200_LOOKBACK_DAYS,
+    C6_W52LOW_MULT,
+    C7_W52HIGH_MULT,
+)
 
-def compute_minervini_c1_to_c7(df: pd.DataFrame, sma_200_lookback: int = 22) -> pd.DataFrame:
+
+def compute_minervini_c1_to_c7(
+    df: pd.DataFrame,
+    sma_200_lookback: int = C3_SMA200_LOOKBACK_DAYS,
+) -> pd.DataFrame:
     """
     입력 df 컬럼: adj_close, sma_50, sma_150, sma_200, w52_high, w52_low
     출력: minervini_c1 ~ minervini_c7 boolean 컬럼 (NaN 가능)
@@ -34,15 +43,10 @@ def compute_minervini_c1_to_c7(df: pd.DataFrame, sma_200_lookback: int = 22) -> 
     out["minervini_c4"] = (sma50 > sma150) & (sma150 > sma200)
     # C5: close > sma_50
     out["minervini_c5"] = close > sma50
-    # C6: close >= w52_low * 1.25
-    # 책 근거: Minervini *Think & Trade Like a Champion*, Ch.6 (최신작)
-    # "Trend Template Criteria" 조건 5 — 현재가가 52주 저가 대비 최소 25%
-    # 위. *Trade Like a Stock Market Wizard* Ch.5 조건 6 은 +30% (1.30)
-    # 으로 명시 (Wizard 본문은 "25-30% 상승" 으로도 서술). 두 저작 간 버전
-    # 차이이며 둘 다 책 근거 있음. 우리는 최신작 (Champion) 기준 1.25 채택.
-    out["minervini_c6"] = close >= w52l * 1.25
+    # C6: close >= w52_low * C6_W52LOW_MULT (책 임계는 SSOT docstring 참조)
+    out["minervini_c6"] = close >= w52l * C6_W52LOW_MULT
     # C7: close >= w52_high * 0.75
-    out["minervini_c7"] = close >= w52h * 0.75
+    out["minervini_c7"] = close >= w52h * C7_W52HIGH_MULT
 
     # NaN 보존: 입력 중 하나라도 NaN 이면 조건도 NaN (pandas 비교 결과는 False 이지만, 우리는 NaN 으로)
     for c, cols in [
