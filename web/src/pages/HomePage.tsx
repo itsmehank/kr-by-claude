@@ -268,7 +268,7 @@ function MarketBento({ context, title, code, tint }: MarketBentoProps) {
                 <>
                   <div className="font-semibold mb-1">Follow-Through Day</div>
                   <div>
-                    시장 바닥 후 4-7일째 +1.7% 이상 상승 + 거래량 증가한 첫 강세 신호.
+                    저점 후 3-15일째 (최적 4-7일) +1.4% 이상 상승 + 전일 대비 거래량 증가한 첫 강세 신호.
                     신규 상승장 진입 트리거.
                   </div>
                 </>
