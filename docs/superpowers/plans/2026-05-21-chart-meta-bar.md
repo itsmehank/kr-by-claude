@@ -92,7 +92,7 @@ app.include_router(index.router)
 
 - [ ] **Step 3: Verify routing**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && python -c "from api.main import app; print([r.path for r in app.routes if '/index' in r.path])"`
+Run: `cd ~/kr-by-claude && python -c "from api.main import app; print([r.path for r in app.routes if '/index' in r.path])"`
 
 Expected output: `['/api/index/daily/{index_code}']`
 
@@ -143,7 +143,7 @@ def test_unknown_index_returns_empty(client, seed_index):
 
 - [ ] **Step 5: Run the empty-handler test**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && uv run pytest tests/test_api_index.py::test_unknown_index_returns_empty -v`
+Run: `cd ~/kr-by-claude && uv run pytest tests/test_api_index.py::test_unknown_index_returns_empty -v`
 
 Expected: PASS (empty handler returns `[]`).
 
@@ -176,7 +176,7 @@ def test_default_window_returns_recent(client, seed_index):
     assert {"2026-05-18", "2026-05-19", "2026-05-20"}.issubset(dates)
 ```
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && uv run pytest tests/test_api_index.py -v`
+Run: `cd ~/kr-by-claude && uv run pytest tests/test_api_index.py -v`
 
 Expected: 1 pass + 3 fail (empty handler doesn't return real rows yet).
 
@@ -235,7 +235,7 @@ def get_index_daily(
 
 - [ ] **Step 8: Run all index tests**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && uv run pytest tests/test_api_index.py -v`
+Run: `cd ~/kr-by-claude && uv run pytest tests/test_api_index.py -v`
 
 Expected: 4/4 PASS.
 
@@ -476,7 +476,7 @@ export function ChartMetaBar({ ticker, stockName, market, sector }: Props) {
 
 - [ ] **Step 3: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 
@@ -584,13 +584,13 @@ The inner `<PriceChart .../>` props block is unchanged — only the surrounding 
 
 - [ ] **Step 3: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 
 - [ ] **Step 4: Manual smoke test**
 
-If dev server is not already running, start it: `cd /Users/hank.es/git/personal/kr-by-claude/web && npm run dev`
+If dev server is not already running, start it: `cd ~/kr-by-claude/web && npm run dev`
 
 Open `http://localhost:5173/chart/005930` and verify:
 - 종목 메타 카드 (기존, 종가/RS 등) 아래, 차트 카드 위에 새 메타바 카드가 보인다
@@ -646,7 +646,7 @@ Change to:
 
 - [ ] **Step 3: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 

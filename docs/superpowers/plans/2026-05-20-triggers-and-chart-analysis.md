@@ -118,7 +118,7 @@ app.include_router(triggers.router)
 
 - [ ] **Step 3: Run the empty endpoint to verify routing**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && python -c "from api.main import app; print([r.path for r in app.routes if '/triggers' in r.path])"`
+Run: `cd ~/kr-by-claude && python -c "from api.main import app; print([r.path for r in app.routes if '/triggers' in r.path])"`
 
 Expected output: `['/api/triggers']`
 
@@ -186,7 +186,7 @@ def test_empty_when_no_filter_matches(client, seed_triggers):
 
 - [ ] **Step 5: Run test to verify it fails**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && pytest tests/test_api_triggers.py::test_empty_when_no_filter_matches -v`
+Run: `cd ~/kr-by-claude && pytest tests/test_api_triggers.py::test_empty_when_no_filter_matches -v`
 
 Expected: PASS (empty endpoint returns `[]`, no ticker rows match). This locks in the contract before adding real queries.
 
@@ -220,7 +220,7 @@ def test_volume_ratio_and_pivot_delta_calculated(client, seed_triggers):
     assert row["pivot_delta_pct"] == pytest.approx(2.066, rel=0.01)
 ```
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && pytest tests/test_api_triggers.py::test_returns_triggers_with_stocks_join tests/test_api_triggers.py::test_volume_ratio_and_pivot_delta_calculated -v`
+Run: `cd ~/kr-by-claude && pytest tests/test_api_triggers.py::test_returns_triggers_with_stocks_join tests/test_api_triggers.py::test_volume_ratio_and_pivot_delta_calculated -v`
 
 Expected: FAIL — empty list.
 
@@ -320,7 +320,7 @@ def list_triggers(
 
 - [ ] **Step 8: Run the two basic tests to verify they pass**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && pytest tests/test_api_triggers.py -v`
+Run: `cd ~/kr-by-claude && pytest tests/test_api_triggers.py -v`
 
 Expected: 3/3 PASS (empty + join + ratio/delta).
 
@@ -377,7 +377,7 @@ def test_limit_and_offset(client, seed_triggers):
     assert test_r1[0]["symbol"] != test_r2[0]["symbol"]
 ```
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && pytest tests/test_api_triggers.py -v`
+Run: `cd ~/kr-by-claude && pytest tests/test_api_triggers.py -v`
 
 Expected: All 10 PASS (3 prior + 7 new). The implementation in Step 7 already handles them; if any fail, fix the SQL and re-run.
 
@@ -414,7 +414,7 @@ def test_ticker_filter_returns_only_that_symbol(client, seed_classifications):
     assert len(rows) == 1
 ```
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && pytest tests/test_api_classifications.py::test_ticker_filter_returns_only_that_symbol -v`
+Run: `cd ~/kr-by-claude && pytest tests/test_api_classifications.py::test_ticker_filter_returns_only_that_symbol -v`
 
 Expected: FAIL — ticker param not yet recognized; all 3 test rows returned.
 
@@ -451,7 +451,7 @@ In `params` dict (line 58-63), add:
 
 - [ ] **Step 3: Run classifications tests**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && pytest tests/test_api_classifications.py -v`
+Run: `cd ~/kr-by-claude && pytest tests/test_api_classifications.py -v`
 
 Expected: All previous PASS + new ticker test PASS.
 
@@ -506,7 +506,7 @@ def client():
 
 - [ ] **Step 5: Run signals ticker test to verify it fails**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && pytest tests/test_api_signals_performance.py::test_signals_ticker_filter -v`
+Run: `cd ~/kr-by-claude && pytest tests/test_api_signals_performance.py::test_signals_ticker_filter -v`
 
 Expected: FAIL — ticker param ignored.
 
@@ -543,7 +543,7 @@ def list_signals(
 
 - [ ] **Step 7: Run signals tests**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && pytest tests/test_api_signals_performance.py -v`
+Run: `cd ~/kr-by-claude && pytest tests/test_api_signals_performance.py -v`
 
 Expected: All PASS.
 
@@ -589,7 +589,7 @@ def test_performance_signals_ticker_filter(client, db):
         app.dependency_overrides.pop(get_conn, None)
 ```
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && pytest tests/test_api_signals_performance.py::test_performance_signals_ticker_filter -v`
+Run: `cd ~/kr-by-claude && pytest tests/test_api_signals_performance.py::test_performance_signals_ticker_filter -v`
 
 Expected: FAIL.
 
@@ -623,7 +623,7 @@ def list_perf_signals(
 
 - [ ] **Step 10: Run all performance tests**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude && pytest tests/test_api_signals_performance.py -v`
+Run: `cd ~/kr-by-claude && pytest tests/test_api_signals_performance.py -v`
 
 Expected: All PASS.
 
@@ -922,13 +922,13 @@ function DecisionPill({ decision }: { decision: TriggerDecision }) {
 
 - [ ] **Step 4: Type-check the frontend**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npm run build`
+Run: `cd ~/kr-by-claude/web && npm run build`
 
 Expected: build succeeds (or `tsc --noEmit` if configured). No type errors.
 
 - [ ] **Step 5: Manual smoke test**
 
-Start dev server: `cd /Users/hank.es/git/personal/kr-by-claude/web && npm run dev`
+Start dev server: `cd ~/kr-by-claude/web && npm run dev`
 
 In a browser open `http://localhost:5173/triggers` and verify:
 - 사이드바에 "트리거 이력" 항목이 보인다
@@ -1454,7 +1454,7 @@ export function TriggerHistoryTable({ ticker, limit = 20 }: Props) {
 
 - [ ] **Step 7: Type-check the frontend**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npm run build`
+Run: `cd ~/kr-by-claude/web && npm run build`
 
 Expected: success. If `MinerviniDetail` 응답이 위 예상 키와 다르면 실제 응답 JSON 으로 타입을 조정 (예: `/api/indicators/minervini-detail/005930` 호출해서 확인 후 키 매핑).
 
@@ -1586,7 +1586,7 @@ PriceChart 의 차트 그리기 useEffect 의 deps 배열에 신규 props 추가
 
 - [ ] **Step 6: Build to verify**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npm run build`
+Run: `cd ~/kr-by-claude/web && npm run build`
 
 Expected: success.
 
@@ -1722,7 +1722,7 @@ ChartPage 의 차트 JSX 가 닫히는 직후 (return 의 차트 컨테이너 �
 
 - [ ] **Step 7: Build**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npm run build`
+Run: `cd ~/kr-by-claude/web && npm run build`
 
 Expected: build succeeds.
 

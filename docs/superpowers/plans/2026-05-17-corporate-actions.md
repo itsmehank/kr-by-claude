@@ -96,7 +96,7 @@ pyproject.toml                              # ← requests 의존성 추가
 - [ ] **Step 1: `.env` 의 `DART_API_KEY` 확인**
 
 ```bash
-grep -E "^DART_API_KEY=" /Users/hank.es/git/personal/kr-by-claude/.env 2>/dev/null
+grep -E "^DART_API_KEY=" ~/kr-by-claude/.env 2>/dev/null
 ```
 
 Expected: `DART_API_KEY=` 한 줄 출력. 값이 비어있으면 **STOP 후 사용자 보고**.
@@ -112,7 +112,7 @@ https://opendart.fss.or.kr/ 에 회원가입 후 API key 발급 받아주세요.
 즉시 발급되며 무료입니다.
 
 받으신 key 를 .env 에 추가해주세요:
-  echo "DART_API_KEY=발급받은40자리키" >> /Users/hank.es/git/personal/kr-by-claude/.env
+  echo "DART_API_KEY=발급받은40자리키" >> ~/kr-by-claude/.env
 
 그러면 작업 재개합니다.
 ```
@@ -122,7 +122,7 @@ https://opendart.fss.or.kr/ 에 회원가입 후 API key 발급 받아주세요.
 가벼운 sanity 호출로 key 유효성 확인:
 
 ```bash
-source /Users/hank.es/git/personal/kr-by-claude/.env
+source ~/kr-by-claude/.env
 curl -s "https://opendart.fss.or.kr/api/list.json?crtfc_key=$DART_API_KEY&corp_code=00126380&page_count=1&bgn_de=20240101&end_de=20240131" | head -c 300
 ```
 
@@ -1474,7 +1474,7 @@ SELECT COUNT(*) AS missing_mapping
 - [ ] **Step 4: `.env.example` 검증 (Task 1 에서 추가됨)**
 
 ```bash
-grep DART_API_KEY /Users/hank.es/git/personal/kr-by-claude/.env.example
+grep DART_API_KEY ~/kr-by-claude/.env.example
 ```
 
 Expected: 한 줄 있음.

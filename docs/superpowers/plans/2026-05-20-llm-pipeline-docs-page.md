@@ -46,7 +46,7 @@
 ### Step 1: mermaid 설치
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web
+cd ~/kr-by-claude/web
 npm install mermaid
 ```
 
@@ -139,7 +139,7 @@ export function MermaidDiagram({ chart, idPrefix = "mermaid" }: MermaidDiagramPr
 ### Step 3: tsc
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit
+cd ~/kr-by-claude/web && npx tsc --noEmit
 ```
 
 Expected: 0 errors.
@@ -147,7 +147,7 @@ Expected: 0 errors.
 ### Step 4: Commit
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 git add web/package.json web/package-lock.json web/src/components/MermaidDiagram.tsx
 git commit -m "feat(web): MermaidDiagram wrapper (dynamic import 로 lazy load)"
 ```
@@ -644,7 +644,7 @@ export default function LlmPipelinePage() {
 ### Step 3: tsc
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit
+cd ~/kr-by-claude/web && npx tsc --noEmit
 ```
 
 Expected: 0 errors.
@@ -654,7 +654,7 @@ Expected: 0 errors.
 ### Step 4: Commit
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 git add web/src/pages/LlmPipelinePage.tsx web/src/App.tsx
 git commit -m "feat(web): /docs/llm-pipeline LLM 분석 안내 페이지 + 사이드바 'LLM 분석 안내'"
 ```
@@ -666,7 +666,7 @@ git commit -m "feat(web): /docs/llm-pipeline LLM 분석 안내 페이지 + 사�
 - [ ] **Step 1: Frontend tsc**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit
+cd ~/kr-by-claude/web && npx tsc --noEmit
 ```
 
 Expected: 0 errors.
@@ -674,7 +674,7 @@ Expected: 0 errors.
 - [ ] **Step 2: Backend 회귀**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run pytest 2>&1 | tail -3
 ```
 
@@ -684,7 +684,7 @@ Expected: 영향 없음 (backend 코드 변경 0).
 
 ```bash
 pkill -f "uvicorn api.main" 2>/dev/null; sleep 1
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run uvicorn api.main:app --port 8000 --log-level warning > /tmp/uvicorn.log 2>&1 &
 sleep 3
 curl -s -o /dev/null -w "uvicorn: HTTP %{http_code}\n" http://localhost:8000/api/pipelines

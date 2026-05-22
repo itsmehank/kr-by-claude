@@ -159,7 +159,7 @@ export function CollapsiblePrompt({ summary, content }: Props) {
 
 - [ ] **Step 4: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 
@@ -496,7 +496,7 @@ export const KR_NOTE =
 
 - [ ] **Step 4: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 
@@ -1182,7 +1182,7 @@ export const FUTURE_MONITORING = [
 
 - [ ] **Step 5: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 
@@ -1210,7 +1210,7 @@ prompts/ 디렉터리의 3 파일을 `.ts` 로 그대로 export. 백틱 escape �
 
 ```bash
 # 헬퍼 스크립트로 변환 (수동 검토 필요)
-cd /Users/hank.es/git/personal/kr-by-claude/web/src/data/prompts/
+cd ~/kr-by-claude/web/src/data/prompts/
 ```
 
 Create `web/src/data/prompts/analyze-chart-v3.ts`:
@@ -1327,13 +1327,13 @@ declare module "*.md?raw" {
 
 - [ ] **Step 5: Type-check + smoke test**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 
 Run build (vite import 검증):
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npm run build 2>&1 | tail -20
+cd ~/kr-by-claude/web && npm run build 2>&1 | tail -20
 ```
 
 Expected: build 통과. prompts/ import 가 resolve 됨.
@@ -2003,7 +2003,7 @@ export default function LlmPipelineAuditPage() {
 
 - [ ] **Step 7: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 
@@ -2055,14 +2055,14 @@ import LlmPipelineAuditPage from "./pages/LlmPipelineAuditPage";
 
 - [ ] **Step 2: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 
 - [ ] **Step 3: Manual smoke test**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npm run dev
+cd ~/kr-by-claude/web && npm run dev
 ```
 
 브라우저에서 `http://localhost:5173/docs/llm-pipeline/audit` 방문 후 다음 확인:

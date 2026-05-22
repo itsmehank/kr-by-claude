@@ -101,7 +101,7 @@ Locate the existing `evaluate_pivot` entry. Replace its `actions` value with:
 
 - [ ] **Step 4: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 
@@ -171,7 +171,7 @@ Locate `const FAQ` (line 189). Append the following entries at the end of the ar
 
 - [ ] **Step 3: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 
@@ -759,7 +759,7 @@ SIMULATION_ROWS.push(
 
 - [ ] **Step 5: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 
@@ -956,7 +956,7 @@ export function SimulationMatrix({ days, rows, onCellClick }: Props) {
 
 - [ ] **Step 2: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 
@@ -1072,7 +1072,7 @@ export function SimulationModal({ open, modal, onClose }: Props) {
 
 - [ ] **Step 2: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 
@@ -1174,7 +1174,7 @@ Replace with:
 
 - [ ] **Step 4: Type-check**
 
-Run: `cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
+Run: `cd ~/kr-by-claude/web && npx tsc --noEmit && echo CLEAN`
 
 Expected: `CLEAN`.
 

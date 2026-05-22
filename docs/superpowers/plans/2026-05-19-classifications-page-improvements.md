@@ -77,7 +77,7 @@ Expected: `ALTER TABLE` (또는 `NOTICE: column "analyzed_for_date" of relation 
 먼저 현재 함수 구조 확인:
 
 ```bash
-grep -n "def insert_classification" /Users/hank.es/git/personal/kr-by-claude/kr_pipeline/llm_runner/store.py
+grep -n "def insert_classification" ~/kr-by-claude/kr_pipeline/llm_runner/store.py
 ```
 
 함수 시그니처에 `analyzed_for_date: date | None = None` 추가. `from datetime import date` import 확인 (없으면 추가).
@@ -140,7 +140,7 @@ def insert_classification(
 `_process_one` 이 현재 `as_of` 인자 받는지 확인:
 
 ```bash
-grep -n "_process_one" /Users/hank.es/git/personal/kr-by-claude/kr_pipeline/llm_runner/weekend.py | head -5
+grep -n "_process_one" ~/kr-by-claude/kr_pipeline/llm_runner/weekend.py | head -5
 ```
 
 현재 시그니처:
@@ -319,7 +319,7 @@ def test_response_includes_analyzed_for_date_field_for_legacy_rows(client, seed_
 `tests/test_llm_runner_store.py` 가 있는지 확인:
 
 ```bash
-ls /Users/hank.es/git/personal/kr-by-claude/tests/test_llm_runner_store.py 2>/dev/null || echo "없음"
+ls ~/kr-by-claude/tests/test_llm_runner_store.py 2>/dev/null || echo "없음"
 ```
 
 없으면 추가:
@@ -416,7 +416,7 @@ def test_insert_classification_default_analyzed_for_date_is_null(db):
 ### Step 9: 테스트 통과 + 회귀
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run pytest tests/test_api_classifications.py tests/test_llm_runner_store.py -v
 ```
 
@@ -432,7 +432,7 @@ Expected: 기존 ~313 + 신규 3 = ~316 passed / 22 pre-existing failed.
 ### Step 10: Commit
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 git add kr_pipeline/db/schema.sql kr_pipeline/llm_runner/store.py kr_pipeline/llm_runner/weekend.py kr_pipeline/llm_runner/daily_delta.py api/schemas/classification.py api/routers/classifications.py tests/test_api_classifications.py tests/test_llm_runner_store.py
 git commit -m "feat: weekly_classification.analyzed_for_date 컬럼 + LLM runner 적재 + API 응답"
 ```
@@ -704,7 +704,7 @@ function RowDetails({ row }: { row: Classification }) {
 ### Step 6: tsc
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit
+cd ~/kr-by-claude/web && npx tsc --noEmit
 ```
 
 Expected: 0 errors.
@@ -712,7 +712,7 @@ Expected: 0 errors.
 ### Step 7: Commit
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 git add web/src/lib/types.ts web/src/pages/ClassificationsPage.tsx
 git commit -m "feat(classifications): tooltip 사전 (pattern/risk_flag/pivot/base/conf) + market/sector + 기준일 + 새 탭 차트"
 ```
@@ -724,7 +724,7 @@ git commit -m "feat(classifications): tooltip 사전 (pattern/risk_flag/pivot/ba
 - [ ] **Step 1: Backend 회귀**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run pytest 2>&1 | tail -3
 ```
 
@@ -733,7 +733,7 @@ Expected: 기존 + 신규 3 = ~316 passed / 22 pre-existing failed.
 - [ ] **Step 2: Frontend tsc**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit
+cd ~/kr-by-claude/web && npx tsc --noEmit
 ```
 
 Expected: 0 errors.
@@ -742,7 +742,7 @@ Expected: 0 errors.
 
 ```bash
 pkill -f "uvicorn api.main" 2>/dev/null; sleep 1
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run uvicorn api.main:app --port 8000 --log-level warning > /tmp/uvicorn.log 2>&1 &
 sleep 3
 

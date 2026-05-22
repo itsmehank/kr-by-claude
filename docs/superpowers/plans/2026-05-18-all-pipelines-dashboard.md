@@ -396,7 +396,7 @@ git commit -m "feat(llm_runner): pipeline_specs — 모든 cron 작업 추상화
 - [ ] **Step 1: 기존 코드 확인**
 
 ```bash
-grep -n "MODE_TO_PIPELINE\|DEFAULT_CRON_LINES" /Users/hank.es/git/personal/kr-by-claude/api/services/runner_service.py /Users/hank.es/git/personal/kr-by-claude/kr_pipeline/llm_runner/cron_manager.py
+grep -n "MODE_TO_PIPELINE\|DEFAULT_CRON_LINES" ~/kr-by-claude/api/services/runner_service.py ~/kr-by-claude/kr_pipeline/llm_runner/cron_manager.py
 ```
 
 - [ ] **Step 2: runner_service 확장**
@@ -1445,7 +1445,7 @@ NO Co-Authored-By trailer.
 - [ ] **Step 1: Backend 전체 회귀**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run pytest 2>&1 | tail -3
 ```
 
@@ -1463,7 +1463,7 @@ Expected: 0 errors.
 
 ```bash
 pkill -f "uvicorn api.main" 2>&1; sleep 1
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run uvicorn api.main:app --port 8000 --log-level warning > /tmp/uvicorn.log 2>&1 &
 sleep 3
 

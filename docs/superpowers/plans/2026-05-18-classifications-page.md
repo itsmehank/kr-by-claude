@@ -178,7 +178,7 @@ def test_sort_confidence_desc(client, seed_classifications):
 ### Step 2: 테스트 실패 확인
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run pytest tests/test_api_classifications.py -v
 ```
 
@@ -327,7 +327,7 @@ app.include_router(classifications.router)
 ### Step 5: 테스트 통과 확인
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run pytest tests/test_api_classifications.py -v
 ```
 
@@ -344,7 +344,7 @@ uv run pytest tests/ -v 2>&1 | tail -10
 ### Step 7: Commit
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 git add api/routers/classifications.py api/main.py tests/test_api_classifications.py
 git commit -m "feat(api): GET /api/classifications — DISTINCT ON (symbol) + 필터/정렬"
 ```
@@ -438,7 +438,7 @@ export default function ClassificationsPage() {
 ### Step 4: tsc
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit
+cd ~/kr-by-claude/web && npx tsc --noEmit
 ```
 
 Expected: 0 errors.
@@ -446,7 +446,7 @@ Expected: 0 errors.
 ### Step 5: Commit
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 git add web/src/lib/types.ts web/src/App.tsx web/src/pages/ClassificationsPage.tsx
 git commit -m "feat(web): /classifications 라우트 + 사이드바 'LLM 분류' 메뉴 + placeholder"
 ```
@@ -899,7 +899,7 @@ export default function ClassificationsPage() {
 ### Step 2: tsc
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit
+cd ~/kr-by-claude/web && npx tsc --noEmit
 ```
 
 Expected: 0 errors. 만약 Tailwind 클래스 (`bg-tint-blue`, `text-blue`, `bg-amber-soft`, `text-amber`) 가 정의되지 않았다면 비슷한 클래스로 대체 (예: `bg-blue-100 text-blue-700`). 프로젝트의 tailwind config 확인.
@@ -907,7 +907,7 @@ Expected: 0 errors. 만약 Tailwind 클래스 (`bg-tint-blue`, `text-blue`, `bg-
 ### Step 3: Commit
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 git add web/src/pages/ClassificationsPage.tsx
 git commit -m "feat(web): ClassificationsPage — 헤더/필터/그룹별 리스트/row expand/차트 라우팅"
 ```
@@ -919,7 +919,7 @@ git commit -m "feat(web): ClassificationsPage — 헤더/필터/그룹별 리스
 - [ ] **Step 1: Backend 회귀**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run pytest 2>&1 | tail -3
 ```
 
@@ -928,7 +928,7 @@ Expected: 기존 + 신규 8 = ~294 passed / 20 pre-existing failed.
 - [ ] **Step 2: Frontend tsc**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit
+cd ~/kr-by-claude/web && npx tsc --noEmit
 ```
 
 Expected: 0 errors.
@@ -937,7 +937,7 @@ Expected: 0 errors.
 
 ```bash
 pkill -f "uvicorn api.main" 2>/dev/null; sleep 1
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run uvicorn api.main:app --port 8000 --log-level warning > /tmp/uvicorn.log 2>&1 &
 sleep 3
 

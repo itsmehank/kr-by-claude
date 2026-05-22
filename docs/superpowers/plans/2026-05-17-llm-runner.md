@@ -466,10 +466,10 @@ git commit -m "feat(indicators): drawdown_52w_pct + drawdown_filter_pass 계산 
 - [ ] **Step 1: 디렉토리 생성**
 
 ```bash
-mkdir -p /Users/hank.es/git/personal/kr-by-claude/kr_pipeline/llm_runner/{llm,compute}
-touch /Users/hank.es/git/personal/kr-by-claude/kr_pipeline/llm_runner/__init__.py
-touch /Users/hank.es/git/personal/kr-by-claude/kr_pipeline/llm_runner/llm/__init__.py
-touch /Users/hank.es/git/personal/kr-by-claude/kr_pipeline/llm_runner/compute/__init__.py
+mkdir -p ~/kr-by-claude/kr_pipeline/llm_runner/{llm,compute}
+touch ~/kr-by-claude/kr_pipeline/llm_runner/__init__.py
+touch ~/kr-by-claude/kr_pipeline/llm_runner/llm/__init__.py
+touch ~/kr-by-claude/kr_pipeline/llm_runner/compute/__init__.py
 ```
 
 - [ ] **Step 2: import 가능 확인**
@@ -3836,21 +3836,21 @@ git commit -m "feat(web): /performance 페이지 + Sidebar nav"
 ```cron
 # ─── #4 LLM Runner ───
 # 평일 (월~금) — 장 마감 + 30분 버퍼 + 10분 간격
-0  16 * * 1-5   cd /Users/hank.es/git/personal/kr-by-claude && uv run python -m kr_pipeline.ohlcv --mode incremental
-10 16 * * 1-5   cd /Users/hank.es/git/personal/kr-by-claude && uv run python -m kr_pipeline.indicators --target daily --mode incremental
-20 16 * * 1-5   cd /Users/hank.es/git/personal/kr-by-claude && uv run python -m kr_pipeline.market_context --mode incremental
-30 16 * * 1-5   cd /Users/hank.es/git/personal/kr-by-claude && uv run python -m kr_pipeline.llm_runner --mode full-daily
+0  16 * * 1-5   cd ~/kr-by-claude && uv run python -m kr_pipeline.ohlcv --mode incremental
+10 16 * * 1-5   cd ~/kr-by-claude && uv run python -m kr_pipeline.indicators --target daily --mode incremental
+20 16 * * 1-5   cd ~/kr-by-claude && uv run python -m kr_pipeline.market_context --mode incremental
+30 16 * * 1-5   cd ~/kr-by-claude && uv run python -m kr_pipeline.llm_runner --mode full-daily
 
 # 토 새벽
-0  3 * * 6      cd /Users/hank.es/git/personal/kr-by-claude && uv run python -m kr_pipeline.weekly --mode incremental
-10 3 * * 6      cd /Users/hank.es/git/personal/kr-by-claude && uv run python -m kr_pipeline.indicators --target weekly --mode incremental
-20 3 * * 6      cd /Users/hank.es/git/personal/kr-by-claude && uv run python -m kr_pipeline.llm_runner --mode weekend
+0  3 * * 6      cd ~/kr-by-claude && uv run python -m kr_pipeline.weekly --mode incremental
+10 3 * * 6      cd ~/kr-by-claude && uv run python -m kr_pipeline.indicators --target weekly --mode incremental
+20 3 * * 6      cd ~/kr-by-claude && uv run python -m kr_pipeline.llm_runner --mode weekend
 
 # 매일 23:00
-0  23 * * *     cd /Users/hank.es/git/personal/kr-by-claude && uv run python -m kr_pipeline.llm_runner --mode performance
+0  23 * * *     cd ~/kr-by-claude && uv run python -m kr_pipeline.llm_runner --mode performance
 
 # 주 1회 (일요일 04:00)
-0  4 * * 0      cd /Users/hank.es/git/personal/kr-by-claude && uv run python -m kr_pipeline.corporate_actions --mode incremental
+0  4 * * 0      cd ~/kr-by-claude && uv run python -m kr_pipeline.corporate_actions --mode incremental
 ```
 
 - [ ] **Step 2: 커밋**

@@ -53,7 +53,7 @@
 ### Step 1: 파일 구조 파악
 
 ```bash
-grep -n "^### \|^## " /Users/hank.es/git/personal/kr-by-claude/prompts/analyze_chart_v3.md | head -30
+grep -n "^### \|^## " ~/kr-by-claude/prompts/analyze_chart_v3.md | head -30
 ```
 
 §4 (Pattern Recognition), §5 (Risk Flags), §6 (Stock-Level Distribution Check, three inviolable rules), §7 (응답 schema) 위치를 line 번호로 확인.
@@ -71,7 +71,7 @@ grep -n "^### \|^## " /Users/hank.es/git/personal/kr-by-claude/prompts/analyze_c
 먼저 §4 의 마지막 패턴 정의 ~ Discipline rule 위치를 정확히 찾기:
 
 ```bash
-grep -n "Discipline rule" /Users/hank.es/git/personal/kr-by-claude/prompts/analyze_chart_v3.md
+grep -n "Discipline rule" ~/kr-by-claude/prompts/analyze_chart_v3.md
 ```
 
 그 line 직전에 다음 markdown 블록 삽입:
@@ -207,7 +207,7 @@ grep -n "Discipline rule" /Users/hank.es/git/personal/kr-by-claude/prompts/analy
 ### Step 8: 변경 검증
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 grep -c "high_tight_flag\|3c_cheat\|base_on_base\|ascending_base" prompts/analyze_chart_v3.md
 ```
 
@@ -222,7 +222,7 @@ Expected: 3+ matches (reasoning 가이드 키워드).
 ### Step 9: Commit
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 git add prompts/analyze_chart_v3.md
 git commit -m "feat(prompt): 새 패턴 4개 + reasoning markdown 5섹션 + 1500자 + 친절 톤"
 ```
@@ -240,7 +240,7 @@ git commit -m "feat(prompt): 새 패턴 4개 + reasoning markdown 5섹션 + 1500
 ### Step 1: react-markdown 설치
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web
+cd ~/kr-by-claude/web
 npm install react-markdown
 ```
 
@@ -344,7 +344,7 @@ const PATTERN_DESCRIPTIONS: Record<string, string> = {
 ### Step 5: tsc
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit
+cd ~/kr-by-claude/web && npx tsc --noEmit
 ```
 
 Expected: 0 errors.
@@ -354,7 +354,7 @@ Expected: 0 errors.
 ### Step 6: Commit
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 git add web/package.json web/package-lock.json web/src/pages/ClassificationsPage.tsx
 git commit -m "feat(classifications): reasoning 박스 react-markdown 렌더 + 새 패턴 4개 tooltip"
 ```
@@ -366,7 +366,7 @@ git commit -m "feat(classifications): reasoning 박스 react-markdown 렌더 + �
 - [ ] **Step 1: Frontend tsc**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit
+cd ~/kr-by-claude/web && npx tsc --noEmit
 ```
 
 Expected: 0 errors.
@@ -374,7 +374,7 @@ Expected: 0 errors.
 - [ ] **Step 2: Backend 회귀 (영향 없음 확인)**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run pytest 2>&1 | tail -3
 ```
 
@@ -384,7 +384,7 @@ Expected: 기존 passed 그대로. 신규 failure 없음 (prompt + frontend 변�
 
 ```bash
 pkill -f "uvicorn api.main" 2>/dev/null; sleep 1
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run uvicorn api.main:app --port 8000 --log-level warning > /tmp/uvicorn.log 2>&1 &
 sleep 3
 ```

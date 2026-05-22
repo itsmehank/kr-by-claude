@@ -108,7 +108,7 @@ def test_known_dependency_mapping():
 - [ ] **Step 2: 테스트 실패 확인**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run pytest tests/test_pipeline_specs.py -v
 ```
 
@@ -228,7 +228,7 @@ for spec in PIPELINE_SPECS:
 - [ ] **Step 5: 테스트 통과 확인**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run pytest tests/test_pipeline_specs.py -v
 ```
 
@@ -237,7 +237,7 @@ Expected: 모든 테스트 passed (기존 + 신규 5 = 약 13+).
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 git add kr_pipeline/llm_runner/pipeline_specs.py tests/test_pipeline_specs.py
 git commit -m "feat(pipeline_specs): long_description + inputs/outputs + depends_on 필드 추가"
 ```
@@ -360,7 +360,7 @@ def test_modes_include_is_heavy(client):
 - [ ] **Step 2: 실패 확인**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run pytest tests/test_api_pipeline_detail.py -v
 ```
 
@@ -476,7 +476,7 @@ def _label_of(pipeline_id: str) -> str:
 - [ ] **Step 4: 테스트 통과**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run pytest tests/test_api_pipeline_detail.py -v
 ```
 
@@ -713,7 +713,7 @@ export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) 
 - [ ] **Step 3: tsc 확인**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit
+cd ~/kr-by-claude/web && npx tsc --noEmit
 ```
 
 Expected: 0 errors.
@@ -729,7 +729,7 @@ uvicorn + vite dev server 가 떠 있으면 `/runner` 페이지의 ▶ 버튼이
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 git add web/src/components/RunDialog.tsx web/src/pages/RunnerPage.tsx
 git commit -m "refactor(web): RunDialog 를 공용 컴포넌트로 추출 (initialModeId prop 지원)"
 ```
@@ -1132,7 +1132,7 @@ export default function PipelinePage() {
 - [ ] **Step 5: tsc + 회귀 확인**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit
+cd ~/kr-by-claude/web && npx tsc --noEmit
 ```
 
 Expected: 0 errors.
@@ -1140,7 +1140,7 @@ Expected: 0 errors.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 git add web/src/lib/types.ts web/src/App.tsx web/src/pages/RunnerPage.tsx web/src/pages/PipelinePage.tsx
 git commit -m "feat(web): /runner/:pipelineId pipeline 상세 페이지 + 작업명 Link"
 ```
@@ -1152,7 +1152,7 @@ git commit -m "feat(web): /runner/:pipelineId pipeline 상세 페이지 + 작업
 - [ ] **Step 1: Backend 회귀**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run pytest 2>&1 | tail -5
 ```
 
@@ -1161,7 +1161,7 @@ Expected: 기존 273 + 신규 약 12 = 약 285 passed (20 pre-existing 실패 �
 - [ ] **Step 2: Frontend tsc**
 
 ```bash
-cd /Users/hank.es/git/personal/kr-by-claude/web && npx tsc --noEmit
+cd ~/kr-by-claude/web && npx tsc --noEmit
 ```
 
 Expected: 0 errors.
@@ -1171,7 +1171,7 @@ Expected: 0 errors.
 ```bash
 # uvicorn 재시작 (backend 변경 반영)
 pkill -f "uvicorn api.main" 2>/dev/null; sleep 1
-cd /Users/hank.es/git/personal/kr-by-claude
+cd ~/kr-by-claude
 uv run uvicorn api.main:app --port 8000 --log-level warning > /tmp/uvicorn.log 2>&1 &
 sleep 3
 
