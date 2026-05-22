@@ -12,19 +12,19 @@
 """
 from typing import Literal
 
+from kr_pipeline.common.thresholds import (
+    GATE_BREAKOUT_VOL_MULT,
+    GATE_PROMOTION_PRICE_RATIO,
+)
 
 TriggerType = Literal["breakout", "invalidation", "promotion"] | None
 
 
-# Breakout 게이트의 거래량 하한: 평균 거래량 이상 (1.0×).
-# 책 표준 (1.4-1.5×, O'Neil HMMS Ch.2) 의 정밀 판정은 LLM 에 위임.
-# 게이트 = "거래량 죽지 않은 정도" 만 확인 (저거래량 헛돌파 차단).
-BREAKOUT_VOLUME_MULTIPLIER = 1.0
+# 호환성 별칭 — 실제 값은 SSOT (kr_pipeline/common/thresholds.py) 가 정의.
+# 외부 import 가 있을 수 있어 같은 이름 유지.
+BREAKOUT_VOLUME_MULTIPLIER = GATE_BREAKOUT_VOL_MULT
 
-# Watch → entry 승격 staging 임계: pivot 의 95% 도달.
-# 책 근거 없음 — 시스템 자체 설계 (LLM 평가 시작 트리거).
-# 실제 매수는 별도 breakout 게이트 (close > pivot) 를 다시 통과해야 함.
-PROMOTION_THRESHOLD_RATIO = 0.95
+PROMOTION_THRESHOLD_RATIO = GATE_PROMOTION_PRICE_RATIO
 
 
 def evaluate(
