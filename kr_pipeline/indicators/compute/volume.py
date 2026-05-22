@@ -6,6 +6,12 @@ adj_volume = volume * (close / adj_close) 로 사전 계산.
 import numpy as np
 import pandas as pd
 
+from kr_pipeline.common.thresholds import (
+    PP_DOWN_VOL_LOOKBACK_DAYS,
+    STOCK_DISTRIBUTION_VOL_MULT,
+    VOLUME_DRY_UP_MULT,
+)
+
 
 def split_adjusted_volume(volume: pd.Series, close: pd.Series, adj_close: pd.Series) -> pd.Series:
     """split-adjusted volume = volume * (close / adj_close).
@@ -33,7 +39,7 @@ def pocket_pivot(
     adj_volume: pd.Series,
     sma_50: pd.Series,
     adj_close: pd.Series,
-    lookback: int = 10,
+    lookback: int = PP_DOWN_VOL_LOOKBACK_DAYS,
 ) -> pd.Series:
     """Morales & Kacher PP:
       (1) 상승일
@@ -63,7 +69,7 @@ def pocket_pivot(
 def volume_dry_up(
     adj_volume: pd.Series,
     avg_volume_series: pd.Series,
-    threshold: float = 0.5,
+    threshold: float = VOLUME_DRY_UP_MULT,
 ) -> pd.Series:
     """adj_volume < avg_volume * threshold.
 
@@ -92,7 +98,7 @@ def distribution_day(
     is_down_day: pd.Series,
     adj_volume: pd.Series,
     avg_volume_series: pd.Series,
-    threshold: float = 1.25,
+    threshold: float = STOCK_DISTRIBUTION_VOL_MULT,
 ) -> pd.Series:
     """is_down_day AND adj_volume > avg_volume * threshold.
 
