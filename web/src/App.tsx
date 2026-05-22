@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Routes, Route, NavLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -14,6 +14,8 @@ import {
   BookOpen,
   Activity,
   ShieldCheck,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import HomePage from "./pages/HomePage";
 import HeatmapPage from "./pages/HeatmapPage";
@@ -63,6 +65,19 @@ const PIPELINE_LABELS: Record<string, string> = {
   corporate_actions: "Corp Actions",
   universe: "Universe",
 };
+
+const SIDEBAR_COLLAPSED_KEY = "kr-by-claude.sidebar-collapsed";
+
+function useSidebarCollapsed() {
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+  });
+  useEffect(() => {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+  }, [collapsed]);
+  return [collapsed, setCollapsed] as const;
+}
 
 function SystemStatus() {
   const runsQ = useQuery<PipelineRun[]>({
@@ -125,27 +140,56 @@ function SystemStatus() {
 }
 
 function App() {
+  const [collapsed, setCollapsed] = useSidebarCollapsed();
+
   return (
     <div className="min-h-screen flex bg-cream">
-      <aside className="w-[244px] shrink-0 flex flex-col bg-cream border-r border-hairline">
-        <div className="px-6 pt-8 pb-8">
-          <h1 className="font-display text-display-md font-bold tracking-tight leading-none">
-            kr-by-claude
-          </h1>
-          <div className="text-data-xs text-muted mt-2 leading-relaxed">
-            Korean equities · v0.1
-          </div>
+      <aside
+        className={`${
+          collapsed ? "w-[68px]" : "w-[244px]"
+        } shrink-0 flex flex-col bg-cream border-r border-hairline transition-[width] duration-200 ease-out`}
+      >
+        <div
+          className={`flex items-start gap-2 ${
+            collapsed ? "px-3 pt-6 pb-6 justify-center" : "px-6 pt-8 pb-8"
+          }`}
+        >
+          {!collapsed && (
+            <div className="flex-1 min-w-0">
+              <h1 className="font-display text-display-md font-bold tracking-tight leading-none">
+                kr-by-claude
+              </h1>
+              <div className="text-data-xs text-muted mt-2 leading-relaxed">
+                Korean equities · v0.1
+              </div>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            className="p-1.5 rounded-lg text-faint hover:text-ink hover:bg-paper/60 transition-colors shrink-0"
+            aria-label={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
+            title={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
+          >
+            {collapsed ? (
+              <PanelLeftOpen size={18} strokeWidth={1.75} />
+            ) : (
+              <PanelLeftClose size={18} strokeWidth={1.75} />
+            )}
+          </button>
         </div>
 
-        <nav className="px-3 flex-1 space-y-1">
+        <nav className={`${collapsed ? "px-2" : "px-3"} flex-1 space-y-1`}>
           {NAV_ITEMS.map(({ to, label, kr, Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === "/"}
+              title={collapsed ? `${kr} · ${label}` : undefined}
               className={({ isActive }) =>
                 [
-                  "group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all",
+                  "group relative flex items-center rounded-xl transition-all",
+                  collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
                   isActive
                     ? "bg-paper shadow-bento text-ink"
                     : "text-muted hover:bg-paper/60 hover:text-ink",
@@ -159,28 +203,38 @@ function App() {
                     className={isActive ? "text-accent" : "text-faint"}
                     strokeWidth={1.75}
                   />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-subhead font-semibold leading-tight">
-                      {kr}
+                  {!collapsed && (
+                    <div className="flex-1 min-w-0">
+                      <div className="text-subhead font-semibold leading-tight">
+                        {kr}
+                      </div>
+                      <div className="text-data-xs text-faint mt-0.5">
+                        {label}
+                      </div>
                     </div>
-                    <div className="text-data-xs text-faint mt-0.5">
-                      {label}
-                    </div>
-                  </div>
+                  )}
+                  {collapsed && (
+                    <span className="pointer-events-none absolute left-full ml-2 z-50 whitespace-nowrap rounded-lg bg-ink text-paper text-data-xs px-2.5 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-bento">
+                      <span className="font-semibold">{kr}</span>
+                      <span className="text-faint ml-1.5">{label}</span>
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>
           ))}
         </nav>
 
-        <SystemStatus />
+        {!collapsed && <SystemStatus />}
 
-        <div className="px-6 py-4 border-t border-hairline">
-          <div className="caps text-faint">Methodology</div>
-          <div className="mt-1.5 text-data-xs text-muted leading-relaxed">
-            Minervini Trend Template · O'Neil CAN SLIM
+        {!collapsed && (
+          <div className="px-6 py-4 border-t border-hairline">
+            <div className="caps text-faint">Methodology</div>
+            <div className="mt-1.5 text-data-xs text-muted leading-relaxed">
+              Minervini Trend Template · O'Neil CAN SLIM
+            </div>
           </div>
-        </div>
+        )}
       </aside>
 
       <main className="flex-1 overflow-x-hidden">
