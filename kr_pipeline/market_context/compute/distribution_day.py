@@ -7,8 +7,13 @@
 """
 import pandas as pd
 
+from kr_pipeline.common.thresholds import (
+    MARKET_DISTRIBUTION_PCT_THRESHOLD,
+    MARKET_DISTRIBUTION_LOOKBACK_DAYS,
+)
 
-DISTRIBUTION_DAY_PCT_THRESHOLD = -0.2   # community standard, IBD
+# 기존 module-level 상수는 SSOT 로 이전. 호환성 별칭 유지.
+DISTRIBUTION_DAY_PCT_THRESHOLD = MARKET_DISTRIBUTION_PCT_THRESHOLD
 
 
 def is_distribution_day(
@@ -24,7 +29,11 @@ def is_distribution_day(
     return pct_change <= DISTRIBUTION_DAY_PCT_THRESHOLD and today_volume > yesterday_volume
 
 
-def count_distribution_days(index_df: pd.DataFrame, end_idx: int, lookback: int = 25) -> int:
+def count_distribution_days(
+    index_df: pd.DataFrame,
+    end_idx: int,
+    lookback: int = MARKET_DISTRIBUTION_LOOKBACK_DAYS,
+) -> int:
     """end_idx 기준 직전 lookback 세션 내 분포일 카운트.
 
     index_df 컬럼: close, volume. date 정렬 가정.
