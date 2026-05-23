@@ -33,7 +33,7 @@ The one allowed inference is `entry_mode` detection (see §0.5), which derives f
 - whether to buy at all — determined by (5b) evaluate_pivot_trigger
 
 **You determine:**
-- entry_mode (pivot_breakout | pocket_pivot | early_entry)
+- entry_mode (pivot_breakout | pocket_pivot)
 - trigger_price (pivot_price × 1.001, IBD operating practice)
 - entry_price (보통 trigger_price 또는 약간 위, intraday 조건 따라)
 - stop_loss (logical vs absolute, dual reporting — §2 그대로)
