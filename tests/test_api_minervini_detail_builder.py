@@ -1,7 +1,7 @@
 from datetime import date
 
 from api.services.minervini_detail_builder import (
-    margin_pct_c1, margin_pct_c2, margin_pct_c5, margin_pct_c6,
+    margin_pct_c1, margin_pct_c2, margin_pct_c3, margin_pct_c5, margin_pct_c6,
     margin_pct_c7, margin_pct_c8, build_minervini_detail,
 )
 
@@ -20,6 +20,20 @@ def test_margin_pct_c2_basic():
     """sma_150 > sma_200."""
     values = {"sma_150": 105, "sma_200": 100}
     assert margin_pct_c2(values) == 5.0
+
+
+def test_margin_pct_c3_basic():
+    """sma_200 today > 22일 전 sma_200 의 상승률."""
+    values = {"sma_200_today": 105, "sma_200_22d_ago": 100}
+    # (105 - 100) / 100 * 100 = 5.0
+    assert margin_pct_c3(values) == 5.0
+
+
+def test_margin_pct_c3_missing_value_returns_none():
+    """sma_200_22d_ago 가 None 이면 margin = None."""
+    assert margin_pct_c3({"sma_200_today": 105, "sma_200_22d_ago": None}) is None
+    assert margin_pct_c3({"sma_200_today": None, "sma_200_22d_ago": 100}) is None
+    assert margin_pct_c3({"sma_200_today": 105, "sma_200_22d_ago": 0}) is None
 
 
 def test_margin_pct_c5_basic():

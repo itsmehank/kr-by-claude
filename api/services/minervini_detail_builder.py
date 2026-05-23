@@ -92,6 +92,20 @@ def build_minervini_detail(conn: Connection, ticker: str, on_date: date) -> dict
         )
         row = cur.fetchone()
 
+        # P2-4: c3 margin 계산에 필요한 22 거래일 전 sma_200.
+        # 거래일 22 행 이전 = on_date 포함 23 행 중 23번째 (인덱스 22).
+        cur.execute(
+            """
+            SELECT sma_200
+              FROM daily_indicators
+             WHERE ticker = %s AND date <= %s
+             ORDER BY date DESC
+             LIMIT 23
+            """,
+            (ticker, on_date),
+        )
+        sma_200_history = cur.fetchall()
+
     if row is None:
         return {
             f"c{i}": {
@@ -104,6 +118,13 @@ def build_minervini_detail(conn: Connection, ticker: str, on_date: date) -> dict
         }
 
     close, sma_50, sma_150, sma_200, w52_high, w52_low, rs_rating, *passes = row
+
+    # 23 번째 row 가 22 거래일 전 (인덱스 22, 0-based). 데이터 부족 시 None.
+    sma_200_22d_ago = (
+        float(sma_200_history[22][0])
+        if len(sma_200_history) > 22 and sma_200_history[22][0] is not None
+        else None
+    )
 
     base_values = {
         "close": float(close) if close is not None else None,
@@ -142,7 +163,11 @@ def build_minervini_detail(conn: Connection, ticker: str, on_date: date) -> dict
         elif key == "c8":
             values = {"rs_rating": base_values["rs_rating"], "threshold": 70}
         elif key == "c3":
-            values = {}  # c3 는 sma_200 today + 22d ago 필요. 본 builder 에선 생략 (None margin)
+            # P2-4: sma_200 today + 22 거래일 전 값으로 margin 계산.
+            values = {
+                "sma_200_today": base_values["sma_200"],
+                "sma_200_22d_ago": sma_200_22d_ago,
+            }
         else:
             values = base_values.copy()
 
