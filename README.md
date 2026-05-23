@@ -58,7 +58,8 @@ FROM weekly_prices
 GROUP BY ticker 
 ORDER BY 2 DESC LIMIT 10;
 
--- 미너비니 통과 + RS Rating 80 이상 종목 (#4 분석 대상)
+-- 미너비니 통과 + RS Rating 80 이상 종목 (운영 점검 예시 — 더 엄격하게 좁힘)
+-- ⚠️ 실제 LLM 후보 게이트는 minervini_pass = TRUE (= rs_rating ≥ 70). RS≥80 은 추가 정밀 필터링용.
 SELECT i.date, s.ticker, s.name, s.sector, i.rs_rating, i.adj_close
   FROM daily_indicators i
   JOIN stocks s USING (ticker)
