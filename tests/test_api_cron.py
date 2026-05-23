@@ -67,7 +67,7 @@ def test_unregister(client, mocker, tmp_path):
 
     initial = f"""0 5 * * * /backup
 {BEGIN_MARKER}
-30 16 * * 1-5 /path/llm_runner
+0 20 * * 1-5 /path/llm_runner
 {END_MARKER}
 0 6 * * * /other"""
     state = {"crontab": initial}

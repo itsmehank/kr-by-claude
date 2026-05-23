@@ -1,5 +1,7 @@
 # #4 LLM Analysis Runner — 설계 명세
 
+> **⚠️ 시점 스냅샷 (2026-05-17~18)** — 본 문서의 LLM runner cron 시각 `30 16 * * 1-5` (16:30) 은 옛 설계. 현행은 `0 20 * * 1-5` (20:00, `kr_pipeline/llm_runner/pipeline_specs.py:181`). 문서 본문의 16:30 표기는 역사적 기록으로 유지.
+
 **상태:** Design 승인 완료 (2026-05-17). 다음 단계: implementation plan 작성.
 **기반:** [B v3 갭 1-8 권장안](../../../.claude/projects/-Users-hank-es-git-personal-kr-by-claude/memory/project_bv3_decisions.md) day-1 통합.
 

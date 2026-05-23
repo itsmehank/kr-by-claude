@@ -11,7 +11,7 @@ def test_extract_managed_lines_from_text():
 0 5 * * * /usr/local/bin/my-backup.sh
 
 # === kr-by-claude-llm-runner BEGIN ===
-30 16 * * 1-5 /path/llm_runner --mode=full-daily
+0 20 * * 1-5 /path/llm_runner --mode=full-daily
 20 3 * * 6 /path/llm_runner --mode=weekend
 # === kr-by-claude-llm-runner END ===
 

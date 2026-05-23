@@ -1,5 +1,7 @@
 # LLM Analysis Runner (#4) Implementation Plan
 
+> **⚠️ 시점 스냅샷 (2026-05-17~18)** — 본 문서의 LLM runner cron 시각 `30 16 * * 1-5` (16:30) 은 옛 설계. 현행은 `0 20 * * 1-5` (20:00, `kr_pipeline/llm_runner/pipeline_specs.py:181`). 문서 본문의 16:30 표기는 역사적 기록으로 유지.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** B v3 갭 1-8 권장안을 day-1 통합한 LLM analysis runner — 주말 (5) 분류 + 평일 daily-delta + 결정론 트리거 + (5b) 컨펌 + (6) 매수 파라미터 + Slack 알림 + post-trade 성과 측정.

@@ -1,5 +1,7 @@
 # 전체 Pipeline 운영 대시보드 확장 Implementation Plan
 
+> **⚠️ 시점 스냅샷 (2026-05-17~18)** — 본 문서의 LLM runner cron 시각 `30 16 * * 1-5` (16:30) 은 옛 설계. 현행은 `0 20 * * 1-5` (20:00, `kr_pipeline/llm_runner/pipeline_specs.py:181`). 문서 본문의 16:30 표기는 역사적 기록으로 유지.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 기존 `/runner` 페이지 (LLM 3 카드만) 를 모든 cron 작업 (universe + ohlcv + weekly + indicators + market_context + corporate_actions + LLM) 통합 운영 대시보드로 확장. 테이블 형식 + 모드 선택 모달로 수동 실행. Cron 통합 관리 (옵션 A: 한 마커, 전부 vs 전무).

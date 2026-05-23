@@ -1,5 +1,7 @@
 # LLM Runner Dashboard + Cron 관리 Implementation Plan
 
+> **⚠️ 시점 스냅샷 (2026-05-17~18)** — 본 문서의 LLM runner cron 시각 `30 16 * * 1-5` (16:30) 은 옛 설계. 현행은 `0 20 * * 1-5` (20:00, `kr_pipeline/llm_runner/pipeline_specs.py:181`). 문서 본문의 16:30 표기는 역사적 기록으로 유지.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** LLM runner 운영 대시보드 (`/runner` 페이지) 추가 — 모드별 최근 실행 결과 + 다음 스케줄 확인, 수동 실행 트리거 (dry-run default + 비용 확인), Cron 자동 등록/해제 (마커 + 백업 + diff 미리보기). 중복 실행 방지로 같은 영업일 같은 모드 중복 호출 시 기존 결과 반환.
