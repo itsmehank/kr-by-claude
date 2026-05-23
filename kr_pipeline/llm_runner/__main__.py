@@ -34,9 +34,19 @@ def main() -> int:
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--limit", type=int)
-    parser.add_argument("--ticker", type=str)
+    parser.add_argument("--ticker", type=str, help="단일 종목 디버깅 (weekend mode 만 지원)")
     parser.add_argument("--date", type=str, help="YYYY-MM-DD")
     args = parser.parse_args()
+
+    # --ticker 는 현재 weekend mode 만 함수 시그니처가 지원. 다른 mode 에서 ticker
+    # 지정 시 조용히 무시되고 전체 batch 가 실행되어 실 LLM 비용 폭증 위험.
+    # 명시적 에러로 차단.
+    _TICKER_SUPPORTED_MODES = {"weekend"}
+    if args.ticker and args.mode not in _TICKER_SUPPORTED_MODES:
+        parser.error(
+            f"--ticker is only supported with --mode={'/'.join(sorted(_TICKER_SUPPORTED_MODES))} "
+            f"(got --mode={args.mode}). 다른 mode 에선 ticker 가 무시되고 전체 batch 가 실행되어 비용 위험."
+        )
 
     logging.basicConfig(
         level=logging.INFO,
