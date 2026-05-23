@@ -26,7 +26,7 @@ If `market == "ETF"` or the instrument is a fund vehicle (sector is null with a 
 
 You will receive a JSON payload with:
 - **Identifier**: symbol, market, sector, date
-- **Minervini screening results**: `conditions_met` (8 boolean conditions) AND `conditions_detail` (margin of pass for each condition), `rs_rating`, `is_blue_dot`
+- **Minervini screening results**: `conditions_met` (8 boolean conditions) AND `conditions_detail` (margin of pass for each condition), `rs_rating`
 - **Current price metrics**: close, 52w high/low, distance from extremes, volume averages
 - **Recent daily OHLCV**: past ~60 trading days
 - **Recent weekly OHLCV**: past ~104 weeks for full base-pattern recognition including prior uptrend confirmation

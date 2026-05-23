@@ -35,7 +35,6 @@ def test_build_payload_basic_structure(db):
     assert "conditions_met" in payload
     assert "conditions_detail" in payload
     assert payload["rs_rating"] == 95
-    assert payload["is_blue_dot"] is False
 
     assert payload["current_metrics"]["close"] == 80000.0
     assert payload["current_metrics"]["w52_high"] == 95000.0

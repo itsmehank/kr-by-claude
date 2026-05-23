@@ -46,7 +46,6 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
         "conditions_met": conditions_met,
         "conditions_detail": minervini,
         "rs_rating": rs_rating,
-        "is_blue_dot": False,
         "current_metrics": current,
         "daily_ohlcv_recent_60d": daily_ohlcv,
         "weekly_ohlcv_recent_104w": weekly_ohlcv,
