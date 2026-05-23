@@ -255,9 +255,19 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
   "base_high": 82500.0,
   "base_low": 75000.0,
   "base_depth_pct": 9.1,
-  "base_start_date": "2026-03-15"
+  "base_start_date": "2026-03-15",
+
+  "contraction_count": 4,
+  "contraction_depths_pct": [25.0, 14.0, 8.0, 4.0]
 }
 ```
+
+**VCP footprint fields** (Minervini *TLSMW* Ch.10 / *TTLC* Ch.6 footprint = time/price/symmetry):
+
+- `contraction_count` (int 2-6 or null): When `pattern == "vcp"`, the number of distinct volatility contractions (Ts) in the base, typically 2-4 but occasionally 5-6. **null** when `pattern != "vcp"`. Minervini's footprint notation: "40W 31/3 4T" means 40 weeks, 31%→3% range, 4 contractions.
+- `contraction_depths_pct` (array of % or null): When `pattern == "vcp"`, the depth of each contraction in order (left→right, oldest→newest), expressed as % drawdown from contraction high to contraction low. Each should be "about half (plus or minus a reasonable amount)" of the previous (Minervini). **null** when `pattern != "vcp"`.
+
+For non-VCP patterns (`flat_base`, `cup_with_handle`, etc.), both fields MUST be null — these belong to VCP's structural identity.
 
 ## Constraints
 
@@ -299,6 +309,8 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
   - If pocket pivot entry, mark it explicitly in '진입 시그널'.
   - If 3-C / cheat early entry, mark it explicitly in '진입 시그널' or '결론'.
 - `pattern`: must be exactly one of: `flat_base`, `cup_with_handle`, `vcp`, `double_bottom`, `high_tight_flag`, `3c_cheat`, `base_on_base`, `ascending_base`, `none`.
+- `contraction_count`: integer in `[2, 6]` when `pattern == "vcp"`, else `null`.
+- `contraction_depths_pct`: array of positive numbers (length matching `contraction_count`, left→right) when `pattern == "vcp"`, else `null`. Each value is % drawdown of one contraction.
 - `risk_flags`: array (possibly empty `[]`). Use ONLY the 13 values from the taxonomy table in §5.
 - If confidence < 0.5, default to `watch` with low confidence and explain in `reasoning`.
 - `confidence` must be in [0.0, 1.0]. Adjustments per §8 are applied to a base estimate and then clamped.

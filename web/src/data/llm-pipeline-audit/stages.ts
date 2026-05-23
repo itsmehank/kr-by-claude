@@ -49,7 +49,7 @@ SELECT i.ticker, s.market
     promptFile: "prompts/analyze_chart_v3.md",
     promptLines: 309,
     promptSummary:
-      "Stage 2 확인 → 시장 컨텍스트 (downtrend/correction 시 watch 강제) → base 패턴 식별 → risk flags 적용 → pivot 산출. 출력: classification + pattern + pivot + risk_flags + confidence + reasoning",
+      "Stage 2 확인 → 시장 컨텍스트 (downtrend/correction 시 watch 강제) → base 패턴 식별 → risk flags 적용 → pivot 산출. 출력: classification + pattern + pivot + risk_flags + confidence + reasoning VCP 패턴일 때 추가 출력: contraction_count (Ts 개수, 2-6) + contraction_depths_pct (수축 깊이 수열) — Minervini footprint 검증성.",
     outputTable: "weekly_classification (kr_pipeline/db/schema.sql:256)",
     outputColumns:
       "symbol, classified_at, analyzed_for_date, market, classification, pattern, pivot_price, pivot_basis, base_high, base_low, base_depth_pct, base_start_date, risk_flags (JSONB), confidence, reasoning, source='weekend', llm_call_duration_s, llm_input_tokens, llm_output_tokens, created_at",
