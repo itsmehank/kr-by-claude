@@ -267,7 +267,7 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
 
   ```
   **시장 컨텍스트**
-  KOSPI/KOSDAQ 추세 단계 (confirmed_uptrend / under_pressure / correction 등),
+  KOSPI/KOSDAQ 추세 단계 (confirmed_uptrend / downtrend / correction / rally_attempt),
   distribution day 카운트, follow-through day, 200d MA breadth 비율.
   한 줄 결론 — 종목 진입에 우호적/불리 평가.
 
