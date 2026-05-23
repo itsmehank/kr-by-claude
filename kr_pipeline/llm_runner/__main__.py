@@ -66,7 +66,7 @@ def main() -> int:
         }
         with run_tracking(conn, pipeline=pipeline_db_name, mode=args.mode, params=params) as state:
             if args.mode == "weekend":
-                result = modes.run_weekend(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
+                result = modes.run_weekend(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit, ticker=args.ticker)
             elif args.mode == "daily-delta":
                 result = daily_delta.run(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
             elif args.mode == "evaluate":

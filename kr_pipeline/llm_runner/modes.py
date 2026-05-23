@@ -24,9 +24,16 @@ def run_full_daily(conn: Connection, *, dry_run: bool, as_of: date, limit: int |
     return {"daily_delta": r1, "evaluate": r2, "entry": r3, "performance": r4}
 
 
-def run_weekend(conn: Connection, *, dry_run: bool, as_of: date, limit: int | None) -> dict:
-    """주말: (5) batch + digest."""
-    r = weekend.run(conn, dry_run=dry_run, as_of=as_of, limit=limit)
+def run_weekend(
+    conn: Connection,
+    *,
+    dry_run: bool,
+    as_of: date,
+    limit: int | None,
+    ticker: str | None = None,
+) -> dict:
+    """주말: (5) batch + digest. ticker 지정 시 단일 종목 디버깅 mode."""
+    r = weekend.run(conn, dry_run=dry_run, as_of=as_of, limit=limit, ticker=ticker)
     # 분포 집계 (timezone-aware 비교)
     with conn.cursor() as cur:
         cur.execute(
