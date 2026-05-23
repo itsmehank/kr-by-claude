@@ -127,6 +127,7 @@ If `indicators_recent_60d[-5:].any(pocket_pivot_flag == true)` (pocket pivot tri
 **Required criteria for valid pocket pivot:**
 - Stock is in Stage 2 (per §3) with a proper base of ≥ 6 weeks
 - Price is above SMA-50 at the pocket pivot
+  - *Note*: TLOND p.132 allows a rare exception below SMA-50 in the immediate aftermath of a market crash. This system intentionally does NOT exempt — §3.5 market direction rules would force such a stock to `watch` regardless, so the exception has effectively zero opportunity cost.
 - Preceding 5-10 sessions show tight, sideways action (not a "V" reversal)
 - Market direction is `confirmed_uptrend` (§3.5 hard rules still apply)
 
