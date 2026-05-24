@@ -10,16 +10,15 @@ from datetime import date
 import pandas as pd
 
 from kr_pipeline.common.thresholds import (
-    FTD_PCT_THRESHOLD as _SSOT_FTD_PCT_THRESHOLD,
+    FTD_PCT_BASE,
     FTD_RALLY_WINDOW_MIN_DAYS,
     FTD_RALLY_WINDOW_MAX_DAYS,
     FTD_LOW_LOOKBACK_DAYS,
 )
 
-# 기존 module-level 상수는 SSOT (kr_pipeline/common/thresholds.py) 로 이전.
-# 호환성을 위해 같은 이름 별칭 유지. 시장별 임계는 추후 (P2-1a) 별도 함수
-# 인자로 받도록 변경 예정 — 현재는 양 시장 동일 1.4% 사용.
-FTD_PCT_THRESHOLD = _SSOT_FTD_PCT_THRESHOLD["KOSPI"]  # = KOSDAQ 도 동일값
+# P2-1a: FTD_PCT_THRESHOLD 호환 별칭 제거. pct_threshold 가 detect_last_ftd
+# 의 인자로 이전 — 시장별 보정 임계를 호출단 (modes.py) 이 주입.
+# Window / lookback 별칭만 유지 (보정 제외 — 책 그대로).
 FTD_RALLY_WINDOW_MIN = FTD_RALLY_WINDOW_MIN_DAYS
 FTD_RALLY_WINDOW_MAX = FTD_RALLY_WINDOW_MAX_DAYS
 FTD_LOW_LOOKBACK = FTD_LOW_LOOKBACK_DAYS
@@ -28,6 +27,8 @@ FTD_LOW_LOOKBACK = FTD_LOW_LOOKBACK_DAYS
 def detect_last_ftd(
     index_df: pd.DataFrame,
     end_idx: int,
+    *,
+    pct_threshold: float = FTD_PCT_BASE,
     lookback_days: int = 90,
 ) -> date | None:
     """end_idx 기준 직전 lookback_days 세션 내 가장 최근 유효 FTD 날짜 반환.
@@ -56,7 +57,7 @@ def detect_last_ftd(
         if yesterday["close"] == 0:
             continue
         pct = (today["close"] - yesterday["close"]) / yesterday["close"] * 100
-        if pct < FTD_PCT_THRESHOLD:
+        if pct < pct_threshold:
             continue
         if today["volume"] <= yesterday["volume"]:
             continue
