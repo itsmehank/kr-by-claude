@@ -1,4 +1,5 @@
 // Risk Flags 13개 (spec audit §6) — analyze_chart_v3.md §6 line 176-188 표 그대로
+import { BREAKOUT_VOL_FLOOR } from "../thresholds.generated";
 
 export interface RiskFlag {
   id: string;
@@ -26,7 +27,7 @@ export const RISK_FLAGS: RiskFlag[] = [
   {
     id: "low_volume_breakout",
     definition:
-      "Breakout volume < 1.4× the 50-day average (O'Neil: 40-50% above normal at minimum)",
+      `Breakout volume < ${BREAKOUT_VOL_FLOOR.toFixed(1)}× the 50-day average (O'Neil: 40-50% above normal at minimum)`,
   },
   {
     id: "narrow_base",

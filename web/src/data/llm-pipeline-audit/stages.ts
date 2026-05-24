@@ -1,4 +1,8 @@
 // 5 stage 깊은 카드 데이터 (spec audit §3.1-3.5)
+import {
+  GATE_BREAKOUT_VOL_MULT,
+  BREAKOUT_VOL_FLOOR,
+} from "../thresholds.generated";
 
 export interface StageDetail {
   id: string;
@@ -181,7 +185,7 @@ def evaluate(*, close, pivot_price, volume, avg_volume_50d,
 - recent_evaluation_history: 최근 7일 (5b) 이력
 
 Trigger 별 결정 규칙:
-- breakout: go_now/wait/abort (1.4× / 일중 상단 / distribution / SMA-21 가드)
+- breakout: go_now/wait/abort (${BREAKOUT_VOL_FLOOR.toFixed(1)}× / 일중 상단 / distribution / SMA-21 가드)
 - invalidation: abort/wait (SMA-50 이탈 + SMA-21 보조)
 - promotion: go_now 발생 안 함 (staging 신호)`,
     outputTable: "trigger_evaluation_log (kr_pipeline/db/schema.sql:293)",
@@ -197,7 +201,7 @@ Trigger 별 결정 규칙:
         englishQuote:
           "Volume should rise 40 to 50% or more above its average daily volume on the day a stock breaks out of its base.",
         koreanSummary:
-          "돌파일 거래량 평균 대비 40-50% 이상. 코드는 LLM prompt 에서 정밀 판정 (1.4×), 게이트는 1.0× 로 사전 배제 최소화 (§9 변경 이력).",
+          `돌파일 거래량 평균 대비 40-50% 이상. 코드는 LLM prompt 에서 정밀 판정 (${BREAKOUT_VOL_FLOOR.toFixed(1)}×), 게이트는 ${GATE_BREAKOUT_VOL_MULT.toFixed(1)}× 로 사전 배제 최소화 (§9 변경 이력).`,
       },
       {
         book: "Minervini, *Think & Trade Like a Champion*",
