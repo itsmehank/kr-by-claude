@@ -1,3 +1,5 @@
+import { GATE_BREAKOUT_VOL_MULT } from "./thresholds.generated";
+
 // LLM 분석 안내 페이지의 1주일 시뮬레이션 정적 데이터.
 // 10 종목 × 8 날짜 (토 W1 → 다음 토 W2). 코드 / prompt 의 실제 동작에 기반한 가상 시나리오.
 
@@ -90,7 +92,7 @@ export const SIMULATION_ROWS: SimRow[] = [
             { label: "pivot_price", value: "84,500" },
             { label: "오늘 close", value: "85,200" },
             { label: "오늘 volume", value: "12,150,000 (1.82× avg_volume_20d)" },
-            { label: "결정론 게이트", value: "close > pivot AND volume ≥ avg (1.0×) → breakout (정밀 1.5× 선호치는 LLM)" },
+            { label: "결정론 게이트", value: `close > pivot AND volume ≥ avg (${GATE_BREAKOUT_VOL_MULT.toFixed(1)}×) → breakout (정밀 1.5× 선호치는 LLM)` },
           ],
           outputs: [
             { label: "decision", value: "go_now" },
@@ -264,7 +266,7 @@ export const SIMULATION_ROWS: SimRow[] = [
             { label: "confidence", value: "0.82" },
           ],
           reasoning: "VCP 완성. tight 한 4번째 contraction. 거래량 점진 감소. pivot 152,000.",
-          impact: "evaluate_pivot 의 entry 게이트. close > pivot + volume ≥ avg (1.0×) 시 breakout 트리거 (매수 확정 1.5× 는 LLM).",
+          impact: `evaluate_pivot 의 entry 게이트. close > pivot + volume ≥ avg (${GATE_BREAKOUT_VOL_MULT.toFixed(1)}×) 시 breakout 트리거 (매수 확정 1.5× 는 LLM).`,
         },
       },
       "2026-05-20": {

@@ -9,6 +9,7 @@ import {
 } from "../data/llm-pipeline-simulation";
 import { SimulationMatrix } from "./llm-pipeline/SimulationMatrix";
 import { SimulationModal } from "./llm-pipeline/SimulationModal";
+import { GATE_BREAKOUT_VOL_MULT } from "../data/thresholds.generated";
 
 
 // ─────── 데이터 ───────────────────────────────────────────
@@ -81,7 +82,7 @@ const STAGES: PipelineStage[] = [
     inputs: ["weekly_classification", "daily_indicators"],
     outputs: ["trigger_evaluation_log"],
     deterministic:
-      "결정론 트리거 게이트 (compute/trigger_gate.py): close < stop_loss 또는 close < sma_50 → invalidation. entry 종목: close > pivot AND volume >= avg_volume_50d (1.0×, 게이트는 거래량 죽지 않은 정도만 확인 — 1.4~1.5× 표준 / pocket pivot 예외 판정은 LLM 에 위임) → breakout. watch 종목: close >= pivot × 0.95 AND volume >= avg → promotion (책 근거 없음, 시스템 staging 트리거 — go_now 발생 금지, close > pivot 도달은 별도 breakout 트리거가 처리).",
+      `결정론 트리거 게이트 (compute/trigger_gate.py): close < stop_loss 또는 close < sma_50 → invalidation. entry 종목: close > pivot AND volume >= avg_volume_50d (${GATE_BREAKOUT_VOL_MULT.toFixed(1)}×, 게이트는 거래량 죽지 않은 정도만 확인 — 1.4~1.5× 표준 / pocket pivot 예외 판정은 LLM 에 위임) → breakout. watch 종목: close >= pivot × 0.95 AND volume >= avg → promotion (책 근거 없음, 시스템 staging 트리거 — go_now 발생 금지, close > pivot 도달은 별도 breakout 트리거가 처리).`,
     llm:
       "evaluate_pivot_trigger_v1.md prompt — 게이트 통과 종목만 호출. '이 트리거가 진짜인가, 가짜 신호인가, 보류인가' 판단.",
     decisions: ["go_now", "wait", "abort"],
