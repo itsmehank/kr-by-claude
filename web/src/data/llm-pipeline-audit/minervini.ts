@@ -1,5 +1,11 @@
 // Minervini Trend Template 8조건 (spec audit §4)
 
+import {
+  C6_W52LOW_MULT,
+  C7_W52HIGH_MULT,
+  C8_RS_RATING_MIN,
+} from "../thresholds.generated";
+
 export interface MinerviniCondition {
   num: number;
   korean: string;
@@ -14,7 +20,7 @@ minervini_pass = (
     minervini_c1 IS TRUE AND minervini_c2 IS TRUE AND
     minervini_c3 IS TRUE AND minervini_c4 IS TRUE AND
     minervini_c5 IS TRUE AND minervini_c6 IS TRUE AND
-    minervini_c7 IS TRUE AND (rs_rating >= 70)
+    minervini_c7 IS TRUE AND (rs_rating >= ${C8_RS_RATING_MIN})
 )
 `.trim();
 
@@ -59,27 +65,27 @@ export const MINERVINI_CONDITIONS: MinerviniCondition[] = [
   },
   {
     num: 6,
-    korean: "close ≥ w52_low × 1.25",
-    threshold: "1.25×",
+    korean: `close ≥ w52_low × ${C6_W52LOW_MULT.toFixed(2)}`,
+    threshold: `${C6_W52LOW_MULT.toFixed(2)}×`,
     codeRef: "minervini.py:38",
     englishOriginal:
-      "Price ≥ 52w-low × 1.25 (TTLC Ch.6 — 최신작) / × 1.30 (TLSMW Ch.5)",
+      `Price ≥ 52w-low × ${C6_W52LOW_MULT.toFixed(2)} (TTLC Ch.6 — 최신작) / × 1.30 (TLSMW Ch.5)`,
     note: "두 저작 간 버전 차이 — TTLC Ch.6 (+25%) 와 TLSMW Ch.5 (+30%) 모두 책 근거. 우리는 최신작 채택.",
   },
   {
     num: 7,
-    korean: "close ≥ w52_high × 0.75",
-    threshold: "0.75×",
+    korean: `close ≥ w52_high × ${C7_W52HIGH_MULT.toFixed(2)}`,
+    threshold: `${C7_W52HIGH_MULT.toFixed(2)}×`,
     codeRef: "minervini.py:40",
-    englishOriginal: "Price ≥ 52w-high × 0.75 (within 25% of 52w high)",
+    englishOriginal: `Price ≥ 52w-high × ${C7_W52HIGH_MULT.toFixed(2)} (within 25% of 52w high)`,
   },
   {
     num: 8,
-    korean: "rs_rating ≥ 70",
-    threshold: "70",
+    korean: `rs_rating ≥ ${C8_RS_RATING_MIN}`,
+    threshold: `${C8_RS_RATING_MIN}`,
     codeRef: "store.py:91 (SQL UPDATE SET)",
-    englishOriginal: "RS Rating ≥ 70",
-    note: "RS Rating 개념은 O'Neil HMMS, 임계 70은 Minervini TLSMW Ch.5 — c1-c7 과 함께 minervini_pass 의 8 번째 조건.",
+    englishOriginal: `RS Rating ≥ ${C8_RS_RATING_MIN}`,
+    note: `RS Rating 개념은 O'Neil HMMS, 임계 ${C8_RS_RATING_MIN}은 Minervini TLSMW Ch.5 — c1-c7 과 함께 minervini_pass 의 8 번째 조건.`,
   },
 ];
 
