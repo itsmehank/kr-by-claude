@@ -193,6 +193,12 @@ def book_default_thresholds(*, ftd_base: float, dist_base: float) -> dict:
 
 ## 6. Architecture — Data Flow
 
+**인덱스 코드 표기 규칙** (review 메모):
+- 내부 식별자 (SQL `WHERE index_code = %s`, dict key, 루프 변수): `"1001"` (KOSPI) / `"2001"` (KOSDAQ) 문자열 사용.
+- 사용자 / 문서 / 책 인용 라벨: KOSPI / KOSDAQ.
+- 로그 메시지: 식별자 `"1001"` 그대로 (운영자가 매핑 인지 — 별도 변환 안 함).
+- 본 spec 의 §4 SSOT 정리 표의 `FTD_PCT_THRESHOLD = {"KOSPI": 1.4, "KOSDAQ": 1.4}` 는 *제거 대상* 기존 dict 의 *원래 형태* 표기 — 신규 코드는 위 규칙 따름.
+
 호출 단: `kr_pipeline/market_context/compute/status.py` (또는 market_context 계산 매일 cron 진입점).
 
 ```python
