@@ -17,6 +17,18 @@ from kr_pipeline.market_context.load import (
     load_index_daily_with_sma200, load_market_daily_indicators, get_index_min_date,
 )
 from kr_pipeline.market_context.store import upsert_market_context
+from kr_pipeline.common.thresholds import (
+    NASDAQ_REFERENCE_SIGMA,
+    FTD_PCT_BASE,
+    DISTRIBUTION_PCT_BASE,
+    KOREAN_SIGMA_RATIO_FLOOR,
+    KOREAN_SIGMA_RATIO_CEILING,
+)
+from kr_pipeline.market_context.compute.volatility import (
+    compute_korean_sigma_pct,
+    derive_market_thresholds,
+    book_default_thresholds,
+)
 
 
 log = logging.getLogger("kr_pipeline.market_context")
@@ -33,8 +45,9 @@ INDICES = [
 
 
 COMPUTATION_NOTES = json.dumps({
-    "distribution_day_pct_threshold": -0.2,
-    "ftd_pct_threshold": 1.4,
+    "distribution_day_pct_base": -0.2,
+    "ftd_pct_base": 1.4,
+    "note": "P2-1a: market thresholds scaled per-index by Korean σ. See log for per-date applied values.",
     "ftd_rally_window_min": 3,
     "ftd_rally_window_max": 15,
     "ftd_lookback_days": 90,
@@ -116,8 +129,44 @@ def _process_one_date(
     yearly_high = float(today_row["yearly_high"])
     pct_off_yearly_high = (close - yearly_high) / yearly_high * 100 if yearly_high > 0 else 0.0
 
-    dist_count = count_distribution_days(index_df, end_idx=end_idx, lookback=25)
-    last_ftd_date = detect_last_ftd(index_df, end_idx=end_idx, lookback_days=90)
+    # P2-1a: 시장별 σ 측정 → 보정 임계 derive (fallback 안전 후퇴 보장)
+    sigma = compute_korean_sigma_pct(conn, index_code, as_of=target_date)
+    if sigma is None:
+        thresholds = book_default_thresholds(
+            ftd_base=FTD_PCT_BASE,
+            dist_base=DISTRIBUTION_PCT_BASE,
+        )
+        log.warning(
+            "sigma fallback for %s @ %s — using book defaults (ftd=%.3f, dist=%.3f)",
+            index_code, target_date,
+            thresholds["ftd_pct"], thresholds["distribution_pct"],
+        )
+    else:
+        thresholds = derive_market_thresholds(
+            sigma,
+            anchor_sigma=NASDAQ_REFERENCE_SIGMA,
+            ftd_base=FTD_PCT_BASE,
+            dist_base=DISTRIBUTION_PCT_BASE,
+            clamp_floor=KOREAN_SIGMA_RATIO_FLOOR,
+            clamp_ceiling=KOREAN_SIGMA_RATIO_CEILING,
+        )
+        log.info(
+            "sigma derived for %s @ %s: sigma=%.3f raw_ratio=%.3f ratio_applied=%.3f clamped=%s ftd_pct=%.3f dist_pct=%.3f",
+            index_code, target_date, sigma,
+            thresholds["raw_ratio"], thresholds["ratio_applied"], thresholds["clamped"],
+            thresholds["ftd_pct"], thresholds["distribution_pct"],
+        )
+
+    dist_count = count_distribution_days(
+        index_df, end_idx=end_idx,
+        pct_threshold=thresholds["distribution_pct"],
+        lookback=25,
+    )
+    last_ftd_date = detect_last_ftd(
+        index_df, end_idx=end_idx,
+        pct_threshold=thresholds["ftd_pct"],
+        lookback_days=90,
+    )
     days_since_ftd = (target_date - last_ftd_date).days if last_ftd_date else None
 
     current_status = determine_status(
