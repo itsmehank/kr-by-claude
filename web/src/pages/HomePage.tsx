@@ -24,7 +24,7 @@ import { relativeTime } from "../lib/utils";
 import {
   MARKET_DISTRIBUTION_PCT_THRESHOLD,
   MARKET_DISTRIBUTION_LOOKBACK_DAYS,
-  FTD_PCT_THRESHOLD,
+  FTD_PCT_BASE,
   FTD_RALLY_WINDOW_MIN_DAYS,
   FTD_RALLY_WINDOW_MAX_DAYS,
 } from "../data/thresholds.generated";
@@ -275,7 +275,7 @@ function MarketBento({ context, title, code, tint }: MarketBentoProps) {
                 <>
                   <div className="font-semibold mb-1">Follow-Through Day</div>
                   <div>
-                    저점 후 {FTD_RALLY_WINDOW_MIN_DAYS}-{FTD_RALLY_WINDOW_MAX_DAYS}일째 (최적 4-7일) +{FTD_PCT_THRESHOLD.KOSPI.toFixed(1)}% 이상 상승 + 전일 대비 거래량 증가한 첫 강세 신호.
+                    저점 후 {FTD_RALLY_WINDOW_MIN_DAYS}-{FTD_RALLY_WINDOW_MAX_DAYS}일째 (최적 4-7일) +{FTD_PCT_BASE.toFixed(1)}% 이상 상승 + 전일 대비 거래량 증가한 첫 강세 신호.
                     신규 상승장 진입 트리거.
                   </div>
                 </>

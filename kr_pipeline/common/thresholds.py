@@ -84,27 +84,53 @@ VOLUME_DRY_UP_MULT: Final[float] = 0.5
 """volume_dry_up 의 거래량 임계 (50일 평균 배수).
 책 명시 아님 — community standard."""
 
+# ===== P2-1a: Market volatility correction (한국시장 보정) =====
+
+NASDAQ_REFERENCE_SIGMA: Final[float] = 1.0
+"""정상 시장 NASDAQ 일간 % σ (단순수익률 기준).
+책 명시 없음 — TLOND p.232-233 의 FTD 1.0-1.5% 임계 밴드의 분모로 implied.
+Regime shift 시 재도출. 단위 정합: 임계 비교 대상 (FTD 1.4% / distribution
+-0.2%) 이 단순수익률이므로 σ 도 단순수익률 기준 (log 아님)."""
+
+FTD_PCT_BASE: Final[float] = 1.4
+"""NASDAQ 기준 FTD 임계 (% 일간 상승).
+책: TLOND p.232-233 (2003 NASDAQ).
+한국 임계 = FTD_PCT_BASE × ratio_applied."""
+
+DISTRIBUTION_PCT_BASE: Final[float] = -0.2
+"""NASDAQ 기준 시장 distribution day 임계 (% 일간 하락).
+책: O'Neil HMMS Ch.9 + IBD/Dr.K 통용. TLOND p.231 -0.1% 선호 (해석본) —
+원전 우선으로 -0.2% 채택. 거래량 조건 (전일 초과) 은 별도 인자 (보정 제외).
+한국 임계 = DISTRIBUTION_PCT_BASE × ratio_applied."""
+
+SIGMA_WINDOW_DAYS: Final[int] = 252
+"""한국 σ rolling window (1년 거래일).
+환경 변화 부분적 반영. EWMA 등 동적 가중은 미적용 (단순 우선)."""
+
+SIGMA_MIN_DATA_RATIO: Final[float] = 200 / 252
+"""σ 측정 최소 데이터 비율. window_days * min_data_ratio 미만이면 None 반환
+→ book_default_thresholds 로 fallback. 약 0.79 (200/252 거래일)."""
+
+KOREAN_SIGMA_RATIO_FLOOR: Final[float] = 1.0
+"""ratio clamp 하한. 한국 임계 ≥ 책 임계 보장 — 책의 'explosive / institutional
+selling' 강도 최소 강제."""
+
+KOREAN_SIGMA_RATIO_CEILING: Final[float] = 2.5
+"""ratio clamp 상한. TLOND FTD 임계 역사 1.0-1.7% 좁은 밴드 근거 — 패닉기
+한국 σ 폭증 (예: 5-6%) 시 임계 7% 이상으로 폭주 → confirmed_uptrend 봉쇄
+→ 패닉 직후 매수 구간 통째 누락 방지. 평시 한국 σ 2.3 < 2.5 → 평시 투명.
+패닉기에만 안전장치."""
+
 # ===== Distribution Day - 시장 레벨 (kr_pipeline/market_context/compute/distribution_day.py) =====
 
-MARKET_DISTRIBUTION_PCT_THRESHOLD: Final[float] = -0.2
-"""시장 지수 distribution day 의 일간 하락 임계 (%).
-책: IBD/O'Neil 통용 -0.2%. TLOND p.231 는 -0.1% 선호 (해석본).
-원전 우선 — -0.2% 유지."""
+# Deprecated alias — DISTRIBUTION_PCT_BASE 로 이전 (P2-1a). 다음 사이클 cleanup.
+MARKET_DISTRIBUTION_PCT_THRESHOLD: Final[float] = DISTRIBUTION_PCT_BASE
 
 MARKET_DISTRIBUTION_LOOKBACK_DAYS: Final[int] = 25
 """시장 distribution day 카운트 lookback (세션 수).
 책: O'Neil HMMS Ch.9 — 25 세션."""
 
 # ===== Follow-Through Day (kr_pipeline/market_context/compute/follow_through.py) =====
-
-FTD_PCT_THRESHOLD: Final[dict[str, float]] = {
-    "KOSPI": 1.4,
-    "KOSDAQ": 1.4,
-}
-"""FTD 일간 상승 임계 (%, 시장별).
-책: TLOND p.232-233 — NASDAQ 1.4% (2003) / 1.5% (2010), S&P 1.1% (2004).
-'한 나라 두 지수도 다른 임계' 권장. 현재 KOSPI/KOSDAQ 동일 — P2-1a 에서
-한국 시장 변동성 측정 후 시장별 보정 예정."""
 
 FTD_RALLY_WINDOW_MIN_DAYS: Final[int] = 3
 """FTD 발생 가능 윈도우 최소 (저점 후 일수).

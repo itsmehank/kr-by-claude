@@ -42,10 +42,25 @@ def test_market_distribution():
 
 
 def test_ftd_constants():
-    assert thresholds.FTD_PCT_THRESHOLD == {"KOSPI": 1.4, "KOSDAQ": 1.4}
     assert thresholds.FTD_RALLY_WINDOW_MIN_DAYS == 3
     assert thresholds.FTD_RALLY_WINDOW_MAX_DAYS == 15
     assert thresholds.FTD_LOW_LOOKBACK_DAYS == 15
+
+
+def test_p2_1a_constants():
+    """P2-1a 한국시장 보정 SSOT 상수 7개."""
+    assert thresholds.NASDAQ_REFERENCE_SIGMA == 1.0
+    assert thresholds.FTD_PCT_BASE == 1.4
+    assert thresholds.DISTRIBUTION_PCT_BASE == -0.2
+    assert thresholds.SIGMA_WINDOW_DAYS == 252
+    assert abs(thresholds.SIGMA_MIN_DATA_RATIO - 200 / 252) < 1e-9
+    assert thresholds.KOREAN_SIGMA_RATIO_FLOOR == 1.0
+    assert thresholds.KOREAN_SIGMA_RATIO_CEILING == 2.5
+
+
+def test_market_distribution_pct_threshold_aliased():
+    """호환 별칭이 DISTRIBUTION_PCT_BASE 와 동일 값."""
+    assert thresholds.MARKET_DISTRIBUTION_PCT_THRESHOLD == thresholds.DISTRIBUTION_PCT_BASE
 
 
 def test_status_constants():
