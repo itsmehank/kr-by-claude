@@ -21,6 +21,13 @@ import { InfoTooltip } from "../components/ui/InfoTooltip";
 import { Skeleton, SkeletonRow } from "../components/ui/Skeleton";
 import { RunDetailModal } from "../components/ui/RunDetailModal";
 import { relativeTime } from "../lib/utils";
+import {
+  MARKET_DISTRIBUTION_PCT_THRESHOLD,
+  MARKET_DISTRIBUTION_LOOKBACK_DAYS,
+  FTD_PCT_THRESHOLD,
+  FTD_RALLY_WINDOW_MIN_DAYS,
+  FTD_RALLY_WINDOW_MAX_DAYS,
+} from "../data/thresholds.generated";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -224,8 +231,8 @@ function MarketBento({ context, title, code, tint }: MarketBentoProps) {
                 <>
                   <div className="font-semibold mb-1">Distribution Day</div>
                   <div>
-                    시장 지수 기준 — 지수가 -0.2% 이상 하락 + 거래량 전일 대비 증가한 날. 기관 매도 신호. (종목 레벨 distribution 은 별도 정의: prompt §6.)
-                    최근 25일 중 5일 이상이면 약세장 시사.
+                    시장 지수 기준 — 지수가 {MARKET_DISTRIBUTION_PCT_THRESHOLD.toFixed(1)}% 이상 하락 + 거래량 전일 대비 증가한 날. 기관 매도 신호. (종목 레벨 distribution 은 별도 정의: prompt §6.)
+                    최근 {MARKET_DISTRIBUTION_LOOKBACK_DAYS}일 중 5일 이상이면 약세장 시사.
                   </div>
                   <div className="text-faint mt-1 text-data-xs">
                     O'Neil HTMMIS Ch.9
@@ -268,7 +275,7 @@ function MarketBento({ context, title, code, tint }: MarketBentoProps) {
                 <>
                   <div className="font-semibold mb-1">Follow-Through Day</div>
                   <div>
-                    저점 후 3-15일째 (최적 4-7일) +1.4% 이상 상승 + 전일 대비 거래량 증가한 첫 강세 신호.
+                    저점 후 {FTD_RALLY_WINDOW_MIN_DAYS}-{FTD_RALLY_WINDOW_MAX_DAYS}일째 (최적 4-7일) +{FTD_PCT_THRESHOLD.KOSPI.toFixed(1)}% 이상 상승 + 전일 대비 거래량 증가한 첫 강세 신호.
                     신규 상승장 진입 트리거.
                   </div>
                 </>
