@@ -14,6 +14,10 @@ import type { Classification } from "../lib/types";
 import { relativeTime, formatKst } from "../lib/utils";
 import { Tooltip } from "../components/ui/Tooltip";
 import ReactMarkdown from "react-markdown";
+import {
+  BREAKOUT_VOL_PREFERRED,
+  MARKET_DISTRIBUTION_LOOKBACK_DAYS,
+} from "../data/thresholds.generated";
 
 
 type SortOption = "classified_at_desc" | "confidence_desc";
@@ -81,7 +85,7 @@ const RISK_FLAG_DESCRIPTIONS: Record<string, string> = {
   faulty_pivot:
     "Pivot 의 형태적 결함 (wedging handle, handle이 base 하반부, V자 즉시 신고가, 거래량 없는 돌파 등).",
   low_volume_breakout:
-    "돌파 거래량이 50일 평균의 1.5배 미만 (O'Neil: 50% above average 가 최소).",
+    `돌파 거래량이 50일 평균의 ${BREAKOUT_VOL_PREFERRED.toFixed(1)}배 미만 (O'Neil: 50% above average 가 최소).`,
   narrow_base:
     "패턴별 최소 기간보다 짧은 base.",
   wide_and_loose:
@@ -93,7 +97,7 @@ const RISK_FLAG_DESCRIPTIONS: Record<string, string> = {
   reverse_split_distortion:
     "최근 12주 내 reverse split — 가격 왜곡 가능 (실무 휴리스틱, 책 원전 아님).",
   unfavorable_market_context:
-    "시장 downtrend/correction 또는 distribution day 5개 이상 (25 sessions). O'Neil HMMS Ch.9 의 표준.",
+    `시장 downtrend/correction 또는 distribution day 5개 이상 (${MARKET_DISTRIBUTION_LOOKBACK_DAYS} sessions). O'Neil HMMS Ch.9 의 표준.`,
   etf_methodology_mismatch:
     "ETF/fund — Minervini/O'Neil 개별 leadership 종목 방법론 적용 안 됨.",
   thin_liquidity_us_only:

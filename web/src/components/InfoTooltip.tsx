@@ -1,6 +1,12 @@
 import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Info } from "lucide-react";
+import {
+  GATE_BREAKOUT_VOL_MULT,
+  BREAKOUT_VOL_FLOOR,
+  BREAKOUT_VOL_PREFERRED,
+  PP_DOWN_VOL_LOOKBACK_DAYS,
+} from "../data/thresholds.generated";
 
 interface Props {
   children: ReactNode;
@@ -65,7 +71,7 @@ export const TRIGGER_TYPE_HELP = (
     <ul className="space-y-1.5">
       <li>
         <span className="font-semibold">breakout</span>{" "}
-        — 종가가 pivot 가격을 돌파 + 거래량이 50일 평균 이상 (게이트 통과 = ≥ 1.0×). 매수 확정 (entry_params) 은 LLM 이 책 표준 1.5× 선호치 / 1.4× 허용 하한을 적용.
+        — 종가가 pivot 가격을 돌파 + 거래량이 50일 평균 이상 (게이트 통과 = ≥ {GATE_BREAKOUT_VOL_MULT.toFixed(1)}×). 매수 확정 (entry_params) 은 LLM 이 책 표준 {BREAKOUT_VOL_PREFERRED.toFixed(1)}× 선호치 / {BREAKOUT_VOL_FLOOR.toFixed(1)}× 허용 하한을 적용.
       </li>
       <li>
         <span className="font-semibold">promotion</span>{" "}
@@ -113,13 +119,13 @@ export const VOLUME_RATIO_HELP = (
         <span className="num font-semibold">1.00×</span> — 평균과 같음.
       </li>
       <li>
-        <span className="num font-semibold">1.50×</span> 이상 — breakout 의 거래량 요건.
+        <span className="num font-semibold">{BREAKOUT_VOL_PREFERRED.toFixed(2)}×</span> 이상 — breakout 의 거래량 요건.
       </li>
       <li>
         <span className="num font-semibold">2.00×</span> 이상 — 강한 매수세 (institutional buying).
       </li>
       <li>
-        <span className="font-semibold">Pocket pivot</span> — avg 배수 무관. 상승일 거래량이 직전 10거래일 중 하락일 최대 거래량을 초과 + 종가가 50일 이동평균 위 (Morales &amp; Kacher TLOND Ch.5 p.132-133).
+        <span className="font-semibold">Pocket pivot</span> — avg 배수 무관. 상승일 거래량이 직전 {PP_DOWN_VOL_LOOKBACK_DAYS}거래일 중 하락일 최대 거래량을 초과 + 종가가 50일 이동평균 위 (Morales &amp; Kacher TLOND Ch.5 p.132-133).
       </li>
     </ul>
   </div>
