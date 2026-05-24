@@ -8,12 +8,13 @@
 import pandas as pd
 
 from kr_pipeline.common.thresholds import (
-    MARKET_DISTRIBUTION_PCT_THRESHOLD,
+    DISTRIBUTION_PCT_BASE,
     MARKET_DISTRIBUTION_LOOKBACK_DAYS,
 )
 
-# 기존 module-level 상수는 SSOT 로 이전. 호환성 별칭 유지.
-DISTRIBUTION_DAY_PCT_THRESHOLD = MARKET_DISTRIBUTION_PCT_THRESHOLD
+# P2-1a: DISTRIBUTION_DAY_PCT_THRESHOLD 호환 별칭은 DISTRIBUTION_PCT_BASE 로
+# 이전. 시장별 보정 임계는 pct_threshold 인자로 modes.py 가 주입.
+DISTRIBUTION_DAY_PCT_THRESHOLD = DISTRIBUTION_PCT_BASE
 
 
 def is_distribution_day(
@@ -21,17 +22,21 @@ def is_distribution_day(
     today_volume: float,
     yesterday_close: float,
     yesterday_volume: float,
+    *,
+    pct_threshold: float = DISTRIBUTION_PCT_BASE,
 ) -> bool:
     """오늘이 분포일인지 판정."""
     if yesterday_close == 0:
         return False
     pct_change = (today_close - yesterday_close) / yesterday_close * 100
-    return pct_change <= DISTRIBUTION_DAY_PCT_THRESHOLD and today_volume > yesterday_volume
+    return pct_change <= pct_threshold and today_volume > yesterday_volume
 
 
 def count_distribution_days(
     index_df: pd.DataFrame,
     end_idx: int,
+    *,
+    pct_threshold: float = DISTRIBUTION_PCT_BASE,
     lookback: int = MARKET_DISTRIBUTION_LOOKBACK_DAYS,
 ) -> int:
     """end_idx 기준 직전 lookback 세션 내 분포일 카운트.
@@ -55,6 +60,7 @@ def count_distribution_days(
             today_volume=float(today["volume"]),
             yesterday_close=float(yesterday["close"]),
             yesterday_volume=float(yesterday["volume"]),
+            pct_threshold=pct_threshold,
         ):
             count += 1
     return count
