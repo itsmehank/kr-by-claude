@@ -108,11 +108,17 @@ def _process_one_date(
     index_code: str,
     market: str,
     index_df,
+    *,
+    thresholds_override: dict | None = None,
 ) -> dict | None:
     """특정 (date, index_code) 의 컨텍스트 1 행 계산.
 
     index_df: load_index_daily_with_sma200 결과 (시계열, end_idx 까지).
     target_date 가 index_df 에 있어야 함.
+
+    thresholds_override: verification harness 전용 (replay). None (default) 이면
+    운영 경로 — σ 측정 + derive. dict 주입 시 σ 측정 건너뛰고 그 임계 사용
+    (base vs corrected 비교용). 운영 cron 은 항상 None — 동작 변화 0.
     """
     # target_date 의 row 위치 찾기
     matching = index_df[index_df["date"] == target_date]
@@ -130,8 +136,10 @@ def _process_one_date(
     pct_off_yearly_high = (close - yearly_high) / yearly_high * 100 if yearly_high > 0 else 0.0
 
     # P2-1a: 시장별 σ 측정 → 보정 임계 derive (fallback 안전 후퇴 보장)
-    sigma = compute_korean_sigma_pct(conn, index_code, as_of=target_date)
-    if sigma is None:
+    # thresholds_override 가 주어지면 (replay verification harness) σ 측정 건너뜀.
+    if thresholds_override is not None:
+        thresholds = thresholds_override
+    elif (sigma := compute_korean_sigma_pct(conn, index_code, as_of=target_date)) is None:
         thresholds = book_default_thresholds(
             ftd_base=FTD_PCT_BASE,
             dist_base=DISTRIBUTION_PCT_BASE,
