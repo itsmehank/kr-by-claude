@@ -161,3 +161,24 @@
 - **INCOMPLETE**: 핸들 품질 → P0-4; faulty_pivot 정의 협소(UI≠prompt) → P1-7; C3 margin → P2-4; wide_loose 절대치 → (LLM 보정 가능, 우선순위 낮음, 무조치); VCP footprint output → P2-2/P2-3; pocket pivot 11-15일 적응 lookback → (경미, 무조치); distribution 시장컷 한국적용 → P2-1b
 - **EXTENDS (안전, 무조치)**: promotion 0.95 staging, position size tier, target 50% 상한 — 책 무근거 자인하나 안전장치/scope-out 으로 정당. action 없음.
 - **사실오류 (책무관)**: entry_mode validation → P3-1; cron 16:30 → P3-2/3; README RS80 → P3-4; is_blue_dot → P3-5; under_pressure → P3-6
+
+---
+
+## 후속 발견 (replay 검증 중 — 2026-05-25)
+
+### F1. FTD 무효화 룰 ↔ P2-1a FTD 임계 상향 상호작용 (조사 필요)
+
+P2-1a replay 검증 (`scripts/p2_1a_replay.py`, CSV: `docs/superpowers/verification/2026-05-25-p2-1a-replay.csv`) 에서 의도치 않게 발견.
+
+**증상**: 보정 FTD 임계 상향 (1.4 → 3.28 등) 이 FTD 를 *더 드물게·늦게* 뜨게 함 → `days_since_ftd` 가 커짐 → `status.py` 룰 3 (`dist_count >= STATUS_DIST_COUNT_FOR_FTD_INVALIDATION(6)` AND `days_since_ftd > STATUS_FTD_INVALIDATION_DAYS(10)` → correction "FTD 무효화") 이 *더 자주* 발동.
+
+**구체 case**: KOSPI 2026-04-01~04-22 — base 임계는 rally_attempt, 보정 임계는 correction. corrected 가 FTD 를 3-18 (더 이른 큰 반등) 로 잡아 days_since_ftd 14 > 10 + dist_count 6 → 룰 3 correction. fwd_return *양수* (5d +7.19, 10d +11.19 등) → 보정이 실제 회복을 correction 으로 오판.
+
+**영향**: 매수 결정 차이는 *작음* (rally_attempt / correction 모두 §3.5 에서 entry → 강제 watch). 단 confirmed_uptrend 를 놓쳐 매수 기회를 차단하는 case 가 실거래에 누적되면 문제.
+
+**조사 항목** (P2-1b 보다 *먼저* — 방법론 흡수 필요):
+- P2-1a 방법론이 *의존 룰 (status.py 룰 3) 과의 상호작용을 점검 안 함* — "임계 변경 시 의존 룰 상호작용 점검" 을 방법론에 흡수해야 P2-1b (cup depth) 에 같은 누락 복제 안 함.
+- `STATUS_FTD_INVALIDATION_DAYS(10)` 가 보정 FTD 임계와 함께 재검토 필요한지.
+- 4월 KOSPI correction 이 단발인지 패턴인지 (cron 누적 데이터로 확인).
+
+**우선순위**: P2-1b (cup depth) *선행*. C (P2-1b) 를 B (이 조사) 앞에 두지 말 것.
