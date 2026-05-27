@@ -182,3 +182,20 @@ P2-1a replay 검증 (`scripts/p2_1a_replay.py`, CSV: `docs/superpowers/verificat
 - 4월 KOSPI correction 이 단발인지 패턴인지 (cron 누적 데이터로 확인).
 
 **우선순위 (정정 2026-05-25)**: 방법론이 이미 checklist 로 흡수됨 → "B(이 조사) 선행" 제약 **해제**. P2-1b (cup depth) 를 B-수치보다 먼저 해도 무방 — 오히려 P2-1b 가 checklist 첫 적용 사례가 되는 게 자연스러움. B-수치 (10/90/6 실제 변경) 는 시급 아님 → cron 누적 후 정상 순서. 못박힌 다음 순서: **P2-1b → B-수치 → ATR 전환** (전부 checklist 적용).
+
+---
+
+### F2. P2-1b (cup depth) 종결 = 33% 유지, 규칙 변경 없음 (2026-05-27)
+
+**판정 (CLI 측정 + web 세션 책-충실성 판정)**: 한국 지수 intermediate correction 낙폭이 미국과 **유사** → prompt §4 의 33%/50% **유지, 보정 불필요**. 측정·근거: `docs/superpowers/verification/2026-05-27-p2-1b-cup-depth/FINDINGS.md` (KR 46/30yr + US 46yr 외부 캐시, 3 탐지 정의).
+
+- 책 "1.5–2.5× market averages" 분모 = 단일 중간조정 크기 (HMMS p.190) → zigzag swing 측정(Def C)에서 KR ≈ US (성장주 페어 KOSDAQ/Nasdaq = 0.94). 2.5×9% = 22.5% < 33% → 이전 정당.
+- 33% 는 thresholds.py SSOT 에 없는 **prompt-텍스트 임계** 임을 확인 (사실2).
+
+### F3. P2-1c (가칭): 50% bear 예외의 연속화 — backlog (구현 보류)
+
+**확인된 gap (가설 아님)**: -10%~-18% 중간조정은 status.py 에서 `correction` 으로 분류 (`downtrend` 은 off_high<-15% **AND** death-cross 구조 필요) → 50% 예외(`downtrend→confirmed_uptrend` 전환) 미발화 → 33~50% 로 정당히 깊어진 cup 이 33% 에 잘림. O'Neil HMMS p.116 ("deep cups ... function of the severity of the general market decline") 이 이 깊은 cup 을 정당화.
+
+**재정의**: "33% 교체" 아님 — 기존 50% bear 예외를 *연속함수* 로 일반화. `상한 = clamp(1.5–2.5 × 동시점 지수 drawdown, floor=33%, cap=50%)`, `>60% 기각`. 평온장 floor=~33% 필수. HMMS p.116 + Minervini TLSMW p.211 + TTLC Ch.7 동시 만족 형태.
+
+**feasibility LOW** (`base_start_date` / `stocks.market` / `index_daily` 전부 존재). 실제 33%/50% 상수·소비 룰 변경 시점에 **threshold-change-checklist 의존성 맵 선행 필수** (소비처: `base_depth_exceeded >33%`, `calculate_entry` base-depth target sanity + `<8%→cap18`, 50% 예외 ← market_context). 상세: 위 FINDINGS.md §P2-1c.
