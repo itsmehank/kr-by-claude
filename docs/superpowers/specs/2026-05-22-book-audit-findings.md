@@ -196,6 +196,13 @@ P2-1a replay 검증 (`scripts/p2_1a_replay.py`, CSV: `docs/superpowers/verificat
 
 **확인된 gap (가설 아님)**: -10%~-18% 중간조정은 status.py 에서 `correction` 으로 분류 (`downtrend` 은 off_high<-15% **AND** death-cross 구조 필요) → 50% 예외(`downtrend→confirmed_uptrend` 전환) 미발화 → 33~50% 로 정당히 깊어진 cup 이 33% 에 잘림. O'Neil HMMS p.116 ("deep cups ... function of the severity of the general market decline") 이 이 깊은 cup 을 정당화.
 
-**재정의**: "33% 교체" 아님 — 기존 50% bear 예외를 *연속함수* 로 일반화. `상한 = clamp(1.5–2.5 × 동시점 지수 drawdown, floor=33%, cap=50%)`, `>60% 기각`. 평온장 floor=~33% 필수. HMMS p.116 + Minervini TLSMW p.211 + TTLC Ch.7 동시 만족 형태.
+**재정의**: "33% 교체" 아님 — 기존 50% bear 예외를 *연속함수* 로 일반화.
+```
+allowed_max_depth = clamp(2.5 × 동시점_지수_drawdown, floor=33%, cap=50%)
+base_depth > 60% → hard reject
+```
+평온장 floor=33% 필수 (분모→0 시 정상 cup 보호). HMMS p.116 + Minervini TLSMW p.211 + TTLC Ch.7 동시 만족 형태.
+
+**곱수는 2.5× 단일** (web 세션 정정 2026-05-27): 합격/탈락 경계는 2.5× 하나다 — HMMS p.113 "exceed 2½ times the market averages = too wide and loose". 1.5× 는 *전형적 조정* 의 서술일 뿐 cap 이 아니며, p.190 "decline the least = best" 라 하한 곱수는 존재하지 않는다. 1.5× 를 cap 에 쓰면 깊은 조정기의 정당한 cup 을 재탈락시켜 P2-1c 목적을 자기파괴한다.
 
 **feasibility LOW** (`base_start_date` / `stocks.market` / `index_daily` 전부 존재). 실제 33%/50% 상수·소비 룰 변경 시점에 **threshold-change-checklist 의존성 맵 선행 필수** (소비처: `base_depth_exceeded >33%`, `calculate_entry` base-depth target sanity + `<8%→cap18`, 50% 예외 ← market_context). 상세: 위 FINDINGS.md §P2-1c.
