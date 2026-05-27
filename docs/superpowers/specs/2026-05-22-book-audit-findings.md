@@ -206,3 +206,23 @@ base_depth > 60% → hard reject
 **곱수는 2.5× 단일** (web 세션 정정 2026-05-27): 합격/탈락 경계는 2.5× 하나다 — HMMS p.113 "exceed 2½ times the market averages = too wide and loose". 1.5× 는 *전형적 조정* 의 서술일 뿐 cap 이 아니며, p.190 "decline the least = best" 라 하한 곱수는 존재하지 않는다. 1.5× 를 cap 에 쓰면 깊은 조정기의 정당한 cup 을 재탈락시켜 P2-1c 목적을 자기파괴한다.
 
 **feasibility LOW** (`base_start_date` / `stocks.market` / `index_daily` 전부 존재). 실제 33%/50% 상수·소비 룰 변경 시점에 **threshold-change-checklist 의존성 맵 선행 필수** (소비처: `base_depth_exceeded >33%`, `calculate_entry` base-depth target sanity + `<8%→cap18`, 50% 예외 ← market_context). 상세: 위 FINDINGS.md §P2-1c.
+
+### F4. handle depth — 방법론-충실성 복원 (backlog, 구현 보류, 2026-05-27)
+
+**판정 (web)**: R 아님 — 한국 변동성 재스케일이 아니라 *책 자신의 조건 복원*. literal 대조 (`analyze_chart_v3.md:96`): 책 조건 ① "during bull markets" 는 룰이 "in a normal market" 으로 *이미 반영*; ② "unless the stock forms a very large cup" 는 인용문엔 있으나 **operational 룰에 미반영**.
+
+**복원 내용**: handle 8–12% 룰에 책 조건 ② (very large cup 예외) carve-out 추가. 발동 = `market_context.current_status` (normal 여부, ①) + `base_depth_pct` (very-large-cup 판정, ②).
+- **very-large-cup cutoff 는 책 미제시 → 추정** `[추정]`: 예 `base_depth_pct ≥ 30%` 일 때 handle 상한 완화 (정확 cutoff 는 web 판정).
+- feasibility: 두 입력 (market_context status + base_depth_pct) 모두 존재 → 가능.
+
+### F5. P2-1d (가칭): wide_and_loose 주간 봉폭 한국 보정 (측정 완료, 판정 대기)
+
+**판정 (web)**: R 확정. 단 도구 = 일간 σ-ratio 재사용 **금지** — operative 임계 "Weekly price swings 10–15%" 의 분모가 *주간 봉폭* (bar-volatility) 이라 일간 σ(2.3×)·√5 환산 부적용 (cup depth 와 같은 차원 함정).
+
+**측정 결과** (`measure_weekly_swings.py`, 주간 봉폭 직접, 공통 1996-2026):
+- KR/US 주간 봉폭 비율 = **KOSPI/S&P500 1.30**, **KOSDAQ/Nasdaq 1.06** (range·|ret| 두 metric 일치).
+- **일간 σ 2.3× ≠ 주간 봉폭 1.06–1.30×** 확인 (주간 집계가 격차 축소). 성장주 페어(KOSDAQ) 거의 동일.
+- **스케일 권고**: KOSPI 10–15%→~13–19%, KOSDAQ →~11–16% (floor=현행 10% 등 clamp 은 web).
+
+**설계 결정 (web)**: `:189` 주석 "1.5–2.5× general market correction" 이 non-operative → (①) 주석을 동작(bar-volatility)에 맞춤 [권장: 깊이=cup/P2-1b, 봉폭=wide_and_loose/P2-1d 책임 분리] vs (②) size-relative 2차원 실제 추가 [P2-1b 유지영역과 중복 위험]. 상세: FINDINGS.md §P2-1d.
+- 실제 10–15% 텍스트 변경 시 threshold-change-checklist 선행 (소비처: `wide_and_loose` risk_flag → §3.5 conf 페널티/watch 강등).
