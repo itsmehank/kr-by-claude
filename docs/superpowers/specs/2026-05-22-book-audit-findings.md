@@ -225,4 +225,27 @@ base_depth > 60% → hard reject
 - **스케일 권고**: KOSPI 10–15%→~13–19%, KOSDAQ →~11–16% (floor=현행 10% 등 clamp 은 web).
 
 **설계 결정 (web)**: `:189` 주석 "1.5–2.5× general market correction" 이 non-operative → (①) 주석을 동작(bar-volatility)에 맞춤 [권장: 깊이=cup/P2-1b, 봉폭=wide_and_loose/P2-1d 책임 분리] vs (②) size-relative 2차원 실제 추가 [P2-1b 유지영역과 중복 위험]. 상세: FINDINGS.md §P2-1d.
-- 실제 10–15% 텍스트 변경 시 threshold-change-checklist 선행 (소비처: `wide_and_loose` risk_flag → §3.5 conf 페널티/watch 강등).
+
+**판정 후속 (web, 2026-05-27)**:
+- **유니버스 비중 측정**: wide_and_loose 는 시장 분기 없음 (KOSPI/KOSDAQ 동일 `:189`). entry/watch 시그널 69건 중 KOSDAQ 37 (54%) / **KOSPI 32 (46%)** — KOSPI 가 "지배적 소수" 아니라 46% 로 상당 (전체 유니버스 KOSDAQ 68%/KOSPI 32% 보다 오히려 KOSPI 비중 ↑). ※ 1주 데이터 (n=69) 카베앗.
+- **10–15% 임계 자체 = 유지 (primary)**: 성장주 KOSDAQ 1.06 ≈ 적정 + 무측정 일괄변경 비권장 (P2-1a~b 원칙).
+- **KOSPI 한정 스케일 = 조건부 등록 (미구현)**: KOSPI 46% + 비율 1.30 → 실익 있음. 분기안 `KOSPI 종목 한정 10–15% × 1.3 (≈13–19%)`. **단 선행조건: KOSPI 종목 false-flag 빈도 확인** (현재 1주 history → P2-1c 와 동일하게 cron 누적 후). 빈도 무의미하면 영구 보류.
+- **설계결정 ① 채택 + 주석 수정 완료 (이 커밋)**: `:189` 주석 "1.5–2.5× general market correction" 제거, bar-volatility flag 임을 명시 + "base-depth 는 cup_with_handle depth 룰(§4) 소관, 여기서 중복 금지" 추가. threshold-change-checklist 적용 = **동작 중립** (operative 10–15% 불변, 비-operative 주석만 수정 → 축2 영향 NONE). checklist 적용 이력에 기록.
+
+---
+
+## P2-1 audit 라인 종결 요약 (2026-05-27)
+
+"미국 책 상대값이 한국 시스템에 절대값으로 박혀 보정 필요한가" 감사 라인의 최종 상태:
+
+| 항목 | 도메인 | 측정 | 판정 | 상태 |
+|---|---|---|---|---|
+| **P2-1a** FTD / 시장 distribution | 일간 변동성 (σ) | 한국 σ ≈ 2.3× US | σ-ratio 보정 (clamp 1.0–2.5) | **구현 완료** (코드) |
+| **P2-1b** cup depth 33%/50% | 단일조정 크기 | KR ≈ US (Def C 0.94–1.13) | 유지, 보정 불요 | **종결** (규칙 무변경) |
+| **P2-1c** 50% bear 예외 연속화 | (위 파생 gap) | status 분포 corroborate, 빈도 void(1주) | 연속화 설계 (2.5× 단일, floor 33%) | **backlog** (cron 누적 후) |
+| **P2-1d** wide_and_loose 10–15% | 주간 봉폭 | KOSDAQ 1.06 / KOSPI 1.30 | 10–15% 유지 (primary); 주석 ①정정 완료 | **종결** (KOSPI 분기는 조건부 backlog) |
+| **F4** handle depth 8–12% | (R 아님) | 측정 불요 | 방법론 복원 (②very large cup 예외 operationalize) | **backlog** |
+
+**핵심 방법론 교훈** (재사용): 임계의 *도메인*(일간 σ / 단일조정 크기 / 주간 봉폭)을 literal 로 먼저 확정해야 옳은 측정 도구가 정해진다. P2-1a σ-ratio(2.3×)를 P2-1b·P2-1d 에 복사했다면 cup 45%·wide 23–35% 로 과대 보정됐을 것 — 일간 σ 2.3× ≠ 단일조정 0.94× ≠ 주간 봉폭 1.06–1.30×. 셋 다 "변동성" 이나 차원이 다르다. (threshold-change-checklist 의 "차원 함정" 사례.)
+
+**남은 후속**: P2-1c (50% 예외 연속화), P2-1d-KOSPI 분기, F4 (handle 복원) — 전부 cron 데이터 누적 + threshold-change-checklist 선행 조건. B-수치(10/90/6), ATR 전환은 기존 순서 유지.

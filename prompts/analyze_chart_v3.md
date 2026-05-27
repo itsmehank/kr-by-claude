@@ -186,7 +186,7 @@ Select from **exactly this taxonomy** (no other values are permitted):
 | `faulty_pivot` | Pivot is at a prior resistance level that has failed 2+ times, OR the pivot sits atop a structurally faulty base feature — e.g. an immediate V-shaped new high without any pullback, or a breakout that lacks volume confirmation. (Handle-specific faults — wedging handle, lower-half handle, depth >12% — are covered in §4 cup_with_handle handle quality block.) |
 | `low_volume_breakout` | Breakout volume < 1.4× the 50-day average (O'Neil: 40-50% above normal at minimum) |
 | `narrow_base` | Base duration below pattern-specific minimum (see §4) |
-| `wide_and_loose` | Weekly price swings > 10–15% during the base; erratic, difficult to trade (O'Neil: 1.5–2.5× general market correction) |
+| `wide_and_loose` | Weekly price swings > 10–15% during the base; erratic, difficult to trade — a loose, wide weekly footprint signals a failure-prone base (O'Neil/Minervini). **Bar-volatility flag**: the trigger is the *width of weekly price action*, NOT base depth. Base-*depth* limits are the `cup_with_handle` depth rule's job (§4); do not double-count depth here. |
 | `thin_liquidity_us_only` | US individual stock only: avg daily dollar volume (volume_ma20 × current_price) < $5M |
 | `prior_uptrend_insufficient` | Less than 20% run from prior base before current consolidation (flat base requirement) |
 | `volume_contraction_on_advance` | Price advancing on declining volume — distribution warning or weak demand |
