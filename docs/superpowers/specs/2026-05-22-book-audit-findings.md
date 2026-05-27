@@ -174,11 +174,11 @@ P2-1a replay 검증 (`scripts/p2_1a_replay.py`, CSV: `docs/superpowers/verificat
 
 **구체 case**: KOSPI 2026-04-01~04-22 — base 임계는 rally_attempt, 보정 임계는 correction. corrected 가 FTD 를 3-18 (더 이른 큰 반등) 로 잡아 days_since_ftd 14 > 10 + dist_count 6 → 룰 3 correction. fwd_return *양수* (5d +7.19, 10d +11.19 등) → 보정이 실제 회복을 correction 으로 오판.
 
-**영향**: 매수 결정 차이는 *작음* (rally_attempt / correction 모두 §3.5 에서 entry → 강제 watch). 단 confirmed_uptrend 를 놓쳐 매수 기회를 차단하는 case 가 실거래에 누적되면 문제.
+**영향 (§3.5 co-fire 분석으로 bounded 확인 — 2026-05-25)**: 4월 case 는 "매수 결정을 뒤집음" 이 아니라 **"status 라벨만 바뀌고 §3.5 에서 흡수됨"** 으로 정정. 근거: 룰3 (FTD 무효화) 발동 조건이 `dist≥6` 인데, 이는 §3.5 line77 (`dist≥5` → prefer-watch + conf −0.15) 과 **구조적으로 항상 co-fire**. 따라서 10일이 만드는 correction flip 의 실효는 "prefer-watch → force-watch" 경계 이동이지, "clean-entry(line78: confirmed_uptrend AND dist≤3) → watch" 뒤집기가 아님. replay 22 갈린 날 **전부 dist≥5** (양쪽) → line78 clean-entry 영역 진입 **0건**. (분석: `docs/superpowers/verification/2026-05-25-p2-1a-ftd-invalidation-entry-impact.md`.)<br>**잔여 위험 (0 아님)**: dist 5~7 좁은 밴드 + "prefer watch" 소프트 바이어스를 이길 만큼 강한 셋업, 두 조건 겹치면 저신뢰 entry ↔ watch 갈릴 수 있음. 무시 가능하나 "영향 0" 은 거짓.
 
-**조사 항목** (P2-1b 보다 *먼저* — 방법론 흡수 필요):
-- P2-1a 방법론이 *의존 룰 (status.py 룰 3) 과의 상호작용을 점검 안 함* — "임계 변경 시 의존 룰 상호작용 점검" 을 방법론에 흡수해야 P2-1b (cup depth) 에 같은 누락 복제 안 함.
-- `STATUS_FTD_INVALIDATION_DAYS(10)` 가 보정 FTD 임계와 함께 재검토 필요한지.
+**조사 항목**:
+- ~~방법론 흡수~~ **완료** — "임계 변경 시 의존 룰 상호작용 점검" 을 `docs/superpowers/threshold-change-checklist.md` (commit 1baa640) 로 재사용 방법론화. P2-1b 가 이 checklist 의 첫 적용 사례.
+- `STATUS_FTD_INVALIDATION_DAYS(10)` 가 보정 FTD 임계와 함께 재검토 필요한지 (B-수치). **단 §3.5 co-fire 분석으로 entry/watch 직접 영향 bounded 확인** → 시급 아님.
 - 4월 KOSPI correction 이 단발인지 패턴인지 (cron 누적 데이터로 확인).
 
-**우선순위**: P2-1b (cup depth) *선행*. C (P2-1b) 를 B (이 조사) 앞에 두지 말 것.
+**우선순위 (정정 2026-05-25)**: 방법론이 이미 checklist 로 흡수됨 → "B(이 조사) 선행" 제약 **해제**. P2-1b (cup depth) 를 B-수치보다 먼저 해도 무방 — 오히려 P2-1b 가 checklist 첫 적용 사례가 되는 게 자연스러움. B-수치 (10/90/6 실제 변경) 는 시급 아님 → cron 누적 후 정상 순서. 못박힌 다음 순서: **P2-1b → B-수치 → ATR 전환** (전부 checklist 적용).
