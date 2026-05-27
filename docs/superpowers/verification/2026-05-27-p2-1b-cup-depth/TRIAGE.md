@@ -53,3 +53,46 @@ P2-1b 의 "유지" 를 그대로 상속할 가능성 높음 → web 세션이 P2
   **correction 403** / rally_attempt 68 / **downtrend 53** → 하락 국면의 ~88%가 `correction`
   으로 분류 (downtrend 12%). 즉 mid-depth gap (correction→50% 예외 미발화) 이 *구조적으로*
   실재함을 status 분포가 corroborate. **F3 backlog 유지, 빈도는 누적 후.**
+
+---
+
+# Literal 텍스트 추출 (web 세션 verdict 입력, 2026-05-27)
+
+## [1] wide_and_loose — literal + (a/b/c)
+
+**원문** (`analyze_chart_v3.md:189`, risk_flags 표 한 행, 그대로):
+> `` | `wide_and_loose` | Weekly price swings > 10–15% during the base; erratic, difficult to trade (O'Neil: 1.5–2.5× general market correction) | ``
+
+**"10–15%" 가 무엇의 %인가**: *"Weekly price swings > 10–15% during the base"* — base 기간의
+**주간 봉 스윙(week-to-week swing) 크기**. 즉 operational 임계는 **(b) 바-변동성** (봉 폭/주간
+변동, erratic 정도). P2-1a σ 도메인 (KR σ~2.3×).
+
+**"1.5–2.5× general market correction" 주석 위치·문구**: 같은 행 끝 괄호 `(O'Neil: 1.5–2.5×
+general market correction)`. 이건 **(a) 크기-상대 원리** (base 전체 깊이 = market correction 의
+1.5–2.5×). P2-1b 도메인 (KR≈US).
+
+**→ 분류 = (c) 혼용.** 단 *발동을 실제로 가르는 수치*(10–15%)는 **(b) 바-변동성** 이고,
+"1.5–2.5× market" 은 **operative 임계가 아니라 느슨한 정당화 주석**일 뿐. 두 행이 한 flag 에
+접착돼 있으나 가리키는 correction 차원이 다름 (operative=bar-volatility, citation=size-relative).
+→ wide_and_loose 의 실 임계는 P2-1b(크기-상대, 유지) 가 아니라 P2-1a(σ) 계열에 가까움.
+
+## [2] handle depth — literal + 떼버린 조건 대조
+
+**원문** (`analyze_chart_v3.md:96`, 그대로):
+> - **Handle depth ≤ 8–12% from its own peak** **in a normal market**, measured separately from
+>   the total cup depth. A handle deeper than ~12% is loose; treat the structure with caution.
+>   (O'Neil HMMS Ch.2 p.116: "A price drop in a proper handle should be contained within 8% to
+>   12% of its peak **during bull markets** **unless the stock forms a very large cup**".)
+
+**책 조건 2개 대조** (HMMS p.116–117):
+- **① during bull markets** → **빠지지 않음.** 룰 본문이 *"in a normal market"* 로 패러프레이즈해
+  이미 반영 (정상시장 한정).
+- **② unless very large cup** → **인용문엔 있으나 operational 룰엔 미반영.** 발동 로직
+  ("deeper than ~12% is loose; treat with caution") 이 *very large cup* 예외를 carve-out 안 함.
+
+→ web 세션 가설("handle 은 방법론-충실성 복원") 과 정합: 한국 변동성 재스케일이 아니라
+**책 자신의 조건 ②를 operationalize** 하는 복원 작업. ①은 이미 있음.
+
+**복원 feasibility (한 줄)**: ① = `market_context.current_status==confirmed_uptrend` 존재 →
+정상시장 게이팅 가능. ② = `base_depth_pct` 존재 → "very large cup"(= base_depth_pct ≥ 임계)일 때
+handle 허용폭 완화 가능. **두 입력 모두 존재 → 복원 가능.**
