@@ -553,7 +553,7 @@ function TriggerDecisionMatrix() {
         가로축은 그 이벤트에 대해 AI 가 내린 결정 — <span className="num text-ink">go_now</span> (지금 사라),{" "}
         <span className="num text-ink">wait</span> (기다려),{" "}
         <span className="num text-ink">abort</span> (가짜·무효).
-        9 칸 중 *적용 안 됨* 4 칸은 시스템 안전장치 (promotion·invalidation 에서 매수 시그널 직행 차단).
+        9 칸 중 *적용 안 됨* 3 칸은 시스템 안전장치 (promotion·invalidation 에서 매수 시그널 직행 차단).
       </p>
       <div className="overflow-x-auto">
         <table className="w-full text-data-xs">
