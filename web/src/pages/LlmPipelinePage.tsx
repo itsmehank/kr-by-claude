@@ -11,6 +11,13 @@ import {
 import { SimulationMatrix } from "./llm-pipeline/SimulationMatrix";
 import { SimulationModal } from "./llm-pipeline/SimulationModal";
 import { GATE_BREAKOUT_VOL_MULT } from "../data/thresholds.generated";
+import { ENTRY_PARAMS_FIELDS, FIELD_CATEGORIES } from "../data/llm-pipeline/entry-params-fields";
+import { ListFold } from "./llm-pipeline/ListFold";
+import { TableExplainerList } from "./llm-pipeline/TableExplainerList";
+import { MINERVINI_CONDITIONS as TT_CONDITIONS } from "../data/llm-pipeline-audit/minervini";
+import { BASE_PATTERNS } from "../data/llm-pipeline-audit/base-patterns";
+import { RISK_FLAGS } from "../data/llm-pipeline-audit/risk-flags";
+import { ZIP_FILES } from "../data/llm-pipeline-audit/zip-files";
 
 
 // ─────── 데이터 ───────────────────────────────────────────
@@ -19,14 +26,28 @@ interface PipelineStage {
   id: string;
   order: number;
   label: string;
-  summary: string;
-  targets: string;
+  // 친절 본문 (한 단락) — 이 단계가 무엇을 왜 하는가
+  intro: string;
+  // 결정론 룰 친절 풀이
+  deterministicSummary: string;
+  deterministicDetail?: string; // fold 안 SQL/정확 조건
+  // LLM 로직 친절 풀이
+  llmSummary: string | null;     // null = 이 단계 LLM 미사용
+  llmShowsLists?: {
+    eightConditions?: boolean;  // Trend Template 8 조건 fold
+    nineBasePatterns?: boolean;
+    thirteenRiskFlags?: boolean;
+    thirteenZipFiles?: boolean;
+    eighteenFields?: boolean;
+  };
+  decisions?: string[];
+  // 결과 액션
+  actionSummary: string;
+  actionDetail?: string;        // fold 안 SQL INSERT/UPSERT/digest 상세
+  // 입출력 테이블
   inputs: string[];
   outputs: string[];
-  deterministic: string;
-  llm: string | null;
-  decisions?: string[];
-  actions: string;
+  // 책 근거 + 코드 참조 (기존 유지)
   sources: string[];
   codeRef: string;
 }
@@ -36,18 +57,27 @@ const STAGES: PipelineStage[] = [
     id: "weekend",
     order: 0,
     label: "주말 batch — 전체 재분류",
-    summary:
+    // TBD - Task 5 에서 친절 본문으로 재작성
+    intro:
       "결정론 통과 모든 종목을 토 새벽 LLM 으로 재분류 (전체 갱신). daily_delta 와 같은 prompt, 차이는 입력 필터.",
-    targets:
+    deterministicSummary: "결정론 필터 — minervini_pass (Trend Template 8조건).",
+    deterministicDetail:
       "토요일 03:20 cron. daily_indicators 의 직전 금요일 행 기준 minervini_pass=TRUE AND stocks.delisted_at IS NULL 전체.",
+    llmSummary:
+      "analyze_chart_v3.md prompt (daily_delta 와 동일). ZIP 13개 파일 (payload.json + 일/주봉 OHLCV + 차트 PNG + 시장 컨텍스트 + corporate actions + minervini detail 등). 9개 base 패턴 + 13 risk flag taxonomy.",
+    llmShowsLists: {
+      eightConditions: true,
+      nineBasePatterns: true,
+      thirteenRiskFlags: true,
+      thirteenZipFiles: true,
+    },
+    decisions: ["entry", "watch", "ignore"],
+    actionSummary:
+      "weekly_classification 에 INSERT (source='weekend'). Slack digest 알림 (entry/watch/ignore 카운트).",
+    actionDetail:
+      "ON CONFLICT (symbol, classified_at) DO NOTHING. 이전 분류가 있어도 새 row 추가 — '현재 분류'는 DISTINCT ON (symbol) ORDER BY classified_at DESC.",
     inputs: ["daily_indicators", "weekly_indicators", "market_context_daily", "corporate_actions", "stocks"],
     outputs: ["weekly_classification (source='weekend')"],
-    deterministic: "결정론 필터 — minervini_pass (Trend Template 8조건).",
-    llm:
-      "analyze_chart_v3.md prompt (daily_delta 와 동일). ZIP 13개 파일 (payload.json + 일/주봉 OHLCV + 차트 PNG + 시장 컨텍스트 + corporate actions + minervini detail 등). 9개 base 패턴 + 13 risk flag taxonomy.",
-    decisions: ["entry", "watch", "ignore"],
-    actions:
-      "weekly_classification 에 INSERT (source='weekend'). ON CONFLICT (symbol, classified_at) DO NOTHING. 이전 분류가 있어도 새 row 추가 — '현재 분류'는 DISTINCT ON (symbol) ORDER BY classified_at DESC. Slack digest 알림 (entry/watch/ignore 카운트).",
     sources: [
       "Minervini Trend Template (8 conditions)",
       "O'Neil HMM base patterns",
@@ -58,18 +88,25 @@ const STAGES: PipelineStage[] = [
     id: "daily_delta",
     order: 1,
     label: "신규 후보 분류",
-    summary:
+    // TBD - Task 5 에서 친절 본문으로 재작성
+    intro:
       "오늘 새로 결정론 통과한 신규 종목만 LLM 분류 — weekend 와 같은 prompt, 신규 종목만 다룸.",
-    targets:
+    deterministicSummary: "결정론 필터 — minervini_pass + 신규성 (7일).",
+    deterministicDetail:
       "daily_indicators 의 오늘 행 중 minervini_pass=TRUE + 최근 7일 내 분류 이력 없음 (= 신규 후보). weekend 와의 차이: weekend 는 결정론 통과 전체를 매주 재분석. daily_delta 는 그 사이 평일에 새로 결정론 통과한 종목만 빠르게 분류.",
+    llmSummary:
+      "analyze_chart_v3.md prompt (weekend 와 동일) + zip 13개 파일. 9개 base 패턴 + 13 risk flag taxonomy 적용. 차이는 source 컬럼 ('daily_delta' vs 'weekend') 과 입력 필터 (신규성 추가).",
+    llmShowsLists: {
+      eightConditions: true,
+      nineBasePatterns: true,
+      thirteenRiskFlags: true,
+      thirteenZipFiles: true,
+    },
+    decisions: ["watch", "entry", "ignore"],
+    actionSummary:
+      "weekly_classification 에 INSERT (source='daily_delta'). watch/entry 는 evaluate_pivot 의 다음 평가 대상, ignore 는 7일 후 재진입 가능.",
     inputs: ["daily_indicators", "daily_prices", "weekly_indicators", "market_context_daily"],
     outputs: ["weekly_classification (source='daily_delta')"],
-    deterministic: "결정론 필터 — minervini_pass + 신규성 (7일).",
-    llm:
-      "analyze_chart_v3.md prompt (weekend 와 동일) + zip 13개 파일 (payload.json + market_context + corporate_actions + minervini detail + daily/weekly chart 이미지 등). 9개 base 패턴 + 13 risk flag taxonomy 적용. 차이는 source 컬럼 ('daily_delta' vs 'weekend') 과 입력 필터 (신규성 추가).",
-    decisions: ["watch", "entry", "ignore"],
-    actions:
-      "weekly_classification 에 INSERT (source='daily_delta'). watch/entry 는 evaluate_pivot 의 다음 평가 대상, ignore 는 7일 후 재진입 가능.",
     sources: ["Minervini Trend Template", "O'Neil HMM 'How to Read Charts Like a Pro'"],
     codeRef: "kr_pipeline/llm_runner/daily_delta.py",
   },
@@ -77,18 +114,21 @@ const STAGES: PipelineStage[] = [
     id: "evaluate_pivot",
     order: 2,
     label: "Watch/Entry 트리거 평가",
-    summary: "활성 watch/entry 종목의 오늘 행동 (돌파/손절/추세) 매일 확인",
-    targets:
-      "weekly_classification 의 종목별 최신 분류가 watch 또는 entry + daily_indicators 의 오늘 행 있음 (close, volume, sma_50, avg_volume_20d 모두 NOT NULL + pivot_price NOT NULL).",
-    inputs: ["weekly_classification", "daily_indicators"],
-    outputs: ["trigger_evaluation_log"],
-    deterministic:
-      `결정론 트리거 게이트 (compute/trigger_gate.py): close < stop_loss 또는 close < sma_50 → invalidation. entry 종목: close > pivot AND volume >= avg_volume_50d (${GATE_BREAKOUT_VOL_MULT.toFixed(1)}×, 게이트는 거래량 죽지 않은 정도만 확인 — 1.4~1.5× 표준 / pocket pivot 예외 판정은 LLM 에 위임) → breakout. watch 종목: close >= pivot × 0.95 AND volume >= avg → promotion (책 근거 없음, 시스템 staging 트리거 — go_now 발생 금지, close > pivot 도달은 별도 breakout 트리거가 처리).`,
-    llm:
+    // TBD - Task 5 에서 친절 본문으로 재작성
+    intro: "활성 watch/entry 종목의 오늘 행동 (돌파/손절/추세) 매일 확인",
+    deterministicSummary:
+      `결정론 트리거 게이트 (compute/trigger_gate.py): close < stop_loss 또는 close < sma_50 → invalidation. entry 종목: close > pivot AND volume >= avg_volume_50d (${GATE_BREAKOUT_VOL_MULT.toFixed(1)}×) → breakout. watch 종목: close >= pivot × 0.95 AND volume >= avg → promotion.`,
+    deterministicDetail:
+      `weekly_classification 의 종목별 최신 분류가 watch 또는 entry + daily_indicators 의 오늘 행 있음 (close, volume, sma_50, avg_volume_20d 모두 NOT NULL + pivot_price NOT NULL). 게이트는 거래량 죽지 않은 정도만 확인 — 1.4~1.5× 표준 / pocket pivot 예외 판정은 LLM 에 위임. watch 종목: go_now 발생 금지, close > pivot 도달은 별도 breakout 트리거가 처리.`,
+    llmSummary:
       "evaluate_pivot_trigger_v1.md prompt — 게이트 통과 종목만 호출. '이 트리거가 진짜인가, 가짜 신호인가, 보류인가' 판단.",
     decisions: ["go_now", "wait", "abort"],
-    actions:
-      "trigger_evaluation_log 에 INSERT. 분류 자체는 변경 안 함 (prompt 명시) — abort decision 이라도 weekly_classification 의 row 는 그대로 유지. 다음 토요일 weekend batch 에서 LLM 이 재분석 후 ignore 로 분류해야 비로소 강등됨. decision='go_now' 인 종목은 entry_params 가 자동 수집.",
+    actionSummary:
+      "trigger_evaluation_log 에 INSERT. 분류 자체는 변경 안 함 (prompt 명시). decision='go_now' 인 종목은 entry_params 가 자동 수집.",
+    actionDetail:
+      "abort decision 이라도 weekly_classification 의 row 는 그대로 유지. 다음 토요일 weekend batch 에서 LLM 이 재분석 후 ignore 로 분류해야 비로소 강등됨.",
+    inputs: ["weekly_classification", "daily_indicators"],
+    outputs: ["trigger_evaluation_log"],
     sources: [
       "O'Neil HMM ch.2 Volume Percent Change (1.5× breakout)",
       "Minervini buy/sell rules",
@@ -99,15 +139,21 @@ const STAGES: PipelineStage[] = [
     id: "entry_params",
     order: 3,
     label: "매수 계획 (entry_params)",
-    summary: "오늘 trigger_evaluation_log 에 go_now 결정된 종목의 매수 계획 17 필드 작성",
-    targets: "trigger_evaluation_log 의 오늘 행 중 decision='go_now'.",
+    // TBD - Task 5 에서 친절 본문으로 재작성
+    intro: "오늘 trigger_evaluation_log 에 go_now 결정된 종목의 매수 계획 18 필드 작성",
+    deterministicSummary: "decision='go_now' 행 필터.",
+    deterministicDetail:
+      "trigger_evaluation_log 의 오늘 행 중 decision='go_now' AND trigger_type='breakout'. promotion 안전장치 — trigger_type='breakout' 인 경우만 entry_params 수집.",
+    llmSummary:
+      "calculate_entry_params_v2_0.md prompt — entry_mode, trigger_price, entry_price, stop_loss + 기준, expected_target_price + %, RR, position_size_pct + 기준, breakout_volume_requirement, observed_breakout_volume_ratio, known_warnings, other_warnings, notes 등 18개 필드 계산.",
+    llmShowsLists: {
+      eighteenFields: true,
+    },
+    decisions: undefined,
+    actionSummary:
+      "entry_params 에 INSERT (PK: symbol + signal_at). performance 가 다음 단계에서 자동 추적.",
     inputs: ["trigger_evaluation_log", "daily_indicators", "weekly_classification"],
     outputs: ["entry_params"],
-    deterministic: "decision='go_now' 행 필터.",
-    llm:
-      "calculate_entry_params_v2_0.md prompt — entry_mode, trigger_price, entry_price, stop_loss + 기준, expected_target_price + %, RR, position_size_pct + 기준, breakout_volume_requirement, observed_breakout_volume_ratio, known_warnings, other_warnings, notes 17개 필드 계산.",
-    actions:
-      "entry_params 에 INSERT (PK: symbol + signal_at). performance 가 다음 단계에서 자동 추적.",
     sources: ["Minervini risk management (1-3% per trade)", "O'Neil HMM 'Buy at the Buy Point'"],
     codeRef: "kr_pipeline/llm_runner/entry_params.py",
   },
@@ -115,16 +161,17 @@ const STAGES: PipelineStage[] = [
     id: "performance",
     order: 4,
     label: "시그널 성과 추적",
-    summary: "최근 90일 내 entry_params signal 의 1/2/4/8주 후 가격 및 시장 대비 수익률 추적",
-    targets:
+    // TBD - Task 5 에서 친절 본문으로 재작성
+    intro: "최근 90일 내 entry_params signal 의 1/2/4/8주 후 가격 및 시장 대비 수익률 추적",
+    deterministicSummary:
+      "signal_at 기준 +7/+14/+28/+56 일 후 daily_prices 의 close 조회. 시장 (KOSPI/KOSDAQ index_daily) 수익률도 함께.",
+    deterministicDetail:
       "entry_params 의 signal_at 가 최근 90일 내. 8주 후까지만 추적 (price_8w 채워지면 종료).",
+    llmSummary: null,
+    actionSummary:
+      "signal_performance 의 (symbol, signal_at) 행 UPSERT. 같은 종목의 여러 entry signal 은 signal_at 별 독립 추적.",
     inputs: ["entry_params", "daily_prices", "index_daily"],
     outputs: ["signal_performance"],
-    deterministic:
-      "signal_at 기준 +7/+14/+28/+56 일 후 daily_prices 의 close 조회. 시장 (KOSPI/KOSDAQ index_daily) 수익률도 함께.",
-    llm: null,
-    actions:
-      "signal_performance 의 (symbol, signal_at) 행 UPSERT. 같은 종목의 여러 entry signal 은 signal_at 별 독립 추적.",
     sources: [],
     codeRef: "kr_pipeline/llm_runner/performance.py",
   },
@@ -310,6 +357,7 @@ function DecisionChip({ value }: { value: string }) {
 function StageCard({ stage }: { stage: PipelineStage }) {
   return (
     <section className="bento p-6 mb-4">
+      {/* 헤더 */}
       <div className="flex items-center gap-3 mb-3">
         <span className="num text-data-xs text-faint shrink-0">{stage.order}</span>
         <span className="num text-data-xs bg-tint-violet text-accent px-2 py-0.5 rounded shrink-0">
@@ -317,67 +365,141 @@ function StageCard({ stage }: { stage: PipelineStage }) {
         </span>
         <h3 className="text-subhead font-bold text-ink flex-1">{stage.label}</h3>
       </div>
-      <p className="text-data text-muted mb-4">{stage.summary}</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-data-xs">
-        <div>
-          <div className="caps text-faint mb-1">대상 종목</div>
-          <p className="text-data text-ink leading-relaxed">{stage.targets}</p>
-        </div>
-        <div className="space-y-2">
-          <div>
-            <div className="caps text-faint mb-1">입력 테이블</div>
-            <div className="flex flex-wrap gap-1">
-              {stage.inputs.length === 0 ? (
-                <span className="text-faint">없음</span>
-              ) : (
-                stage.inputs.map((t) => <TableChip key={t} name={t} />)
-              )}
-            </div>
-          </div>
-          <div>
-            <div className="caps text-faint mb-1">출력 테이블</div>
-            <div className="flex flex-wrap gap-1">
-              {stage.outputs.map((t) => <TableChip key={t} name={t} />)}
-            </div>
-          </div>
-        </div>
+      {/* 친절 본문 */}
+      <p className="text-data text-muted mb-5 leading-relaxed">{stage.intro}</p>
+
+      {/* 입출력 테이블 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+        <TableExplainerList names={stage.inputs} label="📥 입력 테이블" />
+        <TableExplainerList names={stage.outputs} label="📤 출력 테이블" />
       </div>
 
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-data-xs">
-        <div>
-          <div className="caps text-faint mb-1">결정론 로직</div>
-          <p className="text-data text-ink leading-relaxed">{stage.deterministic}</p>
-        </div>
-        <div>
-          <div className="caps text-faint mb-1">LLM 로직</div>
-          <p className="text-data text-ink leading-relaxed">
-            {stage.llm ?? <span className="text-faint">LLM 호출 없음 (순수 계산)</span>}
-          </p>
-          {stage.decisions && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {stage.decisions.map((d) => <DecisionChip key={d} value={d} />)}
-            </div>
-          )}
-        </div>
+      {/* 결정론 룰 */}
+      <div className="mb-5">
+        <div className="caps text-faint mb-1">⚙️ 결정론 룰</div>
+        <p className="text-data text-ink leading-relaxed">{stage.deterministicSummary}</p>
+        {stage.deterministicDetail && (
+          <ListFold label="결정론 룰 SQL·상세 보기">
+            <div className="whitespace-pre-wrap">{stage.deterministicDetail}</div>
+          </ListFold>
+        )}
+        {stage.llmShowsLists?.eightConditions && (
+          <ListFold label="Trend Template 8 조건 모두 보기" count={TT_CONDITIONS.length}>
+            <ol className="space-y-2 list-decimal list-inside">
+              {TT_CONDITIONS.map((c) => (
+                <li key={c.num}>
+                  <span className="text-ink font-semibold">{c.korean}</span>
+                  {c.threshold && <span className="text-muted"> — {c.threshold}</span>}
+                </li>
+              ))}
+            </ol>
+          </ListFold>
+        )}
       </div>
 
-      <div className="mt-4">
-        <div className="caps text-faint mb-1">결과 액션</div>
-        <p className="text-data text-ink leading-relaxed text-data-xs">{stage.actions}</p>
+      {/* AI (LLM) 로직 */}
+      <div className="mb-5">
+        <div className="caps text-faint mb-1">🧠 AI (LLM) 로직</div>
+        {stage.llmSummary == null ? (
+          <p className="text-data text-faint">이 단계는 AI 호출 없음 (순수 계산).</p>
+        ) : (
+          <>
+            <p className="text-data text-ink leading-relaxed">{stage.llmSummary}</p>
+            {stage.decisions && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {stage.decisions.map((d) => <DecisionChip key={d} value={d} />)}
+              </div>
+            )}
+            {stage.llmShowsLists?.thirteenZipFiles && (
+              <ListFold label="AI 가 받는 자료 — ZIP 13 파일 모두 보기" count={ZIP_FILES.length}>
+                <ol className="space-y-2 list-decimal list-inside">
+                  {ZIP_FILES.map((z) => (
+                    <li key={z.num}>
+                      <span className="num text-ink font-semibold">{z.filename}</span>
+                      <span className="text-muted"> — {z.content}</span>
+                    </li>
+                  ))}
+                </ol>
+              </ListFold>
+            )}
+            {stage.llmShowsLists?.nineBasePatterns && (
+              <ListFold label="AI 가 식별하는 9 base 패턴 모두 보기" count={BASE_PATTERNS.length}>
+                <ul className="space-y-2">
+                  {BASE_PATTERNS.map((p) => (
+                    <li key={p.id}>
+                      <span className="num text-ink font-semibold">{p.id}</span>
+                      <span className="text-muted"> — {p.definition}</span>
+                    </li>
+                  ))}
+                </ul>
+              </ListFold>
+            )}
+            {stage.llmShowsLists?.thirteenRiskFlags && (
+              <ListFold label="AI 가 사용하는 13 risk flag 모두 보기" count={RISK_FLAGS.length}>
+                <ul className="space-y-2">
+                  {RISK_FLAGS.map((r) => (
+                    <li key={r.id}>
+                      <span className="num text-ink font-semibold">{r.id}</span>
+                      <span className="text-muted"> — {r.definition}</span>
+                    </li>
+                  ))}
+                </ul>
+              </ListFold>
+            )}
+            {stage.llmShowsLists?.eighteenFields && (
+              <ListFold label="AI 가 채우는 매수 계획 18 필드 모두 보기" count={ENTRY_PARAMS_FIELDS.length}>
+                <div className="space-y-3">
+                  {(Object.keys(FIELD_CATEGORIES) as (keyof typeof FIELD_CATEGORIES)[]).map((cat) => {
+                    const fields = ENTRY_PARAMS_FIELDS.filter((f) => f.category === cat);
+                    if (fields.length === 0) return null;
+                    return (
+                      <div key={cat}>
+                        <div className="text-ink font-semibold mb-1">
+                          {FIELD_CATEGORIES[cat].emoji} {FIELD_CATEGORIES[cat].label} ({fields.length})
+                        </div>
+                        <ul className="space-y-1 pl-4">
+                          {fields.map((f) => (
+                            <li key={f.name}>
+                              <span className="num text-ink">{f.name}</span>
+                              <span className="text-muted"> — {f.what}</span>
+                              <div className="text-faint text-data-xs ml-3">제약: {f.constraint}</div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ListFold>
+            )}
+          </>
+        )}
       </div>
 
+      {/* 결과 액션 */}
+      <div className="mb-5">
+        <div className="caps text-faint mb-1">✅ 결과 액션</div>
+        <p className="text-data text-ink leading-relaxed">{stage.actionSummary}</p>
+        {stage.actionDetail && (
+          <ListFold label="SQL INSERT / 엔지니어링 상세 보기">
+            <div className="whitespace-pre-wrap">{stage.actionDetail}</div>
+          </ListFold>
+        )}
+      </div>
+
+      {/* 책 근거 + 코드 참조 (기존 유지) */}
       {stage.sources.length > 0 && (
-        <div className="mt-4">
-          <div className="caps text-faint mb-1">책 원전</div>
+        <div className="mb-4">
+          <div className="caps text-faint mb-1">📖 책 근거</div>
           <div className="flex flex-wrap gap-3">
             {stage.sources.map((s) => <SourceChip key={s} src={s} />)}
           </div>
         </div>
       )}
 
-      <div className="mt-4 pt-3 border-t border-hairline">
-        <div className="caps text-faint mb-1">코드 참조</div>
+      <div className="pt-3 border-t border-hairline">
+        <div className="caps text-faint mb-1">💻 코드 참조</div>
         <code className="num text-data-xs bg-cream px-2 py-1 rounded">{stage.codeRef}</code>
       </div>
     </section>
