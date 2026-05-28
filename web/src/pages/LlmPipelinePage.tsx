@@ -231,19 +231,37 @@ interface MatrixCell {
 
 const TRIGGER_DECISION_MATRIX: Record<string, Record<string, MatrixCell | null>> = {
   breakout: {
-    go_now: { meaning: "entry 종목 진짜 돌파 + LLM 확인", next: "entry_params 자동 생성 → 매수 시그널 활성" },
-    wait: { meaning: "돌파했지만 LLM 보류", next: "다음 날 재평가, entry_params 없음" },
-    abort: { meaning: "가짜 돌파로 판정", next: "무시. 분류는 entry 유지" },
+    go_now: {
+      meaning: "종가가 pivot 을 돌파하고 거래량도 살아있음. AI 가 '진짜 돌파' 로 확인.",
+      next: "→ 매수 계획 (entry_params) 자동 생성. 사용자가 행을 보고 실제 매수 결정.",
+    },
+    wait: {
+      meaning: "돌파했지만 AI 가 보류 — 약한 신호 (예: 거래량이 1.4× 미만, base 가 약간 wide) 일 가능성.",
+      next: "→ 매수 계획 생성 안 됨. 다음 평일에 재평가. entry 분류는 그대로 유지.",
+    },
+    abort: {
+      meaning: "돌파처럼 보였으나 AI 가 가짜로 판정 — 예: 다음날 즉시 되돌림 우려 / 시장 약세 중복.",
+      next: "→ 매수 계획 안 만듦. 분류 자체는 entry 유지. 다음 토 weekend 의 재분석이 base 무효 판단 시 비로소 ignore 강등.",
+    },
   },
   promotion: {
-    go_now: null,
-    wait: { meaning: "watch → pivot 95% 근접 staging — close 아직 pivot 미만, 정상 흐름", next: "다음 평일 게이트 재평가. close > pivot 도달 시 breakout 트리거로 별도 처리" },
-    abort: { meaning: "base 무효화 신호 (sma_50 이탈 / distribution 누적)", next: "watch 유지하다 다음 weekend batch 에서 ignore 분류 후보" },
+    go_now: null,  // 시스템 안전장치 — promotion 에서 go_now 발생 금지
+    wait: {
+      meaning: "watch 종목이 pivot 의 95% 까지 도달 — 돌파 직전 staging 상태. 거래량은 평균 이상. close 는 아직 pivot 미만이라 매수 신호 아님.",
+      next: "→ 다음 평일에 게이트가 다시 평가. 종가가 pivot 위로 올라가면 별도 breakout 트리거로 처리.",
+    },
+    abort: {
+      meaning: "base 가 깨질 조짐 — SMA-50 이탈, distribution day 누적 등. AI 가 위험 신호로 판단.",
+      next: "→ watch 분류 유지 (분류 변경 안 함). 다음 토 weekend 에서 ignore 로 강등될 후보.",
+    },
   },
   invalidation: {
     go_now: null,
     wait: null,
-    abort: { meaning: "base 무효화 (close < stop_loss 또는 sma_50)", next: "다음 weekend/daily_delta 까지 재분류 정지" },
+    abort: {
+      meaning: "base 가 무효화 — 종가가 손절선 또는 SMA-50 아래로 이탈. AI 호출 없이 결정론으로 abort 확정.",
+      next: "→ 분류는 entry/watch 그대로 유지하지만, 다음 weekend 또는 daily_delta 재분류 까지 평가 사이클에서 사실상 제외.",
+    },
   },
 };
 
@@ -527,8 +545,15 @@ function TriggerDecisionMatrix() {
   return (
     <section className="bento p-6 mb-4">
       <h3 className="text-subhead font-bold text-ink mb-3">트리거 × LLM 결정 매트릭스</h3>
-      <p className="text-data-xs text-muted mb-4">
-        결정론 게이트가 트리거 유형을 결정 → LLM 이 어떻게 대응할지 결정. 두 차원의 조합으로 다음 액션이 정해짐.
+      <p className="text-data-xs text-muted mb-4 leading-relaxed">
+        evaluate_pivot 단계에서 무슨 일이 일어나는지 한눈에 보는 표입니다.
+        세로축은 결정론 게이트가 잡은 *오늘의 이벤트* — <span className="num text-ink">breakout</span> (돌파),{" "}
+        <span className="num text-ink">promotion</span> (돌파 직전 staging),{" "}
+        <span className="num text-ink">invalidation</span> (base 무효화).
+        가로축은 그 이벤트에 대해 AI 가 내린 결정 — <span className="num text-ink">go_now</span> (지금 사라),{" "}
+        <span className="num text-ink">wait</span> (기다려),{" "}
+        <span className="num text-ink">abort</span> (가짜·무효).
+        9 칸 중 *적용 안 됨* 4 칸은 시스템 안전장치 (promotion·invalidation 에서 매수 시그널 직행 차단).
       </p>
       <div className="overflow-x-auto">
         <table className="w-full text-data-xs">
