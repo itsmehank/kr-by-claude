@@ -358,14 +358,6 @@ const FAQ: { q: string; a: string }[] = [
 
 // ─────── 컴포넌트 ───────────────────────────────────────────
 
-function TableChip({ name }: { name: string }) {
-  return (
-    <span className="num text-data-xs bg-tint-stone text-muted px-2 py-0.5 rounded">
-      {name}
-    </span>
-  );
-}
-
 function SourceChip({ src }: { src: string }) {
   return (
     <span className="text-data-xs text-faint italic">

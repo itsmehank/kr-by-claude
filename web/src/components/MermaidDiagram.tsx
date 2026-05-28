@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { default as MermaidType } from "mermaid";
-
 interface MermaidDiagramProps {
   /** Mermaid diagram source (e.g., "graph LR\n  A --> B"). */
   chart: string;
@@ -9,9 +7,11 @@ interface MermaidDiagramProps {
   idPrefix?: string;
 }
 
-let _mermaidPromise: Promise<MermaidType> | null = null;
+type MermaidInstance = typeof import("mermaid")["default"];
 
-function loadMermaid(): Promise<MermaidType> {
+let _mermaidPromise: Promise<MermaidInstance> | null = null;
+
+function loadMermaid(): Promise<MermaidInstance> {
   if (!_mermaidPromise) {
     _mermaidPromise = import("mermaid").then((mod) => {
       mod.default.initialize({

@@ -99,9 +99,9 @@ const HIDDEN_TOOLTIP: TooltipState = {
 export function PriceChart({
   data,
   timeframeLabel = "Daily",
-  smaShortLabel = "SMA 50",
-  smaMidLabel = "SMA 150",
-  smaLongLabel = "SMA 200",
+  smaShortLabel: _smaShortLabel = "SMA 50",
+  smaMidLabel: _smaMidLabel = "SMA 150",
+  smaLongLabel: _smaLongLabel = "SMA 200",
   showSMAShort = true,
   showSMAMid = true,
   showSMALong = true,
