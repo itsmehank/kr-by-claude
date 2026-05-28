@@ -237,21 +237,42 @@ base_depth > 60% → hard reject
   - **Wake trigger (KOSPI 분기)**: cron 으로 KOSPI 종목의 `wide_and_loose` flag 빈도 누적 → 유의미한 false-flag rate (= 정당 base 가 KOSPI 변동성으로 부당 탈락) 확인 시 착수, 무의미 시 영구 보류.
 - **설계결정 ① 채택 + 주석 수정 완료 (이 커밋)**: `:189` 주석 "1.5–2.5× general market correction" 제거, bar-volatility flag 임을 명시 + "base-depth 는 cup_with_handle depth 룰(§4) 소관, 여기서 중복 금지" 추가. threshold-change-checklist 적용 = **동작 중립** (operative 10–15% 불변, 비-operative 주석만 수정 → 축2 영향 NONE). checklist 적용 이력에 기록.
 
+### F6. ATR 전환 검토 — backlog (우선순위 LOW, 2026-05-28)
+
+**위치**: P2-1a 의 σ 도구 선택 (closure 표 P2-1a 3층 분해의 ③) 을 ATR 로 전환할지.
+
+**근거 등급**: 1순위(O'Neil/Minervini) 본서 위반 아님 — 1순위는 자동 공식 자체를 안 함 (O'Neil 의 '눈대중'). 2순위(TLOND p.117 제자 Morales/Kacher) 가 ATR 자동 공식 권고. → **σ→ATR 전환은 책-강제 아니라 2순위 권고 채택 여부 선택건** → 시급성 낮음. (σ 도 "변동성 맞춰 조정" 이라는 1순위 원칙은 충족 — 도구만 다름.)
+
+**P2-1a 구현 시 σ 선택 사유 (기록 있음)**: spec `2026-05-25-p2-1a-korean-market-volatility-design.md` §12 "알려진 방법론 차이 (ATR vs σ)" + `threshold-change-checklist.md` (d) 각주에 기록. 인지 상태 = **"ATR 알고도 의도적 σ 선택"** (= 설계-판단, 의도적 deviation). 사유 인용: *"ATR 전환은 큰 작업 (ATR 계산 신규 + 재측정 + replay 재검증) → 후속. 현재는 차이 인지 + 기록."* → 미인지 케이스 아님 → 전환 우선순위 추가 상향 사유 없음.
+
+**Wake trigger**: B-수치 재검토 (`STATUS_FTD_INVALIDATION_DAYS=10`, `STATUS_FTD_RECENT_DAYS=90`, `STATUS_DIST_COUNT_FOR_FTD_INVALIDATION=6`) 와 묶어 cron 누적 후, 한국 데이터에서 σ-기반 vs ATR-기반 FTD 임계 차이를 측정 — **실익 유의미할 때만 착수**. 무의미하면 영구 σ 유지. ATR 도입 시 threshold-change-checklist 선행 필수 (소비처: `FTD_PCT_BASE`/`DISTRIBUTION_PCT_BASE` × ratio 계산 경로 전체).
+
 ---
 
-## P2-1 audit 라인 종결 요약 (2026-05-27)
+## P2-1 audit 라인 종결 요약 (2026-05-28 갱신)
 
 "미국 책 상대값이 한국 시스템에 절대값으로 박혀 보정 필요한가" 감사 라인의 최종 상태:
 
 | 항목 | 도메인 | 측정 | 판정 | 근거 등급 | 상태 |
 |---|---|---|---|---|---|
-| **P2-1a** FTD / 시장 distribution | 일간 변동성 (σ) | 한국 σ ≈ 2.3× US | σ-ratio 보정 (clamp 1.0–2.5) | **책-강제** (TLOND p.232-233 절대임계 → 보정 필수, 책 직접) | **구현 완료** (코드) |
+| **P2-1a** FTD / 시장 distribution | 일간 변동성 (σ) | 한국 σ ≈ 2.3× US | σ-ratio 보정 (clamp 1.0–2.5) | **3층** (web 정정 2026-05-28): ① 보정 필요성 = **책-강제** (O'Neil 1순위 본서 p.232-233 "변동성 맞춰 조정 옳다" 원칙 + 시기별 손조정 이력 1.0→1.7→1.4→2.1→1.5%) ② 자동 공식화 = **책-허용** (1순위 본서엔 자동공식 없음; 제자 TLOND p.117 "Situation #2" 가 ATR 자동화 제안 = 2순위) ③ σ 도구 = **설계-판단** (TLOND p.117 은 ATR 권고이나 σ 채택, 의도적 deviation, spec §12 사유 기록) | **구현 완료** (코드) |
 | **P2-1b** cup depth 33%/50% | 단일조정 크기 | KR ≈ US (Def C 0.94–1.13) | 유지, 보정 불요 | **책-강제** (HMMS p.190 단일조정 직접인용 + KR≈US 측정) | **종결** (규칙 무변경) |
 | **P2-1c** 50% bear 예외 연속화 | (위 파생 gap) | status 분포 corroborate, 빈도 void(1주) | 연속화 설계 (2.5× 단일, floor 33%) | **책-근거 추정** (HMMS p.116 severity 원리 + gap 구조확정, 빈도 미측정) | **backlog** (cron 누적 후) |
 | **P2-1d** wide_and_loose 10–15% | 주간 봉폭 | KOSDAQ 1.06 / KOSPI 1.30 | 10–15% 유지 (primary) | **측정-기반** (주간봉폭 1.06–1.30× 측정; 책은 깊이/거칠기 차원구분만 제공) | **종결** (KOSPI 분기는 조건부 backlog) |
 | **F4** handle depth 8–12% | (R 아님) | 측정 불요 | 방법론 복원 (②very large cup 예외 operationalize) | **책-강제** (HMMS p.116-117 누락 조건 복원) | **backlog** |
 | **`:189` 주석 수정** | (메타·중복 방지) | 없음 | 동작 정합 (bar-volatility 명시) + cup depth 책임 분리 | **설계-판단** (책 아님, 중복 회피, confidence 0.75) | **반영 완료** (prompt 1행, 동작 중립) |
+| **F6** ATR 전환 검토 | 변동성 측정 도구 (σ→ATR) | 미측정 (σ 선택 사유 기록 있음) | σ 유지; 전환은 측정 비교 선행 | **설계-판단** (1순위 위반 아님, 2순위 TLOND p.117 권고 채택 선택건) | **backlog** (B-수치와 함께, cron 누적 후) |
+
+**3층 등급 의미** (재사용 가능 패턴, P2-1a 정정에서 추출): 임계 보정/유지 판정은 세 층으로 분해 가능.
+① **필요성** — *조정해야 한다* 자체. 보통 1순위 본서(O'Neil/Minervini) 의 원칙·이력.
+② **공식화** — 자동 공식이 1순위에 있나? 2순위(제자, e.g. TLOND/TLSMW) 가 추가 제안하나?
+③ **도구 선택** — σ / ATR / zigzag / 기타 어떤 측정 도구.
+각 층의 등급(책-강제 / 책-허용 / 책-근거 추정 / 측정-기반 / 설계-판단)이 다를 수 있다. 통일 등급으로 압축하면 변경 우선순위 판단이 망가짐 — P2-1a 의 σ 가 *책-강제가 아닌 설계-판단* 이라는 점이 ATR 전환(F6) 의 시급성(낮음)을 결정한다.
 
 **핵심 방법론 교훈** (재사용): 임계의 *도메인*(일간 σ / 단일조정 크기 / 주간 봉폭)을 literal 로 먼저 확정해야 옳은 측정 도구가 정해진다. P2-1a σ-ratio(2.3×)를 P2-1b·P2-1d 에 복사했다면 cup 45%·wide 23–35% 로 과대 보정됐을 것 — 일간 σ 2.3× ≠ 단일조정 0.94× ≠ 주간 봉폭 1.06–1.30×. 셋 다 "변동성" 이나 차원이 다르다. (threshold-change-checklist 의 "차원 함정" 사례.)
 
-**남은 후속**: P2-1c (50% 예외 연속화), P2-1d-KOSPI 분기, F4 (handle 복원) — 전부 cron 데이터 누적 + threshold-change-checklist 선행 조건. B-수치(10/90/6), ATR 전환은 기존 순서 유지.
+**남은 후속** (전부 cron 누적 + threshold-change-checklist 선행 조건):
+- F3 (P2-1c 50% 예외 연속화) — base_depth ∈ [33,50] AND status='correction' 누적 후.
+- F4 (handle very-large-cup 예외 복원) — 데이터 누적 불요, 다음 prompt 사이클.
+- F5 (P2-1d-KOSPI 분기) — KOSPI wide_and_loose false-flag 빈도 누적 후.
+- F6 (ATR 전환 검토) — B-수치 (10/90/6) 와 묶어 σ vs ATR 측정 비교 후.
