@@ -207,6 +207,8 @@ base_depth > 60% → hard reject
 
 **feasibility LOW** (`base_start_date` / `stocks.market` / `index_daily` 전부 존재). 실제 33%/50% 상수·소비 룰 변경 시점에 **threshold-change-checklist 의존성 맵 선행 필수** (소비처: `base_depth_exceeded >33%`, `calculate_entry` base-depth target sanity + `<8%→cap18`, 50% 예외 ← market_context). 상세: 위 FINDINGS.md §P2-1c.
 
+**Wake trigger**: cron 으로 `(weekly_classification.base_depth_pct ∈ [33,50] AND 그 시점 market_context.current_status == 'correction')` 시그널 누적 → 유의미 건수 확인 시 착수 (현재 1주 history n=1 → void). 무의미 누적이면 영구 보류.
+
 ### F4. handle depth — 방법론-충실성 복원 (backlog, 구현 보류, 2026-05-27)
 
 **판정 (web)**: R 아님 — 한국 변동성 재스케일이 아니라 *책 자신의 조건 복원*. literal 대조 (`analyze_chart_v3.md:96`): 책 조건 ① "during bull markets" 는 룰이 "in a normal market" 으로 *이미 반영*; ② "unless the stock forms a very large cup" 는 인용문엔 있으나 **operational 룰에 미반영**.
@@ -214,6 +216,8 @@ base_depth > 60% → hard reject
 **복원 내용**: handle 8–12% 룰에 책 조건 ② (very large cup 예외) carve-out 추가. 발동 = `market_context.current_status` (normal 여부, ①) + `base_depth_pct` (very-large-cup 판정, ②).
 - **very-large-cup cutoff 는 책 미제시 → 추정** `[추정]`: 예 `base_depth_pct ≥ 30%` 일 때 handle 상한 완화 (정확 cutoff 는 web 판정).
 - feasibility: 두 입력 (market_context status + base_depth_pct) 모두 존재 → 가능.
+
+**Wake trigger**: 별도 데이터 누적 불요 — 다음 prompt 수정 사이클에 포함 가능. 단 텍스트 변경이므로 threshold-change-checklist 선행 (소비처: handle 8–12% 룰 → cup_with_handle 분류 → §3.5 / calculate_entry).
 
 ### F5. P2-1d (가칭): wide_and_loose 주간 봉폭 한국 보정 (측정 완료, 판정 대기)
 
@@ -230,6 +234,7 @@ base_depth > 60% → hard reject
 - **유니버스 비중 측정**: wide_and_loose 는 시장 분기 없음 (KOSPI/KOSDAQ 동일 `:189`). entry/watch 시그널 69건 중 KOSDAQ 37 (54%) / **KOSPI 32 (46%)** — KOSPI 가 "지배적 소수" 아니라 46% 로 상당 (전체 유니버스 KOSDAQ 68%/KOSPI 32% 보다 오히려 KOSPI 비중 ↑). ※ 1주 데이터 (n=69) 카베앗.
 - **10–15% 임계 자체 = 유지 (primary)**: 성장주 KOSDAQ 1.06 ≈ 적정 + 무측정 일괄변경 비권장 (P2-1a~b 원칙).
 - **KOSPI 한정 스케일 = 조건부 등록 (미구현)**: KOSPI 46% + 비율 1.30 → 실익 있음. 분기안 `KOSPI 종목 한정 10–15% × 1.3 (≈13–19%)`. **단 선행조건: KOSPI 종목 false-flag 빈도 확인** (현재 1주 history → P2-1c 와 동일하게 cron 누적 후). 빈도 무의미하면 영구 보류.
+  - **Wake trigger (KOSPI 분기)**: cron 으로 KOSPI 종목의 `wide_and_loose` flag 빈도 누적 → 유의미한 false-flag rate (= 정당 base 가 KOSPI 변동성으로 부당 탈락) 확인 시 착수, 무의미 시 영구 보류.
 - **설계결정 ① 채택 + 주석 수정 완료 (이 커밋)**: `:189` 주석 "1.5–2.5× general market correction" 제거, bar-volatility flag 임을 명시 + "base-depth 는 cup_with_handle depth 룰(§4) 소관, 여기서 중복 금지" 추가. threshold-change-checklist 적용 = **동작 중립** (operative 10–15% 불변, 비-operative 주석만 수정 → 축2 영향 NONE). checklist 적용 이력에 기록.
 
 ---
@@ -238,13 +243,14 @@ base_depth > 60% → hard reject
 
 "미국 책 상대값이 한국 시스템에 절대값으로 박혀 보정 필요한가" 감사 라인의 최종 상태:
 
-| 항목 | 도메인 | 측정 | 판정 | 상태 |
-|---|---|---|---|---|
-| **P2-1a** FTD / 시장 distribution | 일간 변동성 (σ) | 한국 σ ≈ 2.3× US | σ-ratio 보정 (clamp 1.0–2.5) | **구현 완료** (코드) |
-| **P2-1b** cup depth 33%/50% | 단일조정 크기 | KR ≈ US (Def C 0.94–1.13) | 유지, 보정 불요 | **종결** (규칙 무변경) |
-| **P2-1c** 50% bear 예외 연속화 | (위 파생 gap) | status 분포 corroborate, 빈도 void(1주) | 연속화 설계 (2.5× 단일, floor 33%) | **backlog** (cron 누적 후) |
-| **P2-1d** wide_and_loose 10–15% | 주간 봉폭 | KOSDAQ 1.06 / KOSPI 1.30 | 10–15% 유지 (primary); 주석 ①정정 완료 | **종결** (KOSPI 분기는 조건부 backlog) |
-| **F4** handle depth 8–12% | (R 아님) | 측정 불요 | 방법론 복원 (②very large cup 예외 operationalize) | **backlog** |
+| 항목 | 도메인 | 측정 | 판정 | 근거 등급 | 상태 |
+|---|---|---|---|---|---|
+| **P2-1a** FTD / 시장 distribution | 일간 변동성 (σ) | 한국 σ ≈ 2.3× US | σ-ratio 보정 (clamp 1.0–2.5) | **책-강제** (TLOND p.232-233 절대임계 → 보정 필수, 책 직접) | **구현 완료** (코드) |
+| **P2-1b** cup depth 33%/50% | 단일조정 크기 | KR ≈ US (Def C 0.94–1.13) | 유지, 보정 불요 | **책-강제** (HMMS p.190 단일조정 직접인용 + KR≈US 측정) | **종결** (규칙 무변경) |
+| **P2-1c** 50% bear 예외 연속화 | (위 파생 gap) | status 분포 corroborate, 빈도 void(1주) | 연속화 설계 (2.5× 단일, floor 33%) | **책-근거 추정** (HMMS p.116 severity 원리 + gap 구조확정, 빈도 미측정) | **backlog** (cron 누적 후) |
+| **P2-1d** wide_and_loose 10–15% | 주간 봉폭 | KOSDAQ 1.06 / KOSPI 1.30 | 10–15% 유지 (primary) | **측정-기반** (주간봉폭 1.06–1.30× 측정; 책은 깊이/거칠기 차원구분만 제공) | **종결** (KOSPI 분기는 조건부 backlog) |
+| **F4** handle depth 8–12% | (R 아님) | 측정 불요 | 방법론 복원 (②very large cup 예외 operationalize) | **책-강제** (HMMS p.116-117 누락 조건 복원) | **backlog** |
+| **`:189` 주석 수정** | (메타·중복 방지) | 없음 | 동작 정합 (bar-volatility 명시) + cup depth 책임 분리 | **설계-판단** (책 아님, 중복 회피, confidence 0.75) | **반영 완료** (prompt 1행, 동작 중립) |
 
 **핵심 방법론 교훈** (재사용): 임계의 *도메인*(일간 σ / 단일조정 크기 / 주간 봉폭)을 literal 로 먼저 확정해야 옳은 측정 도구가 정해진다. P2-1a σ-ratio(2.3×)를 P2-1b·P2-1d 에 복사했다면 cup 45%·wide 23–35% 로 과대 보정됐을 것 — 일간 σ 2.3× ≠ 단일조정 0.94× ≠ 주간 봉폭 1.06–1.30×. 셋 다 "변동성" 이나 차원이 다르다. (threshold-change-checklist 의 "차원 함정" 사례.)
 
