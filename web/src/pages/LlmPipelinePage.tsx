@@ -208,9 +208,9 @@ const DIAGRAM_DATA_FLOW = `graph LR
 
 const DIAGRAM_STATE = `stateDiagram-v2
     [*] --> 후보전: 결정론 8조건 통과
-    후보전 --> Watch: 주말/평일 AI 분류 → watch
-    후보전 --> Entry: 주말/평일 AI 분류 → entry
-    후보전 --> Ignore: 주말/평일 AI 분류 → ignore
+    후보전 --> Watch: 주말/평일 AI 분류 (watch)
+    후보전 --> Entry: 주말/평일 AI 분류 (entry)
+    후보전 --> Ignore: 주말/평일 AI 분류 (ignore)
     Watch --> Watch: 평일 평가 wait/abort (분류 유지)
     Watch --> Entry: 다음 주말 재분석 시 승격
     Entry --> Entry: 평일 평가 wait/abort (분류 유지)
@@ -233,26 +233,26 @@ const TRIGGER_DECISION_MATRIX: Record<string, Record<string, MatrixCell | null>>
   breakout: {
     go_now: {
       meaning: "종가가 pivot 을 돌파하고 거래량도 살아있음. AI 가 '진짜 돌파' 로 확인.",
-      next: "→ 매수 계획 (entry_params) 자동 생성. 사용자가 행을 보고 실제 매수 결정.",
+      next: "매수 계획 (entry_params) 자동 생성. 사용자가 행을 보고 실제 매수 결정.",
     },
     wait: {
       meaning: "돌파했지만 AI 가 보류 — 약한 신호 (예: 거래량이 1.4× 미만, base 가 약간 wide) 일 가능성.",
-      next: "→ 매수 계획 생성 안 됨. 다음 평일에 재평가. entry 분류는 그대로 유지.",
+      next: "매수 계획 생성 안 됨. 다음 평일에 재평가. entry 분류는 그대로 유지.",
     },
     abort: {
       meaning: "돌파처럼 보였으나 AI 가 가짜로 판정 — 예: 다음날 즉시 되돌림 우려 / 시장 약세 중복.",
-      next: "→ 매수 계획 안 만듦. 분류 자체는 entry 유지. 다음 토 weekend 의 재분석이 base 무효 판단 시 비로소 ignore 강등.",
+      next: "매수 계획 안 만듦. 분류 자체는 entry 유지. 다음 토 weekend 의 재분석이 base 무효 판단 시 비로소 ignore 강등.",
     },
   },
   promotion: {
     go_now: null,  // 시스템 안전장치 — promotion 에서 go_now 발생 금지
     wait: {
       meaning: "watch 종목이 pivot 의 95% 까지 도달 — 돌파 직전 staging 상태. 거래량은 평균 이상. close 는 아직 pivot 미만이라 매수 신호 아님.",
-      next: "→ 다음 평일에 게이트가 다시 평가. 종가가 pivot 위로 올라가면 별도 breakout 트리거로 처리.",
+      next: "다음 평일에 게이트가 다시 평가. 종가가 pivot 위로 올라가면 별도 breakout 트리거로 처리.",
     },
     abort: {
       meaning: "base 가 깨질 조짐 — SMA-50 이탈, distribution day 누적 등. AI 가 위험 신호로 판단.",
-      next: "→ watch 분류 유지 (분류 변경 안 함). 다음 토 weekend 에서 ignore 로 강등될 후보.",
+      next: "watch 분류 유지 (분류 변경 안 함). 다음 토 weekend 에서 ignore 로 강등될 후보.",
     },
   },
   invalidation: {
@@ -260,7 +260,7 @@ const TRIGGER_DECISION_MATRIX: Record<string, Record<string, MatrixCell | null>>
     wait: null,
     abort: {
       meaning: "base 가 무효화 — 종가가 손절선 또는 SMA-50 아래로 이탈. AI 호출 없이 결정론으로 abort 확정.",
-      next: "→ 분류는 entry/watch 그대로 유지하지만, 다음 weekend 또는 daily_delta 재분류 까지 평가 사이클에서 사실상 제외.",
+      next: "분류는 entry/watch 그대로 유지하지만, 다음 weekend 또는 daily_delta 재분류 까지 평가 사이클에서 사실상 제외.",
     },
   },
 };

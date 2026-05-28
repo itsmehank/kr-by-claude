@@ -102,7 +102,7 @@ export const SIMULATION_ROWS: SimRow[] = [
           reasoning:
             "Pivot 명확 돌파, 거래량 1.82× (1.4× 기준 충족), 종가 일중 range 상단. 최근 3일 distribution day 없음. handle 깨끗.",
           impact:
-            "entry_params 단계로 진행 → 17 필드 매수 계획 생성. 분류는 entry 유지.",
+            "entry_params 단계로 진행 → 18 필드 매수 계획 생성. 분류는 entry 유지.",
         },
       },
       "2026-05-23": {
