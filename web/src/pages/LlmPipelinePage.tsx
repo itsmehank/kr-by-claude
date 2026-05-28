@@ -320,31 +320,38 @@ const GLOSSARY: { term: string; meaning: string }[] = [
 const FAQ: { q: string; a: string }[] = [
   {
     q: "Watch 가 evaluate_pivot 의 LLM 결정으로 자동 entry 로 승격되지 않는 이유?",
-    a: "evaluate_pivot 의 prompt 가 명시적으로 '분류 재평가 금지' 정책. classification 은 weekend 또는 daily_delta 만 변경. promotion 트리거는 staging 신호일 뿐 매수 시그널이 아니며 (prompt §3.3), go_now 가 발생하지 않도록 코드 안전장치도 적용 (entry_params 는 trigger_type='breakout' 만 수집). watch 종목이 실제 매수되려면 다음 평일 close > pivot 으로 breakout 트리거가 별도 발생해야 함.",
+    a:
+      "평일 트리거 평가 단계 (evaluate_pivot) 의 prompt 가 *분류 변경 금지* 정책을 명시합니다 — classification 은 매주 토 weekend 또는 평일 신규 분류 (daily_delta) 에서만 변경. promotion 트리거는 '돌파 직전 staging' 일 뿐 매수 신호가 아니며 (prompt §3.3), go_now 가 발생하지 않도록 코드 안전장치도 적용 (entry_params 자동 수집은 trigger_type='breakout' 인 행만). watch 종목이 실제 매수로 가려면 다음 평일 종가가 pivot 위로 올라가는 *진짜 돌파* 가 별도로 발생해야 합니다.",
   },
   {
-    q: "Pivot 없는 watch 종목은 어떻게 되나?",
-    a: "evaluate_pivot 의 결정론 게이트가 pivot_price IS NULL 인 종목을 skip. 매일 평가 사이클에서 빠짐. 다음 weekend 또는 daily_delta 재분류 까지 정지 상태.",
+    q: "Pivot 이 없는 watch 종목은 어떻게 되나?",
+    a:
+      "evaluate_pivot 의 결정론 게이트가 pivot_price 가 NULL 인 종목을 skip — 매일 평가 사이클에서 빠집니다. 다음 토 weekend 또는 daily_delta 가 그 종목을 재분류해서 pivot 을 새로 부여할 때까지 정지 상태로 대기.",
   },
   {
     q: "daily_delta 와 weekend batch 의 차이?",
-    a: "둘 다 같은 prompt (analyze_chart_v3.md) + 같은 zip. 차이는 대상 풀: daily_delta = 신규 (7일 내 분류 없는 minervini 통과), weekend = 전체 minervini 통과 (재분류 가능). daily_delta 는 평일 매일 (full-daily 의 첫 단계), weekend 는 토요일 03:20.",
+    a:
+      "두 단계는 *같은 prompt (analyze_chart_v3.md) + 같은 ZIP 13 파일* 을 씁니다. 차이는 대상 풀: daily_delta = 신규 (최근 7일 안에 분류된 적 없는 결정론 통과 종목), weekend = 결정론 통과 전체 (이미 분류된 종목도 재분석). daily_delta 는 평일 매일 20:00 (LLM 4 단계의 첫 단계), weekend 는 토 03:20 (주 1회 전체 결산).",
   },
   {
-    q: "dry-run 시 DB 영향은?",
-    a: "0. mock LLM 응답 받고 응답 파싱까지는 진행 (검증), 그러나 store 호출 직전 가드로 INSERT skip. weekly_classification / trigger_evaluation_log / entry_params 모두 영향 없음.",
+    q: "dry-run 모드는 DB 에 영향이 있나?",
+    a:
+      "전혀 없습니다 — mock LLM 응답을 받아 응답 파싱·검증까지는 진행하지만, DB 저장 직전에 가드가 INSERT 를 skip 합니다. weekly_classification / trigger_evaluation_log / entry_params 어느 테이블도 변하지 않습니다.",
   },
   {
-    q: "주말 batch 와 daily_delta 가 같은 prompt 라면 둘 다 필요한가?",
-    a: "시점이 다름. weekend = 매주 한 번 전체 결산 (시각차 확보, 분류 갱신). daily_delta = 평일에 새로 결정론 통과한 종목을 7일 기다리지 않고 즉시 분류 (조기 포착). 결과적으로 모든 minervini 통과 종목은 주 1회 weekend 로 재분류되고, 그 사이 신규는 daily_delta 로 즉시 합류.",
+    q: "weekend 와 daily_delta 가 같은 prompt 라면 둘 다 필요한가?",
+    a:
+      "시점이 다릅니다. weekend = 매주 한 번 *전체 결산* (모든 결정론 통과 종목 재분류 → 이전 분류와 다를 수 있음, 예: entry → ignore). daily_delta = 평일에 *새로 결정론 통과한 종목만* 즉시 분류 (7일을 기다리지 않고 조기 포착). 결과적으로 모든 결정론 통과 종목은 주 1회 weekend 로 재분석되고, 그 사이 신규는 daily_delta 로 즉시 합류.",
   },
   {
     q: "evaluate_pivot 의 abort 가 종목 분류를 ignore 로 바꾸나?",
-    a: "아니오. evaluate_pivot 은 trigger_evaluation_log 만 INSERT. weekly_classification 의 row 는 그대로. abort 가 누적되어도 분류는 entry 로 유지됨. 다음 weekend batch 에서 LLM 이 base 가 깨졌다고 판단하면 비로소 ignore 로 재분류.",
+    a:
+      "아니요. evaluate_pivot 은 trigger_evaluation_log 에 한 행 기록할 뿐, weekly_classification 의 분류는 그대로 둡니다. abort 가 매일 누적되어도 분류는 여전히 entry/watch. 다음 토 weekend 의 AI 가 *재분석* 후 base 가 깨졌다고 판단하면 비로소 ignore 로 재분류.",
   },
   {
     q: "한 종목이 한 주에 여러 번 분류될 수 있나?",
-    a: "가능. 예: 토 weekend (entry 재분석). 다음 평일에 daily_delta 가 같은 종목을 다시 분류할 수는 없음 (최근 7일 분류 이력 있어서 신규 아님). 다만 다음 주 토 weekend 에서 또 재분석되어 row 가 추가. 결국 한 종목은 weekend 마다 매주 1번 재분석.",
+    a:
+      "가능합니다. 예: 토 weekend 에 분류 (entry 재분석). 다만 그다음 평일 daily_delta 는 같은 종목을 다시 분류하지 못합니다 (최근 7일 안에 분류 이력이 있어 '신규' 조건 미충족). 다음 주 토 weekend 에서 또 재분석되어 새 행 추가. 결국 한 종목은 weekend 마다 *주 1회 재분석* 되고, daily_delta 는 *진짜 신규* 만 받습니다.",
   },
 ];
 
