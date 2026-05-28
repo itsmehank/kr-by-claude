@@ -2,6 +2,8 @@
 
 KOSPI / KOSDAQ 일봉 데이터 적재 파이프라인 및 후속 분석 도구.
 
+> **거시 계획서 / 현 상태 / backlog 한눈에 보기**: [`docs/PROJECT_ROADMAP.md`](docs/PROJECT_ROADMAP.md)
+
 ## 셋업
 1. `uv sync`
 2. `.env.example` 를 `.env` 로 복사 후 DB URL 채움
