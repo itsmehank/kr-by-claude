@@ -1,5 +1,6 @@
 import { MermaidDiagram } from "../components/MermaidDiagram";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   SIMULATION_DAYS,
   SIMULATION_ROWS,
@@ -491,6 +492,49 @@ export default function LlmPipelinePage() {
           + 10 종목 1주일 시뮬레이션으로 처음 보는 사용자도 흐름 이해 가능.
         </p>
       </header>
+
+      <details className="mb-8 group">
+        <summary className="cursor-pointer select-none px-5 py-3 bg-cream border border-hairline rounded-xl text-data text-ink font-semibold hover:bg-tint-stone transition-colors list-none flex items-center justify-between">
+          <span>이 페이지는 처음인가요? 📖</span>
+          <span className="text-faint font-normal text-data-xs ml-3 group-open:hidden">클릭해서 안내 펼치기 ▼</span>
+          <span className="text-faint font-normal text-data-xs ml-3 hidden group-open:inline">접기 ▲</span>
+        </summary>
+        <div className="mt-3 px-5 py-5 bg-cream border border-hairline rounded-xl text-data text-muted leading-relaxed space-y-5">
+          <p>
+            이 시스템은 매일 자동으로 한국 주식 (KOSPI/KOSDAQ) 을 훑어 <span className="text-ink font-semibold">살 만한 후보</span> 를 골라줍니다.
+            단순 룰 하나만 적용하는 게 아니라, <span className="text-ink font-semibold">"기계가 1차로 거르고, AI 가 차트를 보고 최종 판단"</span> 하는
+            2단계 방식입니다. 이 페이지는 그 <em>전체 흐름</em> 을 단계별로 보여주고, 가상 10 종목이 1주일 동안
+            어떻게 분류·평가되는지 <span className="text-ink font-semibold">시뮬레이션 매트릭스</span> 로 보여줍니다.
+          </p>
+
+          <div>
+            <div className="text-ink font-semibold mb-2">무엇을 볼 수 있나요?</div>
+            <ul className="space-y-1.5 list-disc list-inside pl-1">
+              <li><span className="text-ink">5 단계 파이프라인</span> — 결정론 1차 필터 → AI 분류 → 매수 조건 평가 → 매수 파라미터 산출 → 사후 성과 측정.</li>
+              <li><span className="text-ink">10 종목 × 5일 시뮬레이션</span> — 매일 어떤 신호가 떠서 무엇으로 변하는지 셀을 클릭해 확인.</li>
+              <li><span className="text-ink">각 단계의 입력·출력·책 근거</span> — <em>"왜 이렇게 동작하나"</em> 를 책 원전 (Minervini / O'Neil) 까지 연결.</li>
+            </ul>
+          </div>
+
+          <div>
+            <div className="text-ink font-semibold mb-2">핵심 용어 빠른 이해</div>
+            <ul className="space-y-1.5 list-disc list-inside pl-1">
+              <li><span className="text-ink">결정론</span> — 사람이 미리 정한 명확한 룰 (예: <em>"거래량이 평균 이상이어야 통과"</em>).</li>
+              <li><span className="text-ink">LLM (AI)</span> — 차트·지표·뉴스 등을 받아 판단하는 AI 모델. <em>"이 종목은 entry / watch / ignore"</em> 같은 결정을 내림.</li>
+              <li><span className="text-ink">base 패턴</span> — 주가가 옆으로 가다가 돌파 직전인 <em>모양</em> (컵·평평한 박스·VCP 등 9 종).</li>
+              <li><span className="text-ink">Minervini / O'Neil</span> — 본 시스템이 따르는 두 미국 성장주 투자 대가. 룰 대부분이 그들의 책에서 옴.</li>
+            </ul>
+          </div>
+
+          <div className="pt-3 border-t border-hairline">
+            <span className="text-faint">자매 페이지 — </span>
+            <em>룰이 책과 얼마나 정확히 맞는지</em> 한 줄씩 검증하고 싶다면 →{" "}
+            <Link to="/docs/llm-pipeline/audit" className="text-accent font-semibold hover:underline">
+              LLM 분석 검증
+            </Link>
+          </div>
+        </div>
+      </details>
 
       {/* ① 개요 + 데이터 흐름도 */}
       <section className="bento p-6 mb-4">

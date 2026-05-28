@@ -1,4 +1,5 @@
 import { MermaidDiagram } from "../components/MermaidDiagram";
+import { Link } from "react-router-dom";
 import { Section } from "./llm-pipeline-audit/Section";
 import { TableOfContents } from "./llm-pipeline-audit/TableOfContents";
 import { StageCardDeep } from "./llm-pipeline-audit/StageCardDeep";
@@ -47,6 +48,60 @@ export default function LlmPipelineAuditPage() {
           ZIP 13 / 3 prompt / 변경 이력) 를 line-by-line 검증할 수 있는 페이지.
         </p>
       </header>
+
+      <details className="mb-8 group">
+        <summary className="cursor-pointer select-none px-5 py-3 bg-cream border border-hairline rounded-xl text-data text-ink font-semibold hover:bg-tint-stone transition-colors list-none flex items-center justify-between">
+          <span>이 페이지는 무엇인가요? 🔍</span>
+          <span className="text-faint font-normal text-data-xs ml-3 group-open:hidden">클릭해서 안내 펼치기 ▼</span>
+          <span className="text-faint font-normal text-data-xs ml-3 hidden group-open:inline">접기 ▲</span>
+        </summary>
+        <div className="mt-3 px-5 py-5 bg-cream border border-hairline rounded-xl text-data text-muted leading-relaxed space-y-5">
+          <p>
+            <em>"이 시스템이 정말 책에 충실한가?"</em> 를 <span className="text-ink font-semibold">한 줄씩 대조해 검증</span> 할 수 있는 페이지입니다.
+            Minervini <em>Trade Like a Stock Market Wizard</em> · <em>Think and Trade Like a Champion</em>,
+            O'Neil <em>How to Make Money in Stocks</em> · <em>Trade Like an O'Neil Disciple</em> 네 권의 인용과,
+            본 시스템의 실제 룰·정의·임계값을 <span className="text-ink font-semibold">나란히</span> 보여줍니다.
+          </p>
+
+          <div>
+            <div className="text-ink font-semibold mb-2">무엇을 볼 수 있나요?</div>
+            <ul className="space-y-1.5 list-disc list-inside pl-1">
+              <li><span className="text-ink">Minervini Trend Template 8 조건</span> — 추세 강도를 판정하는 8 기준 (이동평균 배열, 신고가 근접 등).</li>
+              <li><span className="text-ink">9 base 패턴 정의</span> — flat_base · cup_with_handle · VCP · double_bottom 등 책이 정의한 모든 base 모양.</li>
+              <li><span className="text-ink">13 risk flag</span> — 매수 적합도를 깎는 위험 신호 (climax_run · late_stage_base · faulty_pivot 등).</li>
+              <li><span className="text-ink">3 prompt 본문 전체</span> — AI 가 실제로 받는 지시문 (analyze_chart_v3 / evaluate_pivot_trigger / calculate_entry_params).</li>
+              <li><span className="text-ink">변경 이력</span> — 룰이 언제·왜·어떻게 바뀌었는지 letter 별 (A, B, ..., K) 추적.</li>
+            </ul>
+          </div>
+
+          <div>
+            <div className="text-ink font-semibold mb-2">누가 보면 좋은가요?</div>
+            <ul className="space-y-1.5 list-disc list-inside pl-1">
+              <li>책 전문가가 <em>"이 룰의 책 출처가 정확한가"</em> 를 확인할 때</li>
+              <li><em>"왜 이 임계값을 1.4× → 1.5× 로 바꿨나"</em> 같은 의사결정 맥락을 추적하고 싶을 때</li>
+              <li>새 룰을 추가하기 전에 <em>책이 무엇을 권장하나</em> 를 한 화면에서 비교하고 싶을 때</li>
+            </ul>
+          </div>
+
+          <div>
+            <div className="text-ink font-semibold mb-2">핵심 용어 빠른 이해</div>
+            <ul className="space-y-1.5 list-disc list-inside pl-1">
+              <li><span className="text-ink">prompt</span> — AI 에게 주는 지시문 (예: <em>"이 차트를 분석해 entry/watch/ignore 중 하나로 분류해줘"</em>). 본 시스템은 3 prompt 사용.</li>
+              <li><span className="text-ink">risk flag</span> — 매수에 부적합한 위험 신호. 13 종 고정 목록만 사용.</li>
+              <li><span className="text-ink">base 패턴</span> — 주가가 옆으로 정리되는 모양. 9 종 분류.</li>
+              <li><span className="text-ink">book quote / English quote</span> — 룰의 책 원문 인용. "Why" 를 책 페이지·문장 단위로 추적 가능.</li>
+            </ul>
+          </div>
+
+          <div className="pt-3 border-t border-hairline">
+            <span className="text-faint">자매 페이지 — </span>
+            <em>시스템이 어떻게 동작하는지</em> 가상 종목 시뮬레이션으로 흐름을 따라가보고 싶다면 →{" "}
+            <Link to="/docs/llm-pipeline" className="text-accent font-semibold hover:underline">
+              LLM 분석 안내
+            </Link>
+          </div>
+        </div>
+      </details>
 
       <div className="flex gap-8">
         <aside className="hidden lg:block w-64 shrink-0">
