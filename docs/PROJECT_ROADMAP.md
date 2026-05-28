@@ -66,6 +66,7 @@
 | **Book audit (P0~P3 + SSOT-1)** | 2026-05-22 | 4권 책 (Minervini × 2 · O'Neil × 2) 충실성 점검 — 원안엔 *책 매핑* 자체가 없었음 | `docs/superpowers/specs/2026-05-22-book-audit-findings.md` (action plan) · `kr_pipeline/common/thresholds.py` (SSOT) |
 | **한국시장 σ 보정 (P2-1a)** + 후속 P2-1b/1c/1d/F1-F6 | 2026-05-25 ~ 5-28 | US 책 임계의 한국 적용 문제 (NASDAQ 1.4% / 분포 -0.2% / cup 33% / wide 10–15%) | `kr_pipeline/market_context/compute/volatility.py` · `docs/superpowers/verification/2026-05-27-p2-1b-cup-depth/` |
 | **방법론 인프라** (threshold-change-checklist + 3층 등급 + Wake trigger) | 2026-05-25 ~ 5-28 | 임계 변경 시 의존 룰 상호작용 점검 (F1 발견에서 흡수) | `docs/superpowers/threshold-change-checklist.md` |
+| **LLM 분석 안내 페이지 초보 친화 리팩토링** | 2026-05-29 | 페이지 jargon 밀도 진단·해소 — StageCard 친절 본문 + targeted folds (Trend Template 8 / ZIP 13 / 9 base 패턴 / 13 risk flag / 18 매수 계획 필드) + Glossary 12→34 + mermaid 한국어 노드명 + FAQ 친절화 + drift 차단 (audit 데이터 직접 import) | `web/src/pages/LlmPipelinePage.tsx` + `web/src/data/llm-pipeline/` + `web/src/pages/llm-pipeline/` |
 
 ---
 
