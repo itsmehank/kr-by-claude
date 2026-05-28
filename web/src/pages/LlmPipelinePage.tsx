@@ -195,30 +195,30 @@ const STAGES: PipelineStage[] = [
 // Mermaid diagram sources
 
 const DIAGRAM_DATA_FLOW = `graph LR
-    W["weekend batch<br/>(토 03:20, 전체 재분류)"] -->|source='weekend'| B[("weekly_classification<br/>watch / entry / ignore")]
-    A["daily_delta<br/>(평일, 신규만)"] -->|source='daily_delta'| B
-    B -->|매일 활성 종목<br/>DISTINCT ON| C{"evaluate_pivot<br/>결정론 게이트"}
-    C -->|"breakout / promotion /<br/>invalidation"| D["LLM 평가"]
-    D -->|"go_now / wait / abort"| E[("trigger_evaluation_log")]
-    E -->|"decision='go_now'<br/>AND trigger_type='breakout'<br/>(promotion staging 안전장치)"| F["entry_params<br/>LLM 호출"]
-    F --> G[("entry_params<br/>매수 계획 17 필드")]
-    G -->|매일 자동| H["performance<br/>1주/2주/4주/8주 추적"]
-    H --> I[("signal_performance")]
+    W["주말 batch<br/>(토 03:20)<br/>결정론 통과 전체 재분류"] -->|새 행 추가| B[("분류 결과 테이블<br/>weekly_classification<br/>watch / entry / ignore")]
+    A["평일 신규 분류<br/>(daily_delta)<br/>오늘 새로 통과한 종목만"] -->|새 행 추가| B
+    B -->|매일 활성 종목 선별<br/>(최신 분류만)| C{"평일 트리거 평가<br/>(결정론 게이트)"}
+    C -->|돌파 / 직전 staging<br/>/ base 무효| D["AI 평가"]
+    D -->|go_now / wait / abort| E[("트리거 평가 로그<br/>trigger_evaluation_log")]
+    E -->|go_now + 진짜 돌파<br/>(staging 차단 안전장치)| F["매수 계획 작성<br/>(AI 호출)"]
+    F --> G[("매수 계획 테이블<br/>entry_params<br/>18 필드 매수 시그널")]
+    G -->|매일 자동| H["성과 추적<br/>1주·2주·4주·8주 후"]
+    H --> I[("성과 테이블<br/>signal_performance")]
 `;
 
 const DIAGRAM_STATE = `stateDiagram-v2
-    [*] --> Unclassified: minervini_pass 통과
-    Unclassified --> Watch: weekend/daily_delta watch
-    Unclassified --> Entry: weekend/daily_delta entry
-    Unclassified --> Ignore: weekend/daily_delta ignore
-    Watch --> Watch: evaluate_pivot wait/abort (분류 유지)
-    Watch --> Entry: weekend batch 재분석 시 승격
-    Entry --> Entry: evaluate_pivot wait/abort (분류 유지)
-    Entry --> EntryParams: breakout + go_now
-    Entry --> Ignore: weekend batch 재분석 시 강등
-    EntryParams --> Performance: 자동 추적
-    Performance --> [*]: 90일 cutoff
-    Ignore --> [*]: 7일 후 후보 재진입 가능
+    [*] --> 후보전: 결정론 8조건 통과
+    후보전 --> Watch: 주말/평일 AI 분류 → watch
+    후보전 --> Entry: 주말/평일 AI 분류 → entry
+    후보전 --> Ignore: 주말/평일 AI 분류 → ignore
+    Watch --> Watch: 평일 평가 wait/abort (분류 유지)
+    Watch --> Entry: 다음 주말 재분석 시 승격
+    Entry --> Entry: 평일 평가 wait/abort (분류 유지)
+    Entry --> 매수계획: 진짜 돌파 + go_now
+    Entry --> Ignore: 다음 주말 재분석 시 강등
+    매수계획 --> 성과추적: 자동 시작
+    성과추적 --> [*]: 시그널 발생 90일 후 종료
+    Ignore --> [*]: 7일 후 다시 신규 후보 가능
 `;
 
 
@@ -699,11 +699,25 @@ export default function LlmPipelinePage() {
 
       {/* ① 개요 + 데이터 흐름도 */}
       <section className="bento p-6 mb-4">
-        <h3 className="text-subhead font-bold text-ink mb-3">개요 — 4 단계 데이터 흐름</h3>
-        <p className="text-data-xs text-muted mb-4 leading-relaxed">
-          한 종목이 새로 minervini_pass 를 통과한 순간부터 매수 시그널 생성 + 8주 성과 추적까지의 자동 흐름.
-          평일 20:00 cron 이 4 단계를 순차 실행. 단계마다 다른 종목 풀을 다룸 — 자세한 조건은 아래 각 카드에.
+        <h3 className="text-subhead font-bold text-ink mb-3">개요 — 자동 흐름 한눈에</h3>
+        <p className="text-data-xs text-muted mb-3 leading-relaxed">
+          한 종목이 새로 결정론 8조건을 통과한 순간부터 *매수 시그널 생성 + 8주 성과 추적* 까지의 자동 흐름.
+          평일 20:00 cron 이 4 단계를 순차 실행 (신규 분류 → 평일 평가 → 매수 계획 → 성과 추적), 매주 토 03:20 에는 전체 재분류 (weekend batch) 가 한 번 더.
         </p>
+        <details className="mb-3 group">
+          <summary className="cursor-pointer text-data-xs text-ink font-semibold select-none list-none">
+            <span className="group-open:hidden">📖 이 그림 읽는 법 ▼</span>
+            <span className="hidden group-open:inline">📖 이 그림 읽는 법 ▲</span>
+          </summary>
+          <div className="mt-2 text-data-xs text-muted leading-relaxed">
+            <ul className="list-disc list-inside space-y-1">
+              <li><strong>둥근 사각형</strong> 은 *처리 단계* (cron 또는 AI 호출). 화살표 라벨은 *조건/트리거*.</li>
+              <li><strong>원통형</strong> 은 *데이터 테이블* (DB 에 저장되는 결과).</li>
+              <li><strong>다이아몬드</strong> 는 *결정론 게이트* (코드 룰로 분기).</li>
+              <li>전체 흐름은 왼쪽 → 오른쪽. 같은 테이블에 여러 단계가 행을 추가할 수 있음 (예: 분류 테이블 ← 주말 + 평일).</li>
+            </ul>
+          </div>
+        </details>
         <MermaidDiagram chart={DIAGRAM_DATA_FLOW} idPrefix="flow" />
       </section>
 
@@ -737,10 +751,24 @@ export default function LlmPipelinePage() {
       {/* ④ 종목 상태 전이도 */}
       <section className="bento p-6 mb-4">
         <h3 className="text-subhead font-bold text-ink mb-3">종목 상태 전이도</h3>
-        <p className="text-data-xs text-muted mb-4 leading-relaxed">
-          한 종목이 시스템 안에서 어떻게 상태가 바뀌어가는지. classification 컬럼은 자주 안 바뀌지만,
-          entry_params row 생성이 실질 매수 시그널의 활성을 의미.
+        <p className="text-data-xs text-muted mb-3 leading-relaxed">
+          한 종목이 시스템 안에서 *어떤 상태* (분류) 로 시작해 어떻게 변하는지. 분류 자체는 잘 안 바뀌고
+          (평일 평가는 분류 변경 안 함), *매수 계획 테이블 (entry_params) 에 행이 생기는 순간* 이 실질
+          매수 시그널 활성을 의미합니다.
         </p>
+        <details className="mb-3 group">
+          <summary className="cursor-pointer text-data-xs text-ink font-semibold select-none list-none">
+            <span className="group-open:hidden">📖 이 그림 읽는 법 ▼</span>
+            <span className="hidden group-open:inline">📖 이 그림 읽는 법 ▲</span>
+          </summary>
+          <div className="mt-2 text-data-xs text-muted leading-relaxed">
+            <ul className="list-disc list-inside space-y-1">
+              <li>각 박스는 *상태* (분류 또는 활성). 화살표 라벨은 *전이 조건* (어떤 사건으로 상태가 바뀌나).</li>
+              <li>Self-loop (자기로 돌아가는 화살표) 는 *상태 유지* — 예: Entry → Entry (평일 평가에서 wait/abort 나와도 entry 분류 유지).</li>
+              <li>[*] 는 시스템 진입/종료 — 결정론 8조건 통과 시 진입, 90일 후 (성과 추적 종료) 또는 7일 후 (Ignore 재진입 가능) 종료.</li>
+            </ul>
+          </div>
+        </details>
         <MermaidDiagram chart={DIAGRAM_STATE} idPrefix="state" />
       </section>
 
