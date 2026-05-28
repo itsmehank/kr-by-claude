@@ -649,10 +649,11 @@ export default function LlmPipelinePage() {
         <h2 className="font-display text-display-xl font-bold tracking-tight leading-none">
           LLM 분석 안내
         </h2>
-        <p className="text-data-xs text-muted mt-3 leading-relaxed">
-          평일 4단계 (daily_delta → evaluate_pivot → entry_params → performance) 와
-          주말 1단계 (weekend batch) 의 흐름, 결정론 로직, LLM 로직, 책 원전 정리.
-          + 10 종목 1주일 시뮬레이션으로 처음 보는 사용자도 흐름 이해 가능.
+        <p className="text-data text-muted mt-3 leading-relaxed">
+          이 시스템이 매일·매주 한국 주식을 어떻게 자동 분류하고 매수 시그널까지
+          만드는지 단계별로 보여줍니다. 결정론 1차 필터 → AI 분류 → 평일 트리거
+          평가 → 매수 계획 → 사후 성과 추적 의 5 단계 흐름과 책 원전 (Minervini /
+          O'Neil) 근거. 가상 10 종목이 한 주 동안 어떻게 처리되는지 시뮬레이션도 함께.
         </p>
       </header>
 
@@ -673,7 +674,7 @@ export default function LlmPipelinePage() {
           <div>
             <div className="text-ink font-semibold mb-2">무엇을 볼 수 있나요?</div>
             <ul className="space-y-1.5 list-disc list-inside pl-1">
-              <li><span className="text-ink">5 단계 파이프라인</span> — 결정론 1차 필터 → AI 분류 → 매수 조건 평가 → 매수 파라미터 산출 → 사후 성과 측정.</li>
+              <li><span className="text-ink">5 단계 파이프라인</span> — 결정론 1차 필터 (Minervini Trend Template 8 조건) → AI 분류 → 평일 트리거 평가 → 매수 계획 작성 → 사후 성과 추적.</li>
               <li><span className="text-ink">10 종목 × 5일 시뮬레이션</span> — 매일 어떤 신호가 떠서 무엇으로 변하는지 셀을 클릭해 확인.</li>
               <li><span className="text-ink">각 단계의 입력·출력·책 근거</span> — <em>"왜 이렇게 동작하나"</em> 를 책 원전 (Minervini / O'Neil) 까지 연결.</li>
             </ul>
