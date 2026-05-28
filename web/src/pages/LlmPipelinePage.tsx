@@ -53,125 +53,139 @@ interface PipelineStage {
 }
 
 const STAGES: PipelineStage[] = [
+  // ─── Stage 0: 주말 batch ─────────────────────────────
   {
     id: "weekend",
     order: 0,
-    label: "주말 batch — 전체 재분류",
-    // TBD - Task 5 에서 친절 본문으로 재작성
+    label: "주말 batch — 매주 토 03:20 자동 전체 재분류",
     intro:
-      "결정론 통과 모든 종목을 토 새벽 LLM 으로 재분류 (전체 갱신). daily_delta 와 같은 prompt, 차이는 입력 필터.",
-    deterministicSummary: "결정론 필터 — minervini_pass (Trend Template 8조건).",
+      "한 주에 한 번, 토요일 새벽 3시 20분에 자동 실행됩니다. 결정론 1차 필터를 통과한 *모든* 한국 종목을 AI(LLM)가 차트와 함께 재분석해서 entry / watch / ignore 중 하나로 분류합니다. 분류 결과는 weekly_classification 테이블에 새 행으로 쌓입니다 (이전 분류는 그대로 보존).",
+    inputs: ["daily_indicators", "weekly_indicators", "market_context_daily", "corporate_actions", "stocks"],
+    outputs: ["weekly_classification"],
+    deterministicSummary:
+      "AI 호출 전 1차 필터로 'Minervini Trend Template 8 조건' 을 통과한 종목만 선별합니다 (= minervini_pass 컬럼이 TRUE). 상장폐지된 종목 (stocks.delisted_at) 은 자동 제외.",
     deterministicDetail:
-      "토요일 03:20 cron. daily_indicators 의 직전 금요일 행 기준 minervini_pass=TRUE AND stocks.delisted_at IS NULL 전체.",
+      "직전 금요일자 daily_indicators 행을 기준으로 minervini_pass=TRUE AND stocks.delisted_at IS NULL 조건의 종목 전체를 풀로 만듭니다. cron 시각은 토 03:20 KST.",
     llmSummary:
-      "analyze_chart_v3.md prompt (daily_delta 와 동일). ZIP 13개 파일 (payload.json + 일/주봉 OHLCV + 차트 PNG + 시장 컨텍스트 + corporate actions + minervini detail 등). 9개 base 패턴 + 13 risk flag taxonomy.",
+      "각 종목별로 13 개의 파일이 든 ZIP 묶음 (차트 PNG·일/주봉 OHLCV·시장 컨텍스트·corporate actions·minervini 진단 등) 을 만들어 AI 에게 보내고, analyze_chart_v3.md prompt 의 지시를 따라 'base 패턴 + risk flag + 분류' 를 받습니다. AI 는 9 종 base 패턴과 13 종 risk flag 만 사용하도록 제약돼 있습니다.",
     llmShowsLists: {
       eightConditions: true,
+      thirteenZipFiles: true,
       nineBasePatterns: true,
       thirteenRiskFlags: true,
-      thirteenZipFiles: true,
     },
     decisions: ["entry", "watch", "ignore"],
     actionSummary:
-      "weekly_classification 에 INSERT (source='weekend'). Slack digest 알림 (entry/watch/ignore 카운트).",
+      "분류 결과를 weekly_classification 테이블에 *새 행* 으로 추가합니다 (이전 분류는 지우지 않고 누적). 같은 종목·같은 시각의 중복은 자동 무시. 분석이 끝나면 entry/watch/ignore 카운트를 Slack 으로 요약 알림 (digest).",
     actionDetail:
-      "ON CONFLICT (symbol, classified_at) DO NOTHING. 이전 분류가 있어도 새 row 추가 — '현재 분류'는 DISTINCT ON (symbol) ORDER BY classified_at DESC.",
-    inputs: ["daily_indicators", "weekly_indicators", "market_context_daily", "corporate_actions", "stocks"],
-    outputs: ["weekly_classification (source='weekend')"],
+      "SQL 패턴: INSERT INTO weekly_classification (...) VALUES (...) ON CONFLICT (symbol, classified_at) DO NOTHING. '현재 분류' 를 조회할 땐 DISTINCT ON (symbol) ORDER BY classified_at DESC. 즉 append-only 설계 — UPDATE 하지 않고 새 행을 쌓고, 최신 행이 '현재 상태'.",
     sources: [
       "Minervini Trend Template (8 conditions)",
       "O'Neil HMM base patterns",
     ],
     codeRef: "kr_pipeline/llm_runner/weekend.py + modes.py:run_weekend",
   },
+
+  // ─── Stage 1: 신규 후보 분류 ──────────────────────────
   {
     id: "daily_delta",
     order: 1,
-    label: "신규 후보 분류",
-    // TBD - Task 5 에서 친절 본문으로 재작성
+    label: "신규 후보 분류 — 평일 매일 새 종목만",
     intro:
-      "오늘 새로 결정론 통과한 신규 종목만 LLM 분류 — weekend 와 같은 prompt, 신규 종목만 다룸.",
-    deterministicSummary: "결정론 필터 — minervini_pass + 신규성 (7일).",
+      "평일 매일 20:00 자동 실행됩니다. weekend 와 같은 AI prompt + 같은 ZIP 구조를 쓰지만, 대상이 다릅니다 — 결정론 필터를 *오늘 새로 통과한* 종목만. 즉 다음 주 토 weekend 까지 기다리지 않고 신규 후보를 즉시 분류해서 watch/entry 풀에 합류시키는 *빠른 반응* 단계입니다.",
+    inputs: ["daily_indicators", "daily_prices", "weekly_indicators", "market_context_daily"],
+    outputs: ["weekly_classification"],
+    deterministicSummary:
+      "1차 필터는 동일 — Trend Template 8 조건 통과 (minervini_pass=TRUE). 추가로 *신규성* 조건: 최근 7일 안에 분류된 적이 없는 종목만 (이미 weekend 나 다른 daily_delta 에서 분류된 종목은 제외).",
     deterministicDetail:
-      "daily_indicators 의 오늘 행 중 minervini_pass=TRUE + 최근 7일 내 분류 이력 없음 (= 신규 후보). weekend 와의 차이: weekend 는 결정론 통과 전체를 매주 재분석. daily_delta 는 그 사이 평일에 새로 결정론 통과한 종목만 빠르게 분류.",
+      "daily_indicators 의 오늘 행 기준 minervini_pass=TRUE + NOT EXISTS (SELECT 1 FROM weekly_classification WHERE symbol = ticker AND classified_at >= today - INTERVAL '7 days'). 7일 cool-down 으로 같은 종목 반복 분석 방지.",
     llmSummary:
-      "analyze_chart_v3.md prompt (weekend 와 동일) + zip 13개 파일. 9개 base 패턴 + 13 risk flag taxonomy 적용. 차이는 source 컬럼 ('daily_delta' vs 'weekend') 과 입력 필터 (신규성 추가).",
+      "weekend 와 정확히 같은 prompt (analyze_chart_v3.md) + 같은 ZIP 13 파일. 차이는 source 컬럼 ('daily_delta' vs 'weekend') 과 입력 풀의 신규성 필터.",
     llmShowsLists: {
-      eightConditions: true,
+      thirteenZipFiles: true,
       nineBasePatterns: true,
       thirteenRiskFlags: true,
-      thirteenZipFiles: true,
     },
-    decisions: ["watch", "entry", "ignore"],
+    decisions: ["entry", "watch", "ignore"],
     actionSummary:
-      "weekly_classification 에 INSERT (source='daily_delta'). watch/entry 는 evaluate_pivot 의 다음 평가 대상, ignore 는 7일 후 재진입 가능.",
-    inputs: ["daily_indicators", "daily_prices", "weekly_indicators", "market_context_daily"],
-    outputs: ["weekly_classification (source='daily_delta')"],
+      "weekly_classification 에 새 행으로 INSERT (source='daily_delta'). watch/entry 분류된 종목은 다음 평일부터 evaluate_pivot 의 평가 대상. ignore 분류된 종목은 7일 후 다시 신규 후보로 재진입 가능.",
+    actionDetail:
+      "INSERT INTO weekly_classification (..., source='daily_delta') VALUES (...) ON CONFLICT (symbol, classified_at) DO NOTHING. weekend 와 동일한 append-only.",
     sources: ["Minervini Trend Template", "O'Neil HMM 'How to Read Charts Like a Pro'"],
     codeRef: "kr_pipeline/llm_runner/daily_delta.py",
   },
+
+  // ─── Stage 2: 평일 트리거 평가 ────────────────────────
   {
     id: "evaluate_pivot",
     order: 2,
-    label: "Watch/Entry 트리거 평가",
-    // TBD - Task 5 에서 친절 본문으로 재작성
-    intro: "활성 watch/entry 종목의 오늘 행동 (돌파/손절/추세) 매일 확인",
-    deterministicSummary:
-      `결정론 트리거 게이트 (compute/trigger_gate.py): close < stop_loss 또는 close < sma_50 → invalidation. entry 종목: close > pivot AND volume >= avg_volume_50d (${GATE_BREAKOUT_VOL_MULT.toFixed(1)}×) → breakout. watch 종목: close >= pivot × 0.95 AND volume >= avg → promotion.`,
-    deterministicDetail:
-      `weekly_classification 의 종목별 최신 분류가 watch 또는 entry + daily_indicators 의 오늘 행 있음 (close, volume, sma_50, avg_volume_20d 모두 NOT NULL + pivot_price NOT NULL). 게이트는 거래량 죽지 않은 정도만 확인 — 1.4~1.5× 표준 / pocket pivot 예외 판정은 LLM 에 위임. watch 종목: go_now 발생 금지, close > pivot 도달은 별도 breakout 트리거가 처리.`,
-    llmSummary:
-      "evaluate_pivot_trigger_v1.md prompt — 게이트 통과 종목만 호출. '이 트리거가 진짜인가, 가짜 신호인가, 보류인가' 판단.",
-    decisions: ["go_now", "wait", "abort"],
-    actionSummary:
-      "trigger_evaluation_log 에 INSERT. 분류 자체는 변경 안 함 (prompt 명시). decision='go_now' 인 종목은 entry_params 가 자동 수집.",
-    actionDetail:
-      "abort decision 이라도 weekly_classification 의 row 는 그대로 유지. 다음 토요일 weekend batch 에서 LLM 이 재분석 후 ignore 로 분류해야 비로소 강등됨.",
+    label: "평일 트리거 평가 — watch/entry 종목의 오늘 행동 점검",
+    intro:
+      "이미 watch 또는 entry 로 분류된 활성 종목들의 오늘 가격·거래량을 매일 점검합니다. 종가가 pivot 을 돌파했는지, 손절선을 깼는지, 50일 이동평균에서 이탈했는지 등을 *결정론 게이트* 가 먼저 검사해 이벤트 유형 (breakout / promotion / invalidation) 을 결정합니다. 이벤트가 잡힌 종목만 AI 에게 '진짜 신호인가 가짜 신호인가' 묻습니다.",
     inputs: ["weekly_classification", "daily_indicators"],
     outputs: ["trigger_evaluation_log"],
+    deterministicSummary:
+      `세 가지 트리거를 결정론 룰로 잡습니다 — ① 종가 > pivot AND 거래량 ≥ 평균 (${GATE_BREAKOUT_VOL_MULT.toFixed(1)}×) → breakout (돌파), ② 종가 ≥ pivot × 0.95 → promotion (돌파 직전 staging), ③ 종가 < 손절선 또는 종가 < SMA-50 → invalidation (base 무효화). 거래량 기준은 게이트의 1.0× = '거래량이 죽지 않은 정도만' 확인이고, 책 표준 1.4~1.5× 와 pocket pivot 예외는 AI 가 판단합니다.`,
+    deterministicDetail:
+      "compute/trigger_gate.py 의 룰: pivot_price IS NULL 인 종목은 skip. close < stop_loss OR close < sma_50 → invalidation 우선 적용. 그 외 close > pivot AND volume >= avg_volume_50d × GATE_BREAKOUT_VOL_MULT → breakout. promotion 은 watch 분류 종목에만, close >= pivot × 0.95 AND volume >= avg 일 때.",
+    llmSummary:
+      "evaluate_pivot_trigger_v1.md prompt — 게이트가 잡은 트리거 유형을 입력으로 받고 'go_now (지금 사라) / wait (기다려) / abort (가짜·무효)' 중 하나를 결정. *중요*: 이 단계는 분류 자체를 바꾸지 않습니다. abort 가 나와도 분류는 그대로 유지 — 다음 토 weekend 에서 AI 가 다시 보고 분류를 ignore 로 강등해야 비로소 강등.",
+    decisions: ["go_now", "wait", "abort"],
+    actionSummary:
+      "결과를 trigger_evaluation_log 에 새 행으로 기록 (분류는 변경 안 함). decision='go_now' + trigger_type='breakout' 인 종목은 다음 단계 (entry_params) 가 자동으로 매수 계획을 작성합니다. promotion 트리거에서는 go_now 가 *나오지 않도록* prompt 와 코드 양쪽에 안전장치가 있습니다 (실질 매수는 종가가 pivot 위로 올라간 진짜 breakout 으로만).",
+    actionDetail:
+      "INSERT INTO trigger_evaluation_log (symbol, evaluated_at, trigger_type, decision, ...) VALUES (...). entry_params 다음 단계의 SQL 은 WHERE decision='go_now' AND trigger_type='breakout' 으로 staging 신호 분리.",
     sources: [
       "O'Neil HMM ch.2 Volume Percent Change (1.5× breakout)",
       "Minervini buy/sell rules",
     ],
     codeRef: "kr_pipeline/llm_runner/evaluate_pivot.py + compute/trigger_gate.py",
   },
+
+  // ─── Stage 3: 매수 계획 ───────────────────────────────
   {
     id: "entry_params",
     order: 3,
-    label: "매수 계획 (entry_params)",
-    // TBD - Task 5 에서 친절 본문으로 재작성
-    intro: "오늘 trigger_evaluation_log 에 go_now 결정된 종목의 매수 계획 18 필드 작성",
-    deterministicSummary: "decision='go_now' 행 필터.",
+    label: "매수 계획 (entry_params) — go_now 종목의 실제 매수 파라미터",
+    intro:
+      "evaluate_pivot 에서 go_now 결정을 받은 *진짜 매수 시그널* 종목에 대해 AI 가 18 개 필드의 매수 계획을 작성합니다. 진입 가격·손절선·목표가·포지션 사이즈·돌파 거래량 요건 등 매수에 필요한 모든 숫자를 한 행으로 정리. 이게 시스템의 *최종 산출물* 입니다 — 사용자는 entry_params 행을 보고 실제 매수 여부를 결정.",
+    inputs: ["trigger_evaluation_log", "daily_indicators", "weekly_classification"],
+    outputs: ["entry_params"],
+    deterministicSummary:
+      "오늘자 trigger_evaluation_log 에서 decision='go_now' AND trigger_type='breakout' 행만 추출 (promotion·invalidation·abort 는 entry_params 진입 차단).",
     deterministicDetail:
-      "trigger_evaluation_log 의 오늘 행 중 decision='go_now' AND trigger_type='breakout'. promotion 안전장치 — trigger_type='breakout' 인 경우만 entry_params 수집.",
+      "SELECT FROM trigger_evaluation_log WHERE evaluated_at::date = today AND decision='go_now' AND trigger_type='breakout'. 이 조건이 'watch staging' 이 매수로 새지 않게 막는 안전장치.",
     llmSummary:
-      "calculate_entry_params_v2_0.md prompt — entry_mode, trigger_price, entry_price, stop_loss + 기준, expected_target_price + %, RR, position_size_pct + 기준, breakout_volume_requirement, observed_breakout_volume_ratio, known_warnings, other_warnings, notes 등 18개 필드 계산.",
+      "calculate_entry_params_v2_0.md prompt — 18 필드를 책 룰 (O'Neil 7-8% 손절, Minervini 1-3% 거래당 위험, 5% chase 제한 등) 에 맞춰 계산. entry_mode 가 pivot_breakout 인지 pocket_pivot 인지에 따라 손절·사이징 룰이 다릅니다.",
     llmShowsLists: {
       eighteenFields: true,
     },
-    decisions: undefined,
     actionSummary:
-      "entry_params 에 INSERT (PK: symbol + signal_at). performance 가 다음 단계에서 자동 추적.",
-    inputs: ["trigger_evaluation_log", "daily_indicators", "weekly_classification"],
-    outputs: ["entry_params"],
+      "entry_params 테이블에 새 행으로 INSERT (PK: symbol + signal_at). 이 행이 곧 '활성 매수 시그널'. performance 단계가 자동으로 이 시그널의 1주·2주·4주·8주 후 가격을 추적합니다.",
+    actionDetail:
+      "INSERT INTO entry_params (symbol, signal_at, entry_mode, pivot_price, ..., notes, known_warnings, other_warnings) VALUES (...). PK 충돌 (같은 종목·같은 시각) 은 거의 없으나 안전장치로 ON CONFLICT DO NOTHING.",
     sources: ["Minervini risk management (1-3% per trade)", "O'Neil HMM 'Buy at the Buy Point'"],
     codeRef: "kr_pipeline/llm_runner/entry_params.py",
   },
+
+  // ─── Stage 4: 성과 추적 ───────────────────────────────
   {
     id: "performance",
     order: 4,
-    label: "시그널 성과 추적",
-    // TBD - Task 5 에서 친절 본문으로 재작성
-    intro: "최근 90일 내 entry_params signal 의 1/2/4/8주 후 가격 및 시장 대비 수익률 추적",
-    deterministicSummary:
-      "signal_at 기준 +7/+14/+28/+56 일 후 daily_prices 의 close 조회. 시장 (KOSPI/KOSDAQ index_daily) 수익률도 함께.",
-    deterministicDetail:
-      "entry_params 의 signal_at 가 최근 90일 내. 8주 후까지만 추적 (price_8w 채워지면 종료).",
-    llmSummary: null,
-    actionSummary:
-      "signal_performance 의 (symbol, signal_at) 행 UPSERT. 같은 종목의 여러 entry signal 은 signal_at 별 독립 추적.",
+    label: "성과 추적 — 시그널의 1주/2주/4주/8주 후 수익률",
+    intro:
+      "AI 호출 없는 순수 계산 단계입니다. 최근 90일 안에 발생한 매수 시그널 (entry_params) 들의 1주·2주·4주·8주 후 가격을 daily_prices 에서 조회해 수익률을 계산. 같은 기간의 시장 (KOSPI 또는 KOSDAQ) 수익률도 함께 기록해 *시장 대비 알파* 도 측정. 8주 데이터가 모두 채워지면 추적이 사실상 끝납니다.",
     inputs: ["entry_params", "daily_prices", "index_daily"],
     outputs: ["signal_performance"],
+    deterministicSummary:
+      "entry_params 의 signal_at 가 최근 90일 안인 행에 대해 +7 / +14 / +28 / +56 일 후 종가를 조회. 90일 cutoff 는 8주 추적 + 안전 마진.",
+    deterministicDetail:
+      "SELECT FROM entry_params WHERE signal_at >= today - 90 days. 각 행에 대해 daily_prices 에서 +7d/+14d/+28d/+56d close 조회. 같은 시점의 index_daily (해당 시장의 지수) 종가도 조회해 시장 대비 차이 계산.",
+    llmSummary: null,
+    actionSummary:
+      "signal_performance 테이블에 (symbol, signal_at) 키로 UPSERT. 같은 종목의 여러 시그널은 signal_at 별로 독립 추적 — 같은 종목이 한 달 사이 두 번 entry_params 를 받았다면 두 시그널 각각 추적.",
+    actionDetail:
+      "INSERT INTO signal_performance (symbol, signal_at, price_1w, price_2w, price_4w, price_8w, market_return_1w, ...) VALUES (...) ON CONFLICT (symbol, signal_at) DO UPDATE SET ... — 점진적으로 데이터가 채워지므로 UPSERT.",
     sources: [],
     codeRef: "kr_pipeline/llm_runner/performance.py",
   },
