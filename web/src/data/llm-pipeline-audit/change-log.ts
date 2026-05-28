@@ -82,6 +82,77 @@ export const CHANGE_LOG: ChangeEntry[] = [
       "#1 retry: 책 밖 (엔지니어링). 현행 합리적. 코드 변경 없음.",
     ],
   },
+  {
+    letter: "G",
+    date: "2026-05-25",
+    commit: "e8458f4 외 (P2-1a chain)",
+    title: "P2-1a 한국시장 σ 보정 구현 (FTD / 시장 distribution 임계)",
+    rationale:
+      "TLOND p.232-233 'Adjusting threshold levels for index volatility is correct' + 시기별 손조정 이력(1.0→1.7→1.4→1.5%) 책-강제. 한국 일간 σ ≈ NASDAQ × 2.3 → US 절대임계(FTD 1.4% / dist -0.2%) 그대로 적용 시 한국 약 반등 FTD 오인. 등급 3층 (필요성=책-강제 / 자동 공식화=책-허용 / σ 도구 선택=설계-판단; TLOND p.117 ATR 권고이나 σ 채택, 의도적 deviation).",
+    changes: [
+      "신규 kr_pipeline/market_context/compute/volatility.py — compute_korean_sigma_pct / derive_market_thresholds / book_default_thresholds 3 순수 함수.",
+      "thresholds.py SSOT 상수 7개 추가 — NASDAQ_REFERENCE_SIGMA, FTD_PCT_BASE, DISTRIBUTION_PCT_BASE, SIGMA_WINDOW_DAYS, SIGMA_MIN_DATA_RATIO, KOREAN_SIGMA_RATIO_FLOOR/CEILING.",
+      "modes.py:_process_one_date 에 σ 측정 → 임계 도출 → detect_last_ftd / count_distribution_days 시장별 임계 주입.",
+      "검증 아티팩트: docs/superpowers/verification/2026-05-25-p2-1a-replay.csv + p2-1a-ftd-invalidation-entry-impact.md (§3.5 co-fire 분석으로 status flip 의 entry/watch 영향 bounded 입증).",
+    ],
+  },
+  {
+    letter: "H",
+    date: "2026-05-27",
+    commit: "a97a61e (P2-1b cup depth)",
+    title: "P2-1b cup depth 측정·종결 — 33%/50% 유지, 규칙 무변경",
+    rationale:
+      "책 'cups correct 1.5-2.5× the market averages' (HMMS p.190 단일조정 직접인용) 의 분모 = 단일 중간조정 크기. KR 46/30yr + US 46yr 외부 캐시로 3 탐지 정의 측정. 가장 책-정본 분모인 Def C (zigzag swing) 에서 KR ≈ US (KOSPI/SP500=1.13, KOSDAQ/Nasdaq=0.94) → 33%/50% 이전 정당. 등급: 책-강제 (Minervini/O'Neil 1순위 + 측정).",
+    changes: [
+      "신규 measure_drawdowns.py (read-only) + data/ 캐시 (KOSPI/KOSDAQ/SP500/Nasdaq).",
+      "FINDINGS.md 작성 — Def C canonical denominator, KR≈US 측정, 33%/50% 유지 판정.",
+      "F3 (P2-1c, 50% 예외 연속화) backlog 등록 — 식: clamp(2.5 × 동시점 지수 drawdown, floor=33%, cap=50%), >60% reject. Wake trigger: cron 으로 base_depth ∈ [33,50] AND status='correction' 누적 후.",
+      "F4 (handle very-large-cup 예외 복원) backlog 등록 — HMMS p.116-117 의 ②unless very large cup 조건 operationalize. ①during bull markets 는 prompt 가 이미 'in a normal market' 으로 반영.",
+      "prompt §4 / thresholds.py 무수정.",
+    ],
+  },
+  {
+    letter: "I",
+    date: "2026-05-27~28",
+    commit: "f43191c, 4f310bd (P2-1d wide_and_loose)",
+    title: "P2-1d wide_and_loose 주간 봉폭 측정 + prompt §5 주석 정합",
+    rationale:
+      "wide_and_loose 의 operative 임계가 'Weekly price swings 10–15%' = 주간 봉폭(bar-volatility)이고 괄호 주석 '1.5-2.5× general market correction' 은 non-operative size-relative 정당화 → 차원 혼용. P2-1a σ-ratio 재사용 금지 (분모 다름). KR/US 주간 봉폭 직접 측정 → 비율 KOSPI/SP500=1.30, KOSDAQ/Nasdaq=1.06 (일간 σ 2.3× 와 차이 큼 = 주간 집계 효과). 성장주 페어 1.06 → 10-15% 유지 primary, KOSPI 분기는 F5 조건부 backlog.",
+    changes: [
+      "신규 measure_weekly_swings.py — 주간 (high-low)/close 및 |close ret| 두 metric.",
+      "analyze_chart_v3.md §5 L189 wide_and_loose 주석 정정: 'O'Neil: 1.5-2.5× general market correction' 제거 → bar-volatility flag 임을 명시 + 'base-depth 는 cup_with_handle 룰(§4) 소관, 중복 금지'. operative 10-15% 불변, 동작 중립. threshold-change-checklist 적용(축2 영향 NONE).",
+      "F5 (P2-1d-KOSPI 분기) 조건부 backlog 등록 — KOSPI 종목 한정 10-15% × 1.3 (≈13-19%). Wake trigger: cron 으로 KOSPI 종목 wide_and_loose false-flag 빈도 누적 후.",
+    ],
+  },
+  {
+    letter: "J",
+    date: "2026-05-28",
+    commit: "94d7894, 5eb9293 (prompt 잔재 정리)",
+    title: "PP 2008 예외 인용 강화 + blue dot dead reference 정리",
+    rationale:
+      "(P2-5) §4.5 의 PP 2008 예외 주석이 의역으로만 있어 책 원문 직접 인용 누락. (P3-5) is_blue_dot 필드가 사전 사이클에 payload 에서 제거됐으나 prompt 본문 두 곳에 positive trait 예시로 'blue dot' 잔존 → LLM 이 받지 못하는 입력 거론하던 dead reference.",
+    changes: [
+      "analyze_chart_v3.md §4.5 L130: 'Except in very rare cases, such as in the aftermath of the crash of late 2008' (TLOND p.132 토씨까지) 직접 인용 + 'Conservative-by-design, not a book deviation' 명시 (책은 예외 허용, 우리는 §3.5 게이트 중첩이라 억제). 등급: 책-허용.",
+      "analyze_chart_v3.md §5 L199 + L324 의 positive trait 예시 목록에서 'blue dot' 제거. 남은 예시: high RS Rating · price above MAs · MA alignment · RS Line leadership.",
+      "동작 무관 (dead reference 청소 + 주석 강화).",
+    ],
+  },
+  {
+    letter: "K",
+    date: "2026-05-25~28",
+    commit: "1baa640, 5d63b74, 7edae41, 2e65489 + 본 commit",
+    title: "방법론 인프라 + 거시 계획서 격상 + audit 메타 drift 정리",
+    rationale:
+      "P2-1a chain 에서 'FTD 임계 상향이 status.py FTD 무효화 룰(10일 상수)과 상호작용해 회복을 correction 으로 오판' 발견. 임계 변경 시 의존 룰 정합 점검을 일회성으로 두지 말고 재사용 방법론으로 흡수. 등급/Wake trigger/거시 계획서/audit 메타까지 거버넌스 인프라 일괄 정착.",
+    changes: [
+      "threshold-change-checklist.md 신설 — 2축 의존성 맵 + 합격 조건 게이트 + P2-1a 소급 예시.",
+      "3층 등급 의미 명문화 (필요성 / 공식화 / 도구) — 통일 등급 압축 금지, 변경 우선순위 보존.",
+      "Wake trigger 모든 backlog 항목에 명시 — F3 (P2-1c 50% 연속화), F4 (handle), F5 (P2-1d KOSPI 분기), F6 (ATR 전환).",
+      "F6 ATR 전환 검토 backlog 등록 — 1순위 위반 아닌 2순위 권고 채택 선택건이라 시급성 LOW. P2-1a σ 선택 사유 (의도적 deviation) 기록 인용.",
+      "PROJECT_ROADMAP.md 신설 — 원안 5단계 청사진(첫 spec 임베드)을 거시 단일 문서로 격상. 원안 vs 현 구현 매핑 + 운영 상태 + backlog Wake trigger + authoritative sources.",
+      "audit 메타 drift 정리 (본 commit): risk-flags.ts 의 wide_and_loose / faulty_pivot / narrow_base 정의를 prompt 와 동기화. stages.ts PP 영문 인용에 책 원문 'aftermath of the crash of late 2008' 추가. change-log.ts 에 본 chain G-K 5건 백필. prompt 본문 표시는 ?raw import 라 이미 자동 동기화돼 있음, 잔존은 메타-설명 4 파일 수동 작성 영역.",
+    ],
+  },
 ];
 
 export interface ReviewItem {
