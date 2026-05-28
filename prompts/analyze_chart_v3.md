@@ -196,7 +196,7 @@ Select from **exactly this taxonomy** (no other values are permitted):
 
 **Three inviolable rules — violation makes the output invalid:**
 
-1. **Trend Template positive traits NEVER go in risk_flags.** High RS Rating, price above MAs, MA alignment, blue dot — these are strengths. RS Rating ≥ 95 is not a risk. Do not flag it.
+1. **Trend Template positive traits NEVER go in risk_flags.** High RS Rating, price above MAs, MA alignment, RS Line leadership — these are strengths. RS Rating ≥ 95 is not a risk. Do not flag it.
 2. **Reasoning ↔ flags consistency**: If your `reasoning` (across all 5 markdown sections) names a risk (e.g., "climax run", "wide-and-loose", "extended from MA", "market in correction"), the corresponding flag MUST appear in `risk_flags`. Conversely, every flag in `risk_flags` must be supported by something concrete in reasoning or the underlying data.
 3. **Liquidity scope**: `thin_liquidity_us_only` applies ONLY to US individual stocks. For KR stocks (KOSPI/KOSDAQ) or ETFs, do not evaluate or report liquidity.
 
@@ -321,7 +321,7 @@ For non-VCP patterns (`flat_base`, `cup_with_handle`, etc.), both fields MUST be
 - Do not output any text outside the JSON object.
 - Do not invent data not in the input (e.g., do not speculate about earnings dates, news catalysts).
 - Do not give entry parameters here (stop loss, position size) — that is a separate task (`calculate_entry_params`). pivot_price and base fields ARE output by this prompt (§4.7).
-- Do not include Trend Template positive signals (high RS Rating, price above MAs, blue dot, RS Line leadership) as risk_flags.
+- Do not include Trend Template positive signals (high RS Rating, price above MAs, MA alignment, RS Line leadership) as risk_flags.
 - Do not invent risk flags outside the 13-value taxonomy.
 - Do not invent new pattern names outside the 9-value taxonomy.
 - Do not classify as `entry` when `market_context.current_status` is downtrend/correction/unconfirmed_rally — this is a hard rule per §3.5.
