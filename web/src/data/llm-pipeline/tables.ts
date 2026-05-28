@@ -49,7 +49,7 @@ export const TABLES: Record<string, TableInfo> = {
     short: "기업 행위 — 액면분할·합병·배당 등.",
     details:
       "종목 × 날짜별 코퍼릿 이벤트 (e.g. 액면분할 1:5). 차트·지표가 분할 직후 왜곡되지 않도록 보정. DART API 로 수집.",
-    pkey: "(ticker, event_date, event_type)",
+    pkey: "(ticker, event_date, event_type, dart_rcept_no)",
   },
   stocks: {
     name: "stocks",
