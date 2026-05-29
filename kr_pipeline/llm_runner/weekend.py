@@ -11,6 +11,7 @@ from pathlib import Path
 
 from psycopg import Connection
 
+from api.services.freeze_store import save_freeze
 from api.services.zip_builder import build_analysis_zip
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude, ClaudeCLIError
 from kr_pipeline.llm_runner.load import get_qualifying_tickers
@@ -150,6 +151,15 @@ def _process_one(
     if dry_run:
         log.info("dry-run: skipping DB insert for %s (mock result %s)",
                  symbol, result.get("classification"))
+        # dry_run 에서도 freeze 저장 — classification_id=None (분류 row 없음)
+        save_freeze(
+            conn,
+            artifact_bytes=zip_bytes,
+            content_type="application/zip",
+            ticker=symbol,
+            stage="weekend",
+            classification_id=None,
+        )
         return
 
     insert_classification(
@@ -165,4 +175,15 @@ def _process_one(
             "output_tokens": None,
         },
         analyzed_for_date=as_of,
+    )
+
+    # 분류 row 저장 후 freeze — fail-soft, 반환값 무시
+    # weekly_classification PK 는 composite (symbol, classified_at), BIGINT id 없어 classification_id=None
+    save_freeze(
+        conn,
+        artifact_bytes=zip_bytes,
+        content_type="application/zip",
+        ticker=symbol,
+        stage="weekend",
+        classification_id=None,
     )

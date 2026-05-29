@@ -12,6 +12,7 @@ from pathlib import Path
 
 from psycopg import Connection
 
+from api.services.freeze_store import save_freeze
 from api.services.zip_builder import build_analysis_zip
 from kr_pipeline.llm_runner.compute.delta import find_new_tickers
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude
@@ -104,6 +105,15 @@ def _process_one(conn: Connection, symbol: str, *, dry_run: bool, as_of: date) -
     if dry_run:
         log.info("dry-run: skipping DB insert for %s (mock result %s)",
                  symbol, result.get("classification"))
+        # dry_run 에서도 freeze 저장 — classification_id=None (분류 row 없음)
+        save_freeze(
+            conn,
+            artifact_bytes=zip_bytes,
+            content_type="application/zip",
+            ticker=symbol,
+            stage="daily_delta",
+            classification_id=None,
+        )
         return
 
     insert_classification(
@@ -116,4 +126,14 @@ def _process_one(conn: Connection, symbol: str, *, dry_run: bool, as_of: date) -
         llm_meta={"duration_s": (finished - started).total_seconds(),
                   "input_tokens": None, "output_tokens": None},
         analyzed_for_date=as_of,
+    )
+
+    # 분류 row 저장 후 freeze — fail-soft, 반환값 무시
+    save_freeze(
+        conn,
+        artifact_bytes=zip_bytes,
+        content_type="application/zip",
+        ticker=symbol,
+        stage="daily_delta",
+        classification_id=None,
     )
