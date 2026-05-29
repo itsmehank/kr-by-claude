@@ -22,10 +22,14 @@ def get_classifications(
     sources: list[str] | None = Query(default=None),
     min_confidence: float = 0.0,
     sort: str = "classified_at_desc",
-    limit: int = 100,
+    limit: int = 5000,
     conn: Connection = Depends(get_conn),
 ):
-    """LLM 분류 결과 — 종목별 최신 1건 (DISTINCT ON), 필터 + 정렬 + 제한."""
+    """LLM 분류 결과 — 종목별 최신 1건 (DISTINCT ON), 필터 + 정렬 + 제한.
+
+    limit default 5000: 14일 lookback 안의 unique 분류 종목 수가 통상 ~400, 안전 마진 적용.
+    클라이언트가 명시 안 보내면 사실상 무제한처럼 동작 (제한은 폭주 방지용).
+    """
     if sort not in SORT_CLAUSES:
         raise HTTPException(400, f"Unknown sort: {sort}. Allowed: {list(SORT_CLAUSES.keys())}")
     sort_clause = SORT_CLAUSES[sort]
