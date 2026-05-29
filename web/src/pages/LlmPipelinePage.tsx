@@ -63,9 +63,9 @@ const STAGES: PipelineStage[] = [
     inputs: ["daily_indicators", "weekly_indicators", "market_context_daily", "corporate_actions", "stocks"],
     outputs: ["weekly_classification"],
     deterministicSummary:
-      "AI 호출 전 1차 필터로 'Minervini Trend Template 8 조건' 을 통과한 종목만 선별합니다 (= minervini_pass 컬럼이 TRUE). 상장폐지된 종목 (stocks.delisted_at) 은 자동 제외.",
+      "AI 호출 전 1차 필터 — **minervini_pass = TRUE** 인 종목만 선별합니다.\n\n*minervini_pass* 는 Minervini Trend Template 의 8 조건을 *모두* 통과했는지를 한 컬럼으로 나타낸 boolean — 8 조건 중 하나라도 실패하면 FALSE.\n\n상장폐지된 종목 (stocks.delisted_at) 은 자동 제외.\n\n→ 8 조건의 정확한 내용은 *아래* 'Trend Template 8 조건 모두 보기' fold 참조.",
     deterministicDetail:
-      "직전 금요일자 daily_indicators 행을 기준으로 minervini_pass=TRUE AND stocks.delisted_at IS NULL 조건의 종목 전체를 풀로 만듭니다. cron 시각은 토 03:20 KST.",
+      "SQL 조건:\n  WHERE minervini_pass = TRUE\n    AND stocks.delisted_at IS NULL\n\n기준 행: 직전 금요일자 daily_indicators.\ncron 시각: 토 03:20 KST.\n\n💡 minervini_pass 컬럼은 daily_indicators 가 적재될 때 함께 계산 — 8 조건 모두 충족 시에만 TRUE (아래 '8 조건 모두 보기' fold 참조).",
     llmSummary:
       "각 종목별로 13 개의 파일이 든 ZIP 묶음 (차트 PNG·일/주봉 OHLCV·시장 컨텍스트·corporate actions·minervini 진단 등) 을 만들어 AI 에게 보내고, analyze_chart_v3.md prompt 의 지시를 따라 'base 패턴 + risk flag + 분류' 를 받습니다. AI 는 9 종 base 패턴과 13 종 risk flag 만 사용하도록 제약돼 있습니다.",
     llmShowsLists: {
@@ -96,9 +96,9 @@ const STAGES: PipelineStage[] = [
     inputs: ["daily_indicators", "daily_prices", "weekly_indicators", "market_context_daily"],
     outputs: ["weekly_classification"],
     deterministicSummary:
-      "1차 필터는 동일 — Trend Template 8 조건 통과 (minervini_pass=TRUE). 추가로 *신규성* 조건: 최근 7일 안에 분류된 적이 없는 종목만 (이미 weekend 나 다른 daily_delta 에서 분류된 종목은 제외).",
+      "1차 필터는 weekend 와 동일 — **minervini_pass = TRUE** (= Trend Template 8 조건 모두 통과).\n\n추가로 *신규성* 조건: 최근 7일 안에 분류된 적이 없는 종목만 (이미 weekend 나 다른 daily_delta 에서 분류된 종목은 제외).\n\n7일 cool-down 으로 같은 종목 반복 분석 방지.",
     deterministicDetail:
-      "daily_indicators 의 오늘 행 기준 minervini_pass=TRUE + NOT EXISTS (SELECT 1 FROM weekly_classification WHERE symbol = ticker AND classified_at >= today - INTERVAL '7 days'). 7일 cool-down 으로 같은 종목 반복 분석 방지.",
+      "SQL 조건:\n  WHERE minervini_pass = TRUE\n    AND NOT EXISTS (\n        SELECT 1 FROM weekly_classification\n         WHERE symbol = ticker\n           AND classified_at >= today - INTERVAL '7 days'\n    )\n\n기준 행: 오늘자 daily_indicators.\n\n💡 minervini_pass 의 의미는 weekend 카드의 '8 조건 모두 보기' fold 참조.",
     llmSummary:
       "weekend 와 정확히 같은 prompt (analyze_chart_v3.md) + 같은 ZIP 13 파일. 차이는 source 컬럼 ('daily_delta' vs 'weekend') 과 입력 풀의 신규성 필터.",
     llmShowsLists: {
