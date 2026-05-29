@@ -42,18 +42,23 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  // ─── 조회 도구 ───────────────────────────────
   { to: "/", label: "Overview", kr: "총괄", Icon: LayoutDashboard },
   { to: "/heatmap", label: "Sectors", kr: "섹터 히트맵", Icon: LayoutGrid },
   { to: "/chart", label: "Chart", kr: "차트", Icon: LineChart },
+
+  // ─── 분석 파이프라인 (단계 순) ───────────────
   { to: "/minervini", label: "Minervini", kr: "미너비니", Icon: Sparkles },
-  { to: "/signals", label: "Signals", kr: "시그널", Icon: Zap },
-  { to: "/performance", label: "Performance", kr: "시그널 성과", Icon: TrendingUp },
   { to: "/classifications", label: "Classifications", kr: "LLM 분류", Icon: ListChecks },
   { to: "/triggers", label: "Triggers", kr: "트리거 이력", Icon: Activity },
+  { to: "/signals", label: "Signals", kr: "시그널", Icon: Zap },
+  { to: "/performance", label: "Performance", kr: "시그널 성과", Icon: TrendingUp },
+
+  // ─── 메타 문서 / 운영 ──────────────────────
   { to: "/docs/llm-pipeline", label: "LLM Pipeline Guide", kr: "LLM 분석 안내", Icon: BookOpen },
   { to: "/docs/llm-pipeline/audit", label: "LLM Audit", kr: "LLM 분석 검증", Icon: ShieldCheck },
-  { to: "/runner", label: "Runner", kr: "분석 운영", Icon: Wrench },
   { to: "/prompt", label: "LLM Prompt", kr: "LLM 프롬프트", Icon: FileArchive },
+  { to: "/runner", label: "Runner", kr: "분석 운영", Icon: Wrench },
 ];
 
 const PIPELINE_LABELS: Record<string, string> = {
