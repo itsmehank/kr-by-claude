@@ -93,11 +93,11 @@ pattern == 'flat_base' / 'VCP' / 'none' 등 → 적용 안 함.
 
 ### 3-2. 트리거 — 단독 강 트리거 (OR)
 
-| 코드 | 조건 | 정량 정의 (시작값) |
-|------|------|-------------------|
-| (A) Deep handle | handle 깊이가 base 깊이의 1/3 초과 | `(handle_high - handle_low) / (base_high - base_low) > 0.33` |
-| (B) Volume not contracting | handle 평균 거래량이 base 평균 대비 충분히 감소 안 함 | `avg_volume(handle) / avg_volume(base) > 0.80` (= 20% 미만 감소) |
-| (분배) | handle 구간 내 distribution day 발생 | `distribution_days_in_handle ≥ 1` |
+| 코드 | 조건 | 정량 정의 (시작값) | 임계 근거 |
+|------|------|-------------------|---------|
+| (A) Deep handle | handle 깊이가 base 깊이의 1/3 초과 | `(handle_high - handle_low) / (base_high - base_low) > 0.33` | **O'Neil HMMS p.116 — 예외** (고정) |
+| (B) Volume not contracting | handle 평균 거래량이 base 평균 대비 충분히 감소 안 함 | `avg_volume(handle) / avg_volume(base) > 0.80` (= 20% 미만 감소) | **재조정 대상** — 사례 1건 기반 추정 |
+| (분배) | handle 구간 내 distribution day 발생 | `distribution_days_in_handle ≥ 1` | 분배 1건도 신호 (Phase 2-C 에서 정밀화) |
 
 ### 3-3. 가중치 조건 (단독 트리거 아님, 결합 시만 신뢰도 가중)
 
@@ -108,19 +108,135 @@ pattern == 'flat_base' / 'VCP' / 'none' 등 → 적용 안 함.
 
 **(E)/(F) 단독으로는 handle_quality 발화 안 함** — Minervini low cheat 보호.
 
-### 3-4. risk_flags 인코딩
+### 3-4. risk_flags 인코딩 — **후처리 결정론적 계산** (prompt 갱신 X)
 
-LLM 이 위 조건 평가 후:
+> 본 사이클의 prompt 텍스트 갱신은 non-goal (Phase 2 verify sync 에서 일괄). 따라서
+> LLM 은 `handle_quality` 를 *직접 emit 하지 않음*. 후처리 단계에서 *결정론적* 계산
+> 후 `risk_flags` 에 추가.
+
+**입력 출처**:
+
+| 변수 | 출처 |
+|------|------|
+| `base_high`, `base_low`, `base_depth_pct`, `base_start_date` | LLM 출력 (weekly_classification 필드, 이미 존재) |
+| `pivot_price`, `pivot_basis` | LLM 출력 (이미 존재). pivot_basis='handle_high' 인 경우만 핸들 경계 식별 가능 → 미충족 시 적용 안 함 |
+| `handle_high` | = `pivot_price` (pivot_basis='handle_high' 가정) |
+| `handle_low`, `handle_start_date`, `handle_end_date` | **후처리 휴리스틱 도출** — daily_prices 직접 조회. (3-4-1 참조) |
+| `avg_volume(base)`, `avg_volume(handle)` | daily_prices 의 volume 으로 직접 계산 |
+| `distribution_days_in_handle` | `market_context_daily.distribution_day` flag 의 handle 구간 내 카운트 |
+
+#### 3-4-1. 핸들 경계 휴리스틱
+
 ```
-'handle_quality' in risk_flags  # 단독 강 트리거 1개 이상 OR (가중치+강결합)
+입력: base_start_date, classified_at, handle_high (= pivot_price)
+daily_prices 의 [base_start_date, classified_at - 1 거래일] 범위 OHLCV.
+
+1. pivot_first_touched = 그 범위에서 high >= handle_high 인 *첫* 거래일.
+   - 없으면 → 핸들 경계 식별 불가 → handle_quality 적용 안 함 (return None).
+2. handle_start_date = pivot_first_touched.
+3. handle_end_date = classified_at - 1 거래일.
+4. handle_low = [handle_start_date, handle_end_date] 범위의 min(low).
+5. base_window = [base_start_date, pivot_first_touched - 1 거래일].
+   handle_window = [handle_start_date, handle_end_date].
 ```
 
-### 3-5. 005850 검증 예측
+**경계 케이스**:
+- `handle_end_date - handle_start_date < 3` 거래일 → 핸들 형성 너무 짧음 → 적용 안 함.
+- `pivot_basis != 'handle_high'` (예: range_high, ma50_breakout 등) → 적용 안 함.
+- `base_start_date` NULL 또는 base 정보 누락 → 적용 안 함.
+
+#### 3-4-2. 트리거 계산 (의사 코드)
+
+```python
+def compute_handle_quality(symbol, cls):
+    if cls.pattern != 'cup_with_handle': return None
+    if cls.pivot_basis != 'handle_high': return None
+    if cls.base_start_date is None: return None
+
+    ohlcv = fetch_daily_prices(symbol, cls.base_start_date, cls.classified_at)
+    handle_high = float(cls.pivot_price)
+
+    pivot_first = first_date_where(ohlcv, lambda r: r.high >= handle_high)
+    if pivot_first is None: return None
+
+    handle_window = ohlcv[ohlcv.date >= pivot_first][:-1]  # classified_at 전일까지
+    if len(handle_window) < 3: return None
+
+    base_window = ohlcv[ohlcv.date < pivot_first]
+    if len(base_window) < 5: return None
+
+    handle_low = handle_window.low.min()
+    base_high = float(cls.base_high)
+    base_low = float(cls.base_low)
+
+    # (A) deep handle
+    ratio_a = (handle_high - handle_low) / (base_high - base_low)
+    fired_a = ratio_a > 0.33
+
+    # (B) volume not contracting
+    avg_base_vol = base_window.volume.mean()
+    avg_handle_vol = handle_window.volume.mean()
+    ratio_b = avg_handle_vol / avg_base_vol if avg_base_vol else 0.0
+    fired_b = ratio_b > 0.80
+
+    # (분배)
+    dist_days = count_distribution_days_in_range(handle_window.date)
+    fired_dist = dist_days >= 1
+
+    # 가중치 (E)/(F)
+    handle_center_date = handle_window.iloc[len(handle_window) // 2].date
+    handle_position_low = (handle_low - base_low) / (base_high - base_low) < 0.33
+    last_close = handle_window.iloc[-1].close
+    last_ma50 = handle_window.iloc[-1].ma50
+    handle_below_ma50 = last_ma50 is not None and last_close < last_ma50
+
+    fired = fired_a or fired_b or fired_dist
+    if not fired: return None
+
+    reasons = []
+    if fired_a: reasons.append('deep_handle')
+    if fired_b: reasons.append('volume_not_contracting')
+    if fired_dist: reasons.append('distribution_in_handle')
+    weights = []
+    if handle_position_low: weights.append('handle_position_low')
+    if handle_below_ma50: weights.append('handle_below_ma50')
+
+    return {
+        'fired': True,
+        'reasons': reasons,
+        'weights': weights,
+        'metrics': {
+            'ratio_a': round(ratio_a, 3),
+            'ratio_b': round(ratio_b, 3),
+            'distribution_days': dist_days,
+            'handle_start': pivot_first.isoformat(),
+            'handle_end': handle_window.iloc[-1].date.isoformat(),
+        },
+    }
+```
+
+#### 3-4-3. 후처리 적용 지점
+
+`kr_pipeline/llm_runner/store.py` — LLM 응답을 weekly_classification 에 저장하기
+*직전*:
+
+1. LLM 응답의 risk_flags 그대로 보존.
+2. `compute_handle_quality()` 호출.
+3. 결과가 `fired=True` 면:
+   - `risk_flags` JSONB 에 `'handle_quality'` 추가 (중복 시 한 번만)
+   - **(여기서 risk_flags 변경은 *관찰* 만; triggered_rules 는 §4 의 2-E 게이트에서 별도 기록)**
+4. `metrics` 는 디버깅용 — `triggered_rules['2E_tier1/2'].handle_quality_metrics` 에 저장
+   (필요 시).
+
+### 3-5. 005850 검증 예측 (정정)
 
 - pattern = cup_with_handle ✓
-- 18% 폭락 (base depth 26.2%, handle depth 추정 > 8.7%) → (A) deep handle 후보
-- 분배일 동반 → (분배) 발화
-- → **`handle_quality` 발화 예측**
+- pivot_basis = handle_high ✓ (§A: pivot=71900.10, handle_high)
+- base_depth_pct = 26.2% (§A 표)
+- 18% 폭락 + handle_low 추정 → handle_depth ≈ 18%, base_depth ≈ 26.2%
+- **ratio_A = 18 / 26.2 ≈ 0.687 > 0.33 → (A) 확정 발화** (1/3 임계 2배 초과)
+- 분배일 동반 → (분배) 확정 발화
+- → **`handle_quality` 확정 발화** (단일 트리거 충분, 두 트리거 동반)
 
 ## 4. 2-E two-tier 게이트
 
@@ -128,8 +244,10 @@ LLM 이 위 조건 평가 후:
 
 ```
 조건: 'handle_quality' in risk_flags AND 'extended_from_ma' NOT in risk_flags
-액션: classification 가 'entry' 후보였더라도 → 'watch' 로 강등
-      AND confidence ≤ 0.60 으로 cap
+액션:
+  - classification 가 'entry' 후보였더라도 → 'watch' 로 강등
+  - confidence ≤ 0.60 cap
+  - entry_params 차단 없음 (다음 사이클에서 정상적으로 평가, 단 watch 라 entry 아님)
 triggered_rules: {'2E_tier1': {fired: true, inputs: ['handle_quality']}}
 ```
 
@@ -137,15 +255,37 @@ triggered_rules: {'2E_tier1': {fired: true, inputs: ['handle_quality']}}
 
 ```
 조건: 'handle_quality' in risk_flags AND 'extended_from_ma' in risk_flags
-액션: classification 'entry' → 'watch' 강등 (Tier 1 보다 *명시적 hard*)
-      confidence cap 동일 (≤ 0.60), 단 triggered_rules 에 Tier 2 명시
-triggered_rules: {'2E_tier2': {fired: true, inputs: ['handle_quality', 'extended_from_ma'], action: 'entry_demoted_to_watch'}}
+액션 (Tier 1 보다 *명시적으로 더 엄격*):
+  - classification 'entry' → 'watch' 강등
+  - confidence ≤ 0.50 cap (Tier 1 의 0.60 보다 낮음)
+  - **entry_params 차단**: triggered_rules ? '2E_tier2' 인 watch 종목은
+    entry_params runner 의 watch→entry 평가 candidate 에서 *제외*
+triggered_rules: {'2E_tier2': {fired: true, inputs: ['handle_quality', 'extended_from_ma'], action: 'entry_demoted_to_watch_with_entry_params_block'}}
 ```
 
-### 4-3. 게이트 적용 위치
+**Tier 1 vs Tier 2 차별화 요약**:
 
-- **prompt 측**: 2-E 룰을 명시적 지시로 prompt 에 추가 (Phase 2 verify sync 의 일부)
-- **후처리 측**: `kr_pipeline/llm_runner/store.py` 의 classification 저장 직전 — LLM 응답이 entry 면서 2-E 발화 조건 충족 시 watch 로 *강제 강등* + triggered_rules 기록. *prompt 와 후처리 이중 보장*.
+| 항목 | Tier 1 | Tier 2 |
+|------|--------|--------|
+| Confidence cap | ≤ 0.60 | **≤ 0.50** |
+| Classification | watch | watch |
+| entry_params 차단 | 없음 | **차단** |
+| 의미 | 단독 결함 (handle 만) — 다음 사이클 회복 가능 | 결함 + 추세 과확장 — 더 위험, 다운스트림 진행 금지 |
+
+### 4-3. 게이트 적용 위치 — **본 사이클은 후처리만**
+
+> Prompt 갱신은 Phase 2 (verify sync) 의 일부. 본 사이클에서는 **후처리만으로** 게이트
+> 발화 보장. prompt 텍스트는 그대로.
+
+- **후처리 측** (본 사이클 *유일* 적용 지점): `kr_pipeline/llm_runner/store.py`
+  - LLM 응답이 entry/watch 이고 §3 의 `compute_handle_quality()` 결과 `fired=True` 면:
+    - risk_flags 에 `handle_quality` 추가
+    - 2-E 게이트 판정 (Tier 1 또는 Tier 2)
+    - classification, confidence, triggered_rules 갱신 *후* 저장
+- **entry_params 차단** (Tier 2 효과): `kr_pipeline/llm_runner/entry_params.py` 의
+  watch 후보 조회 SQL 에 `AND NOT (triggered_rules ? '2E_tier2')` 추가.
+- **prompt 측**: Phase 2 verify sync 에서 2-E 룰을 명시적 지시로 추가. *본 사이클에서는
+  안 함*.
 
 ## 5. 2-F failed_breakout (K=5 + 지속성)
 
@@ -153,16 +293,32 @@ triggered_rules: {'2E_tier2': {fired: true, inputs: ['handle_quality', 'extended
 
 ### 5-1. 발화 조건
 
+**용어**:
+- `D0` = 첫 돌파일 — `close >= pivot` 인 *최초* 거래일.
+- `D1 ~ D5` = `D0` 다음 5 거래일 (= K=5).
+
+**발화 (OR)**:
+
 ```
-pivot 돌파 (close > pivot * 1.0) 발생 후, 다음 K=5 거래일 안에:
-  (P1) 연속 2 거래일 이상 pivot 아래 마감 (close < pivot), OR
-  (P2) K=5 거래일 내 pivot 회복 (close > pivot) 못 함
-  → 'failed_breakout' = true → triggered_rules['2F_failed_breakout']
+(P1) 지속 하락:
+     D1~D5 안에 *연속 2 거래일* close < pivot 인 sequence 가 존재.
+
+(P2) 회복 실패:
+     D1~D5 전체에서 close >= pivot 인 거래일이 *0 회*.
+     (= 5 거래일 내 한 번도 돌파 가격을 다시 못 마감)
+
+발화 시: triggered_rules['2F_failed_breakout'] = {
+  fired: true, K_days: 5, trigger: 'P1' | 'P2' | 'both',
+  D0_date: ..., consecutive_below: int, max_close_in_window: float, pivot: float,
+}
 ```
 
 ### 5-2. 정상 throwback 보호
 
-단순 *1 거래일* pivot 아래 마감은 throwback 일 수 있어 발화 안 함. (P1) 의 *연속 2회* 가 정상 throwback 과 진짜 실패의 분리선.
+단순 *1 거래일* pivot 아래 마감 (그 후 회복) 은 throwback 일 수 있어 발화 안 함.
+(P1) 의 *연속 2회* 가 throwback 과 진짜 실패의 분리선. (P2) 는 *돌파 후 횡보·약세*
+(whipsaw 후 옆으로) 케이스 잡음. 두 조건은 *겹칠 수* 있으며 trigger 필드에 어느 쪽이
+fire 했는지 명시 ('P1' / 'P2' / 'both').
 
 ### 5-3. 037760 검증 예측
 
@@ -184,8 +340,8 @@ pivot 돌파 (close > pivot * 1.0) 발생 후, 다음 K=5 거래일 안에:
 
 | ticker | 현재 (Phase 0 종료 시점) | 기대 (Phase 1 2-A 적용 후) | 발화 룰 |
 |--------|----------------------|------------------------|---------|
-| 005850 | entry, conf 0.62, flags=[extended_from_ma] | **watch**, conf ≤ 0.60, flags=[extended_from_ma, **handle_quality**] | **2E_tier2** |
-| 037760 | watch, conf 0.65, flags=[unfavorable_market_context], pattern=flat_base | watch (유지), triggered_rules 에 **2F_failed_breakout** 명시 | **2F** |
+| 005850 | entry, conf 0.62, flags=[extended_from_ma] | **watch**, **conf ≤ 0.50** (Tier 2 cap), flags=[extended_from_ma, **handle_quality**], **entry_params 차단** | **2E_tier2** (handle_quality + extended_from_ma) |
+| 037760 | watch, conf 0.65, flags=[unfavorable_market_context], pattern=flat_base | watch (유지 — 2-E 미적용: pattern!=cup_with_handle), triggered_rules 에 **2F_failed_breakout** 명시 | **2F** (P1: 3 연속 아래) |
 
 ### 6-2. 회귀 검증 SQL
 
