@@ -23,12 +23,27 @@ GUARD (Step 3) 까지 끝나 데이터 오염은 *이미 막혔다* — B+B+ 단
 실측 (037760 패키지): 종목당 ZIP ≈ 270KB.
   - 텍스트 (payload·prompt·CSV) gzip 후 ≈ 29KB
   - PNG 차트 2장 ≈ 240KB  ← 지배적. PNG 는 이미 압축돼 gzip 거의 안 먹음.
-연간 ≈ 270KB × 2,400 종목 × 250 거래일 ≈ 150GB/년.
+cadence (실제 runner 호출 빈도 — 매일 전체 종목 아님):
+  - weekend     : 2,400 종목 × 52주                          ≈ 124,800 freeze/년
+  - daily_delta : 변화 큰 부분집합 (가정 일평균 5% ≈ 120종목)
+                × 250 거래일                                ≈  30,000 freeze/년
+  - 합계 약 155,000 freeze × 270KB ≈ 약 42GB/년 (retention 미적용 *누적* 기준).
+  - 활성 watch/entry 무기한 보호 + 90일 후 ignore 정리가 정상 작동 시 정상 상태
+    스토리지는 그보다 훨씬 작음 (활성 종목 < 전체의 ~10% 가정 시 ~5GB 안팎 안정).
+
+→ 매일 전체 종목 가정 (270KB × 2,400 × 250 ≈ 150GB) 은 *cadence 오추정*. 위 정정.
+   daily_delta 5% 가정은 운영 1주 후 실측으로 갱신 필요.
 ```
 
 **픽셀 vs 데이터 분기 — 결정**: 차트는 verify 프롬프트가 강조하는 1차 입력이므로
 PNG 통째 저장 (픽셀 동일성). 텍스트만 저장 + 차트 재생성은 9× 절감이지만 *렌더 코드
 변경 시 공정성 흠집* — 채택 안 함.
+
+**Artifact 일반화 — ZIP-wrap 규칙**: 본 사이클은 분류 (ZIP) 만이지만, 후속 entry_params
+(payload_lite JSON · 수 KB) 도 *항상 ZIP 으로 래핑* 해 저장한다. 단일 JSON 도 ZIP 안에
+넣어 `content_type='application/zip'` 으로 통일. 이유 — (a) 매체/추출 코드 단일화,
+(b) 후속 첨부물 (예: 진입 시점 차트) 추가 시 자연스러운 확장. 스키마는 `artifact_*`
+범용 명명을 사용 (§4 참조).
 
 ## 2. 범위 — 이번 사이클
 
@@ -67,15 +82,16 @@ data/freezes/
 
 ```sql
 CREATE TABLE classification_freezes (
-    id              BIGSERIAL PRIMARY KEY,
-    classification_id BIGINT REFERENCES classifications(id),  -- nullable: entry_params freeze 등 후속
-    ticker          TEXT NOT NULL,
-    stage           TEXT NOT NULL,  -- 'weekend' | 'daily_delta' | (후속) 'entry_params' | 'pivot'
-    frozen_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    zip_uri         TEXT NOT NULL,  -- 'file:///...' or 's3://...'
-    zip_sha256      TEXT NOT NULL,
-    zip_size_bytes  BIGINT NOT NULL,
-    CONSTRAINT classification_freezes_uri_unique UNIQUE (zip_uri)
+    id                  BIGSERIAL PRIMARY KEY,
+    classification_id   BIGINT REFERENCES classifications(id),  -- nullable: entry_params 등 후속
+    ticker              TEXT NOT NULL,
+    stage               TEXT NOT NULL,  -- 'weekend' | 'daily_delta' | (후속) 'entry_params' | 'pivot'
+    frozen_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    artifact_uri        TEXT NOT NULL,  -- 'file:///...' or (후속) 's3://...'
+    artifact_sha256     TEXT NOT NULL,
+    artifact_size_bytes BIGINT NOT NULL,
+    content_type        TEXT NOT NULL DEFAULT 'application/zip',  -- ZIP-wrap 규칙 (§1)
+    CONSTRAINT classification_freezes_uri_unique UNIQUE (artifact_uri)
 );
 
 CREATE INDEX classification_freezes_ticker_frozen_at_idx
@@ -84,7 +100,13 @@ CREATE INDEX classification_freezes_ticker_frozen_at_idx
 CREATE INDEX classification_freezes_classification_id_idx
   ON classification_freezes(classification_id)
   WHERE classification_id IS NOT NULL;
+
+CREATE INDEX classification_freezes_stage_frozen_at_idx
+  ON classification_freezes(stage, frozen_at);  -- retention cron 의 stage-별 prune 용
 ```
+
+명명 규약: `artifact_*` 일반화 — 현재 모든 행은 `content_type='application/zip'` 이나,
+후속 사이클에서 다른 매체 (예: 단일 파일 직접 저장) 도입 시 새 컬럼/테이블 없이 분기.
 
 `stage` 가 있고 `classification_id` 가 nullable 이므로 entry_params freeze 후속 추가 시
 스키마 변경 없이 같은 테이블 사용.
@@ -96,9 +118,14 @@ CREATE INDEX classification_freezes_classification_id_idx
 
 **삭제 기준 (AND)**:
 1. `frozen_at < NOW() - INTERVAL '90 days'`
-2. AND NOT (현재 활성 watch/entry 분류) — `classification_id` 가 가리키는
-   classifications.status 가 archive/ignore 상태일 것
-3. AND NOT (종목별 가장 최근 freeze — 최소 1건 보존)
+2. AND **활성 분류 보호**:
+   - `classification_id IS NOT NULL` 인 경우 → 가리키는 `classifications.status` 가
+     archive/ignore 상태여야 삭제 가능 (활성 watch/entry 는 무기한 보호).
+   - `classification_id IS NULL` 인 경우 (예: 후속 entry_params freeze) → 본 sub-rule
+     자동 통과 (= 활성 분류와 연결 없음). 단 stage 별 별도 보호가 필요하면
+     stage-specific 규칙을 추가 (현재 사이클은 NULL 케이스 발생 안 함 — 메커니즘만).
+3. AND **종목별 가장 최근 freeze 보존**: stage 별로 `(ticker, stage)` 그룹의 `MAX(frozen_at)`
+   행은 항상 제외 — `classification_id` NULL/NOT NULL 무관, 최소 1건 보존.
 
 **근거 (정정)**: "90일 = 형성 기간 중간값" 은 **틀림** (형성은 49~455일).
 올바른 근거 = "**활성 watch/entry 는 criterion 2 로 무기한 보호되므로, 90일은
@@ -115,7 +142,7 @@ ignore/대체본에만 적용된다**." 형성-기간 논리는 오히려 활성
 if mode == 'verify':
     frozen = fetch_latest_freeze(conn, ticker, stage='weekend')  # or 'daily_delta'
     if frozen:
-        return read_zip_from_uri(frozen.zip_uri), warning=None
+        return read_artifact_from_uri(frozen.artifact_uri), warning=None
     else:
         rebuilt_zip = build_analysis_zip(conn, ticker)
         warning = "원본 아님 (재빌드됨) — 분류 시점 데이터가 freeze 되어 있지 않습니다."
@@ -131,11 +158,18 @@ UI (PromptPage) 가 warning 을 표시 — 검증자가 *원본 vs 재빌드본*
 ```python
 def save_freeze(
     conn, *,
-    zip_bytes: bytes,
+    artifact_bytes: bytes,
+    content_type: str,                # 'application/zip' (현재 모든 stage)
     ticker: str,
     stage: str,                       # 'weekend' | 'daily_delta' | ...
     classification_id: int | None,    # weekend/daily_delta 는 채움, 후속 stage 는 None 가능
-) -> ClassificationFreeze:
+) -> ClassificationFreeze | None:
+    \"\"\"freeze 저장. 실패 시 None 반환 + log.warning — *non-fatal*.
+
+    분석 경로 (LLM runner) 에서 freeze 실패가 분류 자체를 실패시키면 안 됨 (= GUARD 와
+    반대 정책). GUARD = 오염 차단 위해 fail-fast / FREEZE = 분류 *보존* 위해 fail-soft.
+    호출자는 반환값 None 을 정상 경로로 처리 (다음 종목 진행).
+    \"\"\"
     ...
 
 def fetch_latest_freeze(
@@ -143,16 +177,25 @@ def fetch_latest_freeze(
 ) -> ClassificationFreeze | None:
     ...
 
-def read_zip_from_uri(uri: str) -> bytes:
+def read_artifact_from_uri(uri: str) -> bytes:
     \"\"\"file:// scheme 만 현재 구현. s3:// 는 NotImplementedError + 후속 사이클에서 한 줄 추가.\"\"\"
     ...
 ```
 
 호출처:
-- `weekend.py` / `daily_delta.py` 의 ZIP 빌드 직후 → `save_freeze(stage='weekend' or 'daily_delta')`
+- `weekend.py` / `daily_delta.py` 의 ZIP 빌드 직후 →
+  `save_freeze(artifact_bytes=zip_bytes, content_type='application/zip', stage='weekend' or 'daily_delta', ...)`.
+  반환값 None (실패) 이어도 분류 진행 + log.warning (`[FREEZE] save failed ticker=... stage=... reason=...`).
 - `prompts.py` verify mode → `fetch_latest_freeze` 우선
-- (후속) `entry_params.py` → `save_freeze(stage='entry_params', classification_id=None)`
+- (후속) `entry_params.py` → `save_freeze(stage='entry_params', classification_id=None, ...)`
   한 줄 추가 — 구현 안 함.
+
+**실패 정책 요약**:
+
+| 컴포넌트 | 정책 | 이유 |
+|---------|------|------|
+| GUARD (Step 3) | fail-fast (HTTPException 503 / 종목 skip) | 오염된 입력으로 분류 차단 |
+| FREEZE (Step 4) | **fail-soft (log + continue)** | 분류 *결과* 손실 방지 — 검증 인프라가 분석 신뢰성 깎으면 안 됨 |
 
 ## 8. Phase 0 잔여 (FREEZE 직후)
 
