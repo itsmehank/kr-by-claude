@@ -70,7 +70,30 @@
 
 ---
 
-## 4. 현재 운영 상태 (2026-05-28)
+## 4. 현재 운영 상태 (2026-05-29 갱신)
+
+### 데이터 무결성 인프라 — Phase 0 종료 (2026-05-29)
+
+5/28 daily_indicators partial 적재 사건 (3,791행 mismatch, 95% 유니버스 영향) 을
+계기로 데이터 무결성 인프라 5-step 구축:
+
+| Step | 내용 | 상태 | 커밋 |
+|------|------|------|------|
+| 0. backward fallback | builder 의 `WHERE date = %s` → `<= %s ORDER BY DESC LIMIT 1` | DONE | `6fc7dfb` |
+| 1. cleanup re-run | 5/28 incremental 재적재 (3,791 → 5) | DONE | — |
+| 2. single authority (B+B+) | daily_prices=가격/거래량 권위, daily_indicators=지표 권위. JOIN 패턴 | DONE | `bb778a8` |
+| 3. GUARD (α) divergence guard | build_analysis_zip 진입 시 cross-table 일치 점검. ZIP=503 fail-fast / 배치=종목 격리 | DONE | `4b26c6e` |
+| 4. FREEZE 최소판 | 분류 시점 ZIP 보존. `classification_freezes` 테이블 + ticker 기반 활성 보호 cleanup cron | DONE | `976f3f9`~`0be8da3` |
+| 5. SCOPE 조사 | 재실행 불필요 + 잔여 mismatch 0건 확인 + entry 문턱민감 triage | DONE | `053fabd` (+보강) |
+
+추가 백로그:
+- **(γ) Finalized 가드** (pipeline_runs.finished_at 기반 진짜 freshness) — 동일-partial
+  모드 재발 시 강화 (§5).
+- **즉시 격리 권고** (Step 5 §6-D): Phase 1 룰 강화 완료 + 005850 재분류 확정 전까지
+  *entry_params 사이클 보류*. 005850 (entry, conf=0.62, `extended_from_ma`) 가 다음
+  사이클에서 잘못된 진입 파라미터로 진행되는 것 방지.
+
+
 
 ### 데이터 적재 (cron 매일 가동)
 
@@ -87,7 +110,9 @@
 | 데이터 적재 (ohlcv/indicators/index) | 🟢 풀 가동 | 1.2M+ 행, cron 정상 |
 | 시장 컨텍스트 (status/FTD/distribution) | 🟢 풀 가동 + 한국 σ 보정 | P2-1a 구현 완료 |
 | 결정론 게이트 (trigger_gate, Minervini TT) | 🟢 풀 가동 | 게이트 1.0× / 책 1.5× 분리 명확 |
-| LLM 분류 | 🟡 1주차 (391건) | weekly_classification 가동, 누적 시작 |
+| LLM 분류 | 🟡 1주차 (391+125건) | weekly_classification 가동, 5/29 신규 125건 추가 (entry 1 / watch 10 / ignore 114) |
+| FREEZE 인프라 | 🟢 가동 | `classification_freezes` 테이블 + ticker 기반 활성 보호 cleanup |
+| 데이터 무결성 GUARD | 🟢 가동 | (α) divergence — fail-fast ZIP / 종목 격리 배치 |
 | LLM trigger 평가 | 🟡 초기 (12건) | trigger_evaluation_log 가동 시작 |
 | Entry params 산출 | 🔴 미가동 | 0행 — entry 시그널 누적 후 가동 예정 |
 | Performance 평가 | 🔴 미가동 | 0행 — fwd_return 측정 미시작 |
@@ -108,6 +133,8 @@
 | **F5** | P2-1d-KOSPI 분기 (`wide_and_loose` 10–15% × 1.3) | KOSPI 만 13–19% 로 스케일 | cron: KOSPI 종목 `wide_and_loose` false-flag 빈도 누적 |
 | **F6 + B-수치** | ATR 전환 검토 + status.py 시간 상수 재검토 (10/90/6) | σ vs ATR 측정 비교 후 도구 결정 | cron: σ-기반 vs ATR-기반 FTD 임계 측정 비교 |
 | **(γ) Finalized 가드** | 진짜 freshness 신호 — pipeline_runs.ohlcv 마지막 성공 run finished_at 이 해당 거래일 마감 이후인지 점검. (α) divergence 가드의 한계 (동일 partial 모드 미검출) 보완 | 운영 중 동일-partial 케이스 실제 발생 시 (현재까지는 (α) 충분) |
+| **Phase 1 (룰 강화)** | 검증자 v2 §7 의 3 결정: ① handle 인코딩 (handle_quality 14th flag), ② 2-E two-tier (Tier 1 soft watch conf≤0.6 + Tier 2 hard watch), ③ 2-F failed_breakout K 값 (3~5) 확정. 이후 2-B/2-C/2-D 적용 → Phase 2 verify sync → Phase 3 이중 회귀 (005850 + 037760) → Phase 4 ROADMAP. | **즉시 착수** — Phase 0 종료 (2026-05-29) + entry_params 사이클 보류 상태 길어지면 안 됨 |
+| **FREEZE 풀버전 (후속 사이클)** | entry_params / pivot freeze 한 줄 추가 + S3 백엔드 + UI diff 시각화 | Phase 1~3 종료 후 |
 | **P2-3** (선택) | candidate VCP footprint payload 보조 (zigzag) | LLM 시각 판정 앵커 | 결정 자체 대기 (할지 여부) |
 | (별개) | prompt (.md) 자동 동기화 | SSOT-1 의 잔존 — 현재 prompt 텍스트 임계는 수동 동기화 | 미발의 (선택 candidate) |
 
