@@ -37,9 +37,20 @@ export function TableExplainerList({ names, label }: Props) {
                 label="컬럼 상세 보기"
                 variant="subtle"
               >
-                <div className="space-y-1">
-                  <div>{t.details}</div>
-                  <div className="text-muted">
+                <div className="space-y-3">
+                  <div>{t.summary}</div>
+                  <div>
+                    <div className="text-ink font-semibold mb-1">핵심 컬럼</div>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      {t.keyColumns.map((col) => (
+                        <li key={col}><span className="num">{col}</span></li>
+                      ))}
+                    </ul>
+                  </div>
+                  {t.note && (
+                    <div className="text-muted italic">{t.note}</div>
+                  )}
+                  <div className="text-muted text-data-xs pt-2 border-t border-hairline">
                     Primary key: <span className="num">{t.pkey}</span>
                   </div>
                 </div>
