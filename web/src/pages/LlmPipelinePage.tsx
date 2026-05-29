@@ -18,6 +18,8 @@ import { TREND_TEMPLATE_CONDITIONS } from "../data/llm-pipeline/trend-template";
 import { BASE_PATTERNS } from "../data/llm-pipeline-audit/base-patterns";
 import { RISK_FLAGS } from "../data/llm-pipeline-audit/risk-flags";
 import { ZIP_FILES } from "../data/llm-pipeline-audit/zip-files";
+import { GLOSSARY } from "../data/llm-pipeline/glossary";
+import { renderRich } from "./llm-pipeline/renderRich";
 
 
 // ─────── 데이터 ───────────────────────────────────────────
@@ -59,15 +61,15 @@ const STAGES: PipelineStage[] = [
     order: 0,
     label: "주말 batch — 매주 토 03:20 자동 전체 재분류",
     intro:
-      "한 주에 한 번, 토요일 새벽 3시 20분에 자동 실행됩니다.\n\n결정론 1차 필터를 통과한 *모든* 한국 종목을 AI(LLM)가 차트와 함께 재분석해서 entry / watch / ignore 중 하나로 분류합니다.\n\n분류 결과는 weekly_classification 테이블에 새 행으로 쌓입니다 (이전 분류는 그대로 보존).",
+      "한 주에 한 번, 토요일 새벽 3시 20분에 자동 실행됩니다.\n\n결정론 1차 필터를 통과한 *모든* 한국 종목을 AI(LLM)가 차트와 함께 재분석해서 [[entry]] / [[watch]] / [[ignore]] 중 하나로 분류합니다.\n\n분류 결과는 weekly_classification 테이블에 새 행으로 쌓입니다 (이전 분류는 그대로 보존).",
     inputs: ["daily_indicators", "weekly_indicators", "market_context_daily", "corporate_actions", "stocks"],
     outputs: ["weekly_classification"],
     deterministicSummary:
-      "AI 호출 전 1차 필터 — **minervini_pass = TRUE** 인 종목만 선별합니다.\n\n*minervini_pass* 는 Minervini Trend Template 의 8 조건을 *모두* 통과했는지를 한 컬럼으로 나타낸 boolean — 8 조건 중 하나라도 실패하면 FALSE.\n\n상장폐지된 종목 (stocks.delisted_at) 은 자동 제외.\n\n→ 8 조건의 정확한 내용은 *아래* 'Trend Template 8 조건 모두 보기' fold 참조.",
+      "AI 호출 전 1차 필터 — **[[minervini_pass]] = TRUE** 인 종목만 선별합니다.\n\n*minervini_pass* 는 Minervini Trend Template 의 8 조건을 *모두* 통과했는지를 한 컬럼으로 나타낸 boolean — 8 조건 중 하나라도 실패하면 FALSE.\n\n상장폐지된 종목 (stocks.delisted_at) 은 자동 제외.\n\n→ 8 조건의 정확한 내용은 *아래* 'Trend Template 8 조건 모두 보기' fold 참조.",
     deterministicDetail:
       "SQL 조건:\n  WHERE minervini_pass = TRUE\n    AND stocks.delisted_at IS NULL\n\n기준 행: 직전 금요일자 daily_indicators.\ncron 시각: 토 03:20 KST.\n\n💡 minervini_pass 컬럼은 daily_indicators 가 적재될 때 함께 계산 — 8 조건 모두 충족 시에만 TRUE (아래 '8 조건 모두 보기' fold 참조).",
     llmSummary:
-      "각 종목별로 13 개의 파일이 든 ZIP 묶음 (차트 PNG·일/주봉 OHLCV·시장 컨텍스트·corporate actions·minervini 진단 등) 을 만들어 AI 에게 보내고, analyze_chart_v3.md prompt 의 지시를 따라 'base 패턴 + risk flag + 분류' 를 받습니다. AI 는 9 종 base 패턴과 13 종 risk flag 만 사용하도록 제약돼 있습니다.",
+      "각 종목별로 13 개의 파일이 든 ZIP 묶음 (차트 PNG·일/주봉 OHLCV·시장 컨텍스트·corporate actions·minervini 진단 등) 을 만들어 AI 에게 보내고, analyze_chart_v3.md prompt 의 지시를 따라 '[[base]] 패턴 + risk flag + 분류' 를 받습니다. AI 는 9 종 [[base]] 패턴과 13 종 risk flag 만 사용하도록 제약돼 있습니다.",
     llmShowsLists: {
       eightConditions: true,
       thirteenZipFiles: true,
@@ -76,7 +78,7 @@ const STAGES: PipelineStage[] = [
     },
     decisions: ["entry", "watch", "ignore"],
     actionSummary:
-      "분류 결과를 weekly_classification 테이블에 *새 행* 으로 추가합니다 (이전 분류는 지우지 않고 누적). 같은 종목·같은 시각의 중복은 자동 무시.\n\n분석이 끝나면 entry/watch/ignore 카운트를 Slack 으로 요약 알림 (digest).",
+      "분류 결과를 weekly_classification 테이블에 *새 행* 으로 추가합니다 (이전 분류는 지우지 않고 누적). 같은 종목·같은 시각의 중복은 자동 무시.\n\n분석이 끝나면 [[entry]]/[[watch]]/[[ignore]] 카운트를 Slack 으로 요약 알림 ([[Slack digest|digest]]).",
     actionDetail:
       "SQL 패턴: INSERT INTO weekly_classification (...) VALUES (...) ON CONFLICT (symbol, classified_at) DO NOTHING. '현재 분류' 를 조회할 땐 DISTINCT ON (symbol) ORDER BY classified_at DESC. 즉 append-only 설계 — UPDATE 하지 않고 새 행을 쌓고, 최신 행이 '현재 상태'.",
     sources: [
@@ -96,7 +98,7 @@ const STAGES: PipelineStage[] = [
     inputs: ["daily_indicators", "daily_prices", "weekly_indicators", "market_context_daily"],
     outputs: ["weekly_classification"],
     deterministicSummary:
-      "1차 필터는 weekend 와 동일 — **minervini_pass = TRUE** (= Trend Template 8 조건 모두 통과).\n\n추가로 *신규성* 조건: 최근 7일 안에 분류된 적이 없는 종목만 (이미 weekend 나 다른 daily_delta 에서 분류된 종목은 제외).\n\n7일 cool-down 으로 같은 종목 반복 분석 방지.",
+      "1차 필터는 weekend 와 동일 — **[[minervini_pass]] = TRUE** (= Trend Template 8 조건 모두 통과).\n\n추가로 *신규성* 조건: 최근 7일 안에 분류된 적이 없는 종목만 (이미 weekend 나 다른 daily_delta 에서 분류된 종목은 제외).\n\n7일 cool-down 으로 같은 종목 반복 분석 방지.",
     deterministicDetail:
       "SQL 조건:\n  WHERE minervini_pass = TRUE\n    AND NOT EXISTS (\n        SELECT 1 FROM weekly_classification\n         WHERE symbol = ticker\n           AND classified_at >= today - INTERVAL '7 days'\n    )\n\n기준 행: 오늘자 daily_indicators.\n\n💡 minervini_pass 의 의미는 weekend 카드의 '8 조건 모두 보기' fold 참조.",
     llmSummary:
@@ -108,7 +110,7 @@ const STAGES: PipelineStage[] = [
     },
     decisions: ["entry", "watch", "ignore"],
     actionSummary:
-      "weekly_classification 에 새 행으로 INSERT (source='daily_delta'). watch/entry 분류된 종목은 다음 평일부터 evaluate_pivot 의 평가 대상. ignore 분류된 종목은 7일 후 다시 신규 후보로 재진입 가능.",
+      "weekly_classification 에 새 행으로 INSERT (source='daily_delta'). [[watch]]/[[entry]] 분류된 종목은 다음 평일부터 evaluate_pivot 의 평가 대상. [[ignore]] 분류된 종목은 7일 후 다시 신규 후보로 재진입 가능.",
     actionDetail:
       "INSERT INTO weekly_classification (..., source='daily_delta') VALUES (...) ON CONFLICT (symbol, classified_at) DO NOTHING. weekend 와 동일한 append-only.",
     sources: ["Minervini Trend Template", "O'Neil HMM 'How to Read Charts Like a Pro'"],
@@ -121,18 +123,18 @@ const STAGES: PipelineStage[] = [
     order: 2,
     label: "평일 트리거 평가 — watch/entry 종목의 오늘 행동 점검",
     intro:
-      "이미 watch 또는 entry 로 분류된 활성 종목들의 오늘 가격·거래량을 매일 점검합니다.\n\n종가가 pivot 을 돌파했는지, 손절선을 깼는지, 50일 이동평균에서 이탈했는지 등을 *결정론 게이트* 가 먼저 검사해 이벤트 유형 (breakout / promotion / invalidation) 을 결정합니다.\n\n이벤트가 잡힌 종목만 AI 에게 '진짜 신호인가 가짜 신호인가' 묻습니다.",
+      "이미 [[watch]] 또는 [[entry]] 로 분류된 활성 종목들의 오늘 가격·거래량을 매일 점검합니다.\n\n종가가 [[pivot]] 을 돌파했는지, 손절선을 깼는지, 50일 이동평균에서 이탈했는지 등을 *결정론 게이트* 가 먼저 검사해 이벤트 유형 ([[breakout]] / [[promotion]] / [[invalidation]]) 을 결정합니다.\n\n이벤트가 잡힌 종목만 AI 에게 '진짜 신호인가 가짜 신호인가' 묻습니다.",
     inputs: ["weekly_classification", "daily_indicators"],
     outputs: ["trigger_evaluation_log"],
     deterministicSummary:
-      `세 가지 트리거를 결정론 룰로 잡습니다 — ① 종가 > pivot AND 거래량 ≥ 평균 (${GATE_BREAKOUT_VOL_MULT.toFixed(1)}×) → breakout (돌파), ② 종가 ≥ pivot × 0.95 → promotion (돌파 직전 staging), ③ 종가 < 손절선 또는 종가 < SMA-50 → invalidation (base 무효화). 거래량 기준은 게이트의 1.0× = '거래량이 죽지 않은 정도만' 확인이고, 책 표준 1.4~1.5× 와 pocket pivot 예외는 AI 가 판단합니다.`,
+      `세 가지 트리거를 결정론 룰로 잡습니다 — ① 종가 > pivot AND 거래량 ≥ 평균 (${GATE_BREAKOUT_VOL_MULT.toFixed(1)}×) → [[breakout]] (돌파), ② 종가 ≥ pivot × 0.95 → [[promotion]] (돌파 직전 staging), ③ 종가 < 손절선 또는 종가 < SMA-50 → [[invalidation]] ([[base]] 무효화). 거래량 기준은 게이트의 1.0× = '거래량이 죽지 않은 정도만' 확인이고, 책 표준 1.4~1.5× 와 [[pocket_pivot|pocket pivot]] 예외는 AI 가 판단합니다.`,
     deterministicDetail:
       "compute/trigger_gate.py 의 룰: pivot_price IS NULL 인 종목은 skip. close < stop_loss OR close < sma_50 → invalidation 우선 적용. 그 외 close > pivot AND volume >= avg_volume_50d × GATE_BREAKOUT_VOL_MULT → breakout. promotion 은 watch 분류 종목에만, close >= pivot × 0.95 AND volume >= avg 일 때.",
     llmSummary:
-      "evaluate_pivot_trigger_v1.md prompt — 게이트가 잡은 트리거 유형을 입력으로 받고 'go_now (지금 사라) / wait (기다려) / abort (가짜·무효)' 중 하나를 결정.\n\n*중요*: 이 단계는 분류 자체를 바꾸지 않습니다. abort 가 나와도 분류는 그대로 유지 — 다음 토 weekend 에서 AI 가 다시 보고 분류를 ignore 로 강등해야 비로소 강등.",
+      "evaluate_pivot_trigger_v1.md prompt — 게이트가 잡은 트리거 유형을 입력으로 받고 '[[go_now]] (지금 사라) / [[wait]] (기다려) / [[abort]] (가짜·무효)' 중 하나를 결정.\n\n*중요*: 이 단계는 분류 자체를 바꾸지 않습니다. abort 가 나와도 분류는 그대로 유지 — 다음 토 weekend 에서 AI 가 다시 보고 분류를 [[ignore]] 로 강등해야 비로소 강등.",
     decisions: ["go_now", "wait", "abort"],
     actionSummary:
-      "결과를 trigger_evaluation_log 에 새 행으로 기록 (분류는 변경 안 함).\n\ndecision='go_now' + trigger_type='breakout' 인 종목은 다음 단계 (entry_params) 가 자동으로 매수 계획을 작성합니다.\n\npromotion 트리거에서는 go_now 가 *나오지 않도록* prompt 와 코드 양쪽에 안전장치가 있습니다 (실질 매수는 종가가 pivot 위로 올라간 진짜 breakout 으로만).",
+      "결과를 trigger_evaluation_log 에 새 행으로 기록 (분류는 변경 안 함).\n\ndecision='[[go_now]]' + trigger_type='[[breakout]]' 인 종목은 다음 단계 (entry_params) 가 자동으로 매수 계획을 작성합니다.\n\n[[promotion]] 트리거에서는 [[go_now]] 가 *나오지 않도록* prompt 와 코드 양쪽에 안전장치가 있습니다 (실질 매수는 종가가 [[pivot]] 위로 올라간 진짜 [[breakout]] 으로만).",
     actionDetail:
       "INSERT INTO trigger_evaluation_log (symbol, evaluated_at, trigger_type, decision, ...) VALUES (...). entry_params 다음 단계의 SQL 은 WHERE decision='go_now' AND trigger_type='breakout' 으로 staging 신호 분리.",
     sources: [
@@ -148,7 +150,7 @@ const STAGES: PipelineStage[] = [
     order: 3,
     label: "매수 계획 (entry_params) — go_now 종목의 실제 매수 파라미터",
     intro:
-      "evaluate_pivot 에서 go_now 결정을 받은 *진짜 매수 시그널* 종목에 대해 AI 가 18 개 필드의 매수 계획을 작성합니다.\n\n진입 가격·손절선·목표가·포지션 사이즈·돌파 거래량 요건 등 매수에 필요한 모든 숫자를 한 행으로 정리.\n\n이게 시스템의 *최종 산출물* 입니다 — 사용자는 entry_params 행을 보고 실제 매수 여부를 결정.",
+      "evaluate_pivot 에서 [[go_now]] 결정을 받은 *진짜 매수 시그널* 종목에 대해 AI 가 18 개 필드의 매수 계획을 작성합니다.\n\n진입 가격·[[stop loss|손절선]]·목표가·포지션 사이즈·돌파 거래량 요건 등 매수에 필요한 모든 숫자를 한 행으로 정리.\n\n이게 시스템의 *최종 산출물* 입니다 — 사용자는 entry_params 행을 보고 실제 매수 여부를 결정.",
     inputs: ["trigger_evaluation_log", "daily_indicators", "weekly_classification"],
     outputs: ["entry_params"],
     deterministicSummary:
@@ -156,12 +158,12 @@ const STAGES: PipelineStage[] = [
     deterministicDetail:
       "SELECT FROM trigger_evaluation_log WHERE evaluated_at::date = today AND decision='go_now' AND trigger_type='breakout'. 이 조건이 'watch staging' 이 매수로 새지 않게 막는 안전장치.",
     llmSummary:
-      "calculate_entry_params_v2_0.md prompt — 18 필드를 책 룰 (O'Neil 7-8% 손절, Minervini 1-3% 거래당 위험, 5% chase 제한 등) 에 맞춰 계산. entry_mode 가 pivot_breakout 인지 pocket_pivot 인지에 따라 손절·사이징 룰이 다릅니다.",
+      "calculate_entry_params_v2_0.md prompt — 18 필드를 책 룰 (O'Neil 7-8% 손절, Minervini 1-3% 거래당 위험, 5% chase 제한 등) 에 맞춰 계산. [[entry_mode]] 가 [[pivot_breakout]] 인지 [[pocket_pivot]] 인지에 따라 손절·사이징 룰이 다릅니다.",
     llmShowsLists: {
       eighteenFields: true,
     },
     actionSummary:
-      "entry_params 테이블에 새 행으로 INSERT (PK: symbol + signal_at). 이 행이 곧 '활성 매수 시그널'. performance 단계가 자동으로 이 시그널의 1주·2주·4주·8주 후 가격을 추적합니다.",
+      "entry_params 테이블에 새 행으로 INSERT (PK: symbol + signal_at). 이 행이 곧 '활성 매수 시그널'. [[performance|성과 추적]] 단계가 자동으로 이 시그널의 1주·2주·4주·8주 후 가격을 추적합니다.",
     actionDetail:
       "INSERT INTO entry_params (symbol, signal_at, entry_mode, pivot_price, ..., notes, known_warnings, other_warnings) VALUES (...). PK 충돌 (같은 종목·같은 시각) 은 거의 없으나 안전장치로 ON CONFLICT DO NOTHING.",
     sources: ["Minervini risk management (1-3% per trade)", "O'Neil HMM 'Buy at the Buy Point'"],
@@ -266,55 +268,6 @@ const TRIGGER_DECISION_MATRIX: Record<string, Record<string, MatrixCell | null>>
 };
 
 
-// 용어집
-
-const GLOSSARY: { term: string; meaning: string }[] = [
-  // ─── 분류·시그널 차원 (현 분류 ↔ 활성 매수 시그널 구분) ───
-  { term: "classification", meaning: "AI 의 종목 정성 분류 — entry / watch / ignore 중 하나. weekly_classification.classification 컬럼. 자주 안 바뀜 (주 1회 weekend 또는 평일 신규 분류 시에만)." },
-  { term: "signal (매수 시그널)", meaning: "entry_params 테이블의 새 행 — 실질 매수 활성 여부. classification 과 별개 차원 — 분류는 'AI 가 보기에 좋은 종목인가', 시그널은 '지금 이 가격에 사도 되나'." },
-  { term: "현재 분류", meaning: "weekly_classification 의 한 종목의 가장 최근 행. SQL: DISTINCT ON (symbol) ORDER BY classified_at DESC. UPDATE 하지 않고 새 행 누적." },
-  { term: "분류 변경", meaning: "weekly_classification 에 새 행이 추가되어 '현재 분류' 가 바뀌는 것. weekend 또는 daily_delta 만 변경 가능. 평일 트리거 평가 (evaluate_pivot) 는 분류 변경 안 함." },
-
-  // ─── 책 용어 — 패턴·매수 기준 ───
-  { term: "Trend Template (8조건)", meaning: "Minervini *TLSMW Ch.5* 의 강세 종목 식별 8 기준. 가격이 SMA-50/150/200 위, SMA 정렬, 200일선 상승 추세, 52주 고점 25% 이내, 52주 저점 25% 이상, RS Rating ≥70 등. 시스템의 1차 결정론 필터." },
-  { term: "RS Rating", meaning: "Relative Strength Rating (상대 강도). 전체 종목 대비 가격 상승률의 백분위 (0-99). 70 이상이 책 기준 (Minervini), 80+ 가 O'Neil 선호. 같은 종목 풀 안에서의 *상대* 측정." },
-  { term: "base (베이스)", meaning: "주가가 옆으로 정리되는 구간 — 컵·평평한 박스·VCP·이중바닥 등 9 종. 돌파 전의 매수 준비 단계." },
-  { term: "pivot (피벗)", meaning: "책에서 권하는 *정확한 매수 기준가*. 패턴별로 다르게 정의 — cup_with_handle 은 손잡이 고점, flat_base 는 범위 상단 등." },
-  { term: "breakout (돌파)", meaning: "종가가 pivot 위로 올라간 사건. 거래량 동반이면 진짜 돌파, 아니면 가짜 돌파 가능성." },
-  { term: "pocket pivot (포켓 피벗)", meaning: "Morales/Kacher *TLOND Ch.5* 의 *조기 매수 신호*. base 안에서 거래량이 직전 10일 중 하락일 최대 거래량을 초과 + 종가가 SMA-50 위. 표준 pivot 돌파 *전* 의 매수 기회." },
-  { term: "3c_cheat (cheat 진입)", meaning: "Minervini *TLSMW Ch.10* 의 *cup 형성 중 조기 매수 지점* — cup 아랫쪽 1/3 또는 가운데 1/3 의 small pause. 표준 handle 보다 일찍 진입." },
-  { term: "VCP (Volatility Contraction Pattern)", meaning: "Minervini 의 핵심 패턴 — 연속된 *수축* (각 수축이 직전의 약 절반) + 거래량 동반 수축, 2-6 회 (보통 2-4)." },
-
-  // ─── 시장 컨텍스트 용어 ───
-  { term: "distribution day", meaning: "*기관 매도일* — 시장 지수 종가 ≥0.2% 하락 + 거래량이 전일보다 증가. 25 세션 내 5+ 누적이면 시장 약세 경고. 시장 distribution 과 종목 distribution 은 별개 (종목은 -0.2% + 1.0× 50일평균)." },
-  { term: "follow-through day (FTD)", meaning: "조정 끝 강세 전환 확인 신호 — 저점 후 3-15일째 (최적 4-7일) 의 시장 지수가 +1.4% 이상 상승 + 전일 대비 거래량 증가. confirmed_uptrend 진입의 필수 조건." },
-  { term: "confirmed_uptrend / correction / downtrend / rally_attempt", meaning: "시장 4-enum 상태. market_context_daily.current_status. uptrend = 매수 적기, correction/downtrend = 매수 자제, rally_attempt = FTD 대기." },
-  { term: "Stage 2", meaning: "Minervini 의 종목 사이클 4 단계 중 *기관 누적 + 상승* 구간. 매수 적기. Stage 1=base, Stage 3=배포/정점, Stage 4=하락." },
-
-  // ─── 트리거 / 결정 / 사이징 ───
-  { term: "trigger (트리거)", meaning: "결정론 게이트가 감지한 *오늘의 이벤트* — breakout / promotion / invalidation 셋 중 하나." },
-  { term: "decision (AI 결정)", meaning: "evaluate_pivot 의 LLM 응답 — go_now (지금 사라) / wait (기다려) / abort (가짜·무효) 셋 중 하나. 트리거 + 결정 9 조합 매트릭스." },
-  { term: "go_now / wait / abort", meaning: "AI 의 트리거 대응 결정 3종. go_now 만이 매수 계획 생성으로 연결. 단 promotion·invalidation 에선 go_now 차단 (안전장치)." },
-  { term: "entry / watch / ignore", meaning: "AI 의 분류 3종. entry = 매수 적합, watch = 베이스 형성 중 (돌파 대기), ignore = 부적합 (pattern·market·risk 사유)." },
-  { term: "stop loss (손절선)", meaning: "이 가격 아래로 종가가 떨어지면 즉시 매도하는 안전 장치. O'Neil 룰: pivot 대비 -7~-8% 절대 한계 / Minervini 룰: 기대 수익의 절반." },
-  { term: "risk-reward (RR)", meaning: "기대 수익 ÷ 손실 한도 비율. 예: 손절 -5%, 목표 +20% → RR = 4.0. 일반적으로 ≥3.0 권장." },
-
-  // ─── 시스템 용어 ───
-  { term: "결정론 게이트 (deterministic gate)", meaning: "AI 호출 *전* 의 코드 룰 1차 필터. 단순 SQL/계산으로 종목을 거름. AI 호출 비용을 줄이고 잡음 차단." },
-  { term: "prompt", meaning: "AI 에게 주는 지시문 (markdown 파일). 본 시스템은 3 prompt 사용 — analyze_chart_v3 (분류), evaluate_pivot_trigger (트리거 평가), calculate_entry_params (매수 계획)." },
-  { term: "ZIP 13 파일", meaning: "AI 가 종목 1건 분석 시 받는 자료 묶음 — 차트 PNG, 일/주봉 CSV, 시장 컨텍스트, corporate actions, minervini 진단 등 13 개 파일." },
-  { term: "weekend batch", meaning: "토 03:20 cron 으로 실행되는 *전체 재분류* — 결정론 통과한 모든 종목을 AI 가 다시 평가. weekly_classification 에 source='weekend' 로 행 추가." },
-  { term: "daily_delta", meaning: "평일 매일 *신규 후보만* AI 분류 — 최근 7일 안에 분류된 적 없는 새 종목. weekly_classification 에 source='daily_delta' 로 행 추가." },
-  { term: "신규 종목 (7일 cool-down)", meaning: "결정론 통과 + 최근 7일 안에 분류 이력 없음. daily_delta 의 대상 조건. 같은 종목 반복 분석 방지 + ignore 후 재진입 허용." },
-  { term: "append-only (추가만)", meaning: "DB 에 UPDATE 하지 않고 새 행만 추가하는 설계. 분류 이력 보존 + 시점별 추적 가능. '현재 상태' 는 가장 최근 행으로 조회." },
-  { term: "cron", meaning: "정해진 시각에 자동 실행되는 작업 스케줄러 (Linux 표준). 본 시스템은 평일 20:00 (LLM 4 단계) + 토 03:20 (weekend) + 19:30 (데이터 적재) 등." },
-  { term: "dry-run", meaning: "AI 호출은 mock 응답으로 대체 + DB INSERT 도 skip. 코드 흐름 검증용 read-only 모드." },
-  { term: "Slack digest", meaning: "weekend batch 완료 후 entry/watch/ignore 카운트를 Slack 채널에 요약 알림. 사용자에게 *오늘 무슨 일이 있었나* 한눈에 보고." },
-  { term: "OHLCV", meaning: "Open / High / Low / Close / Volume — 시·고·저·종가 + 거래량. 일봉/주봉 데이터의 표준 5 필드." },
-  { term: "SMA (이동평균)", meaning: "Simple Moving Average — N일 평균 종가. SMA-50 / SMA-150 / SMA-200 이 Trend Template 의 핵심 지표." },
-];
-
-
 // FAQ
 
 const FAQ: { q: string; a: string }[] = [
@@ -393,7 +346,7 @@ function StageCard({ stage }: { stage: PipelineStage }) {
       </div>
 
       {/* 친절 본문 */}
-      <p className="text-data text-muted mb-5 leading-relaxed whitespace-pre-line">{stage.intro}</p>
+      <p className="text-data text-muted mb-5 leading-relaxed">{renderRich(stage.intro)}</p>
 
       {/* 입출력 테이블 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
@@ -404,10 +357,10 @@ function StageCard({ stage }: { stage: PipelineStage }) {
       {/* 결정론 룰 */}
       <div className="mb-5">
         <div className="caps text-faint mb-1">⚙️ 결정론 룰</div>
-        <p className="text-data text-ink leading-relaxed whitespace-pre-line">{stage.deterministicSummary}</p>
+        <p className="text-data text-ink leading-relaxed">{renderRich(stage.deterministicSummary)}</p>
         {stage.deterministicDetail && (
           <ListFold label="결정론 룰 SQL·상세 보기">
-            <div className="whitespace-pre-wrap">{stage.deterministicDetail}</div>
+            <div>{renderRich(stage.deterministicDetail)}</div>
           </ListFold>
         )}
         {stage.llmShowsLists?.eightConditions && (
@@ -441,7 +394,7 @@ function StageCard({ stage }: { stage: PipelineStage }) {
           <p className="text-data text-faint">이 단계는 AI 호출 없음 (순수 계산).</p>
         ) : (
           <>
-            <p className="text-data text-ink leading-relaxed whitespace-pre-line">{stage.llmSummary}</p>
+            <p className="text-data text-ink leading-relaxed">{renderRich(stage.llmSummary)}</p>
             {stage.decisions && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {stage.decisions.map((d) => <DecisionChip key={d} value={d} />)}
@@ -516,10 +469,10 @@ function StageCard({ stage }: { stage: PipelineStage }) {
       {/* 결과 액션 */}
       <div className="mb-5">
         <div className="caps text-faint mb-1">✅ 결과 액션</div>
-        <p className="text-data text-ink leading-relaxed whitespace-pre-line">{stage.actionSummary}</p>
+        <p className="text-data text-ink leading-relaxed">{renderRich(stage.actionSummary)}</p>
         {stage.actionDetail && (
           <ListFold label="SQL INSERT / 엔지니어링 상세 보기">
-            <div className="whitespace-pre-wrap">{stage.actionDetail}</div>
+            <div>{renderRich(stage.actionDetail)}</div>
           </ListFold>
         )}
       </div>
