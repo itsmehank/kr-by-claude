@@ -118,14 +118,13 @@ CREATE INDEX classification_freezes_stage_frozen_at_idx
 
 **삭제 기준 (AND)**:
 1. `frozen_at < NOW() - INTERVAL '90 days'`
-2. AND **활성 분류 보호**:
-   - `classification_id IS NOT NULL` 인 경우 → 가리키는 `classifications.status` 가
-     archive/ignore 상태여야 삭제 가능 (활성 watch/entry 는 무기한 보호).
-   - `classification_id IS NULL` 인 경우 (예: 후속 entry_params freeze) → 본 sub-rule
-     자동 통과 (= 활성 분류와 연결 없음). 단 stage 별 별도 보호가 필요하면
-     stage-specific 규칙을 추가 (현재 사이클은 NULL 케이스 발생 안 함 — 메커니즘만).
+2. AND **활성 분류 보호 — ticker 기반**: ticker 의 *가장 최근* `weekly_classification.classification`
+   값이 `'entry'` 또는 `'watch'` 가 아닐 것. 즉 활성 entry/watch 종목은 무기한 보호.
+   `classification_id` 컬럼 자체는 미사용 (`weekly_classification` PK 가 composite
+   `(symbol, classified_at)` 이고 BIGINT id 없음 → FK 직접 링크 불가, ticker 조인으로
+   동등 보호 달성).
 3. AND **종목별 가장 최근 freeze 보존**: stage 별로 `(ticker, stage)` 그룹의 `MAX(frozen_at)`
-   행은 항상 제외 — `classification_id` NULL/NOT NULL 무관, 최소 1건 보존.
+   행은 항상 제외 — 활성/비활성 무관, 최소 1건 보존.
 
 **근거 (정정)**: "90일 = 형성 기간 중간값" 은 **틀림** (형성은 49~455일).
 올바른 근거 = "**활성 watch/entry 는 criterion 2 로 무기한 보호되므로, 90일은

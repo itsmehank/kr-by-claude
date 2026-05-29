@@ -4,12 +4,12 @@
 
 삭제 기준 (AND):
   1. frozen_at < NOW() - retention_days days
-  2. 활성 분류 보호:
-     - classification_id IS NULL → 자동 통과 (분류와 연결 없음)
-     - classification_id IS NOT NULL → 미구현 (weekly_classification 에 BIGINT id 없어
-       현재 항상 NULL, 후속 사이클에서 id 컬럼 추가 시 구현)
-  3. (ticker, stage) 그룹의 MAX(frozen_at) 행은 항상 보존 — classification_id
-     NULL/NOT NULL 무관.
+  2. **활성 분류 보호 (ticker 기반)**: ticker 의 *가장 최근* weekly_classification
+     의 `classification` 컬럼이 'entry' 또는 'watch' 인 경우 — 그 ticker 의 모든
+     freeze 보호. classification_id 컬럼은 NULL 허용 — weekly_classification 의
+     PK 가 composite `(symbol, classified_at)` 이고 BIGINT id 가 없어 직접 FK 링크
+     불가, ticker 기반 조인으로 동등한 보호 달성.
+  3. (ticker, stage) 그룹의 MAX(frozen_at) 행은 항상 보존 — classification 무관.
 
 CLI: uv run python -m kr_pipeline.llm_runner.freeze_cleanup [--apply] [--days N]
      기본 dry-run.
@@ -41,23 +41,34 @@ def cleanup(
 ) -> CleanupResult:
     """삭제 기준 3-AND 적용. dry_run=True 이면 후보 계산만.
 
-    Note: classification_id 가 현재 항상 NULL 이므로 활성 보호 sub-rule 은
-    자동 통과. 후속 사이클에서 weekly_classification 에 BIGINT id 추가 시
-    JOIN 조건을 확장.
+    활성 보호는 ticker 기반: 해당 ticker 의 *가장 최근* weekly_classification 의
+    classification 값이 'entry'/'watch' 이면 그 ticker 의 모든 freeze 보호.
+    classification_id 컬럼 자체는 사용하지 않음 (BIGINT id 부재로 NULL only).
     """
     with conn.cursor() as cur:
         cur.execute(
             """
-            WITH latest AS (
+            WITH latest_freeze AS (
                 SELECT DISTINCT ON (ticker, stage) id
                   FROM classification_freezes
                  ORDER BY ticker, stage, frozen_at DESC
+            ),
+            active_tickers AS (
+                SELECT symbol AS ticker
+                  FROM (
+                    SELECT DISTINCT ON (symbol) symbol, classification
+                      FROM weekly_classification
+                     ORDER BY symbol, classified_at DESC
+                  ) latest_class
+                 WHERE classification IN ('entry', 'watch')
             )
             SELECT f.id, f.artifact_uri, f.artifact_size_bytes
               FROM classification_freezes f
              WHERE f.frozen_at < NOW() - INTERVAL '1 day' * %s
-               AND f.classification_id IS NULL   -- 활성 보호 자동 통과 (NULL 케이스)
-               AND f.id NOT IN (SELECT id FROM latest)
+               AND f.id NOT IN (SELECT id FROM latest_freeze)
+               AND NOT EXISTS (
+                   SELECT 1 FROM active_tickers a WHERE a.ticker = f.ticker
+               )
             """,
             (retention_days,),
         )
