@@ -61,7 +61,9 @@ def _build_current_metrics(conn: Connection, ticker: str, on_date: date) -> dict
             SELECT adj_close, w52_high, w52_low, pct_from_52w_high, pct_from_52w_low,
                    avg_volume_50d, volume_ratio_50d
               FROM daily_indicators
-             WHERE ticker = %s AND date = %s
+             WHERE ticker = %s AND date <= %s
+             ORDER BY date DESC
+             LIMIT 1
         """, (ticker, on_date))
         row = cur.fetchone()
     if row is None:
