@@ -382,3 +382,31 @@ CREATE TABLE IF NOT EXISTS signal_performance (
   PRIMARY KEY (symbol, signal_at),
   FOREIGN KEY (symbol, signal_at) REFERENCES entry_params(symbol, signal_at) ON DELETE CASCADE
 );
+
+-- ====== Phase 0 Step 4: FREEZE 최소판 (#P0-S4) ======
+-- 분류 (weekend/daily_delta) 시점의 분석 입력 ZIP 을 사후 검증 가능하도록 보존.
+-- artifact_* 일반화 + content_type + stage 로 entry_params/pivot freeze 후속 추가 가능.
+
+CREATE TABLE IF NOT EXISTS classification_freezes (
+    id                  BIGSERIAL PRIMARY KEY,
+    classification_id   BIGINT,                -- nullable: weekly_classification 행 참조 (PK 가 composite 이므로 FK 생략)
+    ticker              TEXT NOT NULL,
+    stage               TEXT NOT NULL,
+    frozen_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    artifact_uri        TEXT NOT NULL,         -- 'file:///...' or (후속) 's3://...'
+    artifact_sha256     TEXT NOT NULL,
+    artifact_size_bytes BIGINT NOT NULL,
+    content_type        TEXT NOT NULL DEFAULT 'application/zip',
+    CONSTRAINT classification_freezes_uri_unique UNIQUE (artifact_uri),
+    CONSTRAINT classification_freezes_stage_chk CHECK (stage IN ('weekend','daily_delta','entry_params','pivot'))
+);
+
+CREATE INDEX IF NOT EXISTS classification_freezes_ticker_frozen_at_idx
+  ON classification_freezes(ticker, frozen_at DESC);
+
+CREATE INDEX IF NOT EXISTS classification_freezes_classification_id_idx
+  ON classification_freezes(classification_id)
+  WHERE classification_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS classification_freezes_stage_frozen_at_idx
+  ON classification_freezes(stage, frozen_at);
