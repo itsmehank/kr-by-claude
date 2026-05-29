@@ -39,22 +39,41 @@ def run(
 
     processed = 0
     failed = []
+    integrity_skipped: list[dict] = []
+
+    from api.services.integrity_guard import DataIntegrityError
 
     for symbol in new_tickers:
         try:
             _process_one(conn, symbol, dry_run=dry_run, as_of=as_of)
             processed += 1
             conn.commit()
+        except DataIntegrityError as e:
+            log.warning("[INTEGRITY GUARD] %s skipped: %s", symbol, e)
+            integrity_skipped.append({
+                "symbol": symbol,
+                "date": e.on_date.isoformat(),
+                "column": e.column,
+                "p_value": e.p_value,
+                "i_value": e.i_value,
+                "ratio": e.ratio,
+            })
+            conn.rollback()
         except Exception as e:
             log.warning("daily_delta %s failed: %s", symbol, e)
             failed.append(symbol)
             conn.rollback()
+
+    if integrity_skipped:
+        log.warning("[INTEGRITY GUARD] %d tickers skipped due to data integrity issues",
+                    len(integrity_skipped))
 
     return {
         "processed": processed,
         "candidates": len(new_tickers),
         "failures": len(failed),
         "failed_tickers": failed,
+        "integrity_skipped": integrity_skipped,
     }
 
 

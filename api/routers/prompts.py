@@ -42,6 +42,12 @@ def batch_zip(
             except ValueError:
                 skipped.append(t)
                 continue
+            except Exception as e:
+                # Re-raise data integrity errors as 503 to signal transient/data issue
+                from api.services.integrity_guard import DataIntegrityError
+                if isinstance(e, DataIntegrityError):
+                    raise HTTPException(status_code=503, detail=str(e))
+                raise
 
         manifest_lines = [
             f"# Batch analysis package — {date.today().isoformat()}",
@@ -68,10 +74,13 @@ def batch_zip(
 
 @router.get("/{ticker}.zip")
 def get_zip(ticker: str, conn: Connection = Depends(get_conn)):
+    from api.services.integrity_guard import DataIntegrityError
     try:
         zip_bytes = build_analysis_zip(conn, ticker)
     except ValueError as e:
         raise HTTPException(404, str(e))
+    except DataIntegrityError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     today = date.today().isoformat().replace("-", "")
     return Response(
         content=zip_bytes,

@@ -152,6 +152,10 @@ def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = Non
     if on_date is None:
         on_date = date.today()
 
+    # Phase 0 Step 3 — integrity guard (raise DataIntegrityError 시 호출자가 정책 결정)
+    from api.services.integrity_guard import check_data_integrity
+    check_data_integrity(conn, ticker, on_date)
+
     with conn.cursor() as cur:
         cur.execute("SELECT name, market, sector FROM stocks WHERE ticker = %s", (ticker,))
         row = cur.fetchone()

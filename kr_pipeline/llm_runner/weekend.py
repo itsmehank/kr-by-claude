@@ -49,6 +49,9 @@ def run(
     processed = 0
     failures: list[tuple[str, str]] = []
     failed_tickers = []
+    integrity_skipped: list[dict] = []
+
+    from api.services.integrity_guard import DataIntegrityError
 
     for c in candidates:
         symbol = c["symbol"]
@@ -57,6 +60,17 @@ def run(
             _process_one(conn, symbol, market, dry_run=dry_run, as_of=as_of)
             processed += 1
             conn.commit()
+        except DataIntegrityError as e:
+            log.warning("[INTEGRITY GUARD] %s skipped: %s", symbol, e)
+            integrity_skipped.append({
+                "symbol": symbol,
+                "date": e.on_date.isoformat(),
+                "column": e.column,
+                "p_value": e.p_value,
+                "i_value": e.i_value,
+                "ratio": e.ratio,
+            })
+            conn.rollback()
         except Exception as e:
             log.warning("ticker %s failed: %s", symbol, e)
             failures.append((symbol, str(e)))
@@ -71,18 +85,34 @@ def run(
             _process_one(conn, symbol, market, dry_run=dry_run, as_of=as_of)
             processed += 1
             conn.commit()
+        except DataIntegrityError as e:
+            log.warning("[INTEGRITY GUARD] retry: %s skipped: %s", symbol, e)
+            integrity_skipped.append({
+                "symbol": symbol,
+                "date": e.on_date.isoformat(),
+                "column": e.column,
+                "p_value": e.p_value,
+                "i_value": e.i_value,
+                "ratio": e.ratio,
+            })
+            conn.rollback()
         except Exception as e:
             retry_failures.append((symbol, str(e)))
             conn.rollback()
 
-    log.info("weekend batch done: processed=%d retry_failures=%d",
-             processed, len(retry_failures))
+    if integrity_skipped:
+        log.warning("[INTEGRITY GUARD] %d tickers skipped due to data integrity issues",
+                    len(integrity_skipped))
+
+    log.info("weekend batch done: processed=%d retry_failures=%d integrity_skipped=%d",
+             processed, len(retry_failures), len(integrity_skipped))
 
     return {
         "processed": processed,
         "candidates": len(candidates),
         "failures": len(retry_failures),
         "failed_tickers": [t for t, _ in retry_failures],
+        "integrity_skipped": integrity_skipped,
     }
 
 

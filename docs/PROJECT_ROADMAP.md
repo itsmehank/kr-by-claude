@@ -107,6 +107,7 @@
 | **F4** | handle very-large-cup 예외 복원 | HMMS p.116-117 의 "unless very large cup" 조건 operationalize | 데이터 누적 불요, 다음 prompt 수정 사이클 + checklist 선행 |
 | **F5** | P2-1d-KOSPI 분기 (`wide_and_loose` 10–15% × 1.3) | KOSPI 만 13–19% 로 스케일 | cron: KOSPI 종목 `wide_and_loose` false-flag 빈도 누적 |
 | **F6 + B-수치** | ATR 전환 검토 + status.py 시간 상수 재검토 (10/90/6) | σ vs ATR 측정 비교 후 도구 결정 | cron: σ-기반 vs ATR-기반 FTD 임계 측정 비교 |
+| **(γ) Finalized 가드** | 진짜 freshness 신호 — pipeline_runs.ohlcv 마지막 성공 run finished_at 이 해당 거래일 마감 이후인지 점검. (α) divergence 가드의 한계 (동일 partial 모드 미검출) 보완 | 운영 중 동일-partial 케이스 실제 발생 시 (현재까지는 (α) 충분) |
 | **P2-3** (선택) | candidate VCP footprint payload 보조 (zigzag) | LLM 시각 판정 앵커 | 결정 자체 대기 (할지 여부) |
 | (별개) | prompt (.md) 자동 동기화 | SSOT-1 의 잔존 — 현재 prompt 텍스트 임계는 수동 동기화 | 미발의 (선택 candidate) |
 
