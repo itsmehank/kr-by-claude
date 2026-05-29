@@ -59,7 +59,7 @@ const STAGES: PipelineStage[] = [
     order: 0,
     label: "주말 batch — 매주 토 03:20 자동 전체 재분류",
     intro:
-      "한 주에 한 번, 토요일 새벽 3시 20분에 자동 실행됩니다. 결정론 1차 필터를 통과한 *모든* 한국 종목을 AI(LLM)가 차트와 함께 재분석해서 entry / watch / ignore 중 하나로 분류합니다. 분류 결과는 weekly_classification 테이블에 새 행으로 쌓입니다 (이전 분류는 그대로 보존).",
+      "한 주에 한 번, 토요일 새벽 3시 20분에 자동 실행됩니다.\n\n결정론 1차 필터를 통과한 *모든* 한국 종목을 AI(LLM)가 차트와 함께 재분석해서 entry / watch / ignore 중 하나로 분류합니다.\n\n분류 결과는 weekly_classification 테이블에 새 행으로 쌓입니다 (이전 분류는 그대로 보존).",
     inputs: ["daily_indicators", "weekly_indicators", "market_context_daily", "corporate_actions", "stocks"],
     outputs: ["weekly_classification"],
     deterministicSummary:
@@ -76,7 +76,7 @@ const STAGES: PipelineStage[] = [
     },
     decisions: ["entry", "watch", "ignore"],
     actionSummary:
-      "분류 결과를 weekly_classification 테이블에 *새 행* 으로 추가합니다 (이전 분류는 지우지 않고 누적). 같은 종목·같은 시각의 중복은 자동 무시. 분석이 끝나면 entry/watch/ignore 카운트를 Slack 으로 요약 알림 (digest).",
+      "분류 결과를 weekly_classification 테이블에 *새 행* 으로 추가합니다 (이전 분류는 지우지 않고 누적). 같은 종목·같은 시각의 중복은 자동 무시.\n\n분석이 끝나면 entry/watch/ignore 카운트를 Slack 으로 요약 알림 (digest).",
     actionDetail:
       "SQL 패턴: INSERT INTO weekly_classification (...) VALUES (...) ON CONFLICT (symbol, classified_at) DO NOTHING. '현재 분류' 를 조회할 땐 DISTINCT ON (symbol) ORDER BY classified_at DESC. 즉 append-only 설계 — UPDATE 하지 않고 새 행을 쌓고, 최신 행이 '현재 상태'.",
     sources: [
@@ -92,7 +92,7 @@ const STAGES: PipelineStage[] = [
     order: 1,
     label: "신규 후보 분류 — 평일 매일 새 종목만",
     intro:
-      "평일 매일 20:00 자동 실행됩니다. weekend 와 같은 AI prompt + 같은 ZIP 구조를 쓰지만, 대상이 다릅니다 — 결정론 필터를 *오늘 새로 통과한* 종목만. 즉 다음 주 토 weekend 까지 기다리지 않고 신규 후보를 즉시 분류해서 watch/entry 풀에 합류시키는 *빠른 반응* 단계입니다.",
+      "평일 매일 20:00 자동 실행됩니다.\n\nweekend 와 같은 AI prompt + 같은 ZIP 구조를 쓰지만, 대상이 다릅니다 — 결정론 필터를 *오늘 새로 통과한* 종목만.\n\n즉 다음 주 토 weekend 까지 기다리지 않고 신규 후보를 즉시 분류해서 watch/entry 풀에 합류시키는 *빠른 반응* 단계입니다.",
     inputs: ["daily_indicators", "daily_prices", "weekly_indicators", "market_context_daily"],
     outputs: ["weekly_classification"],
     deterministicSummary:
@@ -121,7 +121,7 @@ const STAGES: PipelineStage[] = [
     order: 2,
     label: "평일 트리거 평가 — watch/entry 종목의 오늘 행동 점검",
     intro:
-      "이미 watch 또는 entry 로 분류된 활성 종목들의 오늘 가격·거래량을 매일 점검합니다. 종가가 pivot 을 돌파했는지, 손절선을 깼는지, 50일 이동평균에서 이탈했는지 등을 *결정론 게이트* 가 먼저 검사해 이벤트 유형 (breakout / promotion / invalidation) 을 결정합니다. 이벤트가 잡힌 종목만 AI 에게 '진짜 신호인가 가짜 신호인가' 묻습니다.",
+      "이미 watch 또는 entry 로 분류된 활성 종목들의 오늘 가격·거래량을 매일 점검합니다.\n\n종가가 pivot 을 돌파했는지, 손절선을 깼는지, 50일 이동평균에서 이탈했는지 등을 *결정론 게이트* 가 먼저 검사해 이벤트 유형 (breakout / promotion / invalidation) 을 결정합니다.\n\n이벤트가 잡힌 종목만 AI 에게 '진짜 신호인가 가짜 신호인가' 묻습니다.",
     inputs: ["weekly_classification", "daily_indicators"],
     outputs: ["trigger_evaluation_log"],
     deterministicSummary:
@@ -129,10 +129,10 @@ const STAGES: PipelineStage[] = [
     deterministicDetail:
       "compute/trigger_gate.py 의 룰: pivot_price IS NULL 인 종목은 skip. close < stop_loss OR close < sma_50 → invalidation 우선 적용. 그 외 close > pivot AND volume >= avg_volume_50d × GATE_BREAKOUT_VOL_MULT → breakout. promotion 은 watch 분류 종목에만, close >= pivot × 0.95 AND volume >= avg 일 때.",
     llmSummary:
-      "evaluate_pivot_trigger_v1.md prompt — 게이트가 잡은 트리거 유형을 입력으로 받고 'go_now (지금 사라) / wait (기다려) / abort (가짜·무효)' 중 하나를 결정. *중요*: 이 단계는 분류 자체를 바꾸지 않습니다. abort 가 나와도 분류는 그대로 유지 — 다음 토 weekend 에서 AI 가 다시 보고 분류를 ignore 로 강등해야 비로소 강등.",
+      "evaluate_pivot_trigger_v1.md prompt — 게이트가 잡은 트리거 유형을 입력으로 받고 'go_now (지금 사라) / wait (기다려) / abort (가짜·무효)' 중 하나를 결정.\n\n*중요*: 이 단계는 분류 자체를 바꾸지 않습니다. abort 가 나와도 분류는 그대로 유지 — 다음 토 weekend 에서 AI 가 다시 보고 분류를 ignore 로 강등해야 비로소 강등.",
     decisions: ["go_now", "wait", "abort"],
     actionSummary:
-      "결과를 trigger_evaluation_log 에 새 행으로 기록 (분류는 변경 안 함). decision='go_now' + trigger_type='breakout' 인 종목은 다음 단계 (entry_params) 가 자동으로 매수 계획을 작성합니다. promotion 트리거에서는 go_now 가 *나오지 않도록* prompt 와 코드 양쪽에 안전장치가 있습니다 (실질 매수는 종가가 pivot 위로 올라간 진짜 breakout 으로만).",
+      "결과를 trigger_evaluation_log 에 새 행으로 기록 (분류는 변경 안 함).\n\ndecision='go_now' + trigger_type='breakout' 인 종목은 다음 단계 (entry_params) 가 자동으로 매수 계획을 작성합니다.\n\npromotion 트리거에서는 go_now 가 *나오지 않도록* prompt 와 코드 양쪽에 안전장치가 있습니다 (실질 매수는 종가가 pivot 위로 올라간 진짜 breakout 으로만).",
     actionDetail:
       "INSERT INTO trigger_evaluation_log (symbol, evaluated_at, trigger_type, decision, ...) VALUES (...). entry_params 다음 단계의 SQL 은 WHERE decision='go_now' AND trigger_type='breakout' 으로 staging 신호 분리.",
     sources: [
@@ -148,7 +148,7 @@ const STAGES: PipelineStage[] = [
     order: 3,
     label: "매수 계획 (entry_params) — go_now 종목의 실제 매수 파라미터",
     intro:
-      "evaluate_pivot 에서 go_now 결정을 받은 *진짜 매수 시그널* 종목에 대해 AI 가 18 개 필드의 매수 계획을 작성합니다. 진입 가격·손절선·목표가·포지션 사이즈·돌파 거래량 요건 등 매수에 필요한 모든 숫자를 한 행으로 정리. 이게 시스템의 *최종 산출물* 입니다 — 사용자는 entry_params 행을 보고 실제 매수 여부를 결정.",
+      "evaluate_pivot 에서 go_now 결정을 받은 *진짜 매수 시그널* 종목에 대해 AI 가 18 개 필드의 매수 계획을 작성합니다.\n\n진입 가격·손절선·목표가·포지션 사이즈·돌파 거래량 요건 등 매수에 필요한 모든 숫자를 한 행으로 정리.\n\n이게 시스템의 *최종 산출물* 입니다 — 사용자는 entry_params 행을 보고 실제 매수 여부를 결정.",
     inputs: ["trigger_evaluation_log", "daily_indicators", "weekly_classification"],
     outputs: ["entry_params"],
     deterministicSummary:
@@ -174,7 +174,7 @@ const STAGES: PipelineStage[] = [
     order: 4,
     label: "성과 추적 — 시그널의 1주/2주/4주/8주 후 수익률",
     intro:
-      "AI 호출 없는 순수 계산 단계입니다. 최근 90일 안에 발생한 매수 시그널 (entry_params) 들의 1주·2주·4주·8주 후 가격을 daily_prices 에서 조회해 수익률을 계산. 같은 기간의 시장 (KOSPI 또는 KOSDAQ) 수익률도 함께 기록해 *시장 대비 알파* 도 측정. 8주 데이터가 모두 채워지면 추적이 사실상 끝납니다.",
+      "AI 호출 없는 순수 계산 단계입니다.\n\n최근 90일 안에 발생한 매수 시그널 (entry_params) 들의 1주·2주·4주·8주 후 가격을 daily_prices 에서 조회해 수익률을 계산.\n\n같은 기간의 시장 (KOSPI 또는 KOSDAQ) 수익률도 함께 기록해 *시장 대비 알파* 도 측정.\n\n8주 데이터가 모두 채워지면 추적이 사실상 끝납니다.",
     inputs: ["entry_params", "daily_prices", "index_daily"],
     outputs: ["signal_performance"],
     deterministicSummary:
@@ -393,7 +393,7 @@ function StageCard({ stage }: { stage: PipelineStage }) {
       </div>
 
       {/* 친절 본문 */}
-      <p className="text-data text-muted mb-5 leading-relaxed">{stage.intro}</p>
+      <p className="text-data text-muted mb-5 leading-relaxed whitespace-pre-line">{stage.intro}</p>
 
       {/* 입출력 테이블 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
@@ -404,7 +404,7 @@ function StageCard({ stage }: { stage: PipelineStage }) {
       {/* 결정론 룰 */}
       <div className="mb-5">
         <div className="caps text-faint mb-1">⚙️ 결정론 룰</div>
-        <p className="text-data text-ink leading-relaxed">{stage.deterministicSummary}</p>
+        <p className="text-data text-ink leading-relaxed whitespace-pre-line">{stage.deterministicSummary}</p>
         {stage.deterministicDetail && (
           <ListFold label="결정론 룰 SQL·상세 보기">
             <div className="whitespace-pre-wrap">{stage.deterministicDetail}</div>
@@ -431,7 +431,7 @@ function StageCard({ stage }: { stage: PipelineStage }) {
           <p className="text-data text-faint">이 단계는 AI 호출 없음 (순수 계산).</p>
         ) : (
           <>
-            <p className="text-data text-ink leading-relaxed">{stage.llmSummary}</p>
+            <p className="text-data text-ink leading-relaxed whitespace-pre-line">{stage.llmSummary}</p>
             {stage.decisions && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {stage.decisions.map((d) => <DecisionChip key={d} value={d} />)}
@@ -506,7 +506,7 @@ function StageCard({ stage }: { stage: PipelineStage }) {
       {/* 결과 액션 */}
       <div className="mb-5">
         <div className="caps text-faint mb-1">✅ 결과 액션</div>
-        <p className="text-data text-ink leading-relaxed">{stage.actionSummary}</p>
+        <p className="text-data text-ink leading-relaxed whitespace-pre-line">{stage.actionSummary}</p>
         {stage.actionDetail && (
           <ListFold label="SQL INSERT / 엔지니어링 상세 보기">
             <div className="whitespace-pre-wrap">{stage.actionDetail}</div>

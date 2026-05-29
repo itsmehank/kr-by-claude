@@ -27,7 +27,7 @@ export function ListFold({ label, count, variant = "default", children }: Props)
         <span className="text-faint font-normal group-open:hidden">▼</span>
         <span className="text-faint font-normal hidden group-open:inline">▲</span>
       </summary>
-      <div className="mt-2 px-3 py-3 bg-cream border border-hairline rounded-lg text-data-xs text-muted leading-relaxed">
+      <div className="mt-2 px-3 py-3 bg-cream border border-hairline rounded-lg text-data text-ink leading-relaxed">
         {children}
       </div>
     </details>

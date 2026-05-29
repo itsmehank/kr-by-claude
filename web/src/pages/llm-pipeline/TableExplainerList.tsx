@@ -39,7 +39,7 @@ export function TableExplainerList({ names, label }: Props) {
               >
                 <div className="space-y-1">
                   <div>{t.details}</div>
-                  <div className="text-faint">
+                  <div className="text-muted">
                     Primary key: <span className="num">{t.pkey}</span>
                   </div>
                 </div>
