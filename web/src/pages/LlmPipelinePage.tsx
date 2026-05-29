@@ -20,6 +20,7 @@ import { RISK_FLAGS } from "../data/llm-pipeline-audit/risk-flags";
 import { ZIP_FILES } from "../data/llm-pipeline-audit/zip-files";
 import { GLOSSARY } from "../data/llm-pipeline/glossary";
 import { renderRich } from "./llm-pipeline/renderRich";
+import { PROMPT_EXPLANATIONS, STAGE_TO_PROMPT } from "../data/llm-pipeline/prompt-explanations";
 
 
 // ─────── 데이터 ───────────────────────────────────────────
@@ -400,6 +401,49 @@ function StageCard({ stage }: { stage: PipelineStage }) {
                 {stage.decisions.map((d) => <DecisionChip key={d} value={d} />)}
               </div>
             )}
+            {(() => {
+              const promptKey = STAGE_TO_PROMPT[stage.id];
+              if (!promptKey) return null;
+              const exp = PROMPT_EXPLANATIONS[promptKey];
+              if (!exp) return null;
+              return (
+                <ListFold label={`이 prompt 가 정확히 뭐 하는지 — ${exp.filename}`}>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-ink font-semibold mb-1">📝 역할</div>
+                      <div>{exp.role}</div>
+                    </div>
+                    <div>
+                      <div className="text-ink font-semibold mb-1">📥 AI 가 받는 자료</div>
+                      <ul className="list-disc list-inside space-y-1 ml-2">
+                        {exp.input.map((item, i) => (
+                          <li key={i}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <div className="text-ink font-semibold mb-1">📤 AI 가 만드는 결과</div>
+                      <ul className="list-disc list-inside space-y-1 ml-2">
+                        {exp.output.map((item, i) => (
+                          <li key={i}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <div className="text-ink font-semibold mb-1">📖 핵심 룰</div>
+                      <ul className="space-y-2 ml-2">
+                        {exp.keyRules.map((rule, i) => (
+                          <li key={i} className="flex">
+                            <span className="text-faint mr-2">·</span>
+                            <span dangerouslySetInnerHTML={{ __html: rule.replace(/\*\*([^*]+)\*\*/g, "<strong class=\"text-ink\">$1</strong>") }} />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </ListFold>
+              );
+            })()}
             {stage.llmShowsLists?.thirteenZipFiles && (
               <ListFold label="AI 가 받는 자료 — ZIP 13 파일 모두 보기" count={ZIP_FILES.length}>
                 <ol className="space-y-2 list-decimal list-inside">
