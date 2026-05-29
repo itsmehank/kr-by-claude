@@ -1,4 +1,4 @@
-// LLM Payload ZIP 13 파일 (spec audit §7) — zip_builder.py
+// LLM Payload ZIP 14~15 파일 (spec audit §7) — zip_builder.py
 
 export interface ZipFile {
   num: number;
@@ -85,6 +85,18 @@ export const ZIP_FILES: ZipFile[] = [
     filename: "weekly_chart.png",
     content: "주봉 차트 이미지 (range_weeks=104)",
     codeRef: "chart_render.render_weekly_chart",
+  },
+  {
+    num: 14,
+    filename: "prompt_verify.md",
+    content: "분석 검증 prompt (v1) — 다른 LLM 에 1차 분석 결과 검증 요청용. 5 차원 (분류·패턴·pivot·risk_flag·reasoning) 평가",
+    codeRef: "zip_builder.py + prompts/verify_analysis_v1.md",
+  },
+  {
+    num: 15,
+    filename: "analysis_result.json",
+    content: "weekly_classification 의 최신 분류 1건 (검증 대상). 종목에 분류 이력 있을 때만 포함",
+    codeRef: "zip_builder.py:_fetch_latest_analysis_result",
   },
 ];
 

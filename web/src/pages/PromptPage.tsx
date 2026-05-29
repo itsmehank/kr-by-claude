@@ -15,9 +15,10 @@ import { api, apiUrl } from "../lib/api";
 import type { Stock, MinerviniPassed, MarketContext } from "../lib/types";
 
 const ZIP_FILES = [
-  { name: "README.md", desc: "분석 가이드" },
+  { name: "README.md", desc: "분석 가이드 + 검증 모드 안내" },
   { name: "prompt_step1_analyze.md", desc: "Step 1 분류 프롬프트" },
   { name: "prompt_step2_entry_params.md", desc: "Step 2 진입 파라미터" },
+  { name: "prompt_verify.md", desc: "🆕 분석 검증 프롬프트 (5 차원)" },
   { name: "payload.json", desc: "통합 페이로드" },
   { name: "market_context.json", desc: "시장 컨텍스트" },
   { name: "corporate_actions.json", desc: "기업 행위" },
@@ -28,6 +29,7 @@ const ZIP_FILES = [
   { name: "kospi_weekly.csv", desc: "KOSPI 주봉" },
   { name: "daily_chart.png", desc: "일봉 차트" },
   { name: "weekly_chart.png", desc: "주봉 차트" },
+  { name: "analysis_result.json", desc: "🆕 시스템 LLM 분석 결과 (검증 대상, 분류 이력 있을 때만)" },
 ] as const;
 
 const MINERVINI_CONDITIONS = [
@@ -739,7 +741,7 @@ export default function PromptPage() {
                   </div>
                 </div>
                 <span className="chip bg-tint-blue text-accent">
-                  13 files · ZIP
+                  14~15 files · ZIP
                 </span>
               </a>
 

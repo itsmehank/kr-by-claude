@@ -1,4 +1,4 @@
-"""LLM 분석용 ZIP 빌더. 13 파일 묶기."""
+"""LLM 분석/검증 ZIP 빌더. 14~15 파일 묶기."""
 import io
 import json
 import zipfile
@@ -26,8 +26,11 @@ README_TEMPLATE = """# LLM 분석 패키지
 - 섹터: {sector}
 - 분석 기준일: {as_of_date}
 - 생성 시각: {generated_at}
+- **본 ZIP 의 모드: {mode}**  ← `원본 분석` (analysis_result 없음) 또는 `검증` (analysis_result 포함)
 
-## 2-Step Workflow
+## 모드별 사용법
+
+### A. 원본 분석 모드 — analysis_result.json 없음
 
 1. **Step 1**: `prompt_step1_analyze.md` 와 함께 다음을 입력:
    - `payload.json` (텍스트로)
@@ -39,22 +42,113 @@ README_TEMPLATE = """# LLM 분석 패키지
    - `payload.json` + Step 1 결과를 `prior_analysis` 로 포함
    - `daily_chart.png`, `weekly_chart.png`
 
-   → LLM 이 진입 파라미터 17개 필드 반환.
+   → LLM 이 진입 파라미터 18개 필드 반환.
+
+### B. 검증 모드 — analysis_result.json 포함 (자동 채워짐)
+
+ZIP 에 `analysis_result.json` 이 포함돼 있다면 *이미 시스템 LLM 이 수행한 분석* 입니다. 다른 LLM (다른 모델 / 더 큰 모델 / 다른 제공사) 에 *검증* 을 요청할 때:
+
+1. `prompt_verify.md` 를 system prompt 로 사용.
+2. user input 에 다음을 함께 제공:
+   - `payload.json`, `minervini.json`, `market_context.json`, `corporate_actions.json` (원본 입력)
+   - `daily_chart.png`, `weekly_chart.png` (차트)
+   - `analysis_result.json` (검증 대상)
+   - `prompt_step1_analyze.md` (원본 분석이 따른 룰의 출처)
+3. 출력 = 5 차원 검증 결과 JSON (`agreement` + `dimensions` + `key_book_citations` 등).
+
+검증 결과가 `disagree` 이면 두 LLM 의 판단 충돌 — 사람이 책 인용으로 최종 판단.
 
 ## 파일 설명
 
-- `payload.json`: 통합 페이로드 (LLM 입력 핵심)
-- `market_context.json`: 시장 컨텍스트 (audit)
-- `corporate_actions.json`: 기업행위 이력 (audit)
-- `minervini.json`: 8 조건 detail (보조)
-- `daily.csv` / `weekly.csv`: 종목 시계열 (사람용)
-- `market_index_daily.csv` / `market_index_weekly.csv`: 시장 지수 시계열 (audit)
-- `daily_chart.png` / `weekly_chart.png`: 차트 이미지 (LLM 멀티모달 입력)
+| 파일 | 설명 | 모드 A | 모드 B |
+|---|---|---|---|
+| `README.md` | 이 파일 | ✓ | ✓ |
+| `prompt_step1_analyze.md` | 원본 분석 prompt (룰의 출처) | ✓ | ✓ |
+| `prompt_step2_entry_params.md` | 진입 파라미터 prompt | ✓ | ✓ |
+| `prompt_verify.md` | 검증 prompt | ✓ | ✓ |
+| `payload.json` | 통합 페이로드 (LLM 입력 핵심) | ✓ | ✓ |
+| `market_context.json` | 시장 컨텍스트 | ✓ | ✓ |
+| `corporate_actions.json` | 기업행위 이력 | ✓ | ✓ |
+| `minervini.json` | 8 조건 detail | ✓ | ✓ |
+| `daily.csv` / `weekly.csv` | 종목 시계열 | ✓ | ✓ |
+| `market_index_daily.csv` / `market_index_weekly.csv` | 시장 지수 | ✓ | ✓ |
+| `daily_chart.png` / `weekly_chart.png` | 차트 이미지 | ✓ | ✓ |
+| `analysis_result.json` | **시스템 LLM 의 분석 결과 (검증 대상)** | — | ✓ |
+
+## 검증 모드에서 LLM 호출 예시
+
+```
+[system] {{prompt_verify.md 본문}}
+[user]
+  다음은 종목 {{ticker}} 의 분석 결과 검증 요청입니다.
+
+  [입력 데이터]
+  payload.json, minervini.json, market_context.json, corporate_actions.json
+  weekly_chart.png, daily_chart.png
+
+  [검증 대상]
+  analysis_result.json
+
+  [원본 분석이 따른 룰]
+  prompt_step1_analyze.md
+
+  → 위 5 차원으로 검증해 JSON 출력 부탁드립니다.
+```
 """
 
 
+def _fetch_latest_analysis_result(conn: Connection, ticker: str) -> dict | None:
+    """weekly_classification 의 가장 최근 분류 1건을 dict 로. 없으면 None."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT symbol, classified_at, source, classification, pattern,
+                   pivot_price, pivot_basis, base_high, base_low,
+                   base_depth_pct, base_start_date, risk_flags,
+                   confidence, reasoning, llm_call_duration_s,
+                   llm_input_tokens, llm_output_tokens
+              FROM weekly_classification
+             WHERE symbol = %s
+             ORDER BY classified_at DESC
+             LIMIT 1
+            """,
+            (ticker,),
+        )
+        row = cur.fetchone()
+    if row is None:
+        return None
+    (symbol, classified_at, source, classification, pattern,
+     pivot_price, pivot_basis, base_high, base_low,
+     base_depth_pct, base_start_date, risk_flags,
+     confidence, reasoning, dur, tok_in, tok_out) = row
+    return {
+        "symbol": symbol,
+        "classified_at": classified_at.isoformat() if classified_at else None,
+        "source": source,
+        "classification": classification,
+        "pattern": pattern,
+        "pivot_price": float(pivot_price) if pivot_price is not None else None,
+        "pivot_basis": pivot_basis,
+        "base_high": float(base_high) if base_high is not None else None,
+        "base_low": float(base_low) if base_low is not None else None,
+        "base_depth_pct": float(base_depth_pct) if base_depth_pct is not None else None,
+        "base_start_date": base_start_date.isoformat() if base_start_date else None,
+        "risk_flags": risk_flags if isinstance(risk_flags, list) else (risk_flags or []),
+        "confidence": float(confidence) if confidence is not None else None,
+        "reasoning": reasoning,
+        "llm_call_duration_s": float(dur) if dur is not None else None,
+        "llm_input_tokens": tok_in,
+        "llm_output_tokens": tok_out,
+    }
+
+
 def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = None) -> bytes:
-    """13 파일을 ZIP bytes 로 반환."""
+    """분석/검증 ZIP 빌더. 13 또는 15 파일 묶기.
+
+    종목에 weekly_classification 분류 이력이 있으면 analysis_result.json +
+    prompt_verify.md 를 추가해 *검증 모드 ZIP* (15 파일) 생성.
+    분류 이력 없으면 기존 *원본 분석 ZIP* (14 파일 — prompt_verify 항상 포함).
+    """
     if on_date is None:
         on_date = date.today()
 
@@ -64,6 +158,10 @@ def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = Non
     if row is None:
         raise ValueError(f"Stock not found: {ticker}")
     name, market, sector = row
+
+    # 분석 결과 (있다면) — 검증 모드 활성화 트리거
+    analysis_result = _fetch_latest_analysis_result(conn, ticker)
+    mode = "검증 (analysis_result 포함)" if analysis_result else "원본 분석"
 
     payload = build_payload(conn, ticker, on_date)
     market_ctx = build_market_context(conn, market, on_date)
@@ -79,20 +177,23 @@ def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = Non
     daily_chart_png = render_daily_chart(conn, ticker, range_days=365)
     weekly_chart_png = render_weekly_chart(conn, ticker, range_weeks=104)
 
+    prompt_step1 = (PROMPTS_DIR / "analyze_chart_v3.md").read_text(encoding="utf-8")
+    prompt_step2 = (PROMPTS_DIR / "calculate_entry_params_v2_0.md").read_text(encoding="utf-8")
+    prompt_verify = (PROMPTS_DIR / "verify_analysis_v1.md").read_text(encoding="utf-8")
+
     readme = README_TEMPLATE.format(
         ticker=ticker, name=name, market=market, sector=sector or "-",
         as_of_date=on_date.isoformat(),
         generated_at=datetime.now().isoformat(timespec="seconds"),
+        mode=mode,
     )
-
-    prompt_step1 = (PROMPTS_DIR / "analyze_chart_v3.md").read_text(encoding="utf-8")
-    prompt_step2 = (PROMPTS_DIR / "calculate_entry_params_v2_0.md").read_text(encoding="utf-8")
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("README.md", readme)
         zf.writestr("prompt_step1_analyze.md", prompt_step1)
         zf.writestr("prompt_step2_entry_params.md", prompt_step2)
+        zf.writestr("prompt_verify.md", prompt_verify)
         zf.writestr("payload.json", json.dumps(payload, ensure_ascii=False, indent=2))
         zf.writestr("market_context.json", json.dumps(market_ctx, ensure_ascii=False, indent=2))
         zf.writestr("corporate_actions.json", json.dumps(corp_actions, ensure_ascii=False, indent=2))
@@ -103,4 +204,6 @@ def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = Non
         zf.writestr("market_index_weekly.csv", market_index_weekly_csv)
         zf.writestr("daily_chart.png", daily_chart_png)
         zf.writestr("weekly_chart.png", weekly_chart_png)
+        if analysis_result is not None:
+            zf.writestr("analysis_result.json", json.dumps(analysis_result, ensure_ascii=False, indent=2))
     return buf.getvalue()
