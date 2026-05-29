@@ -93,9 +93,18 @@ pattern == 'flat_base' / 'VCP' / 'none' 등 → 적용 안 함.
 
 ### 3-2. 트리거 — 단독 강 트리거 (OR)
 
+> **공식 통일** (사용자 v4 지적): (A) 는 *깊이-퍼센트 비* 단일 공식 사용 — `base_depth_pct`
+> 가 이미 weekly_classification 저장 필드라 가격 레벨 차이에 견고. 범위차 비
+> (`(handle_high-handle_low)/(base_high-base_low)`) 는 사용하지 않음.
+
+```
+handle_depth_pct = (handle_high - handle_low) / handle_high × 100
+ratio_A          = handle_depth_pct / base_depth_pct
+```
+
 | 코드 | 조건 | 정량 정의 (시작값) | 임계 근거 |
 |------|------|-------------------|---------|
-| (A) Deep handle | handle 깊이가 base 깊이의 1/3 초과 | `(handle_high - handle_low) / (base_high - base_low) > 0.33` | **O'Neil HMMS p.116 — 예외** (고정) |
+| (A) Deep handle | handle 깊이%가 base 깊이%의 1/3 초과 | `ratio_A = handle_depth_pct / base_depth_pct > 0.33` | **O'Neil HMMS p.116 — 예외** (고정) |
 | (B) Volume not contracting | handle 평균 거래량이 base 평균 대비 충분히 감소 안 함 | `avg_volume(handle) / avg_volume(base) > 0.80` (= 20% 미만 감소) | **재조정 대상** — 사례 1건 기반 추정 |
 | (분배) | handle 구간 내 distribution day 발생 | `distribution_days_in_handle ≥ 1` | 분배 1건도 신호 (Phase 2-C 에서 정밀화) |
 
@@ -140,10 +149,17 @@ daily_prices 의 [base_start_date, classified_at - 1 거래일] 범위 OHLCV.
    handle_window = [handle_start_date, handle_end_date].
 ```
 
-**경계 케이스**:
-- `handle_end_date - handle_start_date < 3` 거래일 → 핸들 형성 너무 짧음 → 적용 안 함.
-- `pivot_basis != 'handle_high'` (예: range_high, ma50_breakout 등) → 적용 안 함.
-- `base_start_date` NULL 또는 base 정보 누락 → 적용 안 함.
+**경계 케이스 (전부 *적용 안 함* + 구조화 로그)**:
+- `handle_end_date - handle_start_date < 3` 거래일 → 핸들 형성 너무 짧음.
+- `pivot_basis != 'handle_high'` (예: range_high, ma50_breakout 등).
+- `base_start_date` NULL 또는 base 정보 누락.
+- `pivot_first_touched is None` (범위 내 handle_high 도달 거래일 없음).
+- `base_depth_pct <= 0` (방어).
+
+> **Silent false-negative 방지** (사용자 v4): 경계 불명확으로 *적용 안 함* 한 경우는
+> 반드시 `log.info('[handle_quality] skipped symbol=%s reason=%s', ...)` 로 남긴다.
+> "적용 안 함" 과 "검사했으나 미발화" 를 구분 — 전자는 *검사 자체 불가* 라 향후 휴리스틱
+> 개선 대상 추적용. cup_with_handle 인데 skip 된 종목 수를 운영 모니터링.
 
 #### 3-4-2. 트리거 계산 (의사 코드)
 
@@ -166,11 +182,13 @@ def compute_handle_quality(symbol, cls):
     if len(base_window) < 5: return None
 
     handle_low = handle_window.low.min()
-    base_high = float(cls.base_high)
     base_low = float(cls.base_low)
 
-    # (A) deep handle
-    ratio_a = (handle_high - handle_low) / (base_high - base_low)
+    # (A) deep handle — 깊이-퍼센트 비 (통일 공식, §3-2)
+    handle_depth_pct = (handle_high - handle_low) / handle_high * 100
+    base_depth_pct = float(cls.base_depth_pct)  # weekly_classification 저장 필드
+    if base_depth_pct <= 0: return None         # 방어 — 0 division
+    ratio_a = handle_depth_pct / base_depth_pct
     fired_a = ratio_a > 0.33
 
     # (B) volume not contracting
@@ -183,8 +201,8 @@ def compute_handle_quality(symbol, cls):
     dist_days = count_distribution_days_in_range(handle_window.date)
     fired_dist = dist_days >= 1
 
-    # 가중치 (E)/(F)
-    handle_center_date = handle_window.iloc[len(handle_window) // 2].date
+    # 가중치 (E)/(F) — (E) 는 *위치* 비라 base_high/low 가격 범위 사용 (깊이% 아님)
+    base_high = float(cls.base_high)
     handle_position_low = (handle_low - base_low) / (base_high - base_low) < 0.33
     last_close = handle_window.iloc[-1].close
     last_ma50 = handle_window.iloc[-1].ma50
@@ -228,15 +246,20 @@ def compute_handle_quality(symbol, cls):
 4. `metrics` 는 디버깅용 — `triggered_rules['2E_tier1/2'].handle_quality_metrics` 에 저장
    (필요 시).
 
-### 3-5. 005850 검증 예측 (정정)
+### 3-5. 005850 검증 예측 (통일 공식)
 
 - pattern = cup_with_handle ✓
-- pivot_basis = handle_high ✓ (§A: pivot=71900.10, handle_high)
-- base_depth_pct = 26.2% (§A 표)
-- 18% 폭락 + handle_low 추정 → handle_depth ≈ 18%, base_depth ≈ 26.2%
-- **ratio_A = 18 / 26.2 ≈ 0.687 > 0.33 → (A) 확정 발화** (1/3 임계 2배 초과)
+- pivot_basis = handle_high ✓ (§A: pivot=71900.10 = handle_high)
+- base_depth_pct = 26.2% (§A 표, 저장 필드)
+- 휴리스틱 도출 예상: handle_high ≈ 71,900, handle_low ≈ 58,900 (18% 폭락)
+- `handle_depth_pct = (71900 - 58900) / 71900 × 100 ≈ 18.08%`
+- **`ratio_A = 18.08 / 26.2 ≈ 0.690 > 0.33 → (A) 확정 발화`** (1/3 임계 2배 초과)
 - 분배일 동반 → (분배) 확정 발화
 - → **`handle_quality` 확정 발화** (단일 트리거 충분, 두 트리거 동반)
+
+> **회귀 1순위 리스크** (사용자 v4): 위 handle_low ≈ 58,900 은 *휴리스틱이 핸들을
+> 올바로 짚을 때* 의 예상값. 휴리스틱이 핸들 구간을 잘못 식별하면 ratio_A 가 어긋나
+> 회귀 전체가 깨진다. → plan 의 *첫 테스트* 가 005850 휴리스틱 경계 검증 (Task 2 Step 1).
 
 ## 4. 2-E two-tier 게이트
 
