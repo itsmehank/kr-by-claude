@@ -14,7 +14,7 @@ import { GATE_BREAKOUT_VOL_MULT } from "../data/thresholds.generated";
 import { ENTRY_PARAMS_FIELDS, FIELD_CATEGORIES } from "../data/llm-pipeline/entry-params-fields";
 import { ListFold } from "./llm-pipeline/ListFold";
 import { TableExplainerList } from "./llm-pipeline/TableExplainerList";
-import { MINERVINI_CONDITIONS as TT_CONDITIONS } from "../data/llm-pipeline-audit/minervini";
+import { TREND_TEMPLATE_CONDITIONS } from "../data/llm-pipeline/trend-template";
 import { BASE_PATTERNS } from "../data/llm-pipeline-audit/base-patterns";
 import { RISK_FLAGS } from "../data/llm-pipeline-audit/risk-flags";
 import { ZIP_FILES } from "../data/llm-pipeline-audit/zip-files";
@@ -411,12 +411,22 @@ function StageCard({ stage }: { stage: PipelineStage }) {
           </ListFold>
         )}
         {stage.llmShowsLists?.eightConditions && (
-          <ListFold label="Trend Template 8 조건 모두 보기" count={TT_CONDITIONS.length}>
-            <ol className="space-y-2 list-decimal list-inside">
-              {TT_CONDITIONS.map((c) => (
-                <li key={c.num}>
-                  <span className="text-ink font-semibold">{c.korean}</span>
-                  {c.threshold && <span className="text-muted"> — {c.threshold}</span>}
+          <ListFold label="Trend Template 8 조건 모두 보기" count={TREND_TEMPLATE_CONDITIONS.length}>
+            <div className="mb-3 text-muted">
+              <span className="text-ink font-semibold">minervini_pass = TRUE</span> 는 곧 *아래 8 조건을 모두 통과* 함을 뜻합니다.
+              Minervini <em>Trade Like a Stock Market Wizard</em> Ch.5 의 추세 식별 기준.
+            </div>
+            <ol className="space-y-3 list-decimal list-inside">
+              {TREND_TEMPLATE_CONDITIONS.map((c) => (
+                <li key={c.num} className="text-ink">
+                  <span className="font-semibold">{c.shortLabel}</span>
+                  <div className="ml-5 mt-1 text-muted">
+                    {c.meaning}
+                  </div>
+                  <div className="ml-5 mt-1 text-faint text-data-xs">
+                    <span className="num">{c.rule}</span>
+                    {c.threshold && <span> · {c.threshold}</span>}
+                  </div>
                 </li>
               ))}
             </ol>
