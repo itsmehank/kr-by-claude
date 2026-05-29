@@ -56,13 +56,16 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
 
 
 def _build_current_metrics(conn: Connection, ticker: str, on_date: date) -> dict:
+    """가격·거래량은 daily_prices 권위 소스, 52w·volume_ratio 는 daily_indicators."""
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT adj_close, w52_high, w52_low, pct_from_52w_high, pct_from_52w_low,
-                   avg_volume_50d, volume_ratio_50d
-              FROM daily_indicators
-             WHERE ticker = %s AND date <= %s
-             ORDER BY date DESC
+            SELECT p.adj_close, i.w52_high, i.w52_low,
+                   i.pct_from_52w_high, i.pct_from_52w_low,
+                   i.avg_volume_50d, i.volume_ratio_50d
+              FROM daily_prices p
+              LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
+             WHERE p.ticker = %s AND p.date <= %s
+             ORDER BY p.date DESC
              LIMIT 1
         """, (ticker, on_date))
         row = cur.fetchone()
@@ -76,15 +79,15 @@ def _build_current_metrics(conn: Connection, ticker: str, on_date: date) -> dict
             "volume_ma_50": None,
             "volume_ratio": None,
         }
-    close, hi, lo, pct_hi, pct_lo, avg_vol, vol_ratio = row
+    adj_close, wh, wl, pct_hi, pct_lo, av, vr = row
     return {
-        "close": float(close) if close is not None else None,
-        "w52_high": float(hi) if hi is not None else None,
-        "w52_low": float(lo) if lo is not None else None,
+        "close": float(adj_close) if adj_close is not None else None,
+        "w52_high": float(wh) if wh is not None else None,
+        "w52_low": float(wl) if wl is not None else None,
         "pct_above_w52_low": float(pct_lo) if pct_lo is not None else None,
         "pct_below_w52_high": float(pct_hi) if pct_hi is not None else None,
-        "volume_ma_50": float(avg_vol) if avg_vol is not None else None,
-        "volume_ratio": float(vol_ratio) if vol_ratio is not None else None,
+        "volume_ma_50": float(av) if av is not None else None,
+        "volume_ratio": float(vr) if vr is not None else None,
     }
 
 
@@ -134,28 +137,38 @@ def _fetch_weekly_ohlcv(conn: Connection, ticker: str, on_date: date, weeks: int
 
 
 def _fetch_indicators_recent(conn: Connection, ticker: str, on_date: date, days: int = 60) -> list:
+    """daily_prices(가격·거래량) + daily_indicators(지표) JOIN → 최근 N일 series."""
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT date, sma_10, sma_50, sma_150, sma_200, rs_line, rs_rating,
-                   avg_volume_50d, volume_ratio_50d, pocket_pivot_flag, distribution_day_flag
-              FROM daily_indicators
-             WHERE ticker = %s AND date <= %s
-             ORDER BY date DESC LIMIT %s
+            SELECT p.date, p.adj_close, p.volume,
+                   i.sma_10, i.sma_21, i.sma_50, i.sma_150, i.sma_200,
+                   i.w52_high, i.w52_low, i.rs_line, i.rs_rating, i.minervini_pass,
+                   i.avg_volume_50d, i.volume_ratio_50d, i.pocket_pivot_flag, i.distribution_day_flag
+              FROM daily_prices p
+              LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
+             WHERE p.ticker = %s AND p.date <= %s
+             ORDER BY p.date DESC LIMIT %s
         """, (ticker, on_date, days))
         rows = cur.fetchall()
     return [
         {
             "date": r[0].isoformat(),
-            "sma_10": float(r[1]) if r[1] is not None else None,
-            "sma_50": float(r[2]) if r[2] is not None else None,
-            "sma_150": float(r[3]) if r[3] is not None else None,
-            "sma_200": float(r[4]) if r[4] is not None else None,
-            "rs_line": float(r[5]) if r[5] is not None else None,
-            "rs_rating": int(r[6]) if r[6] is not None else None,
-            "volume_ma_50": float(r[7]) if r[7] is not None else None,
-            "volume_ratio": float(r[8]) if r[8] is not None else None,
-            "pocket_pivot_flag": bool(r[9]) if r[9] is not None else None,
-            "distribution_day_flag": bool(r[10]) if r[10] is not None else None,
+            "adj_close": float(r[1]) if r[1] is not None else None,
+            "volume": int(r[2]) if r[2] is not None else None,
+            "sma_10": float(r[3]) if r[3] is not None else None,
+            "sma_21": float(r[4]) if r[4] is not None else None,
+            "sma_50": float(r[5]) if r[5] is not None else None,
+            "sma_150": float(r[6]) if r[6] is not None else None,
+            "sma_200": float(r[7]) if r[7] is not None else None,
+            "w52_high": float(r[8]) if r[8] is not None else None,
+            "w52_low": float(r[9]) if r[9] is not None else None,
+            "rs_line": float(r[10]) if r[10] is not None else None,
+            "rs_rating": int(r[11]) if r[11] is not None else None,
+            "minervini_pass": bool(r[12]) if r[12] is not None else None,
+            "volume_ma_50": float(r[13]) if r[13] is not None else None,
+            "volume_ratio": float(r[14]) if r[14] is not None else None,
+            "pocket_pivot_flag": bool(r[15]) if r[15] is not None else None,
+            "distribution_day_flag": bool(r[16]) if r[16] is not None else None,
         }
         for r in reversed(rows)
     ]

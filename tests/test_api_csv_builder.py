@@ -7,6 +7,13 @@ def _seed_daily(db, ticker="DAILY1", n=10):
         cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s, 'D', 'KOSPI') ON CONFLICT DO NOTHING", (ticker,))
         for i in range(n):
             d = date(2026, 5, 1) + timedelta(days=i)
+            # 가격·거래량 권위 소스 = daily_prices (Phase 0 Step 2 fix)
+            cur.execute(
+                """INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
+                   VALUES (%s, %s, 100, 105, 95, 100, 100, 1000, 100000)
+                   ON CONFLICT DO NOTHING""",
+                (ticker, d),
+            )
             cur.execute(
                 """INSERT INTO daily_indicators (ticker, date, adj_close, volume, sma_50)
                    VALUES (%s, %s, 100, 1000, 95)

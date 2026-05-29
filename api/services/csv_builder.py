@@ -5,8 +5,10 @@ import io
 from psycopg import Connection
 
 
-DAILY_COLUMNS = [
-    "date", "adj_close", "volume",
+# 가격·거래량은 daily_prices 권위 소스. 지표는 daily_indicators.
+# Phase 0 fix — partial intraday snapshot 오염 방지 (검증자 v2 §4).
+
+DAILY_INDICATOR_COLUMNS = [
     "sma_10", "sma_21", "sma_50", "sma_150", "sma_200",
     "w52_high", "w52_low",
     "rs_line", "rs_rating",
@@ -17,15 +19,20 @@ DAILY_COLUMNS = [
 
 
 def build_daily_csv(conn: Connection, ticker: str, days: int = 60) -> bytes:
-    """daily_indicators 최근 N일 → CSV bytes."""
-    cols_sql = ", ".join(DAILY_COLUMNS)
+    """daily_prices(가격·거래량) + daily_indicators(지표) JOIN → CSV bytes.
+
+    가격·거래량 권위 소스 = daily_prices. 지표는 daily_indicators.
+    """
+    indicator_cols_sql = ", ".join(f"i.{c}" for c in DAILY_INDICATOR_COLUMNS)
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            SELECT {cols_sql}
-              FROM daily_indicators
-             WHERE ticker = %s
-             ORDER BY date DESC
+            SELECT p.date, p.adj_close, p.volume,
+                   {indicator_cols_sql}
+              FROM daily_prices p
+              LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
+             WHERE p.ticker = %s
+             ORDER BY p.date DESC
              LIMIT %s
             """,
             (ticker, days),
@@ -35,7 +42,8 @@ def build_daily_csv(conn: Connection, ticker: str, days: int = 60) -> bytes:
 
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(DAILY_COLUMNS)
+    header = ["date", "adj_close", "volume"] + DAILY_INDICATOR_COLUMNS
+    writer.writerow(header)
     for row in rows:
         writer.writerow([_fmt(v) for v in row])
     return buf.getvalue().encode("utf-8")
