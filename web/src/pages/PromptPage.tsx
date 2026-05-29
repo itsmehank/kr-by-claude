@@ -10,6 +10,8 @@ import {
   Package,
   Download,
   Search,
+  ShieldAlert,
+  Archive,
 } from "lucide-react";
 import { api, apiUrl } from "../lib/api";
 import type { Stock, MinerviniPassed, MarketContext } from "../lib/types";
@@ -652,6 +654,86 @@ function BatchDownloadCard() {
   );
 }
 
+// ── Verify Download Button ──────────────────────────────────────────────────
+
+interface VerifyDownloadButtonProps {
+  ticker: string;
+  today: string;
+}
+
+function VerifyDownloadButton({ ticker, today }: VerifyDownloadButtonProps) {
+  const [freezeOrigin, setFreezeOrigin] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleVerifyDownload = async () => {
+    setDownloading(true);
+    setFreezeOrigin(null);
+    try {
+      const resp = await fetch(`/api/prompts/${ticker}.zip?mode=verify`);
+      const origin = resp.headers.get("X-Freeze-Origin");
+      setFreezeOrigin(origin);
+      if (!resp.ok) return;
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `analysis-${ticker}-${today}-verify.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <button
+        onClick={handleVerifyDownload}
+        disabled={downloading}
+        className="w-full flex items-center justify-between gap-4 bento bento-clickable p-5 group hover:border-success disabled:opacity-60"
+      >
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-2xl bg-tint-mint text-success">
+            <Archive size={20} strokeWidth={2} />
+          </div>
+          <div>
+            <div className="text-subhead font-bold text-ink">
+              검증용 패키지 (Frozen 우선)
+            </div>
+            <div className="text-data text-muted mt-0.5">
+              분류 시점 원본 데이터 우선 반환 — 없으면 재빌드
+            </div>
+          </div>
+        </div>
+        <span className="chip bg-tint-mint text-success">
+          {downloading ? "다운로드 중…" : "verify · ZIP"}
+        </span>
+      </button>
+
+      {/* Warning banner: frozen not available */}
+      {freezeOrigin === "rebuilt" && (
+        <div className="flex items-start gap-2.5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-data text-amber-800">
+          <ShieldAlert size={16} className="shrink-0 mt-0.5 text-amber-600" />
+          <div>
+            <span className="font-semibold">원본 아님 (재빌드됨)</span>
+            {" — "}
+            분류 시점의 freeze 데이터가 없어 현재 시점으로 재빌드된 패키지입니다.
+            재빌드본은 렌더 코드 변경 시 원본과 다를 수 있습니다.
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation: frozen available */}
+      {freezeOrigin === "frozen" && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-tint-mint rounded-xl text-data text-success">
+          <CheckCircle2 size={14} />
+          분류 시점 원본 freeze 데이터로 다운로드됐습니다.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ───────────────────────────────────────────────────────────────
 
 type PromptMode = "single" | "batch";
@@ -722,6 +804,7 @@ export default function PromptPage() {
             <div className="space-y-5">
               <PreviewCard ticker={ticker} />
 
+              {/* Standard download */}
               <a
                 href={apiUrl(`/prompts/${ticker}.zip`)}
                 download={`analysis-${ticker}-${today}.zip`}
@@ -744,6 +827,9 @@ export default function PromptPage() {
                   14~15 files · ZIP
                 </span>
               </a>
+
+              {/* Verify download (frozen 우선) */}
+              <VerifyDownloadButton ticker={ticker} today={today} />
 
               <ZipContentsList />
             </div>
