@@ -195,12 +195,12 @@ const STAGES: PipelineStage[] = [
 // Mermaid diagram sources
 
 const DIAGRAM_DATA_FLOW = `graph LR
-    W["주말 batch<br/>(토 03:20)<br/>결정론 통과 전체 재분류"] -->|새 행 추가| B[("분류 결과 테이블<br/>weekly_classification<br/>watch / entry / ignore")]
-    A["평일 신규 분류<br/>(daily_delta)<br/>오늘 새로 통과한 종목만"] -->|새 행 추가| B
-    B -->|매일 활성 종목 선별<br/>(최신 분류만)| C{"평일 트리거 평가<br/>(결정론 게이트)"}
+    W["주말 batch<br/>토 03:20<br/>결정론 통과 전체 재분류"] -->|새 행 추가| B[("분류 결과 테이블<br/>weekly_classification<br/>watch / entry / ignore")]
+    A["평일 신규 분류<br/>— daily_delta<br/>오늘 새로 통과한 종목만"] -->|새 행 추가| B
+    B -->|매일 활성 종목 선별<br/>— 최신 분류만| C{"평일 트리거 평가<br/>— 결정론 게이트"}
     C -->|돌파 / 직전 staging<br/>/ base 무효| D["AI 평가"]
     D -->|go_now / wait / abort| E[("트리거 평가 로그<br/>trigger_evaluation_log")]
-    E -->|go_now + 진짜 돌파<br/>(staging 차단 안전장치)| F["매수 계획 작성<br/>(AI 호출)"]
+    E -->|go_now AND 진짜 돌파<br/>— staging 차단 안전장치| F["매수 계획 작성<br/>— AI 호출"]
     F --> G[("매수 계획 테이블<br/>entry_params<br/>18 필드 매수 시그널")]
     G -->|매일 자동| H["성과 추적<br/>1주·2주·4주·8주 후"]
     H --> I[("성과 테이블<br/>signal_performance")]
