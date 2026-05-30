@@ -100,6 +100,20 @@ def test_ignore_with_handle_quality_stays_ignore(monkeypatch, db):
     assert tr is None or ("2E_tier1" not in tr and "2E_tier2" not in tr), "entry 아니므로 2E 기록 없음"
 
 
+def test_tier1_conf_none_capped(monkeypatch, db):
+    """confidence=None 인 entry 도 handle_quality 발화 시 cap 값으로 설정."""
+    monkeypatch.setattr(gates, "compute_handle_quality",
+                        lambda *a, **k: {"fired": True, "reasons": ["deep_handle"], "weights": [], "metrics": {}})
+    monkeypatch.setattr(gates, "compute_failed_breakout", lambda *a, **k: None)
+
+    result = _base_result(classification="entry", confidence=None, risk_flags=[])
+    out, tr = gates.apply_phase1_gates(db, "TCN", datetime(2026, 1, 1, tzinfo=timezone.utc), result)
+
+    assert out["classification"] == "watch"
+    assert out["confidence"] == 0.60   # Tier1 cap
+    assert "2E_tier1" in tr
+
+
 def test_watch_with_handle_quality_stays_watch_no_cap(monkeypatch, db):
     """watch + handle_quality → watch 유지, confidence 무변경 (강등 룰 아님)."""
     monkeypatch.setattr(gates, "compute_handle_quality",

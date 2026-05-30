@@ -6,15 +6,12 @@ risk_flags=관찰, triggered_rules=판단 이력 (중복 저장 금지).
 """
 from __future__ import annotations
 
-import logging
 from typing import Optional
 
 from psycopg import Connection
 
 from kr_pipeline.llm_runner.compute.handle_quality import compute_handle_quality
 from kr_pipeline.llm_runner.compute.failed_breakout import compute_failed_breakout
-
-log = logging.getLogger(__name__)
 
 TIER1_CONF_CAP = 0.60
 TIER2_CONF_CAP = 0.50
@@ -26,6 +23,7 @@ def apply_phase1_gates(
     """result 를 in-place 갱신하고 (mutated_result, triggered_rules) 반환.
 
     triggered_rules 는 발화 룰이 하나도 없으면 None.
+    confidence 가 None 이면 강등 시 cap 값 (Tier1 0.60 / Tier2 0.50) 으로 설정된다.
     """
     triggered: dict = {}
     risk_flags = list(result.get("risk_flags", []))
