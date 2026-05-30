@@ -155,3 +155,44 @@ Phase 1 작업이 새 실패를 추가하지 않았음 확인. 26개 모두 week
 | `CONSECUTIVE_BELOW` | 2 | `failed_breakout.py` |
 
 **결론**: `thresholds.py` 를 소비하지 않으므로 CLAUDE.md 의 threshold-change-checklist 의존성 맵 작성 불요 (현 사이클). Phase 2 에서 위 4개 상수를 `thresholds.py` SSOT 로 이관 예정.
+
+---
+
+## 005850 핸들 창 실측 검증 (사용자 v6 요청 — 과확장 점검)
+
+`pivot(handle_high)=71,900` · `base_high=73,400` · `base_low=54,200` · `base_depth=26.2%` · `base_start=2026-02-27` · `classified_at=2026-05-29`.
+
+휴리스틱 출력 (61봉):
+- **cup_bottom** = 2026-04-07, low **53,200** (베이스 중앙 — 정상)
+- **right_rim** = 2026-05-15, high **72,600** (≥ pivot)
+- **handle 창** = 2026-05-15 ~ 2026-05-28 (9봉, 우측 림 이후로 분리)
+- **handle_low** = **57,000** (2026-05-20 장중 low; 그날 종가 58,900)
+
+| 점검 | 결과 |
+|---|---|
+| 핸들 창이 컵 바닥으로 과확장? | **아니오** — handle_low 57,000 > cup_bottom 53,200. 창이 우측 림(5/15) 이후로 깨끗이 분리 |
+| ratio_a=0.791 의 출처 | **장중 low(57,000) 기준**. 종가(58,900) 기준이면 0.690. (사용자 가설 확정) |
+| 발화 견고성 | 장중/종가 모두 0.33 압도 (0.79 / 0.69) → 005850 발화는 기준 선택과 무관 |
+
+핸들 형태: 5/15 우측 림(close 71,900=pivot) → 5/18~5/20 **~20% 눌림**(low 57,000) → 5/22~5/28 pivot 위로 돌파(high 77,300→79,500). 진짜 *결함성 깊은 핸들* — handle_quality 발화 + 2E_tier2 강등 정당.
+
+**모델링 노트 (Phase 2 재조정 후보)**: spec §3 은 handle depth 에 *장중 low* (`min(low)`) 사용. 0.33 경계 *근처* 종목은 intraday vs close 선택이 발화를 뒤집을 수 있음 → Phase 2 에서 "handle depth 기준 = 장중 low vs 종가" 명시 결정 필요. (005850 은 무관.)
+
+---
+
+## ⛔ Phase 2 (verify sync) 는 *필수* — 검증 루프 가동 전 선행 (사용자 v6)
+
+현재 2-A 는 **후처리-온리** (prompt 미갱신). 검증 루프(verify_analysis)에 쓰기 전 반드시 sync 해야 하는 이유:
+
+1. **(a) 설명↔판정 불일치**: LLM reasoning 글은 여전히 'entry 옹호' 인데 후처리가 분류를 watch 로 강등 → 분석 패키지 안에서 *reasoning 과 classification 이 모순*. 검증자(사람/LLM)가 보면 일관성 결함으로 읽힌다. prompt 에 2-E 룰을 넣어 LLM 이 *처음부터* watch + 일관 reasoning 을 내게 해야 함 (후처리는 이중 보장으로 잔존).
+2. **(b) 검증자가 handle_quality 를 모름**: `prompts/verify_analysis_v1.md` 와 평가 루프가 14번째 flag(handle_quality) 의 정의·트리거를 모른다 → 검증자가 그 flag 의 타당성을 평가할 수 없음. verify prompt 에 handle_quality 정의 + 2-E/2-F 룰 동기화 필수.
+
+**결론**: 2-B/C/D fast-follow 후 **Phase 2 sync 를 검증 루프 사용 전 하드 선행**. (thresholds.py SSOT 이관도 Phase 2 에 포함 — 위 섹션.)
+
+---
+
+## 재개 시 순서 (배치)
+
+1. **프로덕션 검증 (지금 대기)**: 다음 운영 사이클(weekend/daily_delta, gate 통합된 store 경유)이 005850 을 watch 로 *실제 재저장* 하고, triggered_rules 에 2E_tier2 가 기록되며, entry_params 후보에서 2E_tier2 차단으로 005850 이 빠지는지(=entry_params 보류 해제) 프로덕션에서 확인.
+2. **2-B** (wide_and_loose KOSPI 분기) / **2-C** (분배 클러스터) / **2-D** (RS divergence) — fast-follow, 같은 후처리-온리 패턴.
+3. **Phase 2 sync** (필수, 위 ⛔): prompt 텍스트 + thresholds.py SSOT + verify prompt 동기화 → 이후 검증 루프 가동 가능.
