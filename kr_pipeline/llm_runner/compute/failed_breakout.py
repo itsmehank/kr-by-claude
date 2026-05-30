@@ -34,6 +34,7 @@ def compute_failed_breakout(
                  max_close_in_window, pivot) 또는 None.
     """
     if pivot_price is None:
+        log.info("[failed_breakout] skipped symbol=%s reason=pivot_price is None", symbol)
         return None
     if base_start_date is None:
         log.info("[failed_breakout] skipped symbol=%s reason=base_start_date is None", symbol)
@@ -66,6 +67,7 @@ def compute_failed_breakout(
         return None  # 돌파 없음
 
     window = rows[d0_idx + 1: d0_idx + 1 + K_DAYS]  # D1~D5
+    # window 가 K=5 미만 (D0 가 데이터 끝 근처) 이면 P2 가 민감해질 수 있음 — Phase 2 재조정 대상
     if not window:
         return None
 
