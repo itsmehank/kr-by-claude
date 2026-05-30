@@ -166,8 +166,10 @@ analyze prompt 의 risk taxonomy 13 → 14 (handle_quality 추가). verify 의 r
 2. **analyze prompt** — measurement 정식 필드 + 트리 Gate0~3(4분기 명시) + 허용밴드 + 14th flag. (DB: weekly_classification measurement 컬럼.)
 3. **verify prompt** — 6차원 + layer-분리 체크규칙 + 6 정식 출력 필드.
 4. **backstop** — `gates.py` monotone-combine 리팩토링 (detector 제거).
-5. **Q2 진단 → 재측정 게이트 → 2-B/C/D 해제**:
-   - **Q2 역할(이동)**: 스캐폴딩(step2)은 Q2 결과와 *무관히 무조건 적용* (스캐폴딩이 low-regret). 따라서 Q2 는 "어느 fix 할지 결정"이 아니라 **fix 후 검증 + 밴드 calibration + 잔여 진단**. step2 의 ±5% 밴드는 잠정값이고 Q2 가 수정 가능 → **step2 재방문 루프 가능성** 존재. (Q2 를 옛 prompt 에 먼저 돌려 진단 확인할지는 선택 — build-first 도 정당, 의도적 선택임만 표기.)
+5. **재측정 게이트 → 2-B/C/D 해제** (★ **build-first 확정**):
+   - **타이밍 = build-first** (diagnose-first 아님). 근거: 밴드 calibration 이 필요로 하는 건 *새 프롬프트가 depth 를 명시 요청했을 때의 회차 분산* 인데, 옛 프롬프트는 depth 를 암묵적(게슈탈트 부산물)으로 읽어 분포가 다름(통상 더 좁음) → 옛 분포로 맞추면 *틀린 분포에 calibrate* (diagnose-first/hybrid 공통 함정). 또 스캐폴딩이 무조건 적용(low-regret)이라 사전 진단이 가지칠 분기가 없음.
+   - **Q2 역할(이동)**: 스캐폴딩(step2)은 진단과 *무관히 무조건 적용*. 따라서 Q2 는 "어느 fix 할지 결정"이 아니라 **fix 후 검증 + 밴드 calibration + 잔여 진단** (= §10 진단형 게이트가 그 자리).
+   - **±5% = 고정 시작값** (기존 정책값). 고정 밴드로 build → 1회 재측정이 calibration 겸 검증 → "스캐폴딩이 먹혔나"를 밴드폭 선택과 *분리* 해 깨끗이 읽음(confound 제거). 재측정에서 feature 가 밴드 straddle 로 흔들리면 → **그때 밴드 폭 수정 후 step2 1회 재방문**.
    - **측정 스펙**: 005850 5+회 — 선행상승%·depth%·U/V·핸들위치·50일선 대비·drift·핸들거래량 + **각 측정값 회차간 분산**(특히 depth, 밴드 calibration 입력).
 
 ## 10. 재측정 HARD GATE (수용 기준)
