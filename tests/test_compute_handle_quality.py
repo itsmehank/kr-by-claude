@@ -107,6 +107,8 @@ def test_distribution_in_handle_fires(db):
     cls = _cls(base_depth=30.0, base_start=start, classified_at=datetime(2026, 4, 15, tzinfo=timezone.utc))
     r = compute_handle_quality(db, "HQDIST", cls["classified_at"], cls)
     assert r is not None and "distribution_in_handle" in r["reasons"]
+    assert "deep_handle" not in r["reasons"]
+    assert "volume_not_contracting" not in r["reasons"]
 
 
 def test_not_cup_with_handle_skipped(db):

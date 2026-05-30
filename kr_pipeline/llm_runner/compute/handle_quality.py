@@ -7,14 +7,14 @@ spec §3. 핵심 잣대 = 변동성 수축·거래량 마름 (위치 아님). lo
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Optional
 
 from psycopg import Connection
 
 log = logging.getLogger(__name__)
 
-# 임계 (spec §3-2). 0.33 = O'Neil HMMS p.116 예외(고정), 0.80 = 재조정 대상.
+# 임계 (spec §3-2). 0.33 = O'Neil HMMS p.116 예외(고정), 0.80 = 재조정 대상. Phase 2 에서 thresholds.py 로 이관 예정.
 DEEP_HANDLE_RATIO = 0.33
 VOLUME_NOT_CONTRACTING_RATIO = 0.80
 MIN_HANDLE_DAYS = 3
@@ -85,7 +85,7 @@ def compute_handle_quality(
         return skip("right rim not recovered after cup bottom")
 
     base_rows = rows[:right_rim_idx]
-    handle_rows = rows[right_rim_idx:]
+    handle_rows = rows[right_rim_idx:]  # right_rim 봉 포함 — 그 low 도 handle 바닥 계산에 들어감
     if len(handle_rows) < MIN_HANDLE_DAYS:
         return skip(f"handle window too short ({len(handle_rows)} days)")
     if len(base_rows) < MIN_BASE_DAYS:
