@@ -133,7 +133,10 @@
 | **F5** | P2-1d-KOSPI 분기 (`wide_and_loose` 10–15% × 1.3) | KOSPI 만 13–19% 로 스케일 | cron: KOSPI 종목 `wide_and_loose` false-flag 빈도 누적 |
 | **F6 + B-수치** | ATR 전환 검토 + status.py 시간 상수 재검토 (10/90/6) | σ vs ATR 측정 비교 후 도구 결정 | cron: σ-기반 vs ATR-기반 FTD 임계 측정 비교 |
 | **(γ) Finalized 가드** | 진짜 freshness 신호 — pipeline_runs.ohlcv 마지막 성공 run finished_at 이 해당 거래일 마감 이후인지 점검. (α) divergence 가드의 한계 (동일 partial 모드 미검출) 보완 | 운영 중 동일-partial 케이스 실제 발생 시 (현재까지는 (α) 충분) |
-| **Phase 1 (룰 강화)** | 검증자 v2 §7 의 3 결정: ① handle 인코딩 (handle_quality 14th flag), ② 2-E two-tier (Tier 1 soft watch conf≤0.6 + Tier 2 hard watch), ③ 2-F failed_breakout K 값 (3~5) 확정. 이후 2-B/2-C/2-D 적용 → Phase 2 verify sync → Phase 3 이중 회귀 (005850 + 037760) → Phase 4 ROADMAP. | **즉시 착수** — Phase 0 종료 (2026-05-29) + entry_params 사이클 보류 상태 길어지면 안 됨 |
+| **Phase 1 2-A 완료** (hard gate 통과: 005850→watch/2E_tier2, 037760→2F) | ① handle_quality 14th flag, ② 2-E two-tier (Tier1 soft conf≤0.6 / Tier2 hard watch), ③ 2-F failed_breakout K=5/consecutive=2 확정. gate 통합 완료 → 다음 분류 사이클부터 자동 적용. **005850 의 기존 entry 행은 다음 재분류 시 watch 로 갱신됨** (이번 회귀 스크립트는 in-memory gate 만 검증, DB 재분류 안 함). entry_params 보류 해제는 005850 이 재분류 사이클을 거쳐 watch 로 저장된 후. | DONE — 2026-05-30 |
+| **Phase 1 2-B** (wide_and_loose 하드 게이트) | `wide_and_loose` 플래그 기반 gate — false-flag 빈도 측정 후 hard gate 추가. Phase 2 verify sync 전 선행. | Phase 2 verify sync 전 fast-follow |
+| **Phase 1 2-C** (분배 클러스터 하드 게이트) | handle/base 내 distribution_day 클러스터 집중 → entry 거부 게이트. Phase 2 verify sync 전 선행. | Phase 2 verify sync 전 fast-follow |
+| **Phase 1 2-D** (RS divergence 하드 게이트) | pivot 접근 중 RS line 하락 분기 → entry 거부 게이트. Phase 2 verify sync 전 선행. | Phase 2 verify sync 전 fast-follow |
 | **FREEZE 풀버전 (후속 사이클)** | entry_params / pivot freeze 한 줄 추가 + S3 백엔드 + UI diff 시각화 | Phase 1~3 종료 후 |
 | **P2-3** (선택) | candidate VCP footprint payload 보조 (zigzag) | LLM 시각 판정 앵커 | 결정 자체 대기 (할지 여부) |
 | (별개) | prompt (.md) 자동 동기화 | SSOT-1 의 잔존 — 현재 prompt 텍스트 임계는 수동 동기화 | 미발의 (선택 candidate) |

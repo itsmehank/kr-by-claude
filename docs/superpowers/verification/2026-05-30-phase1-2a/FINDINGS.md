@@ -95,3 +95,63 @@
 | 037760: watch 유지 (강등 없음) | PASS |
 
 Phase 1 2-A Hard Gate 통과. 2-B/C/D 진입 허가.
+
+---
+
+## 전체 회귀 (Task 8 Step 1)
+
+**실행**: `uv run pytest tests/` — 2026-05-30
+
+**결과**: 401 passed, 26 failed (baseline 동일)
+
+### Phase 1 신규 테스트 — 전부 PASS
+
+| 테스트 파일 | 테스트 수 | 결과 |
+|---|---|---|
+| test_schema_triggered_rules.py | 2 | PASS |
+| test_compute_handle_quality.py | 7 | PASS |
+| test_compute_failed_breakout.py | 6 | PASS |
+| test_gates_phase1.py | 7 | PASS |
+| test_store_phase1_gate.py | 2 | PASS |
+| test_entry_params_tier2_block.py | 1 | PASS |
+
+**계**: 25개 신규 테스트 전부 PASS.
+
+### 26개 실패 — 전부 pre-existing isolation/DB 격리
+
+| 파일 | 해당 실패 |
+|---|---|
+| test_weekly_integration.py | 3 (DB isolation) |
+| test_weekly_modes.py | 2 (DB isolation) |
+| test_universe_store.py | 3 (DB isolation) |
+| test_llm_store_load.py | 4 (psycopg/expires_at schema isolation) |
+| test_llm_compute_delta.py | 2 (psycopg isolation) |
+| test_llm_compute_payload_lite.py | 2 (DB isolation) |
+| test_llm_daily_delta.py | 1 (TypeError dry_run) |
+| test_llm_entry_params.py | 1 (DB isolation) |
+| test_llm_weekend.py | 1 (DB isolation) |
+| test_indicators_integration.py | 1 (DB isolation) |
+| test_integration.py | 1 (DB isolation) |
+| test_ohlcv_modes.py | 2 (AssertionError coverage) |
+| test_schema_llm_runner.py | 1 (AssertionError schema) |
+| test_api_runner_service.py | 1 (DB isolation) |
+| test_api_zip_builder.py | 1 (DB isolation) |
+
+Phase 1 작업이 새 실패를 추가하지 않았음 확인. 26개 모두 weekly/llm/ohlcv DB 격리·schema 불일치 계열의 pre-existing 실패.
+
+---
+
+## thresholds.py 미이관 — Phase 2 SSOT sync 대상
+
+`grep -n "0.33\|handle\|failed_breakout\|DEEP_HANDLE\|K_DAYS" kr_pipeline/common/thresholds.py` 결과: 해당 없음 (K_DAYS, DEEP_HANDLE_RATIO 등 없음).
+
+현재 Phase 1 2-A 의 compute 모듈 (`handle_quality.py`, `failed_breakout.py`) 은 아래 상수를 모듈 로컬로 보유하며 `thresholds.py` 를 소비하지 않음:
+
+| 상수 | 값 | 위치 |
+|---|---|---|
+| `DEEP_HANDLE_RATIO` | 0.33 | `handle_quality.py` |
+| `VOLUME_NOT_CONTRACTING_RATIO` | 0.80 | `handle_quality.py` |
+| `K_DAYS` | 5 | `failed_breakout.py` |
+| `CONSECUTIVE_BELOW` | 2 | `failed_breakout.py` |
+
+**결론**: `thresholds.py` 를 소비하지 않으므로 CLAUDE.md 의 threshold-change-checklist 의존성 맵 작성 불요 (현 사이클). Phase 2 에서 위 4개 상수를 `thresholds.py` SSOT 로 이관 예정.
