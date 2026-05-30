@@ -18,6 +18,8 @@ def test_triggered_rules_column_exists_and_nullable(db):
 def test_triggered_rules_accepts_jsonb_and_key_query(db):
     """? 연산자로 룰 키 조회 가능해야 (회귀 검증의 기반)."""
     with db.cursor() as cur:
+        # 이전 실패 run 잔재 제거 (commit 없이 동일 트랜잭션 내 정리)
+        cur.execute("DELETE FROM weekly_classification WHERE symbol = 'TRTEST'")
         cur.execute(
             "INSERT INTO stocks (ticker, name, market) VALUES ('TRTEST','TRTEST','KOSPI') ON CONFLICT DO NOTHING"
         )
@@ -26,7 +28,8 @@ def test_triggered_rules_accepts_jsonb_and_key_query(db):
               (symbol, classified_at, market, classification, source, triggered_rules)
             VALUES ('TRTEST', NOW(), 'KOSPI', 'watch', 'test', %s)
         """, ('{"2E_tier2": {"fired": true}}',))
-        db.commit()
+        # db.commit() 제거 — conftest db fixture 의 rollback 격리에 맡김.
+        # 같은 트랜잭션 내 INSERT 후 SELECT 는 자기 쓰기를 보므로 commit 불요.
         cur.execute("""
             SELECT COUNT(*) FROM weekly_classification
              WHERE symbol = 'TRTEST' AND triggered_rules ? '2E_tier2'
