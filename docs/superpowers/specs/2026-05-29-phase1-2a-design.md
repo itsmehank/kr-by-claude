@@ -134,26 +134,30 @@ ratio_A          = handle_depth_pct / base_depth_pct
 | `avg_volume(base)`, `avg_volume(handle)` | daily_prices 의 volume 으로 직접 계산 |
 | `distribution_days_in_handle` | `market_context_daily.distribution_day` flag 의 handle 구간 내 카운트 |
 
-#### 3-4-1. 핸들 경계 휴리스틱
+#### 3-4-1. 핸들 경계 휴리스틱 — **컵 바닥 이후 오른쪽 림** (사용자 v5 수정)
+
+> **버그 수정**: 단순 "범위 내 첫 `high >= handle_high`" 는 컵의 *왼쪽 림* (base 시작
+> 부근) 을 잡는다. 핸들은 컵 바닥을 지나 *오른쪽 림* 이 회복된 *이후* 의 마지막 눌림이다.
+> 따라서 cup_bottom 을 먼저 찾고, 그 *이후* 의 오른쪽 림 도달부터를 핸들로 본다.
 
 ```
 입력: base_start_date, classified_at, handle_high (= pivot_price)
-daily_prices 의 [base_start_date, classified_at - 1 거래일] 범위 OHLCV.
+daily_prices 의 [base_start_date, classified_at - 1 거래일] 범위 OHLCV = rows.
 
-1. pivot_first_touched = 그 범위에서 high >= handle_high 인 *첫* 거래일.
-   - 없으면 → 핸들 경계 식별 불가 → handle_quality 적용 안 함 (return None).
-2. handle_start_date = pivot_first_touched.
-3. handle_end_date = classified_at - 1 거래일.
-4. handle_low = [handle_start_date, handle_end_date] 범위의 min(low).
-5. base_window = [base_start_date, pivot_first_touched - 1 거래일].
-   handle_window = [handle_start_date, handle_end_date].
+1. cup_bottom_idx = rows 중 low 가 최소인 인덱스 (컵 바닥).
+2. right_rim_idx = cup_bottom_idx *이후* 에서 high >= handle_high 인 *첫* 거래일.
+   - 없으면 → 오른쪽 림 미회복 → 적용 안 함 (return None + log).
+3. handle_window = rows[right_rim_idx .. 끝]  (오른쪽 림 도달 ~ classified_at 직전).
+4. base_window  = rows[.. right_rim_idx]      (거래량 평균 계산용; depth 는 base_depth_pct 사용).
+5. handle_low   = handle_window 의 min(low).  handle_high = pivot_price.
 ```
 
 **경계 케이스 (전부 *적용 안 함* + 구조화 로그)**:
-- `handle_end_date - handle_start_date < 3` 거래일 → 핸들 형성 너무 짧음.
+- `len(handle_window) < 3` 거래일 → 핸들 형성 너무 짧음 (아직 미형성).
+- `len(base_window) < 5` 거래일 → base 표본 부족.
 - `pivot_basis != 'handle_high'` (예: range_high, ma50_breakout 등).
 - `base_start_date` NULL 또는 base 정보 누락.
-- `pivot_first_touched is None` (범위 내 handle_high 도달 거래일 없음).
+- `right_rim_idx is None` (cup_bottom 이후 handle_high 미도달).
 - `base_depth_pct <= 0` (방어).
 
 > **Silent false-negative 방지** (사용자 v4): 경계 불명확으로 *적용 안 함* 한 경우는
@@ -169,16 +173,18 @@ def compute_handle_quality(symbol, cls):
     if cls.pivot_basis != 'handle_high': return None
     if cls.base_start_date is None: return None
 
-    ohlcv = fetch_daily_prices(symbol, cls.base_start_date, cls.classified_at)
+    rows = fetch_daily_prices(symbol, cls.base_start_date, cls.classified_at)  # date < classified_at
     handle_high = float(cls.pivot_price)
 
-    pivot_first = first_date_where(ohlcv, lambda r: r.high >= handle_high)
-    if pivot_first is None: return None
+    # 컵 바닥 → 그 이후 오른쪽 림 (왼쪽 림 오인식 방지)
+    cup_bottom_idx = argmin(rows, key=lambda r: r.low)
+    right_rim_idx = first_index_where(rows, lambda r: r.high >= handle_high, start=cup_bottom_idx)
+    if right_rim_idx is None: return None  # 오른쪽 림 미회복
 
-    handle_window = ohlcv[ohlcv.date >= pivot_first][:-1]  # classified_at 전일까지
+    handle_window = rows[right_rim_idx:]
     if len(handle_window) < 3: return None
 
-    base_window = ohlcv[ohlcv.date < pivot_first]
+    base_window = rows[:right_rim_idx]
     if len(base_window) < 5: return None
 
     handle_low = handle_window.low.min()
@@ -263,12 +269,21 @@ def compute_handle_quality(symbol, cls):
 
 ## 4. 2-E two-tier 게이트
 
+> **⛔ 게이트 발화 전제 (사용자 v5 버그 수정)**: 2-E 의 *강등/cap* 액션은
+> **`classification == 'entry'` 일 때만** 작동한다. handle_quality 가 발화해도
+> classification 이 `watch`/`ignore` 면 — `handle_quality` flag 는 risk_flags 에
+> 추가하되 classification·confidence 는 *건드리지 않는다* (특히 `ignore` 를 `watch`
+> 로 *승격* 하면 안 됨). 즉 2-E 는 "entry 결함 강등 룰" 이지 "watch 승격 룰" 이 아니다.
+> entry 가 아니면 triggered_rules 에 2E_tier 기록도 안 한다 (강등 액션이 없으므로).
+
 ### 4-1. Tier 1 — soft watch (단독 handle_quality)
 
 ```
-조건: 'handle_quality' in risk_flags AND 'extended_from_ma' NOT in risk_flags
+조건: classification == 'entry'
+      AND 'handle_quality' in risk_flags
+      AND 'extended_from_ma' NOT in risk_flags
 액션:
-  - classification 가 'entry' 후보였더라도 → 'watch' 로 강등
+  - classification 'entry' → 'watch' 강등
   - confidence ≤ 0.60 cap
   - entry_params 차단 없음 (다음 사이클에서 정상적으로 평가, 단 watch 라 entry 아님)
 triggered_rules: {'2E_tier1': {fired: true, inputs: ['handle_quality']}}
@@ -277,7 +292,9 @@ triggered_rules: {'2E_tier1': {fired: true, inputs: ['handle_quality']}}
 ### 4-2. Tier 2 — hard watch (handle_quality + extended_from_ma)
 
 ```
-조건: 'handle_quality' in risk_flags AND 'extended_from_ma' in risk_flags
+조건: classification == 'entry'
+      AND 'handle_quality' in risk_flags
+      AND 'extended_from_ma' in risk_flags
 액션 (Tier 1 보다 *명시적으로 더 엄격*):
   - classification 'entry' → 'watch' 강등
   - confidence ≤ 0.50 cap (Tier 1 의 0.60 보다 낮음)
@@ -301,10 +318,11 @@ triggered_rules: {'2E_tier2': {fired: true, inputs: ['handle_quality', 'extended
 > 발화 보장. prompt 텍스트는 그대로.
 
 - **후처리 측** (본 사이클 *유일* 적용 지점): `kr_pipeline/llm_runner/store.py`
-  - LLM 응답이 entry/watch 이고 §3 의 `compute_handle_quality()` 결과 `fired=True` 면:
-    - risk_flags 에 `handle_quality` 추가
-    - 2-E 게이트 판정 (Tier 1 또는 Tier 2)
-    - classification, confidence, triggered_rules 갱신 *후* 저장
+  - §3 의 `compute_handle_quality()` 결과 `fired=True` 면 risk_flags 에 `handle_quality`
+    추가 (classification 무관 — *관찰*).
+  - 그 후 **`classification == 'entry'` 일 때만** 2-E 게이트 판정 (Tier 1 또는 Tier 2)
+    → classification 'watch' 강등 + confidence cap + triggered_rules 기록.
+  - `watch`/`ignore` 는 handle_quality flag 만 추가하고 classification·confidence 무변경.
 - **entry_params 차단** (Tier 2 효과): `kr_pipeline/llm_runner/entry_params.py` 의
   watch 후보 조회 SQL 에 `AND NOT (triggered_rules ? '2E_tier2')` 추가.
 - **prompt 측**: Phase 2 verify sync 에서 2-E 룰을 명시적 지시로 추가. *본 사이클에서는
@@ -317,8 +335,12 @@ triggered_rules: {'2E_tier2': {fired: true, inputs: ['handle_quality', 'extended
 ### 5-1. 발화 조건
 
 **용어**:
-- `D0` = 첫 돌파일 — `close >= pivot` 인 *최초* 거래일.
+- 탐색 범위 = `[base_start_date, classified_at)` — **이번 base 구간으로 한정** (사용자 v5
+  버그 수정: 전체 역사에서 D0 를 찾으면 과거의 무관한 돌파를 잡는다. 반드시 *이번 base*
+  의 돌파만 평가).
+- `D0` = 위 범위에서 `close >= pivot` 인 *최초* 거래일. 없으면 미발화 (return None).
 - `D1 ~ D5` = `D0` 다음 5 거래일 (= K=5).
+- `base_start_date` 가 NULL 이면 → 범위 한정 불가 → 적용 안 함 (return None + log).
 
 **발화 (OR)**:
 
