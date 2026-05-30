@@ -111,3 +111,39 @@ def test_no_gate_fire_triggered_rules_null(db):
     assert cls == "watch"
     assert float(conf) == 0.70
     assert tr is None, "미발화 시 triggered_rules 는 NULL"
+
+
+def test_gate_failure_stores_ungated_classification(db, monkeypatch):
+    """gate 내부 예외 → fail-soft: 게이트 미적용 원본 분류 저장 + triggered_rules NULL."""
+    from kr_pipeline.llm_runner import gates as gates_mod
+
+    def boom(*a, **k):
+        raise ValueError("simulated compute failure")
+
+    monkeypatch.setattr(gates_mod, "compute_handle_quality", boom)
+
+    classified_at = datetime(2026, 3, 10, tzinfo=timezone.utc)
+    result = {
+        "classification": "entry", "confidence": 0.80,
+        "risk_flags": ["extended_from_ma"], "pattern": "cup_with_handle",
+        "pivot_price": 100.0, "pivot_basis": "handle_high",
+        "base_high": 100.0, "base_low": 70.0, "base_depth_pct": 30.0,
+        "base_start_date": date(2026, 1, 5), "reasoning": "test",
+    }
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stocks (ticker,name,market) VALUES ('GFAIL','GFAIL','KOSPI') ON CONFLICT DO NOTHING"
+        )
+    insert_classification(
+        db, symbol="GFAIL", classified_at=classified_at, market="KOSPI",
+        result=result, source="weekend", llm_meta={},
+    )
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT classification, confidence, triggered_rules "
+            "FROM weekly_classification WHERE symbol='GFAIL'"
+        )
+        cls, conf, tr = cur.fetchone()
+    assert cls == "entry", "fail-soft: 게이트 미적용 원본 classification 보존"
+    assert float(conf) == 0.80, "원본 confidence 보존"
+    assert tr is None, "gate 실패 시 triggered_rules NULL"

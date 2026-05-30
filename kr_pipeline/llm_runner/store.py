@@ -1,12 +1,16 @@
 """DB 쓰기 — weekly_classification, trigger_evaluation_log, entry_params."""
 from __future__ import annotations
 
+import copy
+import logging
 from datetime import date, datetime
 import json
 
 from psycopg import Connection
 
 from kr_pipeline.llm_runner.gates import apply_phase1_gates
+
+log = logging.getLogger(__name__)
 
 
 def insert_classification(
@@ -27,7 +31,16 @@ def insert_classification(
 
     source: 'weekend' | 'daily_delta'
     """
-    result, triggered_rules = apply_phase1_gates(conn, symbol, classified_at, result)
+    _original = copy.deepcopy(result)
+    try:
+        result, triggered_rules = apply_phase1_gates(conn, symbol, classified_at, result)
+    except Exception as e:
+        log.warning(
+            "[phase1-gate] failed symbol=%s — 게이트 미적용 원본 분류 저장 (fail-soft): %s",
+            symbol, e,
+        )
+        result = _original
+        triggered_rules = None
 
     with conn.cursor() as cur:
         cur.execute(
