@@ -16,6 +16,19 @@ If `market == "ETF"` or the instrument is a fund vehicle (sector is null with a 
 }
 ```
 
+## Thresholds (SSOT-synced — DO NOT EDIT WITHOUT thresholds.py)
+
+<!-- SSOT-THRESHOLDS -->
+이 값들은 `kr_pipeline/common/thresholds.py` 와 동기화됨 (tests/test_prompt_threshold_drift.py 가 검증).
+- CUP_DEPTH_MAX_NORMAL_PCT = 33.0
+- CUP_DEPTH_MAX_BEAR_RECOVERY_PCT = 50.0
+- CUP_PRIOR_UPTREND_MIN_PCT = 30.0
+- HANDLE_DEPTH_BULL_MIN_PCT = 8.0
+- HANDLE_DEPTH_BULL_MAX_PCT = 12.0
+- HANDLE_LEGIT_MIN_DAYS = 5
+- MEASUREMENT_TOLERANCE_PCT = 5.0
+<!-- /SSOT-THRESHOLDS -->
+
 ## Definitions
 
 - **entry**: Stock is at or near a proper buy point with a clean base, in a Stage 2 advance, with market direction confirmed favorable. A swing trade entry is appropriate now or imminently (within ~5 trading days). Includes proper pivot breakouts and pocket pivot entries within a valid base.
@@ -97,6 +110,34 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 - **Handle low must sit above the stock's 10-week (≈ SMA-50 on the weekly chart) moving average** AND in the upper half of the cup. A handle in the lower half or below the 10-week line is failure-prone. (O'Neil HMMS Ch.2 p.116: "The handle should also be above the stock's 10-week moving average price line. Handles that form in the lower half ... or completely below the stock's 10-week line are weak and failure-prone".)
 - **Beware wedging handles**: if the handle's lows drift *upward* or run flat (rather than drifting down with a shakeout), the breakout is failure-prone and often signals a 3rd/4th-stage or laggard base. If a wedging handle is visible on the weekly chart, prefer `watch` and note "wedging handle" in reasoning; consider adding `late_stage_base` to `risk_flags`. (O'Neil HMMS Ch.2 p.116: "handles that consistently wedge up ... have a much higher probability of failing when they break out", and "tends to occur in third- or fourth-stage bases, in laggard stock bases".)
 
+**Cup 식별 — 측정-우선 결정 트리 (cup 계열 기하에만 적용; 책 의존성 순서)**:
+
+먼저 위 `measurements` 를 숫자/enum 으로 측정·보고한 뒤, 아래 트리를 *순서대로* 적용해
+`pattern` 을 도출하라. "무슨 모양 같나" 게슈탈트로 라벨을 먼저 정하지 말 것.
+
+- **Gate0**: `prior_uptrend_pct < CUP_PRIOR_UPTREND_MIN_PCT(30%)` → `none` (O'Neil: 모든 cup 전제).
+- **Gate1**: `cup_depth_pct > 깊이상한` → `none`. 깊이상한 = 정상장 CUP_DEPTH_MAX_NORMAL_PCT(33%);
+  단 `market_context` 가 downtrend→confirmed_uptrend 전환(최근 60세션)이면 CUP_DEPTH_MAX_BEAR_RECOVERY_PCT(50%).
+- **Gate2**: `cup_shape == "V"` (둥근 U 아님) → `none`.
+- **Gate3 (핸들 — 분기, shape ≠ quality 분리; 길이 먼저)**:
+  - **핸들 길이 < HANDLE_LEGIT_MIN_DAYS(5거래일 ≈1주)** → `pattern=cup_with_handle`,
+    `handle_status=not_formed`, **classification=watch**. (2~3일 조임 = shakeout 미완 = *형성중* 이지
+    결함 아님 — faulty 로 보지 말 것. O'Neil ~1주 floor.)
+  - 핸들 미형성(cup 구조 완성, 핸들 아직) → `handle_status=not_formed`, **watch** (none 아님 —
+    '매수점 없음'은 verdict 판단이지 shape 판단 아님).
+  - 적법 핸들(길이 ≥5일 ∧ 상단절반 ∧ 50일선 위 ∧ 하향/평탄 drift ∧ 깊이 ≤HANDLE_DEPTH_BULL_MAX_PCT(12%)) →
+    `handle_status=legitimate` (entry 후보).
+  - faulty 핸들(깊이 > HANDLE_DEPTH_BULL_MAX_PCT(12%) / 하단절반(handle_position=lower_half, 50% 경계) /
+    50일선 아래 / 위로 wedging) → `handle_status=faulty`, `risk_flags 에 handle_quality`, **classification=watch**.
+  - cup 구조 아님 → `none`.
+
+**불가침**: "핸들 faulty → none" 및 "핸들 미형성 → none" 금지. faulty/미형성 핸들도 *모양은 cup* 이다
+(O'Neil HMMS Ch.2: faulty handle 도 여전히 'cup-with-handle', 단 failure-prone). shape 는 구조 feature
+로만 정한다 — 품질·매수가능성 이유로 shape 를 none 으로 강등하지 말 것.
+
+**허용밴드 (경계 칼날 금지)**: depth/선행상승 이 임계 ± MEASUREMENT_TOLERANCE_PCT(5%) 경계면, 작은 측정
+오차로 cup↔none 을 뒤집지 말고 *구조의 다른 단서* 로 판단. (이 값은 측정 노이즈 흡수용.)
+
 **Pattern-specific minimum duration (for `narrow_base` flag):**
 - flat_base: < 5 weeks → narrow_base
 - cup_with_handle: < 7 weeks → narrow_base
@@ -116,7 +157,7 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 
 **`ascending_base`** — **Three pullbacks of 10–20%**, each low point being **higher than the preceding one**. Forms over 9–16 weeks while the **general market is declining** — indicates a leadership stock relatively immune to market pressure. Source: O'Neil HMM 'Ascending Base'.
 
-**Discipline rule**: If structural elements are absent or ambiguous, use `none` rather than forcing a misnomer. Wide-and-loose, short, or erratic action is NOT a recognized base pattern. When in doubt, choose `none`.
+**Discipline rule**: If structural elements are absent or ambiguous, use `none` rather than forcing a misnomer. Wide-and-loose, short, or erratic action is NOT a recognized base pattern. When in doubt about genuine structural ambiguity (no cup structure), choose `none`. ⚠ Handle faults (faulty/not_formed) are NOT structural ambiguity — they are handled by Gate3 above and must NOT cause a shape downgrade to `none` (see Gate3 불가침 규칙).
 
 ### 4.5. Pocket Pivot Alternative Entry (Morales/Kacher)
 
@@ -193,6 +234,7 @@ Select from **exactly this taxonomy** (no other values are permitted):
 | `reverse_split_distortion` | Reverse split within past ~12 weeks confirmed in `price_data_notes` |
 | `unfavorable_market_context` | Market direction is downtrend/correction/unconfirmed rally_attempt, OR distribution day count ≥ 5 over last 25 sessions |
 | `etf_methodology_mismatch` | Instrument is an ETF/fund (handled in Pre-Check) |
+| `handle_quality` | cup_with_handle 의 핸들이 faulty (깊이 >12% / 컵깊이 대비 과대 / 하단절반 / 50일선 아래 / 위로 wedging / 핸들 구간 분배). **품질 층 flag — shape 를 none 으로 만들지 않는다**(Gate3 faulty 분기와 함께). |
 
 **Three inviolable rules — violation makes the output invalid:**
 
@@ -221,6 +263,10 @@ If a base pattern is identified and you claim a pivot or breakout:
 - A pocket pivot entry (per §4.5) is not a "breakout" — use different language in reasoning.
 
 ### 8. Classification & Confidence
+
+- **돌파 거래량 확인 (verdict 필수 입력 — 분해로 누락 금지)**: entry 는 돌파 거래량 ≥ 50일 평균 1.4~1.5×
+  (O'Neil/Minervini). 미달 → `low_volume_breakout` → entry 아닌 watch. ⚠ `measurements.handle_volume_ratio`
+  (핸들 dry-up = 품질)와 *별개* — 혼동 금지.
 
 Synthesize Steps 1–7 into `entry / watch / ignore`:
 
@@ -259,7 +305,19 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
   "base_start_date": "2026-03-15",
 
   "contraction_count": 4,
-  "contraction_depths_pct": [25.0, 14.0, 8.0, 4.0]
+  "contraction_depths_pct": [25.0, 14.0, 8.0, 4.0],
+
+  "measurements": {
+    "prior_uptrend_pct": 40.0,
+    "cup_depth_pct": 30.0,
+    "cup_shape": "U",
+    "handle_status": "legitimate | faulty | not_formed",
+    "handle_position": "upper_half | lower_half",
+    "handle_vs_sma50": "above | below",
+    "handle_drift": "down | flat | up",
+    "handle_depth_pct": 9.0,
+    "handle_volume_ratio": 0.7
+  }
 }
 ```
 
@@ -310,9 +368,10 @@ For non-VCP patterns (`flat_base`, `cup_with_handle`, etc.), both fields MUST be
   - If pocket pivot entry, mark it explicitly in '진입 시그널'.
   - If 3-C / cheat early entry, mark it explicitly in '진입 시그널' or '결론'.
 - `pattern`: must be exactly one of: `flat_base`, `cup_with_handle`, `vcp`, `double_bottom`, `high_tight_flag`, `3c_cheat`, `base_on_base`, `ascending_base`, `none`.
+- `measurements`: cup 계열일 때 위 필드 보고. 비-cup 패턴/none 이면 null 허용. 숫자는 차트/OHLCV 에서 측정해 보고 — *라벨을 먼저 정하지 말고 측정값을 먼저 보고*.
 - `contraction_count`: integer in `[2, 6]` when `pattern == "vcp"`, else `null`.
 - `contraction_depths_pct`: array of positive numbers (length matching `contraction_count`, left→right) when `pattern == "vcp"`, else `null`. Each value is % drawdown of one contraction.
-- `risk_flags`: array (possibly empty `[]`). Use ONLY the 13 values from the taxonomy table in §5.
+- `risk_flags`: array (possibly empty `[]`). Use ONLY the 14 values from the taxonomy table in §5.
 - If confidence < 0.5, default to `watch` with low confidence and explain in `reasoning`.
 - `confidence` must be in [0.0, 1.0]. Adjustments per §8 are applied to a base estimate and then clamped.
 
@@ -322,7 +381,7 @@ For non-VCP patterns (`flat_base`, `cup_with_handle`, etc.), both fields MUST be
 - Do not invent data not in the input (e.g., do not speculate about earnings dates, news catalysts).
 - Do not give entry parameters here (stop loss, position size) — that is a separate task (`calculate_entry_params`). pivot_price and base fields ARE output by this prompt (§4.7).
 - Do not include Trend Template positive signals (high RS Rating, price above MAs, MA alignment, RS Line leadership) as risk_flags.
-- Do not invent risk flags outside the 13-value taxonomy.
+- Do not invent risk flags outside the 14-value taxonomy.
 - Do not invent new pattern names outside the 9-value taxonomy.
 - Do not classify as `entry` when `market_context.current_status` is downtrend/correction/unconfirmed_rally — this is a hard rule per §3.5.
 
