@@ -160,3 +160,66 @@ STATUS_FTD_RECENT_DAYS: Final[int] = 90
 
 STATUS_FTD_INVALIDATION_DAYS: Final[int] = 10
 """distribution 누적 후 FTD 무효화까지 일수."""
+
+# ===== Phase 2 (i): cup-shape 결정론화 (analyze_chart_v3.md §2 트리 / handle_quality / failed_breakout) =====
+# 분류: book-anchor = 책 고정 앵커(변경 금지) / heuristic = 튜닝 가능.
+# 단일 스칼라 금지 — depth 는 패턴 × 시장 2축. (i) 트리는 cup 행만 소비, 나머지는 향후 다패턴 트리용.
+
+CUP_DEPTH_MAX_NORMAL_PCT: Final[float] = 33.0
+"""[book-anchor] cup 정상장 최대 depth %. O'Neil HMMS Ch.2."""
+
+CUP_DEPTH_MAX_BEAR_RECOVERY_PCT: Final[float] = 50.0
+"""[book-anchor] cup 약세장 회복(downtrend→uptrend 60세션 내) 최대 depth %.
+O'Neil 예외. F3(cup depth 50% 예외 연속화)가 여기 묶임 — market_context 전환 트리거와 동시 점검."""
+
+FLAT_BASE_DEPTH_MAX_PCT: Final[float] = 15.0
+"""[book-anchor] flat base 최대 depth %. Minervini TLSMW Ch.10. (향후 다패턴 트리용 — (i) 미소비.)"""
+
+CUP_PRIOR_UPTREND_MIN_PCT: Final[float] = 30.0
+"""[book-anchor] cup 진입 전 최소 선행상승 %. O'Neil HMMS Ch.2 — 모든 cup 패턴 전제."""
+
+FLAT_BASE_PRIOR_UPTREND_MIN_PCT: Final[float] = 20.0
+"""[book-anchor] flat base 최소 선행상승 %. Minervini. (향후 다패턴 트리용 — (i) 미소비.)"""
+
+MIN_BASE_WEEKS: Final[dict] = {
+    "cup_with_handle": 7,
+    "flat_base": 5,
+    "double_bottom": 7,
+    "vcp": 5,
+}
+"""[book-anchor] 패턴별 최소 base 주수 (narrow_base 미만 기준). 현 analyze_chart_v3.md §4 표와 동일."""
+
+HANDLE_DEPTH_BULL_MIN_PCT: Final[float] = 8.0
+HANDLE_DEPTH_BULL_MAX_PCT: Final[float] = 12.0
+"""[book-anchor] 정상장 핸들 깊이 밴드(피크 대비 %). O'Neil HMMS Ch.2 p.116 '8% to 12%'."""
+
+HANDLE_LEGIT_MIN_DAYS: Final[int] = 5
+"""[book-anchor] 적법 핸들 최소 길이 (≈1주 = 5거래일). O'Neil HMMS Ch.2 ('one or two weeks'
+floor) / Minervini (handle ≥1주, 현 analyze §4 표). **HANDLE_MIN_DAYS(=3, heuristic 계산
+윈도우)와 다름** — 이건 분류 게이트(길이). 미달 → handle_status=not_formed(형성중, faulty 아님)."""
+
+# --- handle_quality.py 이관 (heuristic) ---
+HANDLE_DEEP_RATIO: Final[float] = 0.33
+"""[heuristic] 컵깊이 대비 핸들깊이 비 발화 임계. **trace 필요**: 책의 8~12% 절대치
+(HANDLE_DEPTH_BULL_*)와 reconcile 미완 — 현재는 휴리스틱."""
+
+HANDLE_VOLUME_NOT_CONTRACTING_RATIO: Final[float] = 0.80
+"""[heuristic] handle/base 평균거래량 비 발화 임계 (수축 안 됨)."""
+
+HANDLE_MIN_DAYS: Final[int] = 3
+BASE_MIN_DAYS: Final[int] = 5
+"""[heuristic] handle_quality 계산 최소 윈도우."""
+
+HANDLE_POSITION_LOW_RATIO: Final[float] = 0.33
+"""[heuristic] 핸들 하단 위치 가중(단독 트리거 아님)."""
+
+# --- failed_breakout.py 이관 (heuristic) ---
+FAILED_BREAKOUT_K_DAYS: Final[int] = 5
+FAILED_BREAKOUT_CONSECUTIVE_BELOW: Final[int] = 2
+"""[heuristic] 2-F 돌파 실패 판정. 시간상수 — 비율조정 부적절, B-수치(사례 누적 후 재조정)."""
+
+# --- 허용밴드 (heuristic · calibration-target) ---
+MEASUREMENT_TOLERANCE_PCT: Final[float] = 5.0
+"""[heuristic · calibration-target] LLM 측정값 경계 허용밴드 %. **고정상수 아님** —
+shape 가 LLM 소유라 밴드폭이 안정성의 load-bearing 변수. 재측정(plan Task 11)의 'depth read
+회차간 분산'으로 보정. 5% 는 잠정 시작값(사용자 ±5% 노이즈 정책)."""
