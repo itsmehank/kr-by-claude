@@ -17,6 +17,32 @@ from kr_pipeline.llm_runner.store import insert_entry_params
 log = logging.getLogger("kr_pipeline.llm_runner.entry_params")
 
 
+def _fetch_go_now_candidates(conn, as_of: date) -> list:
+    """오늘 go_now breakout 신호 중 2E_tier2 차단 제외한 후보."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT t.symbol, t.evaluated_at, t.prior_classification_at
+              FROM trigger_evaluation_log t
+             WHERE (t.evaluated_at AT TIME ZONE 'UTC')::date = %s
+               AND t.decision = 'go_now'
+               AND t.trigger_type = 'breakout'
+               AND NOT EXISTS (
+                   SELECT 1 FROM weekly_classification wc
+                    WHERE wc.symbol = t.symbol
+                      AND wc.classified_at = (
+                          SELECT MAX(classified_at) FROM weekly_classification
+                           WHERE symbol = t.symbol
+                      )
+                      AND wc.triggered_rules ? '2E_tier2'
+               )
+             ORDER BY t.evaluated_at
+            """,
+            (as_of,),
+        )
+        return cur.fetchall()
+
+
 def run(
     conn: Connection,
     *,
@@ -27,24 +53,12 @@ def run(
     if as_of is None:
         as_of = date.today()
 
-    # 오늘 (5b) 결과 중 go_now 추출 (UTC 기준 날짜 비교).
+    # 오늘 (5b) 결과 중 go_now 추출 — 2E_tier2 차단 종목 제외 (Phase 1 2-A).
     # 안전장치: promotion 트리거는 staging 신호 — close 가 pivot 미만일 수
     # 있어 매수 부적절. 만약 LLM 이 promotion 에 대해 go_now 결정해도
     # entry_params 단계로 진입 금지 (prompt §3.3 명시). 안전장치는 prompt
     # 위반 시에도 pivot 미만 매수 시그널이 생성되지 않도록 SQL 에서 강제.
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT symbol, evaluated_at, prior_classification_at
-              FROM trigger_evaluation_log
-             WHERE (evaluated_at AT TIME ZONE 'UTC')::date = %s
-               AND decision = 'go_now'
-               AND trigger_type = 'breakout'
-             ORDER BY evaluated_at
-            """,
-            (as_of,),
-        )
-        go_now = cur.fetchall()
+    go_now = _fetch_go_now_candidates(conn, as_of)
 
     if limit:
         go_now = go_now[:limit]
