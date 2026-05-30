@@ -53,7 +53,7 @@ CLAUDE.md: thresholds.py 를 건드리므로 `threshold-change-checklist.md` 의
 # Phase 2 (i) Threshold 의존성 맵 (2축)
 
 > CLAUDE.md 의무. 신규/이관 상수: CUP_DEPTH_MAX_NORMAL_PCT, CUP_DEPTH_MAX_BEAR_RECOVERY_PCT,
-> CUP_PRIOR_UPTREND_MIN_PCT, MIN_BASE_WEEKS, HANDLE_* , FAILED_BREAKOUT_* , MEASUREMENT_TOLERANCE_PCT.
+> CUP_PRIOR_UPTREND_MIN_PCT, MIN_BASE_WEEKS, HANDLE_LEGIT_MIN_DAYS, HANDLE_* , FAILED_BREAKOUT_* , MEASUREMENT_TOLERANCE_PCT.
 
 ## 의존성 (3 depth + boundary)
 
@@ -69,6 +69,7 @@ CLAUDE.md: thresholds.py 를 건드리므로 `threshold-change-checklist.md` 의
 | CUP_DEPTH_MAX_NORMAL_PCT 33% | 불가 (책 고정 앵커, O'Neil) | Present (cup/none 분기 직접) | PRESERVES | 변경 금지(book-anchor); 시장축과 동시 점검 |
 | CUP_DEPTH_MAX_BEAR_RECOVERY_PCT 50% | 불가 (책 예외 앵커) | Present (F3 약세회복 분기) | PRESERVES | F3 트리거(market_context downtrend→uptrend 60세션) 동시 점검 — **핵심 셀** |
 | CUP_PRIOR_UPTREND_MIN_PCT 30% | 불가 (책 앵커) | Present (Gate0 none 분기) | PRESERVES | cup-scoped — flat 20% 와 분리(다패턴 트리 미소비) |
+| HANDLE_LEGIT_MIN_DAYS 5 | 불가 (책 ~1주 floor) | Present (Gate3 길이 → not_formed 분기) | PRESERVES | HANDLE_MIN_DAYS(3, heuristic 윈도우)와 분리 — 분류 게이트 |
 | MEASUREMENT_TOLERANCE_PCT 5% | 가능 (heuristic) | Present (경계 straddle 흡수) | MethodDiff(시스템 정책) | calibration-target — 재측정(Task 11)이 보정 |
 | HANDLE_DEEP_RATIO 0.33 | 가능 (heuristic) | Present (handle_quality 발화) | MethodDiff (책 8~12% 절대치와 reconcile 미완 — trace) | 변경 시 재측정 |
 | HANDLE_VOLUME_NOT_CONTRACTING_RATIO 0.80 | 가능 | Present | MethodDiff | 변경 시 재측정 |
@@ -109,6 +110,7 @@ def test_phase2i_cup_shape_constants():
     assert thresholds.CUP_PRIOR_UPTREND_MIN_PCT == 30.0
     assert thresholds.HANDLE_DEPTH_BULL_MIN_PCT == 8.0
     assert thresholds.HANDLE_DEPTH_BULL_MAX_PCT == 12.0
+    assert thresholds.HANDLE_LEGIT_MIN_DAYS == 5          # book-anchor 길이 게이트 (≠ HANDLE_MIN_DAYS heuristic)
     assert thresholds.MIN_BASE_WEEKS["cup_with_handle"] == 7
 
 
@@ -168,6 +170,11 @@ MIN_BASE_WEEKS: Final[dict] = {
 HANDLE_DEPTH_BULL_MIN_PCT: Final[float] = 8.0
 HANDLE_DEPTH_BULL_MAX_PCT: Final[float] = 12.0
 """[book-anchor] 정상장 핸들 깊이 밴드(피크 대비 %). O'Neil HMMS Ch.2 p.116 '8% to 12%'."""
+
+HANDLE_LEGIT_MIN_DAYS: Final[int] = 5
+"""[book-anchor] 적법 핸들 최소 길이 (≈1주 = 5거래일). O'Neil HMMS Ch.2 ('one or two weeks'
+floor) / Minervini (handle ≥1주, 현 analyze §4 표). **HANDLE_MIN_DAYS(=3, heuristic 계산
+윈도우)와 다름** — 이건 분류 게이트(길이). 미달 → handle_status=not_formed(형성중, faulty 아님)."""
 
 # --- handle_quality.py 이관 (heuristic) ---
 HANDLE_DEEP_RATIO: Final[float] = 0.33
@@ -330,6 +337,7 @@ PROMPT_SYNCED = [
     "CUP_PRIOR_UPTREND_MIN_PCT",
     "HANDLE_DEPTH_BULL_MIN_PCT",
     "HANDLE_DEPTH_BULL_MAX_PCT",
+    "HANDLE_LEGIT_MIN_DAYS",
     "MEASUREMENT_TOLERANCE_PCT",
 ]
 
@@ -503,6 +511,7 @@ prompt 는 .md 라 단위 TDD 불가 — drift 테스트(Task 5) 통과 + 수동
 - CUP_PRIOR_UPTREND_MIN_PCT = 30.0
 - HANDLE_DEPTH_BULL_MIN_PCT = 8.0
 - HANDLE_DEPTH_BULL_MAX_PCT = 12.0
+- HANDLE_LEGIT_MIN_DAYS = 5
 - MEASUREMENT_TOLERANCE_PCT = 5.0
 <!-- /SSOT-THRESHOLDS -->
 ```
@@ -546,13 +555,21 @@ Expected: PASS (블록 파싱 + 값 정합 + orphan 없음).
 - **Gate1**: `cup_depth_pct > 깊이상한` → `none`. 깊이상한 = 정상장 CUP_DEPTH_MAX_NORMAL_PCT(33%);
   단 `market_context` 가 downtrend→confirmed_uptrend 전환(최근 60세션)이면 CUP_DEPTH_MAX_BEAR_RECOVERY_PCT(50%).
 - **Gate2**: `cup_shape == "V"` (둥근 U 아님) → `none`.
-- **Gate3 (핸들 — 4분기, shape ≠ quality 분리)**:
-  - 적법 핸들 → `pattern=cup_with_handle`, `handle_status=legitimate` (entry 후보).
-  - faulty 핸들(깊이 > HANDLE_DEPTH_BULL_MAX_PCT(12%) / 하단절반 / 50일선 아래 / 위로 wedging) →
-    `pattern=cup_with_handle`, `handle_status=faulty`, `risk_flags 에 handle_quality`, **classification=watch**.
-  - 핸들 미형성(cup 구조는 완성, 핸들 아직) → `pattern=cup_with_handle`, `handle_status=not_formed`,
-    **classification=watch** (none 아님 — '매수점 없음'은 verdict 판단이지 shape 판단 아님).
+- **Gate3 (핸들 — 분기, shape ≠ quality 분리; 길이 먼저)**:
+  - **핸들 길이 < HANDLE_LEGIT_MIN_DAYS(5거래일 ≈1주)** → `pattern=cup_with_handle`,
+    `handle_status=not_formed`, **classification=watch**. (2~3일 조임 = shakeout 미완 = *형성중* 이지
+    결함 아님 — faulty 로 보지 말 것. O'Neil ~1주 floor.)
+  - 핸들 미형성(cup 구조 완성, 핸들 아직) → `handle_status=not_formed`, **watch** (none 아님 —
+    '매수점 없음'은 verdict 판단이지 shape 판단 아님).
+  - 적법 핸들(길이 ≥5일 ∧ 상단절반 ∧ 50일선 위 ∧ 하향/평탄 drift ∧ 깊이 ≤12%) →
+    `handle_status=legitimate` (entry 후보).
+  - faulty 핸들(깊이 > HANDLE_DEPTH_BULL_MAX_PCT(12%) / **하단절반(handle_position=lower_half, 50% 경계)** /
+    50일선 아래 / 위로 wedging) → `handle_status=faulty`, `risk_flags 에 handle_quality`, **classification=watch**.
   - cup 구조 아님 → `none`.
+
+  ⚠ **handle_position 경계 = 50%** (책 '상단 절반'). measurement 의 `handle_position` enum(upper_half/lower_half)
+  은 컵 중앙(50%) 기준. (handle_quality.py 의 `HANDLE_POSITION_LOW_RATIO=0.33` 은 *별개 heuristic weight* 로
+  분류 경계 아님 — 혼동 금지.)
 
 **불가침**: "핸들 faulty → none" 및 "핸들 미형성 → none" 금지. faulty/미형성 핸들도 *모양은 cup* 이다
 (O'Neil HMMS Ch.2: faulty handle 도 여전히 'cup-with-handle', 단 failure-prone). shape 는 구조 feature
@@ -809,6 +826,7 @@ PANEL = {
     "gate1_neg": {"ticker": None, "expect_pattern": "none",            "note": "depth>33% / wide-loose"},
     "gate2_neg": {"ticker": None, "expect_pattern": "none",            "note": "진짜 V자"},
     "gate3_neg": {"ticker": "005850", "expect_pattern": "cup_with_handle", "expect_cls": "watch", "expect_flag": "handle_quality", "note": "faulty handle"},
+    "gate3_short": {"ticker": None, "expect_pattern": "cup_with_handle", "expect_cls": "watch", "note": "sub-1주 핸들 → handle_status=not_formed (형성중, faulty 아님)"},
     "positive":  {"ticker": None, "expect_cls": "entry|watch",         "note": "적법 핸들 cup"},
 }
 
@@ -928,4 +946,7 @@ git commit -m "docs(phase2-i): 재측정 게이트 통과 — 2-B/C/D 차단 해
 
 **Type consistency:** `most_conservative`/`VERDICT_ORDER`(Task 10), `measurements` 키(Task 6/7/8 동일 키), threshold 상수명(Task 2 정의 ↔ Task 3/5/7 참조) 일치 확인.
 
-**주의 (실행자):** Task 10 은 행동 변화(conf cap 이 현 verdict 무관 적용) — 의도된 spec §3.1. Task 7 prompt 편집 후 dry-run mock(`_mock_analyze_chart_v3`)에 measurements 키 미포함 — dry-run 경로 쓰는 테스트가 있으면 mock 도 measurements 추가 검토.
+**주의 (실행자):**
+- Task 10 은 행동 변화(conf cap 이 현 verdict 무관 적용) — 의도된 spec §3.1. **minor-2 확인**: ignore 의 낮춰진 confidence 가 다른 소비처에서 '품질 신호'로 오독되지 않는지 1회 확인 (`grep -rn "confidence" kr_pipeline/ api/ web/src` 로 ignore 분기 소비처 점검).
+- Task 7 prompt 편집 후 dry-run mock(`_mock_analyze_chart_v3`)에 measurements 키 미포함 — dry-run 경로 쓰는 테스트가 있으면 mock 도 measurements 추가 검토.
+- **핸들 길이 게이트**: Task 7 Gate3 의 길이 분기(< HANDLE_LEGIT_MIN_DAYS → not_formed)는 *형성중* (faulty 아님). HANDLE_MIN_DAYS(=3, heuristic 계산 윈도우)와 혼동 금지 — 분류 게이트는 HANDLE_LEGIT_MIN_DAYS(=5).
