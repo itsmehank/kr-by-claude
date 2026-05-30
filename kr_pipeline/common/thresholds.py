@@ -181,7 +181,7 @@ CUP_PRIOR_UPTREND_MIN_PCT: Final[float] = 30.0
 FLAT_BASE_PRIOR_UPTREND_MIN_PCT: Final[float] = 20.0
 """[book-anchor] flat base 최소 선행상승 %. Minervini. (향후 다패턴 트리용 — (i) 미소비.)"""
 
-MIN_BASE_WEEKS: Final[dict] = {
+MIN_BASE_WEEKS: Final[dict[str, int]] = {
     "cup_with_handle": 7,
     "flat_base": 5,
     "double_bottom": 7,
@@ -207,16 +207,18 @@ HANDLE_VOLUME_NOT_CONTRACTING_RATIO: Final[float] = 0.80
 """[heuristic] handle/base 평균거래량 비 발화 임계 (수축 안 됨)."""
 
 HANDLE_MIN_DAYS: Final[int] = 3
+"""[heuristic] handle_quality 의 handle 구간 계산 최소 윈도우 (≠ HANDLE_LEGIT_MIN_DAYS 분류 게이트)."""
 BASE_MIN_DAYS: Final[int] = 5
-"""[heuristic] handle_quality 계산 최소 윈도우."""
+"""[heuristic] handle_quality 의 base 구간 계산 최소 윈도우."""
 
 HANDLE_POSITION_LOW_RATIO: Final[float] = 0.33
 """[heuristic] 핸들 하단 위치 가중(단독 트리거 아님)."""
 
 # --- failed_breakout.py 이관 (heuristic) ---
 FAILED_BREAKOUT_K_DAYS: Final[int] = 5
+"""[heuristic] 2-F 돌파(D0) 후 실패 관찰 윈도우 (거래일). 시간상수 — 비율조정 부적절, B-수치."""
 FAILED_BREAKOUT_CONSECUTIVE_BELOW: Final[int] = 2
-"""[heuristic] 2-F 돌파 실패 판정. 시간상수 — 비율조정 부적절, B-수치(사례 누적 후 재조정)."""
+"""[heuristic] 2-F 실패 판정 연속 pivot-하회 일수. 시간상수 — B-수치(사례 누적 후 재조정)."""
 
 # --- 허용밴드 (heuristic · calibration-target) ---
 MEASUREMENT_TOLERANCE_PCT: Final[float] = 5.0

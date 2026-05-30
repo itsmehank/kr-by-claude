@@ -79,7 +79,12 @@ def test_phase2i_cup_shape_constants():
     assert thresholds.HANDLE_DEPTH_BULL_MIN_PCT == 8.0
     assert thresholds.HANDLE_DEPTH_BULL_MAX_PCT == 12.0
     assert thresholds.HANDLE_LEGIT_MIN_DAYS == 5          # book-anchor 길이 게이트 (≠ HANDLE_MIN_DAYS heuristic)
-    assert thresholds.MIN_BASE_WEEKS["cup_with_handle"] == 7
+    assert thresholds.MIN_BASE_WEEKS == {
+        "cup_with_handle": 7, "flat_base": 5, "double_bottom": 7, "vcp": 5,
+    }
+    # 향후 다패턴 트리용 (i) 미소비 — 값 drift 잠금
+    assert thresholds.FLAT_BASE_DEPTH_MAX_PCT == 15.0
+    assert thresholds.FLAT_BASE_PRIOR_UPTREND_MIN_PCT == 20.0
 
 
 def test_phase2i_handle_heuristic_constants():
