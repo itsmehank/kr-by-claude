@@ -133,10 +133,13 @@
 | **F5** | P2-1d-KOSPI 분기 (`wide_and_loose` 10–15% × 1.3) | KOSPI 만 13–19% 로 스케일 | cron: KOSPI 종목 `wide_and_loose` false-flag 빈도 누적 |
 | **F6 + B-수치** | ATR 전환 검토 + status.py 시간 상수 재검토 (10/90/6) | σ vs ATR 측정 비교 후 도구 결정 | cron: σ-기반 vs ATR-기반 FTD 임계 측정 비교 |
 | **(γ) Finalized 가드** | 진짜 freshness 신호 — pipeline_runs.ohlcv 마지막 성공 run finished_at 이 해당 거래일 마감 이후인지 점검. (α) divergence 가드의 한계 (동일 partial 모드 미검출) 보완 | 운영 중 동일-partial 케이스 실제 발생 시 (현재까지는 (α) 충분) |
-| **Phase 1 2-A 완료** (hard gate 통과: 005850→watch/2E_tier2, 037760→2F) | ① handle_quality 14th flag, ② 2-E two-tier (Tier1 soft conf≤0.6 / Tier2 hard watch), ③ 2-F failed_breakout K=5/consecutive=2 확정. gate 통합 완료 → 다음 분류 사이클부터 자동 적용. **005850 의 기존 entry 행은 다음 재분류 시 watch 로 갱신됨** (이번 회귀 스크립트는 in-memory gate 만 검증, DB 재분류 안 함). entry_params 보류 해제는 005850 이 재분류 사이클을 거쳐 watch 로 저장된 후. | DONE — 2026-05-30 |
-| **Phase 1 2-B** (wide_and_loose 하드 게이트) | `wide_and_loose` 플래그 기반 gate — false-flag 빈도 측정 후 hard gate 추가. Phase 2 verify sync 전 선행. | Phase 2 verify sync 전 fast-follow |
-| **Phase 1 2-C** (분배 클러스터 하드 게이트) | handle/base 내 distribution_day 클러스터 집중 → entry 거부 게이트. Phase 2 verify sync 전 선행. | Phase 2 verify sync 전 fast-follow |
-| **Phase 1 2-D** (RS divergence 하드 게이트) | pivot 접근 중 RS line 하락 분기 → entry 거부 게이트. Phase 2 verify sync 전 선행. | Phase 2 verify sync 전 fast-follow |
+| **Phase 1 2-A 완료** (코드) + **프로덕션 검증서 한계 발견** | ① handle_quality 14th flag, ② 2-E two-tier, ③ 2-F + triggered_rules 구현·HARD GATE(in-memory) 통과. **그러나 프로덕션 검증(2026-05-31)서 후처리 gate 가 LLM 비결정적 pattern 라벨에 완전 종속 → 대부분 inert** 확인 (동일입력 cup_with_handle 1/5, entry 0/5; `verification/2026-05-31-phase1-2a-prod-validation/`). 코드 DONE, 효과는 Phase 2 (i) 선행 필요. | 코드 DONE 2026-05-30 / 효과 Phase 2 의존 |
+| **★ Phase 2 (i) prompt 안정화 — 순서 최우선 (2-B/C/D 보다 먼저)** | 후처리 gate 가 LLM 라벨에 종속이라 inert → prompt sync 가 *주 메커니즘*: LLM 이 처음부터 faulty handle 을 watch + 일관 reasoning 으로 분류, handle_quality/2-E/2-F 룰을 prompt 에 명시, verify prompt 에 14th flag 동기화, thresholds.py SSOT 이관. 후처리는 backstop 으로 강등. | **즉시 — 2-B/C/D 차단 해제 전제** |
+| **★ 재측정 합격선 (HARD GATE)** | Phase 2 (i) 적용 후 비결정성 재측정. 합격선 *미리 설정*: 동일입력 cup_with_handle ≥ **4/5** (baseline 1/5) + faulty-handle 케이스가 reliably watch + handle_quality 인용. **(i) 가 비결정성을 충분히 줄인다고 미리 단정 금지 — 재측정이 판정.** 합격 시에만 2-B/C/D 진입. | (i) 직후 측정 |
+| **Phase 1 2-B** (wide_and_loose 하드 게이트) | `wide_and_loose` gate. **2-B/C/D 도 동일 라벨-게이팅이라 같은 inert 병** → 재측정 합격선 통과 후에만 진입. | **재측정 합격선 통과 후** |
+| **Phase 1 2-C** (분배 클러스터 하드 게이트) | handle/base distribution_day 클러스터 → entry 거부. 동일 게이팅. | **재측정 합격선 통과 후** |
+| **Phase 1 2-D** (RS divergence 하드 게이트) | pivot 접근 중 RS 하락 분기 → entry 거부. 동일 게이팅. | **재측정 합격선 통과 후** |
+| **Phase 1 옵션 (ii) gate 를 LLM 라벨에서 분리** (빨간불) | OHLCV 독립 base/handle 검출로 LLM pattern 라벨 의존 제거. **B 가 'pattern=none 이면 base 기하도 None' 확증 → (ii) 는 OHLCV 독립 패턴검출 = 큰 프로젝트, 패턴 재분류 룰과 얽힘.** (i) 가 합격선 미달일 때만 착수. | (i) 불충분 판정 시 |
 | **FREEZE 풀버전 (후속 사이클)** | entry_params / pivot freeze 한 줄 추가 + S3 백엔드 + UI diff 시각화 | Phase 1~3 종료 후 |
 | **P2-3** (선택) | candidate VCP footprint payload 보조 (zigzag) | LLM 시각 판정 앵커 | 결정 자체 대기 (할지 여부) |
 | (별개) | prompt (.md) 자동 동기화 | SSOT-1 의 잔존 — 현재 prompt 텍스트 임계는 수동 동기화 | 미발의 (선택 candidate) |
