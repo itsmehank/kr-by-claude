@@ -14,6 +14,11 @@ def _seed_ohlcv_deep_handle(db, ticker):
     컵: 좌측 림→바닥(low 78, idx3)→우측 림(high 101>=100, idx5).
     핸들: 깊은 하락(low 82) → depth=(100-82)/100=18%, base 30% → ratio 0.6 > 0.33.
     classified_at 을 2026-01-20 으로 하면 base_start=2026-01-05 이후 9봉 커버.
+
+    [plan 원본 시드 교체 사유]
+    plan 초안의 시드는 right_rim 봉(high >= pivot)이 없어 cup_with_handle 구조가
+    성립하지 않았고, handle_quality 게이트가 발화되지 않았다. cup_bottom→right_rim
+    →handle 순서가 갖춰지도록 현재 구조(idx5 right_rim high 101 >= pivot 100)로 교체.
     """
     # cup bars: (high, low, close, volume)
     cup = [
@@ -76,3 +81,33 @@ def test_entry_demoted_to_watch_persisted(db):
     assert float(conf) <= 0.50
     assert "handle_quality" in flags
     assert tr is not None and "2E_tier2" in tr
+
+
+def test_no_gate_fire_triggered_rules_null(db):
+    """handle_quality 미발화 (flat_base) → triggered_rules NULL, classification 무변경."""
+    classified_at = datetime(2026, 2, 10, tzinfo=timezone.utc)
+    result = {
+        "classification": "watch", "confidence": 0.70,
+        "risk_flags": ["unfavorable_market_context"], "pattern": "flat_base",
+        "pivot_price": None, "pivot_basis": None,
+        "base_high": None, "base_low": None, "base_depth_pct": None,
+        "base_start_date": None, "reasoning": "test",
+    }
+    # stocks 먼저 (FK)
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stocks (ticker,name,market) VALUES ('STGNULL','STGNULL','KOSPI') ON CONFLICT DO NOTHING"
+        )
+    insert_classification(
+        db, symbol="STGNULL", classified_at=classified_at, market="KOSPI",
+        result=result, source="weekend", llm_meta={},
+    )
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT classification, confidence, triggered_rules "
+            "FROM weekly_classification WHERE symbol='STGNULL'"
+        )
+        cls, conf, tr = cur.fetchone()
+    assert cls == "watch"
+    assert float(conf) == 0.70
+    assert tr is None, "미발화 시 triggered_rules 는 NULL"
