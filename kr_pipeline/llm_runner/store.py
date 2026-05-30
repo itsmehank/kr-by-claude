@@ -51,12 +51,14 @@ def insert_classification(
                risk_flags, confidence, reasoning,
                source,
                llm_call_duration_s, llm_input_tokens, llm_output_tokens,
-               triggered_rules)
+               triggered_rules,
+               measurements)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
                     %s, %s, %s,
+                    %s,
                     %s)
             ON CONFLICT (symbol, classified_at) DO NOTHING
             """,
@@ -81,6 +83,7 @@ def insert_classification(
                 llm_meta.get("input_tokens"),
                 llm_meta.get("output_tokens"),
                 json.dumps(triggered_rules) if triggered_rules is not None else None,
+                json.dumps(result.get("measurements")) if result.get("measurements") is not None else None,
             ),
         )
 

@@ -79,3 +79,32 @@ def test_insert_classification_default_analyzed_for_date_is_null(db):
         )
         row = cur.fetchone()
     assert row[0] is None
+
+
+def test_measurements_column_exists_and_stores(db):
+    """measurements JSONB 컬럼에 LLM 측정 블록 저장."""
+    from datetime import datetime, timezone
+    from kr_pipeline.llm_runner.store import insert_classification
+
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='MEAS'")
+    db.commit()
+
+    insert_classification(
+        db, symbol="MEAS", classified_at=datetime(2026, 5, 31, tzinfo=timezone.utc),
+        market="KOSPI",
+        result={
+            "classification": "watch", "pattern": "cup_with_handle", "confidence": 0.6,
+            "reasoning": "x", "risk_flags": [], "pivot_price": None, "pivot_basis": None,
+            "base_high": None, "base_low": None, "base_depth_pct": None, "base_start_date": None,
+            "measurements": {"cup_depth_pct": 30.0, "prior_uptrend_pct": 40.0, "cup_shape": "U"},
+        },
+        source="weekend", llm_meta={},
+    )
+    db.commit()
+
+    with db.cursor() as cur:
+        cur.execute("SELECT measurements FROM weekly_classification WHERE symbol='MEAS'")
+        row = cur.fetchone()
+    assert row[0]["cup_shape"] == "U"
+    assert row[0]["cup_depth_pct"] == 30.0

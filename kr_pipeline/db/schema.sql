@@ -292,6 +292,10 @@ CREATE INDEX IF NOT EXISTS idx_weekly_classification_recent
 ALTER TABLE weekly_classification
   ADD COLUMN IF NOT EXISTS triggered_rules JSONB;
 
+-- Phase 2 (i): LLM 측정-우선 scaffolding 의 measurement 블록 (shape feature 기계 집계용)
+ALTER TABLE weekly_classification
+  ADD COLUMN IF NOT EXISTS measurements JSONB;
+
 -- (5b) 호출 이력 (append-only, 단순 abort 모델 — severity 없음)
 CREATE TABLE IF NOT EXISTS trigger_evaluation_log (
   symbol                  VARCHAR(10) NOT NULL,
