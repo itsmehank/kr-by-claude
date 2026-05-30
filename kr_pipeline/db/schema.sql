@@ -288,6 +288,10 @@ CREATE INDEX IF NOT EXISTS idx_weekly_classification_active
 CREATE INDEX IF NOT EXISTS idx_weekly_classification_recent
   ON weekly_classification (classified_at DESC);
 
+-- Phase 1 2-A: 판단 이력 (관찰 flag 는 risk_flags, 판단 룰 발화는 여기)
+ALTER TABLE weekly_classification
+  ADD COLUMN IF NOT EXISTS triggered_rules JSONB;
+
 -- (5b) 호출 이력 (append-only, 단순 abort 모델 — severity 없음)
 CREATE TABLE IF NOT EXISTS trigger_evaluation_log (
   symbol                  VARCHAR(10) NOT NULL,
