@@ -27,7 +27,9 @@
 |---|------|------|------|
 | **shape** | cup 구조인가? | 구조적 *사실* (depth/기간/U-vs-V/핸들존재 = 측정값) | LLM (허용밴드) |
 | **handle quality** | 핸들이 적법한가 faulty 한가? | 핸들 측정값의 결정론 판정 | 코드(backstop) + prompt 자기보고 |
-| **verdict** | 그래서 사도 되나? | entry / watch / ignore | monotone-combine |
+| **verdict** | 그래서 사도 되나? | entry / watch / ignore (= shape + quality + 시장(M) + **돌파 거래량 확인**) | monotone-combine |
+
+**verdict 입력에 돌파 거래량 확인 포함 (분해 누락 금지)**: 돌파는 50일 평균 대비 **≥1.4~1.5× 거래량** 이 핵심 확인 기준(O'Neil HMMS / Minervini). 약한 거래량 돌파 → `low_volume_breakout` → entry 아닌 watch. ⚠ §2 measurement 의 `handle_volume_ratio` 는 *핸들 거래량 dry-up*(품질/VCP 특성)이라 **돌파 거래량 확인과 별개** — 혼동 금지. 기존 prompt 가 보유한 market-direction(M) + breakout-volume 게이트는 verdict 층에 **그대로 유지**(분해로 누락하지 말 것).
 
 **불가침 규칙**:
 - faulty handle 도 shape = `cup_with_handle` **유지** (handle_quality 발화 → verdict=watch). shape 를 `none` 으로 강등하면 방금 분리한 shape/quality 를 다시 한 칸에 합치는 **원래 버그 재발**.
@@ -163,9 +165,9 @@ analyze prompt 의 risk taxonomy 13 → 14 (handle_quality 추가). verify 의 r
 ## 9. 실행 순서 (plan 에서 상세화)
 
 1. **SSOT 이관** — thresholds.py 패턴별 표(book/heuristic 라벨) + 의존성 맵 checklist + drift 테스트(양방향).
-2. **analyze prompt** — measurement 정식 필드 + 트리 Gate0~3(4분기 명시) + 허용밴드 + 14th flag. (DB: weekly_classification measurement 컬럼.)
+2. **analyze prompt** — measurement 정식 필드 + 트리 Gate0~3(4분기 명시) + 허용밴드 + 14th flag. (DB: weekly_classification measurement 컬럼.) **기존 market-direction(M) + breakout-volume(≥1.4~1.5×) 게이트는 verdict 층에 유지 — 분해로 누락 금지(§1).**
 3. **verify prompt** — 6차원 + layer-분리 체크규칙 + 6 정식 출력 필드.
-4. **backstop** — `gates.py` monotone-combine 리팩토링 (detector 제거).
+4. **backstop** — `gates.py` monotone-combine 리팩토링 (detector 제거). **monotone 결합 입력에 기존 breakout-volume/M 게이트 포함 유지 확인.**
 5. **재측정 게이트 → 2-B/C/D 해제** (★ **build-first 확정**):
    - **타이밍 = build-first** (diagnose-first 아님). 근거: 밴드 calibration 이 필요로 하는 건 *새 프롬프트가 depth 를 명시 요청했을 때의 회차 분산* 인데, 옛 프롬프트는 depth 를 암묵적(게슈탈트 부산물)으로 읽어 분포가 다름(통상 더 좁음) → 옛 분포로 맞추면 *틀린 분포에 calibrate* (diagnose-first/hybrid 공통 함정). 또 스캐폴딩이 무조건 적용(low-regret)이라 사전 진단이 가지칠 분기가 없음.
    - **Q2 역할(이동)**: 스캐폴딩(step2)은 진단과 *무관히 무조건 적용*. 따라서 Q2 는 "어느 fix 할지 결정"이 아니라 **fix 후 검증 + 밴드 calibration + 잔여 진단** (= §10 진단형 게이트가 그 자리).
