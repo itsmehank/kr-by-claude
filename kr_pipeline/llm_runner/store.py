@@ -6,6 +6,8 @@ import json
 
 from psycopg import Connection
 
+from kr_pipeline.llm_runner.gates import apply_phase1_gates
+
 
 def insert_classification(
     conn: Connection,
@@ -20,8 +22,13 @@ def insert_classification(
 ) -> None:
     """weekly_classification 에 분류 결과 INSERT.
 
+    저장 직전 Phase 1 2-A 후처리 게이트 적용 (handle_quality 주입 +
+    2-E tier 강등 + 2-F 기록). prompt 갱신은 Phase 2 일임.
+
     source: 'weekend' | 'daily_delta'
     """
+    result, triggered_rules = apply_phase1_gates(conn, symbol, classified_at, result)
+
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -30,12 +37,14 @@ def insert_classification(
                pivot_price, pivot_basis, base_high, base_low, base_depth_pct, base_start_date,
                risk_flags, confidence, reasoning,
                source,
-               llm_call_duration_s, llm_input_tokens, llm_output_tokens)
+               llm_call_duration_s, llm_input_tokens, llm_output_tokens,
+               triggered_rules)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
-                    %s, %s, %s)
+                    %s, %s, %s,
+                    %s)
             ON CONFLICT (symbol, classified_at) DO NOTHING
             """,
             (
@@ -58,6 +67,7 @@ def insert_classification(
                 llm_meta.get("duration_s"),
                 llm_meta.get("input_tokens"),
                 llm_meta.get("output_tokens"),
+                json.dumps(triggered_rules) if triggered_rules is not None else None,
             ),
         )
 
