@@ -47,6 +47,7 @@ def main():
         out2, tr2 = apply_phase1_gates(conn, "037760", c2["classified_at"], dict(c2))
         print(f"037760 게이트 후: class={out2['classification']} tr={tr2}")
         assert tr2 and "2F_failed_breakout" in tr2, "❌ 037760 2F 미발화"
+        assert out2["classification"] == "watch", "❌ 037760 2F 후 classification 변조 (2F 는 강등 안 함)"
         print("✅ 037760 회귀 통과")
 
         print("\n=== 룰별 독립 카운트 (전체 분류) ===")
@@ -58,7 +59,8 @@ def main():
                   COUNT(*) FILTER (WHERE triggered_rules ? '2F_failed_breakout') AS fb
                   FROM weekly_classification
             """)
-            print(f"  tier1={cur.fetchone()}")
+            t1, t2, fb = cur.fetchone()
+            print(f"  2E_tier1={t1}  2E_tier2={t2}  2F_failed_breakout={fb}")
     print("\n✅✅ Phase 1 2-A 회귀 마일스톤 통과 — 2-B/C/D 진입 가능")
 
 

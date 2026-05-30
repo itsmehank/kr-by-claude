@@ -74,7 +74,12 @@
 - 2E_tier2: 0
 - 2F_failed_breakout: 0
 
-(triggered_rules 는 런타임 계산 전용 — DB 저장 미반영. 카운트 0 정상 동작)
+이 회귀 스크립트는 DB 에 저장하지 않고 in-memory gate 만 돌리므로 카운트 0 이 정상.
+(005850/037760 의 기존 분류 행은 gate 통합(Task 5) *이전* 에 생성돼 triggered_rules 가 NULL — 향후 재분류 시 채워짐.)
+
+**한계**: 이 스크립트는 '현재 DB 의 005850 최신 분류 + gate' 조합을 검증한다.
+005850 이 정당하게 watch 로 재분류되면 assert 가 깨지며 — 이는 false alarm 신호이니,
+그때는 고정 픽스처로 교체하거나 gate 로직 자체를 단위 테스트로 재검증할 것.
 
 ---
 
