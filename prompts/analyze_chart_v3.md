@@ -112,13 +112,15 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 
 **Cup 식별 — 측정-우선 결정 트리 (cup 계열 기하에만 적용; 책 의존성 순서)**:
 
-먼저 위 `measurements` 를 숫자/enum 으로 측정·보고한 뒤, 아래 트리를 *순서대로* 적용해
-`pattern` 을 도출하라. "무슨 모양 같나" 게슈탈트로 라벨을 먼저 정하지 말 것.
+먼저 위 `measurements`(특히 `prior_uptrend_pct`·`cup_depth_pct`·`cup_shape`)를 숫자/enum 으로 측정·보고한 뒤,
+아래 트리를 *순서대로* 적용해 `pattern` 을 도출하라. "무슨 모양 같나" 게슈탈트로 라벨을 먼저 정하지 말 것.
+**`none` 으로 떨어질 때마다 그 Gate 를 `measurements.rejected_gate` 에 기록**(어느 분기에서 갈렸는지 감사 가능하게).
 
-- **Gate0**: `prior_uptrend_pct < CUP_PRIOR_UPTREND_MIN_PCT(30%)` → `none` (O'Neil: 모든 cup 전제).
-- **Gate1**: `cup_depth_pct > 깊이상한` → `none`. 깊이상한 = 정상장 CUP_DEPTH_MAX_NORMAL_PCT(33%);
+- **1차 라우팅**: cup 계열 기하가 아님(climax run / base 없음 / 명백한 비-cup) → `none`, `rejected_gate=not_cup_family`. (단 `prior_uptrend_pct`·`cup_depth_pct`·`cup_shape` 는 그래도 측정해 보고.)
+- **Gate0**: `prior_uptrend_pct < CUP_PRIOR_UPTREND_MIN_PCT(30%)` → `none`, `rejected_gate=gate0` (O'Neil: 모든 cup 전제).
+- **Gate1**: `cup_depth_pct > 깊이상한` → `none`, `rejected_gate=gate1`. 깊이상한 = 정상장 CUP_DEPTH_MAX_NORMAL_PCT(33%);
   단 `market_context` 가 downtrend→confirmed_uptrend 전환(최근 60세션)이면 CUP_DEPTH_MAX_BEAR_RECOVERY_PCT(50%).
-- **Gate2**: `cup_shape == "V"` (둥근 U 아님) → `none`.
+- **Gate2**: `cup_shape == "V"` (둥근 U 아님) → `none`, `rejected_gate=gate2`.
 - **Gate3 (핸들 — 분기, shape ≠ quality 분리; 길이 먼저)**:
   - **핸들 길이 < HANDLE_LEGIT_MIN_DAYS(5거래일 ≈1주)** → `pattern=cup_with_handle`,
     `handle_status=not_formed`, **classification=watch**. (2~3일 조임 = shakeout 미완 = *형성중* 이지
@@ -314,6 +316,7 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
     "prior_uptrend_pct": 40.0,
     "cup_depth_pct": 30.0,
     "cup_shape": "U",
+    "rejected_gate": "gate0 | gate1 | gate2 | not_cup_family | null",
     "handle_status": "legitimate | faulty | not_formed",
     "handle_position": "upper_half | lower_half",
     "handle_vs_sma50": "above | below",
@@ -371,7 +374,8 @@ For non-VCP patterns (`flat_base`, `cup_with_handle`, etc.), both fields MUST be
   - If pocket pivot entry, mark it explicitly in '진입 시그널'.
   - If 3-C / cheat early entry, mark it explicitly in '진입 시그널' or '결론'.
 - `pattern`: must be exactly one of: `flat_base`, `cup_with_handle`, `vcp`, `double_bottom`, `high_tight_flag`, `3c_cheat`, `base_on_base`, `ascending_base`, `none`.
-- `measurements`: cup 계열일 때 위 필드 보고. 비-cup 패턴/none 이면 null 허용. 숫자는 차트/OHLCV 에서 측정해 보고 — *라벨을 먼저 정하지 말고 측정값을 먼저 보고*.
+- `measurements`: **`prior_uptrend_pct` · `cup_depth_pct` · `cup_shape` 는 항상 보고** (어떤 차트든 측정 가능 — 이것이 트리 분기와 `none` 판정의 근거다; null 금지). `handle_*` 필드만 핸들 없음/비-cup 일 때 null. 숫자는 차트/OHLCV 에서 측정해 보고 — *라벨을 먼저 정하지 말고 측정값을 먼저 보고*.
+- `measurements.rejected_gate`: `pattern == "none"` 이면 **어느 Gate 에서 탈락했는지 의무 보고** — `gate0`(선행상승<30%) / `gate1`(depth 초과) / `gate2`(V자) / `not_cup_family`(climax·base 없음 등 cup 계열 1차 라우팅 미진입). cup 패턴이 식별되면(none 아님) `null`. (숫자만 채우고 분기를 안 적으면 "왜 none"이 비감사로 남으므로 필수.)
 - `contraction_count`: integer in `[2, 6]` when `pattern == "vcp"`, else `null`.
 - `contraction_depths_pct`: array of positive numbers (length matching `contraction_count`, left→right) when `pattern == "vcp"`, else `null`. Each value is % drawdown of one contraction.
 - `risk_flags`: array (possibly empty `[]`). Use ONLY the 14 values from the taxonomy table in §5.

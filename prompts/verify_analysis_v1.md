@@ -21,6 +21,7 @@
 
 ### (b) shape (결정 트리 적용)
 - measurements 에 cup-scoped 결정 트리가 *순서대로* 올바로 적용됐나: Gate0 선행상승≥30% / Gate1 depth≤33%(약세회복 60세션 전환 시 50%) / Gate2 U(not V) / Gate3 핸들.
+- `none` 이면 `rejected_gate` 가 measurements 와 정합한가 (예: `rejected_gate=gate0` ↔ prior_uptrend_pct<30%; `gate1` ↔ depth 초과; `gate2` ↔ cup_shape=V; `not_cup_family` ↔ climax·base 없음). 숫자와 rejected_gate 가 모순이면 disagree.
 - cup-scoped: 비-cup 패턴(flat_base/vcp/double_bottom)은 (i) 트리 밖 — 기존 §4 정의로 평가.
 
 ### (c) handle_quality
