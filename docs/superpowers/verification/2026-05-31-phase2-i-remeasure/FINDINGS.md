@@ -89,4 +89,29 @@
 | gate0_neg | 데이터 제약 (구성상 충족) | — |
 | positive | inconclusive (불리장+late-stage confound) | over-rejection 가드 미확정 |
 
-**핵심 결론**: 측정-우선 scaffolding + (A) 경계 수렴이 프로덕션 비결정성(005850 cup 1/5)을 **watch 10/10 로 안정화**했고, **명백한 실격(climax/깊은 base/V)은 ignore 로 배제 유지** → (A) over-forcing("always watch") 반증. **잔여 미해결**: over-rejection 가드(positive)는 현재 불리장에서 깨끗한 entry 케이스 부재로 미확정 — 우호적 시장 또는 early-stage 적법 cup 재선정 필요.
+## 8. positive 재선정 (late_stage confound 제거) — **통과**
+
+메카로(241770) inconclusive → early-stage(선행+63~66%) base 2종 재선정. 합격기준 = watch ≥9/10 재현(불리장 §3.5 캡이라 entry 불가, watch 수렴이면 충분).
+
+| 종목 | classes | pattern | cup_shape | depth | late_stage | 판정 |
+|---|---|---|---|---|---|---|
+| **002810 삼영무역** | watch **9** / ignore 1 | cup_with_handle **9** / none 1 | U 10/10 | 20.0~21.6 (stdev 0.39) | 3/10 | ✅ 깨끗 |
+| **036570 NC** | watch **9** / _ERROR_ 1 | null1/flat2/none4/cup3 | U 8/V 1 | 10~46 (noisy) | 2/10 | ✅ verdict watch 9/9 |
+
+- **over-rejection/over-conservatism 가드 확정**: 적법 early-stage base 가 none/ignore 로 안 새고 **watch 로 재현 수렴**. late_stage 미지배(2~3/10, 메카로 10/10 대비 confound 제거). (A)는 적법 cup 을 끌어내리지 않음.
+- 삼영무역 = 교과서적 통과(cup·U·depth·verdict 전부 안정). NC = pattern noisy 하나 verdict 안정(라벨은 파생치). _ERROR_ 1건 = claude CLI JSON 파싱 실패(재시도 후) — 방법론 아닌 호출 견고성 노트.
+
+## 9. ★ 게이트 최종 판정 — **통과**
+
+| 케이스 | 결과 | (A) 균형 |
+|---|---|---|
+| gate3_neg 005850 (경계 faulty cup) | **watch 10/10** | 경계 → 재현 watch |
+| climax 001820 (명백 과열) | **ignore 10/10, climax_run 10/10** | over-forcing 반증 |
+| gate1_neg 004440 (깊은 base) | **none/ignore 10/10** | 깊은 base 배제 |
+| gate2_neg (V) | climax런 V6/10→ignore (간접) | V 배제 |
+| positive 삼영무역/NC | **watch 9/10 (둘)** | over-conservatism 반증 |
+| gate0_neg | 데이터 제약(구성상 충족) | — |
+
+**결론**: 측정-우선 scaffolding + (A) 경계 수렴 + monotone backstop 이 (1) 프로덕션 비결정성(005850 cup 1/5)을 **watch 10/10 안정화**, (2) **명백 실격(climax/깊은base/V) → ignore 배제 유지**(over-forcing 반증), (3) **적법 early-stage cup → watch 수렴**(over-conservatism 반증). **(A) 양방향 균형 입증 → 게이트 통과.**
+
+**부채(정직 기록)**: ① U/V 는 (A) 라우팅으로 덮음 — 측정앵커/곡률검출(B/(ii))은 미해결. ② gate0_neg(선행<30%)·gate2_neg(moderate-depth clear-V) 단독 케이스는 minervini-screen 유니버스 데이터 제약으로 직접 미검(Gate0 구성상 충족, gate2 는 climax V-runs 로 간접). ③ claude CLI JSON 파싱 간헐 실패(20호출 중 1) — 호출 견고성.
