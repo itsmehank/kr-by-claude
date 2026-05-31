@@ -21,6 +21,7 @@ import os
 import statistics
 import tempfile
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import psycopg
@@ -45,16 +46,36 @@ FEATURE_KEYS = ["prior_uptrend_pct", "cup_depth_pct", "handle_depth_pct", "handl
 TOL = thresholds.MEASUREMENT_TOLERANCE_PCT  # band-containment 판정용 (calibration-target)
 
 
-def run_one(conn, ticker: str) -> dict:
-    """고정 입력 1회 분석 — weekend._analyze_one 의 ZIP→temp→call_claude 패턴 (DB 미기록)."""
+def _build_zip_once(conn, ticker: str) -> str:
+    """ZIP 1회 빌드 → temp 파일 경로. N개 호출이 *같은 바이트* 공유(입력 바이트-동일 보장)."""
     from api.services.zip_builder import build_analysis_zip
-    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
     zip_bytes = build_analysis_zip(conn, ticker)
-    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
-        f.write(zip_bytes)
-        zip_path = f.name
+    f = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    f.write(zip_bytes)
+    f.close()
+    return f.name
+
+
+def _one_call(zip_path: str) -> dict:
+    """단일 claude 분석 호출 (실패 시 _ERROR 마커 반환 — 배치 전체 중단 방지)."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
     try:
         return call_claude(prompt_file="analyze_chart_v3.md", attachments=[zip_path], dry_run=False)
+    except Exception as e:
+        return {"classification": "_ERROR_", "pattern": None, "measurements": None,
+                "risk_flags": [], "_error": str(e)[:200]}
+
+
+def run_ticker(conn, ticker: str, n: int, workers: int) -> list[dict]:
+    """ZIP 1회 빌드 후 n개 claude 호출을 ThreadPool 로 병렬 (호출은 IO-bound subprocess).
+
+    호출 간 공유 상태 = 읽기전용 zip_path 뿐 → thread-safe. call_claude 는 호출마다
+    독립 prompt 문자열 + 독립 subprocess. psycopg conn 은 빌드(메인 스레드)에서만 사용.
+    """
+    zip_path = _build_zip_once(conn, ticker)
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            return list(ex.map(lambda _: _one_call(zip_path), range(n)))
     finally:
         Path(zip_path).unlink(missing_ok=True)
 
@@ -118,13 +139,18 @@ def diagnose(runs: list[dict], expect: dict) -> dict:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=10)
+    ap.add_argument("--workers", type=int, default=5, help="동시 claude 호출 수 (병렬)")
     ap.add_argument("--smoke", metavar="TICKER", help="1회 smoke 실행 (파이프라인 확인, 진단 생략)")
     args = ap.parse_args()
 
     conn = psycopg.connect(os.environ["DATABASE_URL"])
     try:
         if args.smoke:
-            result = run_one(conn, args.smoke)
+            zip_path = _build_zip_once(conn, args.smoke)
+            try:
+                result = _one_call(zip_path)
+            finally:
+                Path(zip_path).unlink(missing_ok=True)
             print(json.dumps({
                 "smoke": args.smoke,
                 "classification": result.get("classification"),
@@ -138,8 +164,10 @@ def main():
         for key, cfg in PANEL.items():
             if not cfg.get("ticker"):
                 print(f"[skip] {key}: 티커 미선정"); continue
-            runs = [run_one(conn, cfg["ticker"]) for _ in range(args.n)]
+            print(f"[run] {key} ({cfg['ticker']}) N={args.n} workers={args.workers} ...", flush=True)
+            runs = run_ticker(conn, cfg["ticker"], args.n, args.workers)
             report[key] = diagnose(runs, cfg)
+            print(f"[done] {key}: classes={report[key]['classes']}", flush=True)
         print(json.dumps(report, ensure_ascii=False, indent=2))
     finally:
         conn.close()
