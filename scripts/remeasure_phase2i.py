@@ -32,12 +32,13 @@ from kr_pipeline.common import thresholds
 
 # 가지별 패널 — Step 2 에서 실제 티커로 채움 (FINDINGS 에 선정 근거 기록).
 PANEL = {
-    "gate0_neg":  {"ticker": None, "expect_pattern": "none",            "note": "선행상승<30%"},
-    "gate1_neg":  {"ticker": None, "expect_pattern": "none",            "note": "depth>33% / wide-loose"},
-    "gate2_neg":  {"ticker": None, "expect_pattern": "none",            "note": "진짜 V자"},
-    "gate3_neg":  {"ticker": "005850", "expect_pattern": "cup_with_handle", "expect_cls": "watch", "expect_flag": "handle_quality", "note": "faulty handle"},
-    "gate3_short":{"ticker": None, "expect_pattern": "cup_with_handle", "expect_cls": "watch", "note": "sub-1주 핸들 → handle_status=not_formed"},
-    "positive":   {"ticker": None, "expect_cls": "entry|watch",         "note": "적법 핸들 cup"},
+    # gate3_neg(005850) 완료(watch 10/10, FINDINGS §2) — 재실행 방지로 ticker=None.
+    "climax_neg": {"ticker": "001820", "expect_cls": "ignore", "expect_flag": "climax_run", "note": "교과서적 climax 과열 (+132% 4w) — (A) over-forcing 단일 최강 반증; 합격=ignore≥9/10"},
+    "gate1_neg":  {"ticker": None, "expect_pattern": "none",  "note": "depth>33% deep U (004440 삼일씨엔에스 dd54.9%)"},
+    "gate2_neg":  {"ticker": None, "expect_pattern": "none",  "note": "명백한 V — 데이터 제약(moderate-depth clear-V 희소)"},
+    "gate0_neg":  {"ticker": None, "expect_pattern": "none",  "note": "선행상승<30%"},
+    "gate3_neg":  {"ticker": None, "expect_cls": "watch",     "note": "005850 완료(FINDINGS §2)"},
+    "positive":   {"ticker": None, "expect_cls": "entry|watch","note": "적법 핸들 cup"},
 }
 
 FEATURE_KEYS = ["prior_uptrend_pct", "cup_depth_pct", "handle_depth_pct", "handle_volume_ratio"]
@@ -74,6 +75,10 @@ def diagnose(runs: list[dict], expect: dict) -> dict:
                 "spread_pct": round(max(vals) - min(vals), 2),
             }
     hq = sum(1 for r in runs if "handle_quality" in (r.get("risk_flags") or []))
+    # 핵심 risk_flag 재현율 (climax_run = 과열 인식 재현 여부 — climax_neg 핵심 진단축)
+    flag_counts = dict(Counter(
+        f for r in runs for f in (r.get("risk_flags") or [])
+    ))
 
     def _m_counter(field):
         return dict(Counter(
@@ -103,6 +108,7 @@ def diagnose(runs: list[dict], expect: dict) -> dict:
         "handle_status": _m_counter("handle_status"),
         "feature_stats": feat_stats,                     # depth band-containment 판정용
         "handle_quality_cited": hq,
+        "risk_flag_counts": flag_counts,
         "measurements_null_runs": sum(1 for r in runs if not isinstance(r.get("measurements"), dict)),
         "runs_raw": runs_raw,                            # (depth,shape) 짝 진단용
         "expect": expect,
