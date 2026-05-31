@@ -194,9 +194,9 @@ HANDLE_DEPTH_BULL_MAX_PCT: Final[float] = 12.0
 """[book-anchor] 정상장 핸들 깊이 밴드(피크 대비 %). O'Neil HMMS Ch.2 p.116 '8% to 12%'."""
 
 HANDLE_LEGIT_MIN_DAYS: Final[int] = 5
-"""[book-anchor] 적법 핸들 최소 길이 (≈1주 = 5거래일). O'Neil HMMS Ch.2 ('one or two weeks'
-floor) / Minervini (handle ≥1주, 현 analyze §4 표). **HANDLE_MIN_DAYS(=3, heuristic 계산
-윈도우)와 다름** — 이건 분류 게이트(길이). 미달 → handle_status=not_formed(형성중, faulty 아님)."""
+"""[book-anchor] 적법 핸들 최소 길이 (≈1주 = 5거래일). Primary: Minervini (handle ≥1주, 현 analyze
+§4 표). Corroborating: O'Neil HMMS Ch.2 "more than one or two weeks" (1~2주는 변동성 큰 종목 예외 floor).
+**HANDLE_MIN_DAYS(=3, heuristic 계산 윈도우)와 다름** — 이건 분류 게이트(길이). 미달 → handle_status=not_formed(형성중, faulty 아님)."""
 
 # --- handle_quality.py 이관 (heuristic) ---
 HANDLE_DEEP_RATIO: Final[float] = 0.33

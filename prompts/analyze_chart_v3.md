@@ -122,7 +122,8 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 - **Gate3 (핸들 — 분기, shape ≠ quality 분리; 길이 먼저)**:
   - **핸들 길이 < HANDLE_LEGIT_MIN_DAYS(5거래일 ≈1주)** → `pattern=cup_with_handle`,
     `handle_status=not_formed`, **classification=watch**. (2~3일 조임 = shakeout 미완 = *형성중* 이지
-    결함 아님 — faulty 로 보지 말 것. O'Neil ~1주 floor.)
+    결함 아님 — faulty 로 보지 말 것. ~1주 floor: Minervini (handle ≥1주, §4 표) primary;
+    O'Neil HMMS Ch.2 "handle ... more than one or two weeks" corroborating (1~2주는 변동성 큰 종목 예외 floor).)
   - 핸들 미형성(cup 구조 완성, 핸들 아직) → `handle_status=not_formed`, **watch** (none 아님 —
     '매수점 없음'은 verdict 판단이지 shape 판단 아님).
   - 적법 핸들(길이 ≥5일 ∧ 상단절반 ∧ 50일선 위 ∧ 하향/평탄 drift ∧ 깊이 ≤HANDLE_DEPTH_BULL_MAX_PCT(12%)) →
