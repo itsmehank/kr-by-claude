@@ -126,10 +126,12 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
     O'Neil HMMS Ch.2 "handle ... more than one or two weeks" corroborating (1~2주는 변동성 큰 종목 예외 floor).)
   - 핸들 미형성(cup 구조 완성, 핸들 아직) → `handle_status=not_formed`, **watch** (none 아님 —
     '매수점 없음'은 verdict 판단이지 shape 판단 아님).
-  - 적법 핸들(길이 ≥5일 ∧ 상단절반 ∧ 50일선 위 ∧ 하향/평탄 drift ∧ 깊이 ≤HANDLE_DEPTH_BULL_MAX_PCT(12%)) →
+  - 적법 핸들(길이 ≥5일 ∧ 상단절반 ∧ 50일선 위 ∧ **하향(down) drift = shakeout** ∧ 깊이 ≤HANDLE_DEPTH_BULL_MAX_PCT(12%)) →
     `handle_status=legitimate` (entry 후보).
   - faulty 핸들(깊이 > HANDLE_DEPTH_BULL_MAX_PCT(12%) / 하단절반(handle_position=lower_half, 50% 경계) /
-    50일선 아래 / 위로 wedging) → `handle_status=faulty`, `risk_flags 에 handle_quality`, **classification=watch**.
+    50일선 아래 / **위로 wedging(up) 또는 평탄 drift(handle_drift=flat, 저점 옆걸음 = shakeout 미발생)**) →
+    `handle_status=faulty`, `risk_flags 에 handle_quality`, **classification=watch**.
+    (O'Neil HMMS Ch.2: 적법 핸들은 저점이 *아래로* drift 하며 shakeout — 위로 wedging 도 옆으로 평탄도 *똑같이* 실패율↑, §4 wedging 단락과 정합.)
   - cup 구조 아님 → `none`.
 
 **불가침**: "핸들 faulty → none" 및 "핸들 미형성 → none" 금지. faulty/미형성 핸들도 *모양은 cup* 이다
