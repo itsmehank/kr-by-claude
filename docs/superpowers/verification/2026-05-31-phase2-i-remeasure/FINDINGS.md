@@ -46,5 +46,28 @@
 | gate1_neg | depth >33% / wide-loose | none | — |
 | positive | 적법 핸들 cup (상단절반·50일선 위·하향 drift·≤12%) | entry/watch | over-forcing 역방향(적법인데 none?) 가드 |
 
-- 비용 현실: 관측 호출당 ~4~5분 → 6종목×N=10 ≈ 4~5시간. 핵심 반증 2개(gate2_neg·climax) 우선 권장.
-- 티커 선정: 각 가지의 책-disqualifier 를 데이터로 실측 확인한 근거를 본 문서에 추가 예정.
+- 병렬화(ZIP 1회 빌드 + ThreadPool workers=5)로 종목당 N=10 ≈ ~8~10분 (commit `perf`). 순차 40분 대비 ~5배.
+
+## 5. climax_neg (001820 삼화콘덴서) N=10 — (A) over-forcing 반증 **통과**
+
+데이터: +132% 4주 / 50일선 +131% 과확장 = 교과서적 climax. 합격기준 사전 고정 = ignore ≥9/10.
+
+| 축 | 결과 |
+|---|---|
+| **classification** | **ignore 10/10** ✅ |
+| **climax_run flag** | **10/10** ✅ (과열 인식 재현) |
+| rejected_gate | not_cup_family 10/10 |
+| extended_from_ma | 10/10 |
+| pattern | none 10/10 |
+
+- **결론: (A) 균형 증명.** 경계 종목(005850)은 watch 10/10 수렴 + 명백한 climax 는 ignore 10/10 배제 유지 → (A)는 "애매한 것만 watch, 명백 실격은 여전히 ignore". caveat 2(over-forcing="always watch") 반증.
+- 부수 관찰: not_cup_family 경로라 cup_depth_pct noisy(0~41.5)·prior_uptrend noisy — cup 아니니 depth 무의미(verdict/routing/flag 는 안정). measurements 강제 보고가 비-cup 에선 noise 산출이나 무해(rejected_gate 가 not_cup_family 로 근거 명시).
+
+## 6. 잔여 패널 (진행 중)
+
+| 가지 | 티커 | 기대 | 상태 |
+|---|---|---|---|
+| gate1_neg (deep U) | 004440 삼일씨엔에스 (dd54.9%) | Gate1 none (깊은-U도 watch 로 안 끌림) | 실행 중 |
+| gate2_neg (clear V) | 미정 | none | 데이터 제약(moderate-depth clear-V 희소) — 억지선정 금지, 005850 V-회차 사후분석 보강 검토 |
+| gate0_neg (선행<30%) | 미정 | none | 미선정 |
+| positive (적법 cup) | 미정 | entry/watch | 미선정 |

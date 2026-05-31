@@ -34,8 +34,8 @@ from kr_pipeline.common import thresholds
 # 가지별 패널 — Step 2 에서 실제 티커로 채움 (FINDINGS 에 선정 근거 기록).
 PANEL = {
     # gate3_neg(005850) 완료(watch 10/10, FINDINGS §2) — 재실행 방지로 ticker=None.
-    "climax_neg": {"ticker": "001820", "expect_cls": "ignore", "expect_flag": "climax_run", "note": "교과서적 climax 과열 (+132% 4w) — (A) over-forcing 단일 최강 반증; 합격=ignore≥9/10"},
-    "gate1_neg":  {"ticker": None, "expect_pattern": "none",  "note": "depth>33% deep U (004440 삼일씨엔에스 dd54.9%)"},
+    "climax_neg": {"ticker": None, "expect_cls": "ignore", "note": "001820 완료(FINDINGS §5): ignore 10/10, climax_run 10/10 — (A) over-forcing 반증 통과"},
+    "gate1_neg":  {"ticker": "004440", "expect_pattern": "none", "expect_cls": "ignore|watch", "note": "depth>33% deep U (삼일씨엔에스 dd54.9%) — Gate1 none; (A)가 깊은-U도 watch로 안 끌어야"},
     "gate2_neg":  {"ticker": None, "expect_pattern": "none",  "note": "명백한 V — 데이터 제약(moderate-depth clear-V 희소)"},
     "gate0_neg":  {"ticker": None, "expect_pattern": "none",  "note": "선행상승<30%"},
     "gate3_neg":  {"ticker": None, "expect_cls": "watch",     "note": "005850 완료(FINDINGS §2)"},
