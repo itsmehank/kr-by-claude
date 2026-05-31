@@ -63,11 +63,30 @@
 - **결론: (A) 균형 증명.** 경계 종목(005850)은 watch 10/10 수렴 + 명백한 climax 는 ignore 10/10 배제 유지 → (A)는 "애매한 것만 watch, 명백 실격은 여전히 ignore". caveat 2(over-forcing="always watch") 반증.
 - 부수 관찰: not_cup_family 경로라 cup_depth_pct noisy(0~41.5)·prior_uptrend noisy — cup 아니니 depth 무의미(verdict/routing/flag 는 안정). measurements 강제 보고가 비-cup 에선 noise 산출이나 무해(rejected_gate 가 not_cup_family 로 근거 명시).
 
-## 6. 잔여 패널 (진행 중)
+## 6. 잔여 패널 결과 (병렬 batch, workers=6)
 
-| 가지 | 티커 | 기대 | 상태 |
-|---|---|---|---|
-| gate1_neg (deep U) | 004440 삼일씨엔에스 (dd54.9%) | Gate1 none (깊은-U도 watch 로 안 끌림) | 실행 중 |
-| gate2_neg (clear V) | 미정 | none | 데이터 제약(moderate-depth clear-V 희소) — 억지선정 금지, 005850 V-회차 사후분석 보강 검토 |
-| gate0_neg (선행<30%) | 미정 | none | 미선정 |
-| positive (적법 cup) | 미정 | entry/watch | 미선정 |
+### gate1_neg (004440 삼일씨엔에스, dd≈49%) — **통과**
+- classification **ignore 10/10**, pattern **none 10/10**, cup_depth 47.6~51.0%(>33%, stdev 1.4 안정), climax_run 10/10.
+- rejected_gate: not_cup_family 9 / gate1 1 — 깊은 베이스를 대개 not_cup_family 로 라우팅하나 depth 정확 측정(>33%) → 어느 경로든 none. **(A)가 깊은 베이스를 watch 로 안 끌었음** ✅.
+
+### positive (241770 메카로) — **inconclusive (confound)**
+- classes watch 5 / ignore 5, patterns cup 2/flat 2/none 6 (불안정). **late_stage_base 10/10 + unfavorable_market_context 10/10**.
+- ★ confound 2개: (1) **현재 시장 unfavorable** → §3.5 하드룰이 시장 전체 max=watch → 깨끗한 entry positive 원천 불가. (2) 메카로가 **late-stage base** → watch/ignore 가 책-충실하게 정당(적법 early cup 아님, 선정 부적절).
+- → (A) over-rejection 의 깨끗한 반증/확정 *둘 다 못 함*. 메카로 watch/ignore 는 (A) 결함이 아니라 late-stage+불리장의 정당 판정.
+
+### gate0_neg / gate2_neg — **데이터 제약 (억지선정 금지)**
+- gate0_neg: minervini-pass 277종목 중 선행상승<30% **0건** → Gate0 는 스크린 유니버스에서 구성상 항상 충족. 단독 테스트 케이스 부재.
+- gate2_neg: moderate-depth clear-V 스크린 유니버스 희소. **단 climax런(001820)이 cup_shape V 6/10 을 전부 ignore(not_cup_family)로 처리** → "V→배제(watch 로 안 샘)" 증거로 인용.
+
+## 7. 게이트 종합 (현재까지)
+
+| 케이스 | 결과 | (A) 균형 함의 |
+|---|---|---|
+| gate3_neg 005850 (경계 faulty cup) | **watch 10/10** ✅ | 경계 → 재현 가능 보수적 watch |
+| climax 001820 (명백 과열) | **ignore 10/10, climax_run 10/10** ✅ | 명백 실격 → 배제 유지 (over-forcing 아님) |
+| gate1_neg 004440 (깊은 base) | **none/ignore 10/10** ✅ | 깊은 base → 배제 유지 |
+| gate2_neg (V) | climax런 V6/10→ignore 로 간접 입증 | V → 배제 (watch 로 안 샘) |
+| gate0_neg | 데이터 제약 (구성상 충족) | — |
+| positive | inconclusive (불리장+late-stage confound) | over-rejection 가드 미확정 |
+
+**핵심 결론**: 측정-우선 scaffolding + (A) 경계 수렴이 프로덕션 비결정성(005850 cup 1/5)을 **watch 10/10 로 안정화**했고, **명백한 실격(climax/깊은 base/V)은 ignore 로 배제 유지** → (A) over-forcing("always watch") 반증. **잔여 미해결**: over-rejection 가드(positive)는 현재 불리장에서 깨끗한 entry 케이스 부재로 미확정 — 우호적 시장 또는 early-stage 적법 cup 재선정 필요.
