@@ -36,10 +36,10 @@ PANEL = {
     # gate3_neg(005850) 완료(watch 10/10, FINDINGS §2) — 재실행 방지로 ticker=None.
     "climax_neg": {"ticker": None, "expect_cls": "ignore", "note": "001820 완료(FINDINGS §5): ignore 10/10, climax_run 10/10 — (A) over-forcing 반증 통과"},
     "gate1_neg":  {"ticker": "004440", "expect_pattern": "none", "expect_cls": "ignore|watch", "note": "depth>33% deep U (삼일씨엔에스 dd54.9%) — Gate1 none; (A)가 깊은-U도 watch로 안 끌어야"},
-    "gate2_neg":  {"ticker": None, "expect_pattern": "none",  "note": "명백한 V — 데이터 제약(moderate-depth clear-V 희소)"},
-    "gate0_neg":  {"ticker": None, "expect_pattern": "none",  "note": "선행상승<30%"},
+    "positive":   {"ticker": "241770", "expect_cls": "entry|watch", "note": "메카로 depth20%·둥근U(바닥5주)·선행+272% — 적법 base; over-rejection(적법인데 none) 가드"},
+    "gate2_neg":  {"ticker": None, "expect_pattern": "none",  "note": "명백한 V — 데이터 제약(스크린 유니버스 희소); climax런 V6/10→ignore 가 V-배제 증거"},
+    "gate0_neg":  {"ticker": None, "expect_pattern": "none",  "note": "선행<30% — 데이터 제약(minervini-pass 277중 0건; Gate0 구성상 충족)"},
     "gate3_neg":  {"ticker": None, "expect_cls": "watch",     "note": "005850 완료(FINDINGS §2)"},
-    "positive":   {"ticker": None, "expect_cls": "entry|watch","note": "적법 핸들 cup"},
 }
 
 FEATURE_KEYS = ["prior_uptrend_pct", "cup_depth_pct", "handle_depth_pct", "handle_volume_ratio"]
@@ -160,14 +160,27 @@ def main():
             }, ensure_ascii=False, indent=2))
             return
 
-        report = {}
-        for key, cfg in PANEL.items():
-            if not cfg.get("ticker"):
-                print(f"[skip] {key}: 티커 미선정"); continue
-            print(f"[run] {key} ({cfg['ticker']}) N={args.n} workers={args.workers} ...", flush=True)
-            runs = run_ticker(conn, cfg["ticker"], args.n, args.workers)
-            report[key] = diagnose(runs, cfg)
-            print(f"[done] {key}: classes={report[key]['classes']}", flush=True)
+        # 티커-간 병렬: ZIP 은 종목당 1회 직렬 빌드(psycopg conn thread-unsafe), 모든
+        # (티커×N) claude 호출을 단일 전역 ThreadPool 로 flatten → 동시 호출 ≤ --workers 보장.
+        active = [(k, cfg) for k, cfg in PANEL.items() if cfg.get("ticker")]
+        for k, cfg in active:
+            print(f"[skip] {k}: 미선정" if not cfg.get("ticker") else f"[build] {k} ({cfg['ticker']})", flush=True)
+        zips = {k: _build_zip_once(conn, cfg["ticker"]) for k, cfg in active}
+        tasks = [k for k, cfg in active for _ in range(args.n)]
+        print(f"[parallel] {len(active)}종목 × N={args.n} = {len(tasks)}호출, workers={args.workers}", flush=True)
+        try:
+            with ThreadPoolExecutor(max_workers=args.workers) as ex:
+                paired = list(ex.map(lambda k: (k, _one_call(zips[k])), tasks))
+        finally:
+            for p in zips.values():
+                Path(p).unlink(missing_ok=True)
+        by_key: dict[str, list] = {}
+        for k, r in paired:
+            by_key.setdefault(k, []).append(r)
+        cfg_by_key = dict(active)
+        report = {k: diagnose(by_key[k], cfg_by_key[k]) for k in by_key}
+        for k in report:
+            print(f"[done] {k}: classes={report[k]['classes']}", flush=True)
         print(json.dumps(report, ensure_ascii=False, indent=2))
     finally:
         conn.close()
