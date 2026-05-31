@@ -1,0 +1,143 @@
+"""Phase 2 (i) build-first 재측정 하니스 (spec §10 / plan Task 11). DB 미기록 — 진단 전용.
+
+실행:
+    uv run python scripts/remeasure_phase2i.py --n 10            # 전체 패널
+    uv run python scripts/remeasure_phase2i.py --smoke 005850    # 1회 smoke (파이프라인 확인)
+
+입력 고정: build_analysis_zip(conn, symbol) 는 DB 의 *현재* 데이터로 ZIP bytes 생성.
+순수 경로 검증이려면 검증 시점 데이터를 고정(데이터 적재 정지 또는 고정 거래일 DB)하고 실행.
+
+판정(spec §10):
+  - feature 안정(9~10/10 band-containment) + verdict 안정 → 청정 통과
+  - feature 안정 + verdict 흔들 → 트리/precedence 구멍 (Task 7 수정)
+  - feature 흔들(밴드 straddle) → 측정 문제 #2 (졸업/(ii))
+합격: 5종목 전 가지 기대대로 안정 + gate3_neg(005850) cup_with_handle ≥9/10 + watch + handle_quality ≥9/10.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import statistics
+import tempfile
+from collections import Counter
+from pathlib import Path
+
+import psycopg
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from kr_pipeline.common import thresholds
+
+# 가지별 패널 — Step 2 에서 실제 티커로 채움 (FINDINGS 에 선정 근거 기록).
+PANEL = {
+    "gate0_neg":  {"ticker": None, "expect_pattern": "none",            "note": "선행상승<30%"},
+    "gate1_neg":  {"ticker": None, "expect_pattern": "none",            "note": "depth>33% / wide-loose"},
+    "gate2_neg":  {"ticker": None, "expect_pattern": "none",            "note": "진짜 V자"},
+    "gate3_neg":  {"ticker": "005850", "expect_pattern": "cup_with_handle", "expect_cls": "watch", "expect_flag": "handle_quality", "note": "faulty handle"},
+    "gate3_short":{"ticker": None, "expect_pattern": "cup_with_handle", "expect_cls": "watch", "note": "sub-1주 핸들 → handle_status=not_formed"},
+    "positive":   {"ticker": None, "expect_cls": "entry|watch",         "note": "적법 핸들 cup"},
+}
+
+FEATURE_KEYS = ["prior_uptrend_pct", "cup_depth_pct", "handle_depth_pct", "handle_volume_ratio"]
+TOL = thresholds.MEASUREMENT_TOLERANCE_PCT  # band-containment 판정용 (calibration-target)
+
+
+def run_one(conn, ticker: str) -> dict:
+    """고정 입력 1회 분석 — weekend._analyze_one 의 ZIP→temp→call_claude 패턴 (DB 미기록)."""
+    from api.services.zip_builder import build_analysis_zip
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+    zip_bytes = build_analysis_zip(conn, ticker)
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
+        f.write(zip_bytes)
+        zip_path = f.name
+    try:
+        return call_claude(prompt_file="analyze_chart_v3.md", attachments=[zip_path], dry_run=False)
+    finally:
+        Path(zip_path).unlink(missing_ok=True)
+
+
+def diagnose(runs: list[dict], expect: dict) -> dict:
+    patterns = Counter(r.get("pattern") for r in runs)
+    classes = Counter(r.get("classification") for r in runs)
+    feat_stats = {}
+    for k in FEATURE_KEYS:
+        vals = [r.get("measurements", {}).get(k) for r in runs if isinstance(r.get("measurements"), dict)]
+        vals = [v for v in vals if isinstance(v, (int, float))]
+        if vals:
+            feat_stats[k] = {
+                "n": len(vals),
+                "mean": round(statistics.mean(vals), 2),
+                "stdev": round(statistics.pstdev(vals), 3) if len(vals) > 1 else 0.0,
+                "min": min(vals), "max": max(vals),
+                "spread_pct": round(max(vals) - min(vals), 2),
+            }
+    hq = sum(1 for r in runs if "handle_quality" in (r.get("risk_flags") or []))
+
+    def _m_counter(field):
+        return dict(Counter(
+            (r.get("measurements") or {}).get(field) for r in runs
+            if isinstance(r.get("measurements"), dict)
+        ))
+
+    # 회차별 raw — (cup_depth_pct, cup_shape) 짝 진단(#1 지각 vs #3 경계)용.
+    runs_raw = []
+    for r in runs:
+        m = r.get("measurements") or {}
+        runs_raw.append({
+            "cls": r.get("classification"),
+            "pattern": r.get("pattern"),
+            "cup_depth_pct": m.get("cup_depth_pct"),
+            "cup_shape": m.get("cup_shape"),
+            "rejected_gate": m.get("rejected_gate"),
+            "handle_status": m.get("handle_status"),
+        })
+
+    return {
+        "n": len(runs),
+        "patterns": dict(patterns),
+        "classes": dict(classes),
+        "rejected_gate": _m_counter("rejected_gate"),   # 진단 핵심축 (어느 Gate none 탈락)
+        "cup_shape": _m_counter("cup_shape"),
+        "handle_status": _m_counter("handle_status"),
+        "feature_stats": feat_stats,                     # depth band-containment 판정용
+        "handle_quality_cited": hq,
+        "measurements_null_runs": sum(1 for r in runs if not isinstance(r.get("measurements"), dict)),
+        "runs_raw": runs_raw,                            # (depth,shape) 짝 진단용
+        "expect": expect,
+    }
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--n", type=int, default=10)
+    ap.add_argument("--smoke", metavar="TICKER", help="1회 smoke 실행 (파이프라인 확인, 진단 생략)")
+    args = ap.parse_args()
+
+    conn = psycopg.connect(os.environ["DATABASE_URL"])
+    try:
+        if args.smoke:
+            result = run_one(conn, args.smoke)
+            print(json.dumps({
+                "smoke": args.smoke,
+                "classification": result.get("classification"),
+                "pattern": result.get("pattern"),
+                "measurements": result.get("measurements"),
+                "risk_flags": result.get("risk_flags"),
+            }, ensure_ascii=False, indent=2))
+            return
+
+        report = {}
+        for key, cfg in PANEL.items():
+            if not cfg.get("ticker"):
+                print(f"[skip] {key}: 티커 미선정"); continue
+            runs = [run_one(conn, cfg["ticker"]) for _ in range(args.n)]
+            report[key] = diagnose(runs, cfg)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    main()

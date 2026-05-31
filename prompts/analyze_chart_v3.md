@@ -116,11 +116,13 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 아래 트리를 *순서대로* 적용해 `pattern` 을 도출하라. "무슨 모양 같나" 게슈탈트로 라벨을 먼저 정하지 말 것.
 **`none` 으로 떨어질 때마다 그 Gate 를 `measurements.rejected_gate` 에 기록**(어느 분기에서 갈렸는지 감사 가능하게).
 
-- **1차 라우팅**: cup 계열 기하가 아님(climax run / base 없음 / 명백한 비-cup) → `none`, `rejected_gate=not_cup_family`. (단 `prior_uptrend_pct`·`cup_depth_pct`·`cup_shape` 는 그래도 측정해 보고.)
+- **1차 라우팅**: cup 계열 기하가 *명백히* 아님(**명백한** climax run = 직전 급등 + 단일봉 초대형 거래량·스프레드 / base 자체가 전혀 없음 / 명백한 비-cup) → `none`, `rejected_gate=not_cup_family`. (단 `prior_uptrend_pct`·`cup_depth_pct`·`cup_shape` 는 그래도 측정해 보고.) ⚠ *애매하면 여기서 배제하지 말 것* — 아래 경계 수렴 규칙.
 - **Gate0**: `prior_uptrend_pct < CUP_PRIOR_UPTREND_MIN_PCT(30%)` → `none`, `rejected_gate=gate0` (O'Neil: 모든 cup 전제).
 - **Gate1**: `cup_depth_pct > 깊이상한` → `none`, `rejected_gate=gate1`. 깊이상한 = 정상장 CUP_DEPTH_MAX_NORMAL_PCT(33%);
   단 `market_context` 가 downtrend→confirmed_uptrend 전환(최근 60세션)이면 CUP_DEPTH_MAX_BEAR_RECOVERY_PCT(50%).
-- **Gate2**: `cup_shape == "V"` (둥근 U 아님) → `none`, `rejected_gate=gate2`.
+- **Gate2**: `cup_shape == "V"` — **명백한 직하강 V**(둥근 바닥 없이 한 점에서 반등, 좁고 가파름)만 → `none`, `rejected_gate=gate2`. 바닥에 둥근 기미가 있으면 V 로 배제하지 말 것.
+
+**★ 경계 수렴 규칙 (verdict 재현 — over-forcing 아닌 over-rejecting 방지)**: `prior_uptrend`·`cup_depth` 가 밴드 내(전제 통과)인데 U/V·climax 판정이 *애매한* 종목은 — **명백한 실격(명백 climax / 명백 직하강 V / depth ≫ 상한)이 아닌 한** — `not_cup_family`/`gate2` 로 튀어 `ignore` 가 되지 말고, **형성중·불명확 base = 보수적 `watch`** 로 수렴하라(cup 으로 보아 Gate3 진행). 책: 형성중·불명확 base 는 *매수 보류*(watch)이지 *배제*(ignore)가 아니다. `ignore` 는 명백 실격에만. (목표는 라벨 고정이 아니라 *verdict 재현* — 같은 경계 종목이 회차마다 watch↔ignore 로 갈리면 안 된다.)
 - **Gate3 (핸들 — 분기, shape ≠ quality 분리; 길이 먼저)**:
   - **핸들 길이 < HANDLE_LEGIT_MIN_DAYS(5거래일 ≈1주)** → `pattern=cup_with_handle`,
     `handle_status=not_formed`, **classification=watch**. (2~3일 조임 = shakeout 미완 = *형성중* 이지
