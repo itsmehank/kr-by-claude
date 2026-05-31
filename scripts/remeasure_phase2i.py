@@ -35,8 +35,10 @@ from kr_pipeline.common import thresholds
 PANEL = {
     # gate3_neg(005850) 완료(watch 10/10, FINDINGS §2) — 재실행 방지로 ticker=None.
     "climax_neg": {"ticker": None, "expect_cls": "ignore", "note": "001820 완료(FINDINGS §5): ignore 10/10, climax_run 10/10 — (A) over-forcing 반증 통과"},
-    "gate1_neg":  {"ticker": "004440", "expect_pattern": "none", "expect_cls": "ignore|watch", "note": "depth>33% deep U (삼일씨엔에스 dd54.9%) — Gate1 none; (A)가 깊은-U도 watch로 안 끌어야"},
-    "positive":   {"ticker": "241770", "expect_cls": "entry|watch", "note": "메카로 depth20%·둥근U(바닥5주)·선행+272% — 적법 base; over-rejection(적법인데 none) 가드"},
+    "gate1_neg":  {"ticker": None, "expect_pattern": "none", "note": "004440 완료(FINDINGS §6): none/ignore 10/10"},
+    "positive_nc":   {"ticker": "036570", "expect_cls": "watch", "note": "NC 선행+66%·depth19%·base→신고가 해소(early-stage 후보); 합격=watch≥9/10(불리장이라 entry 불가), late_stage 미해당 확인"},
+    "positive_sy":   {"ticker": "002810", "expect_cls": "watch", "note": "삼영무역 선행+63%·depth21%·base→회복; positive hedge"},
+    "positive":   {"ticker": None, "expect_cls": "entry|watch", "note": "241770 메카로 inconclusive(late_stage confound, FINDINGS §6) — 재선정으로 대체"},
     "gate2_neg":  {"ticker": None, "expect_pattern": "none",  "note": "명백한 V — 데이터 제약(스크린 유니버스 희소); climax런 V6/10→ignore 가 V-배제 증거"},
     "gate0_neg":  {"ticker": None, "expect_pattern": "none",  "note": "선행<30% — 데이터 제약(minervini-pass 277중 0건; Gate0 구성상 충족)"},
     "gate3_neg":  {"ticker": None, "expect_cls": "watch",     "note": "005850 완료(FINDINGS §2)"},
