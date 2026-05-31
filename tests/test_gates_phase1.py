@@ -85,7 +85,8 @@ def test_failed_breakout_recorded(monkeypatch, db):
 def test_ignore_with_handle_quality_stays_ignore(monkeypatch, db):
     """⛔ ignore + handle_quality 발화 → ignore 유지 (watch 로 승격 금지).
 
-    버그 회귀: handle_quality 발화 시 무조건 watch 설정하면 ignore 가 승격됨.
+    monotone-combine: classification 은 most_conservative(ignore, watch) = ignore 유지.
+    conf cap 은 적용됨 (min). extended_from_ma → Tier2 cap 0.50.
     """
     monkeypatch.setattr(gates, "compute_handle_quality",
                         lambda *a, **k: {"fired": True, "reasons": ["deep_handle"], "weights": [], "metrics": {}})
@@ -95,9 +96,10 @@ def test_ignore_with_handle_quality_stays_ignore(monkeypatch, db):
     out, tr = gates.apply_phase1_gates(db, "TIGN", datetime(2026, 1, 1, tzinfo=timezone.utc), result)
 
     assert out["classification"] == "ignore", "ignore 는 절대 승격 안 함"
-    assert out["confidence"] == 0.90, "ignore 의 confidence 무변경"
+    assert out["confidence"] <= 0.50, "extended → Tier2 conf cap 적용 (min)"
     assert "handle_quality" in out["risk_flags"], "관찰 flag 는 추가됨"
-    assert tr is None or ("2E_tier1" not in tr and "2E_tier2" not in tr), "entry 아니므로 2E 기록 없음"
+    assert tr is not None and "2E_tier2" in tr, "monotone-combine 발화 기록됨"
+    assert tr["2E_tier2"]["demoted"] is False, "ignore 는 강등 아님 (verdict 그대로)"
 
 
 def test_tier1_conf_none_capped(monkeypatch, db):
@@ -114,8 +116,12 @@ def test_tier1_conf_none_capped(monkeypatch, db):
     assert "2E_tier1" in tr
 
 
-def test_watch_with_handle_quality_stays_watch_no_cap(monkeypatch, db):
-    """watch + handle_quality → watch 유지, confidence 무변경 (강등 룰 아님)."""
+def test_watch_with_handle_quality_stays_watch_conf_capped(monkeypatch, db):
+    """watch + handle_quality → watch 유지, conf cap 적용 (monotone-combine).
+
+    spec §3.1: final_confidence = min(prompt_conf, backstop_cap).
+    watch no-extended → Tier1 cap 0.60. 0.75 → min(0.75, 0.60) = 0.60.
+    """
     monkeypatch.setattr(gates, "compute_handle_quality",
                         lambda *a, **k: {"fired": True, "reasons": ["deep_handle"], "weights": [], "metrics": {}})
     monkeypatch.setattr(gates, "compute_failed_breakout", lambda *a, **k: None)
@@ -124,6 +130,31 @@ def test_watch_with_handle_quality_stays_watch_no_cap(monkeypatch, db):
     out, tr = gates.apply_phase1_gates(db, "TWAT", datetime(2026, 1, 1, tzinfo=timezone.utc), result)
 
     assert out["classification"] == "watch"
-    assert out["confidence"] == 0.75, "watch 는 cap 적용 안 함 (entry 강등 룰만)"
+    assert out["confidence"] <= 0.60, "Tier1 cap 적용: min(0.75, 0.60) = 0.60"
     assert "handle_quality" in out["risk_flags"]
-    assert tr is None or ("2E_tier1" not in tr and "2E_tier2" not in tr)
+    assert tr is not None and "2E_tier1" in tr, "monotone-combine 발화 기록됨"
+    assert tr["2E_tier1"]["demoted"] is False, "watch 는 강등 아님 (verdict 그대로)"
+
+
+def test_monotone_no_promotion_ignore_stays(monkeypatch, db):
+    """ignore + handle_quality → ignore 유지 (most_conservative no-promotion)."""
+    monkeypatch.setattr(gates, "compute_handle_quality",
+                        lambda *a, **k: {"fired": True, "reasons": ["deep_handle"], "weights": [], "metrics": {}})
+    monkeypatch.setattr(gates, "compute_failed_breakout", lambda *a, **k: None)
+    result = _base_result(classification="ignore", confidence=0.90, risk_flags=[])
+    out, tr = gates.apply_phase1_gates(db, "IG", datetime(2026, 1, 1, tzinfo=timezone.utc), result)
+    assert out["classification"] == "ignore"          # 승격 금지
+    assert out["confidence"] <= 0.60                    # conf cap 은 적용 (min)
+    assert "handle_quality" in out["risk_flags"]
+
+
+def test_monotone_watch_conf_capped_with_extended(monkeypatch, db):
+    """LLM 이 이미 watch + handle_quality + extended → watch 유지 + conf ≤ 0.50."""
+    monkeypatch.setattr(gates, "compute_handle_quality",
+                        lambda *a, **k: {"fired": True, "reasons": ["deep_handle"], "weights": [], "metrics": {}})
+    monkeypatch.setattr(gates, "compute_failed_breakout", lambda *a, **k: None)
+    result = _base_result(classification="watch", confidence=0.80, risk_flags=["extended_from_ma"])
+    out, tr = gates.apply_phase1_gates(db, "WX", datetime(2026, 1, 1, tzinfo=timezone.utc), result)
+    assert out["classification"] == "watch"
+    assert out["confidence"] <= 0.50
+    assert "2E_tier2" in tr
