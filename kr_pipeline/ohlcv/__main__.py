@@ -17,6 +17,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--window-days", type=int, default=30, help="incremental 윈도우")
     p.add_argument("--limit-tickers", type=int, default=None, help="테스트용 종목 수 제한")
     p.add_argument("--max-workers", type=int, default=3)
+    p.add_argument(
+        "--exclude-today", action="store_true",
+        help="INCREMENTAL 에서 오늘 제외(end=어제). 장중 수동 실행 시 오늘 미확정 부분봉 회피용. "
+             "기본 미설정=오늘 포함(마감 후 cron 정상 동작).",
+    )
     return p.parse_args()
 
 
@@ -33,6 +38,7 @@ def main() -> int:
             window_days=args.window_days,
             limit_tickers=args.limit_tickers,
             max_workers=args.max_workers,
+            exclude_today=args.exclude_today,
         )
         log.info(f"DONE rows_affected={stats.rows_affected} failures={len(stats.failures)}")
         if stats.failures:

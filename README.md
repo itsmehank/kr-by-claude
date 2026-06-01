@@ -13,7 +13,8 @@ KOSPI / KOSDAQ 일봉 데이터 적재 파이프라인 및 후속 분석 도구.
 ## 실행
 - 종목 마스터: `uv run python -m kr_pipeline.universe`
 - 일봉 백필: `uv run python -m kr_pipeline.ohlcv --mode=backfill --years=2`
-- 일봉 증분: `uv run python -m kr_pipeline.ohlcv --mode=incremental --window-days=30`
+- 일봉 증분: `uv run python -m kr_pipeline.ohlcv --mode=incremental --window-days=30` (기본 end=오늘; 마감 후 cron 정상 동작)
+  - 장중 수동 실행 시: `--exclude-today` 추가 → end=어제 (오늘 미확정 부분봉 회피)
 - 수정종가 재적재: `uv run python -m kr_pipeline.ohlcv --mode=full-refresh`
 - 주봉 백필: `uv run python -m kr_pipeline.weekly --mode=backfill`
 - 주봉 증분: `uv run python -m kr_pipeline.weekly --mode=incremental --window-weeks=4`

@@ -20,6 +20,29 @@ def test_incremental_range_for_30_days():
     assert end == date(2026, 5, 15)
 
 
+@freeze_time("2026-05-15")
+def test_incremental_default_includes_today():
+    """기본값: end=today (마감 후 cron 정확성 보존)."""
+    _, end = compute_date_range(Mode.INCREMENTAL, window_days=30)
+    assert end == date(2026, 5, 15)
+
+
+@freeze_time("2026-05-15")
+def test_incremental_exclude_today_ends_yesterday():
+    """opt-in: exclude_today=True → end=어제 (장중 수동 실행 시 부분봉 회피). start 는 불변."""
+    start, end = compute_date_range(Mode.INCREMENTAL, window_days=30, exclude_today=True)
+    assert start == date(2026, 4, 15)
+    assert end == date(2026, 5, 14)
+
+
+@freeze_time("2026-05-15")
+def test_exclude_today_noop_for_backfill():
+    """BACKFILL/FULL 은 이미 end=어제 → exclude_today 가 영향 없음."""
+    _, end_default = compute_date_range(Mode.BACKFILL, years=2)
+    _, end_excl = compute_date_range(Mode.BACKFILL, years=2, exclude_today=True)
+    assert end_default == end_excl == date(2026, 5, 14)
+
+
 def test_full_refresh_range_uses_db_min(monkeypatch):
     from kr_pipeline.ohlcv import modes
     monkeypatch.setattr(modes, "_get_db_min_date", lambda conn: date(2024, 1, 2))
