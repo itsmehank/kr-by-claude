@@ -41,14 +41,22 @@ def compute_date_range(
     years: int = 2,
     window_days: int = 30,
     conn: Connection | None = None,
+    exclude_today: bool = False,
 ) -> tuple[date, date]:
+    """모드별 일봉 fetch 범위.
+
+    exclude_today: INCREMENTAL 에서 end 를 어제로 당김 (장중 수동 실행 시 오늘 *미확정*
+        부분봉 회피용 opt-in). 기본 False = end=today — 마감 후 cron 이 당일 확정봉을
+        같은 날 적재하는 동작을 보존. BACKFILL/FULL_REFRESH 는 이미 end=어제라 무영향.
+    """
     today = date.today()
+    yesterday = today - timedelta(days=1)
     if mode == Mode.BACKFILL:
-        return today - timedelta(days=365 * years), today - timedelta(days=1)
+        return today - timedelta(days=365 * years), yesterday
     if mode == Mode.INCREMENTAL:
-        return today - timedelta(days=window_days), today
+        return today - timedelta(days=window_days), (yesterday if exclude_today else today)
     if mode == Mode.FULL_REFRESH:
-        return _get_db_min_date(conn), today - timedelta(days=1)
+        return _get_db_min_date(conn), yesterday
     raise ValueError(f"Unknown mode: {mode}")
 
 
@@ -121,15 +129,19 @@ def run(
     window_days: int = 30,
     limit_tickers: int | None = None,
     max_workers: int = 3,
+    exclude_today: bool = False,
 ) -> RunStats:
     params = {
         "years": years if mode == Mode.BACKFILL else None,
         "window_days": window_days if mode == Mode.INCREMENTAL else None,
         "limit_tickers": limit_tickers,
+        "exclude_today": exclude_today if (mode == Mode.INCREMENTAL and exclude_today) else None,
     }
     params = {k: v for k, v in params.items() if v is not None}
 
-    start, end = compute_date_range(mode, years=years, window_days=window_days, conn=conn)
+    start, end = compute_date_range(
+        mode, years=years, window_days=window_days, conn=conn, exclude_today=exclude_today,
+    )
     log.info(f"mode={mode.value} range={start}..{end}")
 
     tickers = _load_active_tickers(conn, limit=limit_tickers)

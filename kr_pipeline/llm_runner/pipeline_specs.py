@@ -43,6 +43,8 @@ PIPELINE_SPECS: list[dict] = [
         "modes": [
             {"id": "incremental", "label": "증분 (30일)",
              "args": ["--mode=incremental", "--window-days=30"], "is_heavy": False},
+            {"id": "incremental-exclude-today", "label": "증분 (30일·오늘 제외, 장중 수동용)",
+             "args": ["--mode=incremental", "--window-days=30", "--exclude-today"], "is_heavy": False},
             {"id": "full-refresh", "label": "보유 기간 재정정",
              "args": ["--mode=full-refresh"], "is_heavy": True},
             {"id": "backfill", "label": "과거 N년 적재",
