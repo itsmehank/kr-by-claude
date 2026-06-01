@@ -41,7 +41,7 @@ export const LIFECYCLE_SCENES: LifecycleScene[] = [
     narration: "주말마다 8조건 통과 종목 전체를 다시 평가해요. 좋아지면 watch에서 entry로 오르고, 나빠지면 ignore로 내려갑니다. (평일엔 신규/오래된 후보만 새로 분류 — 기존 종목이 매일 바뀌는 건 아니에요.) 매 재평가는 독립적인 새 판단이라 어느 방향으로든 바뀔 수 있어요(ignore→entry 도 가능).",
     stateLabel: "watch ↔ entry ↔ ignore", stateTone: "watch", systemMemo: "weekly_classification 새 행 누적 (주말 batch = minervini 통과 종목 전체 재평가; UPDATE 아님)", panels: ["classes"], openLoop: false },
   { n: 7, emoji: "🔔", title: "트리거 평가", marker: { x: 525, y: 80 }, highlight: null,
-    narration: "entry·watch 종목을 매일 점검해요. ⚠ 단 결과는 분류에 따라 달라요 — '지금 사자(go_now)'는 entry 일 때만 나오고, watch 는 pivot 근접 시 '승격 대기(promotion)'까지만이에요(바로 매수 아님 → 먼저 entry 로 올라가야). 베이스가 깨지면 둘 다 abort(손절). (ignore 는 트리거 대상에 아예 안 올라가요.)",
+    narration: "entry·watch 종목을 매일 점검해요. ⚠ 단 결과는 분류에 따라 달라요 — '지금 사자(go_now)'는 entry 일 때만 나오고, watch 는 pivot 근접 시 '승격 대기(promotion)'까지만이에요(바로 매수 아님 → 먼저 entry 로 올라가야). 베이스가 깨지면 둘 다 abort(손절). (ignore 는 트리거 대상에 아예 안 올라가요.) 참고: promotion 은 '관찰 표시'일 뿐 — 실제 watch→entry 승격은 주말 재평가가 결정해요(promotion 이 승격을 앞당기진 않음).",
     stateLabel: "entry / watch", stateTone: "watch", systemMemo: "trigger_evaluation_log · go_now(entry만) / promotion(watch) / abort", panels: ["triggerVsSignal"], openLoop: false },
   { n: 8, emoji: "🟢", title: "진입 시그널 발생", marker: { x: 555, y: 72 }, highlight: "high",
     narration: "go_now! AI 가 진입가·손절가·목표가·비중을 계산해 매수 시그널을 발행합니다 (슬랙 알림도 와요).",
