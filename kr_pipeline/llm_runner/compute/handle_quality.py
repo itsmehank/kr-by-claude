@@ -12,14 +12,9 @@ from typing import Optional
 
 from psycopg import Connection
 
-log = logging.getLogger(__name__)
+from kr_pipeline.common import thresholds
 
-# 임계 (spec §3-2). 0.33 = O'Neil HMMS p.116 예외(고정), 0.80 = 재조정 대상. Phase 2 에서 thresholds.py 로 이관 예정.
-DEEP_HANDLE_RATIO = 0.33
-VOLUME_NOT_CONTRACTING_RATIO = 0.80
-MIN_HANDLE_DAYS = 3
-MIN_BASE_DAYS = 5
-WEIGHT_POSITION_LOW_RATIO = 0.33
+log = logging.getLogger(__name__)
 
 
 def _to_date(d) -> date:
@@ -70,7 +65,7 @@ def compute_handle_quality(
         )
         rows = cur.fetchall()
 
-    if len(rows) < MIN_BASE_DAYS + MIN_HANDLE_DAYS:
+    if len(rows) < thresholds.BASE_MIN_DAYS + thresholds.HANDLE_MIN_DAYS:
         return skip(f"window too short ({len(rows)} rows)")
 
     # 컵 바닥 (low 최소) → 그 이후 오른쪽 림 (high >= handle_high 첫 거래일).
@@ -86,9 +81,9 @@ def compute_handle_quality(
 
     base_rows = rows[:right_rim_idx]
     handle_rows = rows[right_rim_idx:]  # right_rim 봉 포함 — 그 low 도 handle 바닥 계산에 들어감
-    if len(handle_rows) < MIN_HANDLE_DAYS:
+    if len(handle_rows) < thresholds.HANDLE_MIN_DAYS:
         return skip(f"handle window too short ({len(handle_rows)} days)")
-    if len(base_rows) < MIN_BASE_DAYS:
+    if len(base_rows) < thresholds.BASE_MIN_DAYS:
         return skip(f"base window too short ({len(base_rows)} days)")
 
     handle_low = min(float(r[2]) for r in handle_rows)
@@ -97,16 +92,18 @@ def compute_handle_quality(
     base_high = float(cls["base_high"]) if cls.get("base_high") is not None else \
         max(float(r[1]) for r in base_rows)
 
-    # (A) deep handle — 깊이-퍼센트 비 (통일 공식 §3-2)
+    # (A) deep handle — 깊이-퍼센트 비 (통일 공식 §3-2).
+    #     depth 는 장중 high/low 기준 (spec §4: O'Neil absolute peak→low, 종가 아님).
+    #     rows[][1]=high, rows[][2]=low 사용 — 책-충실. 종가 전환 금지.
     handle_depth_pct = (handle_high - handle_low) / handle_high * 100.0
     ratio_a = handle_depth_pct / base_depth_pct
-    fired_a = ratio_a > DEEP_HANDLE_RATIO
+    fired_a = ratio_a > thresholds.HANDLE_DEEP_RATIO
 
     # (B) volume not contracting
     avg_base_vol = sum(float(r[4]) for r in base_rows) / len(base_rows)
     avg_handle_vol = sum(float(r[4]) for r in handle_rows) / len(handle_rows)
     ratio_b = (avg_handle_vol / avg_base_vol) if avg_base_vol else 0.0
-    fired_b = ratio_b > VOLUME_NOT_CONTRACTING_RATIO
+    fired_b = ratio_b > thresholds.HANDLE_VOLUME_NOT_CONTRACTING_RATIO
 
     # (분배) handle 구간 distribution day
     dist_days = sum(1 for r in handle_rows if r[6])
@@ -122,7 +119,7 @@ def compute_handle_quality(
 
     # 가중치 (E) 위치 / (F) MA50 — 단독 트리거 아님, reasons 와 함께 기록만.
     denom = (base_high - base_low)
-    handle_position_low = denom > 0 and ((handle_low - base_low) / denom) < WEIGHT_POSITION_LOW_RATIO
+    handle_position_low = denom > 0 and ((handle_low - base_low) / denom) < thresholds.HANDLE_POSITION_LOW_RATIO
     last = handle_rows[-1]
     last_close, last_ma50 = float(last[3]), last[5]
     handle_below_ma50 = last_ma50 is not None and last_close < float(last_ma50)

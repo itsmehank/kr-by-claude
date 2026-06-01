@@ -69,3 +69,34 @@ def test_status_constants():
     assert thresholds.STATUS_DIST_COUNT_FOR_FTD_INVALIDATION == 6
     assert thresholds.STATUS_FTD_RECENT_DAYS == 90
     assert thresholds.STATUS_FTD_INVALIDATION_DAYS == 10
+
+
+def test_phase2i_cup_shape_constants():
+    # book-anchor (변경 금지)
+    assert thresholds.CUP_DEPTH_MAX_NORMAL_PCT == 33.0
+    assert thresholds.CUP_DEPTH_MAX_BEAR_RECOVERY_PCT == 50.0
+    assert thresholds.CUP_PRIOR_UPTREND_MIN_PCT == 30.0
+    assert thresholds.HANDLE_DEPTH_BULL_MIN_PCT == 8.0
+    assert thresholds.HANDLE_DEPTH_BULL_MAX_PCT == 12.0
+    assert thresholds.HANDLE_LEGIT_MIN_DAYS == 5          # book-anchor 길이 게이트 (≠ HANDLE_MIN_DAYS heuristic)
+    assert thresholds.MIN_BASE_WEEKS == {
+        "cup_with_handle": 7, "flat_base": 5, "double_bottom": 7, "vcp": 5,
+    }
+    # 향후 다패턴 트리용 (i) 미소비 — 값 drift 잠금
+    assert thresholds.FLAT_BASE_DEPTH_MAX_PCT == 15.0
+    assert thresholds.FLAT_BASE_PRIOR_UPTREND_MIN_PCT == 20.0
+
+
+def test_phase2i_handle_heuristic_constants():
+    # heuristic (튜닝 가능)
+    assert thresholds.HANDLE_DEEP_RATIO == 0.33
+    assert thresholds.HANDLE_VOLUME_NOT_CONTRACTING_RATIO == 0.80
+    assert thresholds.HANDLE_MIN_DAYS == 3
+    assert thresholds.BASE_MIN_DAYS == 5
+    assert thresholds.HANDLE_POSITION_LOW_RATIO == 0.33
+
+
+def test_phase2i_failed_breakout_and_band():
+    assert thresholds.FAILED_BREAKOUT_K_DAYS == 5
+    assert thresholds.FAILED_BREAKOUT_CONSECUTIVE_BELOW == 2
+    assert thresholds.MEASUREMENT_TOLERANCE_PCT == 5.0

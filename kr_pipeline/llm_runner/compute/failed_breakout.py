@@ -10,10 +10,9 @@ from typing import Optional
 
 from psycopg import Connection
 
-log = logging.getLogger(__name__)
+from kr_pipeline.common import thresholds
 
-K_DAYS = 5
-CONSECUTIVE_BELOW = 2
+log = logging.getLogger(__name__)
 
 
 def _to_date(d) -> date:
@@ -66,7 +65,7 @@ def compute_failed_breakout(
     if d0_idx is None:
         return None  # 돌파 없음
 
-    window = rows[d0_idx + 1: d0_idx + 1 + K_DAYS]  # D1~D5
+    window = rows[d0_idx + 1: d0_idx + 1 + thresholds.FAILED_BREAKOUT_K_DAYS]  # D1~D5
     # window 가 K=5 미만 (D0 가 데이터 끝 근처) 이면 P2 가 민감해질 수 있음 — Phase 2 재조정 대상
     if not window:
         return None
@@ -82,7 +81,7 @@ def compute_failed_breakout(
             max_consecutive = max(max_consecutive, cur_run)
         else:
             cur_run = 0
-    fired_p1 = max_consecutive >= CONSECUTIVE_BELOW
+    fired_p1 = max_consecutive >= thresholds.FAILED_BREAKOUT_CONSECUTIVE_BELOW
 
     # (P2) 회복 0회
     recoveries = sum(1 for c in closes if c >= pivot)
@@ -100,7 +99,7 @@ def compute_failed_breakout(
 
     return {
         "fired": True,
-        "K_days": K_DAYS,
+        "K_days": thresholds.FAILED_BREAKOUT_K_DAYS,
         "trigger": trigger,
         "D0_date": _to_date(rows[d0_idx][0]).isoformat(),
         "consecutive_below": max_consecutive,

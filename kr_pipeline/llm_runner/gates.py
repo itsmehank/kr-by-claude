@@ -16,6 +16,12 @@ from kr_pipeline.llm_runner.compute.failed_breakout import compute_failed_breako
 TIER1_CONF_CAP = 0.60
 TIER2_CONF_CAP = 0.50
 
+VERDICT_ORDER = {"ignore": 0, "watch": 1, "entry": 2}  # 낮을수록 보수
+
+
+def _most_conservative(a: str, b: str) -> str:
+    return a if VERDICT_ORDER.get(a, 2) <= VERDICT_ORDER.get(b, 2) else b
+
 
 def apply_phase1_gates(
     conn: Connection, symbol: str, classified_at, result: dict,
@@ -34,35 +40,27 @@ def apply_phase1_gates(
         if "handle_quality" not in risk_flags:
             risk_flags.append("handle_quality")
 
-        # === 2-E two-tier 판정 — classification == 'entry' 일 때만 강등 ===
-        # ⛔ entry 가 아니면 (watch/ignore) flag 만 추가하고 강등/승격 안 함.
-        #    특히 ignore 를 watch 로 승격하면 안 됨 (사용자 v5 버그 수정).
-        if result.get("classification") == "entry":
-            extended = "extended_from_ma" in risk_flags
-            conf = result.get("confidence")
+        # === backstop 강등 패키지 (monotone-combine, spec §3.1) ===
+        # verdict floor = watch (승격 절대 안 함), conf cap = tier 별.
+        extended = "extended_from_ma" in risk_flags
+        backstop_cap = TIER2_CONF_CAP if extended else TIER1_CONF_CAP
+        tier = "2E_tier2" if extended else "2E_tier1"
+        inputs = ["handle_quality", "extended_from_ma"] if extended else ["handle_quality"]
 
-            if extended:
-                # Tier 2 — hard watch
-                result["classification"] = "watch"
-                if conf is None or conf > TIER2_CONF_CAP:
-                    result["confidence"] = TIER2_CONF_CAP
-                triggered["2E_tier2"] = {
-                    "fired": True,
-                    "inputs": ["handle_quality", "extended_from_ma"],
-                    "action": "entry_demoted_to_watch_with_entry_params_block",
-                    "handle_quality_metrics": hq.get("metrics"),
-                }
-            else:
-                # Tier 1 — soft watch
-                result["classification"] = "watch"
-                if conf is None or conf > TIER1_CONF_CAP:
-                    result["confidence"] = TIER1_CONF_CAP
-                triggered["2E_tier1"] = {
-                    "fired": True,
-                    "inputs": ["handle_quality"],
-                    "action": "entry_demoted_to_watch",
-                    "handle_quality_metrics": hq.get("metrics"),
-                }
+        prev_verdict = result.get("classification")
+        result["classification"] = _most_conservative(prev_verdict, "watch")  # ignore→ignore, watch→watch, entry→watch
+        conf = result.get("confidence")
+        result["confidence"] = backstop_cap if conf is None else min(conf, backstop_cap)
+
+        triggered[tier] = {
+            "fired": True,
+            "inputs": inputs,
+            "verdict_floor": "watch",
+            "demoted": prev_verdict != result["classification"],
+            "conf_cap": backstop_cap,
+            "entry_params_block": extended,
+            "handle_quality_metrics": hq.get("metrics"),
+        }
 
     result["risk_flags"] = risk_flags
 
