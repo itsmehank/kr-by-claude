@@ -132,6 +132,9 @@ export function LifeCycleStoryModal({ open, onClose }: { open: boolean; onClose:
           <text x="635" y="178" textAnchor="end" fill="#3f9e5a" fontSize="10"
                 opacity={scene.highlight === "low" ? 1 : 0.5}>52주 저점</text>
           <polyline points={PRICE_PATH} fill="none" stroke="#4b8bf5" strokeWidth="3" strokeLinejoin="round" />
+          {scene.openLoop && (
+            <polyline points="555,72 575,98 600,130" fill="none" stroke="#e06c6c" strokeWidth="2.5" strokeDasharray="5 4" strokeLinejoin="round" />
+          )}
           <circle cx={scene.marker.x} cy={scene.marker.y} r="7" fill="#f5a623" stroke="#fff" strokeWidth="2" />
           <text x={scene.marker.x} y={scene.marker.y - 14} textAnchor="middle" fill="#c77f10" fontSize="11" fontWeight="700">지금 여기</text>
         </svg>
