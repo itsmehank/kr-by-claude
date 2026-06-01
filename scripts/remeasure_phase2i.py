@@ -1,4 +1,9 @@
-"""Phase 2 (i) build-first 재측정 하니스 (spec §10 / plan Task 11). DB 미기록 — 진단 전용.
+"""Phase 2 (i) build-first 재측정 하니스 (spec §10 / plan Task 11).
+
+⚠ 일회성 *진단* 스크립트 — 프로덕션 경로 아님. DB 미기록, cron/파이프라인 미연결.
+   프로덕션 분류는 kr_pipeline/llm_runner/ (weekend.py 등) 경로. 본 스크립트는 (i) 안정화
+   효과를 동일입력 N회로 측정한 검증 도구이며, 게이트 통과 후 재실행 의도 없음(아카이브).
+
 
 실행:
     uv run python scripts/remeasure_phase2i.py --n 10            # 전체 패널

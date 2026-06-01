@@ -134,15 +134,16 @@
 | **F6 + B-수치** | ATR 전환 검토 + status.py 시간 상수 재검토 (10/90/6) | σ vs ATR 측정 비교 후 도구 결정 | cron: σ-기반 vs ATR-기반 FTD 임계 측정 비교 |
 | **(γ) Finalized 가드** | 진짜 freshness 신호 — pipeline_runs.ohlcv 마지막 성공 run finished_at 이 해당 거래일 마감 이후인지 점검. (α) divergence 가드의 한계 (동일 partial 모드 미검출) 보완 | 운영 중 동일-partial 케이스 실제 발생 시 (현재까지는 (α) 충분) |
 | **Phase 1 2-A 완료** (코드) + **프로덕션 검증서 한계 발견** | ① handle_quality 14th flag, ② 2-E two-tier, ③ 2-F + triggered_rules 구현·HARD GATE(in-memory) 통과. **그러나 프로덕션 검증(2026-05-31)서 후처리 gate 가 LLM 비결정적 pattern 라벨에 완전 종속 → 대부분 inert** 확인 (동일입력 cup_with_handle 1/5, entry 0/5; `verification/2026-05-31-phase1-2a-prod-validation/`). 코드 DONE, 효과는 Phase 2 (i) 선행 필요. | 코드 DONE 2026-05-30 / 효과 Phase 2 의존 |
-| **★ Phase 2 (i) prompt 안정화 — 순서 최우선 (2-B/C/D 보다 먼저)** | 후처리 gate 가 LLM 라벨에 종속이라 inert → prompt sync 가 *주 메커니즘*: LLM 이 처음부터 faulty handle 을 watch + 일관 reasoning 으로 분류, handle_quality/2-E/2-F 룰을 prompt 에 명시, verify prompt 에 14th flag 동기화, thresholds.py SSOT 이관. 후처리는 backstop 으로 강등. | **즉시 — 2-B/C/D 차단 해제 전제** |
-| **★ 재측정 합격선 (HARD GATE)** | Phase 2 (i) 적용 후 비결정성 재측정. 합격선 *미리 설정*: 동일입력 cup_with_handle ≥ **4/5** (baseline 1/5) + faulty-handle 케이스가 reliably watch + handle_quality 인용. **(i) 가 비결정성을 충분히 줄인다고 미리 단정 금지 — 재측정이 판정.** 합격 시에만 2-B/C/D 진입. | (i) 직후 측정 |
-| **Phase 1 2-B** (wide_and_loose 하드 게이트) | `wide_and_loose` gate. **2-B/C/D 도 동일 라벨-게이팅이라 같은 inert 병** → 재측정 합격선 통과 후에만 진입. | **재측정 합격선 통과 후** |
-| **Phase 1 2-C** (분배 클러스터 하드 게이트) | handle/base distribution_day 클러스터 → entry 거부. 동일 게이팅. | **재측정 합격선 통과 후** |
-| **Phase 1 2-D** (RS divergence 하드 게이트) | pivot 접근 중 RS 하락 분기 → entry 거부. 동일 게이팅. | **재측정 합격선 통과 후** |
-| **Phase 1 옵션 (ii) gate 를 LLM 라벨에서 분리** (빨간불) | OHLCV 독립 base/handle 검출로 LLM pattern 라벨 의존 제거. **B 가 'pattern=none 이면 base 기하도 None' 확증 → (ii) 는 OHLCV 독립 패턴검출 = 큰 프로젝트, 패턴 재분류 룰과 얽힘.** (i) 가 합격선 미달일 때만 착수. | (i) 불충분 판정 시 |
+| **✅ Phase 2 (i) prompt 안정화 — 완료 (2026-06-01)** | 3층 분해(shape/quality/verdict) + 측정-우선 cup-scoped 트리(Gate0~3) + 허용밴드 + (A) 경계 수렴 규칙 + monotone-combine backstop + thresholds.py SSOT 이관(패턴×시장) + drift 테스트 + verify 7차원(layer-분리 guardrail). spec `specs/2026-05-31-phase2-i-prompt-stabilization-design.md`, plan `plans/2026-05-31-phase2-i-prompt-stabilization.md`, 검증 `verification/2026-05-31-phase2-i-remeasure/`. 브랜치 `phase2-i-prompt-stabilization`. | DONE |
+| **✅ 재측정 합격선 (HARD GATE) — 통과** | build-first 재측정(동일입력 N=10, 병렬 하니스). 합격기준 재정의(Q1: **verdict 재현이 타깃, 라벨은 파생치**): 005850 경계 **watch 10/10**(baseline cup 1/5), climax→ignore 10/10, deep-base→배제 10/10, 적법 early cup→watch 9/10 → (A) 양방향 균형 입증. `verification/2026-05-31-phase2-i-remeasure/FINDINGS.md §9`. | **통과 → 2-B/C/D 해제** |
+| **Phase 1 2-B** (wide_and_loose 하드 게이트) | `wide_and_loose` gate. (i) 가 라벨을 측정-함수로 안정화 → inert 병 해소, 진입 가능. **착수 시 depth 패턴×시장 의존성 맵(F3 50% 예외) 통독 선행** (`verification/2026-05-31-phase2-i-threshold-dependency-map.md`). | **해제 — 착수 가능** |
+| **Phase 1 2-C** (분배 클러스터 하드 게이트) | handle/base distribution_day 클러스터 → entry 거부. | **해제 — 착수 가능** |
+| **Phase 1 2-D** (RS divergence 하드 게이트) | pivot 접근 중 RS 하락 분기 → entry 거부. | **해제 — 착수 가능** |
+| **(ii)/(B) 경계 cup U/V 곡률 측정 고정** (방법론 부채) | (i) 의 (A) 경계 수렴이 verdict 는 재현하나 *U/V shape 원인은 미규명* — 라우팅으로 덮음. 경계 cup 의 U/V 곡률(바닥 시간비율·대칭)을 측정앵커(prompt-내 B) 또는 OHLCV 독립 검출((ii))로 고정. | **U/V 가 verdict 까지 흔드는 새 케이스 발생 시** 졸업 |
 | **FREEZE 풀버전 (후속 사이클)** | entry_params / pivot freeze 한 줄 추가 + S3 백엔드 + UI diff 시각화 | Phase 1~3 종료 후 |
 | **P2-3** (선택) | candidate VCP footprint payload 보조 (zigzag) | LLM 시각 판정 앵커 | 결정 자체 대기 (할지 여부) |
-| (별개) | prompt (.md) 자동 동기화 | SSOT-1 의 잔존 — 현재 prompt 텍스트 임계는 수동 동기화 | 미발의 (선택 candidate) |
+| (별개) | prompt (.md) 자동 동기화 | SSOT-1 의 잔존 — 현재 prompt 텍스트 임계는 수동 동기화 (Phase 2(i)서 drift-detection 테스트로 침묵 불일치는 차단, 자동 치환은 미발의) | 미발의 (선택 candidate) |
+| **(운영 리스크) claude CLI JSON 파싱 간헐 실패** | Phase 2(i) 재측정서 20호출 중 1건(~5%) claude CLI 출력 JSON 파싱 실패 관측. 프로덕션서 silent drop/오분류 위험 → retry-on-parse-fail 강화 또는 실패 격리 로깅. (방법론 아닌 호출 견고성) | **즉시 backlog** — 프로덕션 LLM runner 신뢰성 |
 
 ---
 
