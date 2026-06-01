@@ -21,6 +21,7 @@ import { ZIP_FILES } from "../data/llm-pipeline-audit/zip-files";
 import { GLOSSARY } from "../data/llm-pipeline/glossary";
 import { renderRich } from "./llm-pipeline/renderRich";
 import { PROMPT_EXPLANATIONS, STAGE_TO_PROMPT } from "../data/llm-pipeline/prompt-explanations";
+import { LifeCycleStoryModal } from "./llm-pipeline/LifeCycleStoryModal";
 
 
 // ─────── 데이터 ───────────────────────────────────────────
@@ -635,6 +636,7 @@ function FaqSection() {
 
 export default function LlmPipelinePage() {
   const [activeModal, setActiveModal] = useState<SimModal | null>(null);
+  const [storyOpen, setStoryOpen] = useState(false);
 
   function handleCellClick(row: SimRow, day: SimDay) {
     const cell = row.cells[day.date];
@@ -699,6 +701,17 @@ export default function LlmPipelinePage() {
         </div>
       </details>
 
+      <section className="bento p-6 mb-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h3 className="text-subhead font-bold text-ink mb-1">🎬 종목 생애주기 따라가기</h3>
+            <p className="text-data text-muted">가상 종목 한 개의 일생(상장 → 분류 → 진입 → 손절·이탈)을 9장면 이야기로. 초보도 시스템 구조가 한눈에.</p>
+          </div>
+          <button onClick={() => setStoryOpen(true)}
+            className="px-4 py-2 bg-accent text-white rounded-lg text-data font-semibold shrink-0">이야기 시작 →</button>
+        </div>
+      </section>
+
       {/* ① 개요 + 데이터 흐름도 */}
       <section className="bento p-6 mb-4">
         <h3 className="text-subhead font-bold text-ink mb-3">개요 — 자동 흐름 한눈에</h3>
@@ -749,6 +762,7 @@ export default function LlmPipelinePage() {
         modal={activeModal}
         onClose={() => setActiveModal(null)}
       />
+      <LifeCycleStoryModal open={storyOpen} onClose={() => setStoryOpen(false)} />
 
       {/* ④ 종목 상태 전이도 */}
       <section className="bento p-6 mb-4">
