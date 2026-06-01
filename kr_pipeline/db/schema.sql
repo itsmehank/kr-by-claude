@@ -296,6 +296,10 @@ ALTER TABLE weekly_classification
 ALTER TABLE weekly_classification
   ADD COLUMN IF NOT EXISTS measurements JSONB;
 
+-- 2026-06-02: classification 에 'disqualified'(12자) 수용 위해 widen (기존 VARCHAR(10))
+ALTER TABLE weekly_classification
+  ALTER COLUMN classification TYPE VARCHAR(20);
+
 -- (5b) 호출 이력 (append-only, 단순 abort 모델 — severity 없음)
 CREATE TABLE IF NOT EXISTS trigger_evaluation_log (
   symbol                  VARCHAR(10) NOT NULL,
