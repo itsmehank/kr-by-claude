@@ -96,7 +96,7 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "30 4 * * 6",
         "schedule_label": "주 1회 (토)",
-        "long_description": "액면분할·배당·합병 등 corporate action 이력을 수집해 corporate_actions 테이블에 적재합니다.\n\n이 데이터는 주가의 조정 계수 (adj_close) 를 계산할 때 사용되며, 잘못된 액면분할 처리는 잘못된 지표로 이어집니다.\n\n선행 작업: 없음 (외부 KRX/DART API)\n후속 작업: indicators-daily, indicators-weekly (지표 계산 시 가격 조정)",
+        "long_description": "액면분할·배당·합병 등 corporate action 이력을 수집해 corporate_actions 테이블에 적재합니다.\n\n이 데이터는 주가의 조정 계수 (adj_close) 를 계산할 때 사용되며, 잘못된 액면분할 처리는 잘못된 지표로 이어집니다.\n\n■ corp_code 매핑 (중요)\nDART API 는 종목 티커가 아니라 DART 내부 corp_code 로 조회합니다. 그래서 '티커 → corp_code' 매핑 테이블 (dart_corp_codes) 이 먼저 있어야 하고, 그 다리를 통해서만 공시를 가져올 수 있습니다.\n\n■ 모드별 차이\n- 증분 (7일) / 과거 N년 적재: 매핑이 *이미 있는* 활성 종목만 조회합니다 (INNER JOIN). 매핑 없는 종목은 조용히 건너뜁니다.\n- 기업코드 매핑 갱신 (refresh-mapping): DART 의 전체 corpCode.xml 을 다시 받아 dart_corp_codes 를 갱신합니다. 공시 자체는 안 가져오고 *매핑만* 채웁니다.\n\n■ 신규 종목 처리 (Universe 와의 관계)\nUniverse 가 추가한 신규 종목은 corp_code 매핑이 없어 증분/백필에서 빠집니다. 따라서 신규 종목이 생기면 순서가: Universe → [기업코드 매핑 갱신] → [증분/백필] 입니다. 매핑 갱신을 건너뛰면 신규 종목의 corporate action 이 영영 적재되지 않습니다 (매핑 없는 활성 종목이 5% 를 넘으면 mapping_low 경고가 뜹니다).\n\n주의: 기업코드 매핑 갱신은 기본 cron 스케줄에 포함되지 않습니다 (정기 작업은 증분만). 신규 종목 매핑은 현재 수동으로 챙겨야 합니다.\n\n선행 작업: 없음 (외부 KRX/DART API)\n후속 작업: indicators-daily, indicators-weekly (지표 계산 시 가격 조정)",
         "inputs": [],
         "outputs": ["corporate_actions"],
         "depends_on": [],
