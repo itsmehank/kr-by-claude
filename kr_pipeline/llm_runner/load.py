@@ -73,6 +73,30 @@ def get_active_monitoring(conn: Connection) -> list[dict]:
     ]
 
 
+def get_classified_losing_minervini(conn: Connection, as_of: date) -> list[dict]:
+    """최신 분류가 entry/watch/ignore 인데 as_of 의 minervini_pass=false 인 종목.
+
+    이미 disqualified 인 종목은 IN 절에서 제외 → 멱등(재강등 안 함).
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            WITH latest AS (
+              SELECT DISTINCT ON (symbol) symbol, market, classification
+                FROM weekly_classification
+               ORDER BY symbol, classified_at DESC
+            )
+            SELECT l.symbol, l.market
+              FROM latest l
+              JOIN daily_indicators i ON i.ticker = l.symbol AND i.date = %s
+             WHERE l.classification IN ('entry', 'watch', 'ignore')
+               AND i.minervini_pass = FALSE
+            """,
+            (as_of,),
+        )
+        return [{"symbol": r[0], "market": r[1]} for r in cur.fetchall()]
+
+
 def get_active_with_current(conn: Connection, as_of: date | None = None) -> list[dict]:
     """active 모니터링 + 오늘의 close/volume/sma_50/avg_volume_50d 조인."""
     if as_of is None:
