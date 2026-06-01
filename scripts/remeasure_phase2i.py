@@ -73,20 +73,6 @@ def _one_call(zip_path: str) -> dict:
                 "risk_flags": [], "_error": str(e)[:200]}
 
 
-def run_ticker(conn, ticker: str, n: int, workers: int) -> list[dict]:
-    """ZIP 1회 빌드 후 n개 claude 호출을 ThreadPool 로 병렬 (호출은 IO-bound subprocess).
-
-    호출 간 공유 상태 = 읽기전용 zip_path 뿐 → thread-safe. call_claude 는 호출마다
-    독립 prompt 문자열 + 독립 subprocess. psycopg conn 은 빌드(메인 스레드)에서만 사용.
-    """
-    zip_path = _build_zip_once(conn, ticker)
-    try:
-        with ThreadPoolExecutor(max_workers=workers) as ex:
-            return list(ex.map(lambda _: _one_call(zip_path), range(n)))
-    finally:
-        Path(zip_path).unlink(missing_ok=True)
-
-
 def diagnose(runs: list[dict], expect: dict) -> dict:
     patterns = Counter(r.get("pattern") for r in runs)
     classes = Counter(r.get("classification") for r in runs)

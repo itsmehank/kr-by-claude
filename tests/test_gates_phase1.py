@@ -36,6 +36,7 @@ def test_tier1_soft_watch(monkeypatch, db):
     assert "handle_quality" in out["risk_flags"]
     assert tr is not None and "2E_tier1" in tr
     assert "2E_tier2" not in tr
+    assert tr["2E_tier1"]["entry_params_block"] is False  # Tier1 = entry_params 차단 없음
 
 
 def test_tier2_hard_watch_with_extended(monkeypatch, db):
@@ -51,6 +52,7 @@ def test_tier2_hard_watch_with_extended(monkeypatch, db):
     assert out["confidence"] <= 0.50
     assert "2E_tier2" in tr
     assert "2E_tier1" not in tr
+    assert tr["2E_tier2"]["entry_params_block"] is True  # Tier2 = entry_params 차단
     assert tr["2E_tier2"]["inputs"] == ["handle_quality", "extended_from_ma"]
 
 
