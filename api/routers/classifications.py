@@ -30,13 +30,6 @@ def get_classifications(
     limit default 5000: 14일 lookback 안의 unique 분류 종목 수가 통상 ~400, 안전 마진 적용.
     클라이언트가 명시 안 보내면 사실상 무제한처럼 동작 (제한은 폭주 방지용).
     """
-    # Normalize FastAPI Query/FieldInfo sentinels to None for direct-call compatibility.
-    from fastapi.params import FieldInfo as _FI
-    if isinstance(classifications, _FI):
-        classifications = None
-    if isinstance(sources, _FI):
-        sources = None
-
     if sort not in SORT_CLAUSES:
         raise HTTPException(400, f"Unknown sort: {sort}. Allowed: {list(SORT_CLAUSES.keys())}")
     sort_clause = SORT_CLAUSES[sort]

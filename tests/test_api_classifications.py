@@ -207,8 +207,9 @@ def test_classifications_default_excludes_disqualified(db, _clean_dq):
         _seed_dq(cur, "API_W", "watch")
         _seed_dq(cur, "API_DQ", "disqualified")
     db.commit()
-    syms = {r.symbol for r in get_classifications(conn=db)}
+    # 직접 호출 시 FastAPI Query 기본값 대신 명시적 None 전달 (HTTP 경로에선 FastAPI 가 해석)
+    syms = {r.symbol for r in get_classifications(classifications=None, sources=None, conn=db)}
     assert "API_W" in syms
     assert "API_DQ" not in syms
-    syms2 = {r.symbol for r in get_classifications(classifications=["disqualified"], conn=db)}
+    syms2 = {r.symbol for r in get_classifications(classifications=["disqualified"], sources=None, conn=db)}
     assert "API_DQ" in syms2
