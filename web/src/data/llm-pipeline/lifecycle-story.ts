@@ -38,7 +38,7 @@ export const LIFECYCLE_SCENES: LifecycleScene[] = [
     narration: "드디어 8조건을 모두 통과! 신규 후보로 잡혀 AI 가 차트를 분석하고 watch(관찰)로 분류합니다. '지금 사라'가 아니라 '이제 지켜볼 가치가 생겼다'는 뜻이에요.",
     stateLabel: "👀 watch", stateTone: "watch", systemMemo: "daily_delta → analyze_chart(LLM) → weekly_classification = watch", panels: ["trend8", "classes"], openLoop: false },
   { n: 6, emoji: "🎢", title: "분류 등급 ↑↓ 변동", marker: { x: 500, y: 88 }, highlight: null,
-    narration: "주말마다 8조건 통과 종목 전체를 다시 평가해요. 좋아지면 watch에서 entry로 오르고, 나빠지면 ignore로 내려갑니다. (평일엔 신규/오래된 후보만 새로 분류 — 기존 종목이 매일 바뀌는 건 아니에요.) 매 재평가는 독립적인 새 판단이라 어느 방향으로든 바뀔 수 있어요(ignore→entry 도 가능).",
+    narration: "주말마다 8조건 통과 종목 전체를 다시 평가해요. 좋아지면 watch에서 entry로 오르고, 나빠지면 ignore로 내려갑니다. (평일엔 신규/오래된 후보만 새로 분류 — 기존 종목이 매일 바뀌는 건 아니에요.) 매 재평가는 독립적인 새 판단이라 어느 방향으로든 바뀔 수 있어요(ignore→entry 도 가능). 그리고 미너비니 8조건 자체를 잃으면 → '자격 상실(disqualified)'로 이탈해 분류 목록(active)에서 빠져요(평일 강등 점검이 처리).",
     stateLabel: "watch ↔ entry ↔ ignore", stateTone: "watch", systemMemo: "weekly_classification 새 행 누적 (주말 batch = minervini 통과 종목 전체 재평가; UPDATE 아님)", panels: ["classes"], openLoop: false },
   { n: 7, emoji: "🔔", title: "트리거 평가", marker: { x: 525, y: 80 }, highlight: null,
     narration: "entry·watch 종목을 매일 점검해요. ⚠ 단 결과는 분류에 따라 달라요 — '지금 사자(go_now)'는 entry 일 때만 나오고, watch 는 pivot 근접 시 '승격 대기(promotion)'까지만이에요(바로 매수 아님 → 먼저 entry 로 올라가야). 베이스가 깨지면 둘 다 abort(손절). (ignore 는 트리거 대상에 아예 안 올라가요.) 참고: promotion 은 '관찰 표시'일 뿐 — 실제 watch→entry 승격은 주말 재평가가 결정해요(promotion 이 승격을 앞당기진 않음).",
