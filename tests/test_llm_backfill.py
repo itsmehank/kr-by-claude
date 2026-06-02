@@ -39,6 +39,44 @@ def test_insert_backfill_classification_basic(db):
         db.commit()
 
 
+def test_backfill_run_inserts_and_wires_on_date(db, monkeypatch):
+    import kr_pipeline.llm_runner.backfill as bf
+    from datetime import date as _date
+    # 실데이터 시작(2024-05-17) 이전 날짜 → get_qualifying_tickers 가 우리가 심은 종목만 반환(격리).
+    as_of = _date(2024, 1, 2)
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM classification_backfill WHERE analyzed_for_date=%s", (as_of,))
+        for t in ("BKR1", "BKR2"):
+            cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'B','KOSPI') ON CONFLICT DO NOTHING", (t,))
+            cur.execute("DELETE FROM daily_indicators WHERE ticker=%s AND date=%s", (t, as_of))
+            cur.execute(
+                """INSERT INTO daily_indicators (ticker, date, minervini_pass, adj_close)
+                   VALUES (%s,%s,TRUE,1000.0)""",
+                (t, as_of),
+            )
+    db.commit()
+    seen_on_date = []
+    monkeypatch.setattr(bf, "build_analysis_zip",
+                        lambda conn, symbol, on_date=None: seen_on_date.append(on_date) or b"zip")
+    monkeypatch.setattr(bf, "call_claude",
+                        lambda **kwargs: _result("watch"))
+    try:
+        res = bf.run(db, dry_run=False, as_of=as_of)
+        assert res["processed"] == 2
+        assert seen_on_date and all(d == as_of for d in seen_on_date)
+        with db.cursor() as cur:
+            cur.execute(
+                "SELECT count(*) FROM classification_backfill WHERE analyzed_for_date=%s", (as_of,))
+            assert cur.fetchone()[0] == 2
+        res2 = bf.run(db, dry_run=False, as_of=as_of)
+        assert res2["processed"] == 0
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM classification_backfill WHERE analyzed_for_date=%s", (as_of,))
+            cur.execute("DELETE FROM daily_indicators WHERE ticker IN ('BKR1','BKR2') AND date=%s", (as_of,))
+        db.commit()
+
+
 def test_insert_backfill_idempotent_on_symbol_analyzed_for_date(db):
     """같은 (symbol, analyzed_for_date) 재삽입 → ON CONFLICT DO NOTHING (1행 유지, 덮어쓰기 안 함)."""
     from kr_pipeline.llm_runner.store import insert_backfill_classification
