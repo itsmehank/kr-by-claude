@@ -65,10 +65,30 @@ def test_build_analysis_zip_excludes_data_after_on_date(db):
     on_date = date(2025, 6, 10)
     market = "KOSPI"
     idx = INDEX_CODE_MAP.get(market, "1001")
+
+    # Weekly dates straddling on_date: 6 weeks before/at, 3 weeks after
+    weekly_dates = [
+        date(2025, 5, 2),
+        date(2025, 5, 9),
+        date(2025, 5, 16),
+        date(2025, 5, 23),
+        date(2025, 5, 30),
+        date(2025, 6, 6),   # last week_end_date <= on_date(2025-06-10)
+        date(2025, 6, 13),  # after on_date — must be excluded
+        date(2025, 6, 20),
+        date(2025, 6, 27),
+    ]
+    last_weekly_before_cutoff = "2025-06-06"
+
     with db.cursor() as cur:
         cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'Z',%s) ON CONFLICT DO NOTHING", (t, market))
         cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
         cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
+        cur.execute("DELETE FROM weekly_indicators WHERE ticker=%s", (t,))
+        cur.execute(
+            "DELETE FROM weekly_index WHERE index_code=%s AND week_end_date >= '2025-05-01' AND week_end_date <= '2025-06-30'",
+            (idx,),
+        )
         for i in range(20):
             d = date(2025, 6, 1) + timedelta(days=i)
             cur.execute(
@@ -83,10 +103,26 @@ def test_build_analysis_zip_excludes_data_after_on_date(db):
                    VALUES (%s,%s,10,11,9,10,1000,100000) ON CONFLICT DO NOTHING""",
                 (idx, d),
             )
+        # Seed weekly_indicators straddling on_date
+        for wd in weekly_dates:
+            cur.execute(
+                """INSERT INTO weekly_indicators (ticker, week_end_date, adj_close)
+                   VALUES (%s, %s, 100) ON CONFLICT DO NOTHING""",
+                (t, wd),
+            )
+        # Seed weekly_index straddling on_date
+        for wd in weekly_dates:
+            cur.execute(
+                """INSERT INTO weekly_index (index_code, week_end_date, open, high, low, close, trading_days)
+                   VALUES (%s, %s, 10, 11, 9, 10, 5) ON CONFLICT DO NOTHING""",
+                (idx, wd),
+            )
     db.commit()
     try:
         zip_bytes = build_analysis_zip(db, t, on_date=on_date)
         zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
+
+        # --- Daily CSV assertions (exact on_date match) ---
         for name in ("daily.csv", "market_index_daily.csv"):
             text = zf.read(name).decode("utf-8")
             rows = list(_csv.reader(io.StringIO(text)))
@@ -94,11 +130,32 @@ def test_build_analysis_zip_excludes_data_after_on_date(db):
             assert dates, f"{name}: 행이 있어야 함"
             assert max(dates) <= on_date.isoformat(), f"{name}: on_date 이후 데이터 누수 — max={max(dates)}"
             assert on_date.isoformat() in dates, f"{name}: on_date 당일 포함되어야"
+
+        # --- Weekly CSV assertions (week_end_date won't equal on_date exactly) ---
+        for name, date_col_idx in (("weekly.csv", 0), ("market_index_weekly.csv", 0)):
+            text = zf.read(name).decode("utf-8")
+            rows = list(_csv.reader(io.StringIO(text)))
+            dates = [r[date_col_idx] for r in rows[1:] if r and r[date_col_idx]]
+            assert dates, f"{name}: 주간 행이 있어야 함"
+            assert max(dates) <= on_date.isoformat(), (
+                f"{name}: on_date 이후 데이터 누수 — max={max(dates)}"
+            )
+            assert last_weekly_before_cutoff in dates, (
+                f"{name}: 마지막 주(cutoff 직전 {last_weekly_before_cutoff}) 포함되어야 — dates={dates}"
+            )
     finally:
         with db.cursor() as cur:
             cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
             cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
-            cur.execute("DELETE FROM index_daily WHERE index_code=%s AND date >= '2025-06-01' AND date <= '2025-06-30'", (idx,))
+            cur.execute("DELETE FROM weekly_indicators WHERE ticker=%s", (t,))
+            cur.execute(
+                "DELETE FROM index_daily WHERE index_code=%s AND date >= '2025-06-01' AND date <= '2025-06-30'",
+                (idx,),
+            )
+            cur.execute(
+                "DELETE FROM weekly_index WHERE index_code=%s AND week_end_date >= '2025-05-01' AND week_end_date <= '2025-06-30'",
+                (idx,),
+            )
         db.commit()
 
 
