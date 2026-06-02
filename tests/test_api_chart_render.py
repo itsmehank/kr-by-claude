@@ -85,3 +85,31 @@ def test_render_weekly_chart_returns_valid_png(db):
     png_bytes = render_weekly_chart(db, "WK1", range_weeks=20)
     img = Image.open(io.BytesIO(png_bytes))
     assert img.format == "PNG"
+
+
+def test_render_daily_chart_respects_on_date(db):
+    from datetime import date, timedelta
+    t = "ASOFC1"
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'C','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        for i in range(20):
+            d = date(2025, 6, 2) + timedelta(days=i)
+            if d.weekday() >= 5:
+                continue
+            price = 1000 + i * 10
+            cur.execute(
+                """INSERT INTO daily_prices (ticker,date,open,high,low,close,adj_close,volume,value)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,1000,100000) ON CONFLICT DO NOTHING""",
+                (t, d, price, price + 20, price - 20, price, price),
+            )
+    db.commit()
+    try:
+        populated = render_daily_chart(db, t, range_days=60, on_date=date(2025, 6, 20))
+        before_all = render_daily_chart(db, t, range_days=60, on_date=date(2025, 1, 1))
+        assert isinstance(populated, bytes) and len(populated) > 1000
+        assert len(before_all) < len(populated)
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        db.commit()
