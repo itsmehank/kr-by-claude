@@ -88,6 +88,78 @@ def insert_classification(
         )
 
 
+def insert_backfill_classification(
+    conn: Connection,
+    *,
+    symbol: str,
+    classified_at: datetime,
+    market: str,
+    result: dict,
+    source: str,
+    llm_meta: dict,
+    analyzed_for_date: date,
+) -> None:
+    """백필 분류 결과를 classification_backfill 에 INSERT (멱등: symbol+analyzed_for_date).
+
+    insert_classification 과 동일하게 Phase 1 2-A 후처리 게이트 적용. freeze 는 만들지 않음.
+    """
+    _original = copy.deepcopy(result)
+    try:
+        result, triggered_rules = apply_phase1_gates(conn, symbol, classified_at, result)
+    except Exception as e:
+        log.warning(
+            "[phase1-gate] backfill failed symbol=%s — 게이트 미적용 원본 저장 (fail-soft): %s",
+            symbol, e,
+        )
+        result = _original
+        triggered_rules = None
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO classification_backfill
+              (symbol, classified_at, analyzed_for_date, market, classification, pattern,
+               pivot_price, pivot_basis, base_high, base_low, base_depth_pct, base_start_date,
+               risk_flags, confidence, reasoning,
+               source,
+               llm_call_duration_s, llm_input_tokens, llm_output_tokens,
+               triggered_rules,
+               measurements)
+            VALUES (%s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s,
+                    %s, %s, %s,
+                    %s,
+                    %s)
+            ON CONFLICT (symbol, analyzed_for_date) DO NOTHING
+            """,
+            (
+                symbol,
+                classified_at,
+                analyzed_for_date,
+                market,
+                result["classification"],
+                result.get("pattern"),
+                result.get("pivot_price"),
+                result.get("pivot_basis"),
+                result.get("base_high"),
+                result.get("base_low"),
+                result.get("base_depth_pct"),
+                result.get("base_start_date"),
+                json.dumps(result.get("risk_flags", [])),
+                result.get("confidence"),
+                result.get("reasoning"),
+                source,
+                llm_meta.get("duration_s"),
+                llm_meta.get("input_tokens"),
+                llm_meta.get("output_tokens"),
+                json.dumps(triggered_rules) if triggered_rules is not None else None,
+                json.dumps(result.get("measurements")) if result.get("measurements") is not None else None,
+            ),
+        )
+
+
 def insert_disqualification(
     conn: Connection,
     *,
