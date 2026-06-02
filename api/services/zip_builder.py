@@ -142,7 +142,8 @@ def _fetch_latest_analysis_result(conn: Connection, ticker: str) -> dict | None:
     }
 
 
-def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = None) -> bytes:
+def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = None,
+                       include_prior_analysis: bool = True) -> bytes:
     """분석/검증 ZIP 빌더. 13 또는 15 파일 묶기.
 
     종목에 weekly_classification 분류 이력이 있으면 analysis_result.json +
@@ -164,7 +165,7 @@ def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = Non
     name, market, sector = row
 
     # 분석 결과 (있다면) — 검증 모드 활성화 트리거
-    analysis_result = _fetch_latest_analysis_result(conn, ticker)
+    analysis_result = _fetch_latest_analysis_result(conn, ticker) if include_prior_analysis else None
     mode = "검증 (analysis_result 포함)" if analysis_result else "원본 분석"
 
     payload = build_payload(conn, ticker, on_date)

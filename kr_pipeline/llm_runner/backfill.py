@@ -67,7 +67,7 @@ def run(conn: Connection, *, dry_run: bool = False, as_of: date | None = None,
 
 def _process_one(conn: Connection, symbol: str, market: str, *, dry_run: bool, as_of: date) -> None:
     started = datetime.now(timezone.utc)
-    zip_bytes = build_analysis_zip(conn, symbol, on_date=as_of)
+    zip_bytes = build_analysis_zip(conn, symbol, on_date=as_of, include_prior_analysis=False)
     with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
         f.write(zip_bytes)
         zip_path = f.name
