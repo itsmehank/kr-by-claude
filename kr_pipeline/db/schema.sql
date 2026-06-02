@@ -395,6 +395,34 @@ CREATE TABLE IF NOT EXISTS signal_performance (
   FOREIGN KEY (symbol, signal_at) REFERENCES entry_params(symbol, signal_at) ON DELETE CASCADE
 );
 
+-- ====== sub-project ③: 과거 시점 백필 분류 (#backfill) ======
+-- weekly_classification 미러이되 PK (symbol, analyzed_for_date) — 라이브 오염 방지
+CREATE TABLE IF NOT EXISTS classification_backfill (
+  symbol               VARCHAR(10) NOT NULL,
+  classified_at        TIMESTAMPTZ NOT NULL,
+  analyzed_for_date    DATE NOT NULL,
+  market               VARCHAR(10) NOT NULL,
+  classification       VARCHAR(20) NOT NULL,
+  pattern              VARCHAR(50),
+  pivot_price          NUMERIC(12, 4),
+  pivot_basis          VARCHAR(30),
+  base_high            NUMERIC(12, 4),
+  base_low             NUMERIC(12, 4),
+  base_depth_pct       NUMERIC(5, 2),
+  base_start_date      DATE,
+  risk_flags           JSONB,
+  confidence           NUMERIC(3, 2),
+  reasoning            TEXT,
+  source               VARCHAR(20) NOT NULL,
+  llm_call_duration_s  NUMERIC(8, 2),
+  llm_input_tokens     INTEGER,
+  llm_output_tokens    INTEGER,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  triggered_rules      JSONB,
+  measurements         JSONB,
+  PRIMARY KEY (symbol, analyzed_for_date)
+);
+
 -- ====== Phase 0 Step 4: FREEZE 최소판 (#P0-S4) ======
 -- 분류 (weekend/daily_delta) 시점의 분석 입력 ZIP 을 사후 검증 가능하도록 보존.
 -- artifact_* 일반화 + content_type + stage 로 entry_params/pivot freeze 후속 추가 가능.
