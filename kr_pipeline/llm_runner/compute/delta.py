@@ -29,6 +29,9 @@ def find_new_tickers(conn: Connection, as_of: date | None = None) -> list[str]:
              WHERE i.date = %s
                AND i.minervini_pass = TRUE
                AND s.delisted_at IS NULL
+               -- NOTE: 이 7일 가드는 "최근에 LLM을 실행했나"(실행 비용 절약)를 보는 것이라
+               --       의도적으로 classified_at 을 쓴다. 데이터 기준 최신성(analyzed_for_date)
+               --       으로 바꾸지 않는다. (sub-project ① 설계 결정)
                AND NOT EXISTS (
                  SELECT 1 FROM weekly_classification wc
                   WHERE wc.symbol = i.ticker

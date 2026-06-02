@@ -42,9 +42,9 @@ def get_classifications(
                  base_start_date, risk_flags, confidence, reasoning, source,
                  llm_call_duration_s, llm_input_tokens, llm_output_tokens
             FROM weekly_classification
-           WHERE classified_at >= NOW() - (%(lookback_days)s || ' days')::interval
+           WHERE COALESCE(analyzed_for_date, classified_at::date) >= CURRENT_DATE - %(lookback_days)s::int
              AND (%(ticker)s::text IS NULL OR symbol = %(ticker)s)
-           ORDER BY symbol, classified_at DESC
+           ORDER BY symbol, COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC
         )
         SELECT l.symbol, s.name, l.market, s.sector,
                l.classification, l.pattern, l.pivot_price, l.pivot_basis,

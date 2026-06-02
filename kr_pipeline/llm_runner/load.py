@@ -52,7 +52,7 @@ def get_active_monitoring(conn: Connection) -> list[dict]:
                    symbol, classified_at, market, classification, pattern,
                    pivot_price, base_low, base_high
               FROM weekly_classification
-             ORDER BY symbol, classified_at DESC
+             ORDER BY symbol, COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC
             """
         )
         rows = cur.fetchall()
@@ -84,7 +84,7 @@ def get_classified_losing_minervini(conn: Connection, as_of: date) -> list[dict]
             WITH latest AS (
               SELECT DISTINCT ON (symbol) symbol, market, classification
                 FROM weekly_classification
-               ORDER BY symbol, classified_at DESC
+               ORDER BY symbol, COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC
             )
             SELECT l.symbol, l.market
               FROM latest l

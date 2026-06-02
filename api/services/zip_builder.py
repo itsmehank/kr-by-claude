@@ -109,7 +109,7 @@ def _fetch_latest_analysis_result(conn: Connection, ticker: str) -> dict | None:
                    llm_input_tokens, llm_output_tokens
               FROM weekly_classification
              WHERE symbol = %s
-             ORDER BY classified_at DESC
+             ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC
              LIMIT 1
             """,
             (ticker,),

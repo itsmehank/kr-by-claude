@@ -95,6 +95,7 @@ def insert_disqualification(
     classified_at: datetime,
     market: str,
     reason: str = "minervini_pass=false — 미너비니 자격 상실(시스템 강등)",
+    analyzed_for_date: date | None = None,
 ) -> None:
     """시스템 발 강등 행 직접 INSERT (LLM/Phase1 게이트 우회).
 
@@ -105,11 +106,11 @@ def insert_disqualification(
         cur.execute(
             """
             INSERT INTO weekly_classification
-              (symbol, classified_at, market, classification, source, reasoning)
-            VALUES (%s, %s, %s, 'disqualified', 'system_disqualify', %s)
+              (symbol, classified_at, analyzed_for_date, market, classification, source, reasoning)
+            VALUES (%s, %s, %s, %s, 'disqualified', 'system_disqualify', %s)
             ON CONFLICT (symbol, classified_at) DO NOTHING
             """,
-            (symbol, classified_at, market, reason),
+            (symbol, classified_at, analyzed_for_date, market, reason),
         )
 
 

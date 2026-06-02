@@ -58,7 +58,7 @@ def cleanup(
                   FROM (
                     SELECT DISTINCT ON (symbol) symbol, classification
                       FROM weekly_classification
-                     ORDER BY symbol, classified_at DESC
+                     ORDER BY symbol, COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC
                   ) latest_class
                  WHERE classification IN ('entry', 'watch')
             )

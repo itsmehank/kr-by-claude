@@ -32,7 +32,7 @@ def build_for_5b(
               FROM weekly_classification
              WHERE symbol = %s
                AND classification IN ('entry', 'watch')
-             ORDER BY classified_at DESC LIMIT 1
+             ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC LIMIT 1
             """,
             (symbol,),
         )
@@ -156,7 +156,7 @@ def build_for_6(
               FROM weekly_classification
              WHERE symbol = %s
                AND classification IN ('entry', 'watch')
-             ORDER BY classified_at DESC LIMIT 1
+             ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC LIMIT 1
             """,
             (symbol,),
         )

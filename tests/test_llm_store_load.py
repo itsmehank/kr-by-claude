@@ -191,3 +191,117 @@ def test_insert_entry_params(db):
         row = cur.fetchone()
     assert row[0] == "pivot_breakout"
     assert float(row[1]) == 80.5
+
+
+def test_active_monitoring_latest_by_analyzed_for_date(db):
+    """analyzed_for_date 최신 행이 active 판정 기준이 된다."""
+    from kr_pipeline.llm_runner.load import get_active_monitoring
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='AXMON1'")
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('AXMON1','A','KOSPI') ON CONFLICT DO NOTHING")
+        # 데이터 최신 = ignore (어제), 실행은 2일 전
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES ('AXMON1', NOW() - INTERVAL '2 day', CURRENT_DATE - 1, 'KOSPI', 'ignore', 'weekend')"""
+        )
+        # 백필성 watch (30일전 데이터), 실행은 방금
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source, pivot_price, base_low)
+               VALUES ('AXMON1', NOW(), CURRENT_DATE - 30, 'KOSPI', 'watch', 'weekend', 100, 90)"""
+        )
+    db.commit()
+    try:
+        syms = [a["symbol"] for a in get_active_monitoring(db)]
+        # 최신은 ignore → active(entry/watch) 목록에서 제외돼야 함
+        assert "AXMON1" not in syms
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='AXMON1'")
+        db.commit()
+
+
+def test_losing_minervini_uses_analyzed_for_date_latest(db):
+    """강등 판정의 '최신 분류'도 analyzed_for_date 기준."""
+    from datetime import date
+    from kr_pipeline.llm_runner.load import get_classified_losing_minervini
+    as_of = date(2026, 6, 1)
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='AXLOSE1'")
+        cur.execute("DELETE FROM daily_indicators WHERE ticker='AXLOSE1'")
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('AXLOSE1','A','KOSPI') ON CONFLICT DO NOTHING")
+        # 데이터 최신 = ignore (as_of 당일 분석), 실행 2일 전
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES ('AXLOSE1', NOW() - INTERVAL '2 day', %s, 'KOSPI', 'ignore', 'weekend')""",
+            (as_of,),
+        )
+        # 백필성 watch (오래전 데이터), 실행 방금
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES ('AXLOSE1', NOW(), %s, 'KOSPI', 'watch', 'weekend')""",
+            (as_of.replace(month=1),),
+        )
+        # as_of 당일 minervini 탈락
+        cur.execute(
+            """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass)
+               VALUES ('AXLOSE1', %s, 1000.0, FALSE)
+               ON CONFLICT (ticker, date) DO UPDATE SET minervini_pass=FALSE""",
+            (as_of,),
+        )
+    db.commit()
+    try:
+        losers = {x["symbol"] for x in get_classified_losing_minervini(db, as_of)}
+        # 최신이 ignore(여전히 entry/watch/ignore 중 하나)라 강등 대상엔 포함됨
+        assert "AXLOSE1" in losers
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='AXLOSE1'")
+            cur.execute("DELETE FROM daily_indicators WHERE ticker='AXLOSE1'")
+        db.commit()
+
+
+def test_losing_minervini_excludes_when_data_latest_is_disqualified(db):
+    """데이터-최신이 disqualified면 (IN 절 밖) 강등 대상에서 빠진다.
+    구(舊) classified_at 축이면 watch(실행 최신)가 잡혀 포함됐을 것 → 변별 테스트."""
+    from datetime import date
+    from kr_pipeline.llm_runner.load import get_classified_losing_minervini
+    as_of = date(2026, 6, 1)
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='AXLOSE2'")
+        cur.execute("DELETE FROM daily_indicators WHERE ticker='AXLOSE2'")
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('AXLOSE2','A','KOSPI') ON CONFLICT DO NOTHING")
+        # 데이터-최신 = disqualified (analyzed_for_date = as_of), 실행 2일 전
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES ('AXLOSE2', NOW() - INTERVAL '2 day', %s, 'KOSPI', 'disqualified', 'system_disqualify')""",
+            (as_of,),
+        )
+        # 백필성 watch (오래전 데이터), 실행 방금 (classified_at 최신)
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES ('AXLOSE2', NOW(), %s, 'KOSPI', 'watch', 'weekend')""",
+            (as_of.replace(month=1),),
+        )
+        # as_of 당일 minervini 탈락 (adj_close NOT NULL 충족)
+        cur.execute(
+            """INSERT INTO daily_indicators (ticker, date, minervini_pass, adj_close)
+               VALUES ('AXLOSE2', %s, FALSE, 1000.0)
+               ON CONFLICT (ticker, date) DO UPDATE SET minervini_pass=FALSE""",
+            (as_of,),
+        )
+    db.commit()
+    try:
+        losers = {x["symbol"] for x in get_classified_losing_minervini(db, as_of)}
+        # 데이터-최신이 disqualified → IN 절 밖 → 강등 대상 아님
+        assert "AXLOSE2" not in losers
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='AXLOSE2'")
+            cur.execute("DELETE FROM daily_indicators WHERE ticker='AXLOSE2'")
+        db.commit()
