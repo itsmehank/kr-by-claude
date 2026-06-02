@@ -104,3 +104,40 @@ def test_build_6_payload_includes_trigger_eval(db):
     assert payload["trigger_evaluation"]["decision"] == "go_now"
     assert "current_state" in payload
     assert "current_metrics_extended" in payload
+
+
+def test_payload_lite_prior_by_analyzed_for_date(db):
+    """활성 신호 prior 선택도 analyzed_for_date 최신 + entry/watch 필터 유지."""
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='AXPL1'")
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('AXPL1','A','KOSPI') ON CONFLICT DO NOTHING")
+        # 데이터 최신 watch (어제), 실행 2일 전, pivot 111
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source,
+                  pattern, pivot_price, pivot_basis, base_high, base_low, base_depth_pct, risk_flags, reasoning)
+               VALUES ('AXPL1', NOW() - INTERVAL '2 day', CURRENT_DATE - 1, 'KOSPI', 'watch', 'weekend',
+                       'flat_base', 111, 'range_high', 111, 100, 9.9, '[]', 'r')"""
+        )
+        # 백필성 watch (30일전), 실행 방금, pivot 999
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source,
+                  pattern, pivot_price, pivot_basis, base_high, base_low, base_depth_pct, risk_flags, reasoning)
+               VALUES ('AXPL1', NOW(), CURRENT_DATE - 30, 'KOSPI', 'watch', 'weekend',
+                       'flat_base', 999, 'range_high', 999, 900, 9.9, '[]', 'r')"""
+        )
+    db.commit()
+    try:
+        with db.cursor() as cur:
+            cur.execute(
+                """SELECT pivot_price FROM weekly_classification
+                    WHERE symbol='AXPL1' AND classification IN ('entry','watch')
+                    ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC
+                    LIMIT 1"""
+            )
+            assert float(cur.fetchone()[0]) == 111.0  # analyzed_for_date 최신 행
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='AXPL1'")
+        db.commit()
