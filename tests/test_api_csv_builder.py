@@ -96,3 +96,28 @@ def test_build_weekly_csv_respects_on_date(db):
         with db.cursor() as cur:
             cur.execute("DELETE FROM weekly_indicators WHERE ticker=%s", (t,))
         db.commit()
+
+
+def test_build_index_csv_respects_on_date(db):
+    from datetime import date, timedelta
+    code = "ASOFIDX"
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM index_daily WHERE index_code=%s", (code,))
+        for i in range(15):
+            d = date(2025, 6, 1) + timedelta(days=i)
+            cur.execute(
+                """INSERT INTO index_daily (index_code, date, open, high, low, close, volume, value)
+                   VALUES (%s,%s,10,11,9,10,1000,100000) ON CONFLICT DO NOTHING""",
+                (code, d),
+            )
+    db.commit()
+    try:
+        text = build_index_csv(db, code, "daily", lookback=60, on_date=date(2025, 6, 8)).decode("utf-8")
+        dates = [l.split(",")[0] for l in text.strip().split("\n")[1:]]
+        assert "2025-06-08" in dates
+        assert "2025-06-09" not in dates
+        assert max(dates) == "2025-06-08"
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM index_daily WHERE index_code=%s", (code,))
+        db.commit()

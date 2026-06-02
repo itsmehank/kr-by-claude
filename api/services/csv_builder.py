@@ -87,20 +87,25 @@ def build_weekly_csv(conn: Connection, ticker: str, weeks: int = 104, on_date: d
 INDEX_COLUMNS_DAILY = ["date", "open", "high", "low", "close", "volume", "value"]
 
 
-def build_index_csv(conn: Connection, index_code: str, timeframe: str, lookback: int = 60) -> bytes:
-    """index_daily 또는 weekly_index 의 가격 시계열."""
+def build_index_csv(conn: Connection, index_code: str, timeframe: str, lookback: int = 60,
+                    on_date: date | None = None) -> bytes:
+    """index_daily 또는 weekly_index 의 가격 시계열. on_date 제공 시 그 날짜 이하 최신 lookback 개."""
     if timeframe == "daily":
         cols_sql = ", ".join(INDEX_COLUMNS_DAILY)
-        sql = f"SELECT {cols_sql} FROM index_daily WHERE index_code = %s ORDER BY date DESC LIMIT %s"
+        date_filter = "AND date <= %(on_date)s" if on_date is not None else ""
+        sql = (f"SELECT {cols_sql} FROM index_daily "
+               f"WHERE index_code = %(code)s {date_filter} ORDER BY date DESC LIMIT %(lookback)s")
     elif timeframe == "weekly":
         cols = ["week_end_date AS date", "open", "high", "low", "close", "volume", "value"]
         cols_sql = ", ".join(cols)
-        sql = f"SELECT {cols_sql} FROM weekly_index WHERE index_code = %s ORDER BY week_end_date DESC LIMIT %s"
+        date_filter = "AND week_end_date <= %(on_date)s" if on_date is not None else ""
+        sql = (f"SELECT {cols_sql} FROM weekly_index "
+               f"WHERE index_code = %(code)s {date_filter} ORDER BY week_end_date DESC LIMIT %(lookback)s")
     else:
         raise ValueError(f"Unknown timeframe: {timeframe}")
 
     with conn.cursor() as cur:
-        cur.execute(sql, (index_code, lookback))
+        cur.execute(sql, {"code": index_code, "lookback": lookback, "on_date": on_date})
         rows = cur.fetchall()
     rows = list(reversed(rows))
 
