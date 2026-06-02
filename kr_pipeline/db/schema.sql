@@ -423,6 +423,9 @@ CREATE TABLE IF NOT EXISTS classification_backfill (
   PRIMARY KEY (symbol, analyzed_for_date)
 );
 
+CREATE INDEX IF NOT EXISTS idx_classification_backfill_date
+  ON classification_backfill (analyzed_for_date);
+
 -- ====== Phase 0 Step 4: FREEZE 최소판 (#P0-S4) ======
 -- 분류 (weekend/daily_delta) 시점의 분석 입력 ZIP 을 사후 검증 가능하도록 보존.
 -- artifact_* 일반화 + content_type + stage 로 entry_params/pivot freeze 후속 추가 가능.
