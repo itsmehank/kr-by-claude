@@ -246,3 +246,57 @@ def test_cleanup_deletes_when_latest_classification_is_ignore(db, tmp_path):
             "Old freeze should be deleted (latest classification is ignore, not entry/watch)"
         cur.execute("SELECT id FROM classification_freezes WHERE id = %s", (f_recent,))
         assert cur.fetchone() is not None, "Recent freeze is latest → preserved by criterion 3"
+
+
+def test_active_protection_uses_analyzed_for_date(db):
+    """freeze 활성 보호의 '최신 분류'가 analyzed_for_date 기준인지 검증.
+    동일 시드에서 데이터-최신을 ignore→watch 로 바꾸면 보호 여부가 토글되어
+    purge 후보 수가 정확히 1 차이 나야 한다. (다른 ticker 들은 두 측정에 동일 기여)"""
+    from kr_pipeline.llm_runner.freeze_cleanup import cleanup
+    sym = 'AXFRZ1'
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM classification_freezes WHERE ticker=%s", (sym,))
+        cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (sym,))
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'A','KOSPI') ON CONFLICT DO NOTHING", (sym,))
+        # 데이터-최신 = ignore (어제), 실행 2일 전
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES (%s, NOW() - INTERVAL '2 day', CURRENT_DATE - 1, 'KOSPI', 'ignore', 'weekend')""",
+            (sym,),
+        )
+        # 백필성 = watch (30일전 데이터), 실행 방금(classified_at 최신)
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES (%s, NOW(), CURRENT_DATE - 30, 'KOSPI', 'watch', 'weekend')""",
+            (sym,),
+        )
+        # (ticker,stage) freeze 2개 — 둘 다 보존기간(30d) 초과. MAX(-60d)는 rule3 로 항상 보존,
+        # -61d 는 '활성 아님'일 때만 purge 후보가 된다.
+        cur.execute(
+            """INSERT INTO classification_freezes
+                 (ticker, stage, frozen_at, artifact_uri, artifact_sha256, artifact_size_bytes)
+               VALUES (%s, 'weekend', NOW() - INTERVAL '61 day', %s, 'shaA', 100),
+                      (%s, 'weekend', NOW() - INTERVAL '60 day', %s, 'shaB', 100)""",
+            (sym, f"file:///tmp/{sym}_a.zip", sym, f"file:///tmp/{sym}_b.zip"),
+        )
+    db.commit()
+    try:
+        # 상태1: 데이터-최신 = ignore → 비활성 → -61d freeze 가 후보
+        c1 = cleanup(db, dry_run=True, retention_days=30).candidates
+        # 상태2: 데이터-최신 = watch 로 (watch 행의 analyzed_for_date 를 오늘로) → 활성 → 보호
+        with db.cursor() as cur:
+            cur.execute(
+                """UPDATE weekly_classification SET analyzed_for_date = CURRENT_DATE
+                    WHERE symbol=%s AND classification='watch'""",
+                (sym,),
+            )
+        db.commit()
+        c2 = cleanup(db, dry_run=True, retention_days=30).candidates
+        assert c1 == c2 + 1
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM classification_freezes WHERE ticker=%s", (sym,))
+            cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (sym,))
+        db.commit()
