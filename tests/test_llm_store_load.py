@@ -220,3 +220,45 @@ def test_active_monitoring_latest_by_analyzed_for_date(db):
         with db.cursor() as cur:
             cur.execute("DELETE FROM weekly_classification WHERE symbol='AXMON1'")
         db.commit()
+
+
+def test_losing_minervini_uses_analyzed_for_date_latest(db):
+    """강등 판정의 '최신 분류'도 analyzed_for_date 기준."""
+    from datetime import date
+    from kr_pipeline.llm_runner.load import get_classified_losing_minervini
+    as_of = date(2026, 6, 1)
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='AXLOSE1'")
+        cur.execute("DELETE FROM daily_indicators WHERE ticker='AXLOSE1'")
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('AXLOSE1','A','KOSPI') ON CONFLICT DO NOTHING")
+        # 데이터 최신 = ignore (as_of 당일 분석), 실행 2일 전
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES ('AXLOSE1', NOW() - INTERVAL '2 day', %s, 'KOSPI', 'ignore', 'weekend')""",
+            (as_of,),
+        )
+        # 백필성 watch (오래전 데이터), 실행 방금
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES ('AXLOSE1', NOW(), %s, 'KOSPI', 'watch', 'weekend')""",
+            (as_of.replace(month=1),),
+        )
+        # as_of 당일 minervini 탈락
+        cur.execute(
+            """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass)
+               VALUES ('AXLOSE1', %s, 1000.0, FALSE)
+               ON CONFLICT (ticker, date) DO UPDATE SET minervini_pass=FALSE""",
+            (as_of,),
+        )
+    db.commit()
+    try:
+        losers = {x["symbol"] for x in get_classified_losing_minervini(db, as_of)}
+        # 최신이 ignore(여전히 entry/watch/ignore 중 하나)라 강등 대상엔 포함됨
+        assert "AXLOSE1" in losers
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='AXLOSE1'")
+            cur.execute("DELETE FROM daily_indicators WHERE ticker='AXLOSE1'")
+        db.commit()
