@@ -34,7 +34,8 @@ def run(conn: Connection, *, dry_run: bool = False, as_of: date | None = None,
         if dry_run:
             continue
         try:
-            insert_disqualification(conn, symbol=x["symbol"], classified_at=classified_at, market=x["market"])
+            insert_disqualification(conn, symbol=x["symbol"], classified_at=classified_at,
+                                    market=x["market"], analyzed_for_date=as_of)
             conn.commit()
             count += 1
         except Exception as e:  # noqa: BLE001

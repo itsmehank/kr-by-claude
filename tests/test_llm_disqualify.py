@@ -85,3 +85,27 @@ def test_disqualify_dry_run_no_write(db):
     with db.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM weekly_classification WHERE symbol='DRY_LOSE' AND classification='disqualified'")
         assert cur.fetchone()[0] == 0
+
+
+def test_insert_disqualification_sets_analyzed_for_date(db):
+    from datetime import datetime, timezone, date
+    from kr_pipeline.llm_runner.store import insert_disqualification
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='AXDQ1'")
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('AXDQ1','A','KOSPI') ON CONFLICT DO NOTHING")
+    db.commit()
+    insert_disqualification(
+        db, symbol='AXDQ1', classified_at=datetime(2026, 6, 1, 5, tzinfo=timezone.utc),
+        market='KOSPI', analyzed_for_date=date(2026, 6, 1),
+    )
+    db.commit()
+    try:
+        with db.cursor() as cur:
+            cur.execute("SELECT classification, analyzed_for_date FROM weekly_classification WHERE symbol='AXDQ1'")
+            row = cur.fetchone()
+        assert row[0] == 'disqualified'
+        assert row[1] == date(2026, 6, 1)
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='AXDQ1'")
+        db.commit()
