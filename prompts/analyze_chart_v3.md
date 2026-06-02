@@ -142,6 +142,11 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 (O'Neil HMMS Ch.2: faulty handle 도 여전히 'cup-with-handle', 단 failure-prone). shape 는 구조 feature
 로만 정한다 — 품질·매수가능성 이유로 shape 를 none 으로 강등하지 말 것.
 
+**어휘 분리 (reasoning prose 도 거울처럼)**: `reasoning` 의 Base/shape 서술은 *구조 어휘* 로만 쓴다 —
+'우측 미회복·핸들 미형성·base 미완성'(구조) ○; '매수 가능한 base 아님 / 매수점 없음'(매수가능성)은
+**진입·결론 섹션(verdict 층)** 으로 보낸다. 실질 근거가 구조적이어도 shape 근거 문장에 buyability 어휘가
+섞이면 layer 재융합으로 *보여* (`verify` layer_separation 감점). 결정(none↔cup)이 아닌 *서술*의 분리.
+
 **허용밴드 (경계 칼날 금지)**: depth/선행상승 이 임계 ± MEASUREMENT_TOLERANCE_PCT(5%) 경계면, 작은 측정
 오차로 cup↔none 을 뒤집지 말고 *구조의 다른 단서* 로 판단. (이 값은 측정 노이즈 흡수용.)
 

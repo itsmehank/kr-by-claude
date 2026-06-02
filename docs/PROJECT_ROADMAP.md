@@ -144,6 +144,8 @@
 | **P2-3** (선택) | candidate VCP footprint payload 보조 (zigzag) | LLM 시각 판정 앵커 | 결정 자체 대기 (할지 여부) |
 | (별개) | prompt (.md) 자동 동기화 | SSOT-1 의 잔존 — 현재 prompt 텍스트 임계는 수동 동기화 (Phase 2(i)서 drift-detection 테스트로 침묵 불일치는 차단, 자동 치환은 미발의) | 미발의 (선택 candidate) |
 | **(운영 리스크) claude CLI JSON 파싱 간헐 실패** | Phase 2(i) 재측정서 20호출 중 1건(~5%) claude CLI 출력 JSON 파싱 실패 관측. 프로덕션서 silent drop/오분류 위험 → retry-on-parse-fail 강화 또는 실패 격리 로깅. (방법론 아닌 호출 견고성) | **즉시 backlog** — 프로덕션 LLM runner 신뢰성 |
+| **F7** (책-충실성 taxonomy 갭) | **cup-without-handle 패턴 부재**. cup-without-handle 은 O'Neil(HMMS)의 *정식 base 패턴*(매수점=cup high)인데 pattern enum 에 값이 없어 **표현 불가** → 단순 라벨 실수가 아니라 taxonomy 갭. 현재 한 칸(`cup_with_handle`/`handle_status=not_formed`)에 **세 상태가 뭉쳐** 있음: ① 손잡이 있는 완성 컵 ② 손잡이 없는 완성 컵(cup-without-handle, 매수점 cup high) ③ 우측 미완성 forming 컵. **결정(watch)에는 영향 없음** — 라벨/메타데이터 정밀도 이슈. **착수 시 옵션 1(enum 에 값 추가 / 3-state 구분)로 진행, 옵션 2(우산 라벨로 덮기)는 금지.** 발견: 외부 책-충실성 검토(웹 Claude project, 161390 partial_agree — shape disagree, pivot_basis=range_high 가 cup_with_handle 라벨과 모순, 2026-06-02). 연관: F2의 (ii)/(B) U/V 곡률 부채와 같은 "cup shape 정밀도" 결. | **다음 prompt 수정 사이클** + (enum/소비처 변경 — pivot_basis 매핑·status·FE 라벨 영향) checklist 선행 |
+| **F8** (risk_flag 발동 방향 재설계) | `unfavorable_market_context` (및 일반 risk_flag) 발동을 **prose→flag** 가 아니라 **데이터 정의(status / 분배일 / FTD age / breadth 임계)로 firing 을 정의하고 prose 가 그 flag 에 맞추는** 방향으로 재설계. 배경: §249 "reasoning↔flags consistency"가 prose 가 risk 명명 시 flag 강제 = 역방향. `confirmed_uptrend`(시장 게이트 통과=초록) 안의 breadth·FTD 는 *초록 안의 주의*일 뿐인데 prose 가 flag 를 끌면 `unfavorable_market_context` **남발**. (C 검토 제안 "본문 서술→flag 강제"는 방향이 거꾸로라 **채택 안 함**.) 발견: 외부 검토(161390 missing-flag 지적, 2026-06-02). | market-context flag over/under-emit 케이스 누적 또는 다음 prompt 수정 사이클 |
 
 ---
 
