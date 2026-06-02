@@ -172,14 +172,14 @@ def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = Non
     corp_actions = build_corporate_actions(conn, ticker, lookback_years=5, as_of_date=on_date)
     minervini = build_minervini_detail(conn, ticker, on_date)
 
-    daily_csv = build_daily_csv(conn, ticker, days=60)
-    weekly_csv = build_weekly_csv(conn, ticker, weeks=104)
+    daily_csv = build_daily_csv(conn, ticker, days=60, on_date=on_date)
+    weekly_csv = build_weekly_csv(conn, ticker, weeks=104, on_date=on_date)
     index_code = INDEX_CODE_MAP.get(market, "1001")
-    market_index_daily_csv = build_index_csv(conn, index_code, "daily", lookback=60)
-    market_index_weekly_csv = build_index_csv(conn, index_code, "weekly", lookback=104)
+    market_index_daily_csv = build_index_csv(conn, index_code, "daily", lookback=60, on_date=on_date)
+    market_index_weekly_csv = build_index_csv(conn, index_code, "weekly", lookback=104, on_date=on_date)
 
-    daily_chart_png = render_daily_chart(conn, ticker, range_days=365)
-    weekly_chart_png = render_weekly_chart(conn, ticker, range_weeks=104)
+    daily_chart_png = render_daily_chart(conn, ticker, range_days=365, on_date=on_date)
+    weekly_chart_png = render_weekly_chart(conn, ticker, range_weeks=104, on_date=on_date)
 
     prompt_step1 = (PROMPTS_DIR / "analyze_chart_v3.md").read_text(encoding="utf-8")
     prompt_step2 = (PROMPTS_DIR / "calculate_entry_params_v2_0.md").read_text(encoding="utf-8")
