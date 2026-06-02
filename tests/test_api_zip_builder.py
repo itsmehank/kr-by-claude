@@ -54,3 +54,31 @@ def test_build_zip_payload_json_valid(db):
     payload = json.loads(payload_bytes.decode("utf-8"))
     assert payload["symbol"] == "ZIP2"
     assert payload["market"] == "KOSPI"
+
+
+def test_fetch_latest_analysis_result_by_analyzed_for_date(db):
+    from api.services.zip_builder import _fetch_latest_analysis_result
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='AXZIP1'")
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('AXZIP1','A','KOSPI') ON CONFLICT DO NOTHING")
+        # 데이터 최신 = entry (어제), 실행 2일 전
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source, confidence)
+               VALUES ('AXZIP1', NOW() - INTERVAL '2 day', CURRENT_DATE - 1, 'KOSPI', 'entry', 'weekend', 0.9)"""
+        )
+        # 백필성 ignore (30일전), 실행 방금
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source, confidence)
+               VALUES ('AXZIP1', NOW(), CURRENT_DATE - 30, 'KOSPI', 'ignore', 'weekend', 0.3)"""
+        )
+    db.commit()
+    try:
+        result = _fetch_latest_analysis_result(db, "AXZIP1")
+        assert result is not None
+        assert result["classification"] == "entry"  # analyzed_for_date 최신
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='AXZIP1'")
+        db.commit()
