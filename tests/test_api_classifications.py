@@ -152,6 +152,34 @@ def test_analyzed_for_date_in_response(client, db):
         app.dependency_overrides.pop(get_conn, None)
 
 
+def test_backfill_rows_not_in_live_classifications(client, db):
+    """classification_backfill 에만 있는 종목은 /api/classifications(weekly_classification)에 안 뜬다."""
+    def override():
+        yield db
+    app.dependency_overrides[get_conn] = override
+    try:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM classification_backfill WHERE symbol='ISOLBKF'")
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='ISOLBKF'")
+            cur.execute("DELETE FROM stocks WHERE ticker='ISOLBKF'")
+            cur.execute("INSERT INTO stocks (ticker,name,market) VALUES ('ISOLBKF','Iso','KOSPI')")
+            cur.execute(
+                """INSERT INTO classification_backfill
+                     (symbol, classified_at, analyzed_for_date, market, classification, source)
+                   VALUES ('ISOLBKF', NOW(), CURRENT_DATE - 1, 'KOSPI', 'watch', 'backfill')"""
+            )
+        db.commit()
+        r = client.get("/api/classifications?lookback_days=30&classifications=watch&classifications=entry")
+        syms = {row["symbol"] for row in r.json()}
+        assert "ISOLBKF" not in syms, "백필 행이 라이브 분류 API에 누수됨"
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM classification_backfill WHERE symbol='ISOLBKF'")
+            cur.execute("DELETE FROM stocks WHERE ticker='ISOLBKF'")
+        db.commit()
+        app.dependency_overrides.pop(get_conn, None)
+
+
 def test_response_includes_analyzed_for_date_field_for_legacy_rows(client, seed_classifications):
     """기존 seed (analyzed_for_date 미지정) 도 응답에 키 존재 + None."""
     r = client.get("/api/classifications?lookback_days=30")

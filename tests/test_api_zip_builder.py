@@ -159,6 +159,37 @@ def test_build_analysis_zip_excludes_data_after_on_date(db):
         db.commit()
 
 
+def test_build_analysis_zip_skips_prior_analysis_when_disabled(db):
+    import io, zipfile
+    from datetime import date, timedelta
+    from api.services.zip_builder import build_analysis_zip
+    t = "ZIPNOPRIOR"
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'Z','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (t,))
+        cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        # 라이브 분류 1건 (verify-mode 트리거가 됨)
+        cur.execute(
+            """INSERT INTO weekly_classification (symbol, classified_at, market, classification, source)
+               VALUES (%s, NOW(), 'KOSPI', 'watch', 'weekend')""", (t,))
+        # 약간의 가격 데이터
+        for i in range(10):
+            d = date(2025, 6, 1) + timedelta(days=i)
+            cur.execute("""INSERT INTO daily_prices (ticker,date,open,high,low,close,adj_close,volume,value)
+                           VALUES (%s,%s,100,105,95,100,100,1000,100000) ON CONFLICT DO NOTHING""", (t, d))
+    db.commit()
+    try:
+        z_with = zipfile.ZipFile(io.BytesIO(build_analysis_zip(db, t, on_date=date(2025,6,10))))
+        z_without = zipfile.ZipFile(io.BytesIO(build_analysis_zip(db, t, on_date=date(2025,6,10), include_prior_analysis=False)))
+        assert "analysis_result.json" in z_with.namelist()        # 기본: verify-mode 포함
+        assert "analysis_result.json" not in z_without.namelist()  # 백필: 미포함
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (t,))
+            cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        db.commit()
+
+
 def test_fetch_latest_analysis_result_by_analyzed_for_date(db):
     from api.services.zip_builder import _fetch_latest_analysis_result
     with db.cursor() as cur:

@@ -9,7 +9,7 @@ from kr_pipeline.common.config import Config
 from kr_pipeline.db.connection import connect
 from kr_pipeline.db.runs import run_tracking
 from kr_pipeline.llm_runner import (
-    weekend, daily_delta, evaluate_pivot, entry_params, performance,
+    weekend, daily_delta, evaluate_pivot, entry_params, performance, backfill,
 )
 from kr_pipeline.llm_runner import modes
 
@@ -22,6 +22,7 @@ PIPELINE_DB_NAME_BY_MODE = {
     "entry": "llm_entry",
     "performance": "llm_performance",
     "full-daily": "llm_daily_delta",
+    "backfill": "llm_backfill",
 }
 
 
@@ -30,7 +31,7 @@ def main() -> int:
     parser.add_argument(
         "--mode",
         required=True,
-        choices=["weekend", "daily-delta", "evaluate", "entry", "performance", "full-daily"],
+        choices=["weekend", "daily-delta", "evaluate", "entry", "performance", "full-daily", "backfill"],
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--limit", type=int)
@@ -47,6 +48,9 @@ def main() -> int:
             f"--ticker is only supported with --mode={'/'.join(sorted(_TICKER_SUPPORTED_MODES))} "
             f"(got --mode={args.mode}). 다른 mode 에선 ticker 가 무시되고 전체 batch 가 실행되어 비용 위험."
         )
+
+    if args.mode == "backfill" and not args.date:
+        parser.error("--date is required with --mode=backfill (과거 기준일 없는 백필은 무의미).")
 
     logging.basicConfig(
         level=logging.INFO,
@@ -87,6 +91,8 @@ def main() -> int:
                 result = performance.run(conn, as_of=as_of)
             elif args.mode == "full-daily":
                 result = modes.run_full_daily(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
+            elif args.mode == "backfill":
+                result = backfill.run(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
             else:
                 result = {}
 
