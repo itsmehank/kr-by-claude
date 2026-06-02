@@ -174,7 +174,7 @@ def test_pipeline_db_name_mapping_covers_all_modes():
     """PIPELINE_DB_NAME_BY_MODE 가 모든 지원 mode 를 커버해야 함."""
     from kr_pipeline.llm_runner.__main__ import PIPELINE_DB_NAME_BY_MODE
 
-    expected_modes = {"weekend", "daily-delta", "evaluate", "entry", "performance", "full-daily"}
+    expected_modes = {"weekend", "daily-delta", "evaluate", "entry", "performance", "full-daily", "backfill"}
     assert set(PIPELINE_DB_NAME_BY_MODE.keys()) == expected_modes
 
     # pipeline_specs.py 에 등록된 LLM pipeline 과 일치 확인
@@ -183,6 +183,8 @@ def test_pipeline_db_name_mapping_covers_all_modes():
     assert PIPELINE_DB_NAME_BY_MODE["performance"] == "llm_performance"
     # daily-delta 와 full-daily 는 같은 pipeline_db_name 공유
     assert PIPELINE_DB_NAME_BY_MODE["daily-delta"] == "llm_daily_delta"
+    # backfill 은 수동 모드 (pipeline_specs 미등록)
+    assert PIPELINE_DB_NAME_BY_MODE["backfill"] == "llm_backfill"
 
 
 def test_main_sets_details_from_result():
