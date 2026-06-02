@@ -108,3 +108,20 @@ def test_measurements_column_exists_and_stores(db):
         row = cur.fetchone()
     assert row[0]["cup_shape"] == "U"
     assert row[0]["cup_depth_pct"] == 30.0
+
+
+def test_insert_disqualification(db):
+    """시스템 강등 행 — classification='disqualified', source='system_disqualify'."""
+    from datetime import datetime, timezone
+    from kr_pipeline.llm_runner.store import insert_disqualification
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='DQ1'")
+    insert_disqualification(db, symbol="DQ1", classified_at=datetime(2026, 6, 2, tzinfo=timezone.utc),
+                            market="KOSPI")
+    db.commit()
+    with db.cursor() as cur:
+        cur.execute("SELECT classification, source, reasoning FROM weekly_classification WHERE symbol='DQ1'")
+        row = cur.fetchone()
+    assert row[0] == "disqualified"
+    assert row[1] == "system_disqualify"
+    assert row[2] is not None

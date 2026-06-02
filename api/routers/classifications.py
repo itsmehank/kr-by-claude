@@ -54,7 +54,10 @@ def get_classifications(
                l.llm_call_duration_s, l.llm_input_tokens, l.llm_output_tokens
           FROM latest l
           JOIN stocks s ON s.ticker = l.symbol
-         WHERE (%(classifications)s::text[] IS NULL OR l.classification = ANY(%(classifications)s::text[]))
+         WHERE (
+                 (%(classifications)s::text[] IS NULL AND l.classification <> 'disqualified')
+                 OR (%(classifications)s::text[] IS NOT NULL AND l.classification = ANY(%(classifications)s::text[]))
+               )
            AND (%(sources)s::text[] IS NULL OR l.source = ANY(%(sources)s::text[]))
            AND COALESCE(l.confidence, 0) >= %(min_confidence)s
          ORDER BY {sort_clause}

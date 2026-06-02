@@ -40,18 +40,20 @@ const DEFAULT_FILTERS: Filters = {
   sort: "classified_at_desc",
 };
 
-const CLASSIFICATION_ORDER = ["watch", "entry", "ignore"] as const;
+const CLASSIFICATION_ORDER = ["watch", "entry", "ignore", "disqualified"] as const;
 
 const CLASSIFICATION_LABELS: Record<string, string> = {
   watch: "Watch",
   entry: "Entry",
   ignore: "Ignore",
+  disqualified: "자격 상실",
 };
 
 const CLASSIFICATION_TONES: Record<string, string> = {
   watch: "bg-tint-blue text-accent",
   entry: "bg-success-soft text-success",
   ignore: "bg-tint-stone text-muted",
+  disqualified: "bg-tint-stone text-faint",
 };
 
 const PATTERN_DESCRIPTIONS: Record<string, string> = {
@@ -313,7 +315,7 @@ function ClassificationGroup({
   expandedRows: Set<string>;
   onToggleRow: (symbol: string) => void;
 }) {
-  const [groupOpen, setGroupOpen] = useState(classification !== "ignore");
+  const [groupOpen, setGroupOpen] = useState(classification !== "ignore" && classification !== "disqualified");
 
   if (rows.length === 0) return null;
 
@@ -366,6 +368,7 @@ export default function ClassificationsPage() {
       watch: [],
       entry: [],
       ignore: [],
+      disqualified: [],
     };
     for (const row of q.data ?? []) {
       const c = grouped[row.classification] ?? (grouped[row.classification] = []);
@@ -378,6 +381,7 @@ export default function ClassificationsPage() {
     watch: rowsByClassification.watch?.length ?? 0,
     entry: rowsByClassification.entry?.length ?? 0,
     ignore: rowsByClassification.ignore?.length ?? 0,
+    disqualified: rowsByClassification.disqualified?.length ?? 0,
   };
 
   const toggleRow = (symbol: string) => {
@@ -419,6 +423,9 @@ export default function ClassificationsPage() {
             <span className="chip bg-tint-blue text-accent">Watch {counts.watch}</span>
             <span className="chip bg-success-soft text-success">Entry {counts.entry}</span>
             <span className="chip bg-tint-stone text-muted">Ignore {counts.ignore}</span>
+            {counts.disqualified > 0 && (
+              <span className="chip bg-tint-stone text-faint">자격 상실 {counts.disqualified}</span>
+            )}
           </div>
         </div>
         <button
@@ -462,7 +469,7 @@ export default function ClassificationsPage() {
 
           <div className="flex items-center gap-2">
             <span className="caps text-faint">분류</span>
-            {(["watch", "entry", "ignore"] as const).map((c) => (
+            {(["watch", "entry", "ignore", "disqualified"] as const).map((c) => (
               <label key={c} className="flex items-center gap-1 cursor-pointer text-data-xs">
                 <input
                   type="checkbox"

@@ -88,6 +88,31 @@ def insert_classification(
         )
 
 
+def insert_disqualification(
+    conn: Connection,
+    *,
+    symbol: str,
+    classified_at: datetime,
+    market: str,
+    reason: str = "minervini_pass=false — 미너비니 자격 상실(시스템 강등)",
+) -> None:
+    """시스템 발 강등 행 직접 INSERT (LLM/Phase1 게이트 우회).
+
+    disqualified 는 결정론 이벤트이지 LLM 분류가 아니므로 apply_phase1_gates 를 거치지 않는다.
+    pattern/pivot/confidence/triggered_rules 는 NULL.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO weekly_classification
+              (symbol, classified_at, market, classification, source, reasoning)
+            VALUES (%s, %s, %s, 'disqualified', 'system_disqualify', %s)
+            ON CONFLICT (symbol, classified_at) DO NOTHING
+            """,
+            (symbol, classified_at, market, reason),
+        )
+
+
 def insert_trigger_log(
     conn: Connection,
     *,

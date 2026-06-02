@@ -167,3 +167,49 @@ def test_ticker_filter_returns_only_that_symbol(client, seed_classifications):
     rows = r.json()
     assert {row["symbol"] for row in rows} == {"CLSTEST02"}
     assert len(rows) == 1
+
+
+# ---------------------------------------------------------------------------
+# Task 4: default excludes disqualified; explicit filter includes it
+# ---------------------------------------------------------------------------
+
+_DQ_SYMS = ("API_W", "API_DQ")
+
+
+@pytest.fixture(autouse=False)
+def _clean_dq(db):
+    def _del():
+        with db.cursor() as cur:
+            for t in _DQ_SYMS:
+                cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (t,))
+                cur.execute("DELETE FROM stocks WHERE ticker=%s", (t,))
+        db.commit()
+    _del()
+    yield
+    _del()
+
+
+def _seed_dq(cur, ticker, classification):
+    cur.execute(
+        "INSERT INTO stocks (ticker, name, market) VALUES (%s, %s, 'KOSPI') ON CONFLICT DO NOTHING",
+        (ticker, ticker),
+    )
+    cur.execute(
+        """INSERT INTO weekly_classification (symbol, classified_at, market, classification, source)
+           VALUES (%s, NOW(), 'KOSPI', %s, 'weekend')""",
+        (ticker, classification),
+    )
+
+
+def test_classifications_default_excludes_disqualified(db, _clean_dq):
+    from api.routers.classifications import get_classifications
+    with db.cursor() as cur:
+        _seed_dq(cur, "API_W", "watch")
+        _seed_dq(cur, "API_DQ", "disqualified")
+    db.commit()
+    # 직접 호출 시 FastAPI Query 기본값 대신 명시적 None 전달 (HTTP 경로에선 FastAPI 가 해석)
+    syms = {r.symbol for r in get_classifications(classifications=None, sources=None, conn=db)}
+    assert "API_W" in syms
+    assert "API_DQ" not in syms
+    syms2 = {r.symbol for r in get_classifications(classifications=["disqualified"], sources=None, conn=db)}
+    assert "API_DQ" in syms2
