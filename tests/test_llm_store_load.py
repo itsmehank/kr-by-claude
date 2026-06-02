@@ -191,3 +191,32 @@ def test_insert_entry_params(db):
         row = cur.fetchone()
     assert row[0] == "pivot_breakout"
     assert float(row[1]) == 80.5
+
+
+def test_active_monitoring_latest_by_analyzed_for_date(db):
+    """analyzed_for_date 최신 행이 active 판정 기준이 된다."""
+    from kr_pipeline.llm_runner.load import get_active_monitoring
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='AXMON1'")
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('AXMON1','A','KOSPI') ON CONFLICT DO NOTHING")
+        # 데이터 최신 = ignore (어제), 실행은 2일 전
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES ('AXMON1', NOW() - INTERVAL '2 day', CURRENT_DATE - 1, 'KOSPI', 'ignore', 'weekend')"""
+        )
+        # 백필성 watch (30일전 데이터), 실행은 방금
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source, pivot_price, base_low)
+               VALUES ('AXMON1', NOW(), CURRENT_DATE - 30, 'KOSPI', 'watch', 'weekend', 100, 90)"""
+        )
+    db.commit()
+    try:
+        syms = [a["symbol"] for a in get_active_monitoring(db)]
+        # 최신은 ignore → active(entry/watch) 목록에서 제외돼야 함
+        assert "AXMON1" not in syms
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='AXMON1'")
+        db.commit()
