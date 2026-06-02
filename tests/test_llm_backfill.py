@@ -57,7 +57,7 @@ def test_backfill_run_inserts_and_wires_on_date(db, monkeypatch):
     db.commit()
     seen_on_date = []
     monkeypatch.setattr(bf, "build_analysis_zip",
-                        lambda conn, symbol, on_date=None: seen_on_date.append(on_date) or b"zip")
+                        lambda conn, symbol, on_date=None, **kw: seen_on_date.append(on_date) or b"zip")
     monkeypatch.setattr(bf, "call_claude",
                         lambda **kwargs: _result("watch"))
     try:
