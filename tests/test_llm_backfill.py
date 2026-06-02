@@ -107,6 +107,33 @@ def test_insert_backfill_idempotent_on_symbol_analyzed_for_date(db):
         db.commit()
 
 
+def test_backfill_gate_uses_point_in_time_date(db, monkeypatch):
+    import kr_pipeline.llm_runner.store as store_mod
+    from datetime import datetime, date, timezone
+    captured = {}
+    def fake_gate(conn, symbol, classified_at, result):
+        captured["at"] = classified_at
+        return result, None
+    monkeypatch.setattr(store_mod, "apply_phase1_gates", fake_gate)
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES ('BKGATE','B','KOSPI') ON CONFLICT DO NOTHING")
+        cur.execute("DELETE FROM classification_backfill WHERE symbol='BKGATE'")
+    db.commit()
+    try:
+        store_mod.insert_backfill_classification(
+            db, symbol="BKGATE", classified_at=datetime(2026, 6, 3, 12, tzinfo=timezone.utc),
+            market="KOSPI", result=_result("watch"), source="backfill",
+            llm_meta={"duration_s": 1, "input_tokens": 1, "output_tokens": 1},
+            analyzed_for_date=date(2025, 9, 30),
+        )
+        db.commit()
+        assert captured["at"].date() == date(2025, 10, 1)   # as_of + 1 (가격창에 as_of 포함)
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM classification_backfill WHERE symbol='BKGATE'")
+        db.commit()
+
+
 def test_backfill_mode_requires_date():
     import sys, pytest
     from kr_pipeline.llm_runner.__main__ import main

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import copy
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, time as dt_time
 import json
 
 from psycopg import Connection
@@ -105,7 +105,8 @@ def insert_backfill_classification(
     """
     _original = copy.deepcopy(result)
     try:
-        result, triggered_rules = apply_phase1_gates(conn, symbol, classified_at, result)
+        gate_at = datetime.combine(analyzed_for_date + timedelta(days=1), dt_time.min)
+        result, triggered_rules = apply_phase1_gates(conn, symbol, gate_at, result)
     except Exception as e:
         log.warning(
             "[phase1-gate] backfill failed symbol=%s — 게이트 미적용 원본 저장 (fail-soft): %s",
