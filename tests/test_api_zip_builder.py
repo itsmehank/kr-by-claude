@@ -56,6 +56,52 @@ def test_build_zip_payload_json_valid(db):
     assert payload["market"] == "KOSPI"
 
 
+def test_build_analysis_zip_excludes_data_after_on_date(db):
+    from datetime import date, timedelta
+    import io, zipfile, csv as _csv
+    from api.services.zip_builder import build_analysis_zip
+    from api.services.market_context_builder import INDEX_CODE_MAP
+    t = "ASOFZIP1"
+    on_date = date(2025, 6, 10)
+    market = "KOSPI"
+    idx = INDEX_CODE_MAP.get(market, "1001")
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'Z',%s) ON CONFLICT DO NOTHING", (t, market))
+        cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
+        for i in range(20):
+            d = date(2025, 6, 1) + timedelta(days=i)
+            cur.execute(
+                """INSERT INTO daily_prices (ticker,date,open,high,low,close,adj_close,volume,value)
+                   VALUES (%s,%s,100,105,95,100,%s,1000,100000) ON CONFLICT DO NOTHING""",
+                (t, d, 100 + i),
+            )
+        for i in range(20):
+            d = date(2025, 6, 1) + timedelta(days=i)
+            cur.execute(
+                """INSERT INTO index_daily (index_code, date, open, high, low, close, volume, value)
+                   VALUES (%s,%s,10,11,9,10,1000,100000) ON CONFLICT DO NOTHING""",
+                (idx, d),
+            )
+    db.commit()
+    try:
+        zip_bytes = build_analysis_zip(db, t, on_date=on_date)
+        zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
+        for name in ("daily.csv", "market_index_daily.csv"):
+            text = zf.read(name).decode("utf-8")
+            rows = list(_csv.reader(io.StringIO(text)))
+            dates = [r[0] for r in rows[1:] if r and r[0]]
+            assert dates, f"{name}: 행이 있어야 함"
+            assert max(dates) <= on_date.isoformat(), f"{name}: on_date 이후 데이터 누수 — max={max(dates)}"
+            assert on_date.isoformat() in dates, f"{name}: on_date 당일 포함되어야"
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+            cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
+            cur.execute("DELETE FROM index_daily WHERE index_code=%s AND date >= '2025-06-01' AND date <= '2025-06-30'", (idx,))
+        db.commit()
+
+
 def test_fetch_latest_analysis_result_by_analyzed_for_date(db):
     from api.services.zip_builder import _fetch_latest_analysis_result
     with db.cursor() as cur:
