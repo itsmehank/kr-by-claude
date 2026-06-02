@@ -262,3 +262,46 @@ def test_losing_minervini_uses_analyzed_for_date_latest(db):
             cur.execute("DELETE FROM weekly_classification WHERE symbol='AXLOSE1'")
             cur.execute("DELETE FROM daily_indicators WHERE ticker='AXLOSE1'")
         db.commit()
+
+
+def test_losing_minervini_excludes_when_data_latest_is_disqualified(db):
+    """데이터-최신이 disqualified면 (IN 절 밖) 강등 대상에서 빠진다.
+    구(舊) classified_at 축이면 watch(실행 최신)가 잡혀 포함됐을 것 → 변별 테스트."""
+    from datetime import date
+    from kr_pipeline.llm_runner.load import get_classified_losing_minervini
+    as_of = date(2026, 6, 1)
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='AXLOSE2'")
+        cur.execute("DELETE FROM daily_indicators WHERE ticker='AXLOSE2'")
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('AXLOSE2','A','KOSPI') ON CONFLICT DO NOTHING")
+        # 데이터-최신 = disqualified (analyzed_for_date = as_of), 실행 2일 전
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES ('AXLOSE2', NOW() - INTERVAL '2 day', %s, 'KOSPI', 'disqualified', 'system_disqualify')""",
+            (as_of,),
+        )
+        # 백필성 watch (오래전 데이터), 실행 방금 (classified_at 최신)
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES ('AXLOSE2', NOW(), %s, 'KOSPI', 'watch', 'weekend')""",
+            (as_of.replace(month=1),),
+        )
+        # as_of 당일 minervini 탈락 (adj_close NOT NULL 충족)
+        cur.execute(
+            """INSERT INTO daily_indicators (ticker, date, minervini_pass, adj_close)
+               VALUES ('AXLOSE2', %s, FALSE, 1000.0)
+               ON CONFLICT (ticker, date) DO UPDATE SET minervini_pass=FALSE""",
+            (as_of,),
+        )
+    db.commit()
+    try:
+        losers = {x["symbol"] for x in get_classified_losing_minervini(db, as_of)}
+        # 데이터-최신이 disqualified → IN 절 밖 → 강등 대상 아님
+        assert "AXLOSE2" not in losers
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='AXLOSE2'")
+            cur.execute("DELETE FROM daily_indicators WHERE ticker='AXLOSE2'")
+        db.commit()
