@@ -1,6 +1,7 @@
 """indicators → CSV bytes."""
 import csv
 import io
+from datetime import date
 
 from psycopg import Connection
 
@@ -18,12 +19,13 @@ DAILY_INDICATOR_COLUMNS = [
 ]
 
 
-def build_daily_csv(conn: Connection, ticker: str, days: int = 60) -> bytes:
+def build_daily_csv(conn: Connection, ticker: str, days: int = 60, on_date: date | None = None) -> bytes:
     """daily_prices(가격·거래량) + daily_indicators(지표) JOIN → CSV bytes.
 
-    가격·거래량 권위 소스 = daily_prices. 지표는 daily_indicators.
+    on_date 제공 시 그 날짜 이하 최신 days 개. None이면 최신 days 개.
     """
     indicator_cols_sql = ", ".join(f"i.{c}" for c in DAILY_INDICATOR_COLUMNS)
+    date_filter = "AND p.date <= %(on_date)s" if on_date is not None else ""
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -31,14 +33,14 @@ def build_daily_csv(conn: Connection, ticker: str, days: int = 60) -> bytes:
                    {indicator_cols_sql}
               FROM daily_prices p
               LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
-             WHERE p.ticker = %s
+             WHERE p.ticker = %(ticker)s {date_filter}
              ORDER BY p.date DESC
-             LIMIT %s
+             LIMIT %(days)s
             """,
-            (ticker, days),
+            {"ticker": ticker, "days": days, "on_date": on_date},
         )
         rows = cur.fetchall()
-    rows = list(reversed(rows))  # date 오름차순
+    rows = list(reversed(rows))
 
     buf = io.StringIO()
     writer = csv.writer(buf)
