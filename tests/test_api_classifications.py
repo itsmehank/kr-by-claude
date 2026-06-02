@@ -213,3 +213,43 @@ def test_classifications_default_excludes_disqualified(db, _clean_dq):
     assert "API_DQ" not in syms
     syms2 = {r.symbol for r in get_classifications(classifications=["disqualified"], sources=None, conn=db)}
     assert "API_DQ" in syms2
+
+
+def test_latest_picked_by_analyzed_for_date_not_classified_at(client, db):
+    """더 오래전 데이터(analyzed_for_date)지만 더 늦게 실행(classified_at)된 행이
+    최신 상태를 덮어쓰지 않는다."""
+    def override():
+        yield db
+    app.dependency_overrides[get_conn] = override
+    try:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='CLSAXIS1'")
+            cur.execute("DELETE FROM stocks WHERE ticker='CLSAXIS1'")
+            cur.execute(
+                "INSERT INTO stocks (ticker, name, market) VALUES ('CLSAXIS1','Ax','KOSPI')"
+            )
+            # 데이터 기준 최신 = ignore (analyzed_for_date 어제), classified_at 2일 전
+            cur.execute(
+                """INSERT INTO weekly_classification
+                     (symbol, classified_at, analyzed_for_date, market, classification, source)
+                   VALUES ('CLSAXIS1', NOW() - INTERVAL '2 day', CURRENT_DATE - 1,
+                           'KOSPI', 'ignore', 'weekend')"""
+            )
+            # 백필성 = watch (analyzed_for_date 30일 전), classified_at 방금(가장 늦음)
+            cur.execute(
+                """INSERT INTO weekly_classification
+                     (symbol, classified_at, analyzed_for_date, market, classification, source)
+                   VALUES ('CLSAXIS1', NOW(), CURRENT_DATE - 30,
+                           'KOSPI', 'watch', 'weekend')"""
+            )
+        db.commit()
+        r = client.get("/api/classifications?lookback_days=90&classifications=watch&classifications=ignore")
+        rows = [x for x in r.json() if x["symbol"] == "CLSAXIS1"]
+        assert len(rows) == 1
+        assert rows[0]["classification"] == "ignore"  # analyzed_for_date 최신이 이김
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='CLSAXIS1'")
+            cur.execute("DELETE FROM stocks WHERE ticker='CLSAXIS1'")
+        db.commit()
+        app.dependency_overrides.pop(get_conn, None)
