@@ -51,22 +51,23 @@ def render_daily_chart(conn: Connection, ticker: str, range_days: int = 365, on_
     return _render_ohlc_chart(df, title=f"{ticker} Daily", x_label="Date")
 
 
-def render_weekly_chart(conn: Connection, ticker: str, range_weeks: int = 104) -> bytes:
-    """주봉 차트 PNG bytes."""
+def render_weekly_chart(conn: Connection, ticker: str, range_weeks: int = 104, on_date: date | None = None) -> bytes:
+    """주봉 차트 PNG bytes. on_date 제공 시 그 날짜 이하 최신 range_weeks 개."""
+    date_filter = "AND p.week_end_date <= %(on_date)s" if on_date is not None else ""
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             SELECT p.week_end_date AS date, p.open, p.high, p.low, p.close, p.adj_close, p.volume,
                    i.sma_10w, i.sma_30w, i.sma_40w, i.w52_high, i.w52_low,
                    i.rs_line, i.rs_line_52w_high,
                    i.avg_volume_10w
               FROM weekly_prices p
               LEFT JOIN weekly_indicators i ON i.ticker = p.ticker AND i.week_end_date = p.week_end_date
-             WHERE p.ticker = %s
+             WHERE p.ticker = %(ticker)s {date_filter}
              ORDER BY p.week_end_date DESC
-             LIMIT %s
+             LIMIT %(range_weeks)s
             """,
-            (ticker, range_weeks),
+            {"ticker": ticker, "range_weeks": range_weeks, "on_date": on_date},
         )
         rows = cur.fetchall()
         cols = [d[0] for d in cur.description]
