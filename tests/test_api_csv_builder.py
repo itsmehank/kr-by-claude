@@ -68,3 +68,31 @@ def test_build_daily_csv_respects_on_date(db):
         with db.cursor() as cur:
             cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
         db.commit()
+
+
+def test_build_weekly_csv_respects_on_date(db):
+    from datetime import date, timedelta
+    t = "ASOFW1"
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'W','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute("DELETE FROM weekly_indicators WHERE ticker=%s", (t,))
+        for i in range(10):
+            wk = date(2025, 3, 7) + timedelta(weeks=i)
+            cur.execute(
+                """INSERT INTO weekly_indicators (ticker, week_end_date, adj_close, volume)
+                   VALUES (%s,%s,%s,1000) ON CONFLICT DO NOTHING""",
+                (t, wk, 100 + i),
+            )
+    db.commit()
+    try:
+        cutoff = date(2025, 3, 7) + timedelta(weeks=4)
+        text = build_weekly_csv(db, t, weeks=104, on_date=cutoff).decode("utf-8")
+        dates = [l.split(",")[0] for l in text.strip().split("\n")[1:]]
+        later = (date(2025, 3, 7) + timedelta(weeks=5)).isoformat()
+        assert cutoff.isoformat() in dates
+        assert later not in dates
+        assert max(dates) == cutoff.isoformat()
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_indicators WHERE ticker=%s", (t,))
+        db.commit()

@@ -59,18 +59,19 @@ WEEKLY_COLUMNS = [
 ]
 
 
-def build_weekly_csv(conn: Connection, ticker: str, weeks: int = 104) -> bytes:
+def build_weekly_csv(conn: Connection, ticker: str, weeks: int = 104, on_date: date | None = None) -> bytes:
     cols_sql = ", ".join(WEEKLY_COLUMNS)
+    date_filter = "AND week_end_date <= %(on_date)s" if on_date is not None else ""
     with conn.cursor() as cur:
         cur.execute(
             f"""
             SELECT {cols_sql}
               FROM weekly_indicators
-             WHERE ticker = %s
+             WHERE ticker = %(ticker)s {date_filter}
              ORDER BY week_end_date DESC
-             LIMIT %s
+             LIMIT %(weeks)s
             """,
-            (ticker, weeks),
+            {"ticker": ticker, "weeks": weeks, "on_date": on_date},
         )
         rows = cur.fetchall()
     rows = list(reversed(rows))
