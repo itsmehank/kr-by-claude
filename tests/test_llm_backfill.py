@@ -105,3 +105,15 @@ def test_insert_backfill_idempotent_on_symbol_analyzed_for_date(db):
         with db.cursor() as cur:
             cur.execute("DELETE FROM classification_backfill WHERE symbol='BKF2'")
         db.commit()
+
+
+def test_backfill_mode_requires_date():
+    import sys, pytest
+    from kr_pipeline.llm_runner.__main__ import main
+    argv = sys.argv
+    sys.argv = ["prog", "--mode=backfill"]  # --date 없음
+    try:
+        with pytest.raises(SystemExit):  # argparse parser.error → SystemExit
+            main()
+    finally:
+        sys.argv = argv
