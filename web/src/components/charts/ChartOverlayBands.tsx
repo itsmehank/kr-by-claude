@@ -23,6 +23,9 @@ function computeRects(chart: IChartApi, segments: BandSegment[]): Rect[] {
   // 차트는 문자열(YYYY-MM-DD) time 모드 가정 — 날짜 문자열 비교로 클램프.
   const from = String(vr.from);
   const to = String(vr.to);
+  // timeToCoordinate 는 캔들 '중심' x 를 준다. 세그먼트를 양 끝에서 반 칸(barSpacing/2)
+  // 확장해야 캔들 전체 폭을 덮고, 인접 세그먼트(예: ignore→entry)가 틈 없이 맞닿는다.
+  const half = (ts.options().barSpacing ?? 6) / 2;
   const out: Rect[] = [];
   for (const seg of segments) {
     if (seg.endDate < from || seg.startDate > to) continue; // 화면 밖
@@ -31,8 +34,8 @@ function computeRects(chart: IChartApi, segments: BandSegment[]): Rect[] {
     const x1 = ts.timeToCoordinate(cs as Time);
     const x2 = ts.timeToCoordinate(ce as Time);
     if (x1 === null || x2 === null) continue;
-    const left = Math.min(x1, x2);
-    const right = Math.max(x1, x2);
+    const left = Math.min(x1, x2) - half;
+    const right = Math.max(x1, x2) + half;
     out.push({ left, width: Math.max(1, right - left), color: BAND_COLORS[seg.state] });
   }
   return out;
