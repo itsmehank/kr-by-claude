@@ -317,11 +317,13 @@ def test_classification_history_unions_live_and_backfill(client, db):
         with db.cursor() as cur:
             cur.execute("DELETE FROM weekly_classification WHERE symbol='HST1'")
             cur.execute("DELETE FROM classification_backfill WHERE symbol='HST1'")
+            cur.execute("DELETE FROM stocks WHERE ticker='HST1'")
         db.commit()
         app.dependency_overrides.pop(get_conn, None)
 
 
 def test_classification_history_empty_for_unknown_ticker(client, db):
+    """알 수 없는 종목 → 빈 리스트."""
     def override():
         yield db
     app.dependency_overrides[get_conn] = override
