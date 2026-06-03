@@ -39,6 +39,7 @@ export interface PriceChartBar {
   w52_low: number | null;
   pocket_pivot_flag: boolean | null;
   distribution_day_flag: boolean | null;
+  minervini_pass?: boolean | null;
 }
 
 export interface TriggerOverlayEvent {
