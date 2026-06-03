@@ -139,10 +139,12 @@ export interface Signal {
 export interface ModeParam {
   name: string;
   label: string;
-  type: "int";
-  default: number;
-  min: number;
-  max: number;
+  type: "int" | "date" | "string";
+  default: number | string;
+  min?: number;
+  max?: number;
+  required?: boolean;
+  confirmIfEmpty?: string;
 }
 
 export interface PipelineMode {

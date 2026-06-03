@@ -16,6 +16,7 @@ def test_pipeline_specs_has_all_modules():
         "universe", "ohlcv", "weekly", "corporate-actions",
         "indicators-daily", "indicators-weekly", "market-context",
         "llm-full-daily", "llm-weekend", "llm-performance",
+        "llm-backfill",
     }
     assert required.issubset(ids), f"missing: {required - ids}"
 
@@ -130,6 +131,7 @@ def test_pipeline_db_name_matches_existing_runs():
     assert get_spec("llm-full-daily")["pipeline_db_name"] == "llm_daily_delta"
     assert get_spec("llm-weekend")["pipeline_db_name"] == "llm_weekend"
     assert get_spec("llm-performance")["pipeline_db_name"] == "llm_performance"
+    assert get_spec("llm-backfill")["pipeline_db_name"] == "llm_backfill"
 
 
 def test_each_spec_has_long_description():
@@ -231,3 +233,18 @@ def test_known_dependency_mapping():
     assert set(get_spec("llm-full-daily")["depends_on"]) == {"indicators-daily", "market-context", "ohlcv"}
     assert set(get_spec("llm-weekend")["depends_on"]) == {"indicators-daily", "indicators-weekly", "market-context"}
     assert set(get_spec("llm-performance")["depends_on"]) == {"ohlcv", "llm-full-daily"}
+
+
+def test_manual_pipeline_excluded_from_cron():
+    """default_cron 이 빈 값인 수동 파이프라인은 cron 라인에 포함되지 않는다."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_default_cron_lines, PIPELINE_SPECS
+
+    lines = get_default_cron_lines()
+    scheduled = [s for s in PIPELINE_SPECS if s.get("default_cron")]
+    # 빈 cron spec 은 라인 미생성
+    assert len(lines) == len(scheduled)
+    # 수동 backfill args 가 cron 에 등록되지 않음
+    assert not any("--mode=backfill" in ln for ln in lines)
+    # 어떤 라인도 빈 cron(공백) 으로 시작하지 않음
+    for ln in lines:
+        assert not ln.startswith(" "), f"빈 cron 라인: {ln!r}"

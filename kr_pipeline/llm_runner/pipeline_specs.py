@@ -14,6 +14,15 @@ frontend / backend 양쪽이 참조하는 단일 진실. 각 pipeline 의:
 from __future__ import annotations
 
 
+# llm-backfill 의 dry-run / real 모드가 공유하는 파라미터 (start/end/tickers).
+_BACKFILL_PARAMS: list[dict] = [
+    {"name": "start", "label": "시작일", "type": "date", "default": "", "required": True},
+    {"name": "end", "label": "종료일", "type": "date", "default": "", "required": True},
+    {"name": "tickers", "label": "종목(쉼표,비우면 전체)", "type": "string", "default": "",
+     "confirmIfEmpty": "전 종목 백필은 LLM 비용이 큽니다. 정말 실행하시겠습니까?"},
+]
+
+
 PIPELINE_SPECS: list[dict] = [
     # ─── 데이터 적재 ──────────────────────────────────────────────
     {
@@ -229,6 +238,28 @@ PIPELINE_SPECS: list[dict] = [
         "outputs": ["signal_performance"],
         "depends_on": ["ohlcv", "llm-full-daily"],
     },
+    {
+        "id": "llm-backfill",
+        "group": "llm",
+        "label": "LLM 백필 (수동)",
+        "description": "과거 기간 × 매주 토요일 LLM 분류 백필 — 수동 실행 전용 (start/end/tickers).",
+        "module": "kr_pipeline.llm_runner",
+        "pipeline_db_name": "llm_backfill",
+        "modes": [
+            {"id": "dry-run", "label": "미리보기 (dry-run)",
+             "args": ["--mode=backfill", "--dry-run"], "is_heavy": False,
+             "params": _BACKFILL_PARAMS},
+            {"id": "real", "label": "실제 분류",
+             "args": ["--mode=backfill"], "is_heavy": True,
+             "params": _BACKFILL_PARAMS},
+        ],
+        "default_cron": "",
+        "schedule_label": "수동 실행 전용",
+        "long_description": "과거 기간에 대해 매주 토요일 기준 LLM 분류를 소급 생성하는 백필입니다.\n\n시작일·종료일·종목(쉼표 구분, 비우면 그 주 minervini 통과 전 종목)을 입력해 실행합니다. 토요일마다 그 주 직전 거래일 데이터 기준으로 분류하며, 이미 분류된 (종목,날짜)는 건너뜁니다.\n\n미리보기(dry-run)는 LLM 호출·DB 적재 없이 대상만 확인합니다. 실제 분류는 LLM 비용이 발생합니다.\n\n선행 작업: indicators-daily, indicators-weekly, market-context, ohlcv\n후속 작업: 없음 (classification_backfill 에 적재)",
+        "inputs": ["daily_indicators", "weekly_indicators", "market_context_daily", "daily_prices"],
+        "outputs": ["classification_backfill"],
+        "depends_on": ["indicators-daily", "indicators-weekly", "market-context", "ohlcv"],
+    },
 ]
 
 
@@ -264,6 +295,8 @@ def get_default_cron_lines() -> list[str]:
     project_dir = Path(__file__).parent.parent.parent.resolve()
     lines = []
     for spec in PIPELINE_SPECS:
+        if not spec.get("default_cron"):
+            continue  # 수동 전용 파이프라인(빈 cron)은 등록 안 함
         default_mode = spec["modes"][0]
         args_str = " ".join(default_mode["args"])
         cmd = f"uv run python -m {spec['module']}"
