@@ -50,8 +50,8 @@ def test_backfill_run_inserts_and_wires_on_date(db, monkeypatch):
             cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'B','KOSPI') ON CONFLICT DO NOTHING", (t,))
             cur.execute("DELETE FROM daily_indicators WHERE ticker=%s AND date=%s", (t, sat))
             cur.execute(
-                """INSERT INTO daily_indicators (ticker, date, minervini_pass, adj_close)
-                   VALUES (%s,%s,TRUE,1000.0)""",
+                """INSERT INTO daily_indicators (ticker, date, minervini_pass, rs_line_not_declining_7m, adj_close)
+                   VALUES (%s,%s,TRUE,TRUE,1000.0)""",
                 (t, sat),
             )
     db.commit()
@@ -184,8 +184,8 @@ def test_get_qualifying_tickers_filters_by_tickers(db):
         for t in ("QF1", "QF2", "QF3"):
             cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'B','KOSPI') ON CONFLICT DO NOTHING", (t,))
             cur.execute("DELETE FROM daily_indicators WHERE ticker=%s AND date=%s", (t, as_of))
-        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('QF1',%s,TRUE,1000.0)", (as_of,))
-        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('QF2',%s,TRUE,1000.0)", (as_of,))
+        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,rs_line_not_declining_7m,adj_close) VALUES ('QF1',%s,TRUE,TRUE,1000.0)", (as_of,))
+        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,rs_line_not_declining_7m,adj_close) VALUES ('QF2',%s,TRUE,TRUE,1000.0)", (as_of,))
         cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('QF3',%s,FALSE,1000.0)", (as_of,))
     db.commit()
     try:
@@ -225,7 +225,7 @@ def test_backfill_run_multi_week_with_tickers(db, monkeypatch):
             cur.execute("DELETE FROM classification_backfill WHERE symbol='BKW1' AND analyzed_for_date=%s", (s,))
             cur.execute("DELETE FROM daily_indicators WHERE ticker='BKW1' AND date=%s", (s,))
         # s1 통과 / s2 미통과 → s2 는 건너뛰어야 함
-        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('BKW1',%s,TRUE,1000.0)", (s1,))
+        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,rs_line_not_declining_7m,adj_close) VALUES ('BKW1',%s,TRUE,TRUE,1000.0)", (s1,))
         cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('BKW1',%s,FALSE,1000.0)", (s2,))
     db.commit()
     monkeypatch.setattr(bf, "build_analysis_zip", lambda conn, symbol, on_date=None, **kw: b"zip")
