@@ -18,7 +18,7 @@ def load_daily_for_ticker(
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT date, open, high, low, close, adj_close, volume, value
+            SELECT date, open, high, low, close, adj_close, adj_high, adj_low, volume, value
               FROM daily_prices
              WHERE ticker = %s AND date BETWEEN %s AND %s
              ORDER BY date
@@ -55,6 +55,8 @@ def load_index_daily(
     df = pd.DataFrame(rows, columns=cols)
     if not df.empty:
         df["adj_close"] = df["close"]
+        df["adj_high"] = df["high"]
+        df["adj_low"] = df["low"]
     return df
 
 

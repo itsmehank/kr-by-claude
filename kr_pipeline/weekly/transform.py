@@ -5,7 +5,7 @@ import pandas as pd
 
 WEEKLY_COLUMNS = [
     "week_end_date", "open", "high", "low", "close",
-    "adj_close", "volume", "value", "trading_days",
+    "adj_close", "adj_high", "adj_low", "volume", "value", "trading_days",
 ]
 
 
@@ -44,6 +44,8 @@ def aggregate_to_weekly(daily: pd.DataFrame) -> pd.DataFrame:
         "low":           grouped["low"].min(),
         "close":         grouped["close"].last(),
         "adj_close":     grouped["adj_close"].last(),
+        "adj_high":      grouped["adj_high"].max(),
+        "adj_low":       grouped["adj_low"].min(),
         "volume":        grouped["volume"].sum(min_count=1),   # all-NaN → NaN
         "value":         grouped["value"].sum(min_count=1),
         "trading_days":  grouped["date"].count(),
@@ -80,6 +82,8 @@ def to_weekly_rows(ticker: str, weekly: pd.DataFrame) -> list[tuple]:
             int(r["low"]),
             int(r["close"]),
             float(r["adj_close"]),
+            float(r["adj_high"]),
+            float(r["adj_low"]),
             int(r["volume"]),
             int(r["value"]),
             int(r["trading_days"]),

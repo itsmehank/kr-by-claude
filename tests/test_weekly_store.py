@@ -15,32 +15,32 @@ def test_upsert_weekly_prices_inserts_new(db):
     _seed_stock(db)
     rows = [(
         "005930", date(2026, 5, 15),
-        100, 130, 95, 125, 125.0, 6000, 679000, 5,
+        100, 130, 95, 125, 125.0, 130.0, 95.0, 6000, 679000, 5,
     )]
     affected = upsert_weekly_prices(db, rows)
     assert affected == 1
 
     with db.cursor() as cur:
         cur.execute(
-            "SELECT close, adj_close, trading_days FROM weekly_prices "
+            "SELECT close, adj_close, adj_high, adj_low, trading_days FROM weekly_prices "
             "WHERE ticker = '005930' AND week_end_date = '2026-05-15'"
         )
-        assert cur.fetchone() == (125, 125.0, 5)
+        assert cur.fetchone() == (125, 125.0, 130.0, 95.0, 5)
 
 
 def test_upsert_weekly_prices_updates_on_conflict(db):
     _seed_stock(db)
-    rows_v1 = [("005930", date(2026, 5, 15), 100, 130, 95, 125, 125.0, 6000, 679000, 5)]
+    rows_v1 = [("005930", date(2026, 5, 15), 100, 130, 95, 125, 125.0, 130.0, 95.0, 6000, 679000, 5)]
     upsert_weekly_prices(db, rows_v1)
-    rows_v2 = [("005930", date(2026, 5, 15), 100, 135, 90, 128, 128.0, 7000, 800000, 5)]
+    rows_v2 = [("005930", date(2026, 5, 15), 100, 135, 90, 128, 128.0, 135.0, 90.0, 7000, 800000, 5)]
     upsert_weekly_prices(db, rows_v2)
 
     with db.cursor() as cur:
         cur.execute(
-            "SELECT high, low, close, adj_close, volume FROM weekly_prices "
+            "SELECT high, low, close, adj_close, adj_high, adj_low, volume FROM weekly_prices "
             "WHERE ticker = '005930' AND week_end_date = '2026-05-15'"
         )
-        assert cur.fetchone() == (135, 90, 128, 128.0, 7000)
+        assert cur.fetchone() == (135, 90, 128, 128.0, 135.0, 90.0, 7000)
 
 
 def test_upsert_weekly_prices_empty_returns_zero(db):

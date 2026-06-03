@@ -9,12 +9,15 @@ from kr_pipeline.weekly.transform import (
 )
 
 
-def _daily(date_, o, h, l, c, adj, v, val):
-    return {
+def _daily(date_, o, h, l, c, adj, v, val, adj_high=None, adj_low=None):
+    row = {
         "date": date_,
         "open": o, "high": h, "low": l, "close": c,
         "adj_close": adj, "volume": v, "value": val,
+        "adj_high": adj_high if adj_high is not None else float(h),
+        "adj_low":  adj_low  if adj_low  is not None else float(l),
     }
+    return row
 
 
 def test_aggregate_single_full_week():
@@ -144,13 +147,14 @@ def test_to_weekly_rows_tuple_format():
     weekly = pd.DataFrame([{
         "week_end_date": date(2026, 5, 15),
         "open": 100, "high": 130, "low": 95, "close": 125,
-        "adj_close": 125.0, "volume": 6000, "value": 679000, "trading_days": 5,
+        "adj_close": 125.0, "adj_high": 130.0, "adj_low": 95.0,
+        "volume": 6000, "value": 679000, "trading_days": 5,
     }])
     rows = to_weekly_rows("005930", weekly)
     assert rows == [(
         "005930", date(2026, 5, 15),
         100, 130, 95, 125,
-        125.0, 6000, 679000, 5,
+        125.0, 130.0, 95.0, 6000, 679000, 5,
     )]
 
 
@@ -173,9 +177,9 @@ def test_aggregate_preserves_null_volume_for_indexes():
     index_daily 처럼 volume/value 가 nullable 인 경우 0 으로 변환되지 않아야 함."""
     daily = pd.DataFrame([
         {"date": date(2026, 5, 11), "open": 100, "high": 100, "low": 100, "close": 100,
-         "adj_close": 100.0, "volume": None, "value": None},
+         "adj_close": 100.0, "adj_high": 100.0, "adj_low": 100.0, "volume": None, "value": None},
         {"date": date(2026, 5, 15), "open": 100, "high": 100, "low": 100, "close": 100,
-         "adj_close": 100.0, "volume": None, "value": None},
+         "adj_close": 100.0, "adj_high": 100.0, "adj_low": 100.0, "volume": None, "value": None},
     ])
     weekly = aggregate_to_weekly(daily)
     row = weekly.iloc[0]
@@ -188,9 +192,9 @@ def test_aggregate_partial_null_volume_sums_non_null():
     """volume 일부가 None, 일부는 값. sum 은 값만 합산 (NaN 안 됨)."""
     daily = pd.DataFrame([
         {"date": date(2026, 5, 11), "open": 100, "high": 100, "low": 100, "close": 100,
-         "adj_close": 100.0, "volume": 1000, "value": 100000},
+         "adj_close": 100.0, "adj_high": 100.0, "adj_low": 100.0, "volume": 1000, "value": 100000},
         {"date": date(2026, 5, 15), "open": 100, "high": 100, "low": 100, "close": 100,
-         "adj_close": 100.0, "volume": None, "value": None},
+         "adj_close": 100.0, "adj_high": 100.0, "adj_low": 100.0, "volume": None, "value": None},
     ])
     weekly = aggregate_to_weekly(daily)
     row = weekly.iloc[0]
@@ -230,4 +234,28 @@ def test_to_weekly_index_rows_with_real_volume():
         2500, 2520, 2490, 2510,
         1000, 1000000,
         5,
+    )]
+
+
+def test_aggregate_adj_high_is_week_max_adj_low_is_week_min():
+    daily = pd.DataFrame([
+        {"date": date(2026,5,11), "open":100,"high":110,"low":95,"close":105,
+         "adj_close":52.0,"adj_high":55.0,"adj_low":47.5,"volume":10,"value":1000},
+        {"date": date(2026,5,12), "open":105,"high":120,"low":100,"close":118,
+         "adj_close":59.0,"adj_high":60.0,"adj_low":50.0,"volume":20,"value":2000},
+    ])
+    wk = aggregate_to_weekly(daily)
+    assert wk.iloc[0]["adj_high"] == 60.0   # max(55, 60)
+    assert wk.iloc[0]["adj_low"] == 47.5    # min(47.5, 50)
+    assert wk.iloc[0]["adj_close"] == 59.0  # last
+
+
+def test_to_weekly_rows_includes_adj_high_low():
+    wk = pd.DataFrame([{
+        "week_end_date": date(2026,5,15), "open":100,"high":120,"low":95,"close":118,
+        "adj_close":59.0,"adj_high":60.0,"adj_low":47.5,"volume":30,"value":3000,"trading_days":2,
+    }])
+    rows = to_weekly_rows("005930", wk)
+    assert rows == [(
+        "005930", date(2026,5,15), 100, 120, 95, 118, 59.0, 60.0, 47.5, 30, 3000, 2
     )]
