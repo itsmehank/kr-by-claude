@@ -2,6 +2,7 @@
 """RS Line: 종목 수정종가 / 벤치마크 종가. 그리고 책 신호 booleans."""
 from datetime import date as _date
 import pandas as pd
+import numpy as np
 
 
 def compute_rs_line(adj_close_stock: pd.Series, close_index: pd.Series) -> pd.Series:
@@ -81,3 +82,38 @@ def compute_rs_line_in_decline_7m(
         diff_days = (cd - hd).days
         result.iloc[i] = diff_days >= threshold_days
     return result
+
+
+def _rolling_slope(rs_line: pd.Series, window: int) -> pd.Series:
+    """각 window 구간 선형회귀 기울기. window 미만/결측 포함 시 NaN."""
+    x = np.arange(window, dtype=float)
+
+    def _slope(y):
+        if np.isnan(y).any():
+            return np.nan
+        return np.polyfit(x, y, 1)[0]
+
+    return rs_line.rolling(window=window, min_periods=window).apply(_slope, raw=True)
+
+
+def compute_rs_line_uptrend_slope(rs_line: pd.Series, window: int) -> pd.Series:
+    """최근 window 구간 회귀 기울기 > 0 → True (D7). window 미만 NaN.
+
+    '이동평균 위' 정의를 대체 — 평평/스파이크에 False 가 되어 실제 상향만 잡음.
+    """
+    slope = _rolling_slope(rs_line, window)
+    result = slope > 1e-10
+    return result.where(slope.notna())
+
+
+def compute_rs_line_not_declining(rs_line: pd.Series, window: int) -> pd.Series:
+    """NOT(기울기<0 AND 끝점<시작점) → True=건강 (D6, pure-declining). window 미만 NaN.
+
+    횡보(기울기≈0)는 건강으로 보존, 실제 하락선만 False.
+    끝점 비교는 같은 window 의 첫 점(rs_line.shift(window-1)) 기준.
+    """
+    slope = _rolling_slope(rs_line, window)
+    endpoint_lower = rs_line < rs_line.shift(window - 1)
+    declining = (slope < 0) & endpoint_lower
+    result = ~declining
+    return result.where(slope.notna())
