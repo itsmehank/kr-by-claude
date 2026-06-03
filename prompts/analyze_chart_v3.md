@@ -43,7 +43,7 @@ You will receive a JSON payload with:
 - **Current price metrics**: close, 52w high/low, distance from extremes, volume averages
 - **Recent daily OHLCV**: past ~60 trading days
 - **Recent weekly OHLCV**: past ~104 weeks for full base-pattern recognition including prior uptrend confirmation
-- **Recent indicator series**: SMA-10, SMA-50, SMA-150, SMA-200, RS Line, RS Rating series, volume_ma_50, volume_ratio, pocket_pivot_flag, distribution_day_flag
+- **Recent indicator series**: SMA-10, SMA-50, SMA-150, SMA-200, RS Line, RS Rating series, volume_ma_50, volume_ratio, pocket_pivot_flag, distribution_day_flag, rs_line_at_52w_high, rs_line_uptrend_6w (6주 회귀 기울기>0), rs_line_uptrend_13w (13주 기울기>0)
 - **Market context** (`market_context`): current market status (confirmed_uptrend / rally_attempt / downtrend / correction), distribution day count over last 25 sessions, last follow-through day, % of stocks above 200-day MA
 - **Price data notes** (`price_data_notes`): corporate action history (splits, reverse splits, spinoffs) and raw price anomalies
 - **Optional chart images**: if `daily_chart` and/or `weekly_chart` PNG images are attached, examine them BEFORE the OHLCV text analysis. Visual pattern recognition (VCP tightness, handle drift, base contour, volume signature) is more reliable than reconstruction from OHLCV numbers alone.
@@ -194,6 +194,8 @@ If criteria not met but pocket pivot flag present: do not use pocket pivot as th
 ### 4.6. RS Line Leadership Check (O'Neil)
 
 Examine the RS Line series in `indicators_recent_60d`:
+
+Boolean signals (use as corroboration, not as filters): `rs_line_at_52w_high` (RS Line at 52-week high today), `rs_line_uptrend_6w` / `rs_line_uptrend_13w` (RS Line 6/13-week regression slope > 0). These are advisory inputs to the leadership judgment below, not pass/fail gates.
 
 - **Strong leadership**: RS Line made a new 52-week high *before* price made a new 52-week high. If observed, note explicitly in reasoning ("RS Line leadership confirmed"). May raise confidence by 0.05.
 - **Weak leadership**: RS Line declining or flat while price advances over the past 4-8 weeks (negative divergence). Consider adding `volume_contraction_on_advance` if volume also declining, or demote to `watch`.
