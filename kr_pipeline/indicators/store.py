@@ -176,17 +176,17 @@ def update_weekly_indicators_minervini_pass(
         cur.execute(
             """
             UPDATE weekly_indicators
-               SET minervini_c8 = (rs_rating >= 70),
+               SET minervini_c8 = (rs_rating >= %s),
                    minervini_pass = (
                        minervini_c1 IS TRUE AND minervini_c2 IS TRUE AND
                        minervini_c3 IS TRUE AND minervini_c4 IS TRUE AND
                        minervini_c5 IS TRUE AND minervini_c6 IS TRUE AND
-                       minervini_c7 IS TRUE AND (rs_rating >= 70)
+                       minervini_c7 IS TRUE AND (rs_rating >= %s)
                    ),
                    updated_at = NOW()
              WHERE week_end_date BETWEEN %s AND %s
             """,
-            (start_date, end_date),
+            (C8_RS_RATING_MIN, C8_RS_RATING_MIN, start_date, end_date),
         )
         return cur.rowcount
 
