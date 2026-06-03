@@ -38,6 +38,9 @@ def main() -> int:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--ticker", type=str, help="단일 종목 디버깅 (weekend mode 만 지원)")
     parser.add_argument("--date", type=str, help="YYYY-MM-DD")
+    parser.add_argument("--start", type=str, help="YYYY-MM-DD (backfill 범위 시작)")
+    parser.add_argument("--end", type=str, help="YYYY-MM-DD (backfill 범위 종료)")
+    parser.add_argument("--tickers", type=str, help="쉼표 구분 종목 코드 (backfill 전용, 생략 시 전 종목)")
     args = parser.parse_args()
 
     # --ticker 는 현재 weekend mode 만 함수 시그니처가 지원. 다른 mode 에서 ticker
@@ -50,8 +53,12 @@ def main() -> int:
             f"(got --mode={args.mode}). 다른 mode 에선 ticker 가 무시되고 전체 batch 가 실행되어 비용 위험."
         )
 
-    if args.mode == "backfill" and not args.date:
-        parser.error("--date is required with --mode=backfill (과거 기준일 없는 백필은 무의미).")
+    # --start/--end/--tickers 는 backfill 전용. 다른 모드와 쓰면 조용히 무시되어
+    # 의도와 다른 동작을 할 수 있으므로 명시적 에러로 차단.
+    if args.mode != "backfill" and (args.start or args.end or args.tickers):
+        parser.error("--start/--end/--tickers is only supported with --mode=backfill.")
+    if args.mode == "backfill" and (not args.start or not args.end):
+        parser.error("--start and --end are required with --mode=backfill (기간 없는 백필은 무의미).")
 
     logging.basicConfig(
         level=logging.INFO,
@@ -78,6 +85,9 @@ def main() -> int:
             "as_of": as_of.isoformat(),
             "limit": args.limit,
             "ticker": getattr(args, "ticker", None),
+            "start": getattr(args, "start", None),
+            "end": getattr(args, "end", None),
+            "tickers": getattr(args, "tickers", None),
         }
         with run_tracking(conn, pipeline=pipeline_db_name, mode=args.mode, params=params) as state:
             if args.mode == "weekend":
@@ -93,7 +103,11 @@ def main() -> int:
             elif args.mode == "full-daily":
                 result = modes.run_full_daily(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
             elif args.mode == "backfill":
-                result = backfill.run(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
+                _start = _date.fromisoformat(args.start)
+                _end = _date.fromisoformat(args.end)
+                _tickers = [t.strip() for t in args.tickers.split(",")] if args.tickers else None
+                result = backfill.run(conn, start=_start, end=_end, tickers=_tickers,
+                                      dry_run=args.dry_run, limit=args.limit)
             elif args.mode == "disqualify":
                 result = disqualify.run(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
             else:

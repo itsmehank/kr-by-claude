@@ -137,14 +137,33 @@ def test_backfill_gate_uses_point_in_time_date(db, monkeypatch):
         db.commit()
 
 
-def test_backfill_mode_requires_date():
+def test_backfill_mode_requires_start_end():
     import sys, pytest
     from kr_pipeline.llm_runner.__main__ import main
     argv = sys.argv
-    sys.argv = ["prog", "--mode=backfill"]  # --date 없음
     try:
-        with pytest.raises(SystemExit):  # argparse parser.error → SystemExit
+        # --start/--end 없음 → 에러
+        sys.argv = ["prog", "--mode=backfill"]
+        with pytest.raises(SystemExit):
             main()
+        # --start 만 있고 --end 없음 → 에러
+        sys.argv = ["prog", "--mode=backfill", "--start=2024-05-01"]
+        with pytest.raises(SystemExit):
+            main()
+    finally:
+        sys.argv = argv
+
+
+def test_range_args_rejected_for_non_backfill_modes():
+    """--start/--end/--tickers 는 backfill 외 모드와 쓰면 에러."""
+    import sys, pytest
+    from kr_pipeline.llm_runner.__main__ import main
+    argv = sys.argv
+    try:
+        for extra in ("--start=2024-05-01", "--end=2024-05-31", "--tickers=000660"):
+            sys.argv = ["prog", "--mode=weekend", extra]
+            with pytest.raises(SystemExit):
+                main()
     finally:
         sys.argv = argv
 
