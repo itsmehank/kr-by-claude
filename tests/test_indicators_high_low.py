@@ -15,12 +15,12 @@ def test_w52_high_is_max_of_adj_high_low_is_min_of_adj_low():
 
 
 def test_w52_high_low_window_252_default():
-    high_s = pd.Series(range(300), dtype=float)
-    low_s = pd.Series(range(300), dtype=float)
+    high_s = pd.Series(range(300), dtype=float)          # 0..299
+    low_s = pd.Series(range(1, 301), dtype=float)        # 1..300 (distinct from high_s)
     h, l = w52_high_low(high_s, low_s)
     assert h.isna().iloc[:251].all()
-    assert h.iloc[251] == 251.0
-    assert l.iloc[251] == 0.0
+    assert h.iloc[251] == 251.0   # max of high_s[0..251]
+    assert l.iloc[251] == 1.0     # min of low_s[0..251] (would be 0.0 if args swapped)
 
 
 def test_w52_high_low_insufficient_history():

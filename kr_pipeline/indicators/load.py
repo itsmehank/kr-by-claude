@@ -12,7 +12,7 @@ def load_daily_prices(
     start: date,
     end: date,
 ) -> pd.DataFrame:
-    """한 종목의 일봉 (date, adj_close, close, volume).
+    """한 종목의 일봉 (date, adj_close, adj_high, adj_low, close, volume).
 
     V2: split-adjusted volume 계산 위해 close, volume 도 가져옴.
     """
@@ -64,7 +64,7 @@ def load_index_daily(
 
 
 def load_weekly_prices(conn: Connection, ticker: str, start: date, end: date) -> pd.DataFrame:
-    """한 종목의 주봉 (date, adj_close, close, volume). V2: close, volume 추가."""
+    """한 종목의 주봉 (date, adj_close, adj_high, adj_low, close, volume). V2: close, volume 추가."""
     with conn.cursor() as cur:
         cur.execute(
             """
