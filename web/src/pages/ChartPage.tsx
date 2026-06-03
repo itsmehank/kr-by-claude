@@ -25,6 +25,7 @@ import {
   type TriggerOverlayEvent,
 } from "../components/charts/PriceChart";
 import { buildBandSegments, type BandSegment, type ClassificationPoint } from "../components/charts/overlayBands";
+import { BandLegend } from "../components/charts/BandLegend";
 import { ChartMetaBar } from "../components/ChartMetaBar";
 import { ClassificationCard } from "../components/panels/ClassificationCard";
 import { IndicatorsCard } from "../components/panels/IndicatorsCard";
@@ -574,6 +575,7 @@ export default function ChartPage() {
               label="분류 밴드"
             />
           </div>
+          {showClassificationBands && <BandLegend />}
         </div>
       )}
 

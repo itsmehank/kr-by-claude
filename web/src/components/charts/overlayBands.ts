@@ -20,6 +20,17 @@ export const BAND_LABELS: Record<BandState, string> = {
   fail: "미통과/탈락",
 };
 
+// 범례 스와치용 솔리드 색 (BAND_COLORS 의 불투명 원색 — 작은 스와치는 반투명이면 잘 안 보임).
+export const BAND_SWATCH: Record<BandState, string> = {
+  entry: "#16a34a",
+  watch: "#2563eb",
+  ignore: "#9ca3af",
+  fail: "#dc2626",
+};
+
+// 범례/순회용 표시 순서.
+export const BAND_ORDER: BandState[] = ["entry", "watch", "ignore", "fail"];
+
 export interface BandBar {
   date: string;
   minervini_pass: boolean | null;
