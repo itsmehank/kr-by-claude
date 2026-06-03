@@ -104,6 +104,9 @@ def compute_date_range(
     raise ValueError(f"Unknown mode: {mode}")
 
 
+KOSPI_INDEX_CODE = "1001"  # RS Line 광역 단일 분모 (설계 D2: 코스피·코스닥 전 종목 공통)
+
+
 def _market_to_index_code(market: str) -> str:
     """KOSPI → '1001', KOSDAQ → '2001'."""
     if market == "KOSPI":
@@ -138,7 +141,7 @@ def _process_ticker_daily(
     if df_daily.empty:
         return 0
 
-    index_code = _market_to_index_code(market)
+    index_code = KOSPI_INDEX_CODE  # D2: 종목 시장 무관 KOSPI 단일 분모
     df_idx = load_index_daily(conn, index_code, load_start, load_end)
     if df_idx.empty:
         return 0
@@ -473,7 +476,7 @@ def _process_ticker_weekly(
     df_weekly = load_weekly_prices(conn, ticker, load_start, load_end)
     if df_weekly.empty:
         return 0
-    index_code = _market_to_index_code(market)
+    index_code = KOSPI_INDEX_CODE  # D2: 종목 시장 무관 KOSPI 단일 분모
     df_idx = load_weekly_index(conn, index_code, load_start, load_end)
     if df_idx.empty:
         return 0
