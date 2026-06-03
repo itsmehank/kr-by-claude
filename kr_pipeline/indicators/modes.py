@@ -171,7 +171,7 @@ def _process_ticker_daily(
     dist_flag = distribution_day(is_down, adj_volume, avg_vol_50, threshold=1.25)
 
     # 52w
-    w52h, w52l = w52_high_low(adj_close, window=252)
+    w52h, w52l = w52_high_low(df["adj_high"], df["adj_low"], window=252)
     pct_h, pct_l = pct_from_high_low(adj_close, w52h, w52l)
 
     # RS Line
@@ -499,7 +499,7 @@ def _process_ticker_weekly(
     sma_10w_s = sma(adj_close, 10)
     sma_30w_s = sma(adj_close, 30)
     sma_40w_s = sma(adj_close, 40)
-    w52h, w52l = w52_high_low(adj_close, window=52)
+    w52h, w52l = w52_high_low(df["adj_high"], df["adj_low"], window=52)
     pct_h, pct_l = pct_from_high_low(adj_close, w52h, w52l)
     rs_line = compute_rs_line(adj_close, df["index_close"])
     rs_line_high, rs_line_high_date = compute_rs_line_52w_high_and_date(rs_line, window=52)
