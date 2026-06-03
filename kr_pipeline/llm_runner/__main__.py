@@ -9,7 +9,7 @@ from kr_pipeline.common.config import Config
 from kr_pipeline.db.connection import connect
 from kr_pipeline.db.runs import run_tracking
 from kr_pipeline.llm_runner import (
-    weekend, daily_delta, evaluate_pivot, entry_params, performance, backfill,
+    weekend, daily_delta, evaluate_pivot, entry_params, performance, backfill, disqualify,
 )
 from kr_pipeline.llm_runner import modes
 
@@ -23,6 +23,7 @@ PIPELINE_DB_NAME_BY_MODE = {
     "performance": "llm_performance",
     "full-daily": "llm_daily_delta",
     "backfill": "llm_backfill",
+    "disqualify": "llm_disqualify",
 }
 
 
@@ -31,7 +32,7 @@ def main() -> int:
     parser.add_argument(
         "--mode",
         required=True,
-        choices=["weekend", "daily-delta", "evaluate", "entry", "performance", "full-daily", "backfill"],
+        choices=["weekend", "daily-delta", "evaluate", "entry", "performance", "full-daily", "backfill", "disqualify"],
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--limit", type=int)
@@ -93,6 +94,8 @@ def main() -> int:
                 result = modes.run_full_daily(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
             elif args.mode == "backfill":
                 result = backfill.run(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
+            elif args.mode == "disqualify":
+                result = disqualify.run(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
             else:
                 result = {}
 

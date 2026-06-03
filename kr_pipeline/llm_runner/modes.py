@@ -33,7 +33,9 @@ def run_weekend(
     limit: int | None,
     ticker: str | None = None,
 ) -> dict:
-    """주말: (5) batch + digest. ticker 지정 시 단일 종목 디버깅 mode."""
+    """주말: (disqualify →) (5) batch + digest. ticker 지정 시 단일 종목 디버깅 mode."""
+    if ticker is None:                       # 단일 종목 디버그 모드에선 전체 강등 스윕 생략
+        disqualify.run(conn, dry_run=dry_run, as_of=as_of, limit=limit)
     r = weekend.run(conn, dry_run=dry_run, as_of=as_of, limit=limit, ticker=ticker)
     # 분포 집계 (timezone-aware 비교)
     with conn.cursor() as cur:
