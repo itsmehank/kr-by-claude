@@ -220,6 +220,15 @@ O'Neil HMMS: RS Line 7개월+ 하락(또는 4개월+ 급락) = laggard. 이를 *
 - 슬로프 회귀 구현 세부(엔드포인트 비교 RS_line[t] vs RS_line[t-30w] + 기울기 부호).
 - 전체 재계산 실행 범위(적재 시작일~현재)·소요 시간 측정.
 
+### 9.4 재계산 검증 (2026-06-04, production kr_pipeline)
+weekly full-refresh → daily full-refresh 실행. 둘 다 failures=0, warnings=0.
+- weekly: 2552종목, Phase B(rs_rating) 262,501 / Phase C(minervini) 262,501 행.
+- daily: Phase B 1,225,247 / Phase C 1,225,247 / Phase D 미러 1,225,247 행.
+- 최신일(2026-06-02) 후보 구성: rs_rating≥70 **739**(2552 중 29% = 백분위 상위~30%, SF 교체 후에도 백분위 로직 정상),
+  minervini_pass **180**, 게이트 적용 최종 후보 **92**, 게이트 탈락 **88**(KOSPI 대비 7개월 하락).
+- 미러 커버리지: NULL 40(히스토리 부족, =TRUE 게이트에서 자동 제외) / TRUE 344 / FALSE 2168.
+- 해석: 게이트가 minervini 통과주를 180→92로 컷 — 설계 §2.3 KOSPI 단일 분모의 의도된 laggard 회피 효과(0 아님=버그아님, 변화있음=게이트작동).
+
 ---
 
 ## 10. 출처
