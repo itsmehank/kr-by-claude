@@ -33,7 +33,6 @@ export const BAND_ORDER: BandState[] = ["entry", "watch", "ignore", "fail"];
 
 export interface BandBar {
   date: string;
-  minervini_pass: boolean | null;
 }
 
 export interface ClassificationPoint {
@@ -44,9 +43,12 @@ export interface ClassificationPoint {
 const COLORED = new Set<string>(["entry", "watch", "ignore"]);
 
 /**
- * 날짜별 배타 상태로 분류 밴드 세그먼트 생성.
- * minervini_pass === false → "fail"(우선). 아니면 그 날짜 이하 가장 최근 분류(entry/watch/ignore) 이월(carry-forward).
- * disqualified/분류없음 → 밴드 없음. 연속 동일 상태는 병합. bars/points 는 날짜 오름차순 가정(points 방어적 정렬).
+ * 날짜별 분류 상태(sticky)로 밴드 세그먼트 생성.
+ * 밴드는 "분류 시계열"만 본다(일별 minervini 지표는 보지 않음 — 그건 매일 출렁이므로).
+ * 각 bar 날짜의 상태 = 그 날짜 이하 가장 최근 분류를 이월(carry-forward):
+ *   entry/watch/ignore → 해당 색, disqualified → "fail"(빨강) 으로 다음 분류 전까지 유지.
+ *   그 외 미지정 문자열은 carry 를 건드리지 않음(데이터 오염에 안전).
+ * 첫 분류 이전(carry 없음) → 밴드 없음. 연속 동일 상태는 병합. bars/points 는 날짜 오름차순 가정(points 방어적 정렬).
  */
 export function buildBandSegments(
   bars: BandBar[],
@@ -61,13 +63,11 @@ export function buildBandSegments(
   for (const bar of bars) {
     while (pi < sorted.length && sorted[pi].date <= bar.date) {
       const c = sorted[pi].classification;
-      // entry/watch/ignore → 이월. disqualified → 이월 종료(밴드 없음).
-      // 그 외 미지정 문자열은 carry 를 건드리지 않음(데이터 오염에 안전).
       if (COLORED.has(c)) carried = c as BandState;
-      else if (c === "disqualified") carried = null;
+      else if (c === "disqualified") carried = "fail";
       pi++;
     }
-    const state: BandState | null = bar.minervini_pass === false ? "fail" : carried;
+    const state: BandState | null = carried;
 
     if (state === null) {
       if (cur) { segments.push(cur); cur = null; }

@@ -237,7 +237,7 @@ export default function ChartPage() {
       classification: h.classification,
     }));
     return buildBandSegments(
-      bars.map((b) => ({ date: b.date, minervini_pass: b.minervini_pass ?? null })),
+      bars.map((b) => ({ date: b.date })),
       points,
     );
   }, [bars, classHistoryQ.data]);
