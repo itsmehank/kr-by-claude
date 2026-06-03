@@ -14,6 +14,15 @@ frontend / backend 양쪽이 참조하는 단일 진실. 각 pipeline 의:
 from __future__ import annotations
 
 
+# llm-backfill 의 dry-run / real 모드가 공유하는 파라미터 (start/end/tickers).
+_BACKFILL_PARAMS: list[dict] = [
+    {"name": "start", "label": "시작일", "type": "date", "default": "", "required": True},
+    {"name": "end", "label": "종료일", "type": "date", "default": "", "required": True},
+    {"name": "tickers", "label": "종목(쉼표,비우면 전체)", "type": "string", "default": "",
+     "confirmIfEmpty": "전 종목 백필은 LLM 비용이 큽니다. 정말 실행하시겠습니까?"},
+]
+
+
 PIPELINE_SPECS: list[dict] = [
     # ─── 데이터 적재 ──────────────────────────────────────────────
     {
@@ -239,20 +248,10 @@ PIPELINE_SPECS: list[dict] = [
         "modes": [
             {"id": "dry-run", "label": "미리보기 (dry-run)",
              "args": ["--mode=backfill", "--dry-run"], "is_heavy": False,
-             "params": [
-                 {"name": "start", "label": "시작일", "type": "date", "default": "", "required": True},
-                 {"name": "end", "label": "종료일", "type": "date", "default": "", "required": True},
-                 {"name": "tickers", "label": "종목(쉼표,비우면 전체)", "type": "string", "default": "",
-                  "confirmIfEmpty": "전 종목 백필은 LLM 비용이 큽니다. 정말 실행하시겠습니까?"},
-             ]},
+             "params": _BACKFILL_PARAMS},
             {"id": "real", "label": "실제 분류",
              "args": ["--mode=backfill"], "is_heavy": True,
-             "params": [
-                 {"name": "start", "label": "시작일", "type": "date", "default": "", "required": True},
-                 {"name": "end", "label": "종료일", "type": "date", "default": "", "required": True},
-                 {"name": "tickers", "label": "종목(쉼표,비우면 전체)", "type": "string", "default": "",
-                  "confirmIfEmpty": "전 종목 백필은 LLM 비용이 큽니다. 정말 실행하시겠습니까?"},
-             ]},
+             "params": _BACKFILL_PARAMS},
         ],
         "default_cron": "",
         "schedule_label": "수동 실행 전용",
