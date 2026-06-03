@@ -188,7 +188,7 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
 
 
 def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.FULL_REFRESH) -> RunStats:
-    """수정종가만 갱신. 종목별 실패는 끝에서 1회 재시도."""
+    """수정 OHLC(adj_close/adj_high/adj_low) 갱신. 종목별 실패는 끝에서 1회 재시도."""
     import time
     from kr_pipeline.ohlcv.fetch import fetch_adj_only
 
