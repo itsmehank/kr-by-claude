@@ -17,12 +17,14 @@ import type {
   Classification,
   Signal,
   Trigger,
+  ClassificationHistoryRow,
 } from "../lib/types";
 import {
   PriceChart,
   type PriceChartBar,
   type TriggerOverlayEvent,
 } from "../components/charts/PriceChart";
+import { buildBandSegments, type BandSegment, type ClassificationPoint } from "../components/charts/overlayBands";
 import { ChartMetaBar } from "../components/ChartMetaBar";
 import { ClassificationCard } from "../components/panels/ClassificationCard";
 import { IndicatorsCard } from "../components/panels/IndicatorsCard";
@@ -101,6 +103,7 @@ function dailyToBar(d: DailyIndicator): PriceChartBar {
     w52_low: d.w52_low,
     pocket_pivot_flag: d.pocket_pivot_flag,
     distribution_day_flag: d.distribution_day_flag,
+    minervini_pass: d.minervini_pass,
   };
 }
 
@@ -122,6 +125,7 @@ function weeklyToBar(w: WeeklyIndicator): PriceChartBar {
     w52_low: w.w52_low,
     pocket_pivot_flag: null,
     distribution_day_flag: null,
+    minervini_pass: null,
   };
 }
 
@@ -146,6 +150,7 @@ export default function ChartPage() {
   const [showDistributionDay, setShowDistributionDay] = useState(false);
   const [showPivotStop, setShowPivotStop] = useState(true);
   const [showTriggerMarkers, setShowTriggerMarkers] = useState(true);
+  const [showClassificationBands, setShowClassificationBands] = useState(false);
 
   const { data: quickList } = useQuery<MinerviniPassed[]>({
     queryKey: ["minervini-passed-chart-select"],
@@ -193,6 +198,15 @@ export default function ChartPage() {
     enabled: !!ticker,
   });
 
+  const classHistoryQ = useQuery<ClassificationHistoryRow[]>({
+    queryKey: ["chart-classification-history", ticker, period],
+    queryFn: () =>
+      api<ClassificationHistoryRow[]>(
+        `/classifications/history/${ticker}?start=${startForPeriod(period)}&end=${todayStr()}`,
+      ),
+    enabled: !!ticker,
+  });
+
   const signalQ = useQuery<Signal[]>({
     queryKey: ["chart-signal", ticker],
     queryFn: () => api<Signal[]>(`/signals?ticker=${ticker}&days=60`),
@@ -215,6 +229,17 @@ export default function ChartPage() {
       ? (rawData as DailyIndicator[]).map(dailyToBar)
       : (rawData as WeeklyIndicator[]).map(weeklyToBar);
   }, [rawData, timeframe]);
+
+  const bandSegments = useMemo<BandSegment[]>(() => {
+    const points: ClassificationPoint[] = (classHistoryQ.data ?? []).map((h) => ({
+      date: h.date,
+      classification: h.classification,
+    }));
+    return buildBandSegments(
+      bars.map((b) => ({ date: b.date, minervini_pass: b.minervini_pass ?? null })),
+      points,
+    );
+  }, [bars, classHistoryQ.data]);
 
   const pivotPrice = classificationQ.data?.[0]?.pivot_price ?? null;
   const stopLoss = signalQ.data?.[0]?.stop_loss ?? null;
@@ -441,6 +466,8 @@ export default function ChartPage() {
               showPivotStop={showPivotStop}
               showTriggerMarkers={showTriggerMarkers}
               triggerEvents={triggerEvents}
+              showClassificationBands={showClassificationBands}
+              bandSegments={bandSegments}
             />
           </div>
         </>
@@ -539,6 +566,12 @@ export default function ChartPage() {
               onChange={setShowTriggerMarkers}
               color="#16a34a"
               label="트리거 마커"
+            />
+            <Toggle
+              checked={showClassificationBands}
+              onChange={setShowClassificationBands}
+              color="#16a34a"
+              label="분류 밴드"
             />
           </div>
         </div>

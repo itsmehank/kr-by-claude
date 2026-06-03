@@ -281,3 +281,55 @@ def test_latest_picked_by_analyzed_for_date_not_classified_at(client, db):
             cur.execute("DELETE FROM stocks WHERE ticker='CLSAXIS1'")
         db.commit()
         app.dependency_overrides.pop(get_conn, None)
+
+
+def test_classification_history_unions_live_and_backfill(client, db):
+    """history: weekly_classification + classification_backfill 합쳐 날짜순, 같은 날짜 라이브 우선."""
+    from datetime import date, datetime, timezone
+
+    def override():
+        yield db
+    app.dependency_overrides[get_conn] = override
+    try:
+        with db.cursor() as cur:
+            cur.execute("INSERT INTO stocks (ticker,name,market) VALUES ('HST1','H','KOSPI') ON CONFLICT DO NOTHING")
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='HST1'")
+            cur.execute("DELETE FROM classification_backfill WHERE symbol='HST1'")
+            cur.execute("""INSERT INTO weekly_classification (symbol, classified_at, analyzed_for_date, market, classification, source)
+                           VALUES ('HST1', %s, %s, 'KOSPI', 'watch', 'weekend')""",
+                        (datetime(2025, 2, 2, tzinfo=timezone.utc), date(2025, 2, 1)))
+            cur.execute("""INSERT INTO classification_backfill (symbol, classified_at, analyzed_for_date, market, classification, source)
+                           VALUES ('HST1', %s, %s, 'KOSPI', 'ignore', 'backfill')""",
+                        (datetime(2025, 1, 5, tzinfo=timezone.utc), date(2025, 1, 4)))
+            cur.execute("""INSERT INTO classification_backfill (symbol, classified_at, analyzed_for_date, market, classification, source)
+                           VALUES ('HST1', %s, %s, 'KOSPI', 'entry', 'backfill')""",
+                        (datetime(2025, 2, 1, tzinfo=timezone.utc), date(2025, 2, 1)))
+        db.commit()
+        r = client.get("/api/classifications/history/HST1?start=2025-01-01&end=2025-03-01")
+        assert r.status_code == 200
+        rows = r.json()
+        # 날짜 오름차순; 2025-02-01 중복은 라이브(watch) 우선 1건
+        assert [(x["date"], x["classification"]) for x in rows] == [
+            ("2025-01-04", "ignore"),
+            ("2025-02-01", "watch"),
+        ]
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='HST1'")
+            cur.execute("DELETE FROM classification_backfill WHERE symbol='HST1'")
+            cur.execute("DELETE FROM stocks WHERE ticker='HST1'")
+        db.commit()
+        app.dependency_overrides.pop(get_conn, None)
+
+
+def test_classification_history_empty_for_unknown_ticker(client, db):
+    """알 수 없는 종목 → 빈 리스트."""
+    def override():
+        yield db
+    app.dependency_overrides[get_conn] = override
+    try:
+        r = client.get("/api/classifications/history/NOPE1?start=2025-01-01&end=2025-03-01")
+        assert r.status_code == 200
+        assert r.json() == []
+    finally:
+        app.dependency_overrides.pop(get_conn, None)
