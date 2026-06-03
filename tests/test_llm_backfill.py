@@ -169,3 +169,17 @@ def test_get_qualifying_tickers_filters_by_tickers(db):
         with db.cursor() as cur:
             cur.execute("DELETE FROM daily_indicators WHERE ticker IN ('QF1','QF2','QF3') AND date=%s", (as_of,))
         db.commit()
+
+
+def test_enumerate_saturdays():
+    from kr_pipeline.llm_runner.backfill import _enumerate_saturdays
+    from datetime import date as _date
+    # 2024-05-01(수) ~ 2024-05-31(금) 사이 토요일: 4,11,18,25
+    got = _enumerate_saturdays(_date(2024, 5, 1), _date(2024, 5, 31))
+    assert got == [_date(2024, 5, 4), _date(2024, 5, 11), _date(2024, 5, 18), _date(2024, 5, 25)]
+    # 경계가 토요일이면 포함 (start=end=토요일 → 그 토요일 1개)
+    assert _enumerate_saturdays(_date(2024, 5, 4), _date(2024, 5, 4)) == [_date(2024, 5, 4)]
+    # 범위 내 토요일 없음 → 빈 리스트 (월~금)
+    assert _enumerate_saturdays(_date(2024, 5, 6), _date(2024, 5, 10)) == []
+    # start > end → 빈 리스트
+    assert _enumerate_saturdays(_date(2024, 5, 31), _date(2024, 5, 1)) == []

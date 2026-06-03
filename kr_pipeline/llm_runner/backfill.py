@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import tempfile
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from psycopg import Connection
@@ -18,6 +18,22 @@ from kr_pipeline.llm_runner.load import get_qualifying_tickers
 from kr_pipeline.llm_runner.store import insert_backfill_classification
 
 log = logging.getLogger("kr_pipeline.llm_runner.backfill")
+
+
+def _enumerate_saturdays(start: date, end: date) -> list[date]:
+    """start~end(양끝 포함) 범위의 모든 토요일을 오름차순으로 반환.
+
+    토요일은 weekday()==5. start>end 면 빈 리스트.
+    """
+    if start > end:
+        return []
+    # start 이상인 첫 토요일로 전진
+    d = start + timedelta(days=(5 - start.weekday()) % 7)
+    out: list[date] = []
+    while d <= end:
+        out.append(d)
+        d += timedelta(days=7)
+    return out
 
 
 def _already_backfilled(conn: Connection, as_of: date) -> set[str]:
