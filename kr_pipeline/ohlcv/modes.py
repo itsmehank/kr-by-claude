@@ -8,7 +8,7 @@ from psycopg import Connection
 from kr_pipeline.db.runs import run_tracking
 from kr_pipeline.ohlcv.fetch import fetch_many, fetch_index
 from kr_pipeline.ohlcv.transform import merge_raw_and_adjusted, to_price_rows
-from kr_pipeline.ohlcv.store import upsert_daily_prices, update_adj_close_only, upsert_index_daily
+from kr_pipeline.ohlcv.store import upsert_daily_prices, update_adj_prices, upsert_index_daily
 
 
 log = logging.getLogger("kr_pipeline.ohlcv")
@@ -197,8 +197,11 @@ def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.
         adj = fetch_adj_only(ticker, start, end)
         if adj.empty:
             return 0
-        rows = [(ticker, r["date"], float(r["close"])) for _, r in adj.iterrows()]
-        affected = update_adj_close_only(conn, rows)
+        rows = [
+            (ticker, r["date"], float(r["close"]), float(r["high"]), float(r["low"]))
+            for _, r in adj.iterrows()
+        ]
+        affected = update_adj_prices(conn, rows)
         conn.commit()
         return affected
 
