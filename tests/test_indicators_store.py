@@ -29,7 +29,7 @@ def test_upsert_phase_a_inserts_new_row(db):
         "rs_line": 0.0040, "rs_line_52w_high": 0.0050, "rs_line_52w_high_date": date(2026, 1, 15),
         "rs_line_at_52w_high": False,
         "rs_line_uptrend_6w": True, "rs_line_uptrend_13w": True,
-        "rs_line_in_decline_7m": False,
+        "rs_line_not_declining_7m": False,
         "minervini_c1": True, "minervini_c2": True, "minervini_c3": True,
         "minervini_c4": True, "minervini_c5": True, "minervini_c6": True,
         "minervini_c7": True,
@@ -54,7 +54,7 @@ def test_upsert_phase_a_updates_on_conflict(db):
         "w52_high": None, "w52_low": None, "pct_from_52w_high": None, "pct_from_52w_low": None,
         "rs_line": None, "rs_line_52w_high": None, "rs_line_52w_high_date": None,
         "rs_line_at_52w_high": None, "rs_line_uptrend_6w": None, "rs_line_uptrend_13w": None,
-        "rs_line_in_decline_7m": None,
+        "rs_line_not_declining_7m": None,
         "minervini_c1": None, "minervini_c2": None, "minervini_c3": None,
         "minervini_c4": None, "minervini_c5": None, "minervini_c6": None, "minervini_c7": None,
     }]
@@ -76,7 +76,7 @@ def test_update_rs_rating_sets_value(db):
         w52_high=None, w52_low=None, pct_from_52w_high=None, pct_from_52w_low=None,
         rs_line=None, rs_line_52w_high=None, rs_line_52w_high_date=None,
         rs_line_at_52w_high=None, rs_line_uptrend_6w=None, rs_line_uptrend_13w=None,
-        rs_line_in_decline_7m=None,
+        rs_line_not_declining_7m=None,
         minervini_c1=None, minervini_c2=None, minervini_c3=None,
         minervini_c4=None, minervini_c5=None, minervini_c6=None, minervini_c7=None,
     )]
@@ -100,7 +100,7 @@ def test_update_minervini_pass_uses_sql(db):
         w52_high=80000.0, w52_low=50000.0, pct_from_52w_high=-12.5, pct_from_52w_low=40.0,
         rs_line=None, rs_line_52w_high=None, rs_line_52w_high_date=None,
         rs_line_at_52w_high=None, rs_line_uptrend_6w=None, rs_line_uptrend_13w=None,
-        rs_line_in_decline_7m=None,
+        rs_line_not_declining_7m=None,
         minervini_c1=True, minervini_c2=True, minervini_c3=True,
         minervini_c4=True, minervini_c5=True, minervini_c6=True, minervini_c7=True,
     )]
@@ -126,7 +126,7 @@ def test_minervini_pass_false_when_any_condition_false(db):
         w52_high=None, w52_low=None, pct_from_52w_high=None, pct_from_52w_low=None,
         rs_line=None, rs_line_52w_high=None, rs_line_52w_high_date=None,
         rs_line_at_52w_high=None, rs_line_uptrend_6w=None, rs_line_uptrend_13w=None,
-        rs_line_in_decline_7m=None,
+        rs_line_not_declining_7m=None,
         minervini_c1=False, minervini_c2=True, minervini_c3=True,
         minervini_c4=True, minervini_c5=True, minervini_c6=True, minervini_c7=True,
     )]
@@ -137,3 +137,31 @@ def test_minervini_pass_false_when_any_condition_false(db):
     with db.cursor() as cur:
         cur.execute("SELECT minervini_pass FROM daily_indicators WHERE ticker='005930'")
         assert cur.fetchone() == (False,)
+
+
+def test_mirror_gate_null_when_no_weekly_row(db):
+    from kr_pipeline.indicators.store import update_daily_rs_gate_from_weekly
+    from datetime import date
+    _seed_stock(db, "005930")
+    with db.cursor() as cur:
+        # daily row exists but NO weekly row on or before its date
+        cur.execute("INSERT INTO daily_indicators (ticker, date, adj_close) VALUES ('005930','2026-06-03',100)")
+    update_daily_rs_gate_from_weekly(db, date(2026, 6, 1), date(2026, 6, 4))
+    with db.cursor() as cur:
+        cur.execute("SELECT rs_line_not_declining_7m FROM daily_indicators WHERE ticker='005930' AND date='2026-06-03'")
+        # 매칭되는 weekly 행 없음 → NULL (후보 쿼리 = TRUE 게이트에서 제외됨)
+        assert cur.fetchone()[0] is None
+
+
+def test_mirror_gate_picks_latest_week_le_date(db):
+    from kr_pipeline.indicators.store import update_daily_rs_gate_from_weekly
+    _seed_stock(db, "005930")
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO weekly_indicators (ticker, week_end_date, adj_close, rs_line_not_declining_7m) "
+                    "VALUES ('005930','2026-05-29',100,TRUE),('005930','2026-06-05',100,FALSE)")
+        cur.execute("INSERT INTO daily_indicators (ticker, date, adj_close) VALUES ('005930','2026-06-03',100)")
+    update_daily_rs_gate_from_weekly(db, date(2026, 6, 1), date(2026, 6, 4))
+    with db.cursor() as cur:
+        cur.execute("SELECT rs_line_not_declining_7m FROM daily_indicators WHERE ticker='005930' AND date='2026-06-03'")
+        # 2026-06-03 은 06-05 이전 → 최신 week_end ≤ date 는 05-29 → TRUE
+        assert cur.fetchone()[0] is True

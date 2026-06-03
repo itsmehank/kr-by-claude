@@ -143,7 +143,8 @@ def _fetch_indicators_recent(conn: Connection, ticker: str, on_date: date, days:
             SELECT p.date, p.adj_close, p.volume,
                    i.sma_10, i.sma_21, i.sma_50, i.sma_150, i.sma_200,
                    i.w52_high, i.w52_low, i.rs_line, i.rs_rating, i.minervini_pass,
-                   i.avg_volume_50d, i.volume_ratio_50d, i.pocket_pivot_flag, i.distribution_day_flag
+                   i.avg_volume_50d, i.volume_ratio_50d, i.pocket_pivot_flag, i.distribution_day_flag,
+                   i.rs_line_at_52w_high, i.rs_line_uptrend_6w, i.rs_line_uptrend_13w
               FROM daily_prices p
               LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
              WHERE p.ticker = %s AND p.date <= %s
@@ -169,6 +170,9 @@ def _fetch_indicators_recent(conn: Connection, ticker: str, on_date: date, days:
             "volume_ratio": float(r[14]) if r[14] is not None else None,
             "pocket_pivot_flag": bool(r[15]) if r[15] is not None else None,
             "distribution_day_flag": bool(r[16]) if r[16] is not None else None,
+            "rs_line_at_52w_high": bool(r[17]) if r[17] is not None else None,
+            "rs_line_uptrend_6w": bool(r[18]) if r[18] is not None else None,
+            "rs_line_uptrend_13w": bool(r[19]) if r[19] is not None else None,
         }
         for r in reversed(rows)
     ]

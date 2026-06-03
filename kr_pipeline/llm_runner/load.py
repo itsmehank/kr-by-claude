@@ -31,6 +31,7 @@ def get_qualifying_tickers(
           JOIN stocks s ON s.ticker = i.ticker
          WHERE i.date = %s
            AND i.minervini_pass = TRUE
+           AND i.rs_line_not_declining_7m = TRUE
            AND s.delisted_at IS NULL
     """
     params: list = [target_date]

@@ -17,9 +17,9 @@ def test_get_qualifying_tickers_falls_back_to_most_recent(db):
         )
         # 금요일 5/15 의 daily_indicators 만 적재 (월 5/18 데이터 없음)
         cur.execute(
-            """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass)
-               VALUES ('TEST01','2026-05-15',1000.0, TRUE),
-                      ('TEST02','2026-05-15',2000.0, TRUE)"""
+            """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass, rs_line_not_declining_7m)
+               VALUES ('TEST01','2026-05-15',1000.0, TRUE, TRUE),
+                      ('TEST02','2026-05-15',2000.0, TRUE, TRUE)"""
         )
     db.commit()
 
@@ -42,8 +42,8 @@ def test_get_qualifying_tickers_exact_match(db):
                VALUES ('TEST03','Test3','KOSDAQ','반도체','2020-01-01')"""
         )
         cur.execute(
-            """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass)
-               VALUES ('TEST03','2026-05-16', 3000.0, TRUE)"""
+            """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass, rs_line_not_declining_7m)
+               VALUES ('TEST03','2026-05-16', 3000.0, TRUE, TRUE)"""
         )
     db.commit()
 
@@ -57,3 +57,24 @@ def test_get_qualifying_tickers_default_uses_global_max(db):
     # 그냥 호출 — 에러 없이 반환 (실제 데이터에 의존)
     result = get_qualifying_tickers(db, as_of=None)
     assert isinstance(result, list)
+
+
+def test_get_qualifying_tickers_excludes_rs_gate_false(db):
+    """minervini_pass=TRUE 라도 rs_line_not_declining_7m=FALSE 면 후보에서 제외."""
+    from kr_pipeline.llm_runner.load import get_qualifying_tickers
+
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM daily_indicators WHERE date = '2026-05-20'")
+        cur.execute("DELETE FROM stocks WHERE ticker = 'TEST04'")
+        cur.execute(
+            """INSERT INTO stocks (ticker, name, market, sector, listed_at)
+               VALUES ('TEST04','Test4','KOSPI','금융','2020-01-01')"""
+        )
+        cur.execute(
+            """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass, rs_line_not_declining_7m)
+               VALUES ('TEST04','2026-05-20', 5000.0, TRUE, FALSE)"""
+        )
+    db.commit()
+
+    result = get_qualifying_tickers(db, as_of=date(2026, 5, 20), tickers=["TEST04"])
+    assert not any(r["symbol"] == "TEST04" for r in result)

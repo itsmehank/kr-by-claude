@@ -14,10 +14,13 @@ from kr_pipeline.indicators.compute.sma import sma
 from kr_pipeline.indicators.compute.high_low import w52_high_low, pct_from_high_low
 from kr_pipeline.indicators.compute.rs_line import (
     compute_rs_line, compute_rs_line_52w_high_and_date,
-    compute_rs_line_at_52w_high, compute_rs_line_uptrend,
-    compute_rs_line_in_decline_7m,
+    compute_rs_line_at_52w_high, compute_rs_line_uptrend_slope,
+    compute_rs_line_not_declining,
 )
-from kr_pipeline.indicators.compute.rs_rating import compute_1y_return, assign_rs_rating_percentiles
+from kr_pipeline.common.thresholds import (
+    RS_LINE_UPTREND_SHORT_WEEKS, RS_LINE_UPTREND_LONG_WEEKS, RS_LINE_DECLINE_GATE_WEEKS,
+)
+from kr_pipeline.indicators.compute.rs_rating import compute_ibd_strength_factor, assign_rs_rating_percentiles
 from kr_pipeline.indicators.compute.minervini import compute_minervini_c1_to_c7
 from kr_pipeline.indicators.compute.volume import (
     split_adjusted_volume, avg_volume, volume_ratio,
@@ -33,6 +36,7 @@ from kr_pipeline.indicators.store import (
     update_daily_indicators_minervini_pass,
     upsert_weekly_indicators_phase_a, update_weekly_indicators_rs_rating,
     update_weekly_indicators_minervini_pass,
+    update_daily_rs_gate_from_weekly,
 )
 
 
@@ -104,13 +108,7 @@ def compute_date_range(
     raise ValueError(f"Unknown mode: {mode}")
 
 
-def _market_to_index_code(market: str) -> str:
-    """KOSPI → '1001', KOSDAQ → '2001'."""
-    if market == "KOSPI":
-        return "1001"
-    if market == "KOSDAQ":
-        return "2001"
-    raise ValueError(f"Unknown market: {market!r} — expected 'KOSPI' or 'KOSDAQ'")
+KOSPI_INDEX_CODE = "1001"  # RS Line 광역 단일 분모 (설계 D2: 코스피·코스닥 전 종목 공통)
 
 
 def _as_float(v) -> float | None:
@@ -138,7 +136,7 @@ def _process_ticker_daily(
     if df_daily.empty:
         return 0
 
-    index_code = _market_to_index_code(market)
+    index_code = KOSPI_INDEX_CODE  # D2: 종목 시장 무관 KOSPI 단일 분모
     df_idx = load_index_daily(conn, index_code, load_start, load_end)
     if df_idx.empty:
         return 0
@@ -180,13 +178,11 @@ def _process_ticker_daily(
     rs_line = compute_rs_line(adj_close, df["index_close"])
     rs_line_high, rs_line_high_date = compute_rs_line_52w_high_and_date(rs_line, window=252)
     rs_at_high = compute_rs_line_at_52w_high(rs_line, rs_line_high)
-    rs_up_6w = compute_rs_line_uptrend(rs_line, window=30)   # 6주 ≈ 30영업일
-    rs_up_13w = compute_rs_line_uptrend(rs_line, window=65)  # 13주 ≈ 65영업일
-    current_dates = pd.Series(df.index, index=df.index)
-    rs_decline = compute_rs_line_in_decline_7m(rs_line_high_date, current_dates, threshold_days=140)
+    rs_up_6w = compute_rs_line_uptrend_slope(rs_line, window=RS_LINE_UPTREND_SHORT_WEEKS * 5)   # 6주≈30영업일
+    rs_up_13w = compute_rs_line_uptrend_slope(rs_line, window=RS_LINE_UPTREND_LONG_WEEKS * 5)   # 13주≈65영업일
 
-    # 1y return (rs_rating 입력)
-    one_y_ret = compute_1y_return(adj_close, window=252)
+    # SF (rs_rating 입력) — IBD 가중, 최근 분기 2배
+    one_y_ret = compute_ibd_strength_factor(adj_close, 63, 126, 189, 252)
 
     # Minervini c1-c7
     mn_df = pd.DataFrame({
@@ -221,7 +217,7 @@ def _process_ticker_daily(
             "rs_line_at_52w_high": _as_bool(rs_at_high.loc[d]),
             "rs_line_uptrend_6w": _as_bool(rs_up_6w.loc[d]),
             "rs_line_uptrend_13w": _as_bool(rs_up_13w.loc[d]),
-            "rs_line_in_decline_7m": _as_bool(rs_decline.loc[d]),
+            "rs_line_not_declining_7m": None,  # Task 9 미러 단계에서 weekly 값으로 채움
             "minervini_c1": _as_bool(mn["minervini_c1"].loc[d]),
             "minervini_c2": _as_bool(mn["minervini_c2"].loc[d]),
             "minervini_c3": _as_bool(mn["minervini_c3"].loc[d]),
@@ -436,6 +432,13 @@ def run_daily(
         conn.commit()
         log.info(f"Phase C: {mn_affected} rows updated")
 
+        # Phase D: 주봉 게이트(rs_line_not_declining_7m)를 daily 행에 미러.
+        # 전제: weekly_indicators 가 먼저 적재돼 있어야 정확(없으면 NULL→후보쿼리 = TRUE 게이트에서 제외).
+        # 전체 재계산 시 weekly → daily 순서 실행(설계 §9.1, plan Task 14).
+        gate_affected = update_daily_rs_gate_from_weekly(conn, upsert_start, load_end)
+        conn.commit()
+        log.info("daily rs gate mirrored: %d rows", gate_affected)
+
         # Sanity
         warnings = _run_sanity_checks_daily(conn, load_end)
         state["warnings"].extend(warnings)
@@ -473,7 +476,7 @@ def _process_ticker_weekly(
     df_weekly = load_weekly_prices(conn, ticker, load_start, load_end)
     if df_weekly.empty:
         return 0
-    index_code = _market_to_index_code(market)
+    index_code = KOSPI_INDEX_CODE  # D2: 종목 시장 무관 KOSPI 단일 분모
     df_idx = load_weekly_index(conn, index_code, load_start, load_end)
     if df_idx.empty:
         return 0
@@ -501,11 +504,10 @@ def _process_ticker_weekly(
     rs_line = compute_rs_line(adj_close, df["index_close"])
     rs_line_high, rs_line_high_date = compute_rs_line_52w_high_and_date(rs_line, window=52)
     rs_at_high = compute_rs_line_at_52w_high(rs_line, rs_line_high)
-    rs_up_6w = compute_rs_line_uptrend(rs_line, window=6)
-    rs_up_13w = compute_rs_line_uptrend(rs_line, window=13)
-    current_dates = pd.Series(df.index, index=df.index)
-    rs_decline = compute_rs_line_in_decline_7m(rs_line_high_date, current_dates, threshold_days=28*7)
-    one_y_ret = compute_1y_return(adj_close, window=52)
+    rs_up_6w = compute_rs_line_uptrend_slope(rs_line, window=RS_LINE_UPTREND_SHORT_WEEKS)
+    rs_up_13w = compute_rs_line_uptrend_slope(rs_line, window=RS_LINE_UPTREND_LONG_WEEKS)
+    rs_not_declining = compute_rs_line_not_declining(rs_line, window=RS_LINE_DECLINE_GATE_WEEKS)
+    one_y_ret = compute_ibd_strength_factor(adj_close, 13, 26, 39, 52)
 
     mn_df = pd.DataFrame({
         "adj_close": adj_close,
@@ -534,7 +536,7 @@ def _process_ticker_weekly(
             "rs_line_at_52w_high": _as_bool(rs_at_high.loc[d]),
             "rs_line_uptrend_6w": _as_bool(rs_up_6w.loc[d]),
             "rs_line_uptrend_13w": _as_bool(rs_up_13w.loc[d]),
-            "rs_line_in_decline_7m": _as_bool(rs_decline.loc[d]),
+            "rs_line_not_declining_7m": _as_bool(rs_not_declining.loc[d]),
             "minervini_c1": _as_bool(mn["minervini_c1"].loc[d]),
             "minervini_c2": _as_bool(mn["minervini_c2"].loc[d]),
             "minervini_c3": _as_bool(mn["minervini_c3"].loc[d]),

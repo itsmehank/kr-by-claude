@@ -12,7 +12,7 @@ PHASE_A_COLUMNS_DAILY = [
     "w52_high", "w52_low", "pct_from_52w_high", "pct_from_52w_low",
     "rs_line", "rs_line_52w_high", "rs_line_52w_high_date",
     "rs_line_at_52w_high", "rs_line_uptrend_6w", "rs_line_uptrend_13w",
-    "rs_line_in_decline_7m",
+    "rs_line_not_declining_7m",
     "minervini_c1", "minervini_c2", "minervini_c3",
     "minervini_c4", "minervini_c5", "minervini_c6", "minervini_c7",
     # V2: 거래량 지표
@@ -112,7 +112,7 @@ PHASE_A_COLUMNS_WEEKLY = [
     "w52_high", "w52_low", "pct_from_52w_high", "pct_from_52w_low",
     "rs_line", "rs_line_52w_high", "rs_line_52w_high_date",
     "rs_line_at_52w_high", "rs_line_uptrend_6w", "rs_line_uptrend_13w",
-    "rs_line_in_decline_7m",
+    "rs_line_not_declining_7m",
     "minervini_c1", "minervini_c2", "minervini_c3",
     "minervini_c4", "minervini_c5", "minervini_c6", "minervini_c7",
     # V2: 거래량 지표
@@ -176,15 +176,42 @@ def update_weekly_indicators_minervini_pass(
         cur.execute(
             """
             UPDATE weekly_indicators
-               SET minervini_c8 = (rs_rating >= 70),
+               SET minervini_c8 = (rs_rating >= %s),
                    minervini_pass = (
                        minervini_c1 IS TRUE AND minervini_c2 IS TRUE AND
                        minervini_c3 IS TRUE AND minervini_c4 IS TRUE AND
                        minervini_c5 IS TRUE AND minervini_c6 IS TRUE AND
-                       minervini_c7 IS TRUE AND (rs_rating >= 70)
+                       minervini_c7 IS TRUE AND (rs_rating >= %s)
                    ),
                    updated_at = NOW()
              WHERE week_end_date BETWEEN %s AND %s
+            """,
+            (C8_RS_RATING_MIN, C8_RS_RATING_MIN, start_date, end_date),
+        )
+        return cur.rowcount
+
+
+def update_daily_rs_gate_from_weekly(
+    conn: Connection, start_date: date, end_date: date
+) -> int:
+    """각 daily 행의 rs_line_not_declining_7m 을 최신 week_end_date ≤ date 의 weekly 값으로 미러.
+
+    게이트는 주봉에서 계산(D3) → 후보 쿼리(daily 단일 테이블) 가 읽도록 daily 에 복사.
+    weekly_indicators 가 먼저 적재돼 있어야 함.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE daily_indicators d
+               SET rs_line_not_declining_7m = (
+                     SELECT w.rs_line_not_declining_7m
+                       FROM weekly_indicators w
+                      WHERE w.ticker = d.ticker AND w.week_end_date <= d.date
+                      ORDER BY w.week_end_date DESC
+                      LIMIT 1
+                   ),
+                   updated_at = NOW()
+             WHERE d.date BETWEEN %s AND %s
             """,
             (start_date, end_date),
         )

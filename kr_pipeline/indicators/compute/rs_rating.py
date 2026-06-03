@@ -12,6 +12,26 @@ def compute_1y_return(adj_close: pd.Series, window: int = 252) -> pd.Series:
     return adj_close.pct_change(periods=window)
 
 
+def compute_ibd_strength_factor(
+    adj_close: pd.Series,
+    q1: int = 63, q2: int = 126, q3: int = 189, q4: int = 252,
+) -> pd.Series:
+    """IBD 가중 강도(StrengthFactor) = 가격비율 합산형, 최근 분기 2배 가중.
+
+    SF = 2·(C/C[-q1]) + (C/C[-q2]) + (C/C[-q3]) + (C/C[-q4])
+    일봉: q=63/126/189/252, 주봉: q=13/26/39/52.
+    네 시점 중 하나라도 결측이면 NaN (보간 안 함 — 설계 §9.2).
+    """
+    c = adj_close
+    sf = (
+        2 * (c / c.shift(q1))
+        + (c / c.shift(q2))
+        + (c / c.shift(q3))
+        + (c / c.shift(q4))
+    )
+    return sf
+
+
 def assign_rs_rating_percentiles(returns: pd.Series) -> pd.Series:
     """universe 의 1년 수익률 → 백분위 (0~99) 매핑.
 

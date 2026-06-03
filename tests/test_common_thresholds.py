@@ -100,3 +100,10 @@ def test_phase2i_failed_breakout_and_band():
     assert thresholds.FAILED_BREAKOUT_K_DAYS == 5
     assert thresholds.FAILED_BREAKOUT_CONSECUTIVE_BELOW == 2
     assert thresholds.MEASUREMENT_TOLERANCE_PCT == 5.0
+
+
+def test_rs_line_window_constants():
+    from kr_pipeline.common import thresholds as t
+    assert t.RS_LINE_UPTREND_SHORT_WEEKS == 6
+    assert t.RS_LINE_UPTREND_LONG_WEEKS == 13
+    assert t.RS_LINE_DECLINE_GATE_WEEKS == 30

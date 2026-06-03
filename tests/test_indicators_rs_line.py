@@ -7,8 +7,8 @@ from kr_pipeline.indicators.compute.rs_line import (
     compute_rs_line,
     compute_rs_line_52w_high_and_date,
     compute_rs_line_at_52w_high,
-    compute_rs_line_uptrend,
-    compute_rs_line_in_decline_7m,
+    compute_rs_line_uptrend_slope,
+    compute_rs_line_not_declining,
 )
 
 
@@ -57,51 +57,6 @@ def test_rs_line_at_52w_high_today():
     assert result.iloc[0] == False  # rs[0]<high[0]
 
 
-def test_rs_line_uptrend_when_above_rolling_mean():
-    """rs_line > rolling_mean → True (spec 정의)"""
-    # rs increasing → rs > rolling_mean
-    rs = pd.Series([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
-    result = compute_rs_line_uptrend(rs, window=3)
-    # rolling mean at index 2 = (0.1+0.2+0.3)/3 = 0.2; rs=0.3 > 0.2 → True
-    assert pd.isna(result.iloc[0])
-    assert pd.isna(result.iloc[1])
-    assert result.iloc[2] == True
-    assert result.iloc[6] == True
-
-
-def test_rs_line_uptrend_false_when_below():
-    """rs_line < rolling_mean → False"""
-    rs = pd.Series([0.7, 0.6, 0.5, 0.4, 0.3])
-    result = compute_rs_line_uptrend(rs, window=3)
-    # mean(0.7, 0.6, 0.5) = 0.6, rs[2]=0.5 < 0.6 → False
-    assert result.iloc[2] == False
-
-
-def test_rs_line_in_decline_7m_when_high_was_long_ago():
-    """rs_line_52w_high_date 가 140 영업일 이상 전 → True"""
-    idx = pd.date_range("2026-01-01", periods=300, freq="D").date
-    # high_date: 모두 idx[10] (오래 전)
-    high_date = pd.Series([idx[10]] * 300, index=idx)
-    # current_date 는 인덱스가 곧 날짜
-    current_dates = pd.Series(idx, index=idx)
-    result = compute_rs_line_in_decline_7m(high_date, current_dates, threshold_days=140)
-    # idx[10] = 2026-01-11, idx[10+140] = ~ 2026-05-31
-    # 0~149번 index: 차이 < 140
-    # 150번 index 이후: 차이 >= 140
-    assert result.iloc[10] == False    # 같은 날
-    assert result.iloc[100] == False   # 90일 차이
-    assert result.iloc[150] == True    # 140일 차이
-    assert result.iloc[200] == True
-
-
-def test_rs_line_in_decline_handles_nan_high_date():
-    """high_date 가 NaN 이면 결과 NaN"""
-    idx = pd.date_range("2026-01-01", periods=3).date
-    high_date = pd.Series([pd.NaT, idx[0], idx[0]], index=idx)
-    current_dates = pd.Series(idx, index=idx)
-    result = compute_rs_line_in_decline_7m(high_date, current_dates, threshold_days=140)
-    assert pd.isna(result.iloc[0])
-
 
 def test_rs_line_insufficient_history_returns_null():
     """충분한 lookback 없으면 NaN"""
@@ -117,3 +72,45 @@ def test_rs_line_preserves_index():
     index_close = pd.Series([2500.0, 2500.0, 2400.0], index=idx)
     result = compute_rs_line(stock, index_close)
     assert list(result.index) == list(idx)
+
+
+def test_uptrend_slope_true_when_rising():
+    rs = pd.Series([0.1, 0.2, 0.3, 0.4, 0.5])
+    result = compute_rs_line_uptrend_slope(rs, window=3)
+    assert pd.isna(result.iloc[0])
+    assert pd.isna(result.iloc[1])
+    assert result.iloc[2] == True   # 0.1,0.2,0.3 기울기>0
+    assert result.iloc[4] == True
+
+
+def test_uptrend_slope_false_when_falling():
+    rs = pd.Series([0.5, 0.4, 0.3, 0.2, 0.1])
+    result = compute_rs_line_uptrend_slope(rs, window=3)
+    assert result.iloc[2] == False
+
+
+def test_uptrend_slope_false_when_flat():
+    # 평평하면 기울기 0 → > 0 아님 → False (MA위 정의와 달라지는 핵심)
+    rs = pd.Series([0.5, 0.5, 0.5, 0.5])
+    result = compute_rs_line_uptrend_slope(rs, window=3)
+    assert result.iloc[2] == False
+
+
+def test_not_declining_true_for_sideways():
+    # 횡보(평평): 하락 아님 → 건강(True). pure-declining 의 핵심.
+    rs = pd.Series([0.5] * 6)
+    result = compute_rs_line_not_declining(rs, window=4)
+    assert result.iloc[5] == True
+
+
+def test_not_declining_false_for_real_decline():
+    # 기울기<0 AND 끝점<시작점 → declining → False
+    rs = pd.Series([0.9, 0.8, 0.7, 0.6, 0.5, 0.4])
+    result = compute_rs_line_not_declining(rs, window=4)
+    assert result.iloc[5] == False
+
+
+def test_not_declining_nan_before_window():
+    rs = pd.Series([0.5, 0.6])
+    result = compute_rs_line_not_declining(rs, window=4)
+    assert pd.isna(result.iloc[1])
