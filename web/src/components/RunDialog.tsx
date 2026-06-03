@@ -24,7 +24,7 @@ interface RunDialogProps {
 export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) {
   const [modeId, setModeId] = useState<string>("");
   const [force, setForce] = useState(false);
-  const [paramValues, setParamValues] = useState<Record<string, number | undefined>>({});
+  const [paramValues, setParamValues] = useState<Record<string, string | number | undefined>>({});
   const [conflict, setConflict] = useState<{
     reason: string;
     existing_run_id: number | null;
@@ -58,7 +58,7 @@ export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) 
     }
     const mode = pipeline.modes.find((m) => m.id === modeId);
     if (mode?.params) {
-      const defaults: Record<string, number> = {};
+      const defaults: Record<string, number | string> = {};
       for (const p of mode.params) defaults[p.name] = p.default;
       setParamValues(defaults);
     } else {
@@ -100,6 +100,25 @@ export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) 
   const selectedMode = pipeline.modes.find((m) => m.id === modeId);
   const isHeavy = selectedMode?.is_heavy ?? false;
 
+  const modeParams = selectedMode?.params ?? [];
+  const requiredMissing = modeParams.some(
+    (p) => p.required && (paramValues[p.name] === undefined || paramValues[p.name] === ""),
+  );
+
+  function handleRun() {
+    if (isHeavy) {
+      const needsConfirm = modeParams.find(
+        (p) =>
+          p.confirmIfEmpty &&
+          (paramValues[p.name] === undefined || paramValues[p.name] === ""),
+      );
+      if (needsConfirm?.confirmIfEmpty && !window.confirm(needsConfirm.confirmIfEmpty)) {
+        return;
+      }
+    }
+    mutation.mutate();
+  }
+
   return (
     <Modal
       open={pipeline !== null}
@@ -140,29 +159,42 @@ export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) 
               {selectedMode.params.map((p) => (
                 <div key={p.name} className="flex items-center gap-2">
                   <span className="text-data text-ink w-20">{p.label}</span>
-                  <input
-                    type="number"
-                    min={p.min}
-                    max={p.max}
-                    value={paramValues[p.name] ?? ""}
-                    placeholder={`기본 ${p.default}`}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === "") {
-                        setParamValues({ ...paramValues, [p.name]: undefined });
-                      } else {
-                        const n = parseInt(v, 10);
-                        if (!isNaN(n)) setParamValues({ ...paramValues, [p.name]: n });
+                  {p.type === "int" ? (
+                    <>
+                      <input
+                        type="number"
+                        min={p.min}
+                        max={p.max}
+                        value={paramValues[p.name] ?? ""}
+                        placeholder={`기본 ${p.default}`}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "") {
+                            setParamValues({ ...paramValues, [p.name]: undefined });
+                          } else {
+                            const n = parseInt(v, 10);
+                            if (!isNaN(n)) setParamValues({ ...paramValues, [p.name]: n });
+                          }
+                        }}
+                        onBlur={() => {
+                          if (paramValues[p.name] == null) {
+                            setParamValues({ ...paramValues, [p.name]: p.default });
+                          }
+                        }}
+                        className="w-24 px-3 py-1.5 border border-hairline rounded-lg text-data num"
+                      />
+                      <span className="text-data-xs text-faint">({p.min}~{p.max})</span>
+                    </>
+                  ) : (
+                    <input
+                      type={p.type === "date" ? "date" : "text"}
+                      value={(paramValues[p.name] as string | undefined) ?? ""}
+                      onChange={(e) =>
+                        setParamValues({ ...paramValues, [p.name]: e.target.value })
                       }
-                    }}
-                    onBlur={() => {
-                      if (paramValues[p.name] == null) {
-                        setParamValues({ ...paramValues, [p.name]: p.default });
-                      }
-                    }}
-                    className="w-24 px-3 py-1.5 border border-hairline rounded-lg text-data num"
-                  />
-                  <span className="text-data-xs text-faint">({p.min}~{p.max})</span>
+                      className="flex-1 px-3 py-1.5 border border-hairline rounded-lg text-data"
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -200,8 +232,8 @@ export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) 
             취소
           </button>
           <button
-            onClick={() => mutation.mutate()}
-            disabled={!modeId || mutation.isPending}
+            onClick={handleRun}
+            disabled={!modeId || mutation.isPending || requiredMissing}
             className="px-4 py-2 bg-accent text-white rounded-lg text-data font-semibold disabled:opacity-50"
           >
             {mutation.isPending ? "실행 중…" : "실행"}
