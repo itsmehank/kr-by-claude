@@ -111,15 +111,6 @@ def compute_date_range(
 KOSPI_INDEX_CODE = "1001"  # RS Line 광역 단일 분모 (설계 D2: 코스피·코스닥 전 종목 공통)
 
 
-def _market_to_index_code(market: str) -> str:
-    """KOSPI → '1001', KOSDAQ → '2001'."""
-    if market == "KOSPI":
-        return "1001"
-    if market == "KOSDAQ":
-        return "2001"
-    raise ValueError(f"Unknown market: {market!r} — expected 'KOSPI' or 'KOSDAQ'")
-
-
 def _as_float(v) -> float | None:
     if v is None or (isinstance(v, float) and np.isnan(v)) or pd.isna(v):
         return None

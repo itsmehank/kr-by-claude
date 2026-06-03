@@ -102,7 +102,7 @@ def compute_rs_line_uptrend_slope(rs_line: pd.Series, window: int) -> pd.Series:
     '이동평균 위' 정의를 대체 — 평평/스파이크에 False 가 되어 실제 상향만 잡음.
     """
     slope = _rolling_slope(rs_line, window)
-    result = slope > 1e-10
+    result = slope > 1e-10   # epsilon: polyfit 평평 배열에 ~1e-17 잡음 → 0 초과 방지(평평=상향아님)
     return result.where(slope.notna())
 
 
