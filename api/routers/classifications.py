@@ -1,8 +1,10 @@
+from datetime import date as _date, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Connection
 
 from api.deps import get_conn
-from api.schemas.classification import ClassificationRow
+from api.schemas.classification import ClassificationRow, ClassificationHistoryRow
 
 
 router = APIRouter(prefix="/api/classifications", tags=["classifications"])
@@ -103,3 +105,45 @@ def get_classifications(
             llm_output_tokens=r[20],
         ))
     return result
+
+
+@router.get("/history/{ticker}", response_model=list[ClassificationHistoryRow])
+def get_classification_history(
+    ticker: str,
+    start: _date | None = None,
+    end: _date | None = None,
+    conn: Connection = Depends(get_conn),
+):
+    """종목 분류 시계열 — weekly_classification(라이브) + classification_backfill 합산.
+
+    같은 날짜 중복 시 라이브 우선(source_rank 0<1), 그다음 classified_at 최신.
+    날짜 = COALESCE(analyzed_for_date, classified_at::date).
+    """
+    if start is None:
+        start = _date.today() - timedelta(days=365)
+    if end is None:
+        end = _date.today()
+
+    sql = """
+        WITH combined AS (
+          SELECT COALESCE(analyzed_for_date, classified_at::date) AS d,
+                 classification, classified_at, 0 AS source_rank, 'live' AS src
+            FROM weekly_classification
+           WHERE symbol = %(ticker)s
+             AND COALESCE(analyzed_for_date, classified_at::date) BETWEEN %(start)s AND %(end)s
+          UNION ALL
+          SELECT analyzed_for_date AS d,
+                 classification, classified_at, 1 AS source_rank, 'backfill' AS src
+            FROM classification_backfill
+           WHERE symbol = %(ticker)s
+             AND analyzed_for_date BETWEEN %(start)s AND %(end)s
+        )
+        SELECT DISTINCT ON (d) d, classification, src
+          FROM combined
+         ORDER BY d ASC, source_rank ASC, classified_at DESC
+    """
+    params = {"ticker": ticker, "start": start, "end": end}
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    return [ClassificationHistoryRow(symbol=ticker, date=r[0], classification=r[1], source=r[2]) for r in rows]

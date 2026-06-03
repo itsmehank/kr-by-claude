@@ -24,3 +24,10 @@ class ClassificationRow(BaseModel):
     llm_call_duration_s: float | None
     llm_input_tokens: int | None
     llm_output_tokens: int | None
+
+
+class ClassificationHistoryRow(BaseModel):
+    symbol: str
+    date: date
+    classification: str
+    source: str
