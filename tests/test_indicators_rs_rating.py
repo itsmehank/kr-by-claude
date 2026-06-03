@@ -5,6 +5,7 @@ import pytest
 from kr_pipeline.indicators.compute.rs_rating import (
     compute_1y_return,
     assign_rs_rating_percentiles,
+    compute_ibd_strength_factor,
 )
 
 
@@ -61,3 +62,35 @@ def test_assign_percentiles_handles_ties():
     assert result["A"] == result["B"]
     assert result["C"] == 0
     assert result["A"] >= 49 and result["A"] <= 50
+
+
+def test_ibd_sf_weights_recent_quarter_double():
+    # 가격이 일정하면 모든 비율=1 → SF = 2+1+1+1 = 5
+    c = pd.Series([100.0] * 260)
+    sf = compute_ibd_strength_factor(c, 63, 126, 189, 252)
+    assert sf.iloc[-1] == 5.0
+
+
+def test_ibd_sf_nan_before_longest_lookback():
+    c = pd.Series([100.0] * 260)
+    sf = compute_ibd_strength_factor(c, 63, 126, 189, 252)
+    assert pd.isna(sf.iloc[251])   # 252 미만 → NaN
+    assert not pd.isna(sf.iloc[252])
+
+
+def test_ibd_sf_nan_when_intermediate_gap():
+    # 중간 lookback(126) 지점이 NaN 이면 SF NaN (보간 안 함)
+    c = pd.Series([100.0] * 260)
+    c.iloc[260 - 1 - 126] = np.nan
+    sf = compute_ibd_strength_factor(c, 63, 126, 189, 252)
+    assert pd.isna(sf.iloc[-1])
+
+
+def test_ibd_sf_higher_recent_growth_ranks_higher():
+    # 최근 분기 급등 종목이 SF 더 큼
+    flat = pd.Series([100.0] * 260)
+    recent_pop = flat.copy()
+    recent_pop.iloc[-1] = 130.0      # 오늘만 +30%
+    sf_flat = compute_ibd_strength_factor(flat, 63, 126, 189, 252).iloc[-1]
+    sf_pop = compute_ibd_strength_factor(recent_pop, 63, 126, 189, 252).iloc[-1]
+    assert sf_pop > sf_flat
