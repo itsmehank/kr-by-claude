@@ -6,12 +6,14 @@ from datetime import date
 from psycopg import Connection
 
 
-def get_qualifying_tickers(conn: Connection, as_of: date | None = None) -> list[dict]:
+def get_qualifying_tickers(
+    conn: Connection, as_of: date | None = None, tickers: list[str] | None = None
+) -> list[dict]:
     """주말 (5) batch 후보 종목 조회.
 
     as_of 가 주어지면 그 날짜 이하 가장 최근 daily_indicators 의 날짜를 찾아 사용.
-    (평일 수동 실행 시 오늘 데이터 없으면 직전 영업일 사용 — 토요일 cron 시나리오와 일관.)
-    as_of=None 이면 daily_indicators 의 전체 MAX(date) 사용.
+    tickers 가 주어지면 그 종목들로 한정 (minervini 통과분만 반환 — 미통과는 자동 제외).
+    tickers=None 이면 그 날짜 minervini 통과 전 종목.
 
     Returns: [{"symbol", "market"}, ...]
     """
@@ -23,19 +25,22 @@ def get_qualifying_tickers(conn: Connection, as_of: date | None = None) -> list[
         row = cur.fetchone()
         target_date = row[0] if row and row[0] else (as_of or date.today())
 
+    sql = """
+        SELECT i.ticker, s.market
+          FROM daily_indicators i
+          JOIN stocks s ON s.ticker = i.ticker
+         WHERE i.date = %s
+           AND i.minervini_pass = TRUE
+           AND s.delisted_at IS NULL
+    """
+    params: list = [target_date]
+    if tickers:
+        sql += " AND i.ticker = ANY(%s)"
+        params.append(list(tickers))
+    sql += " ORDER BY i.ticker"
+
     with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT i.ticker, s.market
-              FROM daily_indicators i
-              JOIN stocks s ON s.ticker = i.ticker
-             WHERE i.date = %s
-               AND i.minervini_pass = TRUE
-               AND s.delisted_at IS NULL
-             ORDER BY i.ticker
-            """,
-            (target_date,),
-        )
+        cur.execute(sql, params)
         return [{"symbol": r[0], "market": r[1]} for r in cur.fetchall()]
 
 

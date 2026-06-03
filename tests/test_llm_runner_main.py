@@ -222,3 +222,37 @@ def test_main_sets_details_from_result():
     state = captured
     assert state["details"]["daily_delta"]["processed"] == 5
     assert state["details"]["evaluate"]["active"] == 20
+
+
+def test_date_arg_still_flows_to_weekend(mocker):
+    """--date 는 backfill 외 모드(weekend)에서 그대로 동작해야 함 (회귀 방지)."""
+    from datetime import date as _date
+    conn = MagicMock()
+    conn.cursor.return_value.__enter__ = lambda s: s
+    conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    # --date 지정 시 MAX(date) 쿼리는 건너뛰므로, fetchone 은 run_tracking 의 RETURNING id 만 응답.
+    conn.cursor.return_value.fetchone.side_effect = [(1,)]
+
+    mocker.patch(
+        "kr_pipeline.common.config.Config.load",
+        return_value=MagicMock(database_url="postgresql://test"),
+    )
+    mocker.patch(
+        "kr_pipeline.llm_runner.__main__.connect",
+        side_effect=_make_mock_connect(conn),
+    )
+    mocker.patch(
+        "kr_pipeline.llm_runner.__main__.run_tracking",
+        side_effect=_make_mock_run_tracking(),
+    )
+    spy = mocker.patch(
+        "kr_pipeline.llm_runner.modes.run_weekend",
+        return_value={"processed": 1, "failures": 0},
+    )
+
+    from kr_pipeline.llm_runner.__main__ import main
+    with patch.object(sys, "argv", ["llm_runner", "--mode=weekend", "--date=2024-05-17", "--dry-run"]):
+        rc = main()
+
+    assert rc == 0
+    assert spy.call_args.kwargs["as_of"] == _date(2024, 5, 17)

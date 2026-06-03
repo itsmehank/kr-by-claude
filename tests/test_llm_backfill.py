@@ -42,17 +42,17 @@ def test_insert_backfill_classification_basic(db):
 def test_backfill_run_inserts_and_wires_on_date(db, monkeypatch):
     import kr_pipeline.llm_runner.backfill as bf
     from datetime import date as _date
-    # 실데이터 시작(2024-05-17) 이전 날짜 → get_qualifying_tickers 가 우리가 심은 종목만 반환(격리).
-    as_of = _date(2024, 1, 2)
+    # 토요일, 실데이터 시작(2024-05-17) 이전 → get_qualifying_tickers 가 우리가 심은 종목만 반환(격리).
+    sat = _date(2024, 1, 6)  # 토요일
     with db.cursor() as cur:
-        cur.execute("DELETE FROM classification_backfill WHERE analyzed_for_date=%s", (as_of,))
+        cur.execute("DELETE FROM classification_backfill WHERE analyzed_for_date=%s", (sat,))
         for t in ("BKR1", "BKR2"):
             cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'B','KOSPI') ON CONFLICT DO NOTHING", (t,))
-            cur.execute("DELETE FROM daily_indicators WHERE ticker=%s AND date=%s", (t, as_of))
+            cur.execute("DELETE FROM daily_indicators WHERE ticker=%s AND date=%s", (t, sat))
             cur.execute(
                 """INSERT INTO daily_indicators (ticker, date, minervini_pass, adj_close)
                    VALUES (%s,%s,TRUE,1000.0)""",
-                (t, as_of),
+                (t, sat),
             )
     db.commit()
     seen_on_date = []
@@ -61,19 +61,22 @@ def test_backfill_run_inserts_and_wires_on_date(db, monkeypatch):
     monkeypatch.setattr(bf, "call_claude",
                         lambda **kwargs: _result("watch"))
     try:
-        res = bf.run(db, dry_run=False, as_of=as_of)
+        res = bf.run(db, start=sat, end=sat, dry_run=False)
         assert res["processed"] == 2
-        assert seen_on_date and all(d == as_of for d in seen_on_date)
+        assert res["weeks"] == 1
+        assert seen_on_date and all(d == sat for d in seen_on_date)
         with db.cursor() as cur:
             cur.execute(
-                "SELECT count(*) FROM classification_backfill WHERE analyzed_for_date=%s", (as_of,))
+                "SELECT count(*) FROM classification_backfill WHERE analyzed_for_date=%s", (sat,))
             assert cur.fetchone()[0] == 2
-        res2 = bf.run(db, dry_run=False, as_of=as_of)
+        # 재실행 = resume: 이미 된 것 skip
+        res2 = bf.run(db, start=sat, end=sat, dry_run=False)
         assert res2["processed"] == 0
+        assert res2["skipped_existing"] == 2
     finally:
         with db.cursor() as cur:
-            cur.execute("DELETE FROM classification_backfill WHERE analyzed_for_date=%s", (as_of,))
-            cur.execute("DELETE FROM daily_indicators WHERE ticker IN ('BKR1','BKR2') AND date=%s", (as_of,))
+            cur.execute("DELETE FROM classification_backfill WHERE analyzed_for_date=%s", (sat,))
+            cur.execute("DELETE FROM daily_indicators WHERE ticker IN ('BKR1','BKR2') AND date=%s", (sat,))
         db.commit()
 
 
@@ -134,13 +137,109 @@ def test_backfill_gate_uses_point_in_time_date(db, monkeypatch):
         db.commit()
 
 
-def test_backfill_mode_requires_date():
-    import sys, pytest
+def _assert_parser_error(argv, expected_fragment):
+    import io, contextlib, sys, pytest
     from kr_pipeline.llm_runner.__main__ import main
-    argv = sys.argv
-    sys.argv = ["prog", "--mode=backfill"]  # --date 없음
+    buf = io.StringIO()
+    saved = sys.argv
     try:
-        with pytest.raises(SystemExit):  # argparse parser.error → SystemExit
-            main()
-    finally:
         sys.argv = argv
+        with contextlib.redirect_stderr(buf):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+    finally:
+        sys.argv = saved
+    assert exc_info.value.code == 2
+    assert expected_fragment in buf.getvalue(), f"stderr was: {buf.getvalue()!r}"
+
+
+def test_backfill_mode_requires_start_end():
+    # backfill 에 --start/--end 둘 다 없음
+    _assert_parser_error(
+        ["prog", "--mode=backfill"],
+        "--start and --end are required with --mode=backfill",
+    )
+    # --start 만 있고 --end 없음
+    _assert_parser_error(
+        ["prog", "--mode=backfill", "--start=2024-05-01"],
+        "--start and --end are required with --mode=backfill",
+    )
+
+
+def test_range_args_rejected_for_non_backfill_modes():
+    """--start/--end/--tickers 는 backfill 외 모드와 쓰면 가드 에러."""
+    for extra in ("--start=2024-05-01", "--end=2024-05-31", "--tickers=000660"):
+        _assert_parser_error(
+            ["prog", "--mode=weekend", extra],
+            "--start/--end/--tickers is only supported with --mode=backfill",
+        )
+
+
+def test_get_qualifying_tickers_filters_by_tickers(db):
+    """tickers 인자 지정 시 그 종목 중 minervini 통과분만, 생략 시 전체."""
+    from kr_pipeline.llm_runner.load import get_qualifying_tickers
+    from datetime import date as _date
+    as_of = _date(2023, 1, 7)  # 실데이터 이전 → 격리
+    with db.cursor() as cur:
+        for t in ("QF1", "QF2", "QF3"):
+            cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'B','KOSPI') ON CONFLICT DO NOTHING", (t,))
+            cur.execute("DELETE FROM daily_indicators WHERE ticker=%s AND date=%s", (t, as_of))
+        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('QF1',%s,TRUE,1000.0)", (as_of,))
+        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('QF2',%s,TRUE,1000.0)", (as_of,))
+        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('QF3',%s,FALSE,1000.0)", (as_of,))
+    db.commit()
+    try:
+        got = get_qualifying_tickers(db, as_of=as_of, tickers=["QF1"])
+        assert [r["symbol"] for r in got] == ["QF1"]
+        assert get_qualifying_tickers(db, as_of=as_of, tickers=["QF3"]) == []
+        got2 = get_qualifying_tickers(db, as_of=as_of, tickers=["QF1", "QF2", "QF3"])
+        assert sorted(r["symbol"] for r in got2) == ["QF1", "QF2"]
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_indicators WHERE ticker IN ('QF1','QF2','QF3') AND date=%s", (as_of,))
+        db.commit()
+
+
+def test_enumerate_saturdays():
+    from kr_pipeline.llm_runner.backfill import _enumerate_saturdays
+    from datetime import date as _date
+    # 2024-05-01(수) ~ 2024-05-31(금) 사이 토요일: 4,11,18,25
+    got = _enumerate_saturdays(_date(2024, 5, 1), _date(2024, 5, 31))
+    assert got == [_date(2024, 5, 4), _date(2024, 5, 11), _date(2024, 5, 18), _date(2024, 5, 25)]
+    # 경계가 토요일이면 포함 (start=end=토요일 → 그 토요일 1개)
+    assert _enumerate_saturdays(_date(2024, 5, 4), _date(2024, 5, 4)) == [_date(2024, 5, 4)]
+    # 범위 내 토요일 없음 → 빈 리스트 (월~금)
+    assert _enumerate_saturdays(_date(2024, 5, 6), _date(2024, 5, 10)) == []
+    # start > end → 빈 리스트
+    assert _enumerate_saturdays(_date(2024, 5, 31), _date(2024, 5, 1)) == []
+
+
+def test_backfill_run_multi_week_with_tickers(db, monkeypatch):
+    """여러 토요일 × ticker 지정 — 통과한 주만 분류, weeks 집계."""
+    import kr_pipeline.llm_runner.backfill as bf
+    from datetime import date as _date
+    s1, s2 = _date(2024, 1, 6), _date(2024, 1, 13)  # 연속 토요일 2개
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES ('BKW1','B','KOSPI') ON CONFLICT DO NOTHING")
+        for s in (s1, s2):
+            cur.execute("DELETE FROM classification_backfill WHERE symbol='BKW1' AND analyzed_for_date=%s", (s,))
+            cur.execute("DELETE FROM daily_indicators WHERE ticker='BKW1' AND date=%s", (s,))
+        # s1 통과 / s2 미통과 → s2 는 건너뛰어야 함
+        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('BKW1',%s,TRUE,1000.0)", (s1,))
+        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('BKW1',%s,FALSE,1000.0)", (s2,))
+    db.commit()
+    monkeypatch.setattr(bf, "build_analysis_zip", lambda conn, symbol, on_date=None, **kw: b"zip")
+    monkeypatch.setattr(bf, "call_claude", lambda **kwargs: _result("watch"))
+    try:
+        res = bf.run(db, start=s1, end=s2, tickers=["BKW1"], dry_run=False)
+        assert res["weeks"] == 2          # 토요일 2개 순회
+        assert res["processed"] == 1      # s1 만 분류 (s2 미통과 건너뜀)
+        with db.cursor() as cur:
+            cur.execute("SELECT analyzed_for_date FROM classification_backfill WHERE symbol='BKW1' ORDER BY analyzed_for_date")
+            rows = [r[0] for r in cur.fetchall()]
+        assert rows == [s1]
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM classification_backfill WHERE symbol='BKW1'")
+            cur.execute("DELETE FROM daily_indicators WHERE ticker='BKW1' AND date IN (%s,%s)", (s1, s2))
+        db.commit()
