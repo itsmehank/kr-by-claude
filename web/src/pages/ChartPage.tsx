@@ -399,7 +399,7 @@ export default function ChartPage() {
             종목을 선택해주세요
           </p>
           <p className="text-data text-muted">
-            종목코드를 입력하거나 RS 상위 종목에서 선택하세요
+            종목코드 또는 종목명으로 검색하거나 RS 상위 종목에서 선택하세요
           </p>
         </div>
       ) : chartLoading ? (
