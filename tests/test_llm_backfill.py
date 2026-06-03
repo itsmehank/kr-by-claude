@@ -137,35 +137,42 @@ def test_backfill_gate_uses_point_in_time_date(db, monkeypatch):
         db.commit()
 
 
-def test_backfill_mode_requires_start_end():
-    import sys, pytest
+def _assert_parser_error(argv, expected_fragment):
+    import io, contextlib, sys, pytest
     from kr_pipeline.llm_runner.__main__ import main
-    argv = sys.argv
+    buf = io.StringIO()
+    saved = sys.argv
     try:
-        # --start/--end 없음 → 에러
-        sys.argv = ["prog", "--mode=backfill"]
-        with pytest.raises(SystemExit):
-            main()
-        # --start 만 있고 --end 없음 → 에러
-        sys.argv = ["prog", "--mode=backfill", "--start=2024-05-01"]
-        with pytest.raises(SystemExit):
-            main()
-    finally:
         sys.argv = argv
+        with contextlib.redirect_stderr(buf):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+    finally:
+        sys.argv = saved
+    assert exc_info.value.code == 2
+    assert expected_fragment in buf.getvalue(), f"stderr was: {buf.getvalue()!r}"
+
+
+def test_backfill_mode_requires_start_end():
+    # backfill 에 --start/--end 둘 다 없음
+    _assert_parser_error(
+        ["prog", "--mode=backfill"],
+        "--start and --end are required with --mode=backfill",
+    )
+    # --start 만 있고 --end 없음
+    _assert_parser_error(
+        ["prog", "--mode=backfill", "--start=2024-05-01"],
+        "--start and --end are required with --mode=backfill",
+    )
 
 
 def test_range_args_rejected_for_non_backfill_modes():
-    """--start/--end/--tickers 는 backfill 외 모드와 쓰면 에러."""
-    import sys, pytest
-    from kr_pipeline.llm_runner.__main__ import main
-    argv = sys.argv
-    try:
-        for extra in ("--start=2024-05-01", "--end=2024-05-31", "--tickers=000660"):
-            sys.argv = ["prog", "--mode=weekend", extra]
-            with pytest.raises(SystemExit):
-                main()
-    finally:
-        sys.argv = argv
+    """--start/--end/--tickers 는 backfill 외 모드와 쓰면 가드 에러."""
+    for extra in ("--start=2024-05-01", "--end=2024-05-31", "--tickers=000660"):
+        _assert_parser_error(
+            ["prog", "--mode=weekend", extra],
+            "--start/--end/--tickers is only supported with --mode=backfill",
+        )
 
 
 def test_get_qualifying_tickers_filters_by_tickers(db):
