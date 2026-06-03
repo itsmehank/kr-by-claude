@@ -50,6 +50,19 @@ C8_RS_RATING_MIN: Final[int] = 70
 책: Minervini TLSMW Ch.5 'relative strength ranking ... is no less than 70'.
 O'Neil HMMS 는 80+ 선호."""
 
+# ===== RS Line 신호 윈도우 (kr_pipeline/indicators/compute/rs_line.py, modes.py) =====
+
+RS_LINE_UPTREND_SHORT_WEEKS: Final[int] = 6
+"""RS Line 단기 우상향 판정 윈도우 (주). Minervini TLSMW Ch.5 criterion 7 주석
+'I like to see ... six weeks' — soft 선호 신호(게이트 아님). 일봉은 6주≈30영업일(×5)."""
+
+RS_LINE_UPTREND_LONG_WEEKS: Final[int] = 13
+"""RS Line 장기 우상향 판정 윈도우 (주). Minervini 선호 '13 weeks or more'. 일봉 13주≈65영업일(×5)."""
+
+RS_LINE_DECLINE_GATE_WEEKS: Final[int] = 30
+"""O'Neil 7개월 하락 게이트 윈도우 (주). HMMS 'L = Leader or Laggard' — RS line 7개월+ 하락 =
+laggard. 7개월≈30주(설계 §9.1, 현행 28주에서 변경). 게이트는 주봉에서만 계산."""
+
 # ===== Pocket Pivot (kr_pipeline/indicators/compute/volume.py) =====
 
 PP_DOWN_VOL_LOOKBACK_DAYS: Final[int] = 10
