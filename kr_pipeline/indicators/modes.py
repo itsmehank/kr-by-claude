@@ -17,7 +17,7 @@ from kr_pipeline.indicators.compute.rs_line import (
     compute_rs_line_at_52w_high, compute_rs_line_uptrend,
     compute_rs_line_in_decline_7m,
 )
-from kr_pipeline.indicators.compute.rs_rating import compute_1y_return, assign_rs_rating_percentiles
+from kr_pipeline.indicators.compute.rs_rating import compute_ibd_strength_factor, assign_rs_rating_percentiles
 from kr_pipeline.indicators.compute.minervini import compute_minervini_c1_to_c7
 from kr_pipeline.indicators.compute.volume import (
     split_adjusted_volume, avg_volume, volume_ratio,
@@ -185,8 +185,8 @@ def _process_ticker_daily(
     current_dates = pd.Series(df.index, index=df.index)
     rs_decline = compute_rs_line_in_decline_7m(rs_line_high_date, current_dates, threshold_days=140)
 
-    # 1y return (rs_rating 입력)
-    one_y_ret = compute_1y_return(adj_close, window=252)
+    # SF (rs_rating 입력) — IBD 가중, 최근 분기 2배
+    one_y_ret = compute_ibd_strength_factor(adj_close, 63, 126, 189, 252)
 
     # Minervini c1-c7
     mn_df = pd.DataFrame({
@@ -505,7 +505,7 @@ def _process_ticker_weekly(
     rs_up_13w = compute_rs_line_uptrend(rs_line, window=13)
     current_dates = pd.Series(df.index, index=df.index)
     rs_decline = compute_rs_line_in_decline_7m(rs_line_high_date, current_dates, threshold_days=28*7)
-    one_y_ret = compute_1y_return(adj_close, window=52)
+    one_y_ret = compute_ibd_strength_factor(adj_close, 13, 26, 39, 52)
 
     mn_df = pd.DataFrame({
         "adj_close": adj_close,
