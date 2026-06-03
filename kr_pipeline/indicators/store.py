@@ -189,3 +189,30 @@ def update_weekly_indicators_minervini_pass(
             (start_date, end_date),
         )
         return cur.rowcount
+
+
+def update_daily_rs_gate_from_weekly(
+    conn: Connection, start_date: date, end_date: date
+) -> int:
+    """각 daily 행의 rs_line_not_declining_7m 을 최신 week_end_date ≤ date 의 weekly 값으로 미러.
+
+    게이트는 주봉에서 계산(D3) → 후보 쿼리(daily 단일 테이블) 가 읽도록 daily 에 복사.
+    weekly_indicators 가 먼저 적재돼 있어야 함.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE daily_indicators d
+               SET rs_line_not_declining_7m = (
+                     SELECT w.rs_line_not_declining_7m
+                       FROM weekly_indicators w
+                      WHERE w.ticker = d.ticker AND w.week_end_date <= d.date
+                      ORDER BY w.week_end_date DESC
+                      LIMIT 1
+                   ),
+                   updated_at = NOW()
+             WHERE d.date BETWEEN %s AND %s
+            """,
+            (start_date, end_date),
+        )
+        return cur.rowcount

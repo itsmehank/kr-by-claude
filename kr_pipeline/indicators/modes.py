@@ -36,6 +36,7 @@ from kr_pipeline.indicators.store import (
     update_daily_indicators_minervini_pass,
     upsert_weekly_indicators_phase_a, update_weekly_indicators_rs_rating,
     update_weekly_indicators_minervini_pass,
+    update_daily_rs_gate_from_weekly,
 )
 
 
@@ -439,6 +440,11 @@ def run_daily(
         mn_affected = update_daily_indicators_minervini_pass(conn, upsert_start, load_end)
         conn.commit()
         log.info(f"Phase C: {mn_affected} rows updated")
+
+        # Phase D: 주→일 rs gate 미러
+        gate_affected = update_daily_rs_gate_from_weekly(conn, upsert_start, load_end)
+        conn.commit()
+        log.info("daily rs gate mirrored: %d rows", gate_affected)
 
         # Sanity
         warnings = _run_sanity_checks_daily(conn, load_end)

@@ -137,3 +137,17 @@ def test_minervini_pass_false_when_any_condition_false(db):
     with db.cursor() as cur:
         cur.execute("SELECT minervini_pass FROM daily_indicators WHERE ticker='005930'")
         assert cur.fetchone() == (False,)
+
+
+def test_mirror_gate_picks_latest_week_le_date(db):
+    from kr_pipeline.indicators.store import update_daily_rs_gate_from_weekly
+    _seed_stock(db, "005930")
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO weekly_indicators (ticker, week_end_date, adj_close, rs_line_not_declining_7m) "
+                    "VALUES ('005930','2026-05-29',100,TRUE),('005930','2026-06-05',100,FALSE)")
+        cur.execute("INSERT INTO daily_indicators (ticker, date, adj_close) VALUES ('005930','2026-06-03',100)")
+    update_daily_rs_gate_from_weekly(db, date(2026, 6, 1), date(2026, 6, 4))
+    with db.cursor() as cur:
+        cur.execute("SELECT rs_line_not_declining_7m FROM daily_indicators WHERE ticker='005930' AND date='2026-06-03'")
+        # 2026-06-03 은 06-05 이전 → 최신 week_end ≤ date 는 05-29 → TRUE
+        assert cur.fetchone()[0] is True
