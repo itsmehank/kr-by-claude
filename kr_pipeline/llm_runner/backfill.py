@@ -45,40 +45,47 @@ def _already_backfilled(conn: Connection, as_of: date) -> set[str]:
         return {r[0] for r in cur.fetchall()}
 
 
-def run(conn: Connection, *, dry_run: bool = False, as_of: date | None = None,
-        limit: int | None = None) -> dict:
-    if as_of is None:
-        as_of = date.today()
-
-    candidates = get_qualifying_tickers(conn, as_of=as_of)
-    done = _already_backfilled(conn, as_of)
-    candidates = [c for c in candidates if c["symbol"] not in done]
-    if limit:
-        candidates = candidates[:limit]
-
-    log.info("backfill: %d candidate(s) as_of=%s (already done %d)", len(candidates), as_of, len(done))
-
-    processed = 0
-    failed: list[str] = []
-    for c in candidates:
-        symbol = c["symbol"]
-        market = c["market"]
-        try:
-            _process_one(conn, symbol, market, dry_run=dry_run, as_of=as_of)
-            processed += 1
-            conn.commit()
-        except Exception as e:  # noqa: BLE001
-            log.warning("backfill %s failed: %s", symbol, e)
-            failed.append(symbol)
-            conn.rollback()
-
-    return {
-        "processed": processed,
-        "candidates": len(candidates),
-        "failures": len(failed),
-        "failed_tickers": failed,
-        "as_of": str(as_of),
+def run(conn: Connection, *, start: date, end: date, tickers: list[str] | None = None,
+        dry_run: bool = False, limit: int | None = None) -> dict:
+    """기간 × 매주 토요일 백필. 토요일마다 그 주 minervini 통과 종목(또는 지정 종목)을 분류."""
+    saturdays = _enumerate_saturdays(start, end)
+    agg = {
+        "weeks": 0,
+        "processed": 0,
+        "skipped_existing": 0,
+        "failures": 0,
+        "failed": [],
+        "start": str(start),
+        "end": str(end),
     }
+
+    for as_of in saturdays:
+        candidates = get_qualifying_tickers(conn, as_of=as_of, tickers=tickers)
+        done = _already_backfilled(conn, as_of)
+        skipped = [c for c in candidates if c["symbol"] in done]
+        candidates = [c for c in candidates if c["symbol"] not in done]
+        if limit:
+            candidates = candidates[:limit]
+
+        log.info("backfill week=%s: %d candidate(s) (done %d)", as_of, len(candidates), len(done))
+
+        for c in candidates:
+            symbol = c["symbol"]
+            market = c["market"]
+            try:
+                _process_one(conn, symbol, market, dry_run=dry_run, as_of=as_of)
+                agg["processed"] += 1
+                conn.commit()
+            except Exception as e:  # noqa: BLE001
+                log.warning("backfill %s @ %s failed: %s", symbol, as_of, e)
+                agg["failed"].append([symbol, str(as_of), str(e)])
+                agg["failures"] += 1
+                conn.rollback()
+
+        agg["skipped_existing"] += len(skipped)
+        agg["weeks"] += 1
+
+    return agg
 
 
 def _process_one(conn: Connection, symbol: str, market: str, *, dry_run: bool, as_of: date) -> None:
