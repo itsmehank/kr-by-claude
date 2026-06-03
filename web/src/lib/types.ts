@@ -323,3 +323,10 @@ export interface IndexDaily {
   close: number;
   volume: number | null;
 }
+
+export interface ClassificationHistoryRow {
+  symbol: string;
+  date: string;
+  classification: string;
+  source: string;
+}

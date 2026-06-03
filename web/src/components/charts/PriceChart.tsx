@@ -12,7 +12,10 @@ import type {
   Time,
   SeriesMarker,
   MouseEventParams,
+  IChartApi,
 } from "lightweight-charts";
+import { ChartOverlayBands } from "./ChartOverlayBands";
+import type { BandSegment } from "./overlayBands";
 
 // 날짜에 한국어 요일 추가: "2026-05-20" → "2026-05-20 (수)"
 function withWeekday(iso: string): string {
@@ -73,6 +76,8 @@ export interface PriceChartProps {
   showPivotStop?: boolean;
   showTriggerMarkers?: boolean;
   triggerEvents?: TriggerOverlayEvent[];
+  showClassificationBands?: boolean;
+  bandSegments?: BandSegment[];
 }
 
 interface TooltipState {
@@ -119,10 +124,13 @@ export function PriceChart({
   showPivotStop = true,
   showTriggerMarkers = true,
   triggerEvents = [],
+  showClassificationBands = false,
+  bandSegments = [],
 }: PriceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState>(HIDDEN_TOOLTIP);
+  const [chartApi, setChartApi] = useState<IChartApi | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -153,6 +161,7 @@ export function PriceChart({
         horzLine: { color: "#a1a1aa", style: 3, width: 1 },
       },
     });
+    setChartApi(chart);
 
     // ── Main pane (0): Candlestick ──
     const candleSeries = chart.addSeries(CandlestickSeries, {
@@ -398,6 +407,7 @@ export function PriceChart({
 
     return () => {
       window.removeEventListener("resize", resize);
+      setChartApi(null);
       chart.remove();
     };
   }, [
@@ -433,6 +443,12 @@ export function PriceChart({
   return (
     <div ref={wrapperRef} className="relative">
       <div ref={containerRef} style={{ width: "100%" }} />
+      <ChartOverlayBands
+        chart={chartApi}
+        containerRef={containerRef}
+        segments={bandSegments ?? []}
+        visible={showClassificationBands ?? false}
+      />
 
       {tooltip.visible && tooltip.ohlc && (
         <div
