@@ -29,6 +29,7 @@ import { IndicatorsCard } from "../components/panels/IndicatorsCard";
 import { EntrySignalCard } from "../components/panels/EntrySignalCard";
 import { PerformanceCard } from "../components/panels/PerformanceCard";
 import { TriggerHistoryTable } from "../components/panels/TriggerHistoryTable";
+import { StockSearch } from "../components/StockSearch";
 
 const PERIODS = [
   { id: "1W", label: "1주", days: 7 },
@@ -130,7 +131,6 @@ export default function ChartPage() {
   const { ticker } = useParams<{ ticker?: string }>();
   const navigate = useNavigate();
 
-  const [inputTicker, setInputTicker] = useState("");
   const [timeframe, setTimeframe] = useState<Timeframe>("daily");
   const [period, setPeriod] = useState<PeriodId>("6M");
 
@@ -234,15 +234,6 @@ export default function ChartPage() {
       ? { short: "SMA 50", mid: "SMA 150", long: "SMA 200", extra: "SMA 10" }
       : { short: "SMA 10W", mid: "SMA 30W", long: "SMA 40W", extra: "—" };
 
-  function handleTickerSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const t = inputTicker.trim();
-    if (t) {
-      navigate(`/chart/${t}`);
-      setInputTicker("");
-    }
-  }
-
   const latestBar = bars.length > 0 ? bars[bars.length - 1] : null;
   const latestMeta =
     timeframe === "daily"
@@ -264,24 +255,10 @@ export default function ChartPage() {
       {/* Controls */}
       <div className="bento p-5 mb-5">
         <div className="flex flex-wrap items-end gap-4">
-          <form onSubmit={handleTickerSubmit} className="flex flex-col gap-1.5">
-            <label className="caps">종목 코드</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={inputTicker}
-                onChange={(e) => setInputTicker(e.target.value)}
-                placeholder="예: 005930"
-                className="border border-hairline rounded-lg px-3 py-2 text-data bg-cream w-44 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2 bg-accent text-white rounded-lg text-data font-semibold hover:bg-accent-light transition-colors"
-              >
-                이동
-              </button>
-            </div>
-          </form>
+          <div className="flex flex-col gap-1.5">
+            <label className="caps">종목 검색</label>
+            <StockSearch onSelect={(t) => navigate(`/chart/${t}`)} />
+          </div>
 
           {quickList && quickList.length > 0 && (
             <div className="flex flex-col gap-1.5">
