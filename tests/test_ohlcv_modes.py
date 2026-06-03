@@ -74,7 +74,7 @@ def test_full_refresh_retries_failed_tickers_at_end(monkeypatch, db):
         call_count["n"] += 1
         if call_count["n"] == 1:
             raise RuntimeError("transient")
-        return pd.DataFrame([{"date": date_cls(2026, 5, 12), "close": 36000.0}])
+        return pd.DataFrame([{"date": date_cls(2026, 5, 12), "close": 36000.0, "high": 36500.0, "low": 35500.0}])
 
     import kr_pipeline.ohlcv.fetch as fetch_mod
     monkeypatch.setattr(fetch_mod, "fetch_adj_only", fake_fetch)
