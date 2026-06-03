@@ -20,6 +20,7 @@ function computeRects(chart: IChartApi, segments: BandSegment[]): Rect[] {
   const ts = chart.timeScale();
   const vr = ts.getVisibleRange();
   if (!vr) return [];
+  // 차트는 문자열(YYYY-MM-DD) time 모드 가정 — 날짜 문자열 비교로 클램프.
   const from = String(vr.from);
   const to = String(vr.to);
   const out: Rect[] = [];

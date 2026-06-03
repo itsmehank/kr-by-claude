@@ -50,7 +50,10 @@ export function buildBandSegments(
   for (const bar of bars) {
     while (pi < sorted.length && sorted[pi].date <= bar.date) {
       const c = sorted[pi].classification;
-      carried = COLORED.has(c) ? (c as BandState) : null;
+      // entry/watch/ignore → 이월. disqualified → 이월 종료(밴드 없음).
+      // 그 외 미지정 문자열은 carry 를 건드리지 않음(데이터 오염에 안전).
+      if (COLORED.has(c)) carried = c as BandState;
+      else if (c === "disqualified") carried = null;
       pi++;
     }
     const state: BandState | null = bar.minervini_pass === false ? "fail" : carried;
