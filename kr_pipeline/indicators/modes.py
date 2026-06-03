@@ -14,8 +14,11 @@ from kr_pipeline.indicators.compute.sma import sma
 from kr_pipeline.indicators.compute.high_low import w52_high_low, pct_from_high_low
 from kr_pipeline.indicators.compute.rs_line import (
     compute_rs_line, compute_rs_line_52w_high_and_date,
-    compute_rs_line_at_52w_high, compute_rs_line_uptrend,
-    compute_rs_line_in_decline_7m,
+    compute_rs_line_at_52w_high, compute_rs_line_uptrend_slope,
+    compute_rs_line_not_declining,
+)
+from kr_pipeline.common.thresholds import (
+    RS_LINE_UPTREND_SHORT_WEEKS, RS_LINE_UPTREND_LONG_WEEKS, RS_LINE_DECLINE_GATE_WEEKS,
 )
 from kr_pipeline.indicators.compute.rs_rating import compute_ibd_strength_factor, assign_rs_rating_percentiles
 from kr_pipeline.indicators.compute.minervini import compute_minervini_c1_to_c7
@@ -183,10 +186,8 @@ def _process_ticker_daily(
     rs_line = compute_rs_line(adj_close, df["index_close"])
     rs_line_high, rs_line_high_date = compute_rs_line_52w_high_and_date(rs_line, window=252)
     rs_at_high = compute_rs_line_at_52w_high(rs_line, rs_line_high)
-    rs_up_6w = compute_rs_line_uptrend(rs_line, window=30)   # 6주 ≈ 30영업일
-    rs_up_13w = compute_rs_line_uptrend(rs_line, window=65)  # 13주 ≈ 65영업일
-    current_dates = pd.Series(df.index, index=df.index)
-    rs_decline = compute_rs_line_in_decline_7m(rs_line_high_date, current_dates, threshold_days=140)
+    rs_up_6w = compute_rs_line_uptrend_slope(rs_line, window=RS_LINE_UPTREND_SHORT_WEEKS * 5)   # 6주≈30영업일
+    rs_up_13w = compute_rs_line_uptrend_slope(rs_line, window=RS_LINE_UPTREND_LONG_WEEKS * 5)   # 13주≈65영업일
 
     # SF (rs_rating 입력) — IBD 가중, 최근 분기 2배
     one_y_ret = compute_ibd_strength_factor(adj_close, 63, 126, 189, 252)
@@ -224,7 +225,7 @@ def _process_ticker_daily(
             "rs_line_at_52w_high": _as_bool(rs_at_high.loc[d]),
             "rs_line_uptrend_6w": _as_bool(rs_up_6w.loc[d]),
             "rs_line_uptrend_13w": _as_bool(rs_up_13w.loc[d]),
-            "rs_line_in_decline_7m": _as_bool(rs_decline.loc[d]),
+            "rs_line_not_declining_7m": None,  # Task 9 미러 단계에서 weekly 값으로 채움
             "minervini_c1": _as_bool(mn["minervini_c1"].loc[d]),
             "minervini_c2": _as_bool(mn["minervini_c2"].loc[d]),
             "minervini_c3": _as_bool(mn["minervini_c3"].loc[d]),
@@ -504,10 +505,9 @@ def _process_ticker_weekly(
     rs_line = compute_rs_line(adj_close, df["index_close"])
     rs_line_high, rs_line_high_date = compute_rs_line_52w_high_and_date(rs_line, window=52)
     rs_at_high = compute_rs_line_at_52w_high(rs_line, rs_line_high)
-    rs_up_6w = compute_rs_line_uptrend(rs_line, window=6)
-    rs_up_13w = compute_rs_line_uptrend(rs_line, window=13)
-    current_dates = pd.Series(df.index, index=df.index)
-    rs_decline = compute_rs_line_in_decline_7m(rs_line_high_date, current_dates, threshold_days=28*7)
+    rs_up_6w = compute_rs_line_uptrend_slope(rs_line, window=RS_LINE_UPTREND_SHORT_WEEKS)
+    rs_up_13w = compute_rs_line_uptrend_slope(rs_line, window=RS_LINE_UPTREND_LONG_WEEKS)
+    rs_not_declining = compute_rs_line_not_declining(rs_line, window=RS_LINE_DECLINE_GATE_WEEKS)
     one_y_ret = compute_ibd_strength_factor(adj_close, 13, 26, 39, 52)
 
     mn_df = pd.DataFrame({
@@ -537,7 +537,7 @@ def _process_ticker_weekly(
             "rs_line_at_52w_high": _as_bool(rs_at_high.loc[d]),
             "rs_line_uptrend_6w": _as_bool(rs_up_6w.loc[d]),
             "rs_line_uptrend_13w": _as_bool(rs_up_13w.loc[d]),
-            "rs_line_in_decline_7m": _as_bool(rs_decline.loc[d]),
+            "rs_line_not_declining_7m": _as_bool(rs_not_declining.loc[d]),
             "minervini_c1": _as_bool(mn["minervini_c1"].loc[d]),
             "minervini_c2": _as_bool(mn["minervini_c2"].loc[d]),
             "minervini_c3": _as_bool(mn["minervini_c3"].loc[d]),

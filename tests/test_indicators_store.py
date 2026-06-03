@@ -29,7 +29,7 @@ def test_upsert_phase_a_inserts_new_row(db):
         "rs_line": 0.0040, "rs_line_52w_high": 0.0050, "rs_line_52w_high_date": date(2026, 1, 15),
         "rs_line_at_52w_high": False,
         "rs_line_uptrend_6w": True, "rs_line_uptrend_13w": True,
-        "rs_line_in_decline_7m": False,
+        "rs_line_not_declining_7m": False,
         "minervini_c1": True, "minervini_c2": True, "minervini_c3": True,
         "minervini_c4": True, "minervini_c5": True, "minervini_c6": True,
         "minervini_c7": True,
@@ -54,7 +54,7 @@ def test_upsert_phase_a_updates_on_conflict(db):
         "w52_high": None, "w52_low": None, "pct_from_52w_high": None, "pct_from_52w_low": None,
         "rs_line": None, "rs_line_52w_high": None, "rs_line_52w_high_date": None,
         "rs_line_at_52w_high": None, "rs_line_uptrend_6w": None, "rs_line_uptrend_13w": None,
-        "rs_line_in_decline_7m": None,
+        "rs_line_not_declining_7m": None,
         "minervini_c1": None, "minervini_c2": None, "minervini_c3": None,
         "minervini_c4": None, "minervini_c5": None, "minervini_c6": None, "minervini_c7": None,
     }]
@@ -76,7 +76,7 @@ def test_update_rs_rating_sets_value(db):
         w52_high=None, w52_low=None, pct_from_52w_high=None, pct_from_52w_low=None,
         rs_line=None, rs_line_52w_high=None, rs_line_52w_high_date=None,
         rs_line_at_52w_high=None, rs_line_uptrend_6w=None, rs_line_uptrend_13w=None,
-        rs_line_in_decline_7m=None,
+        rs_line_not_declining_7m=None,
         minervini_c1=None, minervini_c2=None, minervini_c3=None,
         minervini_c4=None, minervini_c5=None, minervini_c6=None, minervini_c7=None,
     )]
@@ -100,7 +100,7 @@ def test_update_minervini_pass_uses_sql(db):
         w52_high=80000.0, w52_low=50000.0, pct_from_52w_high=-12.5, pct_from_52w_low=40.0,
         rs_line=None, rs_line_52w_high=None, rs_line_52w_high_date=None,
         rs_line_at_52w_high=None, rs_line_uptrend_6w=None, rs_line_uptrend_13w=None,
-        rs_line_in_decline_7m=None,
+        rs_line_not_declining_7m=None,
         minervini_c1=True, minervini_c2=True, minervini_c3=True,
         minervini_c4=True, minervini_c5=True, minervini_c6=True, minervini_c7=True,
     )]
@@ -126,7 +126,7 @@ def test_minervini_pass_false_when_any_condition_false(db):
         w52_high=None, w52_low=None, pct_from_52w_high=None, pct_from_52w_low=None,
         rs_line=None, rs_line_52w_high=None, rs_line_52w_high_date=None,
         rs_line_at_52w_high=None, rs_line_uptrend_6w=None, rs_line_uptrend_13w=None,
-        rs_line_in_decline_7m=None,
+        rs_line_not_declining_7m=None,
         minervini_c1=False, minervini_c2=True, minervini_c3=True,
         minervini_c4=True, minervini_c5=True, minervini_c6=True, minervini_c7=True,
     )]

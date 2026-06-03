@@ -12,7 +12,7 @@ PHASE_A_COLUMNS_DAILY = [
     "w52_high", "w52_low", "pct_from_52w_high", "pct_from_52w_low",
     "rs_line", "rs_line_52w_high", "rs_line_52w_high_date",
     "rs_line_at_52w_high", "rs_line_uptrend_6w", "rs_line_uptrend_13w",
-    "rs_line_in_decline_7m",
+    "rs_line_not_declining_7m",
     "minervini_c1", "minervini_c2", "minervini_c3",
     "minervini_c4", "minervini_c5", "minervini_c6", "minervini_c7",
     # V2: 거래량 지표
@@ -112,7 +112,7 @@ PHASE_A_COLUMNS_WEEKLY = [
     "w52_high", "w52_low", "pct_from_52w_high", "pct_from_52w_low",
     "rs_line", "rs_line_52w_high", "rs_line_52w_high_date",
     "rs_line_at_52w_high", "rs_line_uptrend_6w", "rs_line_uptrend_13w",
-    "rs_line_in_decline_7m",
+    "rs_line_not_declining_7m",
     "minervini_c1", "minervini_c2", "minervini_c3",
     "minervini_c4", "minervini_c5", "minervini_c6", "minervini_c7",
     # V2: 거래량 지표
