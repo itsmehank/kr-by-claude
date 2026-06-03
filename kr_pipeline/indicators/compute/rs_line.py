@@ -47,7 +47,7 @@ def compute_rs_line_at_52w_high(rs_line: pd.Series, rs_line_52w_high: pd.Series)
 
 
 def compute_rs_line_uptrend(rs_line: pd.Series, window: int) -> pd.Series:
-    """rs_line > rolling_mean(window) → 우상향 판정.
+    """[DEPRECATED 2026-06-03: 기울기/pure-declining 으로 교체. modes.py 호출부는 Task 8에서 제거.] rs_line > rolling_mean(window) → 우상향 판정.
 
     window 미만은 NaN.
     """
@@ -63,7 +63,7 @@ def compute_rs_line_in_decline_7m(
     current_dates: pd.Series,
     threshold_days: int = 140,
 ) -> pd.Series:
-    """rs_line_52w_high_date 가 current_date 로부터 threshold_days 이상 전 → True.
+    """[DEPRECATED 2026-06-03: 기울기/pure-declining 으로 교체. modes.py 호출부는 Task 8에서 제거.] rs_line_52w_high_date 가 current_date 로부터 threshold_days 이상 전 → True.
 
     7개월 ≈ 140 영업일.
     high_date 가 NaN 이면 결과 NaN.
