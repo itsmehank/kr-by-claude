@@ -38,6 +38,25 @@
 | D4 | 컬럼 타입 | `NUMERIC(12,4)`(adj_close 동일, 수정값 소수). 추가 시 **nullable**(기존 행 백필 전 NULL). |
 | D5 | 백필 | ohlcv full-refresh(수정 OHLC 재fetch)로 전 과거 채움 → indicators full-refresh로 w52 재계산. |
 
+## ⚠️ 검증 게이트 (구현 0단계 — 필수, 차단성)
+
+접근 B 전체가 **"pykrx `adjusted=True` 가 종가뿐 아니라 고가/저가까지 보정한다"** 가정에
+의존한다. 이 환경엔 KRX 자격증명이 없어 실측 불가(`KRX_ID`/`KRX_PW` 필요). **구현 첫 단계로
+자격증명 있는 환경에서 반드시 실측**한다(보정 발생 종목 예: `001130`, 2024-05-17 전후):
+
+```python
+from kr_pipeline.ohlcv.fetch import _fetch_one
+from datetime import date
+raw = _fetch_one('001130', date(2024,5,1), date(2024,6,28), adjusted=False)
+adj = _fetch_one('001130', date(2024,5,1), date(2024,6,28), adjusted=True)
+# raw.high vs adj.high 가 다르면 → adjusted=True 가 OHLC 전체 보정 (접근 B 유효)
+```
+
+- **adj.high ≠ raw.high → 접근 B 진행.**
+- **adj.high == raw.high(종가만 보정) → 접근 B 무효 → 접근 A 폴백**: `adj_high = raw_high ×
+  (adj_close/close)`, `adj_low = raw_low × (adj_close/close)`(일자별 비율, 0/NULL 가드,
+  반올림 정밀도 유의). 이 경우 적재 변경은 동일(컬럼은 그대로 저장)하되 값 산출만 파생식으로.
+
 ## 데이터 모델
 
 - `daily_prices` + `adj_high NUMERIC(12,4)`, `adj_low NUMERIC(12,4)` (adj_close 뒤, nullable).
@@ -88,11 +107,13 @@
 
 ## 마이그레이션 / 백필 순서
 
-1. 스키마 ALTER(양쪽 DB) — nullable 2컬럼.
+1. 스키마 ALTER(양쪽 DB) — nullable 2컬럼(`daily_prices`, `weekly_prices`).
 2. 코드 반영(적재 A/B + 주봉 C + 지표 D + 테스트).
-3. `ohlcv full-refresh`(일·주) — 수정 OHLC 재fetch로 adj_high/adj_low 전 과거 채움.
-4. `indicators full-refresh`(주 → 일) — w52 재계산.
-5. 검증: C6/C7 통과 분포·후보 수 변화, adj_high≥adj_low NULL 커버리지.
+3. `kr_pipeline.ohlcv` full-refresh — 수정 OHLC 재fetch로 **daily_prices** adj_high/adj_low 백필.
+4. `kr_pipeline.weekly` full-refresh — daily_prices에서 **weekly_prices** adj_high(주중 max)/adj_low(주중 min) 집계.
+   (주봉 가격은 ohlcv가 아니라 weekly 파이프라인이 만듦 — 별도 단계.)
+5. `kr_pipeline.indicators` full-refresh **주봉 → 일봉 순** — w52 재계산.
+6. 검증: C6/C7 통과 분포·후보 수 변화, `adj_high>=adj_low`·NULL 커버리지.
 
 ## SSOT / threshold-change-checklist
 
