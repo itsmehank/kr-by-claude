@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS daily_indicators (
     rs_line_at_52w_high   BOOLEAN,
     rs_line_uptrend_6w    BOOLEAN,
     rs_line_uptrend_13w   BOOLEAN,
-    rs_line_in_decline_7m BOOLEAN,
+    rs_line_not_declining_7m BOOLEAN,   -- TRUE=건강(7개월 하락 아님). 주봉계산→일봉미러
 
     rs_rating         SMALLINT,
 
@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS weekly_indicators (
     rs_line_at_52w_high   BOOLEAN,
     rs_line_uptrend_6w    BOOLEAN,
     rs_line_uptrend_13w   BOOLEAN,
-    rs_line_in_decline_7m BOOLEAN,
+    rs_line_not_declining_7m BOOLEAN,   -- TRUE=건강(7개월 하락 아님). 주봉계산→일봉미러
 
     rs_rating         SMALLINT,
 
