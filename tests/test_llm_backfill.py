@@ -144,3 +144,28 @@ def test_backfill_mode_requires_date():
             main()
     finally:
         sys.argv = argv
+
+
+def test_get_qualifying_tickers_filters_by_tickers(db):
+    """tickers 인자 지정 시 그 종목 중 minervini 통과분만, 생략 시 전체."""
+    from kr_pipeline.llm_runner.load import get_qualifying_tickers
+    from datetime import date as _date
+    as_of = _date(2023, 1, 7)  # 실데이터 이전 → 격리
+    with db.cursor() as cur:
+        for t in ("QF1", "QF2", "QF3"):
+            cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'B','KOSPI') ON CONFLICT DO NOTHING", (t,))
+            cur.execute("DELETE FROM daily_indicators WHERE ticker=%s AND date=%s", (t, as_of))
+        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('QF1',%s,TRUE,1000.0)", (as_of,))
+        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('QF2',%s,TRUE,1000.0)", (as_of,))
+        cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('QF3',%s,FALSE,1000.0)", (as_of,))
+    db.commit()
+    try:
+        got = get_qualifying_tickers(db, as_of=as_of, tickers=["QF1"])
+        assert [r["symbol"] for r in got] == ["QF1"]
+        assert get_qualifying_tickers(db, as_of=as_of, tickers=["QF3"]) == []
+        got2 = get_qualifying_tickers(db, as_of=as_of, tickers=["QF1", "QF2", "QF3"])
+        assert sorted(r["symbol"] for r in got2) == ["QF1", "QF2"]
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_indicators WHERE ticker IN ('QF1','QF2','QF3') AND date=%s", (as_of,))
+        db.commit()
