@@ -441,7 +441,9 @@ def run_daily(
         conn.commit()
         log.info(f"Phase C: {mn_affected} rows updated")
 
-        # Phase D: 주→일 rs gate 미러
+        # Phase D: 주봉 게이트(rs_line_not_declining_7m)를 daily 행에 미러.
+        # 전제: weekly_indicators 가 먼저 적재돼 있어야 정확(없으면 NULL→후보쿼리 = TRUE 게이트에서 제외).
+        # 전체 재계산 시 weekly → daily 순서 실행(설계 §9.1, plan Task 14).
         gate_affected = update_daily_rs_gate_from_weekly(conn, upsert_start, load_end)
         conn.commit()
         log.info("daily rs gate mirrored: %d rows", gate_affected)

@@ -139,6 +139,20 @@ def test_minervini_pass_false_when_any_condition_false(db):
         assert cur.fetchone() == (False,)
 
 
+def test_mirror_gate_null_when_no_weekly_row(db):
+    from kr_pipeline.indicators.store import update_daily_rs_gate_from_weekly
+    from datetime import date
+    _seed_stock(db, "005930")
+    with db.cursor() as cur:
+        # daily row exists but NO weekly row on or before its date
+        cur.execute("INSERT INTO daily_indicators (ticker, date, adj_close) VALUES ('005930','2026-06-03',100)")
+    update_daily_rs_gate_from_weekly(db, date(2026, 6, 1), date(2026, 6, 4))
+    with db.cursor() as cur:
+        cur.execute("SELECT rs_line_not_declining_7m FROM daily_indicators WHERE ticker='005930' AND date='2026-06-03'")
+        # 매칭되는 weekly 행 없음 → NULL (후보 쿼리 = TRUE 게이트에서 제외됨)
+        assert cur.fetchone()[0] is None
+
+
 def test_mirror_gate_picks_latest_week_le_date(db):
     from kr_pipeline.indicators.store import update_daily_rs_gate_from_weekly
     _seed_stock(db, "005930")
