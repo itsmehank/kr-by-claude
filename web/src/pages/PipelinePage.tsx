@@ -134,6 +134,13 @@ export default function PipelinePage() {
             {p.label}
           </h2>
           <div className="num text-data-xs text-faint mt-2">{p.module}</div>
+          {p.component_of && (
+            <div className="mt-2">
+              <span className="chip bg-tint-stone text-muted">
+                {p.component_of} 통합의 부품 (수동)
+              </span>
+            </div>
+          )}
         </div>
         <button
           onClick={() => setRunPipeline({ pipeline: runDialogPipeline })}

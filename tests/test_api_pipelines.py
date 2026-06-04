@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from api.main import app
+from api.deps import get_conn
 
 
 @pytest.fixture
@@ -32,3 +33,18 @@ def test_summary_includes_all_pipelines(client):
         assert "last_run" in p
         assert "next_scheduled" in p
         assert "modes" in p
+
+
+def test_pipeline_detail_includes_component_of(client, db):
+    def override():
+        yield db
+    app.dependency_overrides[get_conn] = override
+    try:
+        r = client.get("/api/pipelines/ohlcv")
+        assert r.status_code == 200
+        assert r.json().get("component_of") == "data-daily"
+        # 통합 스펙은 component_of 없음(None)
+        r2 = client.get("/api/pipelines/data-daily")
+        assert r2.json().get("component_of") is None
+    finally:
+        app.dependency_overrides.pop(get_conn, None)

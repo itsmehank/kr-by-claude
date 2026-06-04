@@ -255,6 +255,7 @@ export interface PipelineDetail {
   consumed_by: PipelineRef[];
   modes: PipelineMode[];
   recent_runs: PipelineRecentRun[];
+  component_of?: string | null;
 }
 
 export interface Classification {
