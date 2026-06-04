@@ -198,7 +198,8 @@ def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.
         if adj.empty:
             return 0
         rows = [
-            (ticker, r["date"], float(r["close"]), float(r["high"]), float(r["low"]))
+            (ticker, r["date"], float(r["close"]), float(r["high"]), float(r["low"]),
+             float(r["open"]), float(r["volume"]))
             for _, r in adj.iterrows()
         ]
         affected = update_adj_prices(conn, rows)
