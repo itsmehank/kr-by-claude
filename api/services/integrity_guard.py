@@ -1,7 +1,8 @@
 """Data integrity guard — cross-table divergence detection.
 
 Phase 0 Step 3 (검증자 v2 §1-2):
-- 검사: 최신 거래일에 대해 daily_indicators.adj_close == daily_prices.adj_close.
+- 검사: 최신 거래일에 대해 daily_indicators.adj_close == daily_prices.adj_close,
+        daily_prices.adj_volume(보정) == daily_indicators.volume(보정).
 - 불일치 → DataIntegrityError raise.
 - **명시적 한계**: 본 가드는 *divergence* 검출, *finalized* 가 아니다.
   두 테이블이 동일하게 partial 인 경우 (원인 1 모드) 미검출.
@@ -37,7 +38,7 @@ class IntegrityCheckResult(NamedTuple):
     on_date: date
     p_close: float | None
     i_close: float | None
-    p_volume: int | None
+    p_volume: float | None  # daily_prices.adj_volume(보정) — NUMERIC, float
     i_volume: float | None
     ok: bool
     failed_column: str | None  # ok=False 면 'close' 또는 'volume'
@@ -65,7 +66,7 @@ def check_data_integrity(conn: Connection, ticker: str, on_date: date) -> Integr
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT p.date, p.adj_close, p.volume, i.adj_close, i.volume
+            SELECT p.date, p.adj_close, p.adj_volume, i.adj_close, i.volume
               FROM daily_prices p
               LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
              WHERE p.ticker = %s AND p.date <= %s
@@ -88,24 +89,25 @@ def check_data_integrity(conn: Connection, ticker: str, on_date: date) -> Integr
             ticker, actual_date,
             float(p_close) if p_close is not None else None,
             None,
-            int(p_volume) if p_volume is not None else None,
+            float(p_volume) if p_volume is not None else None,  # adj_volume(보정) NUMERIC → float
             None,
             ok=True, failed_column=None,
         )
 
     p_close_f = float(p_close)
     i_close_f = float(i_close)
-    p_volume_i = int(p_volume) if p_volume is not None else None
+    # p_volume = daily_prices.adj_volume(보정), i_volume = daily_indicators.volume(보정)
+    p_volume_f = float(p_volume) if p_volume is not None else None
     i_volume_f = float(i_volume) if i_volume is not None else None
 
     if abs(p_close_f - i_close_f) > PRICE_TOLERANCE:
         raise DataIntegrityError(ticker, actual_date, p_close_f, i_close_f, "adj_close")
 
-    if p_volume_i is not None and i_volume_f is not None:
-        if abs(float(p_volume_i) - i_volume_f) > VOLUME_TOLERANCE:
-            raise DataIntegrityError(ticker, actual_date, float(p_volume_i), i_volume_f, "volume")
+    if p_volume_f is not None and i_volume_f is not None:
+        if abs(p_volume_f - i_volume_f) > VOLUME_TOLERANCE:
+            raise DataIntegrityError(ticker, actual_date, p_volume_f, i_volume_f, "volume")
 
     return IntegrityCheckResult(
-        ticker, actual_date, p_close_f, i_close_f, p_volume_i, i_volume_f,
+        ticker, actual_date, p_close_f, i_close_f, p_volume_f, i_volume_f,
         ok=True, failed_column=None,
     )

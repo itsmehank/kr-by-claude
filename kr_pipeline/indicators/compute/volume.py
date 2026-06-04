@@ -1,7 +1,7 @@
 """거래량 지표 (split-adjusted) 순수 함수.
 
 모든 함수의 입력은 split-adjusted volume (adj_volume) 기준.
-adj_volume = volume * (close / adj_close) 로 사전 계산.
+adj_volume 은 ingest 단계에서 daily_prices / weekly_prices 에 저장됨.
 """
 import numpy as np
 import pandas as pd
@@ -11,16 +11,6 @@ from kr_pipeline.common.thresholds import (
     STOCK_DISTRIBUTION_VOL_MULT,
     VOLUME_DRY_UP_MULT,
 )
-
-
-def split_adjusted_volume(volume: pd.Series, close: pd.Series, adj_close: pd.Series) -> pd.Series:
-    """split-adjusted volume = volume * (close / adj_close).
-
-    분할 전: close > adj_close → factor > 1 → adj_volume 증가 (post-split scale)
-    분할 후: close == adj_close → factor = 1 → adj_volume = volume
-    """
-    split_factor = close / adj_close
-    return volume * split_factor
 
 
 def avg_volume(adj_volume: pd.Series, window: int) -> pd.Series:

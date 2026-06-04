@@ -9,13 +9,15 @@ from kr_pipeline.weekly.transform import (
 )
 
 
-def _daily(date_, o, h, l, c, adj, v, val, adj_high=None, adj_low=None):
+def _daily(date_, o, h, l, c, adj, v, val, adj_high=None, adj_low=None, adj_open=None, adj_volume=None):
     row = {
         "date": date_,
         "open": o, "high": h, "low": l, "close": c,
         "adj_close": adj, "volume": v, "value": val,
-        "adj_high": adj_high if adj_high is not None else float(h),
-        "adj_low":  adj_low  if adj_low  is not None else float(l),
+        "adj_high":   adj_high   if adj_high   is not None else float(h),
+        "adj_low":    adj_low    if adj_low    is not None else float(l),
+        "adj_open":   adj_open   if adj_open   is not None else float(o),
+        "adj_volume": adj_volume if adj_volume is not None else float(v),
     }
     return row
 
@@ -148,13 +150,14 @@ def test_to_weekly_rows_tuple_format():
         "week_end_date": date(2026, 5, 15),
         "open": 100, "high": 130, "low": 95, "close": 125,
         "adj_close": 125.0, "adj_high": 130.0, "adj_low": 95.0,
+        "adj_open": 100.0, "adj_volume": 6000.0,
         "volume": 6000, "value": 679000, "trading_days": 5,
     }])
     rows = to_weekly_rows("005930", weekly)
     assert rows == [(
         "005930", date(2026, 5, 15),
         100, 130, 95, 125,
-        125.0, 130.0, 95.0, 6000, 679000, 5,
+        125.0, 130.0, 95.0, 100.0, 6000.0, 6000, 679000, 5,
     )]
 
 
@@ -177,9 +180,11 @@ def test_aggregate_preserves_null_volume_for_indexes():
     index_daily 처럼 volume/value 가 nullable 인 경우 0 으로 변환되지 않아야 함."""
     daily = pd.DataFrame([
         {"date": date(2026, 5, 11), "open": 100, "high": 100, "low": 100, "close": 100,
-         "adj_close": 100.0, "adj_high": 100.0, "adj_low": 100.0, "volume": None, "value": None},
+         "adj_close": 100.0, "adj_high": 100.0, "adj_low": 100.0, "adj_open": 100.0, "adj_volume": None,
+         "volume": None, "value": None},
         {"date": date(2026, 5, 15), "open": 100, "high": 100, "low": 100, "close": 100,
-         "adj_close": 100.0, "adj_high": 100.0, "adj_low": 100.0, "volume": None, "value": None},
+         "adj_close": 100.0, "adj_high": 100.0, "adj_low": 100.0, "adj_open": 100.0, "adj_volume": None,
+         "volume": None, "value": None},
     ])
     weekly = aggregate_to_weekly(daily)
     row = weekly.iloc[0]
@@ -192,9 +197,11 @@ def test_aggregate_partial_null_volume_sums_non_null():
     """volume 일부가 None, 일부는 값. sum 은 값만 합산 (NaN 안 됨)."""
     daily = pd.DataFrame([
         {"date": date(2026, 5, 11), "open": 100, "high": 100, "low": 100, "close": 100,
-         "adj_close": 100.0, "adj_high": 100.0, "adj_low": 100.0, "volume": 1000, "value": 100000},
+         "adj_close": 100.0, "adj_high": 100.0, "adj_low": 100.0, "adj_open": 100.0, "adj_volume": 1000.0,
+         "volume": 1000, "value": 100000},
         {"date": date(2026, 5, 15), "open": 100, "high": 100, "low": 100, "close": 100,
-         "adj_close": 100.0, "adj_high": 100.0, "adj_low": 100.0, "volume": None, "value": None},
+         "adj_close": 100.0, "adj_high": 100.0, "adj_low": 100.0, "adj_open": 100.0, "adj_volume": None,
+         "volume": None, "value": None},
     ])
     weekly = aggregate_to_weekly(daily)
     row = weekly.iloc[0]
@@ -240,9 +247,11 @@ def test_to_weekly_index_rows_with_real_volume():
 def test_aggregate_adj_high_is_week_max_adj_low_is_week_min():
     daily = pd.DataFrame([
         {"date": date(2026,5,11), "open":100,"high":110,"low":95,"close":105,
-         "adj_close":52.0,"adj_high":55.0,"adj_low":47.5,"volume":10,"value":1000},
+         "adj_close":52.0,"adj_high":55.0,"adj_low":47.5,"adj_open":50.0,"adj_volume":10.0,
+         "volume":10,"value":1000},
         {"date": date(2026,5,12), "open":105,"high":120,"low":100,"close":118,
-         "adj_close":59.0,"adj_high":60.0,"adj_low":50.0,"volume":20,"value":2000},
+         "adj_close":59.0,"adj_high":60.0,"adj_low":50.0,"adj_open":52.5,"adj_volume":20.0,
+         "volume":20,"value":2000},
     ])
     wk = aggregate_to_weekly(daily)
     assert wk.iloc[0]["adj_high"] == 60.0   # max(55, 60)
@@ -253,9 +262,51 @@ def test_aggregate_adj_high_is_week_max_adj_low_is_week_min():
 def test_to_weekly_rows_includes_adj_high_low():
     wk = pd.DataFrame([{
         "week_end_date": date(2026,5,15), "open":100,"high":120,"low":95,"close":118,
-        "adj_close":59.0,"adj_high":60.0,"adj_low":47.5,"volume":30,"value":3000,"trading_days":2,
+        "adj_close":59.0,"adj_high":60.0,"adj_low":47.5,"adj_open":100.0,"adj_volume":30.0,
+        "volume":30,"value":3000,"trading_days":2,
     }])
     rows = to_weekly_rows("005930", wk)
     assert rows == [(
-        "005930", date(2026,5,15), 100, 120, 95, 118, 59.0, 60.0, 47.5, 30, 3000, 2
+        "005930", date(2026,5,15), 100, 120, 95, 118, 59.0, 60.0, 47.5, 100.0, 30.0, 30, 3000, 2
     )]
+
+
+def test_weekly_aggregates_adj_open_first_and_adj_volume_sum():
+    import pandas as pd
+    from kr_pipeline.weekly.transform import aggregate_to_weekly
+    daily = pd.DataFrame({
+        "date": ["2025-01-06", "2025-01-07", "2025-01-08"],  # same ISO week (Mon-Wed)
+        "open": [100,101,102], "high": [110,111,112], "low": [90,91,92], "close": [105,106,107],
+        "adj_close": [105.0,106.0,107.0], "adj_high": [110.0,111.0,112.0], "adj_low": [90.0,91.0,92.0],
+        "adj_open": [100.0,101.0,102.0], "adj_volume": [1000.0,2000.0,3000.0],
+        "volume": [1000,2000,3000], "value": [1,2,3],
+    })
+    w = aggregate_to_weekly(daily)
+    assert float(w.loc[0, "adj_open"]) == 100.0      # week first day
+    assert float(w.loc[0, "adj_volume"]) == 6000.0   # sum
+
+
+def test_load_index_daily_synthesizes_adj_open_volume_then_aggregates(db):
+    """지수 경로 회귀: load_index_daily 가 adj_open/adj_volume 합성 → aggregate_to_weekly KeyError 없이 동작."""
+    from datetime import date
+    from kr_pipeline.weekly.load import load_index_daily
+    from kr_pipeline.weekly.transform import aggregate_to_weekly
+    code = "ZZ99"
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM index_daily WHERE index_code=%s", (code,))
+        cur.execute(
+            "INSERT INTO index_daily (index_code,date,open,high,low,close,volume,value) "
+            "VALUES (%s,%s,100,110,90,105,1000,1),(%s,%s,106,112,95,108,2000,2)",
+            (code, date(2025, 1, 6), code, date(2025, 1, 7)),
+        )
+    db.commit()
+    try:
+        df = load_index_daily(db, code, date(2025, 1, 1), date(2025, 1, 31))
+        assert "adj_open" in df.columns and "adj_volume" in df.columns
+        w = aggregate_to_weekly(df)  # must not KeyError
+        assert len(w) == 1
+        assert float(w.loc[0, "adj_volume"]) == 3000.0
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM index_daily WHERE index_code=%s", (code,))
+        db.commit()

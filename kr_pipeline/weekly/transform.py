@@ -5,7 +5,7 @@ import pandas as pd
 
 WEEKLY_COLUMNS = [
     "week_end_date", "open", "high", "low", "close",
-    "adj_close", "adj_high", "adj_low", "volume", "value", "trading_days",
+    "adj_close", "adj_high", "adj_low", "adj_open", "adj_volume", "volume", "value", "trading_days",
 ]
 
 
@@ -26,7 +26,7 @@ def aggregate_to_weekly(daily: pd.DataFrame) -> pd.DataFrame:
 
     # None → NaN for volume/value so sum(min_count=1) preserves "all-NULL → NaN"
     # (relevant for indexes where these are nullable in DB)
-    for col in ("volume", "value"):
+    for col in ("volume", "value", "adj_volume"):
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -46,6 +46,8 @@ def aggregate_to_weekly(daily: pd.DataFrame) -> pd.DataFrame:
         "adj_close":     grouped["adj_close"].last(),
         "adj_high":      grouped["adj_high"].max(),
         "adj_low":       grouped["adj_low"].min(),
+        "adj_open":      grouped["adj_open"].first(),
+        "adj_volume":    grouped["adj_volume"].sum(min_count=1),
         "volume":        grouped["volume"].sum(min_count=1),   # all-NaN → NaN
         "value":         grouped["value"].sum(min_count=1),
         "trading_days":  grouped["date"].count(),
@@ -84,6 +86,8 @@ def to_weekly_rows(ticker: str, weekly: pd.DataFrame) -> list[tuple]:
             float(r["adj_close"]),
             float(r["adj_high"]),
             float(r["adj_low"]),
+            float(r["adj_open"]),
+            float(r["adj_volume"]),
             int(r["volume"]),
             int(r["value"]),
             int(r["trading_days"]),

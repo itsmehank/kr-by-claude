@@ -188,17 +188,18 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
 
 
 def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.FULL_REFRESH) -> RunStats:
-    """수정 OHLC(adj_close/adj_high/adj_low) 갱신. 종목별 실패는 끝에서 1회 재시도."""
+    """수정 OHLCV(adj_close/adj_high/adj_low/adj_open/adj_volume) 갱신. 종목별 실패는 끝에서 1회 재시도."""
     import time
     from kr_pipeline.ohlcv.fetch import fetch_adj_only
 
     def _process_ticker(ticker: str) -> int:
-        """한 종목의 수정종가를 가져와 업데이트. 영향받은 행 수 반환."""
+        """한 종목의 수정 OHLCV(종가/고가/저가/시가/거래량)를 가져와 업데이트. 영향받은 행 수 반환."""
         adj = fetch_adj_only(ticker, start, end)
         if adj.empty:
             return 0
         rows = [
-            (ticker, r["date"], float(r["close"]), float(r["high"]), float(r["low"]))
+            (ticker, r["date"], float(r["close"]), float(r["high"]), float(r["low"]),
+             float(r["open"]), float(r["volume"]))
             for _, r in adj.iterrows()
         ]
         affected = update_adj_prices(conn, rows)

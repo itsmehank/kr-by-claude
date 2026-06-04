@@ -54,3 +54,15 @@ def test_pct_from_high_low_handles_nan():
     pct_h, pct_l = pct_from_high_low(close, high, low)
     assert pd.isna(pct_h.iloc[0])
     assert pd.isna(pct_l.iloc[1])
+
+
+def test_pct_from_high_low_zero_denominator_is_nan():
+    """w52_high/w52_low 가 0(정지·무거래 종목)이면 0-나눗셈 inf 대신 NaN."""
+    import numpy as np
+    close = pd.Series([100.0, 0.0])
+    w52_high = pd.Series([0.0, 0.0])
+    w52_low = pd.Series([0.0, 0.0])
+    pct_h, pct_l = pct_from_high_low(close, w52_high, w52_low)
+    assert pct_h.isna().all() and pct_l.isna().all()
+    assert not np.isinf(pct_h.to_numpy(dtype=float)).any()
+    assert not np.isinf(pct_l.to_numpy(dtype=float)).any()
