@@ -445,6 +445,40 @@ def run_daily(
     return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)
 
 
+def _ticker_market(conn: Connection, ticker: str) -> str | None:
+    """단일 종목 시장 코드(RS 벤치마크 결정용). 없으면 None."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT market FROM stocks WHERE ticker = %s", (ticker,))
+        row = cur.fetchone()
+        return row[0] if row else None
+
+
+def recompute_ticker_daily(conn: Connection, ticker: str, *, window: int = 30) -> int:
+    """드리프트 재적재용: 단일 종목 일봉 시계열 지표(Phase A) 를 전 기간 재계산.
+
+    횡단면 Phase B(RS Rating)/C(pass) 는 돌리지 않는다(전 종목 분포 필요 →
+    체인의 전 종목 증분/주간 실행이 최신값 확정).
+    """
+    market = _ticker_market(conn, ticker)
+    if market is None:
+        return 0
+    load_start, load_end, upsert_start = compute_date_range(
+        Target.DAILY, Mode.FULL_REFRESH, window=window, conn=conn,
+    )
+    return _process_ticker_daily(conn, ticker, market, load_start, load_end, upsert_start)
+
+
+def recompute_ticker_weekly(conn: Connection, ticker: str, *, window: int = 4) -> int:
+    """드리프트 재적재용: 단일 종목 주봉 시계열 지표(Phase A) 를 전 기간 재계산."""
+    market = _ticker_market(conn, ticker)
+    if market is None:
+        return 0
+    load_start, load_end, upsert_start = compute_date_range(
+        Target.WEEKLY, Mode.FULL_REFRESH, window=window, conn=conn,
+    )
+    return _process_ticker_weekly(conn, ticker, market, load_start, load_end, upsert_start)
+
+
 def run(
     conn: Connection,
     *,
