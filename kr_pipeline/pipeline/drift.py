@@ -10,6 +10,10 @@ from datetime import date, timedelta
 from psycopg import Connection
 
 from kr_pipeline.ohlcv.fetch import fetch_adj_only
+from kr_pipeline.ohlcv.store import update_adj_prices
+from kr_pipeline.weekly.load import get_daily_min_date
+from kr_pipeline.weekly import modes as weekly
+from kr_pipeline.indicators import modes as indicators
 
 log = logging.getLogger("kr_pipeline.pipeline.drift")
 
@@ -91,3 +95,34 @@ def detect_drifted_tickers(
             log.warning("drift detect skip %s: %s", t, e)
     log.info("drift detected: %d tickers %s", len(drifted), drifted[:20])
     return drifted
+
+
+def reload_ticker(conn: Connection, ticker: str, *, as_of: date) -> dict:
+    """드리프트 종목 전 기간 재적재.
+
+    1) daily adj 재수신(fetch_adj_only) → update_adj_prices(매칭 행 adj_* 만 갱신, raw 불변)
+    2) daily 시계열 지표 Phase A 전 기간 재계산
+    3) 주봉 가격 재집계(weekly.run FULL_REFRESH, 그 종목만)
+    4) 주봉 시계열 지표 Phase A 전 기간 재계산
+    횡단면 RS 순위는 체인의 전 종목 증분/주간 실행이 최신값 확정.
+    """
+    start = get_daily_min_date(conn) or (as_of - timedelta(days=365 * 5))
+    df = fetch_adj_only(ticker, start, as_of)
+    rows = [
+        (ticker, row.date, float(row.close), float(row.high),
+         float(row.low), float(row.open), float(row.volume))
+        for row in df.itertuples(index=False)
+    ]
+    updated = update_adj_prices(conn, rows) if rows else 0
+
+    r_ind_d = indicators.recompute_ticker_daily(conn, ticker)
+    r_wk = weekly.run(conn, weekly.Mode.FULL_REFRESH, only_tickers=[ticker])
+    r_ind_w = indicators.recompute_ticker_weekly(conn, ticker)
+
+    return {
+        "ticker": ticker,
+        "adj_rows": updated,
+        "indicators_daily": r_ind_d,
+        "weekly": r_wk.rows_affected,
+        "indicators_weekly": r_ind_w,
+    }
