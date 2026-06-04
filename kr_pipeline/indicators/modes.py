@@ -23,7 +23,7 @@ from kr_pipeline.common.thresholds import (
 from kr_pipeline.indicators.compute.rs_rating import compute_ibd_strength_factor, assign_rs_rating_percentiles
 from kr_pipeline.indicators.compute.minervini import compute_minervini_c1_to_c7
 from kr_pipeline.indicators.compute.volume import (
-    split_adjusted_volume, avg_volume, volume_ratio,
+    avg_volume, volume_ratio,
     pocket_pivot, volume_dry_up, up_down_volume_ratio, distribution_day,
 )
 from kr_pipeline.indicators.load import (
@@ -147,10 +147,8 @@ def _process_ticker_daily(
 
     adj_close = df["adj_close"]
 
-    # V2: split-adjusted volume + 거래량 기초 지표 계산
-    close = df["close"]
-    volume_raw = df["volume"]
-    adj_volume = split_adjusted_volume(volume_raw, close, adj_close)
+    # V3: daily_prices.adj_volume 직접 읽기 (split-adjusted volume 재계산 제거)
+    adj_volume = df["adj_volume"]
     avg_vol_50 = avg_volume(adj_volume, window=50)
     vol_ratio_50 = volume_ratio(adj_volume, avg_vol_50)
 
@@ -485,10 +483,8 @@ def _process_ticker_weekly(
     df = df.set_index("date").sort_index()
     adj_close = df["adj_close"]
 
-    # V2: split-adjusted volume + 거래량 기초 지표 계산 (주봉 window=10)
-    close = df["close"]
-    volume_raw = df["volume"]
-    adj_volume = split_adjusted_volume(volume_raw, close, adj_close)
+    # V3: weekly_prices.adj_volume 직접 읽기 (split-adjusted volume 재계산 제거, 주봉 window=10)
+    adj_volume = df["adj_volume"]
     avg_vol_10w = avg_volume(adj_volume, window=10)
     vol_ratio_10w = volume_ratio(adj_volume, avg_vol_10w)
 

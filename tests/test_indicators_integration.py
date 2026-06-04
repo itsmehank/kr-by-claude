@@ -36,15 +36,22 @@ def _seed_300_days_data(conn):
             d = base + timedelta(days=i)
             if d.weekday() >= 5:  # 주말 skip
                 continue
+            adj_close1 = 100.0 + i * 0.1
+            # adj_volume = volume * close / adj_close (split-adjusted)
+            adj_vol1 = round(1000.0 * 100.0 / adj_close1, 6)
             cur.execute(
-                """INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
-                   VALUES ('INDTEST1', %s, 100, 110, 90, 100, %s, 1000, 100000)""",
-                (d, 100.0 + i * 0.1),   # 우상향
+                """INSERT INTO daily_prices
+                   (ticker, date, open, high, low, close, adj_open, adj_high, adj_low, adj_close, volume, adj_volume, value)
+                   VALUES ('INDTEST1', %s, 100, 110, 90, 100, 100, 110, 90, %s, 1000, %s, 100000)""",
+                (d, adj_close1, adj_vol1),   # 우상향
             )
+            adj_close2 = 200.0 - i * 0.05
+            adj_vol2 = round(2000.0 * 200.0 / adj_close2, 6)
             cur.execute(
-                """INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
-                   VALUES ('INDTEST2', %s, 200, 220, 180, 200, %s, 2000, 400000)""",
-                (d, 200.0 - i * 0.05),  # 약한 우하향
+                """INSERT INTO daily_prices
+                   (ticker, date, open, high, low, close, adj_open, adj_high, adj_low, adj_close, volume, adj_volume, value)
+                   VALUES ('INDTEST2', %s, 200, 220, 180, 200, 200, 220, 180, %s, 2000, %s, 400000)""",
+                (d, adj_close2, adj_vol2),  # 약한 우하향
             )
             cur.execute(
                 """INSERT INTO index_daily (index_code, date, open, high, low, close, volume, value)

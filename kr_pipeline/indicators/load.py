@@ -12,14 +12,14 @@ def load_daily_prices(
     start: date,
     end: date,
 ) -> pd.DataFrame:
-    """한 종목의 일봉 (date, adj_close, adj_high, adj_low, close, volume).
+    """한 종목의 일봉 (date, adj_close, adj_high, adj_low, adj_volume).
 
-    V2: split-adjusted volume 계산 위해 close, volume 도 가져옴.
+    V3: daily_prices.adj_volume 을 직접 읽음 (split-adjusted volume 재계산 불필요).
     """
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT date, adj_close, adj_high, adj_low, close, volume
+            SELECT date, adj_close, adj_high, adj_low, adj_volume
               FROM daily_prices
              WHERE ticker = %s AND date BETWEEN %s AND %s
              ORDER BY date
@@ -33,8 +33,7 @@ def load_daily_prices(
         df["adj_close"] = df["adj_close"].astype(float)
         df["adj_high"] = df["adj_high"].astype(float)
         df["adj_low"] = df["adj_low"].astype(float)
-        df["close"] = df["close"].astype(float)
-        df["volume"] = df["volume"].astype(float)
+        df["adj_volume"] = df["adj_volume"].astype(float)
     return df
 
 
@@ -64,11 +63,14 @@ def load_index_daily(
 
 
 def load_weekly_prices(conn: Connection, ticker: str, start: date, end: date) -> pd.DataFrame:
-    """한 종목의 주봉 (date, adj_close, adj_high, adj_low, close, volume). V2: close, volume 추가."""
+    """한 종목의 주봉 (date, adj_close, adj_high, adj_low, adj_volume).
+
+    V3: weekly_prices.adj_volume 을 직접 읽음 (split-adjusted volume 재계산 불필요).
+    """
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT week_end_date AS date, adj_close, adj_high, adj_low, close, volume
+            SELECT week_end_date AS date, adj_close, adj_high, adj_low, adj_volume
               FROM weekly_prices
              WHERE ticker = %s AND week_end_date BETWEEN %s AND %s
              ORDER BY week_end_date
@@ -82,8 +84,7 @@ def load_weekly_prices(conn: Connection, ticker: str, start: date, end: date) ->
         df["adj_close"] = df["adj_close"].astype(float)
         df["adj_high"] = df["adj_high"].astype(float)
         df["adj_low"] = df["adj_low"].astype(float)
-        df["close"] = df["close"].astype(float)
-        df["volume"] = df["volume"].astype(float)
+        df["adj_volume"] = df["adj_volume"].astype(float)
     return df
 
 

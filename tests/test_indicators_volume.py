@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import pytest
 from kr_pipeline.indicators.compute.volume import (
-    split_adjusted_volume,
     avg_volume,
     volume_ratio,
     pocket_pivot,
@@ -11,29 +10,6 @@ from kr_pipeline.indicators.compute.volume import (
     up_down_volume_ratio,
     distribution_day,
 )
-
-
-# split-adjusted volume
-def test_split_adjusted_volume_basic():
-    """split_factor = close / adj_close"""
-    close = pd.Series([100.0, 100.0, 50.0])    # 2:1 분할 후 50
-    adj_close = pd.Series([50.0, 50.0, 50.0])  # back-adjusted (all 50)
-    volume = pd.Series([1000.0, 1000.0, 2000.0])
-    result = split_adjusted_volume(volume, close, adj_close)
-    # 분할 전: split_factor=2 → adj_vol = 1000*2 = 2000
-    # 분할 후: split_factor=1 → adj_vol = 2000*1 = 2000
-    assert result.iloc[0] == 2000.0
-    assert result.iloc[1] == 2000.0
-    assert result.iloc[2] == 2000.0   # 연속
-
-
-def test_split_adjusted_volume_no_split():
-    """close == adj_close → split_factor=1, adj_vol = volume"""
-    close = pd.Series([100.0, 110.0, 120.0])
-    adj_close = pd.Series([100.0, 110.0, 120.0])
-    volume = pd.Series([1000.0, 1100.0, 1200.0])
-    result = split_adjusted_volume(volume, close, adj_close)
-    assert list(result) == [1000.0, 1100.0, 1200.0]
 
 
 # avg_volume / volume_ratio
