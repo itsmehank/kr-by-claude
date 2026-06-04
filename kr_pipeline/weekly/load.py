@@ -13,12 +13,12 @@ def load_daily_for_ticker(
 ) -> pd.DataFrame:
     """한 종목의 일봉을 기간 범위로 가져옴.
 
-    return columns: date, open, high, low, close, adj_close, adj_high, adj_low, volume, value
+    return columns: date, open, high, low, close, adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value
     """
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT date, open, high, low, close, adj_close, adj_high, adj_low, volume, value
+            SELECT date, open, high, low, close, adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value
               FROM daily_prices
              WHERE ticker = %s AND date BETWEEN %s AND %s
              ORDER BY date

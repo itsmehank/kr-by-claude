@@ -4,7 +4,7 @@ from psycopg import Connection
 
 def upsert_weekly_prices(conn: Connection, rows: list[tuple]) -> int:
     """
-    rows: (ticker, week_end_date, open, high, low, close, adj_close, adj_high, adj_low, volume, value, trading_days)
+    rows: (ticker, week_end_date, open, high, low, close, adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value, trading_days)
     """
     if not rows:
         return 0
@@ -12,8 +12,8 @@ def upsert_weekly_prices(conn: Connection, rows: list[tuple]) -> int:
         cur.executemany(
             """
             INSERT INTO weekly_prices
-              (ticker, week_end_date, open, high, low, close, adj_close, adj_high, adj_low, volume, value, trading_days, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+              (ticker, week_end_date, open, high, low, close, adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value, trading_days, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (ticker, week_end_date) DO UPDATE
                SET open = EXCLUDED.open,
                    high = EXCLUDED.high,
@@ -22,6 +22,8 @@ def upsert_weekly_prices(conn: Connection, rows: list[tuple]) -> int:
                    adj_close = EXCLUDED.adj_close,
                    adj_high = EXCLUDED.adj_high,
                    adj_low = EXCLUDED.adj_low,
+                   adj_open = EXCLUDED.adj_open,
+                   adj_volume = EXCLUDED.adj_volume,
                    volume = EXCLUDED.volume,
                    value = EXCLUDED.value,
                    trading_days = EXCLUDED.trading_days,
