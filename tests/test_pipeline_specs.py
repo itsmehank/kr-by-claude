@@ -17,6 +17,7 @@ def test_pipeline_specs_has_all_modules():
         "indicators-daily", "indicators-weekly", "market-context",
         "llm-full-daily", "llm-weekend", "llm-performance",
         "llm-backfill",
+        "data-daily", "data-weekly",
     }
     assert required.issubset(ids), f"missing: {required - ids}"
 
@@ -132,6 +133,8 @@ def test_pipeline_db_name_matches_existing_runs():
     assert get_spec("llm-weekend")["pipeline_db_name"] == "llm_weekend"
     assert get_spec("llm-performance")["pipeline_db_name"] == "llm_performance"
     assert get_spec("llm-backfill")["pipeline_db_name"] == "llm_backfill"
+    assert get_spec("data-daily")["pipeline_db_name"] == "data_daily"
+    assert get_spec("data-weekly")["pipeline_db_name"] == "data_weekly"
 
 
 def test_each_spec_has_long_description():
@@ -233,6 +236,17 @@ def test_known_dependency_mapping():
     assert set(get_spec("llm-full-daily")["depends_on"]) == {"indicators-daily", "market-context", "ohlcv"}
     assert set(get_spec("llm-weekend")["depends_on"]) == {"indicators-daily", "indicators-weekly", "market-context"}
     assert set(get_spec("llm-performance")["depends_on"]) == {"ohlcv", "llm-full-daily"}
+
+
+def test_data_chains_scheduled_and_components_unscheduled():
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+    assert get_spec("data-daily")["default_cron"]
+    assert get_spec("data-weekly")["default_cron"]
+    for pid, comp in [("ohlcv","data-daily"),("indicators-daily","data-daily"),
+                      ("weekly","data-weekly"),("indicators-weekly","data-weekly")]:
+        s = get_spec(pid)
+        assert s["default_cron"] == "", f"{pid} 는 비예약이어야"
+        assert s.get("component_of") == comp, f"{pid}.component_of"
 
 
 def test_manual_pipeline_excluded_from_cron():
