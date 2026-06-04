@@ -93,6 +93,7 @@ def get_pipeline_detail(pipeline_id: str, conn: Connection = Depends(get_conn)):
         "consumed_by": consumed_by,
         "modes": spec["modes"],
         "recent_runs": recent_runs,
+        "component_of": spec.get("component_of"),
     }
 
 
