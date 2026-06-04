@@ -28,10 +28,14 @@ def test_run_daily_chain_calls_ohlcv_then_indicators_in_order(mocker):
     calls = []
     mocker.patch.object(ch.ohlcv, "run", side_effect=lambda *a, **k: calls.append("ohlcv") or _Stats())
     mocker.patch.object(ch.indicators, "run_daily", side_effect=lambda *a, **k: calls.append("ind_daily") or _Stats())
-    ch.run_daily_chain(conn=None)
+    ch.run_daily_chain(conn=None, drift_check=False)
     assert calls == ["ohlcv", "ind_daily"]
     assert fake.kwargs["pipeline"] == "data_daily"
-    assert state["details"] == {"ohlcv": {"rows": 0, "failures": 0}, "indicators_daily": {"rows": 0, "failures": 0}}
+    assert state["details"] == {
+        "drift": {"detected": 0, "reloaded": 0, "failures": 0, "tickers": []},
+        "ohlcv": {"rows": 0, "failures": 0},
+        "indicators_daily": {"rows": 0, "failures": 0},
+    }
 
 
 def test_run_weekly_chain_calls_weekly_then_indicators_in_order(mocker):
@@ -45,3 +49,58 @@ def test_run_weekly_chain_calls_weekly_then_indicators_in_order(mocker):
     assert calls == ["weekly", "ind_weekly"]
     assert fake.kwargs["pipeline"] == "data_weekly"
     assert state["details"] == {"weekly": {"rows": 0, "failures": 0}, "indicators_weekly": {"rows": 0, "failures": 0}}
+
+
+def test_run_daily_chain_detects_before_ohlcv_then_reloads(mocker):
+    """순서: detect(증분 전) → ohlcv 증분 → reload(감지분) → indicators 증분."""
+    import kr_pipeline.pipeline.chains as ch
+
+    state, fake = _fake_run_tracking(mocker, ch)
+    calls = []
+    mocker.patch.object(ch.drift, "detect_drifted_tickers",
+                        side_effect=lambda *a, **k: calls.append("detect") or ["AAA"])
+    mocker.patch.object(ch.drift, "reload_ticker",
+                        side_effect=lambda *a, **k: calls.append("reload") or {"ticker": "AAA"})
+    mocker.patch.object(ch.ohlcv, "run", side_effect=lambda *a, **k: calls.append("ohlcv") or _Stats())
+    mocker.patch.object(ch.indicators, "run_daily", side_effect=lambda *a, **k: calls.append("ind_daily") or _Stats())
+
+    ch.run_daily_chain(conn=None)
+    assert calls == ["detect", "ohlcv", "reload", "ind_daily"]
+    assert state["details"]["drift"]["detected"] == 1
+    assert state["details"]["drift"]["reloaded"] == 1
+
+
+def test_run_daily_chain_drift_false_skips_detect(mocker):
+    import kr_pipeline.pipeline.chains as ch
+
+    state, fake = _fake_run_tracking(mocker, ch)
+    calls = []
+    mocker.patch.object(ch.drift, "detect_drifted_tickers",
+                        side_effect=lambda *a, **k: calls.append("detect") or [])
+    mocker.patch.object(ch.ohlcv, "run", side_effect=lambda *a, **k: calls.append("ohlcv") or _Stats())
+    mocker.patch.object(ch.indicators, "run_daily", side_effect=lambda *a, **k: calls.append("ind_daily") or _Stats())
+
+    ch.run_daily_chain(conn=None, drift_check=False)
+    assert calls == ["ohlcv", "ind_daily"]
+
+
+def test_run_daily_chain_reload_failure_isolated(mocker):
+    """한 종목 reload 실패는 로그+rollback+계속, indicators 증분은 그대로 실행."""
+    import kr_pipeline.pipeline.chains as ch
+
+    state, fake = _fake_run_tracking(mocker, ch)
+    calls = []
+    mocker.patch.object(ch.drift, "detect_drifted_tickers", side_effect=lambda *a, **k: ["AAA", "BBB"])
+    def boom(conn, t, **k):
+        if t == "AAA":
+            raise RuntimeError("reload fail")
+        return {"ticker": t}
+    mocker.patch.object(ch.drift, "reload_ticker", side_effect=boom)
+    mocker.patch.object(ch.ohlcv, "run", side_effect=lambda *a, **k: _Stats())
+    mocker.patch.object(ch.indicators, "run_daily", side_effect=lambda *a, **k: calls.append("ind_daily") or _Stats())
+    rb = mocker.patch.object(ch, "_rollback", side_effect=lambda conn: None)
+
+    ch.run_daily_chain(conn=None)
+    assert calls == ["ind_daily"]
+    assert state["details"]["drift"] == {"detected": 2, "reloaded": 1, "failures": 1, "tickers": ["AAA", "BBB"]}
+    rb.assert_called_once()

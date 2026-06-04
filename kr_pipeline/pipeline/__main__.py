@@ -15,12 +15,14 @@ def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--chain", required=True, choices=["daily", "weekly"])
     p.add_argument("--limit-tickers", type=int, default=None)
+    p.add_argument("--no-drift", action="store_true", help="daily 체인 드리프트 감지 건너뛰기")
     args = p.parse_args()
     cfg = Config.load()
     setup_logging(cfg.log_level)
     with connect(cfg.database_url) as conn:
         if args.chain == "daily":
-            result = chains.run_daily_chain(conn, limit_tickers=args.limit_tickers)
+            result = chains.run_daily_chain(conn, drift_check=not args.no_drift,
+                                            limit_tickers=args.limit_tickers)
         else:
             result = chains.run_weekly_chain(conn, limit_tickers=args.limit_tickers)
     log.info("DONE chain=%s: %s", args.chain, result)
