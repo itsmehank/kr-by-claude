@@ -105,6 +105,10 @@ def reload_ticker(conn: Connection, ticker: str, *, as_of: date) -> dict:
     3) 주봉 가격 재집계(weekly.run FULL_REFRESH, 그 종목만)
     4) 주봉 시계열 지표 Phase A 전 기간 재계산
     횡단면 RS 순위는 체인의 전 종목 증분/주간 실행이 최신값 확정.
+
+    단계별 commit 이므로 3)~4) 에서 실패하면 daily 는 갱신·weekly 는 stale 인
+    부분 상태가 남을 수 있다(다음 전체/주간 실행이 복구). 호출부(run_daily_chain)는
+    종목 단위로 예외를 격리한다.
     """
     start = get_daily_min_date(conn) or (as_of - timedelta(days=365 * 5))
     df = fetch_adj_only(ticker, start, as_of)
