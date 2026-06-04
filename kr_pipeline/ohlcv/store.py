@@ -8,8 +8,8 @@ def upsert_daily_prices(conn: Connection, rows: list[tuple]) -> int:
         cur.executemany(
             """
             INSERT INTO daily_prices
-              (ticker, date, open, high, low, close, adj_close, adj_high, adj_low, volume, value, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+              (ticker, date, open, high, low, close, adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (ticker, date) DO UPDATE
                SET open = EXCLUDED.open,
                    high = EXCLUDED.high,
@@ -18,6 +18,8 @@ def upsert_daily_prices(conn: Connection, rows: list[tuple]) -> int:
                    adj_close = EXCLUDED.adj_close,
                    adj_high = EXCLUDED.adj_high,
                    adj_low = EXCLUDED.adj_low,
+                   adj_open = EXCLUDED.adj_open,
+                   adj_volume = EXCLUDED.adj_volume,
                    volume = EXCLUDED.volume,
                    value = EXCLUDED.value,
                    updated_at = NOW()
