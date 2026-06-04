@@ -9,6 +9,8 @@ from datetime import date, timedelta
 
 from psycopg import Connection
 
+from kr_pipeline.ohlcv.fetch import fetch_adj_only
+
 log = logging.getLogger("kr_pipeline.pipeline.drift")
 
 
@@ -30,3 +32,62 @@ def is_drift(
         if abs(db_adj[d] - k) / abs(k) > rel_tol:
             return True
     return False
+
+
+def _active_tickers(conn: Connection, limit: int | None = None) -> list[str]:
+    sql = "SELECT ticker FROM stocks WHERE delisted_at IS NULL ORDER BY ticker"
+    if limit:
+        sql += f" LIMIT {int(limit)}"
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        return [r[0] for r in cur.fetchall()]
+
+
+def _db_adj_close(conn: Connection, ticker: str, start: date, end: date) -> dict[date, float]:
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT date, adj_close FROM daily_prices "
+            "WHERE ticker = %s AND date BETWEEN %s AND %s AND adj_close IS NOT NULL",
+            (ticker, start, end),
+        )
+        return {r[0]: float(r[1]) for r in cur.fetchall()}
+
+
+def _krx_adj_close(ticker: str, start: date, end: date) -> dict[date, float]:
+    df = fetch_adj_only(ticker, start, end)
+    if df.empty:
+        return {}
+    # fetch_adj_only 의 'close' 가 수정종가, 'date' 는 datetime.date 컬럼
+    return {row.date: float(row.close) for row in df.itertuples(index=False)}
+
+
+def detect_drifted_tickers(
+    conn: Connection,
+    *,
+    as_of: date,
+    rel_tol: float = 0.01,
+    recent_days: int = 30,
+    wide_days: int = 365,
+    limit_tickers: int | None = None,
+) -> list[str]:
+    """활성 종목별 DB(현재, 덮어쓰기 전) vs KRX 재조회 adj_close 비교 → 드리프트 종목.
+
+    반드시 ohlcv 증분 적재 전에 호출(증분이 adj_close 를 덮으면 비교가 일치해버림).
+    종목별 fetch 예외는 로그+skip.
+    """
+    drifted: list[str] = []
+    for t in _active_tickers(conn, limit=limit_tickers):
+        try:
+            recent_start = as_of - timedelta(days=recent_days)
+            db = _db_adj_close(conn, t, recent_start, as_of)
+            krx = _krx_adj_close(t, recent_start, as_of)
+            if not (db.keys() & krx.keys()):
+                wide_start = as_of - timedelta(days=wide_days)
+                db = _db_adj_close(conn, t, wide_start, as_of)
+                krx = _krx_adj_close(t, wide_start, as_of)
+            if is_drift(db, krx, rel_tol):
+                drifted.append(t)
+        except Exception as e:  # noqa: BLE001 — 종목 단위 격리
+            log.warning("drift detect skip %s: %s", t, e)
+    log.info("drift detected: %d tickers %s", len(drifted), drifted[:20])
+    return drifted
