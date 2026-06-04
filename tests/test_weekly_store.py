@@ -15,7 +15,7 @@ def test_upsert_weekly_prices_inserts_new(db):
     _seed_stock(db)
     rows = [(
         "005930", date(2026, 5, 15),
-        100, 130, 95, 125, 125.0, 130.0, 95.0, 6000, 679000, 5,
+        100, 130, 95, 125, 125.0, 130.0, 95.0, 100.0, 6000.0, 6000, 679000, 5,
     )]
     affected = upsert_weekly_prices(db, rows)
     assert affected == 1
@@ -30,9 +30,9 @@ def test_upsert_weekly_prices_inserts_new(db):
 
 def test_upsert_weekly_prices_updates_on_conflict(db):
     _seed_stock(db)
-    rows_v1 = [("005930", date(2026, 5, 15), 100, 130, 95, 125, 125.0, 130.0, 95.0, 6000, 679000, 5)]
+    rows_v1 = [("005930", date(2026, 5, 15), 100, 130, 95, 125, 125.0, 130.0, 95.0, 100.0, 6000.0, 6000, 679000, 5)]
     upsert_weekly_prices(db, rows_v1)
-    rows_v2 = [("005930", date(2026, 5, 15), 100, 135, 90, 128, 128.0, 135.0, 90.0, 7000, 800000, 5)]
+    rows_v2 = [("005930", date(2026, 5, 15), 100, 135, 90, 128, 128.0, 135.0, 90.0, 100.0, 7000.0, 7000, 800000, 5)]
     upsert_weekly_prices(db, rows_v2)
 
     with db.cursor() as cur:
