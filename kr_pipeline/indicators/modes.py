@@ -453,7 +453,7 @@ def _ticker_market(conn: Connection, ticker: str) -> str | None:
         return row[0] if row else None
 
 
-def recompute_ticker_daily(conn: Connection, ticker: str, *, window: int = 30) -> int:
+def recompute_ticker_daily(conn: Connection, ticker: str) -> int:
     """드리프트 재적재용: 단일 종목 일봉 시계열 지표(Phase A) 를 전 기간 재계산.
 
     횡단면 Phase B(RS Rating)/C(pass) 는 돌리지 않는다(전 종목 분포 필요 →
@@ -463,18 +463,18 @@ def recompute_ticker_daily(conn: Connection, ticker: str, *, window: int = 30) -
     if market is None:
         return 0
     load_start, load_end, upsert_start = compute_date_range(
-        Target.DAILY, Mode.FULL_REFRESH, window=window, conn=conn,
+        Target.DAILY, Mode.FULL_REFRESH, conn=conn,
     )
     return _process_ticker_daily(conn, ticker, market, load_start, load_end, upsert_start)
 
 
-def recompute_ticker_weekly(conn: Connection, ticker: str, *, window: int = 4) -> int:
+def recompute_ticker_weekly(conn: Connection, ticker: str) -> int:
     """드리프트 재적재용: 단일 종목 주봉 시계열 지표(Phase A) 를 전 기간 재계산."""
     market = _ticker_market(conn, ticker)
     if market is None:
         return 0
     load_start, load_end, upsert_start = compute_date_range(
-        Target.WEEKLY, Mode.FULL_REFRESH, window=window, conn=conn,
+        Target.WEEKLY, Mode.FULL_REFRESH, conn=conn,
     )
     return _process_ticker_weekly(conn, ticker, market, load_start, load_end, upsert_start)
 

@@ -91,12 +91,13 @@ def test_recompute_ticker_weekly_runs_phase_a_full_range(mocker):
     )
     captured = {}
     def fake_proc(conn, ticker, market, ls, le, us):
-        captured.update(ticker=ticker, market=market)
+        captured.update(ticker=ticker, market=market, ls=ls, le=le, us=us)
         return 7
     mocker.patch.object(m, "_process_ticker_weekly", side_effect=fake_proc)
     pb = mocker.patch.object(m, "_run_phase_b_weekly")
 
     n = m.recompute_ticker_weekly(conn=None, ticker="035720")
     assert n == 7
-    assert captured == {"ticker": "035720", "market": "KOSDAQ"}
+    assert captured == {"ticker": "035720", "market": "KOSDAQ",
+                        "ls": date(2020, 1, 1), "le": date(2024, 12, 31), "us": date(2020, 1, 1)}
     pb.assert_not_called()
