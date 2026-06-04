@@ -45,3 +45,59 @@ def test_backfill_uses_db_min(monkeypatch):
     assert start == date(2024, 1, 2)
     assert end == date(2026, 5, 18)
     assert ups_start == date(2024, 1, 2)
+
+
+def test_recompute_ticker_daily_runs_phase_a_full_range(mocker):
+    """단일종목 daily Phase A 를 FULL_REFRESH 범위로 1회 실행한다(횡단면 Phase 없음)."""
+    import kr_pipeline.indicators.modes as m
+    from datetime import date
+
+    mocker.patch.object(m, "_ticker_market", return_value="KOSPI")
+    mocker.patch.object(
+        m, "compute_date_range",
+        return_value=(date(2020, 1, 1), date(2024, 12, 31), date(2020, 1, 1)),
+    )
+    captured = {}
+    def fake_proc(conn, ticker, market, ls, le, us):
+        captured.update(ticker=ticker, market=market, ls=ls, le=le, us=us)
+        return 42
+    proc = mocker.patch.object(m, "_process_ticker_daily", side_effect=fake_proc)
+    pb = mocker.patch.object(m, "_run_phase_b_daily")
+
+    n = m.recompute_ticker_daily(conn=None, ticker="005930")
+
+    assert n == 42
+    assert captured == {"ticker": "005930", "market": "KOSPI",
+                        "ls": date(2020, 1, 1), "le": date(2024, 12, 31), "us": date(2020, 1, 1)}
+    pb.assert_not_called()  # 횡단면 Phase B 는 돌지 않음
+
+
+def test_recompute_ticker_daily_unknown_market_returns_zero(mocker):
+    import kr_pipeline.indicators.modes as m
+    mocker.patch.object(m, "_ticker_market", return_value=None)
+    proc = mocker.patch.object(m, "_process_ticker_daily")
+    assert m.recompute_ticker_daily(conn=None, ticker="ZZZ") == 0
+    proc.assert_not_called()
+
+
+def test_recompute_ticker_weekly_runs_phase_a_full_range(mocker):
+    import kr_pipeline.indicators.modes as m
+    from datetime import date
+
+    mocker.patch.object(m, "_ticker_market", return_value="KOSDAQ")
+    mocker.patch.object(
+        m, "compute_date_range",
+        return_value=(date(2020, 1, 1), date(2024, 12, 31), date(2020, 1, 1)),
+    )
+    captured = {}
+    def fake_proc(conn, ticker, market, ls, le, us):
+        captured.update(ticker=ticker, market=market, ls=ls, le=le, us=us)
+        return 7
+    mocker.patch.object(m, "_process_ticker_weekly", side_effect=fake_proc)
+    pb = mocker.patch.object(m, "_run_phase_b_weekly")
+
+    n = m.recompute_ticker_weekly(conn=None, ticker="035720")
+    assert n == 7
+    assert captured == {"ticker": "035720", "market": "KOSDAQ",
+                        "ls": date(2020, 1, 1), "le": date(2024, 12, 31), "us": date(2020, 1, 1)}
+    pb.assert_not_called()

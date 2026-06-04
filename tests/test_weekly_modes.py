@@ -1,7 +1,15 @@
+import contextlib
 from datetime import date, timedelta
 from freezegun import freeze_time
 
 from kr_pipeline.weekly.modes import Mode, compute_date_range
+
+
+def _fake_run_tracking():
+    @contextlib.contextmanager
+    def fake(*a, **k):
+        yield {"run_id": 1, "warnings": [], "rows_affected": None, "total_count": None, "details": None}
+    return fake
 
 
 def test_mode_enum_values():
@@ -164,3 +172,18 @@ def test_run_retry_succeeds_on_second_attempt(db, monkeypatch):
             cur.execute("DELETE FROM stocks WHERE ticker LIKE 'RETRYTEST%'")
             cur.execute("DELETE FROM pipeline_runs WHERE pipeline = 'weekly'")
         db.commit()
+
+
+def test_run_only_tickers_filters_universe(mocker):
+    import kr_pipeline.weekly.modes as m
+
+    mocker.patch.object(m, "load_active_tickers", return_value=["005930", "000660", "035720"])
+    mocker.patch.object(m, "compute_date_range", return_value=("2024-01-01", "2024-12-31"))
+    mocker.patch.object(m, "run_tracking", _fake_run_tracking())
+    mocker.patch.object(m, "_run_sanity_checks", return_value=[])
+    mocker.patch.object(m, "_process_index", return_value=0)
+    seen = []
+    mocker.patch.object(m, "_process_ticker", side_effect=lambda conn, ticker, start, end, today: seen.append(ticker) or 1)
+
+    m.run(conn=None, mode=m.Mode.FULL_REFRESH, only_tickers=["000660", "035720"])
+    assert seen == ["000660", "035720"]

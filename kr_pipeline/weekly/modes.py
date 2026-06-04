@@ -133,12 +133,16 @@ def run(
     *,
     window_weeks: int = 4,
     limit_tickers: int | None = None,
+    only_tickers: list[str] | None = None,
 ) -> RunStats:
     today = date.today()
     start, end = compute_date_range(mode, window_weeks=window_weeks, conn=conn)
     log.info(f"weekly mode={mode.value} range={start}..{end}")
 
     tickers = load_active_tickers(conn, limit=limit_tickers)
+    if only_tickers is not None:
+        keep = set(only_tickers)
+        tickers = [t for t in tickers if t in keep]
     log.info(f"weekly tickers to process: {len(tickers)}")
 
     params = {
