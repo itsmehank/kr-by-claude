@@ -284,3 +284,29 @@ def test_weekly_aggregates_adj_open_first_and_adj_volume_sum():
     w = aggregate_to_weekly(daily)
     assert float(w.loc[0, "adj_open"]) == 100.0      # week first day
     assert float(w.loc[0, "adj_volume"]) == 6000.0   # sum
+
+
+def test_load_index_daily_synthesizes_adj_open_volume_then_aggregates(db):
+    """지수 경로 회귀: load_index_daily 가 adj_open/adj_volume 합성 → aggregate_to_weekly KeyError 없이 동작."""
+    from datetime import date
+    from kr_pipeline.weekly.load import load_index_daily
+    from kr_pipeline.weekly.transform import aggregate_to_weekly
+    code = "ZZ99"
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM index_daily WHERE index_code=%s", (code,))
+        cur.execute(
+            "INSERT INTO index_daily (index_code,date,open,high,low,close,volume,value) "
+            "VALUES (%s,%s,100,110,90,105,1000,1),(%s,%s,106,112,95,108,2000,2)",
+            (code, date(2025, 1, 6), code, date(2025, 1, 7)),
+        )
+    db.commit()
+    try:
+        df = load_index_daily(db, code, date(2025, 1, 1), date(2025, 1, 31))
+        assert "adj_open" in df.columns and "adj_volume" in df.columns
+        w = aggregate_to_weekly(df)  # must not KeyError
+        assert len(w) == 1
+        assert float(w.loc[0, "adj_volume"]) == 3000.0
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM index_daily WHERE index_code=%s", (code,))
+        db.commit()

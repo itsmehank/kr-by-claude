@@ -57,6 +57,8 @@ def load_index_daily(
         df["adj_close"] = df["close"]
         df["adj_high"] = df["high"]
         df["adj_low"] = df["low"]
+        df["adj_open"] = df["open"]
+        df["adj_volume"] = df["volume"]
     return df
 
 
