@@ -29,7 +29,11 @@ def get_daily(ticker: str, start: date | None = None, end: date | None = None,
                    i.avg_volume_50d,
                    i.sma_10, i.sma_21, i.sma_50, i.sma_150, i.sma_200,
                    i.w52_high, i.w52_low, i.rs_line, i.rs_rating, i.minervini_pass,
-                   i.volume_ratio_50d, i.pocket_pivot_flag, i.distribution_day_flag
+                   i.volume_ratio_50d, i.pocket_pivot_flag, i.distribution_day_flag,
+               COALESCE(p.adj_open,   p.open)   AS adj_open,
+               COALESCE(p.adj_high,   p.high)   AS adj_high,
+               COALESCE(p.adj_low,    p.low)    AS adj_low,
+               COALESCE(p.adj_volume, p.volume) AS adj_volume
               FROM daily_indicators i
               LEFT JOIN daily_prices p
                 ON p.ticker = i.ticker AND p.date = i.date
@@ -58,6 +62,10 @@ def get_daily(ticker: str, start: date | None = None, end: date | None = None,
         volume_ratio_50d=float(r[18]) if r[18] is not None else None,
         pocket_pivot_flag=r[19],
         distribution_day_flag=r[20],
+        adj_open=float(r[21]) if r[21] is not None else None,
+        adj_high=float(r[22]) if r[22] is not None else None,
+        adj_low=float(r[23]) if r[23] is not None else None,
+        adj_volume=float(r[24]) if r[24] is not None else None,
     ) for r in rows]
 
 

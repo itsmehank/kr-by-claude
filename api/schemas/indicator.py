@@ -24,6 +24,10 @@ class DailyIndicatorOut(BaseModel):
     volume_ratio_50d: float | None = None
     pocket_pivot_flag: bool | None = None
     distribution_day_flag: bool | None = None
+    adj_open: float | None = None
+    adj_high: float | None = None
+    adj_low: float | None = None
+    adj_volume: float | None = None
 
 
 class MinerviniPassedOut(BaseModel):
@@ -65,3 +69,7 @@ class WeeklyIndicatorOut(BaseModel):
     rs_line: float | None = None
     rs_rating: int | None = None
     minervini_pass: bool | None = None
+    adj_open: float | None = None
+    adj_high: float | None = None
+    adj_low: float | None = None
+    adj_volume: float | None = None
