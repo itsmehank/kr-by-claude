@@ -14,6 +14,10 @@ export interface DailyIndicator {
   low: number | null;
   close: number | null;
   volume: number | null;
+  adj_open: number | null;
+  adj_high: number | null;
+  adj_low: number | null;
+  adj_volume: number | null;
   avg_volume_50d: number | null;
   sma_10: number | null;
   sma_21: number | null;
@@ -84,6 +88,10 @@ export interface WeeklyIndicator {
   low: number | null;
   close: number | null;
   volume: number | null;
+  adj_open: number | null;
+  adj_high: number | null;
+  adj_low: number | null;
+  adj_volume: number | null;
   avg_volume_10w: number | null;
   sma_10w: number | null;
   sma_30w: number | null;
