@@ -89,12 +89,12 @@ function Toggle({ checked, onChange, color, label }: ToggleProps) {
 function dailyToBar(d: DailyIndicator): PriceChartBar {
   return {
     date: d.date,
-    open: d.open,
-    high: d.high,
-    low: d.low,
-    close: d.close,
+    open: d.adj_open,
+    high: d.adj_high,
+    low: d.adj_low,
+    close: d.adj_close,
     adj_close: d.adj_close,
-    volume: d.volume,
+    volume: d.adj_volume,
     avg_volume_50d: d.avg_volume_50d,
     sma_short: d.sma_50,
     sma_mid: d.sma_150,
@@ -111,12 +111,12 @@ function dailyToBar(d: DailyIndicator): PriceChartBar {
 function weeklyToBar(w: WeeklyIndicator): PriceChartBar {
   return {
     date: w.date,
-    open: w.open,
-    high: w.high,
-    low: w.low,
-    close: w.close,
+    open: w.adj_open,
+    high: w.adj_high,
+    low: w.adj_low,
+    close: w.adj_close,
     adj_close: w.adj_close,
-    volume: w.volume,
+    volume: w.adj_volume,
     avg_volume_50d: null, // weekly indicators 에는 avg_volume_50d 없음
     sma_short: w.sma_10w,
     sma_mid: w.sma_30w,
