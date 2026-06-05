@@ -30,10 +30,10 @@ def get_daily(ticker: str, start: date | None = None, end: date | None = None,
                    i.sma_10, i.sma_21, i.sma_50, i.sma_150, i.sma_200,
                    i.w52_high, i.w52_low, i.rs_line, i.rs_rating, i.minervini_pass,
                    i.volume_ratio_50d, i.pocket_pivot_flag, i.distribution_day_flag,
-               COALESCE(p.adj_open,   p.open)   AS adj_open,
-               COALESCE(p.adj_high,   p.high)   AS adj_high,
-               COALESCE(p.adj_low,    p.low)    AS adj_low,
-               COALESCE(p.adj_volume, p.volume) AS adj_volume
+                   COALESCE(p.adj_open,   p.open)   AS adj_open,
+                   COALESCE(p.adj_high,   p.high)   AS adj_high,
+                   COALESCE(p.adj_low,    p.low)    AS adj_low,
+                   COALESCE(p.adj_volume, p.volume) AS adj_volume
               FROM daily_indicators i
               LEFT JOIN daily_prices p
                 ON p.ticker = i.ticker AND p.date = i.date
@@ -89,10 +89,10 @@ def get_weekly(
                    i.sma_10w, i.sma_30w, i.sma_40w,
                    i.w52_high, i.w52_low,
                    i.rs_line, i.rs_rating, i.minervini_pass,
-               COALESCE(p.adj_open,   p.open)   AS adj_open,
-               COALESCE(p.adj_high,   p.high)   AS adj_high,
-               COALESCE(p.adj_low,    p.low)    AS adj_low,
-               COALESCE(p.adj_volume, p.volume) AS adj_volume
+                   COALESCE(p.adj_open,   p.open)   AS adj_open,
+                   COALESCE(p.adj_high,   p.high)   AS adj_high,
+                   COALESCE(p.adj_low,    p.low)    AS adj_low,
+                   COALESCE(p.adj_volume, p.volume) AS adj_volume
               FROM weekly_indicators i
               LEFT JOIN weekly_prices p
                 ON p.ticker = i.ticker AND p.week_end_date = i.week_end_date
