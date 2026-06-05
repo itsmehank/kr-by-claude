@@ -88,7 +88,11 @@ def get_weekly(
                    i.avg_volume_10w,
                    i.sma_10w, i.sma_30w, i.sma_40w,
                    i.w52_high, i.w52_low,
-                   i.rs_line, i.rs_rating, i.minervini_pass
+                   i.rs_line, i.rs_rating, i.minervini_pass,
+               COALESCE(p.adj_open,   p.open)   AS adj_open,
+               COALESCE(p.adj_high,   p.high)   AS adj_high,
+               COALESCE(p.adj_low,    p.low)    AS adj_low,
+               COALESCE(p.adj_volume, p.volume) AS adj_volume
               FROM weekly_indicators i
               LEFT JOIN weekly_prices p
                 ON p.ticker = i.ticker AND p.week_end_date = i.week_end_date
@@ -116,6 +120,10 @@ def get_weekly(
             rs_line=float(r[13]) if r[13] is not None else None,
             rs_rating=r[14],
             minervini_pass=r[15],
+            adj_open=float(r[16]) if r[16] is not None else None,
+            adj_high=float(r[17]) if r[17] is not None else None,
+            adj_low=float(r[18]) if r[18] is not None else None,
+            adj_volume=float(r[19]) if r[19] is not None else None,
         )
         for r in rows
     ]
