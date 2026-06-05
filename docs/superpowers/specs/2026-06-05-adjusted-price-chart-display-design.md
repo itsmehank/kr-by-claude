@@ -27,31 +27,44 @@ P0에서 `daily_prices`/`weekly_prices` 에 `adj_open/adj_high/adj_low/adj_close
 
 ### 1. API — `api/routers/indicators.py` + `api/schemas/indicator.py`
 
-- **daily 엔드포인트**(`indicators.py:26-38` SELECT): 다음 4개 컬럼 추가(adj_close 는 이미 `i.adj_close` 로 존재).
+> **중대 구현 주의 — positional 인덱스**: 응답 빌더가 `DailyIndicatorOut(date=r[0], ..., distribution_day_flag=r[20])` 처럼 **튜플 위치 인덱스**(`r[0]`…`r[20]` daily, `r[0]`…`r[15]` weekly)로 매핑한다(`indicators.py:40-61`, `93-113`). 따라서 신규 컬럼은 **반드시 SELECT 의 맨 끝에 append** 하고 그 **새 인덱스**로 빌더에 추가한다. SELECT *중간* 에 끼우면 이후 모든 인덱스가 밀려 SMA·플래그 등이 엉뚱한 필드로 들어가 **조용히 손상**된다.
+
+- **daily 엔드포인트**(`indicators.py:26-38` SELECT): 기존 마지막 컬럼 `i.distribution_day_flag`(=`r[20]`) **뒤에 append**:
   ```sql
-  COALESCE(p.adj_open,   p.open)   AS adj_open,
-  COALESCE(p.adj_high,   p.high)   AS adj_high,
-  COALESCE(p.adj_low,    p.low)    AS adj_low,
-  COALESCE(p.adj_volume, p.volume) AS adj_volume
+                     i.volume_ratio_50d, i.pocket_pivot_flag, i.distribution_day_flag,
+                     COALESCE(p.adj_open,   p.open)   AS adj_open,    -- r[21]
+                     COALESCE(p.adj_high,   p.high)   AS adj_high,    -- r[22]
+                     COALESCE(p.adj_low,    p.low)    AS adj_low,     -- r[23]
+                     COALESCE(p.adj_volume, p.volume) AS adj_volume   -- r[24]
   ```
-  COALESCE 는 NULL 안전망(현재 데이터는 100% 채워졌으나 컬럼이 nullable 이라 방어). raw `open/high/low/close/volume` 는 응답에 **그대로 유지**(다른 소비자 안전; 캔들만 adj 사용).
-- **weekly 엔드포인트**(`indicators.py:76-91` SELECT): 동일하게 `p.adj_open/adj_high/adj_low/adj_volume` (COALESCE) 추가.
-- **스키마**(`api/schemas/indicator.py`): `DailyIndicatorOut` 및 weekly 응답 모델에 `adj_open: float | None`, `adj_high: float | None`, `adj_low: float | None`, `adj_volume: float | None` 필드 추가. (adj_volume 은 `NUMERIC(20,2)` — 분할 보정 시 소수가 될 수 있어 `int` 아님.)
+  빌더(`indicators.py:40-61`)에 추가:
+  ```python
+          adj_open=float(r[21]) if r[21] is not None else None,
+          adj_high=float(r[22]) if r[22] is not None else None,
+          adj_low=float(r[23]) if r[23] is not None else None,
+          adj_volume=float(r[24]) if r[24] is not None else None,
+  ```
+  COALESCE 는 NULL 안전망(현재 데이터 100% 채워짐, 컬럼은 nullable 이라 방어). raw `open/high/low/close/volume` 는 응답에 **그대로 유지**(다른 소비자 안전; 캔들만 adj 사용). adj_close 는 이미 `i.adj_close`(=`r[1]`) 로 존재 — 캔들 종가는 이 값을 그대로 사용(`i.adj_close` 는 `p.adj_close` 에서 파생된 동일 adjusted 값이라 캔들 정합 유지).
+- **weekly 엔드포인트**(`indicators.py:76-91` SELECT): 기존 마지막 컬럼 `i.minervini_pass`(=`r[15]`) 뒤에 동일 4컬럼 append → `r[16] adj_open, r[17] adj_high, r[18] adj_low, r[19] adj_volume`. 빌더(`indicators.py:93-113`)에 `adj_open=float(r[16])…, adj_volume=float(r[19])…` 추가(daily 와 동일 패턴, 인덱스만 16~19).
+- **스키마**(`api/schemas/indicator.py`): `DailyIndicatorOut`(:5~) 및 `WeeklyIndicatorOut` 에 `adj_open: float | None = None`, `adj_high: float | None = None`, `adj_low: float | None = None`, `adj_volume: float | None = None` 추가. (adj_volume 은 `NUMERIC(20,2)` — 분할 보정 시 소수 가능 → `int` 아님, `float`.)
 
-### 2. 프론트 — `web/src/pages/ChartPage.tsx` + `web/src/components/charts/PriceChart.tsx`
+### 2. 프론트 — `web/src/lib/types.ts` + `web/src/pages/ChartPage.tsx`
 
-- **TS 타입**(`PriceChart.tsx:28-46` `PriceChartBar` 및 `web/src/lib/types.ts` 의 `DailyIndicator`/weekly 타입): `adj_open/adj_high/adj_low/adj_volume` 필드 추가.
-- **어댑터**(`ChartPage.tsx:89-131` `dailyToBar`/`weeklyToBar`): 캔들 바를 adj 로 매핑.
+- **API row 타입만 변경**(`web/src/lib/types.ts`): `DailyIndicator`(:9-31) 와 `WeeklyIndicator`(:79-96) 에 `adj_open: number | null`, `adj_high: number | null`, `adj_low: number | null`, `adj_volume: number | null` 추가. **`PriceChartBar`(`PriceChart.tsx:28-46`) 는 변경 없음** — 바의 기존 `open/high/low/close/volume` 필드가 어댑터를 통해 adjusted 값을 운반(새 필드 불필요).
+- **어댑터만 변경**(`ChartPage.tsx:89-109` `dailyToBar`, `:111-131` `weeklyToBar`): 캔들 바 매핑을 raw→adj 로 교체(두 어댑터 동일 패턴).
   ```ts
   open:   d.adj_open,
   high:   d.adj_high,
   low:    d.adj_low,
   close:  d.adj_close,
   volume: d.adj_volume,
-  adj_close: d.adj_close,   // 헤더/ChartMetaBar 용 유지(이제 캔들 close 와 동일)
+  adj_close: d.adj_close,   // 헤더/ChartMetaBar 용 유지(이제 캔들 close 와 동일 값)
   ```
 - **`PriceChart.tsx` 렌더 코드 무변경**: 캔들 시리즈(`:176-188`)·거래량 시리즈(`:263-273`)·툴팁(`:360-491`)·등락%(`:434-436`)는 바의 `open/high/low/close/volume` 를 읽으므로 어댑터 매핑만으로 adjusted 로 전환된다.
+- **"종가" 헤더**(`ChartPage.tsx:383` `latestBar.adj_close`)·`ChartMetaBar`(adj_close 기준)는 이미 adjusted → 이제 캔들 종가와 **일치**.
 - **배경 밴드/범례**: `overlayBands`/`ChartOverlayBands` 는 날짜 기준(`ChartPage.tsx:240`)이라 무변경.
+
+> 캔들 정합: `close` 는 `d.adj_close`(타입 `number`, non-null)라 항상 채워짐. `open/high/low/volume` 은 `d.adj_*`(`number | null`)이며 API COALESCE 로 non-null 보장 → 캔들 누락 없음.
 
 ## 데이터 흐름
 
@@ -71,6 +84,7 @@ P0에서 `daily_prices`/`weekly_prices` 에 `adj_open/adj_high/adj_low/adj_close
 
 ## 파일 변경 예상
 
-- 변경: `api/routers/indicators.py`(SELECT 2곳), `api/schemas/indicator.py`(필드 추가), `web/src/lib/types.ts`(타입 필드), `web/src/pages/ChartPage.tsx`(어댑터 2곳), `web/src/components/charts/PriceChart.tsx`(`PriceChartBar` 타입 필드).
+- 변경: `api/routers/indicators.py`(SELECT 끝에 append 2곳 + 빌더 인덱스 추가 2곳), `api/schemas/indicator.py`(adj_* 필드), `web/src/lib/types.ts`(`DailyIndicator`/`WeeklyIndicator` adj_* 필드), `web/src/pages/ChartPage.tsx`(어댑터 2곳).
+- 무변경(확인용, UI): `web/src/components/charts/PriceChart.tsx`(렌더 코드·`PriceChartBar` 타입 그대로 — 바가 adjusted 값을 운반).
 - 테스트: 신규 `tests/test_api_indicators_series.py` 에 adj_* 응답 검증.
 - 무변경(확인용): `chart_render.py`, `payload_builder.py`, `csv_builder.py`, `kr_pipeline/llm_runner/**`, `prompts/**`.
