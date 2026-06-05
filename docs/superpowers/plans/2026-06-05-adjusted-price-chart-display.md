@@ -22,6 +22,7 @@
 - `adj_volume` 은 `NUMERIC(20,2)` → 소수 가능, 스키마/빌더 모두 `float`.
 - 프론트 테스트 러너 없음 → 타입체크(`npm run build` = `tsc -b && vite build`) + 수동 확인.
 - API 테스트는 라우터 함수를 직접 호출(예: `get_daily(ticker, start, end, conn=db)`)해 반환 `list[DailyIndicatorOut]` 의 **모든 필드 매핑**을 검증(positional 밀림 탐지). `db` 픽스처는 `tests/conftest.py` 의 auto-rollback 연결.
+- **주의 — `schema.sql` 은 indicator 테이블에 대해 stale**: 실제 `daily_indicators`/`weekly_indicators` 에는 `volume`, `avg_volume_50d`, `volume_ratio_50d`, `pocket_pivot_flag`, `distribution_day_flag`(daily) 등 컬럼이 더 있으나 `kr_pipeline/db/schema.sql` 에는 누락돼 있다. 실제 NOT NULL 은 **`daily_indicators`: ticker/date/adj_close**, **`weekly_indicators`: ticker/week_end_date/adj_close** 뿐(나머지 전부 nullable). → 아래 테스트 seed 가 그 외 컬럼(volume 등)을 생략해도 INSERT 가 성공한다(실 테스트 DB 정보스키마로 확인 완료). 컬럼 의문 시 schema.sql 이 아니라 실제 DB(information_schema)를 신뢰할 것.
 
 ## 파일 구조
 
