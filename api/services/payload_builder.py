@@ -94,7 +94,12 @@ def _build_current_metrics(conn: Connection, ticker: str, on_date: date) -> dict
 def _fetch_daily_ohlcv(conn: Connection, ticker: str, on_date: date, days: int = 60) -> list:
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT date, open, high, low, close, volume
+            SELECT date,
+                   COALESCE(adj_open,  open)   AS o,
+                   COALESCE(adj_high,  high)   AS h,
+                   COALESCE(adj_low,   low)    AS l,
+                   COALESCE(adj_close, close)  AS c,
+                   COALESCE(adj_volume,volume) AS v
               FROM daily_prices
              WHERE ticker = %s AND date <= %s
              ORDER BY date DESC LIMIT %s
@@ -107,7 +112,7 @@ def _fetch_daily_ohlcv(conn: Connection, ticker: str, on_date: date, days: int =
             "high": float(r[2]),
             "low": float(r[3]),
             "close": float(r[4]),
-            "volume": int(r[5]),
+            "volume": int(round(float(r[5]))),
         }
         for r in reversed(rows)
     ]
@@ -116,7 +121,12 @@ def _fetch_daily_ohlcv(conn: Connection, ticker: str, on_date: date, days: int =
 def _fetch_weekly_ohlcv(conn: Connection, ticker: str, on_date: date, weeks: int = 104) -> list:
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT week_end_date, open, high, low, close, volume
+            SELECT week_end_date,
+                   COALESCE(adj_open,  open)   AS o,
+                   COALESCE(adj_high,  high)   AS h,
+                   COALESCE(adj_low,   low)    AS l,
+                   COALESCE(adj_close, close)  AS c,
+                   COALESCE(adj_volume,volume) AS v
               FROM weekly_prices
              WHERE ticker = %s AND week_end_date <= %s
              ORDER BY week_end_date DESC LIMIT %s
@@ -130,7 +140,7 @@ def _fetch_weekly_ohlcv(conn: Connection, ticker: str, on_date: date, weeks: int
             "high": float(r[2]),
             "low": float(r[3]),
             "close": float(r[4]),
-            "volume": int(r[5]) if r[5] else None,
+            "volume": int(round(float(r[5]))) if r[5] is not None else None,
         }
         for r in reversed(rows)
     ]
