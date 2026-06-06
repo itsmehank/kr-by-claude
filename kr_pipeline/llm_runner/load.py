@@ -136,5 +136,5 @@ def get_active_with_current(conn: Connection, as_of: date | None = None) -> list
         cur_data = current.get(a["symbol"])
         if cur_data is None:
             continue  # no data today
-        enriched.append({**a, **cur_data, "stop_loss": a.get("base_low", 0)})
+        enriched.append({**a, **cur_data, "stop_loss": a.get("base_low")})
     return enriched

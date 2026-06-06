@@ -94,3 +94,35 @@ def test_watch_promotion_close_within_5pct_of_pivot():
         classification="watch",
     )
     assert result == "promotion"
+
+
+def test_stop_loss_none_skips_stop_invalidation_but_sma_still_fires():
+    from kr_pipeline.llm_runner.compute.trigger_gate import evaluate
+    assert evaluate(
+        close=77000, pivot_price=80000, volume=900_000, avg_volume_50d=1_000_000,
+        stop_loss=None, sma_50=78000, classification="entry",
+    ) == "invalidation"   # close(77000) < sma_50(78000)
+
+
+def test_stop_loss_none_allows_breakout():
+    from kr_pipeline.llm_runner.compute.trigger_gate import evaluate
+    assert evaluate(
+        close=82500, pivot_price=80000, volume=1_500_000, avg_volume_50d=1_000_000,
+        stop_loss=None, sma_50=78000, classification="entry",
+    ) == "breakout"
+
+
+def test_stop_loss_none_no_false_invalidation():
+    from kr_pipeline.llm_runner.compute.trigger_gate import evaluate
+    assert evaluate(
+        close=79000, pivot_price=80000, volume=900_000, avg_volume_50d=1_000_000,
+        stop_loss=None, sma_50=78000, classification="entry",
+    ) is None
+
+
+def test_stop_loss_value_still_invalidates():
+    from kr_pipeline.llm_runner.compute.trigger_gate import evaluate
+    assert evaluate(
+        close=75000, pivot_price=80000, volume=900_000, avg_volume_50d=1_000_000,
+        stop_loss=76000, sma_50=70000, classification="entry",
+    ) == "invalidation"
