@@ -110,6 +110,49 @@ def test_measurements_column_exists_and_stores(db):
     assert row[0]["cup_depth_pct"] == 30.0
 
 
+def _s9_result(**over):
+    r = {
+        "entry_mode": "pivot_breakout", "pivot_price": 192.50, "trigger_price": 192.69,
+        "current_price": 192.30, "stop_loss_price": 178.96,
+        "stop_loss_pct_from_pivot": -7.0, "stop_loss_pct_from_current_price": -6.9,
+        "suggested_weight_pct": 10.0, "expected_target_price": 231.00, "expected_target_pct": 20.0,
+        "pattern_basis": "flat_base", "entry_window_days": 3, "max_chase_pct_from_pivot": 5.0,
+        "breakout_volume_requirement": "ge_1.4x_50day_avg", "observed_breakout_volume_ratio": None,
+        "known_warnings": [], "other_warnings": "", "notes": "n",
+    }
+    r.update(over)
+    return r
+
+
+def test_normalize_entry_params_maps_and_derives():
+    from kr_pipeline.llm_runner.store import _normalize_entry_params
+    n = _normalize_entry_params(_s9_result())
+    assert n["stop_loss"] == 178.96
+    assert n["position_size_pct"] == 10.0
+    assert n["entry_price"] == 192.69
+    assert round(n["risk_reward_ratio"], 2) == round(20.0 / 6.9, 2)
+    assert n["stop_loss_basis"] is None and n["position_size_basis"] is None
+    assert n["pivot_price"] == 192.50 and n["current_price"] == 192.30
+    assert n["pattern_basis"] == "flat_base" and n["entry_window_days"] == 3
+    assert n["max_chase_pct_from_pivot"] == 5.0
+    assert n["observed_breakout_volume_ratio"] is None
+
+
+def test_normalize_entry_params_missing_field_raises():
+    import pytest
+    from kr_pipeline.llm_runner.store import _normalize_entry_params
+    bad = _s9_result()
+    del bad["stop_loss_price"]
+    with pytest.raises(ValueError, match="schema drift"):
+        _normalize_entry_params(bad)
+
+
+def test_normalize_entry_params_rr_zero_and_overflow():
+    from kr_pipeline.llm_runner.store import _normalize_entry_params
+    assert _normalize_entry_params(_s9_result(stop_loss_pct_from_current_price=0))["risk_reward_ratio"] is None
+    assert _normalize_entry_params(_s9_result(stop_loss_pct_from_current_price=-0.01))["risk_reward_ratio"] is None
+
+
 def test_insert_disqualification(db):
     """시스템 강등 행 — classification='disqualified', source='system_disqualify'."""
     from datetime import datetime, timezone

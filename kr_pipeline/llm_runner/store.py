@@ -236,6 +236,58 @@ def insert_trigger_log(
         )
 
 
+_ENTRY_PARAMS_REQUIRED = (
+    "entry_mode", "pivot_price", "trigger_price", "current_price",
+    "stop_loss_price", "stop_loss_pct_from_pivot", "stop_loss_pct_from_current_price",
+    "suggested_weight_pct", "expected_target_price", "expected_target_pct",
+    "pattern_basis", "entry_window_days", "max_chase_pct_from_pivot",
+    "breakout_volume_requirement", "observed_breakout_volume_ratio",
+)
+
+
+def _normalize_entry_params(result: dict) -> dict:
+    """§9 LLM 출력 → entry_params 저장용 dict.
+
+    리네임(stop_loss_price→stop_loss, suggested_weight_pct→position_size_pct),
+    파생(entry_price=trigger_price, risk_reward_ratio 계산), §9 부재 메타는 None.
+    필수 §9 키 누락 시 ValueError(조용한 0행 방지).
+    """
+    for k in _ENTRY_PARAMS_REQUIRED:
+        if k not in result:
+            raise ValueError(f"entry_params schema drift: missing §9 field '{k}'")
+    target_pct = result["expected_target_pct"]
+    stop_pct = result["stop_loss_pct_from_current_price"]
+    rr = None
+    if target_pct is not None and stop_pct not in (None, 0):
+        rr = target_pct / abs(stop_pct)
+        if abs(rr) >= 1000:  # NUMERIC(5,2) 범위 밖 → 오버플로(=조용한 실패) 방지
+            rr = None
+    return {
+        "entry_mode": result["entry_mode"],
+        "pivot_price": result["pivot_price"],
+        "trigger_price": result["trigger_price"],
+        "current_price": result["current_price"],
+        "entry_price": result["trigger_price"],
+        "stop_loss": result["stop_loss_price"],
+        "stop_loss_pct_from_pivot": result["stop_loss_pct_from_pivot"],
+        "stop_loss_pct_from_current_price": result["stop_loss_pct_from_current_price"],
+        "stop_loss_basis": None,
+        "expected_target_price": result["expected_target_price"],
+        "expected_target_pct": result["expected_target_pct"],
+        "risk_reward_ratio": rr,
+        "position_size_pct": result["suggested_weight_pct"],
+        "position_size_basis": None,
+        "pattern_basis": result["pattern_basis"],
+        "entry_window_days": result["entry_window_days"],
+        "max_chase_pct_from_pivot": result["max_chase_pct_from_pivot"],
+        "breakout_volume_requirement": result["breakout_volume_requirement"],
+        "observed_breakout_volume_ratio": result["observed_breakout_volume_ratio"],
+        "known_warnings": result.get("known_warnings", []),
+        "other_warnings": result.get("other_warnings"),
+        "notes": result.get("notes"),
+    }
+
+
 def insert_entry_params(
     conn: Connection,
     *,
