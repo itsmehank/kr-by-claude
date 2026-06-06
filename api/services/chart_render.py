@@ -28,7 +28,13 @@ def render_daily_chart(conn: Connection, ticker: str, range_days: int = 365, on_
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            SELECT p.date, p.open, p.high, p.low, p.close, p.adj_close, p.volume,
+            SELECT p.date,
+                   COALESCE(p.adj_open, p.open)     AS open,
+                   COALESCE(p.adj_high, p.high)     AS high,
+                   COALESCE(p.adj_low, p.low)       AS low,
+                   COALESCE(p.adj_close, p.close)   AS close,
+                   p.adj_close,
+                   COALESCE(p.adj_volume, p.volume) AS volume,
                    i.sma_50, i.sma_150, i.sma_200, i.w52_high, i.w52_low,
                    i.rs_line, i.rs_line_52w_high,
                    i.avg_volume_50d, i.pocket_pivot_flag, i.distribution_day_flag
@@ -57,7 +63,13 @@ def render_weekly_chart(conn: Connection, ticker: str, range_weeks: int = 104, o
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            SELECT p.week_end_date AS date, p.open, p.high, p.low, p.close, p.adj_close, p.volume,
+            SELECT p.week_end_date AS date,
+                   COALESCE(p.adj_open, p.open)     AS open,
+                   COALESCE(p.adj_high, p.high)     AS high,
+                   COALESCE(p.adj_low, p.low)       AS low,
+                   COALESCE(p.adj_close, p.close)   AS close,
+                   p.adj_close,
+                   COALESCE(p.adj_volume, p.volume) AS volume,
                    i.sma_10w, i.sma_30w, i.sma_40w, i.w52_high, i.w52_low,
                    i.rs_line, i.rs_line_52w_high,
                    i.avg_volume_10w

@@ -113,6 +113,29 @@ def test_render_weekly_chart_respects_on_date(db):
         db.commit()
 
 
+def test_render_daily_chart_split_ticker_smoke(db):
+    import io
+    from datetime import date, timedelta
+    from PIL import Image
+    from api.services.chart_render import render_daily_chart
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES ('SPLT','t','KOSPI') ON CONFLICT DO NOTHING")
+        d = date(2026,1,1)
+        for i in range(60):
+            if d.weekday() < 5:
+                cur.execute("""INSERT INTO daily_prices
+                    (ticker,date,open,high,low,close,adj_close,adj_open,adj_high,adj_low,adj_volume,volume,value)
+                    VALUES ('SPLT',%s,10000,10500,9800,10000,2000,2000,2100,1960,500.0,1000,10000000)
+                    ON CONFLICT DO NOTHING""", (d,))
+                cur.execute("""INSERT INTO daily_indicators (ticker,date,adj_close,sma_50)
+                    VALUES ('SPLT',%s,2000,1950) ON CONFLICT DO NOTHING""", (d,))
+            d += timedelta(days=1)
+    db.commit()
+    png = render_daily_chart(db, "SPLT", range_days=60)
+    img = Image.open(io.BytesIO(png))
+    assert img.format == "PNG" and img.width > 0
+
+
 def test_render_daily_chart_respects_on_date(db):
     from datetime import date, timedelta
     t = "ASOFC1"
