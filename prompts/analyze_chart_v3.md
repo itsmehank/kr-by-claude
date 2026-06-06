@@ -37,6 +37,8 @@ If `market == "ETF"` or the instrument is a fund vehicle (sector is null with a 
 
 ## Inputs
 
+**가격 데이터 규약:** 제공되는 모든 가격(OHLCV·차트·지표·current_metrics)은 수정주가(split-adjusted) 기준입니다. 분할/액면병합은 이미 반영되어 있으므로 가격 단차로 오인하지 마세요.
+
 You will receive a JSON payload with:
 - **Identifier**: symbol, market, sector, date
 - **Minervini screening results**: `conditions_met` (8 boolean conditions) AND `conditions_detail` (margin of pass for each condition), `rs_rating`
