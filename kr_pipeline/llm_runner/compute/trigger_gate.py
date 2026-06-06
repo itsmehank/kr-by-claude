@@ -33,7 +33,7 @@ def evaluate(
     pivot_price: float,
     volume: int,
     avg_volume_50d: float,
-    stop_loss: float,
+    stop_loss: float | None,
     sma_50: float,
     classification: str,
 ) -> TriggerType:
@@ -46,7 +46,7 @@ def evaluate(
         None           — 트리거 없음 (오늘 무시)
     """
     # 하향 트리거 우선 (베이스 깨짐이 더 critical)
-    if close < stop_loss:
+    if stop_loss is not None and close < stop_loss:
         return "invalidation"
     if close < sma_50:
         return "invalidation"
