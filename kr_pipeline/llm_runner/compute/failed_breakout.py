@@ -45,7 +45,7 @@ def compute_failed_breakout(
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT date, close FROM daily_prices
+            SELECT date, COALESCE(adj_close, close) FROM daily_prices
              WHERE ticker = %s AND date >= %s AND date < %s
              ORDER BY date
             """,

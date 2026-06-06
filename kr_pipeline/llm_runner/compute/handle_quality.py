@@ -54,7 +54,11 @@ def compute_handle_quality(
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT p.date, p.high, p.low, p.close, p.volume,
+            SELECT p.date,
+                   COALESCE(p.adj_high,   p.high)   AS high,
+                   COALESCE(p.adj_low,    p.low)    AS low,
+                   COALESCE(p.adj_close,  p.close)  AS close,
+                   COALESCE(p.adj_volume, p.volume) AS volume,
                    i.sma_50, COALESCE(i.distribution_day_flag, FALSE)
               FROM daily_prices p
               LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date

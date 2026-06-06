@@ -133,3 +133,44 @@ def test_right_rim_never_recovered_skipped(db):
     cls = _cls(pivot=100.0, base_start=start,
                classified_at=datetime(2026, 6, 18, tzinfo=timezone.utc))
     assert compute_handle_quality(db, "HQNORIM", cls["classified_at"], cls) is None
+
+
+def _seed_ohlcv_adj(db, ticker, start: date, bars: list[tuple]):
+    """raw = garbage(×7), adj_* = real. adj-reading function should behave like _seed_ohlcv."""
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stocks (ticker,name,market) VALUES (%s,%s,'KOSPI') ON CONFLICT DO NOTHING",
+            (ticker, ticker),
+        )
+        d = start
+        for (high, low, close, vol, dist) in bars:
+            cur.execute(
+                """
+                INSERT INTO daily_prices
+                    (ticker,date,open,high,low,close,adj_close,adj_open,adj_high,adj_low,adj_volume,volume,value)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT DO NOTHING
+                """,
+                (ticker, d, close * 7, high * 7, low * 7, close * 7, close, close, high, low, float(vol), vol * 7, vol * close * 7),
+            )
+            cur.execute(
+                """
+                INSERT INTO daily_indicators (ticker,date,adj_close,sma_50,distribution_day_flag)
+                VALUES (%s,%s,%s,%s,%s)
+                ON CONFLICT DO NOTHING
+                """,
+                (ticker, d, close, close * 0.95, dist),
+            )
+            d += timedelta(days=1)
+
+
+def test_handle_quality_uses_adjusted(db):
+    """adj_* 컬럼 우선 사용 검증 — raw 에 ×7 가비지, adj_* 에 실제 값."""
+    start = date(2026, 5, 4)
+    handle = [(99, 85, 86, 700, False), (97, 82, 84, 600, False), (98, 90, 96, 700, False)]
+    _seed_ohlcv_adj(db, "HQADJ", start, _cup(1000) + handle)
+    cls = _cls(base_depth=30.0, base_start=start, classified_at=datetime(2026, 5, 22, tzinfo=timezone.utc))
+    r = compute_handle_quality(db, "HQADJ", cls["classified_at"], cls)
+    assert r is not None and r["fired"]
+    assert r["metrics"]["handle_low"] == 82.0
+    assert "deep_handle" in r["reasons"]

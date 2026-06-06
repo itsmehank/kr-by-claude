@@ -11,6 +11,8 @@
 
 ## 2. Inputs (JSON)
 
+**가격 데이터 규약:** 제공되는 모든 가격(OHLCV·차트·지표·current_metrics)은 수정주가(split-adjusted) 기준입니다. 분할/액면병합은 이미 반영되어 있으므로 가격 단차로 오인하지 마세요.
+
 - `symbol`, `name`, `market`, `evaluation_date`
 - `trigger_type`: "breakout" | "invalidation" | "promotion"
 - `prior_analysis`: 주말 (5) 결과 (`classified_at`, **`days_since_classification`** (분류 후 경과일), `classification`, `pattern`, `pivot_price`, `pivot_basis`, `base_high`, `base_low`, `base_depth_pct`, `risk_flags`, `reasoning`)

@@ -60,6 +60,8 @@ These are the principles you compute against. Quote them in `notes` when a param
 
 ## Inputs
 
+**가격 데이터 규약:** 제공되는 모든 가격(OHLCV·차트·지표·current_metrics)은 수정주가(split-adjusted) 기준입니다. 분할/액면병합은 이미 반영되어 있으므로 가격 단차로 오인하지 마세요.
+
 You receive a JSON payload containing:
 
 - **Identifier**: `symbol`, `market`, `date`

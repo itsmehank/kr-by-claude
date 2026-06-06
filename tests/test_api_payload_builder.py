@@ -48,3 +48,35 @@ def test_build_payload_unknown_ticker(db):
     import pytest
     with pytest.raises(ValueError, match="not found"):
         build_payload(db, "NOEXIST", on_date=date(2026, 5, 17))
+
+
+def test_fetch_daily_ohlcv_uses_adjusted(db):
+    from api.services.payload_builder import _fetch_daily_ohlcv
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES ('ADJD','t','KOSPI') ON CONFLICT DO NOTHING")
+        cur.execute("""INSERT INTO daily_prices
+            (ticker,date,open,high,low,close,adj_close,adj_open,adj_high,adj_low,adj_volume,volume,value)
+            VALUES ('ADJD',%s,10000,10500,9800,10000,2000,2000,2100,1960,500.0,1000,10000000)
+            ON CONFLICT DO NOTHING""", (date(2026,1,2),))
+    db.commit()
+    out = _fetch_daily_ohlcv(db, "ADJD", date(2026,1,31), days=60)
+    assert len(out) == 1
+    bar = out[0]
+    assert bar["open"] == 2000.0 and bar["high"] == 2100.0
+    assert bar["low"] == 1960.0 and bar["close"] == 2000.0
+    assert bar["volume"] == 500   # adj_volume
+
+
+def test_fetch_weekly_ohlcv_uses_adjusted(db):
+    from api.services.payload_builder import _fetch_weekly_ohlcv
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES ('ADJW','t','KOSPI') ON CONFLICT DO NOTHING")
+        cur.execute("""INSERT INTO weekly_prices
+            (ticker,week_end_date,open,high,low,close,adj_close,adj_open,adj_high,adj_low,adj_volume,volume,value,trading_days)
+            VALUES ('ADJW',%s,10000,10500,9800,10000,2000,2000,2100,1960,500.0,1000,10000000,5)
+            ON CONFLICT DO NOTHING""", (date(2026,1,2),))
+    db.commit()
+    out = _fetch_weekly_ohlcv(db, "ADJW", date(2026,1,31), weeks=104)
+    assert out[0]["open"] == 2000.0 and out[0]["high"] == 2100.0
+    assert out[0]["low"] == 1960.0 and out[0]["close"] == 2000.0
+    assert out[0]["volume"] == 500   # adj_volume (int(round(float)))
