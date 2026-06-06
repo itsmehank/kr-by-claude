@@ -210,3 +210,36 @@ def test_normalize_entry_params_other_warnings_list_serialized():
     assert n["other_warnings"] == '["climax_run", "wide_spread"]'   # list → JSON 문자열(TEXT 컬럼)
     s = _normalize_entry_params(_s9_result(other_warnings="plain"))
     assert s["other_warnings"] == "plain"                            # 문자열은 그대로
+
+
+def test_risk_flags_taxonomy_has_14():
+    from kr_pipeline.llm_runner.risk_flags import RISK_FLAGS_TAXONOMY
+    assert len(RISK_FLAGS_TAXONOMY) == 14
+    assert "climax_run" in RISK_FLAGS_TAXONOMY and "handle_quality" in RISK_FLAGS_TAXONOMY
+
+
+def test_validate_classification():
+    from kr_pipeline.llm_runner.store import _validate_classification
+    import pytest
+    assert _validate_classification({"classification": "entry"}) == "entry"
+    assert _validate_classification({"classification": "watch"}) == "watch"
+    for bad in ({"classification": "buy"}, {}, {"classification": None}):
+        with pytest.raises(ValueError, match="invalid classification"):
+            _validate_classification(bad)
+
+
+def test_validate_decision():
+    from kr_pipeline.llm_runner.store import _validate_decision
+    import pytest
+    assert _validate_decision({"decision": "go_now"}) == "go_now"
+    for bad in ({"decision": "maybe"}, {}, {"decision": None}):
+        with pytest.raises(ValueError, match="invalid decision"):
+            _validate_decision(bad)
+
+
+def test_clean_risk_flags():
+    from kr_pipeline.llm_runner.store import _clean_risk_flags
+    assert _clean_risk_flags(["climax_run", "bogus", "narrow_base"]) == ["climax_run", "narrow_base"]
+    assert _clean_risk_flags([]) == []
+    assert _clean_risk_flags(None) == []
+    assert _clean_risk_flags("climax_run") == []
