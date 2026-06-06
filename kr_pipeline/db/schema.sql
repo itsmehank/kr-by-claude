@@ -344,6 +344,8 @@ CREATE TABLE IF NOT EXISTS entry_params (
   entry_mode                              VARCHAR(30),
   trigger_price                           NUMERIC(12, 4),
   entry_price                             NUMERIC(12, 4),
+  pivot_price                             NUMERIC(12, 4),
+  current_price                           NUMERIC(12, 4),
 
   stop_loss                               NUMERIC(12, 4),
   stop_loss_pct_from_pivot                NUMERIC(6, 2),
@@ -356,6 +358,9 @@ CREATE TABLE IF NOT EXISTS entry_params (
 
   position_size_pct                       NUMERIC(5, 2),
   position_size_basis                     TEXT,
+  pattern_basis                           VARCHAR(30),
+  entry_window_days                       SMALLINT,
+  max_chase_pct_from_pivot                NUMERIC(6, 2),
 
   breakout_volume_requirement             VARCHAR(30),
   observed_breakout_volume_ratio          NUMERIC(5, 2),
@@ -376,6 +381,12 @@ CREATE TABLE IF NOT EXISTS entry_params (
 );
 
 CREATE INDEX IF NOT EXISTS idx_entry_params_recent ON entry_params (signal_at DESC);
+
+ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS pivot_price NUMERIC(12,4);
+ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS current_price NUMERIC(12,4);
+ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS pattern_basis VARCHAR(30);
+ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS entry_window_days SMALLINT;
+ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS max_chase_pct_from_pivot NUMERIC(6,2);
 
 -- 시그널 사후 평가 (cron backfill)
 CREATE TABLE IF NOT EXISTS signal_performance (
