@@ -85,28 +85,27 @@ def _mock_evaluate_pivot_trigger() -> dict:
 
 def _mock_calculate_entry_params() -> dict:
     pivot = round(random.uniform(50000, 100000), 0)
-    entry_price = pivot * random.uniform(1.0, 1.02)
-    stop_loss = pivot * random.uniform(0.93, 0.95)
+    trigger = round(pivot * 1.001, 2)
+    stop = round(pivot * random.uniform(0.93, 0.95), 2)
     return {
         "entry_mode": random.choice(["pivot_breakout", "pocket_pivot"]),
-        "trigger_price": round(pivot * 1.001, 2),
-        "entry_price": round(entry_price, 2),
-        "stop_loss": round(stop_loss, 2),
-        "stop_loss_pct_from_pivot": round((stop_loss - pivot) / pivot * 100, 2),
-        "stop_loss_pct_from_current_price": round(
-            (stop_loss - entry_price) / entry_price * 100, 2
-        ),
-        "stop_loss_basis": "logical_pct",
-        "expected_target_price": round(entry_price * 1.20, 2),
+        "pivot_price": pivot,
+        "trigger_price": trigger,
+        "current_price": round(pivot * random.uniform(0.99, 1.005), 2),
+        "stop_loss_price": stop,
+        "stop_loss_pct_from_pivot": round((stop - pivot) / pivot * 100, 2),
+        "stop_loss_pct_from_current_price": round((stop - trigger) / trigger * 100, 2),
+        "suggested_weight_pct": round(random.uniform(2, 10), 1),
+        "expected_target_price": round(trigger * 1.20, 2),
         "expected_target_pct": 20.0,
-        "risk_reward_ratio": round(20 / 6.5, 2),
-        "position_size_pct": round(random.uniform(2, 8), 1),
-        "position_size_basis": "dry-run mock",
-        "breakout_volume_requirement": "1.4x",
-        "observed_breakout_volume_ratio": round(random.uniform(1.0, 2.5), 2),
+        "pattern_basis": random.choice(["flat_base", "cup_with_handle"]),
+        "entry_window_days": random.choice([2, 3, 5]),
+        "max_chase_pct_from_pivot": 5.0,
+        "breakout_volume_requirement": "ge_1.4x_50day_avg",
+        "observed_breakout_volume_ratio": None,
         "known_warnings": [],
         "other_warnings": "",
-        "notes": "dry-run mock entry params",
+        "notes": "dry-run mock entry params (§9 schema)",
     }
 
 

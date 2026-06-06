@@ -39,8 +39,9 @@ def test_call_claude_dry_run_returns_mock_6():
         dry_run=True,
     )
     assert "entry_mode" in result
-    assert "entry_price" in result
-    assert "stop_loss" in result
+    assert "stop_loss_price" in result
+    assert "suggested_weight_pct" in result
+    assert "pivot_price" in result
 
 
 def test_call_claude_parses_json_output(mocker):

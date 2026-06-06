@@ -177,6 +177,16 @@ def test_insert_entry_params_roundtrip_s9(db):
     assert row[6] == "flat_base" and row[7] == 3 and float(row[8]) == 5.0
 
 
+def test_mock_calculate_entry_params_passes_normalize():
+    from kr_pipeline.llm_runner.llm.claude_cli import _mock_calculate_entry_params
+    from kr_pipeline.llm_runner.store import _normalize_entry_params
+    m = _mock_calculate_entry_params()
+    n = _normalize_entry_params(m)            # §9 keys present → no ValueError
+    assert n["entry_price"] == m["trigger_price"]
+    assert n["stop_loss"] == m["stop_loss_price"]
+    assert "stop_loss" not in m and "suggested_weight_pct" in m  # §9 keys, not code keys
+
+
 def test_insert_disqualification(db):
     """시스템 강등 행 — classification='disqualified', source='system_disqualify'."""
     from datetime import datetime, timezone
