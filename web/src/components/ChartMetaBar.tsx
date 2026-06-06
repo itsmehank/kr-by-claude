@@ -120,8 +120,8 @@ export function ChartMetaBar({ ticker, market }: Props) {
     const sb = stockQ.data ?? [];
     if (sb.length === 0) return { sum: null as number | null, days: 0 };
     const monday = thisWeekMondayISO();
-    const week = sb.filter((d) => d.date >= monday && d.volume != null);
-    const sum = week.reduce((acc, d) => acc + (d.volume ?? 0), 0);
+    const week = sb.filter((d) => d.date >= monday && d.adj_volume != null);
+    const sum = week.reduce((acc, d) => acc + (d.adj_volume ?? 0), 0);
     return { sum: week.length > 0 ? sum : null, days: week.length };
   }, [stockQ.data]);
 
