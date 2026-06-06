@@ -79,3 +79,4 @@ def test_fetch_weekly_ohlcv_uses_adjusted(db):
     out = _fetch_weekly_ohlcv(db, "ADJW", date(2026,1,31), weeks=104)
     assert out[0]["open"] == 2000.0 and out[0]["high"] == 2100.0
     assert out[0]["low"] == 1960.0 and out[0]["close"] == 2000.0
+    assert out[0]["volume"] == 500   # adj_volume (int(round(float)))
