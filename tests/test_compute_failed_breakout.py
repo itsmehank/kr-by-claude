@@ -91,3 +91,26 @@ def test_base_start_none_returns_none(db):
     _seed_close(db, "FBNOBASE", start, [101, 98, 97, 102, 103, 104])
     r = compute_failed_breakout(db, "FBNOBASE", datetime(2026, 6, 15, tzinfo=timezone.utc), 100.0, None)
     assert r is None
+
+
+def test_failed_breakout_uses_adjusted_close(db):
+    from datetime import date, datetime, timedelta, timezone
+    from kr_pipeline.llm_runner.compute.failed_breakout import compute_failed_breakout
+    start = date(2026, 4, 6)
+    pivot = 100.0
+    # adj_close pattern fires P1 (101 breakout, then 98,97 two consecutive below); raw close = ×7 garbage (all above pivot)
+    adj = [101, 98, 97, 102, 103, 104]
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES ('FBADJ','t','KOSPI') ON CONFLICT DO NOTHING")
+        d = start
+        for a in adj:
+            raw = a * 7
+            cur.execute(
+                """INSERT INTO daily_prices (ticker,date,open,high,low,close,adj_close,volume,value)
+                   VALUES ('FBADJ',%s,%s,%s,%s,%s,%s,1000,1000000) ON CONFLICT DO NOTHING""",
+                (d, raw, raw, raw, raw, a),
+            )
+            d += timedelta(days=1)
+    db.commit()
+    r = compute_failed_breakout(db, "FBADJ", datetime(2026,4,16,tzinfo=timezone.utc), pivot, start)
+    assert r is not None and r["fired"]
