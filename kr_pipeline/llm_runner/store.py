@@ -61,6 +61,7 @@ def insert_classification(
 
     source: 'weekend' | 'daily_delta'
     """
+    _validate_classification(result)
     _original = copy.deepcopy(result)
     try:
         result, triggered_rules = apply_phase1_gates(conn, symbol, classified_at, result)
@@ -105,7 +106,7 @@ def insert_classification(
                 result.get("base_low"),
                 result.get("base_depth_pct"),
                 result.get("base_start_date"),
-                json.dumps(result.get("risk_flags", [])),
+                json.dumps(_clean_risk_flags(result.get("risk_flags", []))),
                 result.get("confidence"),
                 result.get("reasoning"),
                 source,
@@ -133,6 +134,7 @@ def insert_backfill_classification(
 
     insert_classification 과 동일하게 Phase 1 2-A 후처리 게이트 적용. freeze 는 만들지 않음.
     """
+    _validate_classification(result)
     _original = copy.deepcopy(result)
     try:
         gate_at = datetime.combine(analyzed_for_date + timedelta(days=1), dt_time.min)
@@ -178,7 +180,7 @@ def insert_backfill_classification(
                 result.get("base_low"),
                 result.get("base_depth_pct"),
                 result.get("base_start_date"),
-                json.dumps(result.get("risk_flags", [])),
+                json.dumps(_clean_risk_flags(result.get("risk_flags", []))),
                 result.get("confidence"),
                 result.get("reasoning"),
                 source,
@@ -231,6 +233,7 @@ def insert_trigger_log(
     llm_meta: dict,
 ) -> None:
     """trigger_evaluation_log 에 (5b) 결과 INSERT."""
+    decision = _validate_decision(result)
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -254,7 +257,7 @@ def insert_trigger_log(
                 close,
                 volume,
                 pivot_price,
-                result["decision"],
+                decision,
                 result.get("confidence"),
                 result.get("reasoning"),
                 result.get("abort_reason"),

@@ -243,3 +243,47 @@ def test_clean_risk_flags():
     assert _clean_risk_flags([]) == []
     assert _clean_risk_flags(None) == []
     assert _clean_risk_flags("climax_run") == []
+
+
+def test_insert_classification_rejects_invalid(mocker):
+    from datetime import datetime, timezone
+    from kr_pipeline.llm_runner.store import insert_classification
+    import pytest
+    conn = mocker.MagicMock()
+    with pytest.raises(ValueError, match="invalid classification"):
+        insert_classification(
+            conn, symbol="X", classified_at=datetime(2026,6,7,tzinfo=timezone.utc),
+            market="KOSPI", result={"classification": "buy"},
+            source="daily_delta", llm_meta={},
+        )
+    conn.cursor.assert_not_called()
+
+
+def test_insert_backfill_classification_rejects_invalid(mocker):
+    from datetime import datetime, timezone, date
+    from kr_pipeline.llm_runner.store import insert_backfill_classification
+    import pytest
+    conn = mocker.MagicMock()
+    now = datetime(2026,6,7,tzinfo=timezone.utc)
+    with pytest.raises(ValueError, match="invalid classification"):
+        insert_backfill_classification(
+            conn, symbol="X", classified_at=now, market="KOSPI",
+            result={"classification": "buy"}, source="backfill", llm_meta={},
+            analyzed_for_date=date(2026,6,7),
+        )
+    conn.cursor.assert_not_called()
+
+
+def test_insert_trigger_log_rejects_invalid_decision(mocker):
+    from datetime import datetime, timezone
+    from kr_pipeline.llm_runner.store import insert_trigger_log
+    import pytest
+    conn = mocker.MagicMock()
+    now = datetime(2026,6,7,tzinfo=timezone.utc)
+    with pytest.raises(ValueError, match="invalid decision"):
+        insert_trigger_log(
+            conn, symbol="X", evaluated_at=now, trigger_type="breakout",
+            close=100.0, volume=1000, pivot_price=99.0,
+            result={}, prior_classification_at=now, llm_meta={},
+        )
+    conn.cursor.assert_not_called()
