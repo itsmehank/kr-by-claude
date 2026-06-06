@@ -1,7 +1,7 @@
 # entry_params 프롬프트↔store 계약 버그 수정 설계
 
 날짜: 2026-06-07
-대상(변경): `kr_pipeline/db/schema.sql`, `kr_pipeline/llm_runner/store.py`(`insert_entry_params` + 신규 `_normalize_entry_params`), `kr_pipeline/llm_runner/llm/claude_cli.py`(`_mock_calculate_entry_params`)
+대상(변경): `kr_pipeline/db/schema.sql`, `kr_pipeline/llm_runner/store.py`(`insert_entry_params` + 신규 `_normalize_entry_params`), `kr_pipeline/llm_runner/llm/claude_cli.py`(`_mock_calculate_entry_params`), `kr_pipeline/llm_runner/entry_params.py`(dry-run 분기에서 정규화 검증)
 대상(무변경·검증만): `api/routers/signals.py`, `kr_pipeline/llm_runner/performance.py`, `kr_pipeline/llm_runner/slack.py`, `prompts/calculate_entry_params_v2_0.md`, web
 
 ## 배경 / 문제
@@ -11,7 +11,7 @@
 - 프롬프트 §9 출력 스키마(17필드)와 `store.insert_entry_params`(`store.py:274-298`)가 **서로 다른 시기에 다른 이름으로 작성**됨. store 가 읽는 14개 키가 전부 **하드인덱싱**(`result["x"]`).
 - 6개 키가 §9 와 불일치: 2개 리네임(`stop_loss`↔§9 `stop_loss_price`, `position_size_pct`↔§9 `suggested_weight_pct`), 4개 §9 부재(`entry_price`, `stop_loss_basis`, `risk_reward_ratio`, `position_size_basis`).
 - 실 LLM 이 §9 대로 응답하면 `result["entry_price"]`(`store.py:279`)에서 첫 `KeyError` → 종목별 `try/except`(`entry_params.py:75-78`)에 삼켜져 실패·rollback → **0행**.
-- dry-run mock `_mock_calculate_entry_params`(`claude_cli.py:86-110`)는 **store 의 코드 키명**을 써서 통과 → 버그를 가림.
+- dry-run mock `_mock_calculate_entry_params`(`claude_cli.py:86-110`)는 **store 의 코드 키명**을 써서 통과 → 버그를 가림. 게다가 dry-run 은 INSERT 자체를 건너뛰므로(`entry_params.py:95-97` "skipping DB insert" 후 `return`) 계약을 한 번도 실행하지 않는다. **버그가 오래 숨은 이유**: dry-run 은 insert 안 함 + 실 실행은 KeyError 를 조용히 삼킴.
 
 §9 는 신중히 설계된 스키마이고 깨진 쪽은 "받는 store" 이므로, **받는 쪽에 정규화 계층**을 두어 §9→저장 컬럼으로 매핑·파생한다.
 
@@ -71,7 +71,7 @@ ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS max_chase_pct_from_pivot NUMER
 | stop_loss_basis | None (§9 부재) |
 | expected_target_price | `result["expected_target_price"]` |
 | expected_target_pct | `result["expected_target_pct"]` |
-| risk_reward_ratio | 계산: `expected_target_pct / abs(stop_loss_pct_from_current_price)`, 분모 0/None 이면 None |
+| risk_reward_ratio | 계산: `expected_target_pct / abs(stop_loss_pct_from_current_price)`, 분모 0/None 이면 None. **결과가 `NUMERIC(5,2)` 범위(±999.99) 밖이면 None** (비정상 손절%로 인한 INSERT 오버플로=조용한 실패 재발 방지) |
 | position_size_pct | `result["suggested_weight_pct"]` (리네임) |
 | position_size_basis | None (§9 부재) |
 | pattern_basis | `result["pattern_basis"]` (신규) |
@@ -88,7 +88,10 @@ ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS max_chase_pct_from_pivot NUMER
 ### 3. `store.insert_entry_params` 수정
 서두에서 `norm = _normalize_entry_params(result)` 호출, INSERT 컬럼·VALUES 에 신규 5컬럼 추가, 모든 값은 `norm[...]` 에서(하드인덱싱 제거). `llm_meta`·`trigger_evaluation_at`·`prior_classification_at` 인자는 그대로.
 
-### 4. mock `_mock_calculate_entry_params` → §9 스키마
+### 4. dry-run 정규화 검증 — `entry_params.py`
+dry-run 분기(`:95-97`)는 INSERT 를 건너뛰되, `return` 전에 `_normalize_entry_params(result)` 를 호출해 **§9 정합을 검증**하고 정규화된 진입 plan 을 로그한다(insert 는 여전히 skip). → dry-run 이 실제 계약을 실행하므로 앞으로 §9↔store 가 어긋나면 dry-run 에서 즉시 드러난다(현재처럼 조용히 0행 되는 일 차단). mock 이 §9 형태이므로 이 검증을 통과한다.
+
+### 5. mock `_mock_calculate_entry_params` → §9 스키마
 출력 키를 §9 로 교체: `entry_mode, pivot_price, trigger_price, current_price, stop_loss_price, stop_loss_pct_from_pivot, stop_loss_pct_from_current_price, suggested_weight_pct, expected_target_price, expected_target_pct, pattern_basis, entry_window_days, max_chase_pct_from_pivot, breakout_volume_requirement, observed_breakout_volume_ratio, known_warnings, other_warnings, notes`. 코드 전용 키(entry_price/stop_loss/risk_reward_ratio/position_size_pct/position_size_basis/stop_loss_basis) 제거. → dry-run 이 정규화 계층을 실제로 통과(버그를 가렸던 원인 제거).
 
 ## 데이터 흐름
@@ -104,16 +107,16 @@ LLM(§9) → `_normalize_entry_params`(매핑·계산·검증) → `insert_entry
 
 ## 테스트
 
-- **`_normalize_entry_params` 단위**: ① 리네임(stop_loss_price→stop_loss, suggested_weight_pct→position_size_pct) ② risk_reward 계산(목표20/손절6.9→≈2.9; 분모 0→None) ③ entry_price==trigger_price ④ 신규 5필드 통과 ⑤ basis None ⑥ **필수 §9 키 누락 시 ValueError**(키별).
-- **mock=§9 통합**: §9-shape mock 을 `_normalize_entry_params` 에 넣어 KeyError 없이 저장 dict 산출. (가능하면) dry-run `entry_params.run` 이 fixture 로 **entry_params ≥1행 저장** — 0행 탈출의 결정적 증거.
-- **store INSERT 라운드트립**(db fixture): 정규화 dict → insert → SELECT 로 신규 5컬럼·entry_price·stop_loss·risk_reward 값 확인.
-- **회귀**: base 대비 신규 실패 0. schema.sql ALTER 가 kr_test 에 적용돼 INSERT 성공.
+- **`_normalize_entry_params` 단위**: ① 리네임(stop_loss_price→stop_loss, suggested_weight_pct→position_size_pct) ② risk_reward 계산(목표20/손절6.9→≈2.9; 분모 0→None; **범위초과(예 손절0.01)→None**) ③ entry_price==trigger_price ④ 신규 5필드 통과 ⑤ basis None ⑥ **필수 §9 키 누락 시 ValueError**(키별).
+- **store INSERT 라운드트립**(db fixture, 결정적): §9-shape mock(또는 `_mock_calculate_entry_params` 출력)을 `insert_entry_params(conn, symbol, signal_at, result=<§9 dict>, ...)` 에 넣고 → SELECT 로 **1행 저장 + 신규 5컬럼·entry_price·stop_loss·risk_reward 값** 확인. (현재 0행 → 이 경로가 §9 출력으로 저장됨을 증명 = 0행 탈출. dry-run 은 insert 를 건너뛰므로 라운드트립은 insert 함수를 직접 호출해 검증.)
+- **mock=§9 정합**: `_mock_calculate_entry_params()` 의 키 집합이 §9 필수 키를 모두 포함하고 코드 전용 키를 안 냄 → `_normalize_entry_params` 통과(KeyError/ValueError 없음).
+- **회귀**: base 대비 신규 실패 0. schema.sql ALTER 가 kr_test 에 적용돼 INSERT 성공(신규 5컬럼 존재).
 
 ## 파일 변경 예상
 
-- 변경: `schema.sql`(CREATE 5컬럼 + ALTER ×5), `store.py`(`_normalize_entry_params` 신규 + `insert_entry_params` 수정), `claude_cli.py`(mock §9 교체).
+- 변경: `schema.sql`(CREATE 5컬럼 + ALTER ×5), `store.py`(`_normalize_entry_params` 신규 + `insert_entry_params` 수정), `claude_cli.py`(mock §9 교체), `entry_params.py`(dry-run 분기에서 `_normalize_entry_params` 검증 호출, insert 는 계속 skip).
 - 무변경(검증): `signals.py`, `performance.py`, `slack.py`, `prompts/calculate_entry_params_v2_0.md`, web.
-- 테스트: `tests/` 에 normalize 단위 + insert 라운드트립(+가능 시 dry-run 통합).
+- 테스트: `tests/` 에 normalize 단위 + insert 라운드트립(결정적).
 
 ## 후속 (별도 후보)
 
