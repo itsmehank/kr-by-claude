@@ -1,12 +1,21 @@
 from datetime import date
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
+import socket
 import time
 
 import pandas as pd
 from pykrx import stock
 
 from kr_pipeline.common.retry import with_retry
+
+
+# pykrx 는 requests 기반인데 타임아웃을 걸지 않는다. KRX 가 부하/throttle 로 연결을
+# 끊으면(CLOSE_WAIT) 응답 없는 소켓 읽기에서 무한 대기 → @with_retry 도 예외가 안 나
+# 발동 못 하고 파이프라인 전체가 hang 한다 (2026-06-07 daily chain hang 사고).
+# 소켓 기본 타임아웃을 걸어 hang 을 타임아웃 예외로 전환 → with_retry 가 잡아 재시도/복구.
+FETCH_SOCKET_TIMEOUT_SECONDS = 30
+socket.setdefaulttimeout(FETCH_SOCKET_TIMEOUT_SECONDS)
 
 
 # pykrx 의 IndexTicker.get_name 은 KRX 의 "코드 → 한국어 이름" 매핑 lookup 인데,
