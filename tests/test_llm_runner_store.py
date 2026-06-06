@@ -153,6 +153,30 @@ def test_normalize_entry_params_rr_zero_and_overflow():
     assert _normalize_entry_params(_s9_result(stop_loss_pct_from_current_price=-0.01))["risk_reward_ratio"] is None
 
 
+def test_insert_entry_params_roundtrip_s9(db):
+    from datetime import datetime, timezone
+    from kr_pipeline.llm_runner.store import insert_entry_params
+    now = datetime(2026, 6, 7, 1, 0, tzinfo=timezone.utc)
+    insert_entry_params(
+        db, symbol="RTRIP", signal_at=now, result=_s9_result(),
+        trigger_evaluation_at=now, prior_classification_at=now,
+        llm_meta={"duration_s": 1.0, "input_tokens": None, "output_tokens": None},
+    )
+    # No db.commit(): same-connection INSERT is visible to the SELECT below; committing would break auto-rollback isolation.
+    with db.cursor() as cur:
+        cur.execute("""SELECT entry_price, stop_loss, position_size_pct, risk_reward_ratio,
+                              pivot_price, current_price, pattern_basis, entry_window_days, max_chase_pct_from_pivot
+                         FROM entry_params WHERE symbol='RTRIP' AND signal_at=%s""", (now,))
+        row = cur.fetchone()
+    assert row is not None
+    assert float(row[0]) == 192.69
+    assert float(row[1]) == 178.96
+    assert float(row[2]) == 10.0
+    assert round(float(row[3]), 2) == round(20.0/6.9, 2)
+    assert float(row[4]) == 192.50 and float(row[5]) == 192.30
+    assert row[6] == "flat_base" and row[7] == 3 and float(row[8]) == 5.0
+
+
 def test_insert_disqualification(db):
     """시스템 강등 행 — classification='disqualified', source='system_disqualify'."""
     from datetime import datetime, timezone
