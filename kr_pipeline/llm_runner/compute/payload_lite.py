@@ -42,7 +42,12 @@ def build_for_5b(
 
         cur.execute(
             """
-            SELECT date, open, high, low, close, volume
+            SELECT date,
+                   COALESCE(adj_open, open),
+                   COALESCE(adj_high, high),
+                   COALESCE(adj_low, low),
+                   COALESCE(adj_close, close),
+                   COALESCE(adj_volume, volume)
               FROM daily_prices
              WHERE ticker = %s AND date <= %s
              ORDER BY date DESC LIMIT 20
@@ -100,7 +105,7 @@ def build_for_5b(
                 "high": float(r[2]),
                 "low": float(r[3]),
                 "close": float(r[4]),
-                "volume": int(r[5]),
+                "volume": int(round(float(r[5]))),
             }
             for r in ohlcv_rows
         ],
@@ -181,7 +186,9 @@ def build_for_6(
         cur.execute(
             """
             SELECT i.adj_close, i.volume, i.avg_volume_50d,
-                   p.high, p.low, p.open,
+                   COALESCE(p.adj_high, p.high),
+                   COALESCE(p.adj_low, p.low),
+                   COALESCE(p.adj_open, p.open),
                    i.rs_rating, i.minervini_pass, i.w52_high, i.w52_low,
                    i.pct_from_52w_high
               FROM daily_indicators i
