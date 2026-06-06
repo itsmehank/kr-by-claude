@@ -76,11 +76,12 @@ def _clean_risk_flags(flags) -> list[str]:
 
 ### 3. 적용
 - `insert_classification`: 함수 시작에서 `classification = _validate_classification(result)`(하드인덱싱 제거, 거부 시 ValueError). risk_flags 저장을 `json.dumps(_clean_risk_flags(result.get("risk_flags", [])))` 로.
+- `insert_backfill_classification`(`store.py:91`): **동일 처리** — backfill 도 같은 analyze_chart_v3 출력을 `classification_backfill` 에 저장하며 `result["classification"]` 하드인덱싱 + risk_flags 무검증이라 같은 문제. `_validate_classification` + `_clean_risk_flags` 적용.
 - `insert_trigger_log`: 함수 시작에서 `decision = _validate_decision(result)`. INSERT 의 `result["decision"]` → `decision`.
 
 ## 데이터 흐름 / 에러 처리
 
-- 잘못된 classification/decision → ValueError → 호출부(`daily_delta.py`·`weekend.py`·`backfill.py` 의 종목별 try/except; `evaluate_pivot.py` 의 try/except)가 잡아 **`log.warning(... failed: invalid classification ...)` + rollback** → 조용한 실패 대신 원인 명확.
+- 잘못된 classification/decision → ValueError → 호출부 종목별 try/except 가 잡아 **로그 + rollback** → 조용한 실패 대신 원인 명확. 확인된 호출부: `daily_delta.py`(:94 try)·`weekend.py`(:139 try)→insert_classification, `backfill.py`(배치 루프 :75 try/except)→insert_backfill_classification, `evaluate_pivot.py`(:66 try)→insert_trigger_log. (backfill·entry_params 와 마찬가지로 dry-run 은 insert 자체를 skip 하므로 검증도 미실행 — 단 본 검증 헬퍼는 순수 함수라 단위 테스트로 직접 커버.)
 - 정상: 검증 통과 → 종전대로 저장. risk_flags 의 무효값만 제거(유효 flag·분류는 보존).
 
 ## 테스트
@@ -95,7 +96,7 @@ def _clean_risk_flags(flags) -> list[str]:
 ## 파일 변경 예상
 
 - 신규: `kr_pipeline/llm_runner/risk_flags.py`.
-- 변경: `store.py`(헬퍼 3 + insert_classification/insert_trigger_log 적용).
+- 변경: `store.py`(헬퍼 3 + insert_classification·**insert_backfill_classification**·insert_trigger_log 적용).
 - 테스트: `tests/test_llm_runner_store.py`(또는 신규)에 검증 단위 + 라운드트립.
 
 ## 후속 (별도 후보)
