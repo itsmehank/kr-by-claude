@@ -133,7 +133,7 @@ def insert_classification(
                 llm_meta.get("input_tokens"),
                 llm_meta.get("output_tokens"),
                 json.dumps(triggered_rules) if triggered_rules is not None else None,
-                json.dumps(result.get("measurements")) if result.get("measurements") is not None else None,
+                _measurements_json(result),
             ),
         )
 
@@ -207,7 +207,7 @@ def insert_backfill_classification(
                 llm_meta.get("input_tokens"),
                 llm_meta.get("output_tokens"),
                 json.dumps(triggered_rules) if triggered_rules is not None else None,
-                json.dumps(result.get("measurements")) if result.get("measurements") is not None else None,
+                _measurements_json(result),
             ),
         )
 
