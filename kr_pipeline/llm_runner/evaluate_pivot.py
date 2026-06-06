@@ -36,7 +36,7 @@ def run(
     for a in active:
         if not all(
             a.get(k) is not None
-            for k in ("close", "pivot_price", "volume", "avg_volume_50d", "stop_loss", "sma_50")
+            for k in ("close", "pivot_price", "volume", "avg_volume_50d", "sma_50")
         ):
             continue
         trig = evaluate_gate(
