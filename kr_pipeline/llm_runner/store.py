@@ -283,9 +283,18 @@ def _normalize_entry_params(result: dict) -> dict:
         "breakout_volume_requirement": result["breakout_volume_requirement"],
         "observed_breakout_volume_ratio": result["observed_breakout_volume_ratio"],
         "known_warnings": result.get("known_warnings", []),
-        "other_warnings": result.get("other_warnings"),
+        # §9 는 other_warnings 를 배열로도 낼 수 있는데 컬럼은 TEXT → list/dict 면 JSON 문자열로
+        # 직렬화(PG array-literal 로 어그러지게 저장되는 것 방지, known_warnings 와 일관).
+        "other_warnings": _as_text(result.get("other_warnings")),
         "notes": result.get("notes"),
     }
+
+
+def _as_text(v):
+    """list/dict 면 JSON 문자열로, 그 외(문자열/None)는 그대로 — TEXT 컬럼 저장용."""
+    if isinstance(v, (list, dict)):
+        return json.dumps(v, ensure_ascii=False)
+    return v
 
 
 def insert_entry_params(

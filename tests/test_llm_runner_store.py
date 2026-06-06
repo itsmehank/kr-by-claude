@@ -202,3 +202,11 @@ def test_insert_disqualification(db):
     assert row[0] == "disqualified"
     assert row[1] == "system_disqualify"
     assert row[2] is not None
+
+
+def test_normalize_entry_params_other_warnings_list_serialized():
+    from kr_pipeline.llm_runner.store import _normalize_entry_params
+    n = _normalize_entry_params(_s9_result(other_warnings=["climax_run", "wide_spread"]))
+    assert n["other_warnings"] == '["climax_run", "wide_spread"]'   # list → JSON 문자열(TEXT 컬럼)
+    s = _normalize_entry_params(_s9_result(other_warnings="plain"))
+    assert s["other_warnings"] == "plain"                            # 문자열은 그대로
