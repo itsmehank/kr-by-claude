@@ -5,17 +5,37 @@ import socket
 import time
 
 import pandas as pd
+import requests
 from pykrx import stock
 
 from kr_pipeline.common.retry import with_retry
 
 
+# ── KRX 페치 hang 방지 (2026-06-07 daily chain 무한 hang 사고) ────────────────
 # pykrx 는 requests 기반인데 타임아웃을 걸지 않는다. KRX 가 부하/throttle 로 연결을
-# 끊으면(CLOSE_WAIT) 응답 없는 소켓 읽기에서 무한 대기 → @with_retry 도 예외가 안 나
-# 발동 못 하고 파이프라인 전체가 hang 한다 (2026-06-07 daily chain hang 사고).
-# 소켓 기본 타임아웃을 걸어 hang 을 타임아웃 예외로 전환 → with_retry 가 잡아 재시도/복구.
+# 끊거나 응답을 안 주면 소켓 읽기에서 무한 대기 → @with_retry 도 예외가 안 나 발동
+# 못 하고 파이프라인 전체가 hang 한다.
+#
+# (1) 소켓 기본 타임아웃 — raw 소켓용 floor. 단 requests/urllib3 는 timeout 미지정 시
+#     소켓을 blocking(None) 으로 설정해 이 전역 기본값을 *무시* 하므로 이것만으론 부족.
 FETCH_SOCKET_TIMEOUT_SECONDS = 30
 socket.setdefaulttimeout(FETCH_SOCKET_TIMEOUT_SECONDS)
+
+# (2) requests 어댑터에 기본 (connect, read) 타임아웃을 강제 주입 — pykrx 의 모든 HTTP
+#     호출(로그인·OHLCV)에서 timeout 미지정이면 이 값이 적용되어 실제 소켓 읽기까지
+#     타임아웃이 전달된다. 타임아웃 발생 → requests 예외 → @with_retry 가 잡아 재시도/복구.
+FETCH_HTTP_CONNECT_TIMEOUT = 10
+FETCH_HTTP_READ_TIMEOUT = 30
+_orig_adapter_send = requests.adapters.HTTPAdapter.send
+
+
+def _adapter_send_with_default_timeout(self, request, **kwargs):
+    if kwargs.get("timeout") is None:
+        kwargs["timeout"] = (FETCH_HTTP_CONNECT_TIMEOUT, FETCH_HTTP_READ_TIMEOUT)
+    return _orig_adapter_send(self, request, **kwargs)
+
+
+requests.adapters.HTTPAdapter.send = _adapter_send_with_default_timeout
 
 
 # pykrx 의 IndexTicker.get_name 은 KRX 의 "코드 → 한국어 이름" 매핑 lookup 인데,
