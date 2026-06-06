@@ -43,6 +43,25 @@ def _clean_risk_flags(flags) -> list[str]:
     return cleaned
 
 
+def _measurements_json(result: dict) -> str | None:
+    """measurements 블록에 최상위 contraction_count/contraction_depths_pct 를 병합해 JSON 문자열로.
+
+    VCP footprint(최상위 출력)가 버려지지 않게 measurements 감사 블록에 합친다.
+    measurements·contraction 둘 다 없으면 None(기존 None 동작 보존).
+    """
+    m = result.get("measurements")
+    cc = result.get("contraction_count")
+    cd = result.get("contraction_depths_pct")
+    if m is None and cc is None and cd is None:
+        return None
+    blob = dict(m) if isinstance(m, dict) else {}
+    if cc is not None:
+        blob["contraction_count"] = cc
+    if cd is not None:
+        blob["contraction_depths_pct"] = cd
+    return json.dumps(blob)
+
+
 def insert_classification(
     conn: Connection,
     *,
