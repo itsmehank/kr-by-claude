@@ -154,6 +154,7 @@ def test_insert_entry_params(db):
 
     with db.cursor() as cur:
         cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('EP1', 'E', 'KOSPI') ON CONFLICT DO NOTHING")
+        cur.execute("DELETE FROM entry_params WHERE symbol='EP1'")
     db.commit()
 
     signal_at = datetime(2026, 5, 19, 16, 35, tzinfo=timezone.utc)
@@ -163,17 +164,18 @@ def test_insert_entry_params(db):
         signal_at=signal_at,
         result={
             "entry_mode": "pivot_breakout",
+            "pivot_price": 80.0,
             "trigger_price": 80.08,
-            "entry_price": 80.5,
-            "stop_loss": 75.0,
+            "current_price": 79.9,
+            "stop_loss_price": 75.0,
             "stop_loss_pct_from_pivot": -6.25,
             "stop_loss_pct_from_current_price": -6.83,
-            "stop_loss_basis": "logical_pct",
+            "suggested_weight_pct": 5.0,
             "expected_target_price": 95.0,
             "expected_target_pct": 18.0,
-            "risk_reward_ratio": 2.6,
-            "position_size_pct": 5.0,
-            "position_size_basis": "test",
+            "pattern_basis": "flat_base",
+            "entry_window_days": 3,
+            "max_chase_pct_from_pivot": 5.0,
             "breakout_volume_requirement": "1.4x",
             "observed_breakout_volume_ratio": 1.55,
             "known_warnings": [],
@@ -190,7 +192,7 @@ def test_insert_entry_params(db):
         cur.execute("SELECT entry_mode, entry_price FROM entry_params WHERE symbol='EP1'")
         row = cur.fetchone()
     assert row[0] == "pivot_breakout"
-    assert float(row[1]) == 80.5
+    assert float(row[1]) == 80.08   # entry_price = trigger_price (derived)
 
 
 def test_active_monitoring_latest_by_analyzed_for_date(db):

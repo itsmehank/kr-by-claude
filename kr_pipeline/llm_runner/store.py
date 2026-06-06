@@ -236,6 +236,67 @@ def insert_trigger_log(
         )
 
 
+_ENTRY_PARAMS_REQUIRED = (
+    "entry_mode", "pivot_price", "trigger_price", "current_price",
+    "stop_loss_price", "stop_loss_pct_from_pivot", "stop_loss_pct_from_current_price",
+    "suggested_weight_pct", "expected_target_price", "expected_target_pct",
+    "pattern_basis", "entry_window_days", "max_chase_pct_from_pivot",
+    "breakout_volume_requirement", "observed_breakout_volume_ratio",
+)
+
+
+def _normalize_entry_params(result: dict) -> dict:
+    """§9 LLM 출력 → entry_params 저장용 dict.
+
+    리네임(stop_loss_price→stop_loss, suggested_weight_pct→position_size_pct),
+    파생(entry_price=trigger_price, risk_reward_ratio 계산), §9 부재 메타는 None.
+    필수 §9 키 누락 시 ValueError(조용한 0행 방지).
+    """
+    for k in _ENTRY_PARAMS_REQUIRED:
+        if k not in result:
+            raise ValueError(f"entry_params schema drift: missing §9 field '{k}'")
+    target_pct = result["expected_target_pct"]
+    stop_pct = result["stop_loss_pct_from_current_price"]
+    rr = None
+    if target_pct is not None and stop_pct not in (None, 0):
+        rr = target_pct / abs(stop_pct)
+        if abs(rr) >= 1000:  # NUMERIC(5,2) 범위 밖 → 오버플로(=조용한 실패) 방지
+            rr = None
+    return {
+        "entry_mode": result["entry_mode"],
+        "pivot_price": result["pivot_price"],
+        "trigger_price": result["trigger_price"],
+        "current_price": result["current_price"],
+        "entry_price": result["trigger_price"],
+        "stop_loss": result["stop_loss_price"],
+        "stop_loss_pct_from_pivot": result["stop_loss_pct_from_pivot"],
+        "stop_loss_pct_from_current_price": result["stop_loss_pct_from_current_price"],
+        "stop_loss_basis": None,
+        "expected_target_price": result["expected_target_price"],
+        "expected_target_pct": result["expected_target_pct"],
+        "risk_reward_ratio": rr,
+        "position_size_pct": result["suggested_weight_pct"],
+        "position_size_basis": None,
+        "pattern_basis": result["pattern_basis"],
+        "entry_window_days": result["entry_window_days"],
+        "max_chase_pct_from_pivot": result["max_chase_pct_from_pivot"],
+        "breakout_volume_requirement": result["breakout_volume_requirement"],
+        "observed_breakout_volume_ratio": result["observed_breakout_volume_ratio"],
+        "known_warnings": result.get("known_warnings", []),
+        # §9 는 other_warnings 를 배열로도 낼 수 있는데 컬럼은 TEXT → list/dict 면 JSON 문자열로
+        # 직렬화(PG array-literal 로 어그러지게 저장되는 것 방지, known_warnings 와 일관).
+        "other_warnings": _as_text(result.get("other_warnings")),
+        "notes": result.get("notes"),
+    }
+
+
+def _as_text(v):
+    """list/dict 면 JSON 문자열로, 그 외(문자열/None)는 그대로 — TEXT 컬럼 저장용."""
+    if isinstance(v, (list, dict)):
+        return json.dumps(v, ensure_ascii=False)
+    return v
+
+
 def insert_entry_params(
     conn: Connection,
     *,
@@ -246,25 +307,28 @@ def insert_entry_params(
     prior_classification_at: datetime,
     llm_meta: dict,
 ) -> None:
-    """entry_params 에 (6) 결과 INSERT."""
+    """entry_params 에 (6) 결과 INSERT (§9 → 정규화 → 저장)."""
+    n = _normalize_entry_params(result)
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO entry_params
               (symbol, signal_at,
-               entry_mode, trigger_price, entry_price,
+               entry_mode, pivot_price, trigger_price, current_price, entry_price,
                stop_loss, stop_loss_pct_from_pivot, stop_loss_pct_from_current_price, stop_loss_basis,
                expected_target_price, expected_target_pct, risk_reward_ratio,
                position_size_pct, position_size_basis,
+               pattern_basis, entry_window_days, max_chase_pct_from_pivot,
                breakout_volume_requirement, observed_breakout_volume_ratio,
                known_warnings, other_warnings, notes,
                trigger_evaluation_at, prior_classification_at,
                llm_call_duration_s, llm_input_tokens, llm_output_tokens)
             VALUES (%s, %s,
-                    %s, %s, %s,
+                    %s, %s, %s, %s, %s,
                     %s, %s, %s, %s,
                     %s, %s, %s,
                     %s, %s,
+                    %s, %s, %s,
                     %s, %s,
                     %s, %s, %s,
                     %s, %s,
@@ -272,29 +336,15 @@ def insert_entry_params(
             ON CONFLICT (symbol, signal_at) DO NOTHING
             """,
             (
-                symbol,
-                signal_at,
-                result["entry_mode"],
-                result["trigger_price"],
-                result["entry_price"],
-                result["stop_loss"],
-                result["stop_loss_pct_from_pivot"],
-                result["stop_loss_pct_from_current_price"],
-                result["stop_loss_basis"],
-                result["expected_target_price"],
-                result["expected_target_pct"],
-                result["risk_reward_ratio"],
-                result["position_size_pct"],
-                result["position_size_basis"],
-                result["breakout_volume_requirement"],
-                result["observed_breakout_volume_ratio"],
-                json.dumps(result.get("known_warnings", [])),
-                result.get("other_warnings"),
-                result.get("notes"),
-                trigger_evaluation_at,
-                prior_classification_at,
-                llm_meta.get("duration_s"),
-                llm_meta.get("input_tokens"),
-                llm_meta.get("output_tokens"),
+                symbol, signal_at,
+                n["entry_mode"], n["pivot_price"], n["trigger_price"], n["current_price"], n["entry_price"],
+                n["stop_loss"], n["stop_loss_pct_from_pivot"], n["stop_loss_pct_from_current_price"], n["stop_loss_basis"],
+                n["expected_target_price"], n["expected_target_pct"], n["risk_reward_ratio"],
+                n["position_size_pct"], n["position_size_basis"],
+                n["pattern_basis"], n["entry_window_days"], n["max_chase_pct_from_pivot"],
+                n["breakout_volume_requirement"], n["observed_breakout_volume_ratio"],
+                json.dumps(n["known_warnings"]), n["other_warnings"], n["notes"],
+                trigger_evaluation_at, prior_classification_at,
+                llm_meta.get("duration_s"), llm_meta.get("input_tokens"), llm_meta.get("output_tokens"),
             ),
         )

@@ -11,7 +11,7 @@ from psycopg import Connection
 
 from kr_pipeline.llm_runner.compute.payload_lite import build_for_6
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude
-from kr_pipeline.llm_runner.store import insert_entry_params
+from kr_pipeline.llm_runner.store import insert_entry_params, _normalize_entry_params
 
 
 log = logging.getLogger("kr_pipeline.llm_runner.entry_params")
@@ -92,7 +92,8 @@ def _process_one(conn, symbol, eval_at, prior_at, *, dry_run):
     finished = datetime.now(timezone.utc)
 
     if dry_run:
-        log.info("dry-run: skipping DB insert for %s (mock entry plan)", symbol)
+        _normalize_entry_params(result)  # §9 정합 검증(드리프트 시 ValueError) — insert 는 skip
+        log.info("dry-run: validated entry plan for %s (skipping DB insert)", symbol)
         return
 
     insert_entry_params(
