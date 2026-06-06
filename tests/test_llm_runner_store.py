@@ -210,3 +210,80 @@ def test_normalize_entry_params_other_warnings_list_serialized():
     assert n["other_warnings"] == '["climax_run", "wide_spread"]'   # list → JSON 문자열(TEXT 컬럼)
     s = _normalize_entry_params(_s9_result(other_warnings="plain"))
     assert s["other_warnings"] == "plain"                            # 문자열은 그대로
+
+
+def test_risk_flags_taxonomy_has_14():
+    from kr_pipeline.llm_runner.risk_flags import RISK_FLAGS_TAXONOMY
+    assert len(RISK_FLAGS_TAXONOMY) == 14
+    assert "climax_run" in RISK_FLAGS_TAXONOMY and "handle_quality" in RISK_FLAGS_TAXONOMY
+
+
+def test_validate_classification():
+    from kr_pipeline.llm_runner.store import _validate_classification
+    import pytest
+    assert _validate_classification({"classification": "entry"}) == "entry"
+    assert _validate_classification({"classification": "watch"}) == "watch"
+    for bad in ({"classification": "buy"}, {}, {"classification": None}):
+        with pytest.raises(ValueError, match="invalid classification"):
+            _validate_classification(bad)
+
+
+def test_validate_decision():
+    from kr_pipeline.llm_runner.store import _validate_decision
+    import pytest
+    assert _validate_decision({"decision": "go_now"}) == "go_now"
+    for bad in ({"decision": "maybe"}, {}, {"decision": None}):
+        with pytest.raises(ValueError, match="invalid decision"):
+            _validate_decision(bad)
+
+
+def test_clean_risk_flags():
+    from kr_pipeline.llm_runner.store import _clean_risk_flags
+    assert _clean_risk_flags(["climax_run", "bogus", "narrow_base"]) == ["climax_run", "narrow_base"]
+    assert _clean_risk_flags([]) == []
+    assert _clean_risk_flags(None) == []
+    assert _clean_risk_flags("climax_run") == []
+
+
+def test_insert_classification_rejects_invalid(mocker):
+    from datetime import datetime, timezone
+    from kr_pipeline.llm_runner.store import insert_classification
+    import pytest
+    conn = mocker.MagicMock()
+    with pytest.raises(ValueError, match="invalid classification"):
+        insert_classification(
+            conn, symbol="X", classified_at=datetime(2026,6,7,tzinfo=timezone.utc),
+            market="KOSPI", result={"classification": "buy"},
+            source="daily_delta", llm_meta={},
+        )
+    conn.cursor.assert_not_called()
+
+
+def test_insert_backfill_classification_rejects_invalid(mocker):
+    from datetime import datetime, timezone, date
+    from kr_pipeline.llm_runner.store import insert_backfill_classification
+    import pytest
+    conn = mocker.MagicMock()
+    now = datetime(2026,6,7,tzinfo=timezone.utc)
+    with pytest.raises(ValueError, match="invalid classification"):
+        insert_backfill_classification(
+            conn, symbol="X", classified_at=now, market="KOSPI",
+            result={"classification": "buy"}, source="backfill", llm_meta={},
+            analyzed_for_date=date(2026,6,7),
+        )
+    conn.cursor.assert_not_called()
+
+
+def test_insert_trigger_log_rejects_invalid_decision(mocker):
+    from datetime import datetime, timezone
+    from kr_pipeline.llm_runner.store import insert_trigger_log
+    import pytest
+    conn = mocker.MagicMock()
+    now = datetime(2026,6,7,tzinfo=timezone.utc)
+    with pytest.raises(ValueError, match="invalid decision"):
+        insert_trigger_log(
+            conn, symbol="X", evaluated_at=now, trigger_type="breakout",
+            close=100.0, volume=1000, pivot_price=99.0,
+            result={}, prior_classification_at=now, llm_meta={},
+        )
+    conn.cursor.assert_not_called()

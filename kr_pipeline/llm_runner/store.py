@@ -9,8 +9,38 @@ import json
 from psycopg import Connection
 
 from kr_pipeline.llm_runner.gates import apply_phase1_gates
+from kr_pipeline.llm_runner.risk_flags import RISK_FLAGS_TAXONOMY
 
 log = logging.getLogger(__name__)
+
+_VALID_CLASSIFICATIONS = frozenset({"entry", "watch", "ignore"})
+_VALID_DECISIONS = frozenset({"go_now", "wait", "abort"})
+
+
+def _validate_classification(result: dict) -> str:
+    c = result.get("classification")
+    if c not in _VALID_CLASSIFICATIONS:
+        raise ValueError(f"invalid classification: {c!r} (expected entry/watch/ignore)")
+    return c
+
+
+def _validate_decision(result: dict) -> str:
+    d = result.get("decision")
+    if d not in _VALID_DECISIONS:
+        raise ValueError(f"invalid decision: {d!r} (expected go_now/wait/abort)")
+    return d
+
+
+def _clean_risk_flags(flags) -> list[str]:
+    """RISK_FLAGS_TAXONOMY 밖 값 drop + log.warning. None/비list → []."""
+    if not isinstance(flags, list):
+        return []
+    cleaned, dropped = [], []
+    for f in flags:
+        (cleaned if f in RISK_FLAGS_TAXONOMY else dropped).append(f)
+    if dropped:
+        log.warning("dropped unknown risk_flags: %s", dropped)
+    return cleaned
 
 
 def insert_classification(
@@ -31,6 +61,7 @@ def insert_classification(
 
     source: 'weekend' | 'daily_delta'
     """
+    _validate_classification(result)
     _original = copy.deepcopy(result)
     try:
         result, triggered_rules = apply_phase1_gates(conn, symbol, classified_at, result)
@@ -75,7 +106,7 @@ def insert_classification(
                 result.get("base_low"),
                 result.get("base_depth_pct"),
                 result.get("base_start_date"),
-                json.dumps(result.get("risk_flags", [])),
+                json.dumps(_clean_risk_flags(result.get("risk_flags", []))),
                 result.get("confidence"),
                 result.get("reasoning"),
                 source,
@@ -103,6 +134,7 @@ def insert_backfill_classification(
 
     insert_classification 과 동일하게 Phase 1 2-A 후처리 게이트 적용. freeze 는 만들지 않음.
     """
+    _validate_classification(result)
     _original = copy.deepcopy(result)
     try:
         gate_at = datetime.combine(analyzed_for_date + timedelta(days=1), dt_time.min)
@@ -148,7 +180,7 @@ def insert_backfill_classification(
                 result.get("base_low"),
                 result.get("base_depth_pct"),
                 result.get("base_start_date"),
-                json.dumps(result.get("risk_flags", [])),
+                json.dumps(_clean_risk_flags(result.get("risk_flags", []))),
                 result.get("confidence"),
                 result.get("reasoning"),
                 source,
@@ -201,6 +233,7 @@ def insert_trigger_log(
     llm_meta: dict,
 ) -> None:
     """trigger_evaluation_log 에 (5b) 결과 INSERT."""
+    decision = _validate_decision(result)
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -224,7 +257,7 @@ def insert_trigger_log(
                 close,
                 volume,
                 pivot_price,
-                result["decision"],
+                decision,
                 result.get("confidence"),
                 result.get("reasoning"),
                 result.get("abort_reason"),
