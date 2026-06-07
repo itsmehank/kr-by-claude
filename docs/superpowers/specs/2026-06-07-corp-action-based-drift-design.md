@@ -51,7 +51,7 @@ def recent_corp_action_tickers(conn, *, as_of: date, lookback_days: int) -> list
     """corporate_actions 에 [as_of-lookback, as_of] 영향 이벤트가 있는 활성 종목(distinct)."""
 ```
 
-- 쿼리: `corporate_actions` 를 `event_type IN ADJ_AFFECTING_EVENT_TYPES AND event_date >= as_of - lookback_days` 로 필터, `stocks`(delisted_at IS NULL) 와 INNER JOIN, `DISTINCT ticker ORDER BY ticker`. 인덱스 `idx_corp_actions_ticker_date` 활용.
+- 쿼리: `corporate_actions` 를 `event_type IN ADJ_AFFECTING_EVENT_TYPES AND event_date >= as_of - lookback_days` 로 필터, `stocks`(delisted_at IS NULL) 와 INNER JOIN, `DISTINCT ticker ORDER BY ticker`. 인덱스 `idx_corp_actions_event_type_date`(event_type, event_date DESC) 가 이 필터에 적합.
 - 결과가 빈 리스트면 그대로 `[]` 반환(전 종목 아님 — §빈 후보 처리).
 
 ### 2. detect 후보 인자 추가 — `drift.py` 수정
@@ -122,7 +122,7 @@ def run_weekly_chain(conn, *, limit_tickers=None, full_sweep=True):
 
 **평일 (`run_daily_chain`, 18:30, 증분 *전* 실행):**
 ```
-corporate_actions(최근 90일 영향 이벤트) → 후보 ~수십개
+corporate_actions(최근 90일 영향 이벤트) → 후보 ~수백개(실측 ~260)
   → 각 후보: DB 최근30일 adj_close  vs  KRX 최근30일  (is_drift, rel_tol=1%)
   → 틀어진 종목만 reload_ticker
   → ohlcv 증분 → indicators 일봉
@@ -153,8 +153,9 @@ corporate_actions 가 *놓친* split 은 평일 후보에 없고, 그 사이 증
 ## 에러 처리 & 비용
 
 - **종목 단위 격리**(기존 패턴 그대로): detect 는 종목별 `try/except` 로그+skip, reload 는 `try/except`+`conn.rollback()`. 토요일 스윕 reload 루프도 **평일 체인과 동일하게** 격리.
-- **비용**: 평일 2,552 → ~수십(90일 기준 데이터상 후보 ~263 상한, 실제 검사는 그중 영향 이벤트 보유분). 토요일 스윕이 hotspot(2,552 × 90일 순차 페치). 주 1회·03:00 off-hours 라 감내. 느리면 후속 병렬화(범위 밖).
+- **비용**: 평일 2,552 → **~260**(90일 영향 이벤트 보유 종목, 약 10× 감소). 토요일 스윕이 hotspot(2,552 × 90일 순차 페치). 주 1회·03:00 off-hours 라 감내. 느리면 후속 병렬화(범위 밖).
 - **공시·data-daily 시간대 분리**(08:00 vs 18:30) → DB 경합·overrun 없음.
+- **DART 부하**: 공시 평일화로 증분(7일 창, ~2,500종목) 호출이 주 1→5회. DART 일일 한도 내, 08:00 단독 시간대.
 
 ## 운영 / 배포 고려
 
