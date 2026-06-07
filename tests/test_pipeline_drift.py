@@ -118,3 +118,31 @@ def test_reload_ticker_sequence(mocker):
     assert calls[3][1] == ["AAA"]
     assert calls[4][1] == "AAA"
     assert out["ticker"] == "AAA" and out["adj_rows"] == 1
+
+
+def test_detect_drifted_tickers_uses_given_tickers(mocker):
+    """tickers 인자가 주어지면 _active_tickers 대신 그 목록만 검사."""
+    import kr_pipeline.pipeline.drift as d
+
+    active = mocker.patch.object(d, "_active_tickers")
+    mocker.patch.object(d, "_db_adj_close", return_value={date(2024, 1, 2): 50000.0})
+    mocker.patch.object(d, "_krx_adj_close", return_value={date(2024, 1, 2): 10000.0})
+
+    out = d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10),
+                                   rel_tol=0.01, tickers=["AAA"])
+    assert out == ["AAA"]
+    active.assert_not_called()
+
+
+def test_detect_drifted_tickers_empty_list_checks_nothing(mocker):
+    """tickers=[] 는 '검사 0건' — _active_tickers/_krx 호출 없이 빈 리스트."""
+    import kr_pipeline.pipeline.drift as d
+
+    active = mocker.patch.object(d, "_active_tickers")
+    krx = mocker.patch.object(d, "_krx_adj_close")
+
+    out = d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10),
+                                   rel_tol=0.01, tickers=[])
+    assert out == []
+    active.assert_not_called()
+    krx.assert_not_called()

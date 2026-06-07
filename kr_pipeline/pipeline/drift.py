@@ -72,15 +72,21 @@ def detect_drifted_tickers(
     rel_tol: float = 0.01,
     recent_days: int = 30,
     wide_days: int = 365,
+    tickers: list[str] | None = None,
     limit_tickers: int | None = None,
 ) -> list[str]:
     """활성 종목별 DB(현재, 덮어쓰기 전) vs KRX 재조회 adj_close 비교 → 드리프트 종목.
 
-    반드시 ohlcv 증분 적재 전에 호출(증분이 adj_close 를 덮으면 비교가 일치해버림).
+    tickers=None 이면 활성 전 종목(전체스윕). tickers 가 리스트면 그 목록만 검사
+    (빈 리스트 = 검사 0건, 전 종목 아님). 반드시 ohlcv 증분 적재 전에 호출.
     종목별 fetch 예외는 로그+skip.
     """
+    if tickers is None:
+        scan = _active_tickers(conn, limit=limit_tickers)
+    else:
+        scan = list(tickers[:limit_tickers]) if limit_tickers else list(tickers)
     drifted: list[str] = []
-    for t in _active_tickers(conn, limit=limit_tickers):
+    for t in scan:
         try:
             recent_start = as_of - timedelta(days=recent_days)
             db = _db_adj_close(conn, t, recent_start, as_of)
