@@ -131,7 +131,11 @@ git commit -m "feat(drift): detect_drifted_tickers 에 검사 대상 tickers 인
 
 ```python
 def test_recent_corp_action_tickers_filters(db):
-    """영향 이벤트·창 내·활성 종목만 distinct 반환. 비영향/창밖/상폐 제외."""
+    """영향 이벤트·창 내·활성 종목만 distinct 반환. 비영향/창밖/상폐 제외.
+
+    DB 의 다른(선존) 행에 영향받지 않도록 멤버십/카운트로 검증(전역 exact-match 회피).
+    충돌 적은 고유 티커(CAD*) 사용.
+    """
     from datetime import timedelta
     from kr_pipeline.pipeline.drift import recent_corp_action_tickers
 
@@ -139,22 +143,25 @@ def test_recent_corp_action_tickers_filters(db):
     with db.cursor() as cur:
         cur.execute(
             "INSERT INTO stocks (ticker,name,market) VALUES "
-            "('AAA','a','KOSPI'),('BBB','b','KOSPI'),('DEL','d','KOSPI')"
+            "('CAD1','a','KOSPI'),('CAD2','b','KOSPI'),('CAD3','d','KOSPI')"
         )
-        cur.execute("UPDATE stocks SET delisted_at=%s WHERE ticker='DEL'", (as_of,))
+        cur.execute("UPDATE stocks SET delisted_at=%s WHERE ticker='CAD3'", (as_of,))
         cur.execute(
             "INSERT INTO corporate_actions (ticker,event_date,event_type,dart_rcept_no) VALUES "
-            "('AAA',%s,'rights_offering','r1'),"   # 창 내·영향 → 포함
-            "('AAA',%s,'bonus_issue','r2'),"       # 창 내·영향(중복 종목) → distinct 로 1회
-            "('AAA',%s,'rights_offering','r3'),"   # 창 밖(200일 전) → 제외
-            "('BBB',%s,'cash_dividend','r4'),"     # 창 내지만 비영향 → 제외
-            "('DEL',%s,'bonus_issue','r5')",       # 창 내·영향이나 상폐 → 제외
+            "('CAD1',%s,'rights_offering','cad-r1'),"   # 창 내·영향 → 포함
+            "('CAD1',%s,'bonus_issue','cad-r2'),"       # 창 내·영향(중복 종목) → distinct 로 1회
+            "('CAD1',%s,'rights_offering','cad-r3'),"   # 창 밖(200일 전) → 제외
+            "('CAD2',%s,'cash_dividend','cad-r4'),"     # 창 내지만 비영향 → 제외
+            "('CAD3',%s,'bonus_issue','cad-r5')",       # 창 내·영향이나 상폐 → 제외
             (as_of - timedelta(days=10), as_of - timedelta(days=20),
              as_of - timedelta(days=200), as_of - timedelta(days=5),
              as_of - timedelta(days=3)),
         )
     out = recent_corp_action_tickers(db, as_of=as_of, lookback_days=90)
-    assert out == ["AAA"]
+    assert "CAD1" in out            # 창 내 영향 이벤트
+    assert out.count("CAD1") == 1   # distinct: 중복 이벤트여도 1회
+    assert "CAD2" not in out        # 비영향(cash_dividend)
+    assert "CAD3" not in out        # 상폐
 ```
 
 - [ ] **Step 2: 실패 확인**
@@ -580,3 +587,4 @@ git status --short   # 코드 변경 없으면 커밋 없음
 - **빈 후보 처리**(`[]`≠`None`): Task1 Step3 분기 + Task1 전용 테스트로 고정.
 - **Type/이름 일관성**: `recent_corp_action_tickers`·`detect_drifted_tickers(tickers=...)`·`CA_LOOKBACK_DAYS`·`SWEEP_RECENT_DAYS`·`full_sweep`·details `sweep` 키가 전 Task 에서 동일 사용.
 - **기존 테스트 깨짐 처리**: Task3(평일 detect 패치에 recent_corp_action_tickers 추가)·Task4(weekly 호출 full_sweep=False + details sweep 키) 명시적 갱신.
+- **교차 영향 점검(실측)**: `run_weekly_chain`/`run_daily_chain` 호출자는 `tests/test_pipeline_chains.py` 뿐(타 파일 없음) → `full_sweep=True` 기본값이 다른 테스트에서 DB 를 치는 일 없음. 공시 cron 문자열을 단정하는 테스트 없음(`test_api_cron.py` 는 mock crontab 구조만; `test_cron_manager` 의 예약 spec 수 8 은 corporate-actions 가 여전히 비-빈 cron 이라 유지). Task2 DB 테스트는 전역 exact-match 대신 멤버십/카운트로 견고화.
