@@ -33,7 +33,10 @@ def run_daily_chain(conn: Connection, *, drift_check: bool = True, limit_tickers
         as_of = date.today()
         drifted: list[str] = []
         if drift_check:
-            drifted = drift.detect_drifted_tickers(conn, as_of=as_of, limit_tickers=limit_tickers)
+            candidates = drift.recent_corp_action_tickers(
+                conn, as_of=as_of, lookback_days=drift.CA_LOOKBACK_DAYS)
+            drifted = drift.detect_drifted_tickers(
+                conn, as_of=as_of, tickers=candidates, limit_tickers=limit_tickers)
 
         r_price = ohlcv.run(conn, ohlcv.Mode.INCREMENTAL, limit_tickers=limit_tickers)
 

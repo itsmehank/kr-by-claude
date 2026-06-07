@@ -57,6 +57,7 @@ def test_run_daily_chain_detects_before_ohlcv_then_reloads(mocker):
 
     state, fake = _fake_run_tracking(mocker, ch)
     calls = []
+    mocker.patch.object(ch.drift, "recent_corp_action_tickers", return_value=["AAA"])
     mocker.patch.object(ch.drift, "detect_drifted_tickers",
                         side_effect=lambda *a, **k: calls.append("detect") or ["AAA"])
     mocker.patch.object(ch.drift, "reload_ticker",
@@ -90,6 +91,7 @@ def test_run_daily_chain_reload_failure_isolated(mocker):
 
     state, fake = _fake_run_tracking(mocker, ch)
     calls = []
+    mocker.patch.object(ch.drift, "recent_corp_action_tickers", return_value=["AAA", "BBB"])
     mocker.patch.object(ch.drift, "detect_drifted_tickers", side_effect=lambda *a, **k: ["AAA", "BBB"])
     def boom(conn, t, **k):
         if t == "AAA":
@@ -104,3 +106,17 @@ def test_run_daily_chain_reload_failure_isolated(mocker):
     assert calls == ["ind_daily"]
     assert state["details"]["drift"] == {"detected": 2, "reloaded": 1, "failures": 1, "tickers": ["AAA", "BBB"]}
     rb.assert_called_once()
+
+
+def test_run_daily_chain_passes_corp_action_candidates(mocker):
+    """detect 가 recent_corp_action_tickers 의 후보 목록을 tickers 로 받아 호출된다."""
+    import kr_pipeline.pipeline.chains as ch
+
+    state, fake = _fake_run_tracking(mocker, ch)
+    mocker.patch.object(ch.drift, "recent_corp_action_tickers", return_value=["AAA", "BBB"])
+    det = mocker.patch.object(ch.drift, "detect_drifted_tickers", return_value=[])
+    mocker.patch.object(ch.ohlcv, "run", side_effect=lambda *a, **k: _Stats())
+    mocker.patch.object(ch.indicators, "run_daily", side_effect=lambda *a, **k: _Stats())
+
+    ch.run_daily_chain(conn=None)
+    assert det.call_args.kwargs["tickers"] == ["AAA", "BBB"]
