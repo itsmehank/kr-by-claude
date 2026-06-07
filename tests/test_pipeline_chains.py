@@ -166,3 +166,19 @@ def test_run_weekly_chain_sweep_reload_failure_isolated(mocker):
     assert calls == ["weekly", "ind_weekly"]
     assert state["details"]["sweep"] == {"detected": 2, "reloaded": 1, "failures": 1}
     rb.assert_called_once()
+
+
+def test_main_weekly_no_sweep_passes_full_sweep_false(mocker):
+    """CLI --no-sweep → run_weekly_chain(full_sweep=False)."""
+    import importlib
+    m = importlib.import_module("kr_pipeline.pipeline.__main__")
+
+    mocker.patch.object(m, "Config")
+    mocker.patch.object(m, "setup_logging")
+    conn_cm = mocker.patch.object(m, "connect")
+    conn_cm.return_value.__enter__.return_value = "CONN"
+    rw = mocker.patch.object(m.chains, "run_weekly_chain", return_value={})
+    mocker.patch("sys.argv", ["prog", "--chain=weekly", "--no-sweep"])
+
+    m.main()
+    rw.assert_called_once_with("CONN", limit_tickers=None, full_sweep=False)
