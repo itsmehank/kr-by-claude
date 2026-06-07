@@ -161,7 +161,7 @@ def test_recent_corp_action_tickers_filters(db):
     with db.cursor() as cur:
         cur.execute(
             "INSERT INTO stocks (ticker,name,market) VALUES "
-            "('CAD1','a','KOSPI'),('CAD2','b','KOSPI'),('CAD3','d','KOSPI')"
+            "('CAD1','a','KOSPI'),('CAD2','b','KOSPI'),('CAD3','d','KOSPI'),('CAD4','e','KOSPI')"
         )
         cur.execute("UPDATE stocks SET delisted_at=%s WHERE ticker='CAD3'", (as_of,))
         cur.execute(
@@ -170,13 +170,15 @@ def test_recent_corp_action_tickers_filters(db):
             "('CAD1',%s,'bonus_issue','cad-r2'),"       # 창 내·영향(중복 종목) → distinct 로 1회
             "('CAD1',%s,'rights_offering','cad-r3'),"   # 창 밖(200일 전) → 제외
             "('CAD2',%s,'cash_dividend','cad-r4'),"     # 창 내지만 비영향 → 제외
-            "('CAD3',%s,'bonus_issue','cad-r5')",       # 창 내·영향이나 상폐 → 제외
+            "('CAD3',%s,'bonus_issue','cad-r5'),"       # 창 내·영향이나 상폐 → 제외
+            "('CAD4',%s,'rights_offering','cad-r6')",   # 미래(as_of+5) → 상한 밖 → 제외
             (as_of - timedelta(days=10), as_of - timedelta(days=20),
              as_of - timedelta(days=200), as_of - timedelta(days=5),
-             as_of - timedelta(days=3)),
+             as_of - timedelta(days=3), as_of + timedelta(days=5)),
         )
     out = recent_corp_action_tickers(db, as_of=as_of, lookback_days=90)
     assert "CAD1" in out            # 창 내 영향 이벤트
     assert out.count("CAD1") == 1   # distinct: 중복 이벤트여도 1회
     assert "CAD2" not in out        # 비영향(cash_dividend)
     assert "CAD3" not in out        # 상폐
+    assert "CAD4" not in out        # 미래 event_date (상한 밖)

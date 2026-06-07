@@ -40,10 +40,10 @@ def recent_corp_action_tickers(conn: Connection, *, as_of: date, lookback_days: 
         cur.execute(
             "SELECT DISTINCT ca.ticker FROM corporate_actions ca "
             "JOIN stocks s ON s.ticker = ca.ticker "
-            "WHERE ca.event_type = ANY(%s) AND ca.event_date >= %s "
+            "WHERE ca.event_type = ANY(%s) AND ca.event_date BETWEEN %s AND %s "
             "AND s.delisted_at IS NULL "
             "ORDER BY ca.ticker",
-            (list(ADJ_AFFECTING_EVENT_TYPES), since),
+            (list(ADJ_AFFECTING_EVENT_TYPES), since, as_of),
         )
         return [r[0] for r in cur.fetchall()]
 
