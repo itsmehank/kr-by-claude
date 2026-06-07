@@ -31,9 +31,14 @@ def fetch_disclosures(
     corp_code: str,
     start_date: date,
     end_date: date,
-    pblntf_ty: str = "A",
+    pblntf_ty: str = "B",
 ) -> list[dict]:
     """corp_code 회사의 [start_date..end_date] 공시 목록 조회. 페이지네이션 자동.
+
+    pblntf_ty 기본값 'B'(주요사항보고): 분할·병합·합병·감자 등 기업행위 공시는
+    정기공시('A': 사업/분기보고서)가 아니라 주요사항보고('B')에 실린다. 과거 'A' 기본값
+    탓에 parser 가 찾을 공시가 안 들어와 corporate_actions 가 매번 0건이었음
+    (2026-06-07 확인: 최근 60일 A=parser매칭 0, B=12). 따라서 'B' 가 정본.
 
     Return: DART 응답의 list 항목들 (rcept_no, report_nm, rcept_dt 등).
     Empty list 인 경우: 응답 status=013 (조회 결과 없음).
