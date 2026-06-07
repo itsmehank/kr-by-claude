@@ -51,7 +51,7 @@ def recent_corp_action_tickers(conn, *, as_of: date, lookback_days: int) -> list
     """corporate_actions 에 [as_of-lookback, as_of] 영향 이벤트가 있는 활성 종목(distinct)."""
 ```
 
-- 쿼리: `corporate_actions` 를 `event_type IN ADJ_AFFECTING_EVENT_TYPES AND event_date >= as_of - lookback_days` 로 필터, `stocks`(delisted_at IS NULL) 와 INNER JOIN, `DISTINCT ticker ORDER BY ticker`. 인덱스 `idx_corp_actions_event_type_date`(event_type, event_date DESC) 가 이 필터에 적합.
+- 쿼리: `corporate_actions` 를 `event_type IN ADJ_AFFECTING_EVENT_TYPES AND event_date BETWEEN (as_of - lookback_days) AND as_of` 로 필터(닫힌 구간), `stocks`(delisted_at IS NULL) 와 INNER JOIN, `DISTINCT ticker ORDER BY ticker`. 인덱스 `idx_corp_actions_event_type_date`(event_type, event_date DESC) 가 이 필터에 적합.
 - 결과가 빈 리스트면 그대로 `[]` 반환(전 종목 아님 — §빈 후보 처리).
 
 ### 2. detect 후보 인자 추가 — `drift.py` 수정
