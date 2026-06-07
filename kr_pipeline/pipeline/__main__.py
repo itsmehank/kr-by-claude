@@ -1,4 +1,4 @@
-"""CLI: python -m kr_pipeline.pipeline --chain=daily|weekly [--limit-tickers N]"""
+"""CLI: python -m kr_pipeline.pipeline --chain=daily|weekly [--limit-tickers N] [--no-drift] [--no-sweep]"""
 import argparse
 import logging
 import sys
@@ -16,6 +16,7 @@ def main() -> int:
     p.add_argument("--chain", required=True, choices=["daily", "weekly"])
     p.add_argument("--limit-tickers", type=int, default=None)
     p.add_argument("--no-drift", action="store_true", help="daily 체인 드리프트 감지 건너뛰기")
+    p.add_argument("--no-sweep", action="store_true", help="weekly 체인 전체스윕 건너뛰기")
     args = p.parse_args()
     cfg = Config.load()
     setup_logging(cfg.log_level)
@@ -24,7 +25,8 @@ def main() -> int:
             result = chains.run_daily_chain(conn, drift_check=not args.no_drift,
                                             limit_tickers=args.limit_tickers)
         else:
-            result = chains.run_weekly_chain(conn, limit_tickers=args.limit_tickers)
+            result = chains.run_weekly_chain(conn, limit_tickers=args.limit_tickers,
+                                             full_sweep=not args.no_sweep)
     log.info("DONE chain=%s: %s", args.chain, result)
     return 0
 

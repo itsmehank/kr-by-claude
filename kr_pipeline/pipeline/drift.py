@@ -17,6 +17,36 @@ from kr_pipeline.indicators import modes as indicators
 
 log = logging.getLogger("kr_pipeline.pipeline.drift")
 
+# 수정주가를 바꾸는 corporate action 유형 (현금배당 제외 — 수정주가 무관).
+# 목록이 넉넉해도 안전: 실제 재적재 판정은 is_drift(가격 대조)가 한다.
+ADJ_AFFECTING_EVENT_TYPES = (
+    "stock_split", "reverse_split", "bonus_issue", "rights_offering",
+    "merger", "spinoff", "capital_reduction",
+)
+
+CA_LOOKBACK_DAYS = 90   # 평일 후보: 최근 N일 공시. 결정→권리락 간격(수 주) 흡수.
+SWEEP_RECENT_DAYS = 90  # 토요일 스윕 비교창. ohlcv window_days(30)보다 커야
+                        # 증분이 덮은 최근 구간 너머 옛 구간에서 놓친 split 을 잡는다.
+
+
+def recent_corp_action_tickers(conn: Connection, *, as_of: date, lookback_days: int) -> list[str]:
+    """corporate_actions 에 [as_of-lookback, as_of] 영향 이벤트가 있는 활성 종목(distinct).
+
+    event_type 가 ADJ_AFFECTING_EVENT_TYPES 이고 상장 유지(delisted_at IS NULL)인 종목만.
+    인덱스 idx_corp_actions_event_type_date(event_type, event_date) 활용.
+    """
+    since = as_of - timedelta(days=lookback_days)
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT DISTINCT ca.ticker FROM corporate_actions ca "
+            "JOIN stocks s ON s.ticker = ca.ticker "
+            "WHERE ca.event_type = ANY(%s) AND ca.event_date BETWEEN %s AND %s "
+            "AND s.delisted_at IS NULL "
+            "ORDER BY ca.ticker",
+            (list(ADJ_AFFECTING_EVENT_TYPES), since, as_of),
+        )
+        return [r[0] for r in cur.fetchall()]
+
 
 def is_drift(
     db_adj: dict[date, float],
@@ -72,15 +102,21 @@ def detect_drifted_tickers(
     rel_tol: float = 0.01,
     recent_days: int = 30,
     wide_days: int = 365,
+    tickers: list[str] | None = None,
     limit_tickers: int | None = None,
 ) -> list[str]:
     """활성 종목별 DB(현재, 덮어쓰기 전) vs KRX 재조회 adj_close 비교 → 드리프트 종목.
 
-    반드시 ohlcv 증분 적재 전에 호출(증분이 adj_close 를 덮으면 비교가 일치해버림).
+    tickers=None 이면 활성 전 종목(전체스윕). tickers 가 리스트면 그 목록만 검사
+    (빈 리스트 = 검사 0건, 전 종목 아님). 반드시 ohlcv 증분 적재 전에 호출.
     종목별 fetch 예외는 로그+skip.
     """
+    if tickers is None:
+        scan = _active_tickers(conn, limit=limit_tickers)
+    else:
+        scan = list(tickers[:limit_tickers]) if limit_tickers else list(tickers)
     drifted: list[str] = []
-    for t in _active_tickers(conn, limit=limit_tickers):
+    for t in scan:
         try:
             recent_start = as_of - timedelta(days=recent_days)
             db = _db_adj_close(conn, t, recent_start, as_of)

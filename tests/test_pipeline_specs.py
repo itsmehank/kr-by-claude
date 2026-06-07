@@ -262,3 +262,12 @@ def test_manual_pipeline_excluded_from_cron():
     # 어떤 라인도 빈 cron(공백) 으로 시작하지 않음
     for ln in lines:
         assert not ln.startswith(" "), f"빈 cron 라인: {ln!r}"
+
+
+def test_corporate_actions_scheduled_weekday_daily():
+    """공시 수집을 평일 매일로 — drift 평일 후보 명단을 매일 갱신."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+
+    ca = get_spec("corporate-actions")
+    assert ca["default_cron"] == "0 8 * * 1-5"
+    assert ca["schedule_label"] == "평일 매일"
