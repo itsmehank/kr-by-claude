@@ -1,7 +1,7 @@
 """데이터 파이프라인 통합 체인 — 가격→지표 순서 보장.
 
-통합 A(daily): (드리프트 감지) → ohlcv 증분 → (감지 종목 재적재) → indicators 일봉 증분
-통합 B(weekly): weekly 증분 → indicators 주봉 증분
+통합 A(daily): (공시 후보 드리프트 감지) → ohlcv 증분 → (감지 종목 재적재) → indicators 일봉 증분
+통합 B(weekly): (전체스윕 드리프트) → weekly 증분 → indicators 주봉 증분
 기존 모듈 run() 을 순서대로 호출(무수정).
 """
 from __future__ import annotations

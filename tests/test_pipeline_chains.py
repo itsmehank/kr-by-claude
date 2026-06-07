@@ -142,7 +142,7 @@ def test_run_weekly_chain_full_sweep_reloads_before_weekly(mocker):
     ch.run_weekly_chain(conn=None)
     assert [c[0] if isinstance(c, tuple) else c for c in calls] == ["detect", "reload", "weekly", "ind_weekly"]
     assert calls[0][1] is None    # tickers=None → 전 종목
-    assert calls[0][2] == 90      # SWEEP_RECENT_DAYS
+    assert calls[0][2] == ch.drift.SWEEP_RECENT_DAYS
     assert state["details"]["sweep"] == {"detected": 1, "reloaded": 1, "failures": 0}
 
 
