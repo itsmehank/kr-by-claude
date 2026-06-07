@@ -40,6 +40,25 @@ def test_parse_감자결정():
     assert parse_event_type("감자결정") == "capital_reduction"
 
 
+def test_parse_유상증자():
+    """실제 DART 제목 '주요사항보고서(유상증자결정)' → rights_offering. (수정주가 변동 → drift 유발)"""
+    assert parse_event_type("주요사항보고서(유상증자결정)") == "rights_offering"
+
+
+def test_parse_무상증자():
+    """실제 DART 제목 '주요사항보고서(무상증자결정)' → bonus_issue. (수정주가 변동 → drift 유발)"""
+    assert parse_event_type("주요사항보고서(무상증자결정)") == "bonus_issue"
+
+
+def test_parse_유무상증자_is_capital_increase():
+    """유무상증자결정은 둘 다 — 증자 이벤트로 잡히면 충분(drift 목적)."""
+    assert parse_event_type("주요사항보고서(유무상증자결정)") in ("rights_offering", "bonus_issue")
+
+
+def test_parse_정정_유상증자():
+    assert parse_event_type("[첨부정정]주요사항보고서(유상증자결정)") == "rights_offering"
+
+
 def test_parse_unknown_returns_none():
     assert parse_event_type("정기주주총회 안내") is None
 
