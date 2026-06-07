@@ -61,3 +61,28 @@ def test_fetch_disclosures_invalid_key_raises():
     with patch("kr_pipeline.corporate_actions.dart_client._http_get", return_value=response):
         with pytest.raises(DartApiError, match="010"):
             fetch_disclosures("BAD_KEY", "00126380", date(2024, 1, 1), date(2024, 1, 31))
+
+
+def test_fetch_disclosures_defaults_to_major_matters_type_B():
+    """기본 pblntf_ty='B'(주요사항보고). 분할·합병·감자 등 기업행위 공시는 정기공시(A)가
+    아니라 주요사항보고(B)에 있다. A 로 잘못 설정돼 corporate_actions 가 매번 0건이던
+    버그 수정 (실측: 최근 60일 A=매칭0, B=매칭12)."""
+    response = _mock_response({"status": "013"})
+    with patch(
+        "kr_pipeline.corporate_actions.dart_client._http_get", return_value=response
+    ) as mock_get:
+        fetch_disclosures("KEY", "00126380", date(2024, 1, 1), date(2024, 1, 31))
+    args, _ = mock_get.call_args
+    params = args[1]  # _http_get(url, params)
+    assert params["pblntf_ty"] == "B"
+
+
+def test_fetch_disclosures_explicit_pblntf_ty_honored():
+    """명시한 pblntf_ty 는 그대로 사용."""
+    response = _mock_response({"status": "013"})
+    with patch(
+        "kr_pipeline.corporate_actions.dart_client._http_get", return_value=response
+    ) as mock_get:
+        fetch_disclosures("KEY", "00126380", date(2024, 1, 1), date(2024, 1, 31), pblntf_ty="C")
+    args, _ = mock_get.call_args
+    assert args[1]["pblntf_ty"] == "C"
