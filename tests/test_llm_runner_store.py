@@ -287,3 +287,72 @@ def test_insert_trigger_log_rejects_invalid_decision(mocker):
             result={}, prior_classification_at=now, llm_meta={},
         )
     conn.cursor.assert_not_called()
+
+
+def test_measurements_json_merges_contraction():
+    import json
+    from kr_pipeline.llm_runner.store import _measurements_json
+    out = json.loads(_measurements_json({
+        "measurements": {"cup_depth_pct": 30.0},
+        "contraction_count": 4,
+        "contraction_depths_pct": [25.0, 14.0, 8.0, 4.0],
+    }))
+    assert out["cup_depth_pct"] == 30.0
+    assert out["contraction_count"] == 4
+    assert out["contraction_depths_pct"] == [25.0, 14.0, 8.0, 4.0]
+
+
+def test_measurements_json_measurements_only_unchanged():
+    import json
+    from kr_pipeline.llm_runner.store import _measurements_json
+    out = json.loads(_measurements_json({"measurements": {"cup_depth_pct": 30.0}}))
+    assert out == {"cup_depth_pct": 30.0}
+
+
+def test_measurements_json_none_when_empty():
+    from kr_pipeline.llm_runner.store import _measurements_json
+    assert _measurements_json({}) is None
+    assert _measurements_json({"measurements": None}) is None
+
+
+def test_measurements_json_contraction_only():
+    import json
+    from kr_pipeline.llm_runner.store import _measurements_json
+    out = json.loads(_measurements_json({"contraction_count": 3, "contraction_depths_pct": [20.0, 10.0, 5.0]}))
+    assert out == {"contraction_count": 3, "contraction_depths_pct": [20.0, 10.0, 5.0]}
+
+
+def test_measurements_json_non_dict_measurements():
+    import json
+    from kr_pipeline.llm_runner.store import _measurements_json
+    out = json.loads(_measurements_json({"measurements": "oops", "contraction_count": 2}))
+    assert out == {"contraction_count": 2}
+
+
+def test_insert_classification_stores_contraction_in_measurements(db):
+    from datetime import datetime, timezone
+    from kr_pipeline.llm_runner.store import insert_classification
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='CONTRACT'")
+    db.commit()
+    insert_classification(
+        db, symbol="CONTRACT", classified_at=datetime(2026, 6, 7, tzinfo=timezone.utc),
+        market="KOSPI",
+        result={
+            "classification": "watch", "pattern": "vcp", "confidence": 0.6,
+            "reasoning": "x", "risk_flags": [],
+            "pivot_price": None, "pivot_basis": None, "base_high": None,
+            "base_low": None, "base_depth_pct": None, "base_start_date": None,
+            "measurements": {"prior_uptrend_pct": 40.0},
+            "contraction_count": 4,
+            "contraction_depths_pct": [25.0, 14.0, 8.0, 4.0],
+        },
+        source="weekend", llm_meta={},
+    )
+    db.commit()
+    with db.cursor() as cur:
+        cur.execute("SELECT measurements FROM weekly_classification WHERE symbol='CONTRACT'")
+        m = cur.fetchone()[0]
+    assert m["prior_uptrend_pct"] == 40.0
+    assert m["contraction_count"] == 4
+    assert m["contraction_depths_pct"] == [25.0, 14.0, 8.0, 4.0]
