@@ -66,9 +66,16 @@ _TRANSIENT_EXC = (subprocess.TimeoutExpired, ClaudeCLIError)
 
 
 def _process_one_worker(dsn, symbol, market, *, dry_run, as_of, max_retries=2):
-    """자기 커넥션으로 한 종목 처리. 일시오류만 재시도. dict 반환."""
+    """자기 커넥션으로 한 종목 처리. 일시오류만 재시도. dict 반환.
+
+    연결 실패도 종목별 실패로 흡수 — 한 워커의 connect 실패가 fut.result() 로 전파돼
+    배치 전체를 중단시키지 않도록(이 기능의 resilience 목표).
+    """
     from api.services.integrity_guard import DataIntegrityError
-    wconn = psycopg.connect(dsn)
+    try:
+        wconn = psycopg.connect(dsn)
+    except Exception as e:
+        return {"status": "fail", "symbol": symbol, "attempts": 0, "error": f"connect failed: {e}"}
     last_err = None
     attempts = 0
     try:

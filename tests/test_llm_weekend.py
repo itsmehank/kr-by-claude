@@ -66,6 +66,24 @@ def test_weekend_parallel_aggregates_and_retries(db, mocker):
     assert "permanent" in failed["PERM"]["error"]
 
 
+def test_weekend_worker_connect_failure_does_not_abort(db, mocker):
+    """워커 connect 실패는 배치 전체를 중단시키지 않고 종목별 실패로 흡수돼야 한다."""
+    import kr_pipeline.llm_runner.weekend as wk
+    mocker.patch.object(wk, "get_qualifying_tickers", return_value=[
+        {"symbol": "C1", "market": "KOSPI"},
+        {"symbol": "C2", "market": "KOSPI"},
+    ])
+    # 워커가 여는 psycopg.connect 만 실패시킨다(run_id=None → 하트비트/리퍼 connect 없음).
+    mocker.patch.object(wk.psycopg, "connect", side_effect=OSError("no conn"))
+
+    r = wk.run(db, dry_run=True, concurrency=2, run_id=None)
+
+    assert r["processed"] == 0
+    assert r["failures"] == 2
+    assert {f["symbol"] for f in r["failed_tickers"]} == {"C1", "C2"}
+    assert all("connect failed" in f["error"] and f["attempts"] == 0 for f in r["failed_tickers"])
+
+
 def test_weekend_writes_heartbeat_progress(db, mocker):
     import kr_pipeline.llm_runner.weekend as wk
     with db.cursor() as cur:
