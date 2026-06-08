@@ -115,6 +115,9 @@ def run(
     processed = 0
     failed_tickers: list[dict] = []
     integrity_skipped: list[dict] = []
+    # 워커별 독립 커넥션 재연결용 DSN. 주의: conn.info.dsn 은 비밀번호를 포함하지 않는다 —
+    # 이 프로젝트 DB 는 passwordless localhost(DATABASE_URL=postgresql://localhost/...) 라 OK.
+    # 비밀번호 인증 DB 로 옮기면 PGPASSWORD/.pgpass 또는 database_url 직접 전달이 필요.
     dsn = conn.info.dsn
 
     workers = max(1, min(concurrency, len(candidates)))
