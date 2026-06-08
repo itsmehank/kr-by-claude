@@ -1,4 +1,6 @@
 import json
+import signal
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Iterator
@@ -53,6 +55,17 @@ def run_tracking(conn: Connection, *, pipeline: str, mode: str, params: dict) ->
     run_id = start_run(conn, pipeline=pipeline, mode=mode, params=params)
     conn.commit()
     state: dict = {"run_id": run_id, "warnings": [], "rows_affected": None, "total_count": None, "details": None}
+
+    # 잡히는 종료 신호(SIGTERM)도 예외로 전환 → 아래 except 가 failed 마킹. signal.signal 은 메인 스레드에서만 가능.
+    _is_main = threading.current_thread() is threading.main_thread()
+    _prev = None
+    if _is_main:
+        _prev = signal.getsignal(signal.SIGTERM)
+
+        def _on_sigterm(signum, frame):
+            raise KeyboardInterrupt(f"signal {signum}")
+
+        signal.signal(signal.SIGTERM, _on_sigterm)
     try:
         yield state
         # success path with possible warnings
@@ -68,13 +81,16 @@ def run_tracking(conn: Connection, *, pipeline: str, mode: str, params: dict) ->
             details=state["details"],
         )
         conn.commit()
-    except Exception as e:
+    except BaseException as e:
         conn.rollback()
         # 새 트랜잭션으로 실패 기록
         with conn.cursor() as cur:
             cur.execute(
                 "UPDATE pipeline_runs SET finished_at = NOW(), status = 'failed', error = %s WHERE id = %s",
-                (str(e), run_id),
+                (str(e) or type(e).__name__, run_id),
             )
         conn.commit()
         raise
+    finally:
+        if _is_main and _prev is not None:
+            signal.signal(signal.SIGTERM, _prev)
