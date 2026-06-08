@@ -5,10 +5,16 @@ from datetime import date, datetime, timedelta, timezone
 
 def test_weekend_batch_dry_run_processes_all_qualifying(db, mocker):
     """dry-run + 병렬: rs_line·minervini 통과 3종목이 모두 처리(processed==3).
-    (dry_run 은 분류 row 를 insert 하지 않고 freeze 만 저장 — _process_one 설계.)"""
-    today = date(2026, 5, 16)
+    (dry_run 은 분류 row 를 insert 하지 않고 freeze 만 저장 — _process_one 설계.)
+
+    sentinel 미래 날짜(2099-01-01)를 써서 격리: get_qualifying_tickers 는
+    MAX(date<=as_of) 의 자격종목을 반환하므로, 다른 테스트가 현실 날짜에 커밋한
+    자격종목(공유 kr_test 오염)이 후보에 섞이지 않게 한다 → 후보 = WK1-3 결정적.
+    실제 필터(minervini_pass AND rs_line_not_declining_7m)는 그대로 탄다."""
+    today = date(2099, 1, 1)
+    tickers = ["WK1", "WK2", "WK3"]
     with db.cursor() as cur:
-        for t in ["WK1", "WK2", "WK3"]:
+        for t in tickers:
             cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,%s,'KOSPI') ON CONFLICT DO NOTHING", (t, t))
             cur.execute(
                 """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass, rs_line_not_declining_7m)
@@ -25,6 +31,10 @@ def test_weekend_batch_dry_run_processes_all_qualifying(db, mocker):
     assert result["processed"] == 3
     assert result["failures"] == 0
     assert result["failed_tickers"] == []
+
+    with db.cursor() as cur:                              # cleanup (sentinel 날짜 행 정리)
+        cur.execute("DELETE FROM daily_indicators WHERE date=%s AND ticker = ANY(%s)", (today, tickers))
+    db.commit()
 
 
 def test_weekend_parallel_aggregates_and_retries(db, mocker):
