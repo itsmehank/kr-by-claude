@@ -21,6 +21,29 @@ from kr_pipeline.llm_runner.store import insert_classification
 log = logging.getLogger("kr_pipeline.llm_runner.weekend")
 
 
+def reap_stale_weekend_runs(conn, *, current_run_id, stale_seconds: int = 90) -> int:
+    """오래 멈춰있는 'llm_weekend' running 행을 'failed' 로 정리(kill -9/크래시 박제 복구).
+
+    age 기준 = COALESCE(heartbeat_at, started_at). heartbeat 가 아직 없는 행(예: weekend.run
+    전 disqualify 스윕 구간에서 SIGKILL 당한 run)도 started_at 이 오래되면 정리된다.
+    현재 실행(current_run_id)은 제외 → 정상 진행 중인 run 오정리 방지. 정리한 행 수 반환.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE pipeline_runs
+               SET status = 'failed', finished_at = NOW(),
+                   error = 'stale heartbeat — process likely killed'
+             WHERE pipeline = 'llm_weekend' AND status = 'running'
+               AND id <> %s
+               AND COALESCE((details ->> 'heartbeat_at')::timestamptz, started_at)
+                     < NOW() - make_interval(secs => %s)
+            """,
+            (current_run_id if current_run_id is not None else -1, stale_seconds),
+        )
+        return cur.rowcount
+
+
 def run(
     conn: Connection,
     *,
