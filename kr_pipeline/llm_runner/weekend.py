@@ -8,6 +8,7 @@ import logging
 import os
 import subprocess
 import tempfile
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timezone
@@ -47,6 +48,19 @@ def reap_stale_weekend_runs(conn, *, current_run_id, stale_seconds: int = 90) ->
             (current_run_id if current_run_id is not None else -1, stale_seconds),
         )
         return cur.rowcount
+
+
+def _write_heartbeat(dsn, run_id, progress: dict):
+    import json
+    from datetime import datetime, timezone
+    payload = json.dumps({"weekend_progress": progress, "heartbeat_at": datetime.now(timezone.utc).isoformat()})
+    hb = psycopg.connect(dsn)
+    try:
+        with hb.cursor() as cur:
+            cur.execute("UPDATE pipeline_runs SET details = %s::jsonb WHERE id = %s", (payload, run_id))
+        hb.commit()
+    finally:
+        hb.close()
 
 
 _TRANSIENT_EXC = (subprocess.TimeoutExpired, ClaudeCLIError)
@@ -121,17 +135,60 @@ def run(
     dsn = conn.info.dsn
 
     workers = max(1, min(concurrency, len(candidates)))
-    with ThreadPoolExecutor(max_workers=workers) as ex:
-        futs = {ex.submit(_process_one_worker, dsn, c["symbol"], c["market"],
-                          dry_run=dry_run, as_of=as_of): c["symbol"] for c in candidates}
-        for fut in as_completed(futs):
-            r = fut.result()
-            if r["status"] == "ok":
-                processed += 1
-            elif r["status"] == "integrity":
-                integrity_skipped.append(r["detail"])
-            else:
-                failed_tickers.append({"symbol": r["symbol"], "error": r.get("error", ""), "attempts": r["attempts"]})
+
+    # kill -9/크래시 박제 정리 (현재 실행 제외)
+    if run_id is not None:
+        try:
+            reap_stale_weekend_runs(conn, current_run_id=run_id)
+            conn.commit()
+        except Exception as e:  # noqa: BLE001
+            log.warning("reaper failed (continuing): %s", e)
+            conn.rollback()
+
+    total = len(candidates)
+    prog = {"done": 0, "total": total, "in_flight": 0, "failed": 0}
+    prog_lock = threading.Lock()
+    stop = threading.Event()
+
+    def _heartbeat_loop():
+        while True:
+            with prog_lock:
+                snap = dict(prog)
+            try:
+                _write_heartbeat(dsn, run_id, snap)
+            except Exception as e:  # noqa: BLE001
+                log.warning("heartbeat write failed: %s", e)
+            log.info("weekend: %d/%d done, in-flight %d, failed %d",
+                     snap["done"], snap["total"], snap["in_flight"], snap["failed"])
+            if stop.wait(30):   # 30초 주기, stop 시 즉시 탈출
+                return
+
+    hb_thread = threading.Thread(target=_heartbeat_loop, daemon=True)
+    if run_id is not None:
+        with prog_lock:
+            prog["in_flight"] = min(workers, total)
+        _write_heartbeat(dsn, run_id, dict(prog))   # 초기 즉시 1회(첫 틱 전 kill 도 stale 추적 가능)
+        hb_thread.start()
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futs = {ex.submit(_process_one_worker, dsn, c["symbol"], c["market"],
+                              dry_run=dry_run, as_of=as_of): c["symbol"] for c in candidates}
+            for fut in as_completed(futs):
+                r = fut.result()
+                if r["status"] == "ok":
+                    processed += 1
+                elif r["status"] == "integrity":
+                    integrity_skipped.append(r["detail"])
+                else:
+                    failed_tickers.append({"symbol": r["symbol"], "error": r.get("error", ""), "attempts": r["attempts"]})
+                with prog_lock:
+                    prog["done"] += 1
+                    prog["failed"] = len(failed_tickers)
+                    prog["in_flight"] = max(0, min(workers, total) - 0)  # 근사(표시용)
+    finally:
+        stop.set()
+        if run_id is not None and hb_thread.is_alive():
+            hb_thread.join(timeout=5)
 
     log.info("weekend batch done: processed=%d failed=%d integrity_skipped=%d",
              processed, len(failed_tickers), len(integrity_skipped))

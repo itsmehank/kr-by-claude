@@ -56,6 +56,31 @@ def test_weekend_parallel_aggregates_and_retries(db, mocker):
     assert "permanent" in failed["PERM"]["error"]
 
 
+def test_weekend_writes_heartbeat_progress(db, mocker):
+    import kr_pipeline.llm_runner.weekend as wk
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO pipeline_runs (pipeline, mode, started_at, status) "
+                    "VALUES ('llm_weekend','weekend',NOW(),'running') RETURNING id")
+        run_id = cur.fetchone()[0]
+    db.commit()
+
+    mocker.patch.object(wk, "get_qualifying_tickers", return_value=[{"symbol": "AAAA", "market": "KOSPI"}])
+    mocker.patch.object(wk, "_process_one", side_effect=lambda *a, **k: None)
+
+    wk.run(db, dry_run=True, concurrency=1, run_id=run_id)
+
+    with db.cursor() as cur:
+        cur.execute("SELECT details FROM pipeline_runs WHERE id=%s", (run_id,))
+        details = cur.fetchone()[0]
+    assert details is not None
+    assert details.get("heartbeat_at")
+    assert details.get("weekend_progress", {}).get("total") == 1
+
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM pipeline_runs WHERE id=%s", (run_id,))
+    db.commit()
+
+
 def _seed_run(db, *, status, heartbeat_age_s=None, started_age_s=0):
     """started_age_s 만큼 과거의 started_at + (선택) heartbeat_at 을 가진 llm_weekend 행 삽입."""
     with db.cursor() as cur:
