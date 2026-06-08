@@ -106,9 +106,10 @@ def run(
     concurrency: int | None = None,
     run_id: int | None = None,
 ) -> dict:
-    """주말 (5) batch 실행.
+    """주말 (5) batch 실행 (ThreadPoolExecutor 병렬, 일시오류 재시도, run_id 있으면 하트비트).
 
-    Returns: {"processed": N, "failures": N, "tickers": [...]}
+    Returns: {"processed": N, "candidates": N, "failures": N,
+              "failed_tickers": [{"symbol","error","attempts"}], "integrity_skipped": [...]}
     """
     if as_of is None:
         as_of = date.today()
