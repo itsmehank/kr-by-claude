@@ -304,6 +304,12 @@ ALTER TABLE weekly_classification
 ALTER TABLE weekly_classification
   ADD COLUMN IF NOT EXISTS measurements JSONB;
 
+-- breakout_from_watch: watch 분류 사유 (pivot 유효 사유만 정당한 돌파 후보).
+-- enum: base_forming | extended | unfavorable_market | marginal_tt | valid_base_awaiting_breakout.
+-- NULL = classification != 'watch' 또는 기존 레코드(하위호환: breakout_from_watch 비대상).
+ALTER TABLE weekly_classification
+  ADD COLUMN IF NOT EXISTS watch_reason VARCHAR(40);
+
 -- 2026-06-02: classification 에 'disqualified'(12자) 수용 위해 widen (기존 VARCHAR(10))
 ALTER TABLE weekly_classification
   ALTER COLUMN classification TYPE VARCHAR(20);
@@ -439,11 +445,16 @@ CREATE TABLE IF NOT EXISTS classification_backfill (
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   triggered_rules      JSONB,
   measurements         JSONB,
+  watch_reason         VARCHAR(40),
   PRIMARY KEY (symbol, analyzed_for_date)
 );
 
 CREATE INDEX IF NOT EXISTS idx_classification_backfill_date
   ON classification_backfill (analyzed_for_date);
+
+-- breakout_from_watch: 기존 테이블에도 적용 (CREATE TABLE IF NOT EXISTS 는 신규 컬럼 미반영)
+ALTER TABLE classification_backfill
+  ADD COLUMN IF NOT EXISTS watch_reason VARCHAR(40);
 
 -- ====== Phase 0 Step 4: FREEZE 최소판 (#P0-S4) ======
 -- 분류 (weekend/daily_delta) 시점의 분석 입력 ZIP 을 사후 검증 가능하도록 보존.

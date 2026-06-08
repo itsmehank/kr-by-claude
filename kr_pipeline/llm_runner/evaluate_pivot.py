@@ -47,6 +47,8 @@ def run(
             stop_loss=a["stop_loss"],
             sma_50=a["sma_50"],
             classification=a["classification"],
+            prev_close=a.get("prev_close"),
+            watch_reason=a.get("watch_reason"),
         )
         if trig is not None:
             triggered.append((a, trig))

@@ -56,7 +56,7 @@ def get_active_monitoring(conn: Connection) -> list[dict]:
             """
             SELECT DISTINCT ON (symbol)
                    symbol, classified_at, market, classification, pattern,
-                   pivot_price, base_low, base_high
+                   pivot_price, base_low, base_high, watch_reason
               FROM weekly_classification
              ORDER BY symbol, COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC
             """
@@ -73,6 +73,7 @@ def get_active_monitoring(conn: Connection) -> list[dict]:
             "pivot_price": float(r[5]) if r[5] else None,
             "base_low": float(r[6]) if r[6] else None,
             "base_high": float(r[7]) if r[7] else None,
+            "watch_reason": r[8],
         }
         for r in rows
         if r[3] in ("entry", "watch")
@@ -131,10 +132,26 @@ def get_active_with_current(conn: Connection, as_of: date | None = None) -> list
                           "sma_50": float(r[4]) if r[4] else 0}
                    for r in cur.fetchall()}
 
+        # 직전 거래일 종가 (fresh_cross 판정용). as_of 이전 가장 최근 1행/종목.
+        cur.execute(
+            """
+            SELECT DISTINCT ON (ticker) ticker, adj_close
+              FROM daily_indicators
+             WHERE ticker = ANY(%s) AND date < %s
+             ORDER BY ticker, date DESC
+            """,
+            (tickers, as_of),
+        )
+        prev = {r[0]: float(r[1]) for r in cur.fetchall() if r[1] is not None}
+
     enriched = []
     for a in active:
         cur_data = current.get(a["symbol"])
         if cur_data is None:
             continue  # no data today
-        enriched.append({**a, **cur_data, "stop_loss": a.get("base_low")})
+        enriched.append({
+            **a, **cur_data,
+            "stop_loss": a.get("base_low"),
+            "prev_close": prev.get(a["symbol"]),
+        })
     return enriched

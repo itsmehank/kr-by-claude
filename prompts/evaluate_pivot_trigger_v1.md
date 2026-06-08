@@ -14,10 +14,13 @@
 **가격 데이터 규약:** 제공되는 모든 가격(OHLCV·차트·지표·current_metrics)은 수정주가(split-adjusted) 기준입니다. 분할/액면병합은 이미 반영되어 있으므로 가격 단차로 오인하지 마세요.
 
 - `symbol`, `name`, `market`, `evaluation_date`
-- `trigger_type`: "breakout" | "invalidation" | "promotion"
-- `prior_analysis`: 주말 (5) 결과 (`classified_at`, **`days_since_classification`** (분류 후 경과일), `classification`, `pattern`, `pivot_price`, `pivot_basis`, `base_high`, `base_low`, `base_depth_pct`, `risk_flags`, `reasoning`)
+- `trigger_type`: "breakout" | "breakout_from_watch" | "invalidation" | "promotion"
+- `prior_analysis`: 주말 (5) 결과 (`classified_at`, **`days_since_classification`** (분류 후 경과일), `classification`, `pattern`, `pivot_price`, `pivot_basis`, `base_high`, `base_low`, `base_depth_pct`, `risk_flags`, `reasoning`, **`watch_reason`** (watch 분류 사유 — `trigger_type == "breakout_from_watch"` 일 때 §3.5 분기 결정에 사용; 그 외 무관))
 - `recent_daily_ohlcv_20d`: 최근 20영업일 OHLCV 리스트
 - `current_metrics`: `close`, `volume`, `avg_volume_50d`, `volume_ratio`, `sma_50`, **`sma_21`** (≈ 20-day line, Minervini *Think & Trade Like a Champion* Ch.1 의 "20-day line" 가드용)
+- `market_context`: **현재(평가일 as-of)** 시장 상태 — `current_status`(confirmed_uptrend / rally_attempt / downtrend / correction), `distribution_day_count_last_25_sessions` 등. (§3.5 `unfavorable_market` 분기 입력. 분류시점 아님 — *오늘* 시장.)
+- `conditions_met` / `conditions_detail`: **현재** Minervini Trend Template 8조건 boolean + 조건별 통과 마진. (§3.5 `marginal_tt` 분기 입력.)
+- `rs_rating`: **현재** RS Rating.
 - `recent_evaluation_history`: 최근 7일 (5b) 이력 (있을 때만)
 
 ## 3. Decision Logic
@@ -74,7 +77,12 @@ watch → entry 승격 staging (시스템 자체 설계, 책 근거 없음).
 재분석이 처리하므로, 이 단계에서 결정해서는 안 됨.
 
 `go_now` 발생 안 함 (promotion 트리거에서는).
-- close > pivot 이면 다음 평일 breakout 트리거가 별도로 발생해 처리.
+- **분류별 후속 경로 차이 (중요)**: classification 이 **entry** 인 종목이 close > pivot
+  하면 다음 평일 `breakout` 트리거가 별도로 발생해 처리된다. 그러나 **watch** 종목은
+  게이트가 breakout 을 발화하지 않으므로 다음 평일 자동 처리가 *일어나지 않는다* —
+  watch 의 정당한 돌파는 별도 `trigger_type == "breakout_from_watch"` (§3.5) 가 담당한다
+  (단, pivot 유효 사유에 한함). 따라서 promotion 의 "다음에 처리됨" 보장은 entry 경로에만
+  성립한다.
 - promotion → go_now → entry_params 직행은 pivot 미만 매수를 유발하므로
   금지. 어떤 강도의 거래량이나 인트라데이 강세에서도 `go_now` 반환 금지.
 
@@ -100,6 +108,39 @@ abort 시 다음 중 하나로 정형화:
 - `consecutive_weak_days` — 연속 약세 (단일 일시적 아님)
 
 위 외의 사유는 위 키워드 중 가장 가까운 것 선택. 새 키워드 만들지 말 것.
+
+### 3.5 trigger_type = "breakout_from_watch"
+
+watch 분류였으나 pivot 이 유효한 사유(`prior_analysis.watch_reason ∈
+{unfavorable_market, marginal_tt, valid_base_awaiting_breakout}`)에서 오늘 거래량 동반
+pivot fresh 돌파가 발생한 경우. 기존엔 promotion 으로만 잡혀 토요일 weekend 재분류까지
+정당한 돌파를 놓쳤던 갭을 메운다. **분류는 여전히 변경하지 않는다** (§1 scope) — entry_params
+직행 여부만 결정.
+
+**공통 표준 돌파 검증 (§3.1 과 동일 — 먼저 적용)**:
+- close > pivot_price (게이트 fresh_cross 이미 확인. 재확인)
+- volume > avg_volume_50d × 1.4 (O'Neil HTMMIS Ch.2)
+- 종가가 일중 range 상단 1/3 (no intraday weakness)
+- spread wide-and-loose 아님 (≤ 평균 range 1.5x)
+- 최근 3일 distribution day 없음
+
+**watch_reason 별 추가 게이트 (go_now 허용 조건):**
+
+- `valid_base_awaiting_breakout`: 위 공통 표준 검증 충족 시 `go_now`.
+  (base 가 이미 신뢰 가능 — entry 와 동등 취급.)
+- `unfavorable_market`: 강등 사유가 시장이었으므로 **`market_context.current_status ==
+  "confirmed_uptrend"` (회복) 일 때만** `go_now`. 여전히 downtrend/correction/미확인
+  rally_attempt 면 표준 검증을 충족해도 `wait` (시장이 아직 안 받쳐줌). ⚠ `watch_reason`
+  값 자체를 회복 근거로 쓰지 말 것 — 반드시 입력 `market_context`(현재 값)로 판단.
+- `marginal_tt`: 강등 사유가 marginal Trend Template 이었으므로 **현재 `conditions_met` 8개가
+  모두 true 이고 `conditions_detail` 상 경계(마진 <3%)가 해소(clean)됐을 때만** `go_now`.
+  아직 여러 조건이 marginal 이면 `wait`.
+
+**공통**: 위 표준 검증 미충족 → `wait` (거래량 1.2~1.4× / 중간 1/3 마감 등) 또는 `abort`
+(base_low 이탈 / sma_50 명확 이탈 / distribution 누적 — §3.1 abort 조건과 동일).
+**돌파 직후 20일선 가드(§3.1)도 동일 적용.**
+
+abort_reason 은 §3.4 카탈로그 사용 (신규 키워드 금지).
 
 ## 4. Output Schema
 

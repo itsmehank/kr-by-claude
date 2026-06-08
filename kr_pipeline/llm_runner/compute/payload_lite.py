@@ -5,6 +5,9 @@
 from datetime import date, datetime, timedelta
 from psycopg import Connection
 
+from api.services.market_context_builder import build_market_context
+from api.services.minervini_detail_builder import build_minervini_detail
+
 
 def build_for_5b(
     conn: Connection,
@@ -28,7 +31,8 @@ def build_for_5b(
         cur.execute(
             """
             SELECT classified_at, classification, pattern, pivot_price, pivot_basis,
-                   base_high, base_low, base_depth_pct, risk_flags, reasoning
+                   base_high, base_low, base_depth_pct, risk_flags, reasoning,
+                   watch_reason
               FROM weekly_classification
              WHERE symbol = %s
                AND classification IN ('entry', 'watch')
@@ -79,12 +83,29 @@ def build_for_5b(
         )
         history = cur.fetchall()
 
+    # breakout_from_watch §3.5 의 unfavorable_market / marginal_tt 분기 입력 —
+    # **현재(as_of) 값** (분류시점 스냅샷 금지, finding-C 동일선상). additive: 기존 5b
+    # 소비자(프롬프트)는 무시해도 무방. echo(신규 임계 아님): market_context_daily 적재값 +
+    # minervini.py 당일 결정론 산출.
+    market_context = build_market_context(conn, market, as_of)
+    minervini = build_minervini_detail(conn, symbol, as_of)
+    conditions_met = {k: v["passed"] for k, v in minervini.items()}
+    rs_rating = next(
+        (v["values"].get("rs_rating") for v in minervini.values()
+         if "rs_rating" in v.get("values", {})),
+        None,
+    )
+
     return {
         "symbol": symbol,
         "name": name,
         "market": market,
         "evaluation_date": as_of.isoformat(),
         "trigger_type": trigger_type,
+        "market_context": market_context,
+        "conditions_met": conditions_met,
+        "conditions_detail": minervini,
+        "rs_rating": rs_rating,
         "prior_analysis": {
             "classified_at": prior[0].isoformat(),
             "days_since_classification": (as_of - prior[0].date()).days,
@@ -97,6 +118,7 @@ def build_for_5b(
             "base_depth_pct": float(prior[7]) if prior[7] else None,
             "risk_flags": prior[8],
             "reasoning": prior[9],
+            "watch_reason": prior[10],
         },
         "recent_daily_ohlcv_20d": [
             {

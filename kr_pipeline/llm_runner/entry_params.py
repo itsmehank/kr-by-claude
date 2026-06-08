@@ -18,7 +18,11 @@ log = logging.getLogger("kr_pipeline.llm_runner.entry_params")
 
 
 def _fetch_go_now_candidates(conn, as_of: date) -> list:
-    """오늘 go_now breakout 신호 중 2E_tier2 차단 제외한 후보."""
+    """오늘 go_now breakout 신호 중 2E_tier2 차단 제외한 후보.
+
+    breakout_from_watch (watch 정당한 돌파) 도 breakout 과 동일 취급 — go_now 면 매수 계획 대상.
+    (게이트의 fresh_cross + §3.5 표준검증을 이미 통과; 추격은 본 단계 5% 룰이 거름.)
+    """
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -26,7 +30,7 @@ def _fetch_go_now_candidates(conn, as_of: date) -> list:
               FROM trigger_evaluation_log t
              WHERE (t.evaluated_at AT TIME ZONE 'UTC')::date = %s
                AND t.decision = 'go_now'
-               AND t.trigger_type = 'breakout'
+               AND t.trigger_type IN ('breakout', 'breakout_from_watch')
                AND NOT EXISTS (
                    SELECT 1 FROM weekly_classification wc
                     WHERE wc.symbol = t.symbol

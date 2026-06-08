@@ -290,6 +290,41 @@ Synthesize Steps 1–7 into `entry / watch / ignore`:
 - **`watch`**: trend template OK, but one or more of: base still forming, stock extended beyond entry zone, marginal trend template, unfavorable market context, weak RS Line leadership, stock-level distribution accumulating.
 - **`ignore`**: climax run, wide-and-loose, no base, late-stage with multiple high-impact flags, post-reverse-split distortion, or ETF.
 
+### 8.5. watch_reason (classification == "watch" 일 때 필수)
+
+`watch` 로 분류했다면 *왜 매수점이 아닌가* 를 단일 enum `watch_reason` 으로 보고하라
+(entry/ignore 는 `null`). 이 값은 평일 트리거 게이트가 watch 종목의 정당한 돌파를
+LLM 정밀판정으로 넘길지(`breakout_from_watch`) 여부를 가른다.
+
+**경계 기준 = "pivot 정의 요소(§4.7) 완성 여부".** "무슨 모양 같나" 가 아니라 *pivot_price 를
+확정할 수 있는 구조 요소가 다 갖춰졌나* 로 판정한다.
+
+| watch_reason | 판정 기준 |
+|---|---|
+| `base_forming` | **pivot 정의 요소 미완성** → pivot 미확정. 예: **cup 구조 완성이나 handle 미형성**(handle 은 base 상반부 최종 구성요소 — handle 미형성 = pivot=handle_high 미정 = base 미완성, O'Neil HMM), VCP 최종 수축(final-T) 미완, flat base 옆걸음 확장 중, double_bottom 중앙 peak 미확정. *handle shakeout 전 성급한 돌파를 actionable 로 잡지 않기 위함.* |
+| `extended` | pivot 정의 요소는 완성이나 current 가 이미 진입 구간 위로 extended(돌파 후 추격 구간 / `extended_from_ma`). |
+| `unfavorable_market` | 종목 셋업은 entry 급이나 §3.5 시장 방향(downtrend/correction/미확인 rally_attempt 또는 dist≥5)이 entry 를 watch 로 강등시킴. |
+| `marginal_tt` | Trend Template 통과가 marginal(§2: 3개 이상 조건이 <3% 마진) — 추가 확인 필요. |
+| `valid_base_awaiting_breakout` | **pivot 정의 요소 완성 → pivot_price 확정** + current 가 pivot **아래** + 돌파 **임박 아님**. base 는 신뢰 가능하나 아직 매수일이 오지 않은 정상 대기 상태. |
+
+**entry / valid_base_awaiting_breakout / extended 경계 (pivot 대비 가격 밴드)**: pivot 확정 종목에서
+current 의 pivot 대비 위치로 판정한다(±5% 대칭 밴드 — O'Neil/Minervini 5% 추격 한계 근거):
+
+- `current < pivot × 0.95` → `valid_base_awaiting_breakout` (pivot 아래, 돌파 임박 아님)
+- `pivot × 0.95 ≤ current ≤ pivot × 1.05` → `entry` (임박~도달 = 매수 구간 ±5%)
+- `current > pivot × 1.05` → `extended` (5% 추격 한계 초과)
+
+(0.95 는 게이트 promotion 임계와 정합; 1.05 는 그 대칭 — O'Neil/Minervini "pivot +5% 이내 매수"
+한계. 5% 는 "imminent within ~5 trading days" 의 가격거리 proxy. **`extended` 는 pivot 대비로
+판정** — `extended_from_ma`(50일선 대비)와 dimension 혼선 금지. — design judgment.)
+
+**제외 사유 우선 (D4)**: 복수 사유에 해당하면 — `base_forming` 또는 `extended` 가 *하나라도*
+해당하면 그것을 `watch_reason` 으로 보고한다(= breakout_from_watch 비대상). 이 둘이 아닌
+경우에만 unfavorable_market / marginal_tt / valid_base_awaiting_breakout 중 선택. 안전 우선:
+pivot 미확정·추격 구간을 정당한 돌파 후보로 새지 않게 한다.
+
+(신규/재형성 base 도 base 카운트는 그대로 반영 — `late_stage_base` 등 risk_flag 판정은 변경 없음.)
+
 **Confidence calibration:**
 
 - Thin reasoning (under 100 words of internal analysis) or missing book-defined criteria: max confidence 0.6.
@@ -308,6 +343,7 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
 ```json
 {
   "classification": "entry | watch | ignore",
+  "watch_reason": "base_forming | extended | unfavorable_market | marginal_tt | valid_base_awaiting_breakout | null",
   "pattern": "flat_base | cup_with_handle | vcp | double_bottom | high_tight_flag | 3c_cheat | base_on_base | ascending_base | none",
   "confidence": 0.0,
   "reasoning": "≤1500자 (markdown, 5 sections)",
@@ -385,6 +421,7 @@ For non-VCP patterns (`flat_base`, `cup_with_handle`, etc.), both fields MUST be
   - If pocket pivot entry, mark it explicitly in '진입 시그널'.
   - If 3-C / cheat early entry, mark it explicitly in '진입 시그널' or '결론'.
 - `pattern`: must be exactly one of: `flat_base`, `cup_with_handle`, `vcp`, `double_bottom`, `high_tight_flag`, `3c_cheat`, `base_on_base`, `ascending_base`, `none`.
+- `watch_reason`: `classification == "watch"` 이면 §8.5 의 5개 enum 중 정확히 하나 (null 금지). `classification != "watch"`(entry/ignore) 이면 반드시 `null`. 제외 사유 우선(D4): base_forming/extended 가 해당하면 그것을 선택.
 - `measurements`: **`prior_uptrend_pct` · `cup_depth_pct` · `cup_shape` 는 항상 보고** (어떤 차트든 측정 가능 — 이것이 트리 분기와 `none` 판정의 근거다; null 금지). `handle_*` 필드만 핸들 없음/비-cup 일 때 null. 숫자는 차트/OHLCV 에서 측정해 보고 — *라벨을 먼저 정하지 말고 측정값을 먼저 보고*.
 - `measurements.rejected_gate`: `pattern == "none"` 이면 **어느 Gate 에서 탈락했는지 의무 보고** — `gate0`(선행상승<30%) / `gate1`(depth 초과) / `gate2`(V자) / `not_cup_family`(climax·base 없음 등 cup 계열 1차 라우팅 미진입). cup 패턴이 식별되면(none 아님) `null`. (숫자만 채우고 분기를 안 적으면 "왜 none"이 비감사로 남으므로 필수.)
 - `contraction_count`: integer in `[2, 6]` when `pattern == "vcp"`, else `null`.

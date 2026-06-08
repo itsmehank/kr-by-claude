@@ -62,6 +62,17 @@ def _measurements_json(result: dict) -> str | None:
     return json.dumps(blob)
 
 
+def _watch_reason(result: dict) -> str | None:
+    """watch_reason 은 classification=='watch' 일 때만 저장 (그 외 None 강제).
+
+    분류가 watch 가 아니면(혹은 phase1 게이트가 강등했으면) 사유를 비워
+    'watch_reason 은 watch 일 때만' 불변식 보장 + breakout_from_watch 오발화 방지.
+    """
+    if result.get("classification") != "watch":
+        return None
+    return result.get("watch_reason")
+
+
 def insert_classification(
     conn: Connection,
     *,
@@ -102,12 +113,14 @@ def insert_classification(
                source,
                llm_call_duration_s, llm_input_tokens, llm_output_tokens,
                triggered_rules,
-               measurements)
+               measurements,
+               watch_reason)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
                     %s, %s, %s,
+                    %s,
                     %s,
                     %s)
             ON CONFLICT (symbol, classified_at) DO NOTHING
@@ -134,6 +147,7 @@ def insert_classification(
                 llm_meta.get("output_tokens"),
                 json.dumps(triggered_rules) if triggered_rules is not None else None,
                 _measurements_json(result),
+                _watch_reason(result),
             ),
         )
 
@@ -176,12 +190,14 @@ def insert_backfill_classification(
                source,
                llm_call_duration_s, llm_input_tokens, llm_output_tokens,
                triggered_rules,
-               measurements)
+               measurements,
+               watch_reason)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
                     %s, %s, %s,
+                    %s,
                     %s,
                     %s)
             ON CONFLICT (symbol, analyzed_for_date) DO NOTHING
@@ -208,6 +224,7 @@ def insert_backfill_classification(
                 llm_meta.get("output_tokens"),
                 json.dumps(triggered_rules) if triggered_rules is not None else None,
                 _measurements_json(result),
+                _watch_reason(result),
             ),
         )
 
