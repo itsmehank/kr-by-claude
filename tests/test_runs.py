@@ -50,6 +50,37 @@ def test_run_tracking_persists_rows_affected_and_warnings(db):
     db.commit()
 
 
+def test_run_tracking_marks_failed_on_keyboardinterrupt(db):
+    import pytest
+    from kr_pipeline.db.runs import run_tracking
+    with pytest.raises(KeyboardInterrupt):
+        with run_tracking(db, pipeline="t_kill", mode="x", params={}) as state:
+            rid = state["run_id"]
+            raise KeyboardInterrupt("simulated kill")
+    with db.cursor() as cur:
+        cur.execute("SELECT status, error FROM pipeline_runs WHERE id=%s", (rid,))
+        status, error = cur.fetchone()
+    assert status == "failed"
+    assert "simulated kill" in (error or "")
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM pipeline_runs WHERE id=%s", (rid,))
+    db.commit()
+
+
+def test_run_tracking_success_unchanged(db):
+    from kr_pipeline.db.runs import run_tracking
+    with run_tracking(db, pipeline="t_ok", mode="x", params={}) as state:
+        rid = state["run_id"]
+        state["rows_affected"] = 3
+    with db.cursor() as cur:
+        cur.execute("SELECT status, rows_affected FROM pipeline_runs WHERE id=%s", (rid,))
+        status, ra = cur.fetchone()
+    assert status == "success" and ra == 3
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM pipeline_runs WHERE id=%s", (rid,))
+    db.commit()
+
+
 def test_run_tracking_rows_affected_defaults_to_null(db):
     """rows_affected 를 안 세팅하면 NULL 로 유지."""
     from kr_pipeline.db.runs import run_tracking
