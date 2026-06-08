@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import subprocess
@@ -51,8 +52,6 @@ def reap_stale_weekend_runs(conn, *, current_run_id, stale_seconds: int = 90) ->
 
 
 def _write_heartbeat(dsn, run_id, progress: dict):
-    import json
-    from datetime import datetime, timezone
     payload = json.dumps({"weekend_progress": progress, "heartbeat_at": datetime.now(timezone.utc).isoformat()})
     hb = psycopg.connect(dsn)
     try:
@@ -184,7 +183,7 @@ def run(
                 with prog_lock:
                     prog["done"] += 1
                     prog["failed"] = len(failed_tickers)
-                    prog["in_flight"] = max(0, min(workers, total) - 0)  # 근사(표시용)
+                    prog["in_flight"] = min(workers, total - prog["done"])  # 남은 미완료 중 동시 한도(근사·표시용)
     finally:
         stop.set()
         if run_id is not None and hb_thread.is_alive():
