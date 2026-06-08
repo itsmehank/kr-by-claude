@@ -3,51 +3,57 @@ import json
 from datetime import date, datetime, timedelta, timezone
 
 
-def test_weekend_batch_dry_run_creates_classifications(db, mocker):
-    """dry-run 모드에서 결정론 통과 종목 3개 → 3 row INSERT."""
+def test_weekend_batch_dry_run_processes_all_qualifying(db, mocker):
+    """dry-run + 병렬: rs_line·minervini 통과 3종목이 모두 처리(processed==3).
+    (dry_run 은 분류 row 를 insert 하지 않고 freeze 만 저장 — _process_one 설계.)"""
     today = date(2026, 5, 16)
     with db.cursor() as cur:
         for t in ["WK1", "WK2", "WK3"]:
+            cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,%s,'KOSPI') ON CONFLICT DO NOTHING", (t, t))
             cur.execute(
-                "INSERT INTO stocks (ticker, name, market) VALUES (%s, %s, 'KOSPI') ON CONFLICT DO NOTHING",
-                (t, t),
-            )
-            cur.execute(
-                """INSERT INTO daily_indicators
-                   (ticker, date, adj_close, minervini_pass)
-                   VALUES (%s, %s, 100, TRUE) ON CONFLICT DO NOTHING""",
+                """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass, rs_line_not_declining_7m)
+                   VALUES (%s,%s,100,TRUE,TRUE)
+                   ON CONFLICT (ticker, date) DO UPDATE SET minervini_pass=TRUE, rs_line_not_declining_7m=TRUE""",
                 (t, today),
             )
     db.commit()
-
-    # build_analysis_zip mock 처리 (실제 ZIP 생성은 chart_render Decimal 이슈 회피)
-    mocker.patch(
-        "kr_pipeline.llm_runner.weekend.build_analysis_zip",
-        return_value=b"fake_zip_bytes",
-    )
+    mocker.patch("kr_pipeline.llm_runner.weekend.build_analysis_zip", return_value=b"fake_zip_bytes")
 
     from kr_pipeline.llm_runner.weekend import run
-
-    with db.cursor() as cur:
-        cur.execute(
-            "SELECT COUNT(*) FROM weekly_classification WHERE source='weekend' AND symbol = ANY(%s)",
-            (["WK1", "WK2", "WK3"],),
-        )
-        before = cur.fetchone()[0]
-
-    result = run(db, dry_run=True, as_of=today)
+    result = run(db, dry_run=True, as_of=today, concurrency=3)
 
     assert result["processed"] == 3
     assert result["failures"] == 0
+    assert result["failed_tickers"] == []
 
-    with db.cursor() as cur:
-        cur.execute(
-            "SELECT COUNT(*) FROM weekly_classification WHERE source='weekend' AND symbol = ANY(%s)",
-            (["WK1", "WK2", "WK3"],),
-        )
-        after = cur.fetchone()[0]
 
-    assert after - before == 3
+def test_weekend_parallel_aggregates_and_retries(db, mocker):
+    import kr_pipeline.llm_runner.weekend as wk
+    from kr_pipeline.llm_runner.llm.claude_cli import ClaudeCLIError
+
+    mocker.patch.object(wk, "get_qualifying_tickers", return_value=[
+        {"symbol": "OKAA", "market": "KOSPI"},
+        {"symbol": "TRNS", "market": "KOSPI"},  # 일시오류 1회 후 성공
+        {"symbol": "PERM", "market": "KOSPI"},  # 영구 실패
+    ])
+    calls = {}
+    def fake_process_one(conn, symbol, market, *, dry_run, as_of):
+        calls[symbol] = calls.get(symbol, 0) + 1
+        if symbol == "TRNS" and calls[symbol] == 1:
+            raise ClaudeCLIError("transient")          # 1회 일시오류 → 재시도
+        if symbol == "PERM":
+            raise ValueError("permanent")              # 영구 → 재시도 안 함
+        return None
+    mocker.patch.object(wk, "_process_one", side_effect=fake_process_one)
+
+    r = wk.run(db, dry_run=True, concurrency=3, run_id=None)
+
+    assert r["processed"] == 2                          # OKAA, TRNS
+    assert calls["TRNS"] == 2                           # 재시도 1회
+    assert calls["PERM"] == 1                           # 영구는 재시도 안 함
+    failed = {f["symbol"]: f for f in r["failed_tickers"]}
+    assert "PERM" in failed and failed["PERM"]["attempts"] == 1
+    assert "permanent" in failed["PERM"]["error"]
 
 
 def _seed_run(db, *, status, heartbeat_age_s=None, started_age_s=0):

@@ -5,10 +5,15 @@
 from __future__ import annotations
 
 import logging
+import os
+import subprocess
 import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+import psycopg
 from psycopg import Connection
 
 from api.services.freeze_store import save_freeze
@@ -44,6 +49,40 @@ def reap_stale_weekend_runs(conn, *, current_run_id, stale_seconds: int = 90) ->
         return cur.rowcount
 
 
+_TRANSIENT_EXC = (subprocess.TimeoutExpired, ClaudeCLIError)
+
+
+def _process_one_worker(dsn, symbol, market, *, dry_run, as_of, max_retries=2):
+    """자기 커넥션으로 한 종목 처리. 일시오류만 재시도. dict 반환."""
+    from api.services.integrity_guard import DataIntegrityError
+    wconn = psycopg.connect(dsn)
+    last_err = None
+    attempts = 0
+    try:
+        while attempts <= max_retries:
+            attempts += 1
+            try:
+                _process_one(wconn, symbol, market, dry_run=dry_run, as_of=as_of)
+                wconn.commit()
+                return {"status": "ok", "symbol": symbol, "attempts": attempts}
+            except DataIntegrityError as e:
+                wconn.rollback()
+                return {"status": "integrity", "symbol": symbol, "attempts": attempts,
+                        "detail": {"symbol": symbol, "date": e.on_date.isoformat(), "column": e.column,
+                                   "p_value": e.p_value, "i_value": e.i_value, "ratio": e.ratio}}
+            except _TRANSIENT_EXC as e:
+                wconn.rollback(); last_err = str(e)
+                if attempts <= max_retries:
+                    time.sleep(min(2 * attempts, 5))
+            except Exception as e:
+                wconn.rollback()
+                return {"status": "fail", "symbol": symbol, "attempts": attempts, "error": str(e)}
+        return {"status": "fail", "symbol": symbol, "attempts": attempts,
+                "error": f"transient retries exhausted: {last_err}"}
+    finally:
+        wconn.close()
+
+
 def run(
     conn: Connection,
     *,
@@ -51,6 +90,8 @@ def run(
     as_of: date | None = None,
     limit: int | None = None,
     ticker: str | None = None,
+    concurrency: int | None = None,
+    run_id: int | None = None,
 ) -> dict:
     """주말 (5) batch 실행.
 
@@ -70,72 +111,32 @@ def run(
     log.info("weekend batch: %d candidates as_of=%s dry_run=%s",
              len(candidates), as_of, dry_run)
 
+    concurrency = concurrency or int(os.environ.get("WEEKEND_CONCURRENCY", "4"))
     processed = 0
-    failures: list[tuple[str, str]] = []
-    failed_tickers = []
+    failed_tickers: list[dict] = []
     integrity_skipped: list[dict] = []
+    dsn = conn.info.dsn
 
-    from api.services.integrity_guard import DataIntegrityError
+    workers = max(1, min(concurrency, len(candidates)))
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futs = {ex.submit(_process_one_worker, dsn, c["symbol"], c["market"],
+                          dry_run=dry_run, as_of=as_of): c["symbol"] for c in candidates}
+        for fut in as_completed(futs):
+            r = fut.result()
+            if r["status"] == "ok":
+                processed += 1
+            elif r["status"] == "integrity":
+                integrity_skipped.append(r["detail"])
+            else:
+                failed_tickers.append({"symbol": r["symbol"], "error": r.get("error", ""), "attempts": r["attempts"]})
 
-    for c in candidates:
-        symbol = c["symbol"]
-        market = c["market"]
-        try:
-            _process_one(conn, symbol, market, dry_run=dry_run, as_of=as_of)
-            processed += 1
-            conn.commit()
-        except DataIntegrityError as e:
-            log.warning("[INTEGRITY GUARD] %s skipped: %s", symbol, e)
-            integrity_skipped.append({
-                "symbol": symbol,
-                "date": e.on_date.isoformat(),
-                "column": e.column,
-                "p_value": e.p_value,
-                "i_value": e.i_value,
-                "ratio": e.ratio,
-            })
-            conn.rollback()
-        except Exception as e:
-            log.warning("ticker %s failed: %s", symbol, e)
-            failures.append((symbol, str(e)))
-            failed_tickers.append(symbol)
-            conn.rollback()
-
-    # End-of-run retry 1회
-    retry_failures = []
-    for symbol in failed_tickers:
-        try:
-            market = next(c["market"] for c in candidates if c["symbol"] == symbol)
-            _process_one(conn, symbol, market, dry_run=dry_run, as_of=as_of)
-            processed += 1
-            conn.commit()
-        except DataIntegrityError as e:
-            log.warning("[INTEGRITY GUARD] retry: %s skipped: %s", symbol, e)
-            integrity_skipped.append({
-                "symbol": symbol,
-                "date": e.on_date.isoformat(),
-                "column": e.column,
-                "p_value": e.p_value,
-                "i_value": e.i_value,
-                "ratio": e.ratio,
-            })
-            conn.rollback()
-        except Exception as e:
-            retry_failures.append((symbol, str(e)))
-            conn.rollback()
-
-    if integrity_skipped:
-        log.warning("[INTEGRITY GUARD] %d tickers skipped due to data integrity issues",
-                    len(integrity_skipped))
-
-    log.info("weekend batch done: processed=%d retry_failures=%d integrity_skipped=%d",
-             processed, len(retry_failures), len(integrity_skipped))
-
+    log.info("weekend batch done: processed=%d failed=%d integrity_skipped=%d",
+             processed, len(failed_tickers), len(integrity_skipped))
     return {
         "processed": processed,
         "candidates": len(candidates),
-        "failures": len(retry_failures),
-        "failed_tickers": [t for t, _ in retry_failures],
+        "failures": len(failed_tickers),
+        "failed_tickers": failed_tickers,           # [{symbol,error,attempts}]
         "integrity_skipped": integrity_skipped,
     }
 
