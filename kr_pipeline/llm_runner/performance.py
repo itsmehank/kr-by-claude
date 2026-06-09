@@ -41,6 +41,7 @@ def run(conn: Connection, *, as_of: date | None = None) -> dict:
         rows = cur.fetchall()
 
     backfilled = 0
+    market_base_missing: list[dict] = []
     for (symbol, signal_at, analyzed_for_date, entry_price,
          p1w, p2w, p4w, p8w,
          mr1w, mr2w, mr4w, mr8w) in rows:
@@ -59,6 +60,9 @@ def run(conn: Connection, *, as_of: date | None = None) -> dict:
         market_code = "1001" if mrow[0] == "KOSPI" else "2001"
 
         updates = {}
+        base_close: float | None = None
+        base_fetched = False
+        base_missing = False
         for period_name, days in PERIODS:
             # 가격과 시장수익률이 모두 이미 있으면 스킵
             if prices[period_name] is not None and market_returns[period_name] is not None:
@@ -88,30 +92,41 @@ def run(conn: Connection, *, as_of: date | None = None) -> dict:
                 )
             else:
                 future_price = float(prices[period_name])
-            # 시장 수익률
+            # 시장 수익률 — base 는 시그널당 1회만 조회 (lazy)
+            if not base_fetched:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT close FROM index_daily WHERE index_code = %s AND date = %s",
+                        (market_code, signal_date),
+                    )
+                    brow = cur.fetchone()
+                base_fetched = True
+                if brow:
+                    base_close = float(brow[0])
+                else:
+                    base_missing = True
             with conn.cursor() as cur:
                 cur.execute(
-                    """
-                    SELECT close FROM index_daily
-                     WHERE index_code = %s AND date = %s
-                    """,
-                    (market_code, signal_date),
-                )
-                base_row = cur.fetchone()
-                cur.execute(
-                    """
-                    SELECT close FROM index_daily
-                     WHERE index_code = %s AND date <= %s
-                     ORDER BY date DESC LIMIT 1
-                    """,
+                    "SELECT close FROM index_daily WHERE index_code = %s AND date <= %s "
+                    "ORDER BY date DESC LIMIT 1",
                     (market_code, target_date),
                 )
                 end_row = cur.fetchone()
-            if base_row and end_row:
+            if base_close is not None and end_row:
                 updates[f"market_return_{period_name}_pct"] = (
-                    (float(end_row[0]) - float(base_row[0]))
-                    / float(base_row[0]) * 100
+                    (float(end_row[0]) - base_close) / base_close * 100
                 )
+
+        if base_missing:
+            log.warning(
+                "market base index missing — symbol=%s signal_date=%s code=%s",
+                symbol, signal_date, market_code,
+            )
+            market_base_missing.append({
+                "symbol": symbol,
+                "signal_date": signal_date.isoformat(),
+                "market_code": market_code,
+            })
 
         if updates:
             cols_assignments = ", ".join(f"{k} = %s" for k in updates.keys())
@@ -138,4 +153,4 @@ def run(conn: Connection, *, as_of: date | None = None) -> dict:
             backfilled += 1
 
     log.info("performance backfill: %d signals updated", backfilled)
-    return {"backfilled": backfilled}
+    return {"backfilled": backfilled, "market_base_missing": market_base_missing}
