@@ -267,6 +267,7 @@ def insert_trigger_log(
     result: dict,
     prior_classification_at: datetime,
     llm_meta: dict,
+    analyzed_for_date: date | None = None,
 ) -> None:
     """trigger_evaluation_log 에 (5b) 결과 INSERT."""
     decision = _validate_decision(result)
@@ -277,11 +278,13 @@ def insert_trigger_log(
               (symbol, evaluated_at, trigger_type,
                close, volume, pivot_price,
                decision, confidence, reasoning, abort_reason,
+               analyzed_for_date,
                prior_classification_at,
                llm_call_duration_s, llm_input_tokens, llm_output_tokens)
             VALUES (%s, %s, %s,
                     %s, %s, %s,
                     %s, %s, %s, %s,
+                    %s,
                     %s,
                     %s, %s, %s)
             ON CONFLICT (symbol, evaluated_at) DO NOTHING
@@ -297,6 +300,7 @@ def insert_trigger_log(
                 result.get("confidence"),
                 result.get("reasoning"),
                 result.get("abort_reason"),
+                analyzed_for_date,
                 prior_classification_at,
                 llm_meta.get("duration_s"),
                 llm_meta.get("input_tokens"),
@@ -375,6 +379,7 @@ def insert_entry_params(
     trigger_evaluation_at: datetime,
     prior_classification_at: datetime,
     llm_meta: dict,
+    analyzed_for_date: date | None = None,
 ) -> None:
     """entry_params 에 (6) 결과 INSERT (§9 → 정규화 → 저장)."""
     n = _normalize_entry_params(result)
@@ -382,7 +387,7 @@ def insert_entry_params(
         cur.execute(
             """
             INSERT INTO entry_params
-              (symbol, signal_at,
+              (symbol, signal_at, analyzed_for_date,
                entry_mode, pivot_price, trigger_price, current_price, entry_price,
                stop_loss, stop_loss_pct_from_pivot, stop_loss_pct_from_current_price, stop_loss_basis,
                expected_target_price, expected_target_pct, risk_reward_ratio,
@@ -392,7 +397,7 @@ def insert_entry_params(
                known_warnings, other_warnings, notes,
                trigger_evaluation_at, prior_classification_at,
                llm_call_duration_s, llm_input_tokens, llm_output_tokens)
-            VALUES (%s, %s,
+            VALUES (%s, %s, %s,
                     %s, %s, %s, %s, %s,
                     %s, %s, %s, %s,
                     %s, %s, %s,
@@ -405,7 +410,7 @@ def insert_entry_params(
             ON CONFLICT (symbol, signal_at) DO NOTHING
             """,
             (
-                symbol, signal_at,
+                symbol, signal_at, analyzed_for_date,
                 n["entry_mode"], n["pivot_price"], n["trigger_price"], n["current_price"], n["entry_price"],
                 n["stop_loss"], n["stop_loss_pct_from_pivot"], n["stop_loss_pct_from_current_price"], n["stop_loss_basis"],
                 n["expected_target_price"], n["expected_target_pct"], n["risk_reward_ratio"],

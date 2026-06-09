@@ -109,4 +109,5 @@ def _process_one(conn, active_row, trig_type, *, dry_run, as_of):
         prior_classification_at=active_row["classified_at"],
         llm_meta={"duration_s": (finished - started).total_seconds(),
                   "input_tokens": None, "output_tokens": None},
+        analyzed_for_date=as_of,
     )

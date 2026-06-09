@@ -73,7 +73,7 @@ def run(
     failed = []
     for symbol, eval_at, prior_at in go_now:
         try:
-            _process_one(conn, symbol, eval_at, prior_at, dry_run=dry_run)
+            _process_one(conn, symbol, eval_at, prior_at, dry_run=dry_run, as_of=as_of)
             processed += 1
             conn.commit()
         except Exception as e:
@@ -84,7 +84,7 @@ def run(
     return {"processed": processed, "failures": len(failed)}
 
 
-def _process_one(conn, symbol, eval_at, prior_at, *, dry_run):
+def _process_one(conn, symbol, eval_at, prior_at, *, dry_run, as_of):
     started = datetime.now(timezone.utc)
     payload = build_for_6(conn, symbol, evaluation_at=eval_at)
     result = call_claude(
@@ -109,4 +109,5 @@ def _process_one(conn, symbol, eval_at, prior_at, *, dry_run):
         prior_classification_at=prior_at,
         llm_meta={"duration_s": (finished - started).total_seconds(),
                   "input_tokens": None, "output_tokens": None},
+        analyzed_for_date=as_of,
     )
