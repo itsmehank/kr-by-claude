@@ -15,20 +15,30 @@
 **"현재 분류 딱지를 받은 뒤에 한 번이라도 `abort` 난 종목은, 다음 재분류 때까지
 evaluate_pivot 재평가에서 skip한다."** 분류 자체는 바꾸지 않는다(weekend 전용 철학 유지).
 
-### 판단 — 새 필드 없음
+### 판단 — 새 필드 없음, `prior_classification_at` 정확 매칭
 
-이미 저장된 두 시각의 비교만으로 판단한다(새 컬럼/플래그/저장값 불필요):
+이미 저장된 값의 매칭만으로 판단한다(새 컬럼/플래그/저장값 불필요). abort 기록 시
+`store.insert_trigger_log`가 **`prior_classification_at = active_row["classified_at"]`**
+(그 abort가 *어느 분류에 대해* 내려졌는지)를 함께 저장한다:
 
-- `trigger_evaluation_log`: `decision='abort'` 행의 `evaluated_at` (abort 시각)
+- `trigger_evaluation_log`: `decision='abort'` 행의 `prior_classification_at` (그 abort가 평가 대상으로 삼은 분류 시각)
 - 활성 종목 행의 `classified_at` (현재 분류 시각, `get_active_with_current`이 이미 실어옴)
 
-**판정:** 그 종목의 최신 abort `evaluated_at` > 현재 `classified_at` → skip.
+**판정:** 그 종목의 abort 행 중 `prior_classification_at == 현재 classified_at` 인 것이
+있으면 → skip. ("현재 분류에 대해 내려진 abort가 있다.")
+
+> **왜 시각 비교(`evaluated_at > classified_at`)가 아니라 정확 매칭인가:**
+> `prior_classification_at`은 abort가 *실제로 평가 대상으로 삼은 분류*의 ground truth라
+> 시간 추론(평가 시각이 분류 시각보다 항상 나중이라는 가정)이 불필요하다. 재실행/백필로
+> 과거 as_of를 재평가해도 그때의 분류가 그대로 기록되므로 정확하다. (운영 DB 검증:
+> abort 12/12·wait 18/18 행 모두 `prior_classification_at` 채워짐.)
 
 ### 자가리셋
 
-weekend/daily_delta가 재분류하면 `classified_at`이 새로 찍혀 앞서간다 → 옛 abort가
-"분류 이전"이 되어 비교만으로 **자동 skip 해제, 재평가 재개**. 재분류 후 또 abort면
-다시 skip. 별도 초기화 작업 없음. (intraday 재분류에도 견고 — 순서 무관하게 시각 비교로 동작.)
+weekend/daily_delta가 재분류하면 `classified_at`이 새로 찍힌다 → 옛 abort 행의
+`prior_classification_at`(옛 분류 시각)이 현재 `classified_at`(새 분류 시각)과 불일치 →
+**자동 skip 해제, 재평가 재개**. 재분류 후 또 abort면 새 분류 시각으로 다시 기록되어 다시
+skip. 별도 초기화 작업 없음. (intraday 재분류에도 견고 — 순서 무관하게 매칭으로 동작.)
 
 ## 구현
 
@@ -43,23 +53,25 @@ def _aborted_since_classification(conn: Connection, active: list[dict]) -> set[s
         return set()
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT symbol, MAX(evaluated_at) FROM trigger_evaluation_log "
-            "WHERE decision = 'abort' AND symbol = ANY(%s) GROUP BY symbol",
+            "SELECT DISTINCT symbol, prior_classification_at "
+            "FROM trigger_evaluation_log "
+            "WHERE decision = 'abort' AND symbol = ANY(%s)",
             (symbols,),
         )
-        latest_abort = {r[0]: r[1] for r in cur.fetchall()}
+        abort_pairs = {(r[0], r[1]) for r in cur.fetchall()}
     result: set[str] = set()
     for a in active:
-        ab = latest_abort.get(a["symbol"])
         cls_at = a.get("classified_at")
-        # 보완 1: None 방어 — 둘 중 하나라도 None이면 skip 안 함(안전한 기본값)
-        if ab is not None and cls_at is not None and ab > cls_at:
+        # 보완 1: None 방어 — classified_at 이 None 이면 매칭 시도 안 함(안전한 기본값).
+        # abort 행의 prior 가 NULL 이면 (symbol, NULL) 쌍이 어떤 timestamp 와도 불일치 → 자연 skip-안함.
+        if cls_at is not None and (a["symbol"], cls_at) in abort_pairs:
             result.add(a["symbol"])
     return result
 ```
 
-`MAX(evaluated_at)`는 최신 abort. `MAX > classified_at` ⟺ classified_at 이후 abort가
-적어도 하나 존재. active 심볼만 1회 쿼리 → 효율적.
+`(symbol, prior_classification_at)` 쌍 집합을 만들어 `(symbol, 현재 classified_at)` 정확
+매칭. active 심볼만 1회 쿼리 → 효율적. 두 timestamptz 는 동일 `weekly_classification.classified_at`
+값이 round-trip 된 것이라 정확히 일치(같은 DB 값).
 
 ### 필터 적용 — `run()`의 `elif not force:` 블록
 
@@ -77,9 +89,14 @@ def _aborted_since_classification(conn: Connection, active: list[dict]) -> set[s
 
 ### 보완 2: 관측성 — `abort_skipped` 카운트
 
-`run()` 결과 dict에 abort로 skip된 수를 추가. 이 값이 비정상적으로 크면 "weekend 재분류가
-밀려 깨진 종목이 쌓인다"는 신호 — 별개 이슈(weekend 신뢰성)를 공짜로 가시화. ⑥의 surface
-철학과 동일. 카운트는 `triggered`에서 실제로 제거된 abort 종목 수(`aborted ∩ pre-filter triggered`).
+`run()` 결과 dict(`{evaluated, failures, active, triggered}`)에 `abort_skipped` 키 추가.
+이 값이 비정상적으로 크면 "weekend 재분류가 밀려 깨진 종목이 쌓인다"는 신호 — 별개
+이슈(weekend 신뢰성)를 공짜로 가시화. ⑥의 surface 철학과 동일.
+
+카운트는 **필터 전 `triggered`에서 abort로 인해 제거된 종목 수**로 정의:
+`abort_skipped = len([a for (a, t) in triggered if a["symbol"] in aborted])`
+(필터 적용 전에 계산. `done`과 겹치는 종목이 있어도 "트리거됐으나 abort-class였던 수"로서
+의미 있음. `triggered`/`evaluated`는 종전 의미 유지.)
 
 ## 불변 / 범위
 
@@ -102,9 +119,9 @@ def _aborted_since_classification(conn: Connection, active: list[dict]) -> set[s
 
 `tests/test_abort_skip.py`:
 
-1. **분류 이후 abort** — classified_at 이후 `evaluated_at`의 abort 행 → skip 집합에 포함.
-2. **분류 이전 abort만 (재분류됨)** — abort `evaluated_at` < classified_at → 미포함(자가리셋).
+1. **현재 분류에 대한 abort** — abort 행의 `prior_classification_at == active classified_at` → skip 집합에 포함.
+2. **옛 분류에 대한 abort (재분류됨)** — abort `prior_classification_at` ≠ 현재 classified_at → 미포함(자가리셋).
 3. **abort 없음 / `wait`만** — abort 행 없음 또는 decision='wait' → 미포함.
-4. **classified_at None 방어** — classified_at None → 미포함(크래시 없음).
+4. **classified_at None 방어 / abort prior NULL** — None/불일치 → 미포함(크래시 없음).
 
 run() 통합 필터는 단순 집합 차집합이라 기존 evaluate_pivot 테스트가 회귀 커버.
