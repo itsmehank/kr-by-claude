@@ -15,12 +15,12 @@ from kr_pipeline.llm_runner.slack import notify_weekend_digest
 log = logging.getLogger("kr_pipeline.llm_runner.modes")
 
 
-def run_full_daily(conn: Connection, *, dry_run: bool, as_of: date, limit: int | None) -> dict:
+def run_full_daily(conn: Connection, *, dry_run: bool, as_of: date, limit: int | None, force: bool = False) -> dict:
     """평일 통합: disqualify → daily_delta → evaluate → entry → performance."""
     r0 = disqualify.run(conn, dry_run=dry_run, as_of=as_of, limit=limit)
     r1 = daily_delta.run(conn, dry_run=dry_run, as_of=as_of, limit=limit)
-    r2 = evaluate_pivot.run(conn, dry_run=dry_run, as_of=as_of, limit=limit)
-    r3 = entry_params.run(conn, dry_run=dry_run, as_of=as_of, limit=limit)
+    r2 = evaluate_pivot.run(conn, dry_run=dry_run, as_of=as_of, limit=limit, force=force)
+    r3 = entry_params.run(conn, dry_run=dry_run, as_of=as_of, limit=limit, force=force)
     r4 = performance.run(conn, as_of=as_of)
     return {"disqualify": r0, "daily_delta": r1, "evaluate": r2, "entry": r3, "performance": r4}
 

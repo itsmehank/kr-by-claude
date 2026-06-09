@@ -38,7 +38,7 @@ def run(req: RunRequest, conn: Connection = Depends(get_conn)):
         )
 
     try:
-        spawn_result = spawn_pipeline(req.pipeline_id, req.mode_id, params=req.params)
+        spawn_result = spawn_pipeline(req.pipeline_id, req.mode_id, params=req.params, force=req.force)
     except ValueError as e:
         raise HTTPException(400, str(e))
 

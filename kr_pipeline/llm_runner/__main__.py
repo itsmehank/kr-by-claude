@@ -42,6 +42,7 @@ def main() -> int:
     parser.add_argument("--start", type=str, help="YYYY-MM-DD (backfill 범위 시작)")
     parser.add_argument("--end", type=str, help="YYYY-MM-DD (backfill 범위 종료)")
     parser.add_argument("--tickers", type=str, help="쉼표 구분 종목 코드 (backfill 전용, 생략 시 전 종목)")
+    parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
 
     # --ticker 는 현재 weekend mode 만 함수 시그니처가 지원. 다른 mode 에서 ticker
@@ -91,13 +92,13 @@ def main() -> int:
             elif args.mode == "daily-delta":
                 result = daily_delta.run(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
             elif args.mode == "evaluate":
-                result = evaluate_pivot.run(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
+                result = evaluate_pivot.run(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit, force=args.force)
             elif args.mode == "entry":
-                result = entry_params.run(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
+                result = entry_params.run(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit, force=args.force)
             elif args.mode == "performance":
                 result = performance.run(conn, as_of=as_of)
             elif args.mode == "full-daily":
-                result = modes.run_full_daily(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
+                result = modes.run_full_daily(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit, force=args.force)
             elif args.mode == "backfill":
                 _start = _date.fromisoformat(args.start)
                 _end = _date.fromisoformat(args.end)

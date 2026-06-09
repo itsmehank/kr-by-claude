@@ -115,6 +115,7 @@ def spawn_runner(
     dry_run: bool = True,
     limit: int | None = None,
     ticker: str | None = None,
+    force: bool = False,
 ) -> dict:
     """subprocess.Popen 으로 LLM runner 실행 (fire-and-forget).
 
@@ -133,6 +134,8 @@ def spawn_runner(
         cmd.append(f"--limit={limit}")
     if ticker is not None:
         cmd.append(f"--ticker={ticker}")
+    if force:
+        cmd.append("--force")
 
     log_file = log_path.open("a")
     try:
@@ -228,7 +231,7 @@ def check_can_run_pipeline(
     return {"can_run": True, "reason": "ok", "existing_run_id": None}
 
 
-def spawn_pipeline(pipeline_id: str, mode_id: str, params: dict | None = None) -> dict:
+def spawn_pipeline(pipeline_id: str, mode_id: str, params: dict | None = None, *, force: bool = False) -> dict:
     """PIPELINE_SPECS 기반 subprocess spawn.
 
     params: 사용자가 UI 에서 입력한 모드별 추가 인자 (e.g., {"years": 3}).
@@ -254,6 +257,8 @@ def spawn_pipeline(pipeline_id: str, mode_id: str, params: dict | None = None) -
     log_path = LOG_DIR / "cron.log"
 
     cmd = ["uv", "run", "python", "-m", spec["module"], *args, *extra_args]
+    if force:
+        cmd.append("--force")
 
     log_file = log_path.open("a")
     try:
