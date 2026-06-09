@@ -115,15 +115,17 @@ CREATE INDEX IF NOT EXISTS idx_entry_params_afd ON entry_params (analyzed_for_da
   ※ 웹 full-daily 는 `--date` 를 안 넘기므로(spawn args=`--mode=full-daily`) check·러너 양쪽
   `_resolve_as_of(conn, None)=MAX(daily_indicators.date)` 로 자동 일치 → params/date 를 check 에
   따로 넘길 필요 없음.
-- "duplicate" 판정 변경:
-  - 기존: `SELECT id,started_at,finished_at,rows_affected,mode ... status='success' AND
-    (started_at AT TIME ZONE 'Asia/Seoul')::date = today`
-  - 변경: **SELECT 에 `params` 추가** + 조건을 `status='success' AND params->>'as_of' =
-    prospective_as_of::text` 로. (pipeline/mode_prefix 매칭은 기존 그대로.) 서로 다른 as_of = 중복 아님
-    → 오전(D-1)/오후(D) 자연 통과.
+- "duplicate" 판정 변경 (⚠ **backward-compat 결합 조건** — check_can_run_pipeline 은 *모든* 파이프라인
+  공유인데 `as_of` 를 params 에 넣는 건 **llm_runner 뿐**. ohlcv/indicators/weekly/market_context/
+  corporate_actions/universe/data_daily/data_weekly 는 미저장 → 순수 as_of 비교로 바꾸면 그들의
+  duplicate 방지가 깨짐):
+  - 기존: `status='success' AND (started_at AT TIME ZONE 'Asia/Seoul')::date = today`
+  - 변경: **SELECT 에 `params` 추가** + 조건을
+    `status='success' AND ( params->>'as_of' = prospective::text
+        OR (params->>'as_of' IS NULL AND (started_at AT TIME ZONE 'Asia/Seoul')::date = today) )`.
+    → LLM(as_of 있음): as_of 매칭(어느 날이든) — 오전(D-1)/오후(D) 다른 as_of=중복 아님, 같은 as_of=중복.
+    비-LLM(as_of NULL): 기존 wall-clock today 유지(레거시 보존). pipeline/mode_prefix 매칭 그대로.
   - `running` 상태 체크(동시 실행 방지)는 **그대로 유지**(force 무관). force=True 면 duplicate 우회.
-- 레거시 run(params 에 as_of 없음=NULL)·예외 시 보수 fallback: as_of 비교 불가하면 해당 행은 무시(차단
-  안 함) — forward-only(과거 wall-clock 기반 중복을 새 기준으로 소급 차단하지 않음).
 - ※ 의미 변화(개선): 데이터가 안 바뀐 채(예: 휴장일) 다음 날 재실행하면 같은 as_of 라 duplicate 로 막힘
   = 무의미 재분석 방지(기존엔 wall-clock 다르면 허용 후 stage no-op). 의도된 개선.
 

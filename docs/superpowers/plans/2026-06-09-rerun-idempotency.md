@@ -514,9 +514,16 @@ Expected: FAIL — `test_different_as_of_not_duplicate` 가 duplicate 로 차단
 
 - [ ] **Step 3: check_can_run_pipeline 의 duplicate 판정 교체**
 
-`api/services/runner_service.py` 상단에 `from kr_pipeline.llm_runner.load import resolve_as_of` 추가. `check_can_run_pipeline` 의 success 쿼리 블록을 다음으로 교체:
+`api/services/runner_service.py` 상단에 `from kr_pipeline.llm_runner.load import resolve_as_of` 추가. `check_can_run_pipeline` 의 success 쿼리 블록을 다음으로 교체.
+
+⚠️ **중요(backward-compat)**: `check_can_run_pipeline` 은 모든 파이프라인이 공유하는데, params 에
+`as_of` 를 넣는 건 **llm_runner 뿐**(ohlcv/indicators/weekly/market_context/corporate_actions/
+universe/data_daily/data_weekly 는 미저장). 순수 `params->>'as_of'` 비교로 바꾸면 그들의 duplicate
+방지가 깨짐. 따라서 **결합 조건** — as_of 있으면 as_of 비교(LLM: 오전/오후 독립), 없으면 기존
+wall-clock today(레거시 보존):
 ```python
     prospective = resolve_as_of(conn)
+    today = date.today()
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -524,10 +531,12 @@ Expected: FAIL — `test_different_as_of_not_duplicate` 가 duplicate 로 차단
               FROM pipeline_runs
              WHERE pipeline = %s
                AND status = 'success'
-               AND params->>'as_of' = %s
+               AND ( params->>'as_of' = %s
+                     OR (params->>'as_of' IS NULL
+                         AND (started_at AT TIME ZONE 'Asia/Seoul')::date = %s) )
              ORDER BY id DESC LIMIT 5
             """,
-            (pipeline_db, prospective.isoformat()),
+            (pipeline_db, prospective.isoformat(), today),
         )
         success_rows = cur.fetchall()
 
@@ -544,11 +553,29 @@ Expected: FAIL — `test_different_as_of_not_duplicate` 가 duplicate 로 차단
             }
     return {"can_run": True, "reason": "ok", "existing_run_id": None}
 ```
-(레거시 NULL as_of 행은 `params->>'as_of' = prospective` 에 매칭 안 돼 자동 무시 = forward-only.)
+- LLM(as_of 있음): as_of 로 매칭(어느 wall-clock 날이든) → 오전(D-1)/오후(D) 다른 as_of = 중복 아님,
+  같은 as_of = 중복.
+- 비-LLM(as_of NULL): 기존 wall-clock today 로 매칭(레거시 보존). `universe` 는 키가 `on_date` 라
+  as_of NULL 취급 → wall-clock 유지(의도된 비변경).
 
-- [ ] **Step 4: check_can_run (모드기반, 테스트전용) 동일 교체**
+- [ ] **Step 4: check_can_run (모드기반, 테스트전용) 동일 교체 + 비-LLM 레거시 회귀 테스트**
 
-`check_can_run` 의 success 쿼리도 같은 방식으로 `params->>'as_of' = resolve_as_of(conn).isoformat()` 으로 교체(일관성).
+`check_can_run` 의 success 쿼리도 같은 **결합 조건**(as_of 매칭 OR (as_of NULL AND wall-clock today))으로 교체. `tests/test_rerun_run_gate.py` 에 비-LLM 보존 테스트 추가:
+```python
+def test_non_asof_pipeline_keeps_wallclock_duplicate(db):
+    """as_of 없는 파이프라인(ohlcv 등)은 오늘 성공 시 여전히 duplicate(레거시 보존)."""
+    from api.services.runner_service import check_can_run_pipeline
+    from datetime import datetime, timezone
+    with db.cursor() as cur:
+        # ohlcv 파이프라인: params 에 as_of 없음
+        cur.execute("INSERT INTO pipeline_runs (pipeline,mode,started_at,finished_at,status,params) "
+                    "VALUES ('ohlcv','incremental',%s,%s,'success',%s)",
+                    (datetime.now(timezone.utc), datetime.now(timezone.utc), '{\"start\": \"2026-06-01\"}'))
+    db.commit()
+    res = check_can_run_pipeline(db, "ohlcv")   # spec id 확인: ohlcv pipeline_id
+    assert res["can_run"] is False and res["reason"] == "duplicate"
+```
+(※ `ohlcv` pipeline_id 가 PIPELINE_SPECS 의 실제 id 와 다르면 그 id 로 교체. mode_prefix 없으면 mode 'incremental' 매칭.)
 
 - [ ] **Step 5: 통과 확인 + 기존 runner_service 테스트 갱신**
 
