@@ -17,32 +17,37 @@ from kr_pipeline.llm_runner.store import insert_entry_params, _normalize_entry_p
 log = logging.getLogger("kr_pipeline.llm_runner.entry_params")
 
 
-def _fetch_go_now_candidates(conn, as_of: date) -> list:
-    """오늘 go_now breakout 신호 중 2E_tier2 차단 제외한 후보.
+def _fetch_go_now_candidates(conn, as_of: date, force: bool = False) -> list:
+    """as_of go_now breakout(+from_watch) 후보. 2E_tier2 제외.
 
-    breakout_from_watch (watch 정당한 돌파) 도 breakout 과 동일 취급 — go_now 면 매수 계획 대상.
-    (게이트의 fresh_cross + §3.5 표준검증을 이미 통과; 추격은 본 단계 5% 룰이 거름.)
+    force=False 면 이미 entry_params(같은 as_of) 있는 종목 skip(멱등 재개).
+    같은 as_of·종목 trigger 행이 둘 이상이어도 DISTINCT ON 으로 1건만.
     """
+    skip_clause = "" if force else """
+               AND NOT EXISTS (
+                   SELECT 1 FROM entry_params ep
+                    WHERE ep.symbol = t.symbol
+                      AND COALESCE(ep.analyzed_for_date, (ep.signal_at AT TIME ZONE 'UTC')::date) = %(as_of)s
+               )"""
     with conn.cursor() as cur:
         cur.execute(
-            """
-            SELECT t.symbol, t.evaluated_at, t.prior_classification_at
+            f"""
+            SELECT DISTINCT ON (t.symbol) t.symbol, t.evaluated_at, t.prior_classification_at
               FROM trigger_evaluation_log t
-             WHERE (t.evaluated_at AT TIME ZONE 'UTC')::date = %s
+             WHERE COALESCE(t.analyzed_for_date, (t.evaluated_at AT TIME ZONE 'UTC')::date) = %(as_of)s
                AND t.decision = 'go_now'
                AND t.trigger_type IN ('breakout', 'breakout_from_watch')
                AND NOT EXISTS (
                    SELECT 1 FROM weekly_classification wc
                     WHERE wc.symbol = t.symbol
                       AND wc.classified_at = (
-                          SELECT MAX(classified_at) FROM weekly_classification
-                           WHERE symbol = t.symbol
+                          SELECT MAX(classified_at) FROM weekly_classification WHERE symbol = t.symbol
                       )
                       AND wc.triggered_rules ? '2E_tier2'
-               )
-             ORDER BY t.evaluated_at
+               ){skip_clause}
+             ORDER BY t.symbol, t.evaluated_at DESC
             """,
-            (as_of,),
+            {"as_of": as_of},
         )
         return cur.fetchall()
 
@@ -53,6 +58,7 @@ def run(
     dry_run: bool = False,
     as_of: date | None = None,
     limit: int | None = None,
+    force: bool = False,
 ) -> dict:
     if as_of is None:
         as_of = date.today()
@@ -62,7 +68,15 @@ def run(
     # 있어 매수 부적절. 만약 LLM 이 promotion 에 대해 go_now 결정해도
     # entry_params 단계로 진입 금지 (prompt §3.3 명시). 안전장치는 prompt
     # 위반 시에도 pivot 미만 매수 시그널이 생성되지 않도록 SQL 에서 강제.
-    go_now = _fetch_go_now_candidates(conn, as_of)
+    if force and not dry_run:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM entry_params "
+                "WHERE COALESCE(analyzed_for_date, (signal_at AT TIME ZONE 'UTC')::date) = %s",
+                (as_of,),
+            )
+        conn.commit()
+    go_now = _fetch_go_now_candidates(conn, as_of, force=force)
 
     if limit:
         go_now = go_now[:limit]
