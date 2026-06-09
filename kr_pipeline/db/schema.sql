@@ -342,6 +342,11 @@ CREATE TABLE IF NOT EXISTS trigger_evaluation_log (
 CREATE INDEX IF NOT EXISTS idx_trigger_log_recent
   ON trigger_evaluation_log (evaluated_at DESC);
 
+-- rerun-idempotency: 데이터 날짜(as_of) — wall-clock(evaluated_at/signal_at)과 분리한 dedup 키.
+-- CREATE TABLE IF NOT EXISTS 는 기존 테이블 미반영 → ALTER 가 실효 구문.
+ALTER TABLE trigger_evaluation_log ADD COLUMN IF NOT EXISTS analyzed_for_date DATE;
+CREATE INDEX IF NOT EXISTS idx_trigger_eval_afd ON trigger_evaluation_log (analyzed_for_date);
+
 -- (6) 매수 파라미터 (v2.0 의 17 필드 그대로)
 CREATE TABLE IF NOT EXISTS entry_params (
   symbol                                  VARCHAR(10) NOT NULL,
@@ -393,6 +398,10 @@ ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS current_price NUMERIC(12,4);
 ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS pattern_basis VARCHAR(30);
 ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS entry_window_days SMALLINT;
 ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS max_chase_pct_from_pivot NUMERIC(6,2);
+
+-- rerun-idempotency: 데이터 날짜(as_of) — wall-clock(signal_at)과 분리한 dedup 키.
+ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS analyzed_for_date DATE;
+CREATE INDEX IF NOT EXISTS idx_entry_params_afd ON entry_params (analyzed_for_date);
 
 -- 시그널 사후 평가 (cron backfill)
 CREATE TABLE IF NOT EXISTS signal_performance (
