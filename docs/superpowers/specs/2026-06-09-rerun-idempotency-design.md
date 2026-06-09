@@ -107,19 +107,33 @@ CREATE INDEX IF NOT EXISTS idx_entry_params_afd ON entry_params (analyzed_for_da
     **`signal_performance` ON DELETE CASCADE 로 해당 시그널 성과기록 동반 삭제**(재분석=옛 성과 폐기, 의도된 동작).
 
 ### 3.6 run 레이어 — duplicate 판정을 as_of 기준으로
-- 공유 헬퍼 `_resolve_as_of(conn, explicit_date)` 신설(= `--date` 있으면 그 값, 없으면
-  `MAX(daily_indicators.date)`). `__main__` 과 아래 check 함수가 **동일 로직 공유**(분기 방지).
-- `runner_service.check_can_run` 및 `check_can_run_pipeline` 의 "duplicate" 판정을:
-  - 기존: `status='success' AND (started_at AT TIME ZONE 'Asia/Seoul')::date = today`
-  - 변경: 실행하려는 prospective as_of 를 구해, `status='success' AND params->>'as_of' = prospective_as_of`
-    인 run 이 있으면 duplicate. (서로 다른 as_of = 중복 아님 → 오전/오후 자연 통과.)
-  - `running` 상태 체크(동시 실행 방지)는 **그대로 유지**(force 무관). force=True 면 duplicate 우회(같은 as_of replace).
-- 레거시 run(params 에 as_of 없음)·예외 시 보수적 fallback: as_of 비교 불가하면 기존 wall-clock 기준 유지.
+- **프로덕션 경로 = `check_can_run_pipeline`**(웹 `/run` 라우터가 사용). `check_can_run`(모드기반)·
+  `spawn_runner` 는 **현재 테스트 전용**(test_api_runner_service.py 만 사용) — 중복 로직을 **공유 헬퍼로
+  추출**해 한 곳만 고치고 양쪽이 쓰게 한다(분기/누락 방지).
+- 공유 헬퍼 `_resolve_as_of(conn, explicit_date)` 신설(= `--date`/date 있으면 그 값, 없으면
+  `MAX(daily_indicators.date)`). `__main__` 과 check 함수가 **동일 로직 공유**.
+  ※ 웹 full-daily 는 `--date` 를 안 넘기므로(spawn args=`--mode=full-daily`) check·러너 양쪽
+  `_resolve_as_of(conn, None)=MAX(daily_indicators.date)` 로 자동 일치 → params/date 를 check 에
+  따로 넘길 필요 없음.
+- "duplicate" 판정 변경:
+  - 기존: `SELECT id,started_at,finished_at,rows_affected,mode ... status='success' AND
+    (started_at AT TIME ZONE 'Asia/Seoul')::date = today`
+  - 변경: **SELECT 에 `params` 추가** + 조건을 `status='success' AND params->>'as_of' =
+    prospective_as_of::text` 로. (pipeline/mode_prefix 매칭은 기존 그대로.) 서로 다른 as_of = 중복 아님
+    → 오전(D-1)/오후(D) 자연 통과.
+  - `running` 상태 체크(동시 실행 방지)는 **그대로 유지**(force 무관). force=True 면 duplicate 우회.
+- 레거시 run(params 에 as_of 없음=NULL)·예외 시 보수 fallback: as_of 비교 불가하면 해당 행은 무시(차단
+  안 함) — forward-only(과거 wall-clock 기반 중복을 새 기준으로 소급 차단하지 않음).
+- ※ 의미 변화(개선): 데이터가 안 바뀐 채(예: 휴장일) 다음 날 재실행하면 같은 as_of 라 duplicate 로 막힘
+  = 무의미 재분석 방지(기존엔 wall-clock 다르면 허용 후 stage no-op). 의도된 개선.
 
 ### 3.7 force 전파 (web → CLI)
 - 라우터 `/run`(`runner.py`)은 이미 `force` 수신 → `check_can_run_pipeline(force=)` 에 전달(기존).
-- **누락 보완**: `spawn_pipeline`(및 `spawn_runner`)에 `force` 파라미터 추가 → CLI cmd 에 `--force` append.
-  라우터가 `req.force` 를 spawn 까지 전달. → web force 가 stage replace 까지 도달.
+- **누락 보완**: `spawn_pipeline` 에 `force` 파라미터 추가 → CLI cmd 에 **bare `--force` append**
+  (⚠ `--force` 는 store_true 라 generic `--{name}={value}` 메커니즘 쓰면 `--force=true` 로 argparse
+  실패 → 반드시 `cmd += ["--force"] if force` 형태로). 라우터가 `req.force` 를 spawn 까지 전달.
+  `spawn_runner`(테스트 전용)도 동일 시그니처로 정합.
+- `__main__` 에 `--force`(store_true) 인자 신설 → `run_full_daily(force=)` / 단일모드 run(force=) 전파.
 - web UI 토글 자체(프런트)는 범위 밖 — 백엔드 경로만 완성(기본 skip 안전).
 
 ## 4. 동작 특성 / 엣지
@@ -129,13 +143,18 @@ CREATE INDEX IF NOT EXISTS idx_entry_params_afd ON entry_params (analyzed_for_da
   analyzed_for_date 도 달라 자동 분리.
 - **legacy NULL**: COALESCE 로 evaluated_at::date fallback → 기존 행·테스트 비파괴.
 - **limit**: skip 후 남은 후보에 적용(합리적).
-- **동시 실행 방지는 그대로**: `check_can_run` 의 `running` 상태 체크가 동시 실행을 계속 차단(이번
-  변경은 그 아래 *duplicate(같은 날)* 판정만 as_of 기준으로 바꿈). stage-level read-then-act 레이스는
-  순차 재실행 전제라 무관.
+- **동시 실행 방지는 그대로**: `check_can_run_pipeline` 의 `running` 상태 체크가 동시 실행을 계속
+  차단(이번 변경은 그 아래 *duplicate(같은 날)* 판정만 as_of 기준으로 바꿈). stage-level read-then-act
+  레이스는 순차 재실행 전제라 무관.
+- **cron 은 run-게이트 우회**: OS crontab 이 CLI(`python -m kr_pipeline.llm_runner ...`)를 직접 호출
+  → `check_can_run_pipeline` 미경유. 따라서 run-level duplicate 변경은 **웹 트리거 실행만** 영향.
+  cron 과 수동 실행이 같은 as_of 로 겹쳐도 **stage-level skip 이 중복 분석/시그널을 방지**(여전히 보호).
 
 ## 5. 테스트 (TDD)
-- **run 레이어**: `check_can_run`/`check_can_run_pipeline` 가 — 같은 as_of success 존재 시 duplicate,
-  **다른 as_of success 만 있으면 can_run=ok**(오전/오후 핵심), running 시 always 차단, force 시 우회.
+- **run 레이어**(`check_can_run_pipeline` 프로덕션 + `check_can_run` 테스트전용 — 공유헬퍼라 함께
+  커버): 같은 as_of success 존재 시 duplicate, **다른 as_of success 만 있으면 can_run=ok**(오전/오후
+  핵심), 레거시 NULL as_of 행은 무시, running 시 always 차단, force 시 우회. 기존
+  test_api_runner_service 의 wall-clock 가정 케이스 갱신.
 - **stage evaluate**: 같은 as_of 로 이미 trigger 행 있는 종목 skip / 없는 종목 처리.
 - **stage entry**: `_fetch_go_now_candidates` 가 이미 entry_params 있는 종목 제외 + DISTINCT ON 중복 trigger 1건화.
 - **오전/오후 독립**: as_of=D-1 처리 후 as_of=D 실행이 D-1 행을 건드리지 않고 독립 저장(run+stage 양쪽).
