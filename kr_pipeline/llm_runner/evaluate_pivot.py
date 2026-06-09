@@ -19,12 +19,23 @@ from kr_pipeline.llm_runner.store import insert_trigger_log
 log = logging.getLogger("kr_pipeline.llm_runner.evaluate_pivot")
 
 
+def _already_evaluated_symbols(conn, as_of) -> set:
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT symbol FROM trigger_evaluation_log "
+            "WHERE COALESCE(analyzed_for_date, (evaluated_at AT TIME ZONE 'UTC')::date) = %s",
+            (as_of,),
+        )
+        return {r[0] for r in cur.fetchall()}
+
+
 def run(
     conn: Connection,
     *,
     dry_run: bool = False,
     as_of: date | None = None,
     limit: int | None = None,
+    force: bool = False,
 ) -> dict:
     if as_of is None:
         as_of = date.today()
@@ -52,6 +63,20 @@ def run(
         )
         if trig is not None:
             triggered.append((a, trig))
+
+    # force=replace(같은 as_of 행 삭제 후 재평가). dry_run 이면 삭제 안 함(무부작용 미리보기).
+    # 기본(not force): 이미 as_of 로 평가된 종목 skip(멱등 재개).
+    if force and not dry_run:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM trigger_evaluation_log "
+                "WHERE COALESCE(analyzed_for_date, (evaluated_at AT TIME ZONE 'UTC')::date) = %s",
+                (as_of,),
+            )
+        conn.commit()
+    elif not force:
+        done = _already_evaluated_symbols(conn, as_of)
+        triggered = [(a, t) for (a, t) in triggered if a["symbol"] not in done]
 
     if limit:
         triggered = triggered[:limit]
