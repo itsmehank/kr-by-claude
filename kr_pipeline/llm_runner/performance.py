@@ -26,28 +26,28 @@ def run(conn: Connection, *, as_of: date | None = None) -> dict:
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT ep.symbol, ep.signal_at, ep.entry_price,
+            SELECT ep.symbol, ep.signal_at, ep.analyzed_for_date, ep.entry_price,
                    sp.price_1w, sp.price_2w, sp.price_4w, sp.price_8w,
                    sp.market_return_1w_pct, sp.market_return_2w_pct,
                    sp.market_return_4w_pct, sp.market_return_8w_pct
               FROM entry_params ep
               LEFT JOIN signal_performance sp
                 ON sp.symbol = ep.symbol AND sp.signal_at = ep.signal_at
-             WHERE ep.signal_at::date >= %s - INTERVAL '90 days'
-               AND ep.signal_at::date <= %s
+             WHERE COALESCE(ep.analyzed_for_date, (ep.signal_at AT TIME ZONE 'UTC')::date) >= %s - INTERVAL '90 days'
+               AND COALESCE(ep.analyzed_for_date, (ep.signal_at AT TIME ZONE 'UTC')::date) <= %s
             """,
             (as_of, as_of),
         )
         rows = cur.fetchall()
 
     backfilled = 0
-    for (symbol, signal_at, entry_price,
+    for (symbol, signal_at, analyzed_for_date, entry_price,
          p1w, p2w, p4w, p8w,
          mr1w, mr2w, mr4w, mr8w) in rows:
         prices = {"1w": p1w, "2w": p2w, "4w": p4w, "8w": p8w}
         market_returns = {"1w": mr1w, "2w": mr2w, "4w": mr4w, "8w": mr8w}
-        # signal_at 은 timezone-aware (Asia/Seoul 등) 일 수 있으므로 UTC 기준 날짜 사용
-        signal_date = signal_at.astimezone(timezone.utc).date()
+        # analyzed_for_date(데이터 날짜) 우선; NULL 이면 signal_at UTC 날짜로 fallback
+        signal_date = analyzed_for_date or signal_at.astimezone(timezone.utc).date()
         any_updated = False
 
         # market_index_code 조회 (KOSPI: 1001, KOSDAQ: 2001)
