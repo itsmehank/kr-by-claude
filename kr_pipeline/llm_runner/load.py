@@ -155,3 +155,16 @@ def get_active_with_current(conn: Connection, as_of: date | None = None) -> list
             "prev_close": prev.get(a["symbol"]),
         })
     return enriched
+
+
+def resolve_as_of(conn: Connection, explicit_date: date | None = None) -> date:
+    """파이프라인 as_of(데이터 날짜) 결정 — __main__ 과 run-게이트 공유.
+
+    explicit_date 있으면 그 값, 없으면 MAX(daily_indicators.date), 둘 다 없으면 today.
+    """
+    if explicit_date is not None:
+        return explicit_date
+    with conn.cursor() as cur:
+        cur.execute("SELECT MAX(date) FROM daily_indicators")
+        row = cur.fetchone()
+    return row[0] if row and row[0] else date.today()

@@ -12,6 +12,7 @@ from kr_pipeline.llm_runner import (
     weekend, daily_delta, evaluate_pivot, entry_params, performance, backfill, disqualify,
 )
 from kr_pipeline.llm_runner import modes
+from kr_pipeline.llm_runner.load import resolve_as_of
 
 
 # pipeline_runs.pipeline 컬럼 값. pipeline_specs.py 의 pipeline_db_name 과 일치해야 함.
@@ -71,13 +72,8 @@ def main() -> int:
         # as_of 결정: --date 명시되면 그것, 아니면 daily_indicators 의 최신 날짜.
         # date.today() 사용 시 cron 실행 시각이 새벽이면 그 날 indicators 가 아직
         # 없어서 evaluate_pivot 의 active 가 0 으로 빠지는 문제를 방지.
-        if args.date:
-            as_of = _date.fromisoformat(args.date)
-        else:
-            with conn.cursor() as cur:
-                cur.execute("SELECT MAX(date) FROM daily_indicators")
-                row = cur.fetchone()
-            as_of = row[0] if row and row[0] else _date.today()
+        explicit = _date.fromisoformat(args.date) if args.date else None
+        as_of = resolve_as_of(conn, explicit)
         pipeline_db_name = PIPELINE_DB_NAME_BY_MODE.get(args.mode, args.mode)
         params = {
             "mode": args.mode,
