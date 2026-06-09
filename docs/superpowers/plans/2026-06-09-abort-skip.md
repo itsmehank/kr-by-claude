@@ -137,6 +137,10 @@ def _aborted_since_classification(conn, active: list[dict]) -> set:
     return result
 ```
 
+> **`a.get("classified_at")` (subscript 아님) 必須:** `test_evaluate_pivot_guard.py` 의 mock
+> active dict 는 `classified_at` 키가 없다. `a["classified_at"]` 면 KeyError 로 그 회귀
+> 테스트가 깨진다. `.get()` + None 가드가 DB NULL 과 이 mock 케이스를 동시에 방어한다.
+
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_abort_skip.py -v`
@@ -233,6 +237,27 @@ git commit -m "feat(weekend): ⑧ run() 에 abort skip 필터 합류 + abort_ski
 ```
 
 ---
+
+## 영향도 검증 (실코드 기반 — 놓친 부분/예상 밖 영향 점검 결과)
+
+- **자가리셋 사활 의존성 — 확인됨.** 재분류 시 새 `classified_at` 이 찍혀야 옛 abort 와
+  불일치(해제)된다. `weekend.py:259`·`daily_delta.py:122` 모두 `classified_at=finished`
+  (`finished = datetime.now(timezone.utc)`) → run 마다 새 timestamp → `ON CONFLICT (symbol,
+  classified_at)` 충돌 없이 새 행 INSERT. **"영원히 skip" 시나리오 없음.** (daily delta 에
+  안 잡히면 토요일 weekend 전체 sweep 이 해제 — 설계의 "주말까지 휴식"과 일치.)
+- **반환 dict 키 추가 — 회귀 없음.** evaluate_pivot.run 결과를 정확동등(`== {…}`)으로
+  비교하는 테스트 없음. `test_llm_runner_main.py:224` 는 `["evaluate"]["active"]` 키 접근만,
+  `modes.run_full_daily` 는 `details["evaluate"]=r2` 로 그대로 전달(추가 키 투명). `__main__`
+  은 출력만. → 키 추가는 순수 가산.
+- **guard 테스트 — 안전.** `test_evaluate_pivot_guard` 는 conn=MagicMock + classified_at 없는
+  mock active. MagicMock `.fetchall()` 은 기본 `__iter__`=빈 → abort_pairs=∅, `.get()` None
+  가드로 미스 → aborted=∅, abort_skipped=0, X 유지·proc 1회. 기존 단정(`evaluated==1`) 보존.
+- **단일 writer — 오염 없음.** `trigger_evaluation_log` INSERT 는 `store.insert_trigger_log`
+  하나뿐(weekend 는 `weekly_classification` 에 씀). abort 행에 다른 출처 혼입 없음.
+- **성능 — 무시 가능.** 비-force run 당 `SELECT … WHERE decision='abort' AND symbol=ANY` 1회
+  추가. `symbol` 은 PK `(symbol, evaluated_at)` 선두 컬럼이라 인덱스 사용. abort 모수 작음.
+- **dry_run/limit 상호작용 — 정상.** abort 필터는 `elif not force`(dry_run 포함) 에서 적용 →
+  미리보기가 실동작 반영. `limit` 적용(`[:limit]`) 전에 필터 → 정확. force+limit 은 기존 ValueError.
 
 ## Self-Review (작성자 체크 결과)
 
