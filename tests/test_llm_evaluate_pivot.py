@@ -52,6 +52,11 @@ def test_evaluate_pivot_dry_run(db, mocker):
             )
     db.commit()
 
+    # 이전 테스트 실행에서 남은 EV1 abort 행이 _aborted_since_classification 을 오염할 수 있으므로 사전 제거
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol='EV1' AND decision='abort'")
+    db.commit()
+
     from kr_pipeline.llm_runner.evaluate_pivot import run
 
     result = run(db, dry_run=True, as_of=today)
