@@ -257,7 +257,11 @@ def spawn_pipeline(pipeline_id: str, mode_id: str, params: dict | None = None, *
     log_path = LOG_DIR / "cron.log"
 
     cmd = ["uv", "run", "python", "-m", spec["module"], *args, *extra_args]
-    if force:
+    # --force 는 그 인자를 정의한 모듈(LLM 러너)에만 전달. 데이터 파이프라인 모듈들은
+    # --force 를 모르므로 붙이면 argparse 가 즉시 거부(exit 2)해 run_tracking 전에 죽는다
+    # → UI 에 실행중/로그가 안 뜬다. 데이터 파이프라인 중복 방지는 API 레이어
+    # (check_can_run_pipeline)가 전담하므로 모듈에 --force 를 넘길 필요가 없다.
+    if force and spec["module"] == "kr_pipeline.llm_runner":
         cmd.append("--force")
 
     log_file = log_path.open("a")
