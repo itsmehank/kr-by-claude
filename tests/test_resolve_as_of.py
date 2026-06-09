@@ -20,7 +20,9 @@ def test_resolve_as_of_uses_max_indicator_date(db):
                 "VALUES ('RAO1',%s,100,1000,90,1000,120,60) ON CONFLICT DO NOTHING",
                 (d,),
             )
-    db.commit()
+    # NOTE: db.commit() 하지 않음 — resolve_as_of 는 같은 커넥션의 cursor 라
+    # 미커밋 INSERT 도 보임. commit 하면 sentinel 2099 행이 kr_test 에 영구
+    # 잔존해 MAX(daily_indicators.date) 를 오염(다른 테스트의 resolve_as_of 교란).
 
     assert resolve_as_of(db) == d_max
     assert resolve_as_of(db, date(2026, 6, 6)) == date(2026, 6, 6)
