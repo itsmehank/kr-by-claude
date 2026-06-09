@@ -48,7 +48,7 @@ export default function MinerviniPage() {
         min_rs: String(minRs),
         limit: "500",
       });
-      if (date) params.set("date", date);
+      if (date) params.set("date_", date);
       return api<MinerviniPassed[]>(`/indicators/minervini-passed?${params}`);
     },
   });
