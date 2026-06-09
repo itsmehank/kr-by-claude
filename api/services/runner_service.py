@@ -15,6 +15,7 @@ from pathlib import Path
 from psycopg import Connection
 
 from kr_pipeline.llm_runner.pipeline_specs import get_spec, get_mode_args, matches_mode_prefix
+from kr_pipeline.llm_runner.load import resolve_as_of
 
 
 PROJECT_DIR = Path(__file__).parent.parent.parent.resolve()
@@ -73,19 +74,24 @@ def check_can_run(
     if force:
         return {"can_run": True, "reason": "ok", "existing_run_id": None}
 
-    # 2. 오늘 같은 모드 success 체크
+    # 2. as_of 기반 duplicate 체크 (as_of 없으면 wall-clock 폴백)
+    prospective = resolve_as_of(conn)
     today = date.today()
     with conn.cursor() as cur:
+        # duplicate 판정: 데이터 날짜(as_of) 기준. as_of 있으면 같은 as_of 만 중복(오전/오후 독립),
+        # as_of 없는 파이프라인(비-LLM)은 기존 wall-clock today 로 fallback.
         cur.execute(
             """
             SELECT id, started_at, finished_at, rows_affected
               FROM pipeline_runs
              WHERE pipeline = %s
                AND status = 'success'
-               AND (started_at AT TIME ZONE 'Asia/Seoul')::date = %s
+               AND ( params->>'as_of' = %s
+                     OR (params->>'as_of' IS NULL
+                         AND (started_at AT TIME ZONE 'Asia/Seoul')::date = %s) )
              ORDER BY id DESC LIMIT 1
             """,
-            (pipeline, today),
+            (pipeline, prospective.isoformat(), today),
         )
         recent = cur.fetchone()
     if recent:
@@ -185,23 +191,28 @@ def check_can_run_pipeline(
     if force:
         return {"can_run": True, "reason": "ok", "existing_run_id": None}
 
+    prospective = resolve_as_of(conn)
     today = date.today()
     with conn.cursor() as cur:
+        # duplicate 판정: 데이터 날짜(as_of) 기준. as_of 있으면 같은 as_of 만 중복(오전/오후 독립),
+        # as_of 없는 파이프라인(비-LLM)은 기존 wall-clock today 로 fallback.
         cur.execute(
             """
-            SELECT id, started_at, finished_at, rows_affected, mode
+            SELECT id, started_at, finished_at, rows_affected, mode, params
               FROM pipeline_runs
              WHERE pipeline = %s
                AND status = 'success'
-               AND (started_at AT TIME ZONE 'Asia/Seoul')::date = %s
+               AND ( params->>'as_of' = %s
+                     OR (params->>'as_of' IS NULL
+                         AND (started_at AT TIME ZONE 'Asia/Seoul')::date = %s) )
              ORDER BY id DESC LIMIT 5
             """,
-            (pipeline_db, today),
+            (pipeline_db, prospective.isoformat(), today),
         )
         success_rows = cur.fetchall()
 
     for row in success_rows:
-        run_id, started_at, finished_at, rows_affected, mode = row
+        run_id, started_at, finished_at, rows_affected, mode, _params = row
         if matches_mode_prefix(mode, mode_prefix):
             return {
                 "can_run": False,

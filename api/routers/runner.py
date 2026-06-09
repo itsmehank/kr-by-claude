@@ -32,7 +32,7 @@ def run(req: RunRequest, conn: Connection = Depends(get_conn)):
                 "message": (
                     "이미 실행 중입니다."
                     if check["reason"] == "already_running"
-                    else "오늘 같은 작업이 이미 성공 실행되었습니다. force=true 로 재실행 가능."
+                    else "같은 데이터 날짜(as_of)의 작업이 이미 성공 실행되었습니다. force=true 로 재실행 가능."
                 ),
             },
         )
