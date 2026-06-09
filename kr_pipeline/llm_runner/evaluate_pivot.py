@@ -29,6 +29,35 @@ def _already_evaluated_symbols(conn, as_of) -> set:
         return {r[0] for r in cur.fetchall()}
 
 
+def _aborted_since_classification(conn, active: list[dict]) -> set:
+    """현재 분류(classified_at)에 대해 abort 판정난 종목 집합.
+
+    abort 기록 시 store 가 prior_classification_at = 그 시점 classified_at 을 박아두므로,
+    abort 행의 prior_classification_at == active 행의 현재 classified_at 이면 "현재 분류에
+    대한 abort" 다. 재분류되면 classified_at 이 바뀌어 옛 abort 의 prior 와 불일치 → 자동 해제.
+    """
+    symbols = [a["symbol"] for a in active]
+    if not symbols:
+        return set()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT DISTINCT symbol, prior_classification_at "
+            "FROM trigger_evaluation_log "
+            "WHERE decision = 'abort' AND symbol = ANY(%s)",
+            (symbols,),
+        )
+        abort_pairs = {(r[0], r[1]) for r in cur.fetchall()}
+    result = set()
+    for a in active:
+        cls_at = a.get("classified_at")
+        # classified_at None 이면 매칭 안 함(안전 기본값). abort prior 가 NULL 이면 (sym,NULL)
+        # 쌍이 어떤 timestamp 와도 불일치 → 자연 skip-안함. .get() 必須(subscript 아님):
+        # test_evaluate_pivot_guard 의 mock active 는 classified_at 키가 없어 KeyError 회피.
+        if cls_at is not None and (a["symbol"], cls_at) in abort_pairs:
+            result.add(a["symbol"])
+    return result
+
+
 def run(
     conn: Connection,
     *,
