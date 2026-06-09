@@ -330,6 +330,7 @@ CREATE TABLE IF NOT EXISTS trigger_evaluation_log (
   abort_reason            VARCHAR(60),
 
   prior_classification_at TIMESTAMPTZ NOT NULL,
+  analyzed_for_date       DATE,
 
   llm_call_duration_s     NUMERIC(8, 2),
   llm_input_tokens        INTEGER,
@@ -382,6 +383,7 @@ CREATE TABLE IF NOT EXISTS entry_params (
 
   trigger_evaluation_at                   TIMESTAMPTZ NOT NULL,
   prior_classification_at                 TIMESTAMPTZ NOT NULL,
+  analyzed_for_date                       DATE,
 
   llm_call_duration_s                     NUMERIC(8, 2),
   llm_input_tokens                        INTEGER,
@@ -428,6 +430,23 @@ CREATE TABLE IF NOT EXISTS signal_performance (
   PRIMARY KEY (symbol, signal_at),
   FOREIGN KEY (symbol, signal_at) REFERENCES entry_params(symbol, signal_at) ON DELETE CASCADE
 );
+
+-- rerun-idempotency: 기존 DB 에 CASCADE 없는 FK 가 있으면 교체 (CREATE TABLE IF NOT EXISTS 는 기존 테이블 미반영).
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+     WHERE constraint_name = 'signal_performance_symbol_signal_at_fkey'
+       AND table_name = 'signal_performance'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.referential_constraints
+     WHERE constraint_name = 'signal_performance_symbol_signal_at_fkey'
+       AND delete_rule = 'CASCADE'
+  ) THEN
+    ALTER TABLE signal_performance DROP CONSTRAINT signal_performance_symbol_signal_at_fkey;
+    ALTER TABLE signal_performance ADD CONSTRAINT signal_performance_symbol_signal_at_fkey
+      FOREIGN KEY (symbol, signal_at) REFERENCES entry_params(symbol, signal_at) ON DELETE CASCADE;
+  END IF;
+END $$;
 
 -- ====== sub-project ③: 과거 시점 백필 분류 (#backfill) ======
 -- weekly_classification 미러이되 PK (symbol, analyzed_for_date) — 라이브 오염 방지

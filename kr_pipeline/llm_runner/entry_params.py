@@ -63,6 +63,9 @@ def run(
     if as_of is None:
         as_of = date.today()
 
+    if force and limit:
+        raise ValueError("force=True 와 limit 동시 사용 금지: force 는 as_of 전체를 replace 하므로 limit 로 자르면 삭제된 행이 재생성되지 않는다")
+
     # 오늘 (5b) 결과 중 go_now 추출 — 2E_tier2 차단 종목 제외 (Phase 1 2-A).
     # 안전장치: promotion 트리거는 staging 신호 — close 가 pivot 미만일 수
     # 있어 매수 부적절. 만약 LLM 이 promotion 에 대해 go_now 결정해도

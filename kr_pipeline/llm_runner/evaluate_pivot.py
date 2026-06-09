@@ -40,6 +40,9 @@ def run(
     if as_of is None:
         as_of = date.today()
 
+    if force and limit:
+        raise ValueError("force=True 와 limit 동시 사용 금지: force 는 as_of 전체를 replace 하므로 limit 로 자르면 삭제된 행이 재생성되지 않는다")
+
     active = get_active_with_current(conn, as_of=as_of)
 
     # 결정론 트리거 게이트 통과 종목 추출

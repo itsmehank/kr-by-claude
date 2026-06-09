@@ -40,3 +40,23 @@ def test_force_deletes_entry_params_for_as_of(db):
     with db.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM entry_params WHERE symbol='EFD1'")
         assert cur.fetchone()[0] == 0
+
+
+def test_force_delete_cascades_to_signal_performance(db):
+    from kr_pipeline.llm_runner import entry_params
+    as_of = date(2099, 2, 20)
+    ev = datetime(2099, 2, 20, 1, 0, tzinfo=timezone.utc)
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES ('CAS1','x','KOSPI') ON CONFLICT DO NOTHING")
+        cur.execute("INSERT INTO entry_params (symbol,signal_at,entry_price,stop_loss,analyzed_for_date,"
+                    "trigger_evaluation_at,prior_classification_at) "
+                    "VALUES ('CAS1',%s,100,92,%s,%s,%s) ON CONFLICT DO NOTHING", (ev, as_of, ev, ev))
+        cur.execute("INSERT INTO signal_performance (symbol,signal_at,entry_price) "
+                    "VALUES ('CAS1',%s,100) ON CONFLICT DO NOTHING", (ev,))
+    db.commit()
+    entry_params.run(db, dry_run=False, as_of=as_of, force=True)
+    with db.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM entry_params WHERE symbol='CAS1'")
+        assert cur.fetchone()[0] == 0
+        cur.execute("SELECT COUNT(*) FROM signal_performance WHERE symbol='CAS1'")
+        assert cur.fetchone()[0] == 0  # CASCADE
