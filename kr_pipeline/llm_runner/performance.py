@@ -60,6 +60,8 @@ def run(conn: Connection, *, as_of: date | None = None) -> dict:
         market_code = "1001" if mrow[0] == "KOSPI" else "2001"
 
         updates = {}
+        adj_entry: float | None = None
+        adj_entry_fetched = False
         base_close: float | None = None
         base_fetched = False
         base_missing = False
@@ -86,9 +88,21 @@ def run(conn: Connection, *, as_of: date | None = None) -> dict:
             future_price = float(price_row[0])
             # 가격이 이미 있는 경우엔 기존 값 재사용 (market return 만 채우는 경우)
             if prices[period_name] is None:
+                if not adj_entry_fetched:
+                    adj_entry_fetched = True
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "SELECT close, adj_close FROM daily_prices WHERE ticker = %s AND date = %s",
+                            (symbol, signal_date),
+                        )
+                        arow = cur.fetchone()
+                    if arow and arow[0] and float(arow[0]) != 0 and float(arow[1]) != 0:
+                        adj_entry = float(entry_price) * (float(arow[1]) / float(arow[0]))
+                    else:
+                        adj_entry = float(entry_price)
                 updates[f"price_{period_name}"] = future_price
                 updates[f"return_{period_name}_pct"] = (
-                    (future_price - float(entry_price)) / float(entry_price) * 100
+                    (future_price - adj_entry) / adj_entry * 100
                 )
             else:
                 future_price = float(prices[period_name])
@@ -141,7 +155,7 @@ def run(conn: Connection, *, as_of: date | None = None) -> dict:
                            updated_at = NOW()
                     """,
                     (
-                        symbol, signal_at, float(entry_price),
+                        symbol, signal_at, (adj_entry if adj_entry is not None else float(entry_price)),
                         *updates.values(),
                         *updates.values(),
                     ),
