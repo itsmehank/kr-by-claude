@@ -71,3 +71,11 @@ def test_symbol_with_old_and_current_abort_is_skipped(db):
                     evaluated_at=datetime(2099, 3, 9, 1, 0, tzinfo=timezone.utc))
     active = [{"symbol": "ABT6", "classified_at": cur_cls}]
     assert _aborted_since_classification(db, active) == {"ABT6"}
+
+
+def test_run_result_includes_abort_skipped_key(db):
+    from kr_pipeline.llm_runner import evaluate_pivot
+    # 활성 종목 없는 sentinel 미래 as_of → triggered 0, LLM 미호출
+    res = evaluate_pivot.run(db, dry_run=True, as_of=date(2099, 12, 31))
+    assert "abort_skipped" in res
+    assert res["abort_skipped"] == 0

@@ -98,6 +98,7 @@ def run(
 
     # force=replace(같은 as_of 행 삭제 후 재평가). dry_run 이면 삭제 안 함(무부작용 미리보기).
     # 기본(not force): 이미 as_of 로 평가된 종목 skip(멱등 재개).
+    abort_skipped = 0
     if force and not dry_run:
         with conn.cursor() as cur:
             cur.execute(
@@ -108,12 +109,17 @@ def run(
         conn.commit()
     elif not force:
         done = _already_evaluated_symbols(conn, as_of)
-        triggered = [(a, t) for (a, t) in triggered if a["symbol"] not in done]
+        aborted = _aborted_since_classification(conn, active)
+        abort_skipped = sum(1 for (a, _t) in triggered if a["symbol"] in aborted)
+        triggered = [(a, t) for (a, t) in triggered if a["symbol"] not in (done | aborted)]
 
     if limit:
         triggered = triggered[:limit]
 
-    log.info("evaluate_pivot: %d triggered out of %d active", len(triggered), len(active))
+    log.info(
+        "evaluate_pivot: %d triggered out of %d active (abort_skipped=%d)",
+        len(triggered), len(active), abort_skipped,
+    )
 
     evaluated = 0
     failed = []
@@ -132,6 +138,7 @@ def run(
         "failures": len(failed),
         "active": len(active),
         "triggered": len(triggered),
+        "abort_skipped": abort_skipped,
     }
 
 
