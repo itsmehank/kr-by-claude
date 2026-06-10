@@ -30,6 +30,26 @@ def test_performance_signals_list(client):
     assert isinstance(r.json(), list)
 
 
+def test_performance_stats_accepts_all_valid_periods(client):
+    for period in ("1w", "2w", "4w", "8w"):
+        r = client.get(f"/api/performance/stats?period={period}")
+        assert r.status_code == 200, f"period={period} should be valid"
+        assert r.json()["period"] == period
+
+
+def test_performance_stats_rejects_unknown_period(client):
+    """허용 외 period 는 422 — 현재는 존재하지 않는 컬럼으로 500."""
+    r = client.get("/api/performance/stats?period=3w")
+    assert r.status_code == 422
+
+
+def test_performance_stats_rejects_sql_injection(client):
+    """period 가 f-string 으로 컬럼명에 보간되므로 주입 문자열은 422 로 차단되어야 한다."""
+    payload = "1w_pct) FROM signal_performance;--"
+    r = client.get("/api/performance/stats", params={"period": payload})
+    assert r.status_code == 422
+
+
 def test_signals_ticker_filter(client, db):
     def override():
         yield db

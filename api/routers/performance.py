@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends
 from psycopg import Connection
 
@@ -9,7 +11,8 @@ router = APIRouter(prefix="/api/performance", tags=["performance"])
 
 
 @router.get("/stats")
-def get_stats(period: str = "2w", conn: Connection = Depends(get_conn)):
+def get_stats(period: Literal["1w", "2w", "4w", "8w"] = "2w", conn: Connection = Depends(get_conn)):
+    # period 는 Literal 로 검증됨 — f-string 컬럼명 보간이 안전해지는 전제.
     col = f"return_{period}_pct"
     market_col = f"market_return_{period}_pct"
     with conn.cursor() as cur:
