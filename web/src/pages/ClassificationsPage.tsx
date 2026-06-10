@@ -35,7 +35,7 @@ interface Filters {
 const DEFAULT_FILTERS: Filters = {
   lookback_days: 14,
   classifications: ["watch", "entry"],
-  sources: ["weekend", "daily-delta"],
+  sources: ["weekend", "daily_delta"],
   min_confidence: 0.0,
   sort: "classified_at_desc",
 };
@@ -484,7 +484,7 @@ export default function ClassificationsPage() {
 
           <div className="flex items-center gap-2">
             <span className="caps text-faint">소스</span>
-            {(["weekend", "daily-delta"] as const).map((s) => (
+            {(["weekend", "daily_delta"] as const).map((s) => (
               <label key={s} className="flex items-center gap-1 cursor-pointer text-data-xs">
                 <input
                   type="checkbox"
