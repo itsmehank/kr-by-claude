@@ -11,6 +11,10 @@ def build_corporate_actions(
 ) -> dict:
     """corporate_actions 조회 + 12w reverse/forward split flag 계산.
 
+    event_date 범위는 [as_of_date - lookback_years, as_of_date] (양끝 포함).
+    상한(as_of_date)이 있어야 과거 백필 시 분석 시점 이후의 기업행위가
+    새지 않는다(look-ahead bias 방지).
+
     Return: payload.price_data_notes 형식.
     """
     if as_of_date is None:
@@ -24,10 +28,10 @@ def build_corporate_actions(
             """
             SELECT event_date, event_type, ratio, note, raw_disclosure_title
               FROM corporate_actions
-             WHERE ticker = %s AND event_date >= %s
+             WHERE ticker = %s AND event_date >= %s AND event_date <= %s
              ORDER BY event_date DESC
             """,
-            (ticker, start_date),
+            (ticker, start_date, as_of_date),
         )
         rows = cur.fetchall()
 

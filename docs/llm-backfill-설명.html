@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM 백필 (수동) — 동작 과정 쉽게 이해하기</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --surface: #181b22;
+    --surface-2: #1f242d;
+    --hairline: #2a2f3a;
+    --ink: #e8ebf0;
+    --muted: #9aa3b2;
+    --faint: #6b7382;
+    --accent: #6ea8fe;
+    --accent-soft: #1b2740;
+    --green: #5fd08a;
+    --green-soft: #16271d;
+    --amber: #f0c14b;
+    --amber-soft: #2a2412;
+    --red: #f08a8a;
+    --purple: #b89cff;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+            "Malgun Gothic", "Noto Sans KR", Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 22px 120px; }
+
+  /* ── Hero ───────────────────────────────────── */
+  header.hero {
+    padding: 72px 22px 56px;
+    text-align: center;
+    background:
+      radial-gradient(900px 360px at 50% -10%, rgba(110,168,254,0.18), transparent 70%),
+      linear-gradient(180deg, #11141a, var(--bg));
+    border-bottom: 1px solid var(--hairline);
+  }
+  header.hero .kicker {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid #2c3c5e;
+    padding: 5px 12px;
+    border-radius: 999px;
+    margin-bottom: 22px;
+  }
+  header.hero h1 {
+    font-size: clamp(28px, 5vw, 42px);
+    margin: 0 0 14px;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  header.hero p {
+    color: var(--muted);
+    max-width: 600px;
+    margin: 0 auto;
+    font-size: 17px;
+  }
+
+  /* ── Section ─────────────────────────────────── */
+  section { margin-top: 56px; }
+  h2 {
+    font-size: 25px;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  h2 .n {
+    font-family: var(--mono);
+    font-size: 15px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid #2c3c5e;
+    width: 34px; height: 34px;
+    flex: 0 0 34px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(-2px);
+  }
+  h2 + .sub { color: var(--faint); margin: 0 0 20px; font-size: 14px; }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+
+  p { margin: 12px 0; }
+  .muted { color: var(--muted); }
+
+  /* ── Analogy callout ─────────────────────────── */
+  .analogy {
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--hairline);
+    border-left: 3px solid var(--purple);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 18px 0;
+  }
+  .analogy b { color: var(--purple); }
+
+  .note {
+    background: var(--amber-soft);
+    border: 1px solid #4a3f1a;
+    border-left: 3px solid var(--amber);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 15px;
+  }
+  .note b { color: var(--amber); }
+
+  .tip {
+    background: var(--green-soft);
+    border: 1px solid #1f3a2a;
+    border-left: 3px solid var(--green);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 15px;
+  }
+  .tip b { color: var(--green); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.875em;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    border-radius: 5px;
+    padding: 1.5px 6px;
+    color: #cdd6e4;
+  }
+  pre {
+    background: #0b0d11;
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: #c6d0e0;
+  }
+  pre .c { color: var(--faint); }      /* comment */
+  pre .k { color: var(--accent); }     /* keyword */
+  pre .s { color: var(--green); }      /* string */
+
+  /* ── Flow diagram ────────────────────────────── */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 26px 0;
+  }
+  .flow .node {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 13px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .flow .node .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+    flex: 0 0 78px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .flow .node .body { flex: 1; font-size: 15px; }
+  .flow .node .body b { color: var(--ink); }
+  .flow .arrow {
+    align-self: center;
+    color: var(--accent);
+    font-size: 18px;
+    line-height: 1;
+    padding: 5px 0;
+  }
+  .flow .node.ui { border-left: 3px solid var(--purple); }
+  .flow .node.api { border-left: 3px solid var(--accent); }
+  .flow .node.proc { border-left: 3px solid var(--green); }
+  .flow .node.db { border-left: 3px solid var(--amber); }
+
+  /* ── Step cards ──────────────────────────────── */
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin: 18px 0;
+  }
+  .step .head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .step .head .badge {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--bg);
+    background: var(--accent);
+    width: 28px; height: 28px;
+    flex: 0 0 28px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step .head h3 { margin: 0; font-size: 18px; }
+  .step .file {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--faint);
+    margin: 2px 0 12px 40px;
+    word-break: break-all;
+  }
+  .step .file::before { content: "📄 "; }
+
+  /* ── Table ───────────────────────────────────── */
+  .table-scroll { overflow-x: auto; margin: 18px 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14.5px;
+    min-width: 480px;
+  }
+  th, td {
+    text-align: left;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--hairline);
+    vertical-align: top;
+  }
+  thead th {
+    color: var(--accent);
+    font-weight: 600;
+    border-bottom: 1px solid #34507e;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+  }
+  tbody tr:hover { background: var(--surface); }
+  td.feat { color: var(--muted); white-space: nowrap; font-weight: 600; }
+  .yes { color: var(--green); }
+  .no { color: var(--red); }
+
+  /* ── ZIP file list ───────────────────────────── */
+  .files {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+    margin: 18px 0;
+  }
+  .files .f {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 9px;
+    padding: 9px 12px;
+    font-size: 13.5px;
+  }
+  .files .f .fn { font-family: var(--mono); color: var(--accent); font-size: 12.5px; }
+  .files .f .fd { color: var(--muted); font-size: 12.5px; }
+
+  /* ── Glossary ────────────────────────────────── */
+  dl.glossary { margin: 18px 0; }
+  dl.glossary dt {
+    font-weight: 700;
+    color: var(--accent);
+    margin-top: 16px;
+    font-family: var(--mono);
+    font-size: 14px;
+  }
+  dl.glossary dd { margin: 4px 0 0; color: var(--muted); }
+
+  /* ── TOC ─────────────────────────────────────── */
+  nav.toc {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-top: 40px;
+  }
+  nav.toc h4 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--faint);
+  }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+  nav.toc li { margin: 5px 0; break-inside: avoid; }
+  nav.toc a { color: var(--ink); text-decoration: none; font-size: 14.5px; }
+  nav.toc a:hover { color: var(--accent); }
+
+  footer {
+    margin-top: 70px;
+    padding-top: 22px;
+    border-top: 1px solid var(--hairline);
+    color: var(--faint);
+    font-size: 13px;
+    text-align: center;
+  }
+  footer code { font-size: 11.5px; }
+
+  @media (max-width: 560px) {
+    nav.toc ol { columns: 1; }
+    .flow .node .tag { flex-basis: 56px; font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <span class="kicker">kr-by-claude · 파이프라인 해설</span>
+  <h1>「LLM 백필 (수동)」은<br>어떻게 동작할까?</h1>
+  <p>버튼 클릭부터 데이터베이스 저장까지, 전 과정을 고등학생도 이해할 수 있게
+     단계별로 풀어 설명합니다.</p>
+</header>
+
+<div class="wrap">
+
+  <nav class="toc">
+    <h4>목차</h4>
+    <ol>
+      <li><a href="#intro">백필이 뭔가요?</a></li>
+      <li><a href="#bigpic">전체 흐름 한눈에</a></li>
+      <li><a href="#s1">버튼 클릭 &amp; 설정 창</a></li>
+      <li><a href="#s2">서버로 주문 전달</a></li>
+      <li><a href="#s3">중복 주문 막기</a></li>
+      <li><a href="#s4">백그라운드 실행</a></li>
+      <li><a href="#s5">토요일마다 반복</a></li>
+      <li><a href="#s6">분석 자료 ZIP 포장</a></li>
+      <li><a href="#s7">Claude AI 분석 요청</a></li>
+      <li><a href="#s8">결과를 DB에 저장</a></li>
+      <li><a href="#s9">실패해도 안 멈춤</a></li>
+      <li><a href="#compare">수동 vs 자동</a></li>
+      <li><a href="#glossary">용어 사전</a></li>
+    </ol>
+  </nav>
+
+  <!-- ─────────────────────────────────────────── -->
+  <section id="intro">
+    <h2><span class="n">?</span>먼저, "백필(backfill)"이 뭔가요?</h2>
+    <p class="sub">backfill = 빈칸 채우기</p>
+
+    <p>이 시스템은 원래 <b>매주 토요일마다 자동으로</b> 주식들을 분석합니다(주말 루틴).
+       그런데 가끔 과거에 분석이 안 된 날짜가 있거나, "2024년 5월 한 달치를 다시
+       분석해 보고 싶다" 같은 상황이 생기죠. 이때 <b>사람이 직접 날짜를 골라 과거
+       분석을 메꾸는 것</b>이 바로 "수동 백필"입니다.</p>
+
+    <div class="analogy">
+      🕐 핵심 비유 — <b>시간여행</b><br>
+      과거의 특정 토요일로 시간여행을 가서, <b>그 시점까지의 데이터만</b> 가지고 주식을
+      분석합니다. 지금 알고 있는 "미래 정보"는 절대 보지 않아요. 그래야 "그때 판단했다면
+      맞았을까?"를 공정하게 확인할 수 있으니까요. (시험 볼 때 정답지 안 보는 것과 같죠.)
+    </div>
+
+    <p>이 작업은 코드에서 <code>llm-backfill</code> 이라는 이름(id)을 가지고 있고,
+       UI에는 <code>LLM 백필 (수동)</code> 으로 표시됩니다.</p>
+  </section>
+
+  <!-- ─────────────────────────────────────────── -->
+  <section id="bigpic">
+    <h2><span class="n">▦</span>전체 흐름 한눈에</h2>
+    <p class="sub">색깔: 🟣 화면(UI) · 🔵 서버(API) · 🟢 분석 프로그램 · 🟡 데이터베이스</p>
+
+    <div class="flow">
+      <div class="node ui"><span class="tag">UI</span><span class="body"><b>① 버튼 클릭</b> → 설정 창에서 모드·기간·종목 선택</span></div>
+      <div class="arrow">↓</div>
+      <div class="node api"><span class="tag">API</span><span class="body"><b>② 서버에 주문</b> <code>POST /api/runner/run</code></span></div>
+      <div class="arrow">↓</div>
+      <div class="node api"><span class="tag">API</span><span class="body"><b>③ 중복 체크</b> — 이미 돌고 있거나 끝났으면 거절(409)</span></div>
+      <div class="arrow">↓</div>
+      <div class="node proc"><span class="tag">PROC</span><span class="body"><b>④ 백그라운드 프로그램 실행</b> (fire-and-forget)</span></div>
+      <div class="arrow">↓</div>
+      <div class="node proc"><span class="tag">PROC</span><span class="body"><b>⑤ 기간 안 토요일마다 반복</b> → 후보 종목 추리기</span></div>
+      <div class="arrow">↓</div>
+      <div class="node proc"><span class="tag">PROC</span><span class="body"><b>⑥ 종목별 분석 자료 ZIP 포장</b> (차트·지표·시장상황)</span></div>
+      <div class="arrow">↓</div>
+      <div class="node proc"><span class="tag">PROC</span><span class="body"><b>⑦ Claude AI에게 분석 요청</b> → entry/watch/ignore 판정</span></div>
+      <div class="arrow">↓</div>
+      <div class="node db"><span class="tag">DB</span><span class="body"><b>⑧ 결과를 DB에 저장</b> <code>classification_backfill</code> 테이블</span></div>
+    </div>
+
+    <p class="muted">아래에서 각 단계를 자세히 살펴봅니다.</p>
+  </section>
+
+  <!-- ── STEP 1 ─────────────────────────────────── -->
+  <section id="s1">
+    <h2><span class="n">①</span>버튼 클릭과 설정 창</h2>
+
+    <div class="step">
+      <div class="head"><span class="badge">UI</span><h3>설정 창에서 3가지를 고른다</h3></div>
+      <div class="file">web/src/components/RunDialog.tsx</div>
+
+      <p>"수동 실행" 버튼을 누르면 <code>수동 실행 — LLM 백필 (수동)</code> 이라는
+         제목의 작은 설정 창이 뜹니다. 여기서 정하는 것:</p>
+
+      <h3>1) 모드 — 둘 중 하나</h3>
+      <ul>
+        <li><b>미리보기 (dry-run)</b> — AI를 <b>진짜로 부르지 않고</b>, "이번에 몇 개 종목이
+            대상인지"만 확인. 비용 0원, 연습 경기. (코드 인자: <code>--mode=backfill --dry-run</code>)</li>
+        <li><b>실제 분류 (real)</b> — <b>진짜로 AI를 부르고 결과를 저장.</b> 비용 발생,
+            본 경기. (코드 인자: <code>--mode=backfill</code>)</li>
+      </ul>
+
+      <h3>2) 시작일 / 종료일</h3>
+      <p>어느 기간을 분석할지 (예: 2024-05-01 ~ 2024-05-31). 이 둘은 <b>필수</b>예요 —
+         비워두면 "실행" 버튼이 눌리지 않습니다.</p>
+
+      <h3>3) 종목</h3>
+      <p>특정 종목 코드들을 쉼표로 구분해 넣거나(예: <code>005930,000660</code>),
+         <b>비워두면 "조건을 통과한 전 종목"</b>이 대상이 됩니다.</p>
+
+      <div class="note">
+        <b>⚠️ 비용 경고는 "실제 분류"에서만 뜹니다.</b> 종목을 비운 채 <b>실제 분류</b> 모드로
+        실행하려 하면 <i>"전 종목 백필은 LLM 비용이 큽니다. 정말 실행하시겠습니까?"</i> 확인창이
+        뜹니다. AI를 수백 번 부르면 비용이 크니까요. (미리보기 모드는 비용이 없어서 이 경고가
+        나오지 않습니다.)
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STEP 2 ─────────────────────────────────── -->
+  <section id="s2">
+    <h2><span class="n">②</span>서버로 주문 전달</h2>
+
+    <div class="step">
+      <div class="head"><span class="badge">API</span><h3>주문표를 주방에 넘긴다</h3></div>
+      <div class="file">web/src/components/RunDialog.tsx → api/routers/runner.py</div>
+
+      <p>"실행"을 누르면 화면은 서버에 주문서를 보냅니다 (<code>POST /api/runner/run</code>).
+         주문서 내용은 이런 모양이에요:</p>
+
+<pre><span class="c">// 웹 → 서버로 보내는 주문서 (JSON)</span>
+{
+  <span class="s">"pipeline_id"</span>: <span class="s">"llm-backfill"</span>,   <span class="c">// 어떤 작업?</span>
+  <span class="s">"mode_id"</span>: <span class="s">"real"</span>,             <span class="c">// "dry-run" 또는 "real"</span>
+  <span class="s">"force"</span>: false,                <span class="c">// 강제 재실행?</span>
+  <span class="s">"params"</span>: {                      <span class="c">// 사용자가 채운 값들</span>
+    <span class="s">"start"</span>: <span class="s">"2024-05-01"</span>,
+    <span class="s">"end"</span>: <span class="s">"2024-05-31"</span>,
+    <span class="s">"tickers"</span>: <span class="s">""</span>             <span class="c">// 비어있음 = 전 종목</span>
+  }
+}</pre>
+
+      <div class="analogy">
+        🍽️ <b>식당 비유</b> — 손님(화면)이 주문표를 작성해 주방(서버)에 넘긴 단계입니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STEP 3 ─────────────────────────────────── -->
+  <section id="s3">
+    <h2><span class="n">③</span>중복 주문 막기 (안전장치)</h2>
+
+    <div class="step">
+      <div class="head"><span class="badge">API</span><h3>똑같은 요리를 두 번 만들지 않기</h3></div>
+      <div class="file">api/services/runner_service.py → check_can_run_pipeline()</div>
+
+      <p>주방은 무작정 요리를 시작하지 않습니다. 먼저 두 가지를 확인해요:</p>
+
+      <ol>
+        <li><b>지금 같은 작업이 이미 돌고 있나?</b> → 그러면 거절
+            (<code>409</code> 에러: "이미 실행 중입니다")</li>
+        <li><b>이미 성공적으로 끝낸 적 있나?</b> → 그러면 거절
+            ("같은 데이터 날짜의 작업이 이미 성공했습니다")</li>
+      </ol>
+
+      <p>단, 설정 창의 <b>"force(강제 재실행)" 체크박스</b>를 켜면 2번 검사를 건너뛰고
+         무조건 실행합니다.</p>
+
+      <div class="note">
+        <b>"이미 끝났나?"의 정확한 기준은 날짜입니다.</b> 사람이 느끼는 "오늘"이 아니라,
+        시스템이 가진 <b>최신 데이터 날짜(<code>as_of</code>)</b> 를 기준으로 같은 작업이
+        성공한 적 있는지 봐요. (<code>pipeline_runs</code> 테이블의 기록을 조회.)
+      </div>
+
+      <div class="analogy">
+        🍳 <b>비유</b> — 같은 요리를 두 번 만들어 재료(LLM 비용)를 낭비하지 않으려는 장치입니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STEP 4 ─────────────────────────────────── -->
+  <section id="s4">
+    <h2><span class="n">④</span>백그라운드에서 프로그램 실행</h2>
+
+    <div class="step">
+      <div class="head"><span class="badge">PROC</span><h3>불 붙여놓고 신경 끄기</h3></div>
+      <div class="file">api/services/runner_service.py → spawn_pipeline()</div>
+
+      <p>검사를 통과하면, 서버는 실제 분석 프로그램을 <b>백그라운드로 따로 띄웁니다.</b>
+         실제로 만들어져 실행되는 명령어는 이렇게 생겼어요:</p>
+
+<pre><span class="c"># 서버가 자동으로 조립해 실행하는 명령어</span>
+uv run python -m kr_pipeline.llm_runner \
+  --mode=backfill \
+  --start=2024-05-01 \
+  --end=2024-05-31
+  <span class="c"># tickers 가 비어있으면 --tickers 인자는 안 붙음</span></pre>
+
+      <p>중요한 점: 이것은 <b>"fire-and-forget(불 붙이고 잊기)"</b> 방식이에요. 서버는
+         "작업 번호(PID) 줄게, 진행 상황은 따로 확인해" 하고 손님에게 곧바로 답을 줍니다.
+         요리는 주방에서 알아서 진행되고, 손님은 화면에서 진행률을 새로고침하며 봅니다.</p>
+
+      <div class="tip">
+        <b>왜 이렇게 하나요?</b> 전 종목 백필은 몇 분~몇 시간 걸릴 수 있어요. 손님을 그동안
+        문 앞에 세워둘 순 없으니, 주문만 받고 "번호표" 주고 돌려보내는 거죠.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STEP 5 ─────────────────────────────────── -->
+  <section id="s5">
+    <h2><span class="n">⑤</span>토요일마다 반복 (핵심 루프)</h2>
+
+    <div class="step">
+      <div class="head"><span class="badge">PROC</span><h3>(a) 기간 안의 모든 토요일을 뽑는다</h3></div>
+      <div class="file">kr_pipeline/llm_runner/backfill.py → _enumerate_saturdays()</div>
+      <p>예: 2024-05-01 ~ 05-31 → <code>[5월 4일, 11일, 18일, 25일]</code> (토요일 4개)</p>
+      <p class="muted">왜 토요일이냐면, 이 투자 전략(Minervini / O'Neil)은 <b>주말에 차분히
+         한 주를 복기하는 루틴</b>이기 때문입니다.</p>
+    </div>
+
+    <div class="step">
+      <div class="head"><span class="badge">PROC</span><h3>(b) 그날 "분석할 가치가 있는 종목"만 추린다</h3></div>
+      <div class="file">kr_pipeline/llm_runner/load.py → get_qualifying_tickers()</div>
+
+      <p>아무 종목이나 분석하지 않아요. <b>Minervini 추세 템플릿 조건을 통과한 종목만</b>
+         골라냅니다. 예를 들면:</p>
+      <ul>
+        <li>주가가 150일 평균선 위에 있고</li>
+        <li>장·단기 평균선들이 우상향이고</li>
+        <li>상대강도(다른 종목 대비 강함)가 충분히 높고… 등등</li>
+      </ul>
+
+      <div class="note">
+        <b>중요한 세부 — 토요일엔 장이 안 열린다!</b> 그래서 "그 토요일 날짜"의 지표를
+        그대로 쓰는 게 아니라, <b>그 날짜 이하 가장 최근 거래일</b>(보통 직전 금요일)의
+        지표를 찾아서 씁니다. (<code>SELECT MAX(date) ... WHERE date &lt;= 토요일</code>)
+        즉 "그 주가 끝난 직후 시점"으로 분석하는 셈이에요.
+      </div>
+
+      <div class="analogy">
+        🩺 <b>비유</b> — "건강검진 1차를 통과한 사람만 정밀검사로 보낸다." 기계적(결정론)
+        1차 필터로 거른 뒤, AI라는 비싼 정밀검사를 돌리는 거예요.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="head"><span class="badge">PROC</span><h3>(c) 이미 분석한 종목은 건너뛴다</h3></div>
+      <div class="file">kr_pipeline/llm_runner/backfill.py → _already_backfilled()</div>
+      <p>그 토요일에 대해 이미 분석 결과가 DB에 있으면 다시 하지 않습니다. 그래서
+         <b>중간에 멈췄다 다시 돌려도 처음부터가 아니라 이어서</b> 진행돼요.
+         (시간여행 복습을 두 번 안 함 → "멱등성".)</p>
+    </div>
+  </section>
+
+  <!-- ── STEP 6 ─────────────────────────────────── -->
+  <section id="s6">
+    <h2><span class="n">⑥</span>종목별 "분석 자료 ZIP" 포장</h2>
+
+    <div class="step">
+      <div class="head"><span class="badge">PROC</span><h3>AI에게 보낼 자료 묶음을 만든다</h3></div>
+      <div class="file">api/services/zip_builder.py → build_analysis_zip()</div>
+
+      <p>종목 하나하나에 대해, AI에게 보낼 <b>자료 묶음(ZIP 파일)</b>을 만듭니다. 백필에서는
+         <b>14개 파일</b>이 들어가요(과거 분석 결과는 빼고 — 시간여행이니까):</p>
+
+      <div class="files">
+        <div class="f"><div class="fn">README.md</div><div class="fd">사용 설명서</div></div>
+        <div class="f"><div class="fn">prompt_step1_analyze.md</div><div class="fd">분석 지시문(룰)</div></div>
+        <div class="f"><div class="fn">prompt_step2_entry_params.md</div><div class="fd">진입 파라미터 지시문</div></div>
+        <div class="f"><div class="fn">prompt_verify.md</div><div class="fd">검증용 지시문</div></div>
+        <div class="f"><div class="fn">payload.json</div><div class="fd">핵심 지표 통합본</div></div>
+        <div class="f"><div class="fn">market_context.json</div><div class="fd">시장 상황(상승/하락장)</div></div>
+        <div class="f"><div class="fn">corporate_actions.json</div><div class="fd">액면분할·합병 이력(5년)</div></div>
+        <div class="f"><div class="fn">minervini.json</div><div class="fd">8조건 통과 상세</div></div>
+        <div class="f"><div class="fn">daily.csv</div><div class="fd">최근 60일 가격</div></div>
+        <div class="f"><div class="fn">weekly.csv</div><div class="fd">최근 104주(2년) 가격</div></div>
+        <div class="f"><div class="fn">market_index_daily.csv</div><div class="fd">시장지수 일봉</div></div>
+        <div class="f"><div class="fn">market_index_weekly.csv</div><div class="fd">시장지수 주봉</div></div>
+        <div class="f"><div class="fn">daily_chart.png</div><div class="fd">📈 1년 일봉 차트(그림)</div></div>
+        <div class="f"><div class="fn">weekly_chart.png</div><div class="fd">📈 2년 주봉 차트(그림)</div></div>
+      </div>
+
+      <div class="note">
+        <b>가장 중요한 포인트 — 미래를 보지 않는다.</b> 이 자료들은 전부 <b>"그 토요일 시점"
+        (<code>on_date</code>)으로만</b> 만들어집니다. 14개 파일의 모든 데이터 쿼리에
+        <code>WHERE date &lt;= on_date</code> 상한이 걸려, 차트도 그 시점까지만 그리고
+        그 이후의 미래 데이터는 한 톨도 안 들어가요. 그래야 백테스트가 공정합니다.
+      </div>
+
+      <div class="note" style="border-left-color: var(--red);">
+        <b style="color: var(--red);">⚠️ 한 파일은 상한이 빠져 있었다 (수정됨).</b>
+        다른 13개 파일과 달리 <code>corporate_actions.json</code>(액면분할·합병 이력)은
+        한동안 <b>하한선만 있고 상한선(<code>event_date &lt;= as_of</code>)이 없었습니다.</b>
+        그래서 과거 백필 시 <b>분석 시점 이후에 일어난 분할이 ZIP에 섞여 들어가</b>
+        "최근 12주 내 분할" 플래그까지 잘못 켜질 수 있었어요(look-ahead bias). 이 문서를
+        검증하는 과정에서 발견해 <code>corporate_actions_builder.py</code> 에
+        상한선을 추가하고 회귀 테스트로 막았습니다. 지금은 14개 파일 전부 미래를 보지 않습니다.
+      </div>
+
+      <div class="tip">
+        <b>숨은 안전장치 — 데이터 무결성 검사.</b> ZIP을 만들기 직전에
+        <code>check_data_integrity</code> 가 돌아, 그 종목의 데이터가 손상/누락됐는지
+        점검합니다. 이상이 있으면 그 종목은 (다음 단계 ⑨의 fail-soft로) 건너뜁니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STEP 7 ─────────────────────────────────── -->
+  <section id="s7">
+    <h2><span class="n">⑦</span>Claude AI에게 분석 요청</h2>
+
+    <div class="step">
+      <div class="head"><span class="badge">PROC</span><h3>포장한 ZIP을 AI에게 보낸다</h3></div>
+      <div class="file">kr_pipeline/llm_runner/llm/claude_cli.py → call_claude()</div>
+
+      <ul>
+        <li><b>미리보기(dry-run) 모드면:</b> AI를 진짜로 안 부르고 <b>가짜 결과(mock)</b>를
+            만들어 돌려줍니다. "대상이 몇 개인지"만 확인하는 연습용.</li>
+        <li><b>실제(real) 모드면:</b> 컴퓨터에 설치된 <code>claude</code> 명령어를 실제로
+            실행해서, 지시문(<code>analyze_chart_v3.md</code>)과 ZIP을 함께 보냅니다.</li>
+      </ul>
+
+      <p>AI는 차트를 "눈으로 보고" 이런 판단을 JSON으로 돌려줍니다:</p>
+
+<pre>{
+  <span class="s">"classification"</span>: <span class="s">"entry"</span>,        <span class="c">// entry / watch / ignore 중 하나</span>
+  <span class="s">"pattern"</span>: <span class="s">"cup_with_handle"</span>,    <span class="c">// 차트 패턴</span>
+  <span class="s">"confidence"</span>: 0.82,             <span class="c">// 확신도 0.0~1.0</span>
+  <span class="s">"pivot_price"</span>: 71500,           <span class="c">// 매수 기준 가격</span>
+  <span class="s">"reasoning"</span>: <span class="s">"..."</span>,             <span class="c">// 왜 이렇게 판단했는지</span>
+  <span class="s">"risk_flags"</span>: []                <span class="c">// 위험 요소들</span>
+}</pre>
+
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>판정</th><th>의미</th></tr></thead>
+        <tbody>
+          <tr><td class="feat yes">entry</td><td>지금 사도 좋은 자리</td></tr>
+          <tr><td class="feat" style="color:var(--amber)">watch</td><td>통과는 했지만 아직 살 때는 아님 (관찰)</td></tr>
+          <tr><td class="feat no">ignore</td><td>무시 (이미 너무 올랐거나 모양이 나쁨)</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="tip">
+        🔁 <b>재시도 장치.</b> AI 호출이 실패하면 <b>0초 → 1초 → 3초 → 9초</b> 간격으로
+        <b>최대 4번</b> 다시 시도합니다(각 호출 제한시간 600초). 인터넷이 잠깐 끊겨도
+        버티도록 한 거예요. 4번 다 실패하면 그 종목만 에러로 처리됩니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STEP 8 ─────────────────────────────────── -->
+  <section id="s8">
+    <h2><span class="n">⑧</span>결과를 DB에 저장</h2>
+
+    <div class="step">
+      <div class="head"><span class="badge">DB</span><h3>한 줄의 기록으로 남긴다</h3></div>
+      <div class="file">kr_pipeline/llm_runner/store.py → insert_backfill_classification()</div>
+
+      <p>AI의 답을 받으면 <code>classification_backfill</code> 이라는 DB 표에 한 줄로
+         저장합니다. 저장에는 종목코드·분석기준일(토요일)·판정·패턴·확신도·근거·
+         AI 호출 소요시간 등이 모두 기록돼요.</p>
+
+      <div class="note">
+        <b>미리보기(dry-run) 모드면 이 저장 단계를 통째로 건너뜁니다.</b> 그래서 비용도
+        안 들고 DB도 안 더럽혀요.
+      </div>
+
+      <h3>저장 전 두 가지 처리</h3>
+      <ol>
+        <li><b>Phase 1 게이트</b> — 저장 직전 추가 검증(위험 플래그 정리 등)을 거칩니다.
+            만약 이 게이트 처리가 실패해도, <b>원본 결과를 그대로 저장</b>하고 넘어갑니다(fail-soft).</li>
+        <li><b>중복 방지 잠금</b> — 같은 <code>(종목, 토요일)</code> 조합이 두 번
+            저장되지 않도록 <code>ON CONFLICT ... DO NOTHING</code> 이 걸려 있어요.</li>
+      </ol>
+
+      <div class="tip">
+        <b>멱등성 = 2중 안전장치.</b> ⑤-(c)에서 <b>이미 한 건 후보에서 빼고</b>, 여기 ⑧에서
+        <b>DB 차원에서도 중복을 막아요.</b> 두 겹 덕분에 몇 번을 다시 돌려도 데이터가
+        중복되거나 망가지지 않습니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STEP 9 ─────────────────────────────────── -->
+  <section id="s9">
+    <h2><span class="n">⑨</span>실패해도 멈추지 않기 (Fail-soft)</h2>
+
+    <div class="step">
+      <div class="head"><span class="badge">PROC</span><h3>한 종목 실패가 전체를 멈추지 않는다</h3></div>
+      <div class="file">kr_pipeline/llm_runner/backfill.py → run()</div>
+
+      <p>종목 하나를 분석하다 에러가 나도 <b>전체가 멈추지 않습니다.</b> 그 종목만
+         "실패 목록"에 기록하고, 다음 종목으로 넘어가요. 성공한 것들은 각각 따로
+         저장(commit)되고, 실패한 것은 되돌립니다(rollback).</p>
+
+      <div class="analogy">
+        🍽️ <b>비유</b> — 한 테이블 주문이 잘못돼도 다른 테이블 음식은 계속 나가는 식당.
+      </div>
+
+      <p>모든 토요일·모든 종목이 끝나면, 프로그램은 요약을 돌려줍니다:</p>
+
+<pre><span class="c"># 최종 요약 (예시)</span>
+{
+  <span class="s">"weeks"</span>: 4,              <span class="c">// 4번의 토요일 처리</span>
+  <span class="s">"processed"</span>: 420,        <span class="c">// 420건 분석 성공</span>
+  <span class="s">"skipped_existing"</span>: 0,   <span class="c">// 0건 건너뜀(이미 있던 것)</span>
+  <span class="s">"failures"</span>: 3,           <span class="c">// 3건 실패</span>
+  <span class="s">"failed"</span>: [ [<span class="s">"005380"</span>, <span class="s">"2024-05-04"</span>, <span class="s">"timeout"</span>], ... ]
+}</pre>
+
+      <p>이 요약은 <code>pipeline_runs</code> 표에 기록되고, 웹 화면이 그걸 읽어서
+         "완료!"와 진행 결과를 보여줍니다.</p>
+    </div>
+  </section>
+
+  <!-- ── COMPARE ────────────────────────────────── -->
+  <section id="compare">
+    <h2><span class="n">⇄</span>「수동」 vs 「자동(주말 cron)」</h2>
+    <p class="sub">같은 LLM 분석이지만 시작 방식과 목적이 다릅니다</p>
+
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>항목</th><th>수동 백필 (llm-backfill)</th><th>자동 주말 (llm-weekend)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="feat">누가 시작</td><td>사람이 버튼 클릭</td><td>토요일 정해진 시각 자동 (cron)</td></tr>
+        <tr><td class="feat">실행 시각</td><td>아무 때나</td><td><code>20 3 * * 6</code> (토 03:20)</td></tr>
+        <tr><td class="feat">날짜 범위</td><td>사람이 기간 직접 지정</td><td>이번 주(직전 금요일) 고정</td></tr>
+        <tr><td class="feat">미리보기</td><td><span class="yes">✓ 있음</span> (비용 없이 연습)</td><td><span class="no">✕</span> dry-run은 cron 기본값</td></tr>
+        <tr><td class="feat">용도</td><td>과거 빈칸 메꾸기 · 백테스트</td><td>매주 정기 분석</td></tr>
+        <tr><td class="feat">저장 표</td><td><code>classification_backfill</code></td><td><code>weekly_classification</code></td></tr>
+        <tr><td class="feat">다시 실행</td><td><span class="yes">✓ 안전</span> (멱등 2중 장치)</td><td>그 주 1회</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="analogy">
+      📌 <b>한 줄 요약</b> — 수동 LLM 백필은 <b>"과거의 토요일들로 시간여행 가서, 그 시점까지의
+      데이터만으로, 기계 필터를 통과한 종목들을 Claude AI에게 차트 분석시켜, 그 결과를
+      안전하게(중복 없이, 실패해도 계속) DB에 채워 넣는 작업"</b>입니다.
+    </div>
+  </section>
+
+  <!-- ── GLOSSARY ───────────────────────────────── -->
+  <section id="glossary">
+    <h2><span class="n">📖</span>용어 사전</h2>
+
+    <dl class="glossary">
+      <dt>백필 (backfill)</dt>
+      <dd>과거의 빈 데이터를 소급해서 채워 넣는 것. 여기선 과거 토요일들의 LLM 분류를 만드는 일.</dd>
+
+      <dt>dry-run (미리보기)</dt>
+      <dd>실제로 비싼 작업(AI 호출·DB 저장)을 하지 않고, 대상·흐름만 점검하는 연습 실행.</dd>
+
+      <dt>as_of (기준일)</dt>
+      <dd>"이 시점 기준으로" 분석한다는 날짜. 백필에서는 각 토요일이 곧 분석 기준일이 됩니다.</dd>
+
+      <dt>멱등성 (idempotency)</dt>
+      <dd>같은 작업을 여러 번 해도 결과가 한 번 한 것과 똑같은 성질. 다시 돌려도 안전.</dd>
+
+      <dt>fire-and-forget</dt>
+      <dd>"불 붙이고 잊기" — 오래 걸리는 작업을 백그라운드에 던져두고 즉시 응답을 돌려주는 방식.</dd>
+
+      <dt>fail-soft</dt>
+      <dd>일부가 실패해도 전체를 멈추지 않고, 실패는 따로 기록하며 나머지를 계속 진행하는 설계.</dd>
+
+      <dt>Minervini Trend Template</dt>
+      <dd>마크 미너비니의 추세 추종 종목 선정 기준(8가지 조건). 1차 기계 필터로 사용됩니다.</dd>
+
+      <dt>classification (분류)</dt>
+      <dd>AI가 내리는 판정: <b>entry</b>(매수 적기) / <b>watch</b>(관찰) / <b>ignore</b>(무시).</dd>
+
+      <dt>pivot (피벗) 가격</dt>
+      <dd>차트 패턴에서 "이 가격을 돌파하면 매수"로 보는 기준선.</dd>
+    </dl>
+  </section>
+
+  <footer>
+    이 문서는 실제 소스코드를 직접 추적·검증해 작성되었습니다.<br>
+    핵심 경로: <code>web/src/components/RunDialog.tsx</code> · <code>api/routers/runner.py</code> ·
+    <code>api/services/runner_service.py</code> · <code>kr_pipeline/llm_runner/backfill.py</code> ·
+    <code>kr_pipeline/llm_runner/load.py</code> · <code>api/services/zip_builder.py</code> ·
+    <code>kr_pipeline/llm_runner/llm/claude_cli.py</code> · <code>kr_pipeline/llm_runner/store.py</code> ·
+    <code>kr_pipeline/llm_runner/pipeline_specs.py</code>
+  </footer>
+
+</div>
+</body>
+</html>
