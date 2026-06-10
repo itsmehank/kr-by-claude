@@ -167,7 +167,9 @@ def _process_ticker_daily(
     pp_flag = pocket_pivot(is_up, adj_volume, sma_50, adj_close, lookback=10)
     vdu_flag = volume_dry_up(adj_volume, avg_vol_50, threshold=0.5)
     ud_ratio_50 = up_down_volume_ratio(adj_volume, is_up, is_down, window=50)
-    dist_flag = distribution_day(is_down, adj_volume, avg_vol_50, threshold=1.25)
+    # threshold 미지정 — SSOT(STOCK_DISTRIBUTION_VOL_MULT=1.0) default 사용.
+    # 과거 threshold=1.25 리터럴이 2026-05-22 SSOT 1.0 정렬(P0-2)을 무력화했었음.
+    dist_flag = distribution_day(is_down, adj_volume, avg_vol_50)
 
     # 52w
     w52h, w52l = w52_high_low(df["adj_high"], df["adj_low"], window=252)
