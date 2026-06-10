@@ -26,6 +26,7 @@ from kr_pipeline.indicators.compute.volume import (
     avg_volume, volume_ratio,
     pocket_pivot, volume_dry_up, up_down_volume_ratio, distribution_day,
 )
+from kr_pipeline.indicators.completeness import check_daily_ohlcv_complete
 from kr_pipeline.indicators.load import (
     load_daily_prices, load_index_daily, load_weekly_prices, load_weekly_index,
     load_active_tickers_with_market,
@@ -395,6 +396,10 @@ def run_daily(
                 "load_start": str(load_start), "load_end": str(load_end),
                 "upsert_start": str(upsert_start)},
     ) as state:
+        # ① 완전성 게이트: INCREMENTAL 전체실행에서 최신 ohlcv 커버리지<90% 면 지표 미계산.
+        # limit_tickers 설정(테스트/부분) 및 BACKFILL/FULL_REFRESH(end=어제) 는 제외.
+        if mode == Mode.INCREMENTAL and limit_tickers is None:
+            check_daily_ohlcv_complete(conn, active_count=len(tickers))
         # Phase A
         log.info("Phase A: per-ticker time-series indicators")
         for i, (ticker, market) in enumerate(tickers, 1):
