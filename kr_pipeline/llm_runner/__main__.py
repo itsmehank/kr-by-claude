@@ -3,7 +3,8 @@ import argparse
 import json
 import logging
 import sys
-from datetime import date as _date
+from datetime import date as _date, datetime
+from zoneinfo import ZoneInfo
 
 from kr_pipeline.common.config import Config
 from kr_pipeline.db.connection import connect
@@ -13,6 +14,7 @@ from kr_pipeline.llm_runner import (
 )
 from kr_pipeline.llm_runner import modes
 from kr_pipeline.llm_runner.load import resolve_as_of
+from kr_pipeline.common.trading_calendar import assert_data_fresh
 
 
 # pipeline_runs.pipeline 컬럼 값. pipeline_specs.py 의 pipeline_db_name 과 일치해야 함.
@@ -87,6 +89,10 @@ def main() -> int:
             "tickers": getattr(args, "tickers", None),
         }
         with run_tracking(conn, pipeline=pipeline_db_name, mode=args.mode, params=params) as state:
+            # ② 신선도 가드: 자동 as_of(명시 --date 아님) & backfill 아닐 때만.
+            #    as_of < ELTD 면 StaleDataError, pykrx 실패면 TradingCalendarUnavailable(fail-closed).
+            if explicit is None and args.mode != "backfill":
+                assert_data_fresh(as_of, datetime.now(ZoneInfo("Asia/Seoul")))
             if args.mode == "weekend":
                 result = modes.run_weekend(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit, ticker=args.ticker, run_id=state["run_id"])
             elif args.mode == "daily-delta":
