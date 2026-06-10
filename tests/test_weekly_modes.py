@@ -187,3 +187,13 @@ def test_run_only_tickers_filters_universe(mocker):
 
     m.run(conn=None, mode=m.Mode.FULL_REFRESH, only_tickers=["000660", "035720"])
     assert seen == ["000660", "035720"]
+
+
+@freeze_time("2026-05-15")  # Friday
+def test_incremental_start_snaps_to_monday():
+    """비토요일 실행 시 윈도우 시작이 주 중간이면 첫 ISO 주가 잘린 봉으로
+    집계·덮어쓰기된다(2026-05-15 금요일 실행 사고 경로). start 는 항상 월요일."""
+    start, end = compute_date_range(Mode.INCREMENTAL, window_weeks=4)
+    assert start.weekday() == 0, f"start must be Monday, got {start} ({start.weekday()})"
+    assert start == date(2026, 4, 13)  # 5/15-28d=4/17(금) → 그 주 월요일로 스냅
+    assert end == date(2026, 5, 14)

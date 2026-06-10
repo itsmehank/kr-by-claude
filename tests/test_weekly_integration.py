@@ -120,3 +120,56 @@ def test_partial_failure_isolates(test_db_url):
                 assert cur.fetchone()[0] == 0
         finally:
             _cleanup(conn)
+
+
+def test_process_ticker_heals_partial_week_orphan(db):
+    """일봉이 화요일까지만 있을 때 집계된 부분 주봉(week_end=화)이,
+    완전한 일봉으로 재집계 시 금요일 행으로 교체되고 화요일 고아가 삭제된다.
+
+    production 사고(2026-06-07): 597종목이 같은 ISO 주에 (화, td=2) + (금, td=4)
+    두 행을 갖게 됨 — full-refresh 로도 복구 불가였다."""
+    from datetime import date
+    from kr_pipeline.weekly.modes import _process_ticker
+
+    t = "HEAL1"
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'T','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
+        cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        # 1차: 월·화만 적재된 stale 상태 (2026-06-01 월, 06-02 화)
+        for d in (date(2026, 6, 1), date(2026, 6, 2)):
+            cur.execute(
+                """INSERT INTO daily_prices (ticker, date, open, high, low, close,
+                       adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value)
+                   VALUES (%s,%s,100,110,95,105,105.0,110.0,95.0,100.0,1000.0,1000,1)""",
+                (t, d),
+            )
+    db.commit()
+
+    # 1차 집계 (today=일요일 → '주말이라 완료' 간주, 부분 행 기록)
+    _process_ticker(db, t, date(2026, 6, 1), date(2026, 6, 6), date(2026, 6, 7))
+    with db.cursor() as cur:
+        cur.execute("SELECT week_end_date, trading_days FROM weekly_prices WHERE ticker=%s", (t,))
+        assert cur.fetchall() == [(date(2026, 6, 2), 2)]  # 부분 행
+
+    # 수·목·금 일봉 도착
+    with db.cursor() as cur:
+        for d in (date(2026, 6, 3), date(2026, 6, 4), date(2026, 6, 5)):
+            cur.execute(
+                """INSERT INTO daily_prices (ticker, date, open, high, low, close,
+                       adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value)
+                   VALUES (%s,%s,100,110,95,105,105.0,110.0,95.0,100.0,1000.0,1000,1)""",
+                (t, d),
+            )
+    db.commit()
+
+    # 2차 집계 — 금요일 행으로 교체되고 화요일 고아는 삭제되어야 한다
+    _process_ticker(db, t, date(2026, 6, 1), date(2026, 6, 6), date(2026, 6, 7))
+    with db.cursor() as cur:
+        cur.execute("SELECT week_end_date, trading_days FROM weekly_prices WHERE ticker=%s ORDER BY week_end_date", (t,))
+        rows = cur.fetchall()
+        # cleanup
+        cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
+        cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+    db.commit()
+    assert rows == [(date(2026, 6, 5), 5)], f"화요일 고아가 남음: {rows}"

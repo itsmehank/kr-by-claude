@@ -13,7 +13,10 @@ from kr_pipeline.weekly.load import (
 from kr_pipeline.weekly.transform import (
     aggregate_to_weekly, drop_incomplete_weeks, to_weekly_rows, to_weekly_index_rows,
 )
-from kr_pipeline.weekly.store import upsert_weekly_prices, upsert_weekly_index
+from kr_pipeline.weekly.store import (
+    upsert_weekly_prices, upsert_weekly_index,
+    delete_superseded_weekly_prices, delete_superseded_weekly_index,
+)
 
 
 log = logging.getLogger("kr_pipeline.weekly")
@@ -48,7 +51,11 @@ def compute_date_range(
     yesterday = today - timedelta(days=1)
 
     if mode == Mode.INCREMENTAL:
-        return today - timedelta(days=window_weeks * 7), yesterday
+        start = today - timedelta(days=window_weeks * 7)
+        # 시작을 그 주 월요일로 스냅. 주 중간 시작이면 첫 ISO 주가 잘린 봉으로
+        # 집계돼 기존의 올바른 주봉을 덮어쓴다(비토요일 수동 실행 사고 경로).
+        start -= timedelta(days=start.weekday())
+        return start, yesterday
     if mode in (Mode.BACKFILL, Mode.FULL_REFRESH):
         return _get_daily_min_date(conn), yesterday
     raise ValueError(f"Unknown mode: {mode}")
@@ -71,6 +78,10 @@ def _process_ticker(
         return 0
     rows = to_weekly_rows(ticker, weekly)
     affected = upsert_weekly_prices(conn, rows)
+    # 같은 ISO 주의 구(舊) week_end_date 행 정리 — 부분집계 고아 자가치유
+    deleted = delete_superseded_weekly_prices(conn, ticker, [r[1] for r in rows])
+    if deleted:
+        log.warning(f"weekly superseded rows deleted: ticker={ticker} count={deleted}")
     conn.commit()
     return affected
 
@@ -92,6 +103,9 @@ def _process_index(
         return 0
     rows = to_weekly_index_rows(index_code, weekly)
     affected = upsert_weekly_index(conn, rows)
+    deleted = delete_superseded_weekly_index(conn, index_code, [r[1] for r in rows])
+    if deleted:
+        log.warning(f"weekly_index superseded rows deleted: index={index_code} count={deleted}")
     conn.commit()
     return affected
 
