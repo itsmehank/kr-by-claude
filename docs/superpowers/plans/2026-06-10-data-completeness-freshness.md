@@ -43,9 +43,16 @@ import pytest
 
 
 def _seed_prices(cur, n_rows, *, d=date(2099, 7, 1)):
-    """sentinel 미래 날짜 d 에 n_rows 개 종목의 daily_prices 행 시드(MAX(date)=d 보장)."""
+    """sentinel 미래 날짜 d 에 n_rows 개 종목의 daily_prices 행 시드(MAX(date)=d 보장).
+
+    daily_prices.ticker 는 stocks(ticker) 로 FK → 각 ticker 를 stocks 에 먼저 INSERT 필수.
+    """
     for i in range(n_rows):
         t = f"CMP{i:04d}"
+        cur.execute(
+            "INSERT INTO stocks (ticker,name,market) VALUES (%s,'x','KOSPI') ON CONFLICT DO NOTHING",
+            (t,),
+        )
         cur.execute(
             "INSERT INTO daily_prices (ticker,date,open,high,low,close,adj_close,volume,value) "
             "VALUES (%s,%s,100,100,100,100,100,1000,100000) ON CONFLICT DO NOTHING",
@@ -143,7 +150,7 @@ Expected: 4 passed.
 
 - [ ] **Step 5: Wire the gate into `run_daily`**
 
-`kr_pipeline/indicators/modes.py` — `run_daily` 안 `with run_tracking(...) as state:` 바로 다음, `# Phase A` 주석 앞에 삽입. 파일 상단 import 에 추가:
+`kr_pipeline/indicators/modes.py` — `run_daily` 안 `with run_tracking(...) as state:` 바로 다음, `# Phase A` 주석 앞에 삽입. **anchor: `# Phase A` 는 파일 전체에서 398행 한 곳뿐**(run_daily 고유)이라 `) as state:\n        # Phase A` 2줄로 edit 하면 weekly(641행)와 안 헷갈림. 파일 상단 import 에 추가:
 ```python
 from kr_pipeline.indicators.completeness import check_daily_ohlcv_complete
 ```
@@ -403,4 +410,6 @@ git commit -m "feat(llm): ②-b 신선도 가드 배선 — 자동 as_of 가 ELT
 - **Placeholder scan:** 없음(모든 코드/테스트/명령 구체). ✓
 - **Type consistency:** `check_daily_ohlcv_complete(conn,*,active_count,threshold)`·`expected_latest_trading_day(now)->date`·`assert_data_fresh(as_of,now)`·예외명(`IncompleteIngestionError`/`TradingCalendarUnavailable`/`StaleDataError`) 전 Task 일치. fetch_index monkeypatch 경로 `tc.fetch_index` 일치. ✓
 - **테스트 격리:** db fixture rollback(no commit), sentinel 2099 날짜, 캘린더는 monkeypatch(네트워크 없음). ✓
+- **FK 정합(재검토 반영):** `daily_prices.ticker → stocks(ticker)` FK 존재 → `_seed_prices` 가 각 ticker 를 stocks 에 먼저 INSERT(ON CONFLICT DO NOTHING)하도록 수정. ✓
+- **회귀 안전(재검토 확인):** 기존 테스트는 `indicators.run_daily` 를 mock(test_pipeline_chains) 하거나 `compute_date_range` 만 호출(test_indicators_modes) — 실제 run_daily(INCREMENTAL, no-limit) 를 도는 테스트가 없어 게이트가 기존 테스트를 깨지 않음. 게이트는 INCREMENTAL 전용이라 BACKFILL/FULL_REFRESH 초기 적재도 무영향. ✓
 - **주의(리뷰 확인):** run_daily 게이트 배선(`if mode==INCREMENTAL and limit_tickers is None`)은 1줄 호출이라 단위테스트 대신 spec-리뷰어가 diff 로 확인(헬퍼 로직은 Task1 에서 검증). __main__ 가드 조건(`explicit is None and mode!="backfill"`)도 동일.
