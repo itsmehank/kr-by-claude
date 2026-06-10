@@ -4,6 +4,14 @@ from contextlib import contextmanager
 from datetime import date
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _stub_freshness_guard(monkeypatch):
+    """__main__ 신선도 가드(라이브 pykrx)를 no-op 으로 — 이 파일은 run_tracking 배선만 검증."""
+    monkeypatch.setattr("kr_pipeline.llm_runner.__main__.assert_data_fresh", lambda *a, **k: None)
+
 
 def _make_mock_conn():
     """run_tracking 이 내부적으로 쓰는 conn 메서드를 갖춘 mock.
