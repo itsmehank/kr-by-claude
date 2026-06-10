@@ -97,7 +97,10 @@ def to_weekly_rows(ticker: str, weekly: pd.DataFrame) -> list[tuple]:
 
 
 def to_weekly_index_rows(index_code: str, weekly: pd.DataFrame) -> list[tuple]:
-    """weekly_index.executemany 용 tuple 리스트. volume/value NULL 가능."""
+    """weekly_index.executemany 용 tuple 리스트. volume/value NULL 가능.
+
+    OHLC 는 소수 2자리(NUMERIC(12,2)) — int() 절단 금지 (지수 등락률 왜곡).
+    """
     rows = []
     for _, r in weekly.iterrows():
         vol = r.get("volume")
@@ -105,10 +108,10 @@ def to_weekly_index_rows(index_code: str, weekly: pd.DataFrame) -> list[tuple]:
         rows.append((
             index_code,
             r["week_end_date"],
-            int(r["open"]),
-            int(r["high"]),
-            int(r["low"]),
-            int(r["close"]),
+            float(r["open"]),
+            float(r["high"]),
+            float(r["low"]),
+            float(r["close"]),
             int(vol) if vol is not None and not pd.isna(vol) else None,
             int(val) if val is not None and not pd.isna(val) else None,
             int(r["trading_days"]),

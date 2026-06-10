@@ -310,3 +310,15 @@ def test_load_index_daily_synthesizes_adj_open_volume_then_aggregates(db):
         with db.cursor() as cur:
             cur.execute("DELETE FROM index_daily WHERE index_code=%s", (code,))
         db.commit()
+
+
+def test_to_weekly_index_rows_preserves_decimals():
+    """주봉 지수 OHLC 도 소수 보존 (int() 절단 금지) — weekly_index NUMERIC(12,2)."""
+    from kr_pipeline.weekly.transform import to_weekly_index_rows
+    weekly = pd.DataFrame([{
+        "week_end_date": date(2026, 6, 5),
+        "open": 901.23, "high": 905.67, "low": 898.41, "close": 903.89,
+        "volume": 1000.0, "value": 5000.0, "trading_days": 5,
+    }])
+    rows = to_weekly_index_rows("2001", weekly)
+    assert rows == [("2001", date(2026, 6, 5), 901.23, 905.67, 898.41, 903.89, 1000, 5000, 5)]

@@ -64,3 +64,26 @@ def to_price_rows(ticker: str, merged: pd.DataFrame) -> list[tuple]:
         )
         for _, r in merged.iterrows()
     ]
+
+
+def to_index_rows(index_code: str, idx_df: pd.DataFrame) -> list[tuple]:
+    """index_daily.executemany 용 tuple 리스트.
+
+    OHLC 는 소수 2자리(NUMERIC(12,2)) — int() 절단 금지. KOSDAQ(~900pt)에서
+    절단 시 일일 등락률 오차가 최대 ±0.2%p 로, market_context 의
+    distribution day(-0.2%)/follow-through 임계 판정이 경계일에 플립된다.
+    volume/value 는 nullable bigint → NaN 은 None.
+    """
+    return [
+        (
+            index_code,
+            r["date"],
+            float(r["open"]),
+            float(r["high"]),
+            float(r["low"]),
+            float(r["close"]),
+            int(r["volume"]) if not pd.isna(r.get("volume")) else None,
+            int(r["value"]) if not pd.isna(r.get("value")) else None,
+        )
+        for _, r in idx_df.iterrows()
+    ]

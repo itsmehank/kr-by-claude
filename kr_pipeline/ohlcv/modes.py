@@ -7,7 +7,7 @@ from psycopg import Connection
 
 from kr_pipeline.db.runs import run_tracking
 from kr_pipeline.ohlcv.fetch import fetch_many, fetch_index
-from kr_pipeline.ohlcv.transform import merge_raw_and_adjusted, to_price_rows
+from kr_pipeline.ohlcv.transform import merge_raw_and_adjusted, to_price_rows, to_index_rows
 from kr_pipeline.ohlcv.store import upsert_daily_prices, update_adj_prices, upsert_index_daily
 
 
@@ -173,13 +173,7 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
         idx_df = fetch_index(index_code, start, end)
         if idx_df.empty:
             continue
-        idx_rows = [
-            (index_code, r["date"], int(r["open"]), int(r["high"]), int(r["low"]),
-             int(r["close"]),
-             int(r["volume"]) if not pd_isna(r.get("volume")) else None,
-             int(r["value"]) if not pd_isna(r.get("value")) else None)
-            for _, r in idx_df.iterrows()
-        ]
+        idx_rows = to_index_rows(index_code, idx_df)
         upsert_index_daily(conn, idx_rows)
         conn.commit()
 

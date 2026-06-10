@@ -71,3 +71,34 @@ def test_merge_adj_open_volume_fallback_to_raw_when_missing():
     m = merge_raw_and_adjusted(raw, adj)
     assert float(m.loc[0, "adj_open"]) == 100.0
     assert float(m.loc[0, "adj_volume"]) == 1000.0
+
+
+def test_to_index_rows_preserves_decimals():
+    """지수 OHLC 는 소수 2자리(NUMERIC(12,2)). int() 절단 시 KOSDAQ(~900pt)에서
+    일일 등락률 오차 ±0.2%p — distribution day(-0.2%)/FTD 임계 판정이 플립된다.
+    (실측: index_daily 4,900행 전수 소수부 0 — 절단 버그)"""
+    import pandas as pd
+    from datetime import date
+    from kr_pipeline.ohlcv.transform import to_index_rows
+
+    df = pd.DataFrame([
+        {"date": date(2026, 6, 10), "open": 901.23, "high": 905.67,
+         "low": 898.41, "close": 903.89, "volume": 1000.0, "value": 5000.0},
+    ])
+    rows = to_index_rows("2001", df)
+    assert rows == [("2001", date(2026, 6, 10), 901.23, 905.67, 898.41, 903.89, 1000, 5000)]
+
+
+def test_to_index_rows_null_volume_value():
+    """volume/value NaN → None (nullable bigint)."""
+    import pandas as pd
+    import numpy as np
+    from datetime import date
+    from kr_pipeline.ohlcv.transform import to_index_rows
+
+    df = pd.DataFrame([
+        {"date": date(2026, 6, 10), "open": 901.23, "high": 905.67,
+         "low": 898.41, "close": 903.89, "volume": np.nan, "value": np.nan},
+    ])
+    rows = to_index_rows("2001", df)
+    assert rows == [("2001", date(2026, 6, 10), 901.23, 905.67, 898.41, 903.89, None, None)]
