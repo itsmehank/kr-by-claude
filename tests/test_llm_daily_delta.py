@@ -53,3 +53,22 @@ def test_daily_delta_dry_run(db, mocker):
         after = cur.fetchone()[0]
 
     assert after > before
+
+
+def test_daily_delta_zip_excludes_prior_analysis_and_pins_as_of(db, mocker):
+    """신규 분석 ZIP 에 직전 분류(analysis_result.json)가 혼입되면 안 되고(anchoring),
+    --date 과거 재실행 시 미래 데이터가 새지 않도록 on_date=as_of 를 고정해야 한다."""
+    from datetime import date
+    import kr_pipeline.llm_runner.daily_delta as dd
+    zip_mock = mocker.patch.object(dd, "build_analysis_zip", return_value=b"fake_zip")
+    mocker.patch.object(dd, "save_freeze")
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('DDZC1','T','KOSPI') ON CONFLICT DO NOTHING")
+    db.commit()
+
+    as_of = date(2025, 6, 10)
+    dd._process_one(db, "DDZC1", dry_run=True, as_of=as_of)
+
+    _, kwargs = zip_mock.call_args
+    assert kwargs.get("include_prior_analysis") is False
+    assert kwargs.get("on_date") == as_of

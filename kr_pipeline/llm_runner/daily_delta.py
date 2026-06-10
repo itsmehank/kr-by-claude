@@ -87,7 +87,9 @@ def _process_one(conn: Connection, symbol: str, *, dry_run: bool, as_of: date) -
     market = row[0]
 
     started = datetime.now(timezone.utc)
-    zip_bytes = build_analysis_zip(conn, symbol)
+    # include_prior_analysis=False: 신규 분석에 직전 분류가 첨부되면 LLM 이
+    # 과거 판정에 anchoring 됨. on_date=as_of: --date 과거 재실행 look-ahead 방지.
+    zip_bytes = build_analysis_zip(conn, symbol, on_date=as_of, include_prior_analysis=False)
     with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
         f.write(zip_bytes)
         zip_path = f.name

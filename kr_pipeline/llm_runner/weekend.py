@@ -219,8 +219,10 @@ def _process_one(
     """단일 종목 (5) 호출 + INSERT."""
     started = datetime.now(timezone.utc)
 
-    # ZIP 빌드 (dry-run 도 가짜 bytes 받음)
-    zip_bytes = build_analysis_zip(conn, symbol)
+    # ZIP 빌드 (dry-run 도 가짜 bytes 받음).
+    # include_prior_analysis=False: 신규 분석에 직전 분류가 첨부되면 LLM 이
+    # 과거 판정에 anchoring 됨. on_date=as_of: --date 과거 재실행 look-ahead 방지.
+    zip_bytes = build_analysis_zip(conn, symbol, on_date=as_of, include_prior_analysis=False)
 
     # ZIP 을 임시 파일로 저장 (Claude CLI attach 용)
     with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:

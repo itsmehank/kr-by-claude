@@ -149,3 +149,18 @@ def test_reaper_marks_stale_running_failed(db):
     with db.cursor() as cur:
         cur.execute("DELETE FROM pipeline_runs WHERE id = ANY(%s)", ([stale, fresh, nohb_old, nohb_new, current],))
     db.commit()
+
+
+def test_weekend_zip_excludes_prior_analysis_and_pins_as_of(db, mocker):
+    """신규 분석 ZIP 에 직전 분류(analysis_result.json)가 혼입되면 안 되고(anchoring),
+    --date 과거 재실행 시 미래 데이터가 새지 않도록 on_date=as_of 를 고정해야 한다."""
+    import kr_pipeline.llm_runner.weekend as wk
+    zip_mock = mocker.patch.object(wk, "build_analysis_zip", return_value=b"fake_zip")
+    mocker.patch.object(wk, "save_freeze")
+
+    as_of = date(2025, 6, 10)
+    wk._process_one(db, "WKZC1", "KOSPI", dry_run=True, as_of=as_of)
+
+    _, kwargs = zip_mock.call_args
+    assert kwargs.get("include_prior_analysis") is False
+    assert kwargs.get("on_date") == as_of
