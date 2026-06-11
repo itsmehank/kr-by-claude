@@ -165,3 +165,43 @@ def test_mirror_gate_picks_latest_week_le_date(db):
         cur.execute("SELECT rs_line_not_declining_7m FROM daily_indicators WHERE ticker='005930' AND date='2026-06-03'")
         # 2026-06-03 은 06-05 이전 → 최신 week_end ≤ date 는 05-29 → TRUE
         assert cur.fetchone()[0] is True
+
+
+def test_delete_weekly_indicators_orphans(db):
+    """weekly_prices 에서 사라진 키의 weekly_indicators 행 삭제 (불변식:
+    weekly_indicators ⊆ weekly_prices 키).
+
+    production 사고 후속: weekly_prices 고아(부분집계 키)는 자가치유로 삭제됐지만
+    indicators full-refresh 는 upsert 만 해 하류 weekly_indicators 에 597행 잔존."""
+    from datetime import date
+    from kr_pipeline.indicators.store import delete_weekly_indicators_orphans
+
+    t = "WIORPH"
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'T','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute("DELETE FROM weekly_indicators WHERE ticker=%s", (t,))
+        cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
+        # 소스(weekly_prices)에는 금요일 행만 존재
+        cur.execute(
+            """INSERT INTO weekly_prices (ticker, week_end_date, open, high, low, close,
+                   adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value, trading_days)
+               VALUES (%s, '2026-06-05', 100,110,95,105, 105.0,110.0,95.0,100.0,1000.0,1000,1,4)""",
+            (t,),
+        )
+        # indicators 에는 금요일(정상) + 화요일(소스 삭제된 고아) 두 행
+        cur.execute(
+            "INSERT INTO weekly_indicators (ticker, week_end_date, adj_close) VALUES (%s,'2026-06-05',105.0), (%s,'2026-06-02',105.0)",
+            (t, t),
+        )
+    db.commit()
+
+    deleted = delete_weekly_indicators_orphans(db)
+
+    with db.cursor() as cur:
+        cur.execute("SELECT week_end_date FROM weekly_indicators WHERE ticker=%s ORDER BY week_end_date", (t,))
+        rows = [r[0] for r in cur.fetchall()]
+        cur.execute("DELETE FROM weekly_indicators WHERE ticker=%s", (t,))
+        cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
+    db.commit()
+    assert deleted >= 1
+    assert rows == [date(2026, 6, 5)], f"고아 잔존: {rows}"

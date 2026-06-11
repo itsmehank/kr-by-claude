@@ -216,3 +216,23 @@ def update_daily_rs_gate_from_weekly(
             (start_date, end_date),
         )
         return cur.rowcount
+
+
+def delete_weekly_indicators_orphans(conn: Connection) -> int:
+    """weekly_prices 에 키가 없는 weekly_indicators 행 삭제 (불변식 sweep).
+
+    weekly_prices 의 부분집계 고아가 자가치유(weekly/store._delete_superseded)로
+    삭제돼도, indicators full-refresh 는 upsert 만 해 하류 weekly_indicators 에
+    구(舊) 키 행이 잔존한다 (2026-06 사고: 597행). run_weekly 끝에서 정리.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            DELETE FROM weekly_indicators w
+             WHERE NOT EXISTS (
+                     SELECT 1 FROM weekly_prices p
+                      WHERE p.ticker = w.ticker
+                        AND p.week_end_date = w.week_end_date)
+            """
+        )
+        return cur.rowcount

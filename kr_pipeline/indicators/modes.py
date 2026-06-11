@@ -38,6 +38,7 @@ from kr_pipeline.indicators.store import (
     upsert_weekly_indicators_phase_a, update_weekly_indicators_rs_rating,
     update_weekly_indicators_minervini_pass,
     update_daily_rs_gate_from_weekly,
+    delete_weekly_indicators_orphans,
 )
 
 
@@ -672,6 +673,13 @@ def run_weekly(
         mn_affected = update_weekly_indicators_minervini_pass(conn, upsert_start, load_end)
         conn.commit()
         log.info(f"Phase C weekly: {mn_affected} updated")
+
+        # 불변식 sweep: weekly_prices 에서 사라진 키의 잔존 행 정리
+        # (부분집계 고아 자가치유의 하류 전파 — upsert 만으로는 안 지워짐)
+        orphans = delete_weekly_indicators_orphans(conn)
+        conn.commit()
+        if orphans:
+            log.warning(f"weekly_indicators orphans deleted: {orphans}")
 
         warnings = _run_sanity_checks_weekly(conn, load_end)
         state["warnings"].extend(warnings)
