@@ -65,6 +65,21 @@ def _write_heartbeat(dsn, run_id, progress: dict):
 _TRANSIENT_EXC = (subprocess.TimeoutExpired, ClaudeCLIError)
 
 
+def _already_classified(conn: Connection, as_of: date) -> set[str]:
+    """같은 analyzed_for_date 로 이미 적재된 종목 — 재실행 시 후보 제외 (이어하기).
+
+    사용량 제한/중단으로 잘린 배치를 재실행할 때 기적재분의 중복 LLM 호출을
+    막는다 (backfill._already_backfilled 와 동일 패턴). source 무관 — 같은
+    데이터 날짜의 분석이 이미 있으면 충분하다.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT DISTINCT symbol FROM weekly_classification WHERE analyzed_for_date = %s",
+            (as_of,),
+        )
+        return {r[0] for r in cur.fetchall()}
+
+
 def _process_one_worker(dsn, symbol, market, *, dry_run, as_of, max_retries=2, abort=None):
     """자기 커넥션으로 한 종목 처리. 일시오류만 재시도. dict 반환.
 
@@ -133,16 +148,27 @@ def run(
     if as_of is None:
         as_of = date.today()
 
+    skipped_existing = 0
     if ticker:
         candidates = [{"symbol": ticker, "market": "KOSPI"}]
     else:
         candidates = get_qualifying_tickers(conn, as_of=as_of)
+        # 이어하기: 같은 analyzed_for_date 기적재 종목 제외 (단일 종목 디버그는
+        # 의도적 재분석이므로 제외하지 않음)
+        done = _already_classified(conn, as_of)
+        if done:
+            before = len(candidates)
+            candidates = [c for c in candidates if c["symbol"] not in done]
+            skipped_existing = before - len(candidates)
+            if skipped_existing:
+                log.info("weekend resume: %d already classified for %s — skipped",
+                         skipped_existing, as_of)
 
     if limit:
         candidates = candidates[:limit]
 
-    log.info("weekend batch: %d candidates as_of=%s dry_run=%s",
-             len(candidates), as_of, dry_run)
+    log.info("weekend batch: %d candidates as_of=%s dry_run=%s (skipped_existing=%d)",
+             len(candidates), as_of, dry_run, skipped_existing)
 
     concurrency = concurrency or int(os.environ.get("WEEKEND_CONCURRENCY", "4"))
     processed = 0
@@ -234,6 +260,7 @@ def run(
     return {
         "processed": processed,
         "candidates": len(candidates),
+        "skipped_existing": skipped_existing,       # 같은 as_of 기적재 — 이어하기로 제외
         "failures": len(failed_tickers),
         "failed_tickers": failed_tickers,           # [{symbol,error,attempts}]
         "integrity_skipped": integrity_skipped,

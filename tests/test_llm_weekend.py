@@ -188,3 +188,41 @@ def test_weekend_aborts_batch_on_usage_limit(db, mocker):
         wk.run(db, dry_run=True, concurrency=1, run_id=None)
 
     assert len(calls) == 1, f"제한 감지 후에도 추가 호출: {calls}"
+
+
+def test_weekend_skips_already_classified_same_as_of(db, mocker):
+    """같은 analyzed_for_date 에 이미 분류·적재된 종목은 재실행 시 LLM 호출 없이 skip —
+    사용량 제한 등으로 중단된 배치를 재실행하면 '이어하기'가 되어야 한다 (backfill 과 동일 패턴)."""
+    import kr_pipeline.llm_runner.weekend as wk
+
+    as_of = date(2099, 2, 6)  # sentinel 미래 날짜 (격리)
+    with db.cursor() as cur:
+        for t in ("SKP1", "SKP2"):
+            cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,%s,'KOSPI') ON CONFLICT DO NOTHING", (t, t))
+        # SKP1 은 이미 같은 as_of 로 분류 완료
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES ('SKP1', NOW(), %s, 'KOSPI', 'watch', 'weekend')""",
+            (as_of,),
+        )
+    db.commit()
+
+    mocker.patch.object(wk, "get_qualifying_tickers", return_value=[
+        {"symbol": "SKP1", "market": "KOSPI"},
+        {"symbol": "SKP2", "market": "KOSPI"},
+    ])
+    calls = []
+    def fake_process_one(conn, symbol, market, *, dry_run, as_of):
+        calls.append(symbol)
+    mocker.patch.object(wk, "_process_one", side_effect=fake_process_one)
+
+    try:
+        r = wk.run(db, dry_run=True, as_of=as_of, concurrency=1, run_id=None)
+        assert calls == ["SKP2"], f"기적재 SKP1 이 다시 호출됨: {calls}"
+        assert r["skipped_existing"] == 1
+        assert r["processed"] == 1
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol IN ('SKP1','SKP2') AND analyzed_for_date=%s", (as_of,))
+        db.commit()
