@@ -33,6 +33,7 @@ import { IndicatorsCard } from "../components/panels/IndicatorsCard";
 import { EntrySignalCard } from "../components/panels/EntrySignalCard";
 import { PerformanceCard } from "../components/panels/PerformanceCard";
 import { TriggerHistoryTable } from "../components/panels/TriggerHistoryTable";
+import { ClassificationHistoryTable } from "../components/panels/ClassificationHistoryTable";
 import { StockSearch } from "../components/StockSearch";
 
 const PERIODS = [
@@ -606,6 +607,12 @@ export default function ChartPage() {
           <IndicatorsCard ticker={ticker} />
           <EntrySignalCard ticker={ticker} />
           <PerformanceCard ticker={ticker} />
+          <div className="lg:col-span-2">
+            <ClassificationHistoryTable
+              rows={classHistoryQ.data}
+              loading={classHistoryQ.isLoading}
+            />
+          </div>
           <div className="lg:col-span-2">
             <TriggerHistoryTable ticker={ticker} />
           </div>
