@@ -147,3 +147,48 @@ def test_gate_failure_stores_ungated_classification(db, monkeypatch):
     assert cls == "entry", "fail-soft: 게이트 미적용 원본 classification 보존"
     assert float(conf) == 0.80, "원본 confidence 보존"
     assert tr is None, "gate 실패 시 triggered_rules NULL"
+
+
+def test_gate_sql_failure_does_not_poison_transaction(db, monkeypatch):
+    """gate 내부 *SQL* 오류 → 트랜잭션이 aborted 상태가 되면 직후 INSERT 가
+    InFailedSqlTransaction 으로 실패해 LLM 비용을 쓴 분류가 통째로 유실된다.
+    SAVEPOINT 격리로 fail-soft 가 SQL 오류에도 실질 동작해야 한다.
+
+    (기존 test_gate_failure_stores_ungated_classification 은 순수 Python 예외만
+    모킹해 이 경로를 못 잡는다.)"""
+    from kr_pipeline.llm_runner import gates as gates_mod
+
+    def boom_sql(conn, *a, **k):
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM nonexistent_table_for_gate_test")
+
+    monkeypatch.setattr(gates_mod, "compute_handle_quality", boom_sql)
+
+    classified_at = datetime(2026, 3, 11, tzinfo=timezone.utc)
+    result = {
+        "classification": "entry", "confidence": 0.80,
+        "risk_flags": [], "pattern": "cup_with_handle",
+        "pivot_price": 100.0, "pivot_basis": "handle_high",
+        "base_high": 100.0, "base_low": 70.0, "base_depth_pct": 30.0,
+        "base_start_date": date(2026, 1, 5), "reasoning": "test",
+    }
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stocks (ticker,name,market) VALUES ('GSQL1','GSQL1','KOSPI') ON CONFLICT DO NOTHING"
+        )
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='GSQL1'")
+    db.commit()
+
+    insert_classification(
+        db, symbol="GSQL1", classified_at=classified_at, market="KOSPI",
+        result=result, source="weekend", llm_meta={},
+    )
+    db.commit()
+
+    with db.cursor() as cur:
+        cur.execute("SELECT classification FROM weekly_classification WHERE symbol='GSQL1'")
+        row = cur.fetchone()
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='GSQL1'")
+    db.commit()
+    assert row is not None, "SQL 게이트 실패가 INSERT 까지 유실시킴 (LLM 비용 유실)"
+    assert row[0] == "entry"
