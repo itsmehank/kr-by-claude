@@ -13,7 +13,7 @@ from pathlib import Path
 from psycopg import Connection
 
 from api.services.zip_builder import build_analysis_zip
-from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 from kr_pipeline.llm_runner.load import get_qualifying_tickers
 from kr_pipeline.llm_runner.store import insert_backfill_classification
 
@@ -76,6 +76,15 @@ def run(conn: Connection, *, start: date, end: date, tickers: list[str] | None =
                 _process_one(conn, symbol, market, dry_run=dry_run, as_of=as_of)
                 agg["processed"] += 1
                 conn.commit()
+            except UsageLimitError:
+                # 사용량 제한(5시간) — 남은 (종목, 토요일) 순회가 전부 헛호출이므로
+                # 즉시 중단 + 예외 전파(run_tracking failed → 재실행 force 불필요).
+                # 기적재분은 종목별 commit + _already_backfilled skip 으로 보존
+                # → 재실행 = 이어하기. (weekend/daily_delta 와 동일 정책)
+                conn.rollback()
+                log.warning("backfill usage limit at %s @ %s — aborting (processed=%d)",
+                            symbol, as_of, agg["processed"])
+                raise
             except Exception as e:  # noqa: BLE001
                 log.warning("backfill %s @ %s failed: %s", symbol, as_of, e)
                 agg["failed"].append([symbol, str(as_of), str(e)])

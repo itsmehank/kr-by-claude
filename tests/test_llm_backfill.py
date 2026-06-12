@@ -243,3 +243,29 @@ def test_backfill_run_multi_week_with_tickers(db, monkeypatch):
             cur.execute("DELETE FROM classification_backfill WHERE symbol='BKW1'")
             cur.execute("DELETE FROM daily_indicators WHERE ticker='BKW1' AND date IN (%s,%s)", (s1, s2))
         db.commit()
+
+
+def test_backfill_aborts_on_usage_limit(db, monkeypatch):
+    """사용량 제한 시 남은 토요일들을 헛돌지 않고 즉시 중단 + 예외 전파
+    (run_tracking 이 failed 기록 → 재실행이 중복 가드에 안 막힘).
+    기적재 토요일 skip(_already_backfilled)과 합쳐져 '중단→재실행=이어하기'가 완성된다.
+    weekend/daily_delta 와 동일 정책 — backfill 만 범용 except 가 삼키고 있었다."""
+    from datetime import date
+    import pytest
+    import kr_pipeline.llm_runner.backfill as bf
+    from kr_pipeline.llm_runner.llm.claude_cli import UsageLimitError
+
+    monkeypatch.setattr(bf, "get_qualifying_tickers",
+                        lambda conn, as_of=None, tickers=None: [{"symbol": "UL660", "market": "KOSPI"}])
+    monkeypatch.setattr(bf, "_already_backfilled", lambda conn, as_of: set())
+    calls = []
+    def fake_process_one(conn, symbol, market, *, dry_run, as_of):
+        calls.append(as_of)
+        raise UsageLimitError("usage limit reached")
+    monkeypatch.setattr(bf, "_process_one", fake_process_one)
+
+    with pytest.raises(UsageLimitError):
+        # 4개 토요일 기간 — 첫 토요일에서 제한 → 나머지 3개는 시도 금지
+        bf.run(db, start=date(2025, 6, 1), end=date(2025, 6, 30), tickers=["UL660"], dry_run=False)
+
+    assert len(calls) == 1, f"제한 후에도 남은 토요일 헛호출: {calls}"
