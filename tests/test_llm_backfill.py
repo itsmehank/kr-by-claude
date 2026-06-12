@@ -269,3 +269,68 @@ def test_backfill_aborts_on_usage_limit(db, monkeypatch):
         bf.run(db, start=date(2025, 6, 1), end=date(2025, 6, 30), tickers=["UL660"], dry_run=False)
 
     assert len(calls) == 1, f"제한 후에도 남은 토요일 헛호출: {calls}"
+
+
+def test_backfill_resume_after_usage_limit(db, monkeypatch):
+    """중단→재실행 이어하기 계약(end-to-end): 1차 실행이 토요일 2개 적재 후
+    사용량 제한으로 중단되면, 2차 실행은 그 2개를 LLM 호출 없이 skip 하고
+    남은 토요일만 분석한다."""
+    from datetime import date
+    import pytest
+    import kr_pipeline.llm_runner.backfill as bf
+    from kr_pipeline.llm_runner.llm.claude_cli import UsageLimitError
+
+    t = "RSM660"
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'T','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute("DELETE FROM classification_backfill WHERE symbol=%s", (t,))
+    db.commit()
+
+    monkeypatch.setattr(bf, "get_qualifying_tickers",
+                        lambda conn, as_of=None, tickers=None: [{"symbol": t, "market": "KOSPI"}])
+    monkeypatch.setattr(bf, "build_analysis_zip",
+                        lambda conn, symbol, on_date=None, **kw: b"zip")
+    canned = {"classification": "watch", "pattern": "flat_base", "confidence": 0.7,
+              "reasoning": "x", "risk_flags": [], "pivot_price": 100.0,
+              "pivot_basis": "range_high", "base_high": 100.0, "base_low": 90.0,
+              "base_depth_pct": 10.0, "base_start_date": "2025-05-01"}
+
+    # 1차: 2개 토요일 성공 후 3번째에서 사용량 제한
+    calls_1st = []
+    def claude_1st(**kw):
+        calls_1st.append(1)
+        if len(calls_1st) >= 3:
+            raise UsageLimitError("limit")
+        return dict(canned)
+    monkeypatch.setattr(bf, "call_claude", lambda *a, **kw: claude_1st(**kw))
+
+    start, end = date(2025, 6, 1), date(2025, 6, 30)  # 토요일 4개 (6/7,14,21,28)
+    with pytest.raises(UsageLimitError):
+        bf.run(db, start=start, end=end, tickers=[t], dry_run=False)
+    db.commit()
+
+    with db.cursor() as cur:
+        cur.execute("SELECT analyzed_for_date FROM classification_backfill WHERE symbol=%s ORDER BY 1", (t,))
+        stored_1st = [r[0] for r in cur.fetchall()]
+    assert stored_1st == [date(2025, 6, 7), date(2025, 6, 14)], f"1차 적재: {stored_1st}"
+
+    # 2차: 제한 해제 — 기적재 2개는 호출 없이 skip, 남은 2개만 분석
+    calls_2nd = []
+    def claude_2nd(**kw):
+        calls_2nd.append(1)
+        return dict(canned)
+    monkeypatch.setattr(bf, "call_claude", lambda *a, **kw: claude_2nd(**kw))
+
+    try:
+        result = bf.run(db, start=start, end=end, tickers=[t], dry_run=False)
+        db.commit()
+        assert len(calls_2nd) == 2, f"기적재분 재호출 발생: {len(calls_2nd)}회 (2회여야)"
+        assert result["processed"] == 2
+        assert result["skipped_existing"] == 2
+        with db.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM classification_backfill WHERE symbol=%s", (t,))
+            assert cur.fetchone()[0] == 4, "최종 4개 토요일 전부 적재"
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM classification_backfill WHERE symbol=%s", (t,))
+        db.commit()
