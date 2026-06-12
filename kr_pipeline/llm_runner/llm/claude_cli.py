@@ -43,6 +43,32 @@ def _is_usage_limit(text: str | None) -> bool:
     return bool(text and _USAGE_LIMIT_RE.search(text))
 
 
+def _extract_json_objects(text: str) -> list[dict]:
+    """텍스트에서 최상위 JSON object 들을 순서대로 추출.
+
+    기존 '첫 { ~ 끝 }' 슬라이스는 산문 중괄호({각주} 등)나 복수 JSON 블록이
+    섞이면 비-JSON 을 포함해 파싱이 깨지고, 실패가 전체 LLM 재호출(비용 증폭)
+    로 이어졌다. raw_decode 스캔은 각 '{' 에서 유효한 JSON 만 골라낸다.
+    소비자는 마지막 object(최종 답) 를 쓴다.
+    """
+    dec = json.JSONDecoder()
+    out: list[dict] = []
+    i = 0
+    while True:
+        j = text.find("{", i)
+        if j == -1:
+            break
+        try:
+            obj, end = dec.raw_decode(text, j)
+        except json.JSONDecodeError:
+            i = j + 1
+            continue
+        if isinstance(obj, dict):
+            out.append(obj)
+        i = end
+    return out
+
+
 # ── Mock generators for dry-run ─────────────────────────────────────────────
 
 def _mock_analyze_chart_v3() -> dict:
@@ -185,6 +211,12 @@ def call_claude(
 
     cmd = ["claude", "--print", "--permission-mode", "bypassPermissions"]
 
+    # 모델 핀(옵션): 미설정 시 사용자 기본 모델 — 배치 비용·품질을 사용자
+    # /model 변경에서 분리하고 싶으면 KR_CLAUDE_MODEL 로 고정.
+    pinned_model = os.environ.get("KR_CLAUDE_MODEL")
+    if pinned_model:
+        cmd.extend(["--model", pinned_model])
+
     # 첨부 파일들의 디렉토리를 --add-dir 로 등록 (claude CLI 최신 API)
     attach_dirs: set[str] = set()
     for att in attachments or []:
@@ -213,14 +245,12 @@ def call_claude(
         )
         if result.returncode == 0 and result.stdout.strip():
             try:
-                # Claude CLI 출력은 일반 텍스트 + JSON 블록. JSON 추출.
-                stdout = result.stdout.strip()
-                first_brace = stdout.find("{")
-                last_brace = stdout.rfind("}")
-                if first_brace == -1 or last_brace == -1:
+                # Claude CLI 출력은 일반 텍스트 + JSON 블록 혼합 가능.
+                # raw_decode 스캔으로 유효 JSON object 만 추출, 마지막(최종 답) 채택.
+                objs = _extract_json_objects(result.stdout)
+                if not objs:
                     raise ValueError("No JSON in output")
-                json_str = stdout[first_brace : last_brace + 1]
-                return json.loads(json_str)
+                return objs[-1]
             except (json.JSONDecodeError, ValueError) as e:
                 # rc=0 이어도 stdout 이 사용량 제한 안내 텍스트일 수 있음 — 재시도 무의미.
                 if _is_usage_limit(result.stdout):

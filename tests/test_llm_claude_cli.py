@@ -184,3 +184,56 @@ def test_usage_limit_is_not_claude_cli_error():
     weekend 워커의 transient 재시도(_TRANSIENT_EXC)에 걸리면 안 된다."""
     from kr_pipeline.llm_runner.llm.claude_cli import ClaudeCLIError, UsageLimitError
     assert not issubclass(UsageLimitError, ClaudeCLIError)
+
+
+def test_call_claude_parses_json_among_prose_braces(mocker):
+    """산문에 중괄호가 섞여도(예: 'config {x}' 후 JSON) 파싱 — 첫{~끝} 슬라이스는
+    이런 출력에서 비-JSON 을 포함해 깨지고, 실패 시 전체 재호출(비용 증폭)된다."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+
+    mocker.patch("time.sleep")
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=0,
+        stdout='분석 노트 {여기는 산문} 입니다.\n{"classification": "watch", "pattern": "vcp"}\n끝 {각주}',
+        stderr="",
+    )
+    result = call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/f.zip"])
+    assert result == {"classification": "watch", "pattern": "vcp"}
+    assert mock_run.call_count == 1, "파싱 실패로 재호출되면 안 된다"
+
+
+def test_call_claude_picks_last_json_object(mocker):
+    """JSON 블록이 여럿이면 마지막(최종 답) 채택 — 모델이 중간 사고로 JSON 예시를
+    먼저 출력하는 경우 대비."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+
+    mocker.patch("time.sleep")
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=0,
+        stdout='{"draft": true}\n최종:\n{"classification": "entry"}',
+        stderr="",
+    )
+    result = call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/f.zip"])
+    assert result == {"classification": "entry"}
+
+
+def test_call_claude_pins_model_from_env(mocker, monkeypatch):
+    """KR_CLAUDE_MODEL 설정 시 --model 로 핀 — 사용자 기본 모델 변경에 배치
+    비용·품질이 따라 흔들리지 않도록."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+
+    monkeypatch.setenv("KR_CLAUDE_MODEL", "claude-sonnet-4-6")
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout='{"ok": true}', stderr="",
+    )
+    call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/f.zip"])
+    cmd = mock_run.call_args[0][0]
+    assert "--model" in cmd and "claude-sonnet-4-6" in cmd
+
+    monkeypatch.delenv("KR_CLAUDE_MODEL")
+    call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/f.zip"])
+    cmd2 = mock_run.call_args[0][0]
+    assert "--model" not in cmd2, "미설정 시 기존 동작(기본 모델) 유지"
