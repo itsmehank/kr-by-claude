@@ -38,8 +38,8 @@ def test_weekend_batch_dry_run_processes_all_qualifying(db, mocker):
 
 
 def test_weekend_parallel_aggregates_and_retries(db, mocker):
+    import subprocess as sp
     import kr_pipeline.llm_runner.weekend as wk
-    from kr_pipeline.llm_runner.llm.claude_cli import ClaudeCLIError
 
     mocker.patch.object(wk, "get_qualifying_tickers", return_value=[
         {"symbol": "OKAA", "market": "KOSPI"},
@@ -50,7 +50,9 @@ def test_weekend_parallel_aggregates_and_retries(db, mocker):
     def fake_process_one(conn, symbol, market, *, dry_run, as_of):
         calls[symbol] = calls.get(symbol, 0) + 1
         if symbol == "TRNS" and calls[symbol] == 1:
-            raise ClaudeCLIError("transient")          # 1회 일시오류 → 재시도
+            # NOTE: 워커 transient 는 TimeoutExpired 만 — ClaudeCLIError 는
+            # CLI 내부 4회 재시도를 소진한 최종 실패라 워커 재시도 제외(증폭 방지)
+            raise sp.TimeoutExpired(cmd="claude", timeout=600)
         if symbol == "PERM":
             raise ValueError("permanent")              # 영구 → 재시도 안 함
         return None
@@ -226,3 +228,47 @@ def test_weekend_skips_already_classified_same_as_of(db, mocker):
         with db.cursor() as cur:
             cur.execute("DELETE FROM weekly_classification WHERE symbol IN ('SKP1','SKP2') AND analyzed_for_date=%s", (as_of,))
         db.commit()
+
+
+def test_weekend_interrupt_cancels_queued_work(db, mocker):
+    """SIGTERM(→KeyboardInterrupt)/Ctrl-C 중단 시 대기열의 잔여 종목이
+    실 LLM 호출을 계속하면 안 된다 (비용 누수). abort + cancel_futures 로 차단."""
+    import pytest
+    import kr_pipeline.llm_runner.weekend as wk
+
+    mocker.patch.object(wk, "get_qualifying_tickers", return_value=[
+        {"symbol": f"KI{i}", "market": "KOSPI"} for i in range(1, 4)
+    ])
+    calls = []
+    def fake_process_one(conn, symbol, market, *, dry_run, as_of):
+        calls.append(symbol)
+        raise KeyboardInterrupt("signal 15")
+    mocker.patch.object(wk, "_process_one", side_effect=fake_process_one)
+
+    with pytest.raises(KeyboardInterrupt):
+        wk.run(db, dry_run=True, concurrency=1, run_id=None)
+
+    assert len(calls) == 1, f"중단 후에도 잔여 종목 호출: {calls}"
+
+
+def test_weekend_no_worker_retry_on_claude_cli_error(db, mocker):
+    """ClaudeCLIError 는 이미 CLI 내부에서 4회 재시도를 소진한 결과 —
+    워커가 또 3회 재도전하면 종목당 최대 12회 헛호출(증폭). 워커 재시도는
+    TimeoutExpired(내부 재시도를 우회하는 유일한 경로)만 담당한다."""
+    import kr_pipeline.llm_runner.weekend as wk
+    from kr_pipeline.llm_runner.llm.claude_cli import ClaudeCLIError
+
+    mocker.patch.object(wk, "get_qualifying_tickers", return_value=[
+        {"symbol": "AMP1", "market": "KOSPI"},
+    ])
+    calls = []
+    def fake_process_one(conn, symbol, market, *, dry_run, as_of):
+        calls.append(symbol)
+        raise ClaudeCLIError("4 attempts exhausted")
+    mocker.patch.object(wk, "_process_one", side_effect=fake_process_one)
+
+    r = wk.run(db, dry_run=True, concurrency=1, run_id=None)
+
+    assert len(calls) == 1, f"내부 재시도 소진 후 워커가 또 재시도: {len(calls)}회"
+    assert r["failures"] == 1
+    assert r["failed_tickers"][0]["attempts"] == 1

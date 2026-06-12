@@ -62,7 +62,10 @@ def _write_heartbeat(dsn, run_id, progress: dict):
         hb.close()
 
 
-_TRANSIENT_EXC = (subprocess.TimeoutExpired, ClaudeCLIError)
+# 워커 재시도 대상은 TimeoutExpired 만: CLI 내부 재시도(4회)를 우회하는 유일한
+# 경로라 워커가 보완한다. ClaudeCLIError 는 이미 내부 4회를 소진한 최종 실패 —
+# 워커가 또 3회 재도전하면 종목당 최대 12회 헛호출(증폭)이 되므로 제외.
+_TRANSIENT_EXC = (subprocess.TimeoutExpired,)
 
 
 def _already_classified(conn: Connection, as_of: date) -> set[str]:
@@ -124,6 +127,13 @@ def _process_one_worker(dsn, symbol, market, *, dry_run, as_of, max_retries=2, a
             except Exception as e:
                 wconn.rollback()
                 return {"status": "fail", "symbol": symbol, "attempts": attempts, "error": str(e)}
+            except BaseException:
+                # KeyboardInterrupt(SIGTERM 전환)/SystemExit — 워커 안에서 abort 를
+                # set 해, 메인 스레드가 결과를 받기 전에 다음 종목이 시작되는
+                # 레이스를 막는다 (잔여 종목의 실 LLM 호출 차단).
+                if abort is not None:
+                    abort.set()
+                raise
         return {"status": "fail", "symbol": symbol, "attempts": attempts,
                 "error": f"transient retries exhausted: {last_err}"}
     finally:
@@ -220,27 +230,34 @@ def run(
         with ThreadPoolExecutor(max_workers=workers) as ex:
             futs = {ex.submit(_process_one_worker, dsn, c["symbol"], c["market"],
                               dry_run=dry_run, as_of=as_of, abort=abort): c["symbol"] for c in candidates}
-            for fut in as_completed(futs):
-                r = fut.result()
-                if r["status"] == "ok":
-                    processed += 1
-                elif r["status"] == "integrity":
-                    integrity_skipped.append(r["detail"])
-                elif r["status"] == "aborted":
-                    pass  # 중단 결정 후 시작된 워커 — 호출 없이 건너뜀 (집계 제외)
-                elif r["status"] == "usage_limit":
-                    # 사용량 제한 — 대기열 취소 후 즉시 중단 (남은 후보 헛호출 방지).
-                    usage_limit_error = r.get("error", "usage limit")
-                    log.warning("usage limit hit at %s — aborting batch (processed=%d/%d)",
-                                r["symbol"], processed, total)
-                    ex.shutdown(wait=False, cancel_futures=True)
-                    break
-                else:
-                    failed_tickers.append({"symbol": r["symbol"], "error": r.get("error", ""), "attempts": r["attempts"]})
-                with prog_lock:
-                    prog["done"] += 1
-                    prog["failed"] = len(failed_tickers)
-                    prog["in_flight"] = min(workers, total - prog["done"])  # 남은 미완료 중 동시 한도(근사·표시용)
+            try:
+                for fut in as_completed(futs):
+                    r = fut.result()
+                    if r["status"] == "ok":
+                        processed += 1
+                    elif r["status"] == "integrity":
+                        integrity_skipped.append(r["detail"])
+                    elif r["status"] == "aborted":
+                        pass  # 중단 결정 후 시작된 워커 — 호출 없이 건너뜀 (집계 제외)
+                    elif r["status"] == "usage_limit":
+                        # 사용량 제한 — 대기열 취소 후 즉시 중단 (남은 후보 헛호출 방지).
+                        usage_limit_error = r.get("error", "usage limit")
+                        log.warning("usage limit hit at %s — aborting batch (processed=%d/%d)",
+                                    r["symbol"], processed, total)
+                        ex.shutdown(wait=False, cancel_futures=True)
+                        break
+                    else:
+                        failed_tickers.append({"symbol": r["symbol"], "error": r.get("error", ""), "attempts": r["attempts"]})
+                    with prog_lock:
+                        prog["done"] += 1
+                        prog["failed"] = len(failed_tickers)
+                        prog["in_flight"] = min(workers, total - prog["done"])  # 남은 미완료 중 동시 한도(근사·표시용)
+            except (KeyboardInterrupt, SystemExit):
+                # SIGTERM(run_tracking 이 KeyboardInterrupt 로 전환)/Ctrl-C —
+                # 대기열 잔여 종목이 실 LLM 호출을 계속하지 않도록 차단 후 전파.
+                abort.set()
+                ex.shutdown(wait=False, cancel_futures=True)
+                raise
     finally:
         stop.set()
         if run_id is not None and hb_thread.is_alive():
