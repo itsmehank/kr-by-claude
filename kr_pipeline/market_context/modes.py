@@ -21,6 +21,12 @@ from kr_pipeline.common.thresholds import (
     NASDAQ_REFERENCE_SIGMA,
     FTD_PCT_BASE,
     DISTRIBUTION_PCT_BASE,
+    FTD_RALLY_WINDOW_MIN_DAYS,
+    FTD_RALLY_WINDOW_MAX_DAYS,
+    STATUS_FTD_RECENT_DAYS,
+    STATUS_CORRECTION_OFF_HIGH_PCT,
+    STATUS_DOWNTREND_OFF_HIGH_PCT,
+    STATUS_DIST_COUNT_FOR_FTD_INVALIDATION,
     KOREAN_SIGMA_RATIO_FLOOR,
     KOREAN_SIGMA_RATIO_CEILING,
 )
@@ -44,16 +50,17 @@ INDICES = [
 ]
 
 
+# 메타데이터도 SSOT 로 조립 — 임계 변경 시 이 기록이 거짓말하지 않도록 (리터럴 금지)
 COMPUTATION_NOTES = json.dumps({
-    "distribution_day_pct_base": -0.2,
-    "ftd_pct_base": 1.4,
+    "distribution_day_pct_base": DISTRIBUTION_PCT_BASE,
+    "ftd_pct_base": FTD_PCT_BASE,
     "note": "P2-1a: market thresholds scaled per-index by Korean σ. See log for per-date applied values.",
-    "ftd_rally_window_min": 3,
-    "ftd_rally_window_max": 15,
-    "ftd_lookback_days": 90,
-    "correction_off_high_pct": -10,
-    "downtrend_off_high_pct": -15,
-    "dist_count_threshold_for_ftd_invalidation": 6,
+    "ftd_rally_window_min": FTD_RALLY_WINDOW_MIN_DAYS,
+    "ftd_rally_window_max": FTD_RALLY_WINDOW_MAX_DAYS,
+    "ftd_lookback_days": STATUS_FTD_RECENT_DAYS,
+    "correction_off_high_pct": STATUS_CORRECTION_OFF_HIGH_PCT,
+    "downtrend_off_high_pct": STATUS_DOWNTREND_OFF_HIGH_PCT,
+    "dist_count_threshold_for_ftd_invalidation": STATUS_DIST_COUNT_FOR_FTD_INVALIDATION,
 }, ensure_ascii=False)
 
 
@@ -167,13 +174,11 @@ def _process_one_date(
 
     dist_count = count_distribution_days(
         index_df, end_idx=end_idx,
-        pct_threshold=thresholds["distribution_pct"],
-        lookback=25,
+        pct_threshold=thresholds["distribution_pct"],  # lookback=SSOT MARKET_DISTRIBUTION_LOOKBACK_DAYS
     )
     last_ftd_date = detect_last_ftd(
         index_df, end_idx=end_idx,
-        pct_threshold=thresholds["ftd_pct"],
-        lookback_days=90,
+        pct_threshold=thresholds["ftd_pct"],  # lookback_days=SSOT STATUS_FTD_RECENT_DAYS
     )
     days_since_ftd = (target_date - last_ftd_date).days if last_ftd_date else None
 

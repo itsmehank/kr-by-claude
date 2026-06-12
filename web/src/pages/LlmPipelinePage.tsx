@@ -10,7 +10,7 @@ import {
 } from "../data/llm-pipeline-simulation";
 import { SimulationMatrix } from "./llm-pipeline/SimulationMatrix";
 import { SimulationModal } from "./llm-pipeline/SimulationModal";
-import { GATE_BREAKOUT_VOL_MULT } from "../data/thresholds.generated";
+import { GATE_BREAKOUT_VOL_MULT, GATE_PROMOTION_PRICE_RATIO, BREAKOUT_VOL_FLOOR, BREAKOUT_VOL_PREFERRED } from "../data/thresholds.generated";
 import { ENTRY_PARAMS_FIELDS, FIELD_CATEGORIES } from "../data/llm-pipeline/entry-params-fields";
 import { ListFold } from "./llm-pipeline/ListFold";
 import { TableExplainerList } from "./llm-pipeline/TableExplainerList";
@@ -129,9 +129,9 @@ const STAGES: PipelineStage[] = [
     inputs: ["weekly_classification", "daily_indicators"],
     outputs: ["trigger_evaluation_log"],
     deterministicSummary:
-      `세 가지 트리거를 결정론 룰로 잡습니다 — ① 종가 > pivot AND 거래량 ≥ 평균 (${GATE_BREAKOUT_VOL_MULT.toFixed(1)}×) → [[breakout]] (돌파), ② 종가 ≥ pivot × 0.95 → [[promotion]] (돌파 직전 staging), ③ 종가 < 손절선 또는 종가 < SMA-50 → [[invalidation]] ([[base]] 무효화). 거래량 기준은 게이트의 1.0× = '거래량이 죽지 않은 정도만' 확인이고, 책 표준 1.4~1.5× 와 [[pocket_pivot|pocket pivot]] 예외는 AI 가 판단합니다.`,
+      `세 가지 트리거를 결정론 룰로 잡습니다 — ① 종가 > pivot AND 거래량 ≥ 평균 (${GATE_BREAKOUT_VOL_MULT.toFixed(1)}×) → [[breakout]] (돌파), ② 종가 ≥ pivot × ${GATE_PROMOTION_PRICE_RATIO} → [[promotion]] (돌파 직전 staging), ③ 종가 < 손절선 또는 종가 < SMA-50 → [[invalidation]] ([[base]] 무효화). 거래량 기준은 게이트의 1.0× = '거래량이 죽지 않은 정도만' 확인이고, 책 표준 ${BREAKOUT_VOL_FLOOR}~${BREAKOUT_VOL_PREFERRED}× 와 [[pocket_pivot|pocket pivot]] 예외는 AI 가 판단합니다.`,
     deterministicDetail:
-      "compute/trigger_gate.py 의 룰: pivot_price IS NULL 인 종목은 skip. close < stop_loss OR close < sma_50 → invalidation 우선 적용. 그 외 close > pivot AND volume >= avg_volume_50d × GATE_BREAKOUT_VOL_MULT → breakout. promotion 은 watch 분류 종목에만, close >= pivot × 0.95 AND volume >= avg 일 때.",
+      "compute/trigger_gate.py 의 룰: pivot_price IS NULL 인 종목은 skip. close < stop_loss OR close < sma_50 → invalidation 우선 적용. 그 외 close > pivot AND volume >= avg_volume_50d × GATE_BREAKOUT_VOL_MULT → breakout. promotion 은 watch 분류 종목에만, close >= pivot × GATE_PROMOTION_PRICE_RATIO AND volume >= avg 일 때.",
     llmSummary:
       "evaluate_pivot_trigger_v1.md prompt — 게이트가 잡은 트리거 유형을 입력으로 받고 '[[go_now]] (지금 사라) / [[wait]] (기다려) / [[abort]] (가짜·무효)' 중 하나를 결정.\n\n*중요*: 이 단계는 분류 자체를 바꾸지 않습니다. abort 가 나와도 분류는 그대로 유지 — 다음 토 weekend 에서 AI 가 다시 보고 분류를 [[ignore]] 로 강등해야 비로소 강등.",
     decisions: ["go_now", "wait", "abort"],
@@ -240,7 +240,7 @@ const TRIGGER_DECISION_MATRIX: Record<string, Record<string, MatrixCell | null>>
       next: "매수 계획 (entry_params) 자동 생성. 사용자가 행을 보고 실제 매수 결정.",
     },
     wait: {
-      meaning: "돌파했지만 AI 가 보류 — 약한 신호 (예: 거래량이 1.4× 미만, base 가 약간 wide) 일 가능성.",
+      meaning: `돌파했지만 AI 가 보류 — 약한 신호 (예: 거래량이 ${BREAKOUT_VOL_FLOOR}× 미만, base 가 약간 wide) 일 가능성.`,
       next: "매수 계획 생성 안 됨. 다음 평일에 재평가. entry 분류는 그대로 유지.",
     },
     abort: {

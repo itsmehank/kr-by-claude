@@ -10,6 +10,7 @@ from datetime import date
 import pandas as pd
 
 from kr_pipeline.common.thresholds import (
+    STATUS_FTD_RECENT_DAYS,
     FTD_PCT_BASE,
     FTD_RALLY_WINDOW_MIN_DAYS,
     FTD_RALLY_WINDOW_MAX_DAYS,
@@ -29,7 +30,7 @@ def detect_last_ftd(
     end_idx: int,
     *,
     pct_threshold: float = FTD_PCT_BASE,
-    lookback_days: int = 90,
+    lookback_days: int = STATUS_FTD_RECENT_DAYS,
 ) -> date | None:
     """end_idx 기준 직전 lookback_days 세션 내 가장 최근 유효 FTD 날짜 반환.
 

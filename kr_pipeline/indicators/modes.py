@@ -165,8 +165,8 @@ def _process_ticker_daily(
     sma_200 = sma(adj_close, 200)
 
     # 거래량 파생 지표 (sma_50 필요하므로 SMAs 다음)
-    pp_flag = pocket_pivot(is_up, adj_volume, sma_50, adj_close, lookback=10)
-    vdu_flag = volume_dry_up(adj_volume, avg_vol_50, threshold=0.5)
+    pp_flag = pocket_pivot(is_up, adj_volume, sma_50, adj_close)  # lookback=SSOT PP_DOWN_VOL_LOOKBACK_DAYS
+    vdu_flag = volume_dry_up(adj_volume, avg_vol_50)  # threshold=SSOT VOLUME_DRY_UP_MULT
     ud_ratio_50 = up_down_volume_ratio(adj_volume, is_up, is_down, window=50)
     # threshold 미지정 — SSOT(STOCK_DISTRIBUTION_VOL_MULT=1.0) default 사용.
     # 과거 threshold=1.25 리터럴이 2026-05-22 SSOT 1.0 정렬(P0-2)을 무력화했었음.
@@ -192,7 +192,7 @@ def _process_ticker_daily(
         "sma_50": sma_50, "sma_150": sma_150, "sma_200": sma_200,
         "w52_high": w52h, "w52_low": w52l,
     }, index=df.index)
-    mn = compute_minervini_c1_to_c7(mn_df, sma_200_lookback=22)
+    mn = compute_minervini_c1_to_c7(mn_df)  # lookback=SSOT C3_SMA200_LOOKBACK_DAYS
 
     # Build row dicts, filter to upsert_start..load_end
     rows = []

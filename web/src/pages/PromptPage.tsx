@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { C6_W52LOW_MULT, C7_W52HIGH_MULT, C8_RS_RATING_MIN } from "../data/thresholds.generated";
 import { todayKstISO } from "../lib/dates";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -41,9 +42,9 @@ const MINERVINI_CONDITIONS = [
   { id: "c3", label: "C3", desc: "200 상승" },
   { id: "c4", label: "C4", desc: "50 > 150 > 200" },
   { id: "c5", label: "C5", desc: "종가 > 50" },
-  { id: "c6", label: "C6", desc: "52w 저점 +25%" },
-  { id: "c7", label: "C7", desc: "52w 고점 -25%" },
-  { id: "c8", label: "C8", desc: "RS ≥ 70" },
+  { id: "c6", label: "C6", desc: `52w 저점 +${Math.round((C6_W52LOW_MULT - 1) * 100)}%` },
+  { id: "c7", label: "C7", desc: `52w 고점 -${Math.round((1 - C7_W52HIGH_MULT) * 100)}%` },
+  { id: "c8", label: "C8", desc: `RS ≥ ${C8_RS_RATING_MIN}` },
 ] as const;
 
 function statusKr(status: string): string {
