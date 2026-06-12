@@ -127,18 +127,20 @@ def get_classification_history(
     sql = """
         WITH combined AS (
           SELECT COALESCE(analyzed_for_date, classified_at::date) AS d,
-                 classification, classified_at, 0 AS source_rank, 'live' AS src
+                 classification, pattern, confidence, reasoning,
+                 classified_at, 0 AS source_rank, 'live' AS src
             FROM weekly_classification
            WHERE symbol = %(ticker)s
              AND COALESCE(analyzed_for_date, classified_at::date) BETWEEN %(start)s AND %(end)s
           UNION ALL
           SELECT analyzed_for_date AS d,
-                 classification, classified_at, 1 AS source_rank, 'backfill' AS src
+                 classification, pattern, confidence, reasoning,
+                 classified_at, 1 AS source_rank, 'backfill' AS src
             FROM classification_backfill
            WHERE symbol = %(ticker)s
              AND analyzed_for_date BETWEEN %(start)s AND %(end)s
         )
-        SELECT DISTINCT ON (d) d, classification, src
+        SELECT DISTINCT ON (d) d, classification, src, pattern, confidence, reasoning
           FROM combined
          ORDER BY d ASC, source_rank ASC, classified_at DESC
     """
@@ -146,4 +148,12 @@ def get_classification_history(
     with conn.cursor() as cur:
         cur.execute(sql, params)
         rows = cur.fetchall()
-    return [ClassificationHistoryRow(symbol=ticker, date=r[0], classification=r[1], source=r[2]) for r in rows]
+    return [
+        ClassificationHistoryRow(
+            symbol=ticker, date=r[0], classification=r[1], source=r[2],
+            pattern=r[3],
+            confidence=float(r[4]) if r[4] is not None else None,
+            reasoning=r[5],
+        )
+        for r in rows
+    ]

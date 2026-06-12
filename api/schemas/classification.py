@@ -31,3 +31,6 @@ class ClassificationHistoryRow(BaseModel):
     date: date
     classification: str
     source: str
+    pattern: str | None = None       # disqualified/구형 행은 NULL
+    confidence: float | None = None
+    reasoning: str | None = None

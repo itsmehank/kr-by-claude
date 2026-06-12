@@ -333,3 +333,53 @@ def test_classification_history_empty_for_unknown_ticker(client, db):
         assert r.json() == []
     finally:
         app.dependency_overrides.pop(get_conn, None)
+
+
+def test_classification_history_includes_detail_fields(client, db):
+    """history 응답에 pattern/confidence/reasoning 포함 — 분류 히스토리 테이블용.
+    disqualified 행(시스템 강등)은 셋 다 NULL 전달."""
+    from datetime import datetime, timezone, date
+    from api.deps import get_conn
+
+    def override():
+        yield db
+    app.dependency_overrides[get_conn] = override
+    try:
+        with db.cursor() as cur:
+            cur.execute("INSERT INTO stocks (ticker,name,market) VALUES ('HSTD1','H','KOSPI') ON CONFLICT DO NOTHING")
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='HSTD1'")
+            cur.execute("DELETE FROM classification_backfill WHERE symbol='HSTD1'")
+            cur.execute(
+                """INSERT INTO weekly_classification
+                     (symbol, classified_at, analyzed_for_date, market, classification,
+                      pattern, confidence, reasoning, source)
+                   VALUES ('HSTD1', %s, %s, 'KOSPI', 'watch',
+                           'cup_with_handle', 0.72, '핸들 형성 중 — 관찰 유지', 'weekend')""",
+                (datetime(2025, 2, 2, tzinfo=timezone.utc), date(2025, 2, 1)),
+            )
+            cur.execute(
+                """INSERT INTO weekly_classification
+                     (symbol, classified_at, analyzed_for_date, market, classification, source)
+                   VALUES ('HSTD1', %s, %s, 'KOSPI', 'disqualified', 'disqualified')""",
+                (datetime(2025, 2, 9, tzinfo=timezone.utc), date(2025, 2, 8)),
+            )
+        db.commit()
+
+        r = client.get("/api/classifications/history/HSTD1?start=2025-01-01&end=2025-03-01")
+        assert r.status_code == 200
+        rows = r.json()
+        assert len(rows) == 2
+        watch = rows[0]
+        assert watch["pattern"] == "cup_with_handle"
+        assert watch["confidence"] == 0.72
+        assert watch["reasoning"] == "핸들 형성 중 — 관찰 유지"
+        disq = rows[1]
+        assert disq["classification"] == "disqualified"
+        assert disq["pattern"] is None
+        assert disq["confidence"] is None
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='HSTD1'")
+            cur.execute("DELETE FROM stocks WHERE ticker='HSTD1'")
+        db.commit()
+        app.dependency_overrides.pop(get_conn, None)
