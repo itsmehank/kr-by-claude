@@ -25,7 +25,9 @@ export function relativeTime(iso: string | null | undefined): string {
 
 /**
  * 마지막 갱신 시간을 status tone 으로 변환.
- * 1시간 이내: success, 1일 이내: warning, 그 이상: danger.
+ * 24시간 이내: fresh, 7일 이내: stale, 그 이상: old.
+ * (파이프라인이 평일 일배치라 '하루 안 = 정상'이 기준 — 과거 주석이
+ *  1시간/1일로 잘못 적혀 있었음. 코드가 의도.)
  */
 export function stalenessLevel(
   iso: string | null | undefined

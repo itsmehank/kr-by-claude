@@ -77,7 +77,8 @@ export function TriggerHistoryTable({ ticker, limit = 20 }: Props) {
         </thead>
         <tbody>
           {q.data.map((t) => {
-            const cfg = DECISION_COLOR[t.decision];
+            const cfg = DECISION_COLOR[t.decision]
+              ?? { bg: "bg-tint-stone", text: "text-muted", dot: "bg-gray-400" }; // 예상 외 값 가드
             const key = `${t.symbol}-${t.evaluated_at}`;
             const isOpen = expanded.has(key);
             return (

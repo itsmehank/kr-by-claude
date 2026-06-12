@@ -29,7 +29,7 @@ function formatNumber(n: number): string {
 
 export default function MinerviniPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialMinRs = Number(searchParams.get("min_rs") ?? 70);
 
   const [minRs, setMinRs] = useState<number>(
@@ -129,7 +129,7 @@ export default function MinerviniPage() {
               {RS_OPTIONS.map((v) => (
                 <button
                   key={v}
-                  onClick={() => setMinRs(v)}
+                  onClick={() => { setMinRs(v); setSearchParams({ min_rs: String(v) }, { replace: true }); }} // URL 동기화 — 새로고침/공유 시 필터 유지
                   className={`px-3 py-1.5 rounded-lg text-data-xs font-semibold transition-colors ${
                     minRs === v
                       ? "bg-accent text-white"

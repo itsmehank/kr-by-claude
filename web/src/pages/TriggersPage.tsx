@@ -259,11 +259,13 @@ export default function TriggersPage() {
 }
 
 function DecisionPill({ decision }: { decision: TriggerDecision }) {
-  const cfg = {
+  // DB 컬럼에 CHECK 제약이 없어 예상 외 값이 오면 렌더 크래시 — fallback 가드
+  const cfg = ({
     go_now: { bg: "bg-green-100", text: "text-green-800", dot: "bg-green-500" },
     wait:   { bg: "bg-yellow-100", text: "text-yellow-800", dot: "bg-yellow-500" },
     abort:  { bg: "bg-gray-200", text: "text-gray-700", dot: "bg-gray-500" },
-  }[decision];
+  } as Record<string, { bg: string; text: string; dot: string }>)[decision]
+    ?? { bg: "bg-tint-stone", text: "text-muted", dot: "bg-gray-400" };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded ${cfg.bg} ${cfg.text}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />

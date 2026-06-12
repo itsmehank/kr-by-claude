@@ -104,6 +104,13 @@ export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) 
   const requiredMissing = modeParams.some(
     (p) => p.required && (paramValues[p.name] === undefined || paramValues[p.name] === ""),
   );
+  // 기간 역순(start > end) 방지 — 빈 값만 막고 역순은 그대로 spawn 되던 갭
+  const invalidDateRange =
+    typeof paramValues.start === "string" &&
+    typeof paramValues.end === "string" &&
+    paramValues.start !== "" &&
+    paramValues.end !== "" &&
+    paramValues.start > paramValues.end;
 
   function handleRun() {
     if (isHeavy) {
@@ -224,6 +231,10 @@ export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) 
           </span>
         </label>
 
+        {invalidDateRange && (
+          <div className="text-danger text-data-xs">시작일이 종료일보다 늦습니다.</div>
+        )}
+
         <div className="flex justify-end gap-2">
           <button
             onClick={onClose}
@@ -233,7 +244,7 @@ export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) 
           </button>
           <button
             onClick={handleRun}
-            disabled={!modeId || mutation.isPending || requiredMissing}
+            disabled={!modeId || mutation.isPending || requiredMissing || invalidDateRange}
             className="px-4 py-2 bg-accent text-white rounded-lg text-data font-semibold disabled:opacity-50"
           >
             {mutation.isPending ? "실행 중…" : "실행"}
