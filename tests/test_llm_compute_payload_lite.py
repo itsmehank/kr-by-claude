@@ -326,3 +326,107 @@ def test_build_for_6_intraday_adjusted(db):
     assert cs["intraday_high"] == 2500.0, f"Expected adj_high=2500 but got {cs['intraday_high']}"
     assert cs["intraday_low"] == 1900.0, f"Expected adj_low=1900 but got {cs['intraday_low']}"
     assert cs["intraday_open"] == 2100.0, f"Expected adj_open=2100 but got {cs['intraday_open']}"
+
+
+def test_build_6_current_state_bounded_by_evaluation_date(db):
+    """(6) current_state 는 evaluation_at 시점 이하 최신 지표여야 한다 —
+    상한 없는 ORDER BY date DESC LIMIT 1 은 과거 재실행(replay/--force) 시
+    '오늘' 데이터를 과거 signal 로 라벨링한다 (look-ahead)."""
+    from datetime import date, timedelta, datetime
+    from kr_pipeline.llm_runner.compute.payload_lite import build_for_6
+
+    t = "PL6LA"
+    d0 = date(2026, 4, 1)
+    future = d0 + timedelta(days=5)
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'P','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        for d, close in ((d0, 100), (future, 999)):
+            cur.execute(
+                """INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, 1000000, 1) ON CONFLICT DO NOTHING""",
+                (t, d, close, close, close, close, close),
+            )
+            cur.execute(
+                """INSERT INTO daily_indicators (ticker, date, adj_close, volume, avg_volume_50d)
+                   VALUES (%s, %s, %s, 1000000, 950000) ON CONFLICT DO NOTHING""",
+                (t, d, close),
+            )
+        prior_at = datetime(2026, 3, 28, 12, 0)
+        cur.execute(
+            """INSERT INTO weekly_classification
+               (symbol, classified_at, market, classification, pivot_price, source)
+               VALUES (%s, %s, 'KOSPI', 'entry', 105.0, 'weekend')""",
+            (t, prior_at),
+        )
+        eval_at = datetime(2026, 4, 1, 16, 32)
+        cur.execute(
+            """INSERT INTO trigger_evaluation_log
+               (symbol, evaluated_at, trigger_type, close, volume, pivot_price,
+                decision, confidence, reasoning, prior_classification_at)
+               VALUES (%s, %s, 'breakout', 106, 1500000, 105, 'go_now', 0.85, 'x', %s)""",
+            (t, eval_at, prior_at),
+        )
+    db.commit()
+
+    try:
+        payload = build_for_6(db, t, evaluation_at=eval_at)
+        assert payload["current_state"]["close"] == 100.0, (
+            f"evaluation_at({eval_at.date()}) 이후의 미래 지표({payload['current_state']['close']})가 새어 들어옴"
+        )
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol=%s", (t,))
+            cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (t,))
+            cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
+            cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        db.commit()
+
+
+def test_build_5b_history_bounded_by_as_of(db):
+    """(5b) recent_evaluation_history 는 as_of 이하만 — 하한(7일 전)만 있고 상한이
+    없어 과거 as_of 재실행 시 미래 평가가 history 에 섞인다 (look-ahead)."""
+    from datetime import date, datetime
+    from kr_pipeline.llm_runner.compute.payload_lite import build_for_5b
+
+    t = "PL5BLA"
+    as_of = date(2026, 4, 1)
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'P','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute(
+            """INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
+               VALUES (%s, %s, 100,100,100,100,100, 1000000, 1) ON CONFLICT DO NOTHING""",
+            (t, as_of),
+        )
+        cur.execute(
+            "INSERT INTO daily_indicators (ticker, date, adj_close) VALUES (%s, %s, 100) ON CONFLICT DO NOTHING",
+            (t, as_of),
+        )
+        prior_at = datetime(2026, 3, 28, 12, 0)
+        cur.execute(
+            """INSERT INTO weekly_classification
+               (symbol, classified_at, market, classification, pivot_price, source)
+               VALUES (%s, %s, 'KOSPI', 'watch', 105.0, 'weekend')""",
+            (t, prior_at),
+        )
+        for ts, decision in ((datetime(2026, 3, 31, 16, 0), "wait"),
+                             (datetime(2026, 4, 4, 16, 0), "go_now")):  # as_of 이후 = 미래
+            cur.execute(
+                """INSERT INTO trigger_evaluation_log
+                   (symbol, evaluated_at, trigger_type, close, volume, pivot_price,
+                    decision, confidence, reasoning, prior_classification_at)
+                   VALUES (%s, %s, 'breakout', 100, 1, 105, %s, 0.5, 'x', %s)""",
+                (t, ts, decision, prior_at),
+            )
+    db.commit()
+
+    try:
+        payload = build_for_5b(db, t, trigger_type="breakout", as_of=as_of)
+        decisions = [h["decision"] for h in payload["recent_evaluation_history"]]
+        assert decisions == ["wait"], f"미래 평가가 history 에 혼입: {decisions}"
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol=%s", (t,))
+            cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (t,))
+            cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
+            cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        db.commit()

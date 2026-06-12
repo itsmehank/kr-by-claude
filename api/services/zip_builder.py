@@ -97,8 +97,12 @@ ZIP 에 `analysis_result.json` 이 포함돼 있다면 *이미 시스템 LLM 이
 """
 
 
-def _fetch_latest_analysis_result(conn: Connection, ticker: str) -> dict | None:
-    """weekly_classification 의 가장 최근 분류 1건을 dict 로. 없으면 None."""
+def _fetch_latest_analysis_result(conn: Connection, ticker: str, on_date: date) -> dict | None:
+    """weekly_classification 의 on_date 이하 가장 최근 분류 1건을 dict 로. 없으면 None.
+
+    on_date 상한이 없으면 과거 시점 ZIP(point-in-time)에 그 이후 분류가 들어가
+    README 의 분석 기준일과 모순된다 (corporate_actions ce10e56 과 동일 클래스
+    look-ahead)."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -109,10 +113,11 @@ def _fetch_latest_analysis_result(conn: Connection, ticker: str) -> dict | None:
                    llm_input_tokens, llm_output_tokens
               FROM weekly_classification
              WHERE symbol = %s
+               AND COALESCE(analyzed_for_date, classified_at::date) <= %s
              ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC
              LIMIT 1
             """,
-            (ticker,),
+            (ticker, on_date),
         )
         row = cur.fetchone()
     if row is None:
@@ -164,8 +169,8 @@ def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = Non
         raise ValueError(f"Stock not found: {ticker}")
     name, market, sector = row
 
-    # 분석 결과 (있다면) — 검증 모드 활성화 트리거
-    analysis_result = _fetch_latest_analysis_result(conn, ticker) if include_prior_analysis else None
+    # 분석 결과 (있다면) — 검증 모드 활성화 트리거. on_date 이하만 (look-ahead 방지)
+    analysis_result = _fetch_latest_analysis_result(conn, ticker, on_date) if include_prior_analysis else None
     mode = "검증 (analysis_result 포함)" if analysis_result else "원본 분석"
 
     payload = build_payload(conn, ticker, on_date)

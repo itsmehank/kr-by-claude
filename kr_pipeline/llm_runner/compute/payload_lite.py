@@ -77,9 +77,10 @@ def build_for_5b(
               FROM trigger_evaluation_log
              WHERE symbol = %s
                AND evaluated_at >= %s::date - INTERVAL '7 days'
+               AND evaluated_at <  %s::date + INTERVAL '1 day'
              ORDER BY evaluated_at DESC LIMIT 7
             """,
-            (symbol, as_of),
+            (symbol, as_of, as_of),
         )
         history = cur.fetchall()
 
@@ -217,9 +218,10 @@ def build_for_6(
               LEFT JOIN daily_prices p
                 ON p.ticker = i.ticker AND p.date = i.date
              WHERE i.ticker = %s
+               AND i.date <= %s
              ORDER BY i.date DESC LIMIT 1
             """,
-            (symbol,),
+            (symbol, evaluation_at.date()),
         )
         state = cur.fetchone()
 

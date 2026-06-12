@@ -168,10 +168,11 @@ def test_build_analysis_zip_skips_prior_analysis_when_disabled(db):
         cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'Z','KOSPI') ON CONFLICT DO NOTHING", (t,))
         cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (t,))
         cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
-        # 라이브 분류 1건 (verify-mode 트리거가 됨)
+        # 라이브 분류 1건 (verify-mode 트리거가 됨).
+        # NOTE: analysis_result 도 on_date 이하만 포함되므로 on_date(2025-06-10) 이전으로 시드.
         cur.execute(
             """INSERT INTO weekly_classification (symbol, classified_at, market, classification, source)
-               VALUES (%s, NOW(), 'KOSPI', 'watch', 'weekend')""", (t,))
+               VALUES (%s, '2025-06-09T12:00:00+00', 'KOSPI', 'watch', 'weekend')""", (t,))
         # 약간의 가격 데이터
         for i in range(10):
             d = date(2025, 6, 1) + timedelta(days=i)
@@ -209,10 +210,43 @@ def test_fetch_latest_analysis_result_by_analyzed_for_date(db):
         )
     db.commit()
     try:
-        result = _fetch_latest_analysis_result(db, "AXZIP1")
+        result = _fetch_latest_analysis_result(db, "AXZIP1", on_date=__import__("datetime").date.today())
         assert result is not None
         assert result["classification"] == "entry"  # analyzed_for_date 최신
     finally:
         with db.cursor() as cur:
             cur.execute("DELETE FROM weekly_classification WHERE symbol='AXZIP1'")
+        db.commit()
+
+
+def test_fetch_latest_analysis_result_bounded_by_on_date(db):
+    """검증 ZIP 의 analysis_result 도 on_date 이하 분류여야 한다 — 상한 없으면
+    과거 시점 ZIP 에 그 이후 분류가 들어가 README 분석 기준일과 모순 (look-ahead,
+    corporate_actions ce10e56 과 동일 클래스)."""
+    from datetime import date, datetime
+    from api.services.zip_builder import _fetch_latest_analysis_result
+
+    t = "ZIPLA1"
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'T','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (t,))
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES (%s, %s, %s, 'KOSPI', 'watch', 'weekend'),
+                      (%s, %s, %s, 'KOSPI', 'entry', 'weekend')""",
+            (t, datetime(2026, 3, 7, 4, 0), date(2026, 3, 6),
+             t, datetime(2026, 4, 4, 4, 0), date(2026, 4, 3)),
+        )
+    db.commit()
+
+    try:
+        result = _fetch_latest_analysis_result(db, t, on_date=date(2026, 3, 20))
+        assert result is not None
+        assert result["classification"] == "watch", (
+            f"on_date(3/20) 이후의 분류(4/3 {result['classification']})가 새어 들어옴"
+        )
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (t,))
         db.commit()
