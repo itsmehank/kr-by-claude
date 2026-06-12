@@ -176,6 +176,7 @@ def run(
                 rows_total += _process_ticker(conn, ticker, start, end, today)
             except Exception as e:
                 failures.append((ticker, str(e)))
+                conn.rollback()  # DB 측 예외의 aborted 트랜잭션이 후속 종목으로 연쇄되지 않게
             if i % 100 == 0:
                 log.info(f"weekly progress: {i}/{len(tickers)} (failures: {len(failures)})")
 
@@ -187,6 +188,7 @@ def run(
                     rows_total += _process_ticker(conn, ticker, start, end, today)
                 except Exception as e:
                     retry_failures.append((ticker, str(e)))
+                    conn.rollback()
             failures = retry_failures
 
         for index_code in ("1001", "2001"):
@@ -194,6 +196,7 @@ def run(
                 rows_total += _process_index(conn, index_code, start, end, today)
             except Exception as e:
                 failures.append((index_code, str(e)))
+                conn.rollback()
 
         warnings = _run_sanity_checks(conn)
         state["warnings"].extend(warnings)

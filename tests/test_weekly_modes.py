@@ -197,3 +197,48 @@ def test_incremental_start_snaps_to_monday():
     assert start.weekday() == 0, f"start must be Monday, got {start} ({start.weekday()})"
     assert start == date(2026, 4, 13)  # 5/15-28d=4/17(금) → 그 주 월요일로 스냅
     assert end == date(2026, 5, 14)
+
+
+def test_run_sql_error_does_not_poison_following_tickers(db, monkeypatch):
+    """한 종목의 *DB 측* 예외는 트랜잭션을 aborted 로 만든다 — except 에서
+    rollback 하지 않으면 후속 전 종목이 InFailedSqlTransaction 으로 연쇄 실패.
+    (기존 test_run_isolates_exception_in_one_ticker 는 RuntimeError 만 모킹해
+    이 경로를 못 잡음 — phase1 게이트 SAVEPOINT 건과 동일 클래스.)"""
+    from kr_pipeline.weekly import modes
+
+    t1, t2 = "WRB1", "WRB2"
+    with db.cursor() as cur:
+        for t in (t1, t2):
+            cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'T','KOSPI') ON CONFLICT DO NOTHING", (t,))
+            cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
+            cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+            for i in range(5):  # 2010-03-08(월)~03-12(금)
+                cur.execute(
+                    """INSERT INTO daily_prices (ticker, date, open, high, low, close,
+                           adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value)
+                       VALUES (%s, %s, 100,110,95,105, 105.0,110.0,95.0,100.0,1000.0,1000,1)""",
+                    (t, date(2010, 3, 8) + timedelta(days=i)),
+                )
+    db.commit()
+
+    original = modes._process_ticker
+    def faulty(conn, ticker, start, end, today):
+        if ticker == t1:
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM nonexistent_table_weekly_rb")  # 트랜잭션 오염
+        return original(conn, ticker, start, end, today)
+    monkeypatch.setattr(modes, "_process_ticker", faulty)
+
+    try:
+        stats = modes.run(db, modes.Mode.FULL_REFRESH, only_tickers=[t1, t2])
+        failed = [t for t, _ in stats.failures]
+        assert t2 not in failed, f"{t1} 의 DB 에러가 {t2} 로 연쇄 전파 (rollback 누락): {stats.failures}"
+        with db.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM weekly_prices WHERE ticker=%s", (t2,))
+            assert cur.fetchone()[0] > 0, f"{t2} 주봉 미적재"
+    finally:
+        with db.cursor() as cur:
+            for t in (t1, t2):
+                cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
+                cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        db.commit()

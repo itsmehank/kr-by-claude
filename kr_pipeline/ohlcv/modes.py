@@ -200,6 +200,7 @@ def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.
             time.sleep(0.1)
         except Exception as e:
             failures.append((ticker, str(e)))
+            conn.rollback()  # DB 측 예외의 aborted 트랜잭션이 후속 종목으로 연쇄되지 않게
         if i % 100 == 0:
             log.info(f"full-refresh progress: {i}/{len(tickers)} (failures so far: {len(failures)})")
 
@@ -213,6 +214,7 @@ def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.
                 time.sleep(0.2)  # 살짝 더 긴 sleep 으로 부드럽게 재시도
             except Exception as e:
                 retry_failures.append((ticker, str(e)))
+                conn.rollback()
         failures = retry_failures
         if failures:
             log.warning(f"After retry, {len(failures)} tickers still failed")
