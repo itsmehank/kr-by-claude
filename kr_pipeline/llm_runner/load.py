@@ -127,9 +127,13 @@ def get_active_with_current(conn: Connection, as_of: date | None = None) -> list
             """,
             (tickers, as_of),
         )
-        current = {r[0]: {"close": float(r[1]), "volume": int(r[2]) if r[2] else 0,
-                          "avg_volume_50d": float(r[3]) if r[3] else 0,
-                          "sma_50": float(r[4]) if r[4] else 0}
+        # NULL 은 None 유지 — 0 강제 시 evaluate_pivot 의 None 가드가 무력화되어
+        # volume >= 0×mult 가 항상 참(거래량 확인 없이 트리거), close < sma_50(=0)
+        # invalidation 영구 미발동이 된다. 가드가 None 계약을 기대한다.
+        current = {r[0]: {"close": float(r[1]),
+                          "volume": int(r[2]) if r[2] is not None else None,
+                          "avg_volume_50d": float(r[3]) if r[3] is not None else None,
+                          "sma_50": float(r[4]) if r[4] is not None else None}
                    for r in cur.fetchall()}
 
         # 직전 거래일 종가 (fresh_cross 판정용). as_of 이전 가장 최근 1행/종목.

@@ -69,3 +69,44 @@ def test_evaluate_pivot_dry_run(db, mocker):
         row = cur.fetchone()
     assert row is not None
     assert row[0] in {"go_now", "wait", "abort"}
+
+
+def test_get_active_with_current_preserves_null_as_none(db):
+    """daily_indicators 의 NULL(avg_volume_50d/sma_50/volume)은 0 이 아니라 None 으로
+    유지되어야 한다 — 0 강제 시 evaluate_pivot 의 None 가드가 무력화되어
+    (i) volume >= 0×mult 가 항상 참 → 거래량 확인 없이 트리거 발화(실 LLM 비용),
+    (ii) close < sma_50(=0) invalidation 영구 미발동."""
+    from datetime import date
+    from kr_pipeline.llm_runner.load import get_active_with_current
+
+    t = "NULGD1"
+    as_of = date(2099, 3, 5)  # sentinel 격리
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'T','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (t,))
+        cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
+        # active 모니터링 대상 (entry)
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, pivot_price, source)
+               VALUES (%s, NOW(), %s, 'KOSPI', 'entry', 100, 'weekend')""",
+            (t, as_of),
+        )
+        # 지표 행: avg_volume_50d / sma_50 / volume 모두 NULL
+        cur.execute(
+            "INSERT INTO daily_indicators (ticker, date, adj_close) VALUES (%s, %s, 105)",
+            (t, as_of),
+        )
+    db.commit()
+
+    try:
+        rows = get_active_with_current(db, as_of=as_of)
+        mine = next(r for r in rows if r["symbol"] == t)
+        assert mine["avg_volume_50d"] is None, f"NULL→{mine['avg_volume_50d']!r} 강제됨"
+        assert mine["sma_50"] is None, f"NULL→{mine['sma_50']!r} 강제됨"
+        assert mine["volume"] is None, f"NULL→{mine['volume']!r} 강제됨"
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (t,))
+            cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
+        db.commit()
