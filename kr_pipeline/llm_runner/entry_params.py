@@ -11,6 +11,7 @@ from psycopg import Connection
 
 from kr_pipeline.llm_runner.compute.payload_lite import build_for_6
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+from kr_pipeline.llm_runner.slack import notify_signal
 from kr_pipeline.llm_runner.store import insert_entry_params, _normalize_entry_params
 
 
@@ -117,6 +118,10 @@ def _process_one(conn, symbol, eval_at, prior_at, *, dry_run, as_of):
         log.info("dry-run: validated entry plan for %s (skipping DB insert)", symbol)
         return
 
+    # 알림용 값은 insert 전에 캡처 — _normalize 가 §9 키를 리네임할 수 있음
+    _ntf_entry = float(result["trigger_price"])
+    _ntf_stop = float(result["stop_loss_price"])
+
     insert_entry_params(
         conn,
         symbol=symbol,
@@ -127,4 +132,13 @@ def _process_one(conn, symbol, eval_at, prior_at, *, dry_run, as_of):
         llm_meta={"duration_s": (finished - started).total_seconds(),
                   "input_tokens": None, "output_tokens": None},
         analyzed_for_date=as_of,
+    )
+
+    # 매수 시그널 Slack 알림 — 적재 성공 시에만(dry-run 은 위에서 return).
+    # _post 가 webhook 미설정/실패를 자체 흡수하므로 fail-soft.
+    notify_signal(
+        symbol=symbol,
+        name=payload.get("name") or symbol,
+        entry_price=_ntf_entry,
+        stop_loss=_ntf_stop,
     )

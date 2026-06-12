@@ -67,3 +67,39 @@ def test_entry_params_processes_go_now_only(db, mocker):
 
     assert after_ep1 - before_ep1 == 1
     assert after_ep2 - before_ep2 == 0
+
+
+def test_entry_params_sends_slack_signal_on_insert(db, mocker):
+    """매수 시그널 적재 성공 시 Slack 알림(notify_signal)이 나가야 한다 —
+    함수만 있고 호출이 없어 '시그널이 떠도 아무도 모르는' dead code 였다.
+    dry-run 은 알림 금지."""
+    from datetime import datetime, timezone
+    import kr_pipeline.llm_runner.entry_params as ep
+
+    canned = {
+        "entry_mode": "pivot_breakout", "pivot_price": 100.0, "trigger_price": 100.1,
+        "current_price": 100.0, "stop_loss_price": 95.0,
+        "stop_loss_pct_from_pivot": -5.0, "stop_loss_pct_from_current_price": -5.1,
+        "suggested_weight_pct": 5.0, "expected_target_price": 120.0,
+        "expected_target_pct": 20.0, "pattern_basis": "flat_base",
+        "entry_window_days": 3, "max_chase_pct_from_pivot": 5.0,
+        "breakout_volume_requirement": "ge_1.4x_50day_avg",
+        "observed_breakout_volume_ratio": None,
+        "known_warnings": [], "other_warnings": "", "notes": "t",
+    }
+    mocker.patch.object(ep, "build_for_6", return_value={"symbol": "NTFY1", "name": "알림테스트"})
+    mocker.patch.object(ep, "call_claude", return_value=dict(canned))
+    mocker.patch.object(ep, "insert_entry_params")
+    notify = mocker.patch.object(ep, "notify_signal")
+
+    now = datetime.now(timezone.utc)
+    ep._process_one(db, "NTFY1", now, now, dry_run=False, as_of=now.date())
+    assert notify.call_count == 1
+    kwargs = notify.call_args.kwargs
+    assert kwargs["symbol"] == "NTFY1"
+    assert kwargs["entry_price"] == 100.1   # §9 trigger_price = 실제 진입 트리거가
+    assert kwargs["stop_loss"] == 95.0
+
+    notify.reset_mock()
+    ep._process_one(db, "NTFY1", now, now, dry_run=True, as_of=now.date())
+    assert notify.call_count == 0, "dry-run 에서 알림 발송 금지"

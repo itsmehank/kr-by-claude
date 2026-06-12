@@ -52,9 +52,12 @@ def run_weekend(
             """
         )
         dist = dict(cur.fetchall())
-    notify_weekend_digest(
-        entry_count=dist.get("entry", 0),
-        watch_count=dist.get("watch", 0),
-        ignore_count=dist.get("ignore", 0),
-    )
+    # digest 는 실제 전체 배치에서만 — dry-run/단일 종목 디버그가 직전 실 배치의
+    # 분포를 재발송해 "오늘 분류가 돈 것"처럼 오해시키는 것 방지.
+    if not dry_run and ticker is None:
+        notify_weekend_digest(
+            entry_count=dist.get("entry", 0),
+            watch_count=dist.get("watch", 0),
+            ignore_count=dist.get("ignore", 0),
+        )
     return r
