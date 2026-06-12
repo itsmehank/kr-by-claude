@@ -1,11 +1,14 @@
 """weekly 모드 분기 + 오케스트레이션."""
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from enum import Enum
 import logging
 
 from psycopg import Connection
 
+from kr_pipeline.common.trading_calendar import (
+    expected_latest_trading_day, StaleDataError, TradingCalendarUnavailable,
+)
 from kr_pipeline.db.runs import run_tracking
 from kr_pipeline.weekly.load import (
     load_daily_for_ticker, load_index_daily, load_active_tickers, get_daily_min_date,
@@ -141,6 +144,32 @@ def _run_sanity_checks(conn: Connection) -> list[str]:
     return warnings
 
 
+def _assert_daily_fresh(conn: Connection) -> str | None:
+    """일봉 신선도 게이트 (1차 방어).
+
+    일봉이 ELTD(기대 최신 거래일)보다 뒤처진 채 주봉을 집계하면 부분 주봉이
+    기록된다 (2026-06-07 사고: 화요일까지만 적재 → 597종목 오염. 자가치유
+    _delete_superseded 는 2차 방어). stale 확정 → StaleDataError(fail-closed).
+    캘린더(pykrx) 조회 실패 → 경고 문자열 반환(fail-open — 데이터 파이프라인이
+    외부 API 가용성에 인질 잡히지 않게).
+    """
+    try:
+        eltd = expected_latest_trading_day(datetime.now())
+    except TradingCalendarUnavailable as e:
+        msg = f"freshness_gate: 거래 캘린더 조회 실패 — 게이트 생략하고 진행 ({e})"
+        log.warning(msg)
+        return msg
+    with conn.cursor() as cur:
+        cur.execute("SELECT MAX(date) FROM daily_prices")
+        row = cur.fetchone()
+    max_daily = row[0] if row else None
+    if max_daily is None or max_daily < eltd:
+        raise StaleDataError(
+            f"일봉 최신 {max_daily} < 기대 최신 거래일 {eltd} — 부분 주봉 방지 위해 중단"
+        )
+    return None
+
+
 def run(
     conn: Connection,
     mode: Mode,
@@ -148,6 +177,7 @@ def run(
     window_weeks: int = 4,
     limit_tickers: int | None = None,
     only_tickers: list[str] | None = None,
+    check_freshness: bool = False,
 ) -> RunStats:
     today = date.today()
     start, end = compute_date_range(mode, window_weeks=window_weeks, conn=conn)
@@ -171,6 +201,12 @@ def run(
     failures: list[tuple[str, str]] = []
 
     with run_tracking(conn, pipeline="weekly", mode=mode.value, params=params) as state:
+        gate_warnings: list[str] = []
+        if check_freshness:
+            gw = _assert_daily_fresh(conn)  # stale → StaleDataError (run failed)
+            if gw:
+                gate_warnings.append(gw)
+
         for i, ticker in enumerate(tickers, 1):
             try:
                 rows_total += _process_ticker(conn, ticker, start, end, today)
@@ -198,7 +234,7 @@ def run(
                 failures.append((index_code, str(e)))
                 conn.rollback()
 
-        warnings = _run_sanity_checks(conn)
+        warnings = gate_warnings + _run_sanity_checks(conn)
         state["warnings"].extend(warnings)
         state["rows_affected"] = rows_total
 

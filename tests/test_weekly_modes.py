@@ -242,3 +242,30 @@ def test_run_sql_error_does_not_poison_following_tickers(db, monkeypatch):
                 cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
                 cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
         db.commit()
+
+
+def test_run_aborts_when_daily_data_stale(db, monkeypatch):
+    """일봉이 ELTD(기대 최신 거래일)보다 뒤처지면 부분 주봉을 쓰지 말고 중단
+    (fail-closed) — 2026-06-07 사고(화요일까지만 적재된 채 집계→597종목 오염)의
+    1차 방어. 자가치유(superseded 삭제)는 2차 방어로 유지."""
+    import pytest
+    from kr_pipeline.weekly import modes
+
+    monkeypatch.setattr(modes, "expected_latest_trading_day", lambda now: date(2099, 1, 8))
+    with pytest.raises(modes.StaleDataError):
+        modes.run(db, modes.Mode.INCREMENTAL, check_freshness=True)
+
+
+def test_run_proceeds_when_calendar_unavailable(db, monkeypatch):
+    """거래 캘린더(pykrx) 조회 실패는 weekly 를 막지 않는다(fail-open + 경고) —
+    데이터 파이프라인이 외부 API 가용성에 인질 잡히지 않도록."""
+    from kr_pipeline.weekly import modes
+    from kr_pipeline.common.trading_calendar import TradingCalendarUnavailable
+
+    def boom(now):
+        raise TradingCalendarUnavailable("network down")
+    monkeypatch.setattr(modes, "expected_latest_trading_day", boom)
+    monkeypatch.setattr(modes, "load_active_tickers", lambda conn, limit=None: [])
+
+    stats = modes.run(db, modes.Mode.INCREMENTAL, check_freshness=True)
+    assert any("calendar" in w or "캘린더" in w for w in stats.warnings)

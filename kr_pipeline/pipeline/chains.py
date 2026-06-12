@@ -89,7 +89,8 @@ def run_weekly_chain(conn: Connection, *, limit_tickers: int | None = None, full
                     _rollback(conn)
                     log.warning("weekly sweep reload failed %s: %s", t, e)
 
-        r_price = weekly.run(conn, weekly.Mode.INCREMENTAL, limit_tickers=limit_tickers)
+        r_price = weekly.run(conn, weekly.Mode.INCREMENTAL, limit_tickers=limit_tickers,
+                             check_freshness=True)  # 일봉 stale 시 부분 주봉 방지(fail-closed)
         r_ind = indicators.run_weekly(conn, indicators.Mode.INCREMENTAL, limit_tickers=limit_tickers)
         result = {
             "sweep": {"detected": len(swept), "reloaded": sweep_reloaded, "failures": sweep_failures},

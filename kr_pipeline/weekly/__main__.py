@@ -30,6 +30,7 @@ def main() -> int:
             Mode(args.mode),
             window_weeks=args.window_weeks,
             limit_tickers=args.limit_tickers,
+            check_freshness=True,  # CLI 경로 — 일봉 stale 시 부분 주봉 방지(fail-closed)
         )
         log.info(
             f"DONE weekly rows_affected={stats.rows_affected} "
