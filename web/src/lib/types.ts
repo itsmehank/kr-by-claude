@@ -333,9 +333,16 @@ export interface IndexDaily {
   volume: number | null;
 }
 
+/** 분류 테이블에 실제로 들어가는 값 전체 집합 — LLM 출력 3종 + 시스템 강등 1종.
+ *  (disqualified 는 LLM 이 아니라 평일 disqualify 스윕이 기록 — prompt 에 없는 게 정상) */
+export type ClassificationLabel = "entry" | "watch" | "ignore" | "disqualified";
+
 export interface ClassificationHistoryRow {
   symbol: string;
   date: string;
   classification: string;
   source: string;
+  pattern: string | null;
+  confidence: number | null;
+  reasoning: string | null;
 }

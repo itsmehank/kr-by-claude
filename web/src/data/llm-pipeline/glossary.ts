@@ -33,6 +33,7 @@ export const GLOSSARY: GlossaryEntry[] = [
   { term: "decision (AI 결정)", meaning: "evaluate_pivot 의 LLM 응답 — go_now (지금 사라) / wait (기다려) / abort (가짜·무효) 셋 중 하나. 트리거 + 결정 9 조합 매트릭스." },
   { term: "go_now / wait / abort", meaning: "AI 의 트리거 대응 결정 3종. go_now 만이 매수 계획 생성으로 연결. 단 promotion·invalidation 에선 go_now 차단 (안전장치)." },
   { term: "entry / watch / ignore", meaning: "AI 의 분류 3종. entry = 매수 적합, watch = 베이스 형성 중 (돌파 대기), ignore = 부적합 (pattern·market·risk 사유)." },
+  { term: "disqualified", meaning: "시스템 강등 — LLM 분류가 아님. 분류(entry/watch/ignore)된 종목이 미너비니 결정론 필터를 탈락하면 평일 disqualify 스윕이 자동 기록하는 4번째 분류 값. 패턴·확신도 없음." },
   { term: "stop loss (손절선)", meaning: "이 가격 아래로 종가가 떨어지면 즉시 매도하는 안전 장치. O'Neil 룰: pivot 대비 -7~-8% 절대 한계 / Minervini 룰: 기대 수익의 절반." },
   { term: "risk-reward (RR)", meaning: "기대 수익 ÷ 손실 한도 비율. 예: 손절 -5%, 목표 +20% → RR = 4.0. 일반적으로 ≥3.0 권장." },
 
