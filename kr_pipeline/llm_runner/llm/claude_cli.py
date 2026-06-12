@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import random
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -20,6 +21,26 @@ log = logging.getLogger("kr_pipeline.llm_runner.claude_cli")
 
 class ClaudeCLIError(RuntimeError):
     """Claude CLI 호출 최종 실패 (3회 재시도 후)."""
+
+
+class UsageLimitError(RuntimeError):
+    """Claude CLI 사용량 제한(5시간 윈도우) 감지 — 1~9초 재시도가 무의미.
+
+    의도적으로 ClaudeCLIError 하위가 아님: weekend 워커의 transient 재시도
+    (_TRANSIENT_EXC)에 걸리지 않고 배치 전체를 즉시 중단시켜야 한다.
+    """
+
+
+# CLI 가 제한 시 내는 메시지 패턴 (rc≠0 stderr 또는 rc=0 텍스트 stdout 양쪽).
+# 예: "Claude AI usage limit reached|1760000000", "5-hour limit reached ∙ resets 3am"
+_USAGE_LIMIT_RE = re.compile(
+    r"usage limit reached|rate.?limit|5-hour limit|limit will reset",
+    re.IGNORECASE,
+)
+
+
+def _is_usage_limit(text: str | None) -> bool:
+    return bool(text and _USAGE_LIMIT_RE.search(text))
 
 
 # ── Mock generators for dry-run ─────────────────────────────────────────────
@@ -201,10 +222,19 @@ def call_claude(
                 json_str = stdout[first_brace : last_brace + 1]
                 return json.loads(json_str)
             except (json.JSONDecodeError, ValueError) as e:
+                # rc=0 이어도 stdout 이 사용량 제한 안내 텍스트일 수 있음 — 재시도 무의미.
+                if _is_usage_limit(result.stdout):
+                    raise UsageLimitError(f"usage limit: {result.stdout.strip()[:200]}") from e
                 log.warning("JSON parse failed: %s. stdout=%r", e, result.stdout[:200])
                 last_error = e
                 continue
         else:
+            # 사용량 제한(5시간)은 backoff 재시도가 무의미 — 즉시 전파해 배치 중단.
+            if _is_usage_limit(result.stdout) or _is_usage_limit(result.stderr):
+                raise UsageLimitError(
+                    f"usage limit: rc={result.returncode} "
+                    f"{(result.stdout or result.stderr).strip()[:200]}"
+                )
             log.warning(
                 "claude CLI failed (rc=%d): %s",
                 result.returncode,

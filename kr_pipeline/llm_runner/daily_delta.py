@@ -15,7 +15,7 @@ from psycopg import Connection
 from api.services.freeze_store import save_freeze
 from api.services.zip_builder import build_analysis_zip
 from kr_pipeline.llm_runner.compute.delta import find_new_tickers
-from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 from kr_pipeline.llm_runner.store import insert_classification
 
 
@@ -60,6 +60,14 @@ def run(
                 "ratio": e.ratio,
             })
             conn.rollback()
+        except UsageLimitError:
+            # 사용량 제한(5시간) — 남은 종목 순회가 전부 헛호출이므로 즉시 중단.
+            # 예외 전파 → run_tracking failed → 재실행이 중복 가드에 안 막힘.
+            # 기처리분은 commit 완료 + find_new_tickers 7일 가드가 재실행 시 제외.
+            conn.rollback()
+            log.warning("daily_delta usage limit at %s — aborting (processed=%d/%d)",
+                        symbol, processed, len(new_tickers))
+            raise
         except Exception as e:
             log.warning("daily_delta %s failed: %s", symbol, e)
             failed.append(symbol)

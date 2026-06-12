@@ -164,3 +164,27 @@ def test_weekend_zip_excludes_prior_analysis_and_pins_as_of(db, mocker):
     _, kwargs = zip_mock.call_args
     assert kwargs.get("include_prior_analysis") is False
     assert kwargs.get("on_date") == as_of
+
+
+def test_weekend_aborts_batch_on_usage_limit(db, mocker):
+    """사용량 제한이 감지되면 남은 후보를 헛돌지 않고 배치 즉시 중단 +
+    예외 전파(run_tracking 이 failed 로 기록 → 같은 as_of 재실행이 force 없이 가능)."""
+    import pytest
+    import kr_pipeline.llm_runner.weekend as wk
+    from kr_pipeline.llm_runner.llm.claude_cli import UsageLimitError
+
+    mocker.patch.object(wk, "get_qualifying_tickers", return_value=[
+        {"symbol": "UL1", "market": "KOSPI"},
+        {"symbol": "UL2", "market": "KOSPI"},
+        {"symbol": "UL3", "market": "KOSPI"},
+    ])
+    calls = []
+    def fake_process_one(conn, symbol, market, *, dry_run, as_of):
+        calls.append(symbol)
+        raise UsageLimitError("usage limit reached")
+    mocker.patch.object(wk, "_process_one", side_effect=fake_process_one)
+
+    with pytest.raises(UsageLimitError):
+        wk.run(db, dry_run=True, concurrency=1, run_id=None)
+
+    assert len(calls) == 1, f"제한 감지 후에도 추가 호출: {calls}"

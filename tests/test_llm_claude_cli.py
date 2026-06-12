@@ -69,8 +69,10 @@ def test_call_claude_retries_on_failure(mocker):
 
     mocker.patch("time.sleep")
     mock_run = mocker.patch("subprocess.run")
+    # NOTE: "rate limit" 류 문구는 이제 UsageLimitError(즉시 중단) 경로 —
+    # 일시 오류 재시도 검증에는 중립적인 에러 문구를 쓴다.
     mock_run.side_effect = [
-        subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="rate limit"),
+        subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="connection reset"),
         subprocess.CompletedProcess(args=[], returncode=0, stdout='{"ok": true}', stderr=""),
     ]
     result = call_claude(
@@ -146,3 +148,39 @@ def test_call_claude_no_longer_uses_attach_in_source():
     content = src.read_text()
     assert "--attach" not in content, "claude_cli.py 에서 --attach 옵션이 제거되어야 함"
     assert "--add-dir" in content, "claude_cli.py 가 --add-dir 를 사용해야 함"
+
+
+def test_call_claude_usage_limit_no_retry(mocker):
+    """사용량 제한(5시간)은 1~9초 재시도가 무의미 — 즉시 UsageLimitError, 재시도 0회."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
+
+    sleep = mocker.patch("time.sleep")
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=1, stdout="Claude AI usage limit reached|1760000000", stderr=""
+    )
+    with pytest.raises(UsageLimitError):
+        call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
+    assert mock_run.call_count == 1
+    sleep.assert_not_called()
+
+
+def test_call_claude_usage_limit_rc0_text_output(mocker):
+    """rc=0 인데 stdout 이 제한 안내 텍스트인 경우(JSON 없음)도 즉시 UsageLimitError."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
+
+    mocker.patch("time.sleep")
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout="5-hour limit reached ∙ resets 3am", stderr=""
+    )
+    with pytest.raises(UsageLimitError):
+        call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
+    assert mock_run.call_count == 1
+
+
+def test_usage_limit_is_not_claude_cli_error():
+    """UsageLimitError 는 ClaudeCLIError 의 하위가 아니어야 함 —
+    weekend 워커의 transient 재시도(_TRANSIENT_EXC)에 걸리면 안 된다."""
+    from kr_pipeline.llm_runner.llm.claude_cli import ClaudeCLIError, UsageLimitError
+    assert not issubclass(UsageLimitError, ClaudeCLIError)

@@ -72,3 +72,22 @@ def test_daily_delta_zip_excludes_prior_analysis_and_pins_as_of(db, mocker):
     _, kwargs = zip_mock.call_args
     assert kwargs.get("include_prior_analysis") is False
     assert kwargs.get("on_date") == as_of
+
+
+def test_daily_delta_aborts_on_usage_limit(db, mocker):
+    """사용량 제한 시 남은 종목 순회 없이 즉시 중단 + 예외 전파."""
+    import pytest
+    import kr_pipeline.llm_runner.daily_delta as dd
+    from kr_pipeline.llm_runner.llm.claude_cli import UsageLimitError
+
+    mocker.patch.object(dd, "find_new_tickers", return_value=["UL1", "UL2", "UL3"])
+    calls = []
+    def fake_process_one(conn, symbol, *, dry_run, as_of):
+        calls.append(symbol)
+        raise UsageLimitError("usage limit reached")
+    mocker.patch.object(dd, "_process_one", side_effect=fake_process_one)
+
+    with pytest.raises(UsageLimitError):
+        dd.run(db, dry_run=True)
+
+    assert len(calls) == 1, f"제한 감지 후에도 추가 호출: {calls}"

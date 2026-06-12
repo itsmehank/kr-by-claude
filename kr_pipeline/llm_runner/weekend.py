@@ -20,7 +20,7 @@ from psycopg import Connection
 
 from api.services.freeze_store import save_freeze
 from api.services.zip_builder import build_analysis_zip
-from kr_pipeline.llm_runner.llm.claude_cli import call_claude, ClaudeCLIError
+from kr_pipeline.llm_runner.llm.claude_cli import call_claude, ClaudeCLIError, UsageLimitError
 from kr_pipeline.llm_runner.load import get_qualifying_tickers
 from kr_pipeline.llm_runner.store import insert_classification
 
@@ -65,13 +65,17 @@ def _write_heartbeat(dsn, run_id, progress: dict):
 _TRANSIENT_EXC = (subprocess.TimeoutExpired, ClaudeCLIError)
 
 
-def _process_one_worker(dsn, symbol, market, *, dry_run, as_of, max_retries=2):
+def _process_one_worker(dsn, symbol, market, *, dry_run, as_of, max_retries=2, abort=None):
     """자기 커넥션으로 한 종목 처리. 일시오류만 재시도. dict 반환.
 
     연결 실패도 종목별 실패로 흡수 — 한 워커의 connect 실패가 fut.result() 로 전파돼
     배치 전체를 중단시키지 않도록(이 기능의 resilience 목표).
+    abort (threading.Event): 사용량 제한 등으로 배치 중단 결정 시 set —
+    이후 시작되는 워커는 LLM 호출 없이 즉시 건너뜀(신규 헛호출 0 보장).
     """
     from api.services.integrity_guard import DataIntegrityError
+    if abort is not None and abort.is_set():
+        return {"status": "aborted", "symbol": symbol, "attempts": 0}
     try:
         wconn = psycopg.connect(dsn)
     except Exception as e:
@@ -90,6 +94,14 @@ def _process_one_worker(dsn, symbol, market, *, dry_run, as_of, max_retries=2):
                 return {"status": "integrity", "symbol": symbol, "attempts": attempts,
                         "detail": {"symbol": symbol, "date": e.on_date.isoformat(), "column": e.column,
                                    "p_value": e.p_value, "i_value": e.i_value, "ratio": e.ratio}}
+            except UsageLimitError as e:
+                # 5시간 사용량 제한 — 재시도 무의미, 배치 전체 중단 신호.
+                # abort 를 워커 안에서 set: 메인 스레드가 결과를 받기 전에
+                # 다음 종목이 시작되는 레이스를 막는다 (신규 헛호출 0).
+                wconn.rollback()
+                if abort is not None:
+                    abort.set()
+                return {"status": "usage_limit", "symbol": symbol, "attempts": attempts, "error": str(e)}
             except _TRANSIENT_EXC as e:
                 wconn.rollback(); last_err = str(e)
                 if attempts <= max_retries:
@@ -176,16 +188,27 @@ def run(
             prog["in_flight"] = min(workers, total)
         _write_heartbeat(dsn, run_id, dict(prog))   # 초기 즉시 1회(첫 틱 전 kill 도 stale 추적 가능)
         hb_thread.start()
+    usage_limit_error: str | None = None
+    abort = threading.Event()
     try:
         with ThreadPoolExecutor(max_workers=workers) as ex:
             futs = {ex.submit(_process_one_worker, dsn, c["symbol"], c["market"],
-                              dry_run=dry_run, as_of=as_of): c["symbol"] for c in candidates}
+                              dry_run=dry_run, as_of=as_of, abort=abort): c["symbol"] for c in candidates}
             for fut in as_completed(futs):
                 r = fut.result()
                 if r["status"] == "ok":
                     processed += 1
                 elif r["status"] == "integrity":
                     integrity_skipped.append(r["detail"])
+                elif r["status"] == "aborted":
+                    pass  # 중단 결정 후 시작된 워커 — 호출 없이 건너뜀 (집계 제외)
+                elif r["status"] == "usage_limit":
+                    # 사용량 제한 — 대기열 취소 후 즉시 중단 (남은 후보 헛호출 방지).
+                    usage_limit_error = r.get("error", "usage limit")
+                    log.warning("usage limit hit at %s — aborting batch (processed=%d/%d)",
+                                r["symbol"], processed, total)
+                    ex.shutdown(wait=False, cancel_futures=True)
+                    break
                 else:
                     failed_tickers.append({"symbol": r["symbol"], "error": r.get("error", ""), "attempts": r["attempts"]})
                 with prog_lock:
@@ -196,6 +219,15 @@ def run(
         stop.set()
         if run_id is not None and hb_thread.is_alive():
             hb_thread.join(timeout=5)
+
+    if usage_limit_error is not None:
+        # 예외 전파 → run_tracking 이 failed 로 기록 → 같은 as_of 재실행이
+        # 중복 가드(success+as_of)에 막히지 않는다. 기적재분은 각 워커가
+        # 이미 commit 했으므로 보존된다.
+        raise UsageLimitError(
+            f"usage limit — batch aborted: processed={processed}/{total}, "
+            f"reason={usage_limit_error}"
+        )
 
     log.info("weekend batch done: processed=%d failed=%d integrity_skipped=%d",
              processed, len(failed_tickers), len(integrity_skipped))
