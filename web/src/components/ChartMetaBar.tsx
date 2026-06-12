@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { nDaysAgoKstISO, todayKstISO, thisWeekMondayKstISO } from "../lib/dates";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import type { DailyIndicator, IndexDaily, WeeklyIndicator } from "../lib/types";
@@ -13,26 +14,9 @@ const MARKET_INDEX_CODE: Record<string, string> = {
   KOSDAQ: "2001",
 };
 
-function nDaysAgoISO(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
-}
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-// 오늘이 속한 주의 월요일을 YYYY-MM-DD 로 반환.
-// getDay(): 0=일 1=월 ... 6=토. 일요일(0)이면 6일 전 월요일.
-function thisWeekMondayISO(): string {
-  const now = new Date();
-  const day = now.getDay();
-  const back = day === 0 ? 6 : day - 1;
-  const mon = new Date(now);
-  mon.setDate(now.getDate() - back);
-  return mon.toISOString().slice(0, 10);
-}
+const nDaysAgoISO = nDaysAgoKstISO;
+const todayISO = todayKstISO;
+const thisWeekMondayISO = thisWeekMondayKstISO;
 
 function pctChange(curr: number, base: number): number | null {
   if (!base || base === 0) return null;

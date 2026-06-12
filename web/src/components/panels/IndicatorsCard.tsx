@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { nDaysAgoKstISO, todayKstISO } from "../../lib/dates";
 import { Check, X } from "lucide-react";
 import { api } from "../../lib/api";
 import type { DailyIndicator } from "../../lib/types";
@@ -24,13 +25,11 @@ interface Props {
 const COND_KEYS = ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"] as const;
 
 function startStr(daysAgo: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().slice(0, 10);
+  return nDaysAgoKstISO(daysAgo);
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayKstISO();
 }
 
 export function IndicatorsCard({ ticker }: Props) {

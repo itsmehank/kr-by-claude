@@ -23,8 +23,18 @@ export function renderRich(text: string): ReactNode {
   );
 }
 
+/** [[term]] 또는 [[term|display]] 의 내부 토큰 파싱 — 키(term)가 먼저.
+ *  과거 [display|term] 순서로 해석해, 화면에 raw 키가 노출되고 GLOSSARY 조회는
+ *  표시 문구로 해서 툴팁이 안 뜨는 역전 버그가 있었다 (사용처·용어집 키 기준
+ *  규약은 [[키|표시]] — 예: [[pocket_pivot|pocket pivot]]). */
+export function parseRichToken(inner: string): { term: string; display: string } {
+  const i = inner.indexOf("|");
+  if (i === -1) return { term: inner, display: inner };
+  return { term: inner.slice(0, i), display: inner.slice(i + 1) };
+}
+
 function renderParagraph(text: string): ReactNode {
-  // [[term]] 또는 [[display|term]] 패턴 파싱
+  // [[term]] 또는 [[term|display]] 패턴 파싱
   const parts: ReactNode[] = [];
   const regex = /\[\[([^\]]+)\]\]/g;
   let lastIndex = 0;
@@ -34,9 +44,7 @@ function renderParagraph(text: string): ReactNode {
     if (match.index > lastIndex) {
       parts.push(<span key={`t-${idx++}`}>{text.slice(lastIndex, match.index)}</span>);
     }
-    const inner = match[1];
-    const [display, termOrUndef] = inner.includes("|") ? inner.split("|") : [inner, inner];
-    const term = termOrUndef ?? inner;
+    const { term, display } = parseRichToken(match[1]);
     parts.push(<TermTooltip key={`tt-${idx++}`} term={term}>{display}</TermTooltip>);
     lastIndex = match.index + match[0].length;
   }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { nDaysAgoKstISO, todayKstISO } from "../lib/dates";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -27,13 +28,11 @@ const TRIGGER_TYPES: { value: string; label: string }[] = [
 ];
 
 function defaultFrom(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 7);
-  return d.toISOString().slice(0, 10);
+  return nDaysAgoKstISO(7);
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayKstISO();
 }
 
 export default function TriggersPage() {

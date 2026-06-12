@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { nDaysAgoKstISO, todayKstISO } from "../lib/dates";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -48,14 +49,12 @@ type PeriodId = (typeof PERIODS)[number]["id"];
 type Timeframe = "daily" | "weekly";
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayKstISO();
 }
 
 function startForPeriod(period: PeriodId): string {
   const p = PERIODS.find((x) => x.id === period)!;
-  const d = new Date();
-  d.setDate(d.getDate() - p.days);
-  return d.toISOString().slice(0, 10);
+  return nDaysAgoKstISO(p.days);
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import {
   Percent,
 } from "lucide-react";
 import { api } from "../lib/api";
+import type { PerformanceSignal } from "../lib/types";
 import { Skeleton, SkeletonRow } from "../components/ui/Skeleton";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -22,20 +23,9 @@ interface PerformanceStats {
   win_rate: number | null;
 }
 
-interface SignalPerformance {
-  symbol: string;
-  name: string | null;
-  signal_at: string;
-  entry_price: number;
-  return_1w_pct: number | null;
-  return_2w_pct: number | null;
-  return_4w_pct: number | null;
-  return_8w_pct: number | null;
-  market_return_1w: number | null;
-  market_return_2w: number | null;
-  market_return_4w: number | null;
-  market_return_8w: number | null;
-}
+// NOTE: 행 타입은 lib/types.ts 의 PerformanceSignal 단일 정의를 사용.
+// 과거 이 파일의 로컬 중복 정의가 market_return_*_pct 를 _pct 없이 적어
+// 시장 수익률 컬럼이 항상 "—" 로 비어 보이는 계약 불일치를 만들었다.
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -66,16 +56,14 @@ function returnCell(n: number | null | undefined) {
   );
 }
 
-function returnCellForPeriod(row: SignalPerformance, period: Period) {
-  const key = `return_${period}_pct` as keyof SignalPerformance;
-  const val = row[key] as number | null;
-  return returnCell(val);
+function returnCellForPeriod(row: PerformanceSignal, period: Period) {
+  const key = `return_${period}_pct` as const satisfies keyof PerformanceSignal;
+  return returnCell(row[key]);
 }
 
-function marketReturnForPeriod(row: SignalPerformance, period: Period) {
-  const key = `market_return_${period}` as keyof SignalPerformance;
-  const val = row[key] as number | null;
-  return returnCell(val);
+function marketReturnForPeriod(row: PerformanceSignal, period: Period) {
+  const key = `market_return_${period}_pct` as const satisfies keyof PerformanceSignal;
+  return returnCell(row[key]);
 }
 
 // ── Stat Card ──────────────────────────────────────────────────────────────
@@ -137,10 +125,10 @@ export default function PerformancePage() {
       api<PerformanceStats>(`/performance/stats?period=${period}`),
   });
 
-  const signalsQ = useQuery<SignalPerformance[]>({
+  const signalsQ = useQuery<PerformanceSignal[]>({
     queryKey: ["performance-signals"],
     queryFn: () =>
-      api<SignalPerformance[]>("/performance/signals?limit=50"),
+      api<PerformanceSignal[]>("/performance/signals?limit=50"),
   });
 
   const stats = statsQ.data;

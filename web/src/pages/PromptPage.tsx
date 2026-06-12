@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { todayKstISO } from "../lib/dates";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import * as Tooltip from "@radix-ui/react-tooltip";
@@ -63,7 +64,7 @@ function statusTone(status: string): "up" | "down" | "neutral" {
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  return todayKstISO().replace(/-/g, "");
 }
 
 interface ConditionDetail {

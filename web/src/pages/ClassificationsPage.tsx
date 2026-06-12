@@ -358,9 +358,14 @@ export default function ClassificationsPage() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   const qs = buildQueryString(filters);
+  // 체크 0개 = "아무것도 안 보여야". 파라미터를 아예 안 보내면 백엔드가
+  // NULL 필터로 받아 "전부 표시"로 반전되므로, 빈 선택은 요청 없이 빈 결과 처리.
+  const emptySelection =
+    filters.classifications.length === 0 || filters.sources.length === 0;
   const q = useQuery<Classification[]>({
     queryKey: ["classifications", qs],
     queryFn: () => api<Classification[]>(`/classifications?${qs}`),
+    enabled: !emptySelection,
   });
 
   const rowsByClassification = useMemo(() => {
@@ -370,12 +375,12 @@ export default function ClassificationsPage() {
       ignore: [],
       disqualified: [],
     };
-    for (const row of q.data ?? []) {
+    for (const row of emptySelection ? [] : q.data ?? []) {
       const c = grouped[row.classification] ?? (grouped[row.classification] = []);
       c.push(row);
     }
     return grouped;
-  }, [q.data]);
+  }, [q.data, emptySelection]);
 
   const counts = {
     watch: rowsByClassification.watch?.length ?? 0,
