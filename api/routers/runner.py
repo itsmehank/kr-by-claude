@@ -21,6 +21,25 @@ class RunRequest(BaseModel):
 
 @router.post("/run")
 def run(req: RunRequest, conn: Connection = Depends(get_conn)):
+    # check(SELECT)→spawn(Popen) 사이 TOCTOU 차단: 더블클릭 동시 요청 2건이
+    # 모두 check 를 통과해 같은 파이프라인이 2개 돌 수 있다. 요청 트랜잭션
+    # 동안 유지되는 advisory xact lock 으로 check+spawn 을 직렬화.
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT pg_try_advisory_xact_lock(hashtext('runner:' || %s)::bigint)",
+            (req.pipeline_id,),
+        )
+        if not cur.fetchone()[0]:
+            raise HTTPException(
+                409,
+                detail={
+                    "reason": "concurrent_request",
+                    "existing_run_id": None,
+                    "existing_run_summary": None,
+                    "message": "같은 파이프라인의 다른 실행 요청이 처리 중입니다. 잠시 후 다시 시도하세요.",
+                },
+            )
+
     check = check_can_run_pipeline(conn, req.pipeline_id, force=req.force)
     if not check["can_run"]:
         raise HTTPException(

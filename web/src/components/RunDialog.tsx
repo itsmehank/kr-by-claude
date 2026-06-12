@@ -246,7 +246,11 @@ export function RunDialog({ pipeline, onClose, initialModeId }: RunDialogProps) 
               <AlertTriangle size={16} className="text-amber shrink-0 mt-0.5" />
               <div className="text-data text-amber flex-1">
                 <div className="font-semibold mb-1">
-                  {conflict.reason === "already_running" ? "현재 실행 중" : "오늘 이미 성공"}
+                  {conflict.reason === "already_running"
+                    ? "현재 실행 중"
+                    : conflict.reason === "duplicate"
+                    ? "오늘 이미 성공"
+                    : "실행 불가"}
                 </div>
                 <div className="text-data-xs">{conflict.message}</div>
                 {conflict.existing_run_summary?.started_at && (

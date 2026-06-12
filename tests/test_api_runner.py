@@ -67,3 +67,31 @@ def test_run_duplicate_returns_409(client, db):
         assert "existing_run_id" in r.json()["detail"]
     finally:
         app.dependency_overrides.pop(get_conn, None)
+
+
+def test_run_concurrent_request_blocked_by_advisory_lock(client, db, test_db_url, mocker):
+    """check_can_run(SELECT)→spawn(Popen) 사이에 잠금이 없어, 더블클릭 동시 요청
+    2건이 모두 check 를 통과해 같은 파이프라인이 2개 실행될 수 있다(TOCTOU).
+    advisory lock 으로 check+spawn 을 직렬화 — 락 선점 중이면 409."""
+    import psycopg
+    from api.deps import get_conn
+
+    def override():
+        yield db
+    app.dependency_overrides[get_conn] = override
+    mocker.patch("subprocess.Popen")  # 혹시 통과해도 실 spawn 방지
+
+    # 동시 요청 1번째 흉내: 다른 세션이 같은 파이프라인 락 보유
+    other = psycopg.connect(test_db_url)
+    try:
+        with other.cursor() as cur:
+            cur.execute("SELECT pg_advisory_lock(hashtext('runner:universe')::bigint)")
+
+        r = client.post("/api/runner/run", json={
+            "pipeline_id": "universe", "mode_id": "default", "force": True,
+        })
+        assert r.status_code == 409, f"동시 요청이 차단되지 않음: {r.status_code}"
+        assert r.json()["detail"]["reason"] == "concurrent_request"
+    finally:
+        other.close()  # 세션 종료로 락 해제
+        app.dependency_overrides.pop(get_conn, None)
