@@ -34,7 +34,7 @@
 평일 disqualify 스윕이 minervini 탈락 시 기록, LLM 아님).
 
 - disqualified 행: 패턴·확신도 NULL → "—" 표시, 사유는 저장된 고정 문구 표시.
-- 칩 색: entry 초록 / watch 노랑(기존 ClassificationsPage 톤) / ignore 회색 /
+- 칩 색: entry 초록 / watch 파랑(기존 ClassificationsPage 톤 bg-tint-blue) / ignore 회색 /
   **disqualified 빨강** (차트 밴드 "미통과/탈락" 과 통일).
 
 ### 부수 작업 — 분류 값 집합 문서화 (이번에 발견된 문서 갭)

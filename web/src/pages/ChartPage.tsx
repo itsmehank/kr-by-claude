@@ -609,6 +609,7 @@ export default function ChartPage() {
           <PerformanceCard ticker={ticker} />
           <div className="lg:col-span-2">
             <ClassificationHistoryTable
+              key={ticker} /* 종목 전환 시 아코디언 펼침 상태 초기화 (동일 주말 날짜 키 충돌 방지) */
               rows={classHistoryQ.data}
               loading={classHistoryQ.isLoading}
             />
