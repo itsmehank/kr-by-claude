@@ -69,15 +69,20 @@ _TRANSIENT_EXC = (subprocess.TimeoutExpired,)
 
 
 def _already_classified(conn: Connection, as_of: date) -> set[str]:
-    """같은 analyzed_for_date 로 이미 적재된 종목 — 재실행 시 후보 제외 (이어하기).
+    """같은 analyzed_for_date 의 *weekend* 기적재 종목 — 재실행 시 후보 제외 (이어하기).
 
     사용량 제한/중단으로 잘린 배치를 재실행할 때 기적재분의 중복 LLM 호출을
-    막는다 (backfill._already_backfilled 와 동일 패턴). source 무관 — 같은
-    데이터 날짜의 분석이 이미 있으면 충분하다.
+    막는다 (backfill._already_backfilled 와 동일 패턴).
+
+    source='weekend' 한정 이유: 평일 daily_delta 분류는 그 주 주봉이 집계되기
+    *전*(주봉은 토 03:00 data-weekly 가 생성)의 분석이라, 같은 as_of(금요일)라도
+    토요일 weekend 는 완성된 주봉을 포함한 다른 입력을 본다 — daily_delta 행이
+    weekend 재분석(갱신)을 막으면 주봉-불완전 분석이 그 주의 최신으로 박제된다.
     """
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT DISTINCT symbol FROM weekly_classification WHERE analyzed_for_date = %s",
+            "SELECT DISTINCT symbol FROM weekly_classification "
+            " WHERE analyzed_for_date = %s AND source = 'weekend'",
             (as_of,),
         )
         return {r[0] for r in cur.fetchall()}

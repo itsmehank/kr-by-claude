@@ -272,3 +272,38 @@ def test_weekend_no_worker_retry_on_claude_cli_error(db, mocker):
     assert len(calls) == 1, f"내부 재시도 소진 후 워커가 또 재시도: {len(calls)}회"
     assert r["failures"] == 1
     assert r["failed_tickers"][0]["attempts"] == 1
+
+
+def test_weekend_does_not_skip_daily_delta_rows(db, mocker):
+    """금요일 daily_delta 분류는 이번 주 주봉이 집계되기 *전*(주봉은 토 03:00 생성)의
+    분석이라, 토요일 weekend 가 주봉 포함 입력으로 재분석해 갱신해야 한다.
+    skip 은 source='weekend'(이어하기 대상)에만 적용 — daily_delta 행은 막지 않는다."""
+    import kr_pipeline.llm_runner.weekend as wk
+
+    as_of = date(2099, 2, 13)  # sentinel 격리
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('DDRW1','T','KOSPI') ON CONFLICT DO NOTHING")
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, analyzed_for_date, market, classification, source)
+               VALUES ('DDRW1', NOW(), %s, 'KOSPI', 'watch', 'daily_delta')""",
+            (as_of,),
+        )
+    db.commit()
+
+    mocker.patch.object(wk, "get_qualifying_tickers", return_value=[
+        {"symbol": "DDRW1", "market": "KOSPI"},
+    ])
+    calls = []
+    def fake_process_one(conn, symbol, market, *, dry_run, as_of):
+        calls.append(symbol)
+    mocker.patch.object(wk, "_process_one", side_effect=fake_process_one)
+
+    try:
+        r = wk.run(db, dry_run=True, as_of=as_of, concurrency=1, run_id=None)
+        assert calls == ["DDRW1"], "daily_delta 행이 weekend 재분석을 막음 (주봉 미포함 분석이 박제)"
+        assert r["skipped_existing"] == 0
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol='DDRW1' AND analyzed_for_date=%s", (as_of,))
+        db.commit()
