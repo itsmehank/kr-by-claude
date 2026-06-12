@@ -27,14 +27,24 @@ PHASE_A_COLUMNS_DAILY = [
 
 
 def upsert_daily_indicators_phase_a(conn: Connection, rows: list[dict]) -> int:
-    """Phase A 결과 UPSERT. rs_rating, c8, pass 는 건드리지 않음."""
+    """Phase A 결과 UPSERT. rs_rating, c8, pass 는 건드리지 않음.
+
+    rs_line_not_declining_7m 도 UPDATE 에서 제외 — 이 컬럼의 단일 writer 는
+    Phase D(update_daily_rs_gate_from_weekly, 주봉 게이트 미러)다. Phase A 행은
+    None 을 들고 오므로 SET 에 포함되면 기존 TRUE/FALSE 이력이 NULL 로 wipe
+    된다 (드리프트 재적재 경로는 Phase D 를 안 돌려 30일 밖 이력이 잔존 손상).
+    신규 행의 INSERT 값(NULL)은 유지 — Phase D 가 채울 때까지의 기존 의미와 동일.
+    """
     if not rows:
         return 0
 
     cols = PHASE_A_COLUMNS_DAILY
     placeholders = ", ".join(["%s"] * len(cols))
     cols_sql = ", ".join(cols)
-    update_sql = ", ".join([f"{c} = EXCLUDED.{c}" for c in cols if c not in ("ticker", "date")])
+    update_sql = ", ".join(
+        f"{c} = EXCLUDED.{c}" for c in cols
+        if c not in ("ticker", "date", "rs_line_not_declining_7m")
+    )
 
     sql = f"""
         INSERT INTO daily_indicators ({cols_sql}, updated_at)

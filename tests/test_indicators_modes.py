@@ -165,3 +165,95 @@ def test_process_ticker_daily_distribution_flag_uses_ssot_threshold(db):
             cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
             cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
         db.commit()
+
+
+def _seed_daily_for_recompute(db, t, days):
+    """recompute 경로용 최소 시드: stocks + daily_prices + index_daily(1001)."""
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'T','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
+        cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        for d in days:
+            cur.execute(
+                """INSERT INTO daily_prices (ticker, date, open, high, low, close,
+                       adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value)
+                   VALUES (%s,%s,100,100,100,100,100,100,100,100,1000.0,1000,1)""",
+                (t, d),
+            )
+            cur.execute(
+                """INSERT INTO index_daily (index_code, date, open, high, low, close)
+                   VALUES ('1001', %s, 2000, 2000, 2000, 2000) ON CONFLICT (index_code, date) DO NOTHING""",
+                (d,),
+            )
+    db.commit()
+
+
+def test_recompute_ticker_daily_preserves_rs_gate_history(db):
+    """드리프트 재적재(recompute_ticker_daily)가 Phase D 산출물인
+    rs_line_not_declining_7m 이력을 NULL 로 덮어쓰면 안 된다 — Phase A 는
+    이 컬럼을 쓰지 않고(단일 writer=Phase D), 기존 TRUE/FALSE 를 보존해야 한다.
+
+    (잠복 사고: 드리프트 경로는 Phase D 를 안 돌리고, incremental Phase D 는
+    최근 30일만 복구 → 30일 밖 이력이 full-refresh 전까지 NULL 잔존.)"""
+    from datetime import date, timedelta
+    from kr_pipeline.indicators.modes import recompute_ticker_daily
+
+    t = "DRIFTGT"
+    days = []
+    d = date(2011, 1, 3)  # 과거 격리 구간 (월요일)
+    while len(days) < 10:
+        if d.weekday() < 5:
+            days.append(d)
+        d += timedelta(days=1)
+    _seed_daily_for_recompute(db, t, days)
+
+    # Phase D 가 과거에 채워둔 게이트 값 시뮬레이션
+    with db.cursor() as cur:
+        cur.execute(
+            """INSERT INTO daily_indicators (ticker, date, adj_close, rs_line_not_declining_7m)
+               VALUES (%s, %s, 100, TRUE)""",
+            (t, days[0]),
+        )
+    db.commit()
+
+    try:
+        recompute_ticker_daily(db, t)
+        db.commit()
+        with db.cursor() as cur:
+            cur.execute(
+                "SELECT rs_line_not_declining_7m FROM daily_indicators WHERE ticker=%s AND date=%s",
+                (t, days[0]),
+            )
+            gate = cur.fetchone()[0]
+        assert gate is True, f"드리프트 재적재가 게이트 이력을 {gate!r} 로 덮어씀 (wipe)"
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
+            cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        db.commit()
+
+
+def test_recompute_ticker_daily_does_not_leak_phase_b_cache(db):
+    """드리프트 경로는 Phase B 를 안 돌리므로 module-level _phase_b_cache 에
+    적재만 하고 소비/정리가 없다 — 토요일 전체 스윕에서 종목당 전 기간 dict 가
+    무한 누적(메모리 누수). recompute 후 해당 ticker 키는 정리되어야 한다."""
+    from datetime import date, timedelta
+    from kr_pipeline.indicators import modes
+
+    t = "DRIFTCC"
+    days = []
+    d = date(2011, 2, 7)
+    while len(days) < 5:
+        if d.weekday() < 5:
+            days.append(d)
+        d += timedelta(days=1)
+    _seed_daily_for_recompute(db, t, days)
+
+    try:
+        modes.recompute_ticker_daily(db, t)
+        assert t not in modes._phase_b_cache, "drift 경로의 Phase B 캐시 누수"
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
+            cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        db.commit()

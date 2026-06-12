@@ -473,7 +473,12 @@ def recompute_ticker_daily(conn: Connection, ticker: str) -> int:
     load_start, load_end, upsert_start = compute_date_range(
         Target.DAILY, Mode.FULL_REFRESH, conn=conn,
     )
-    return _process_ticker_daily(conn, ticker, market, load_start, load_end, upsert_start)
+    try:
+        return _process_ticker_daily(conn, ticker, market, load_start, load_end, upsert_start)
+    finally:
+        # 드리프트 경로는 Phase B 를 안 돌림 — 캐시 적재만 되고 소비/정리가
+        # 없어 다종목 스윕에서 무한 누적(메모리 누수). 처리 후 즉시 정리.
+        _phase_b_cache.pop(ticker, None)
 
 
 def recompute_ticker_weekly(conn: Connection, ticker: str) -> int:
@@ -484,7 +489,10 @@ def recompute_ticker_weekly(conn: Connection, ticker: str) -> int:
     load_start, load_end, upsert_start = compute_date_range(
         Target.WEEKLY, Mode.FULL_REFRESH, conn=conn,
     )
-    return _process_ticker_weekly(conn, ticker, market, load_start, load_end, upsert_start)
+    try:
+        return _process_ticker_weekly(conn, ticker, market, load_start, load_end, upsert_start)
+    finally:
+        _phase_b_cache.pop(ticker, None)  # 드리프트 경로 캐시 누수 방지 (daily 와 동일)
 
 
 def run(
