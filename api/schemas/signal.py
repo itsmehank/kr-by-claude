@@ -10,8 +10,8 @@ class SignalOut(BaseModel):
     signal_at: datetime
     entry_mode: str | None = None
     trigger_price: float | None = None
-    entry_price: float
-    stop_loss: float
+    entry_price: float | None = None   # entry_params 컬럼이 NULLABLE
+    stop_loss: float | None = None
     stop_loss_pct_from_pivot: float | None = None
     stop_loss_pct_from_current_price: float | None = None
     expected_target_price: float | None = None

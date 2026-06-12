@@ -132,8 +132,8 @@ export interface Signal {
   signal_at: string;
   entry_mode: string | null;
   trigger_price: number | null;
-  entry_price: number;
-  stop_loss: number;
+  entry_price: number | null; // entry_params 컬럼이 NULLABLE
+  stop_loss: number | null;
   stop_loss_pct_from_pivot: number | null;
   stop_loss_pct_from_current_price: number | null;
   expected_target_price: number | null;

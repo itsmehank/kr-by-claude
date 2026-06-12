@@ -115,3 +115,40 @@ def test_performance_signals_ticker_filter(client, db):
         assert syms == {"PERFTKR01"}
     finally:
         app.dependency_overrides.pop(get_conn, None)
+
+
+def test_signals_tolerates_null_prices_and_zero_trigger(client, db):
+    """entry_price/stop_loss 는 NULLABLE — NULL 행 하나로 /api/signals 전체가
+    500 나면 안 된다. 또한 trigger_price=0(Decimal)이 falsy 체크로 None 으로
+    오변환되면 안 된다."""
+    def override():
+        yield db
+    app.dependency_overrides[get_conn] = override
+    try:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM entry_params WHERE symbol='NULSIG1'")
+            cur.execute("DELETE FROM stocks WHERE ticker='NULSIG1'")
+            cur.execute(
+                """INSERT INTO stocks (ticker, name, market, sector, listed_at)
+                   VALUES ('NULSIG1','N','KOSPI','테스트','2020-01-01')"""
+            )
+            cur.execute(
+                """INSERT INTO entry_params
+                     (symbol, signal_at, entry_price, stop_loss, trigger_price,
+                      trigger_evaluation_at, prior_classification_at)
+                   VALUES ('NULSIG1', NOW(), NULL, NULL, 0, NOW(), NOW())"""
+            )
+        db.commit()
+
+        r = client.get("/api/signals?ticker=NULSIG1&days=7")
+        assert r.status_code == 200, f"NULL 가격 행으로 500: {r.text[:200]}"
+        row = r.json()[0]
+        assert row["entry_price"] is None
+        assert row["stop_loss"] is None
+        assert row["trigger_price"] == 0.0, "Decimal(0) 이 falsy 체크로 None 오변환"
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM entry_params WHERE symbol='NULSIG1'")
+            cur.execute("DELETE FROM stocks WHERE ticker='NULSIG1'")
+        db.commit()
+        app.dependency_overrides.pop(get_conn, None)

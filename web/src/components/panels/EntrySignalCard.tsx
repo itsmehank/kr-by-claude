@@ -41,12 +41,12 @@ export function EntrySignalCard({ ticker }: Props) {
         <div>
           <span className="caps text-faint">진입가</span>{" "}
           <span className="num font-semibold">
-            {s.entry_price.toLocaleString()}원
+            {s.entry_price != null ? `${s.entry_price.toLocaleString()}원` : "—"}
           </span>
         </div>
         <div>
           <span className="caps text-faint">손절가</span>{" "}
-          <span className="num">{s.stop_loss.toLocaleString()}원</span>
+          <span className="num">{s.stop_loss != null ? `${s.stop_loss.toLocaleString()}원` : "—"}</span>
           {s.stop_loss_pct_from_current_price != null && (
             <span className="text-faint">
               {" "}
@@ -63,7 +63,7 @@ export function EntrySignalCard({ ticker }: Props) {
             {s.expected_target_pct != null && (
               <span className="text-faint">
                 {" "}
-                (+{s.expected_target_pct.toFixed(2)}%)
+                ({s.expected_target_pct > 0 ? "+" : ""}{s.expected_target_pct.toFixed(2)}%)
               </span>
             )}
           </div>

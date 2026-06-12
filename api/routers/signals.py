@@ -37,14 +37,16 @@ def list_signals(
         SignalOut(
             symbol=r[0], name=r[1], sector=r[2], market=r[3],
             signal_at=r[4], entry_mode=r[5],
-            trigger_price=float(r[6]) if r[6] else None,
-            entry_price=float(r[7]),
-            stop_loss=float(r[8]),
+            # `if r[n] else None` 은 Decimal('0') 을 None 으로 오변환 — is not None 통일.
+            # entry_price/stop_loss 는 NULLABLE — 무조건 float() 시 NULL 행 하나로 전체 500.
+            trigger_price=float(r[6]) if r[6] is not None else None,
+            entry_price=float(r[7]) if r[7] is not None else None,
+            stop_loss=float(r[8]) if r[8] is not None else None,
             stop_loss_pct_from_pivot=float(r[9]) if r[9] is not None else None,
             stop_loss_pct_from_current_price=float(r[10]) if r[10] is not None else None,
-            expected_target_price=float(r[11]) if r[11] else None,
+            expected_target_price=float(r[11]) if r[11] is not None else None,
             expected_target_pct=float(r[12]) if r[12] is not None else None,
-            risk_reward_ratio=float(r[13]) if r[13] else None,
+            risk_reward_ratio=float(r[13]) if r[13] is not None else None,
             position_size_pct=float(r[14]) if r[14] is not None else None,
             known_warnings=r[15] if r[15] else [],
             notes=r[16],
