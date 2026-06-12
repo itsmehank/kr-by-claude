@@ -17,6 +17,7 @@ def test_run_invalid_pipeline_returns_400(client):
 def test_run_universe_spawns(client, mocker):
     fake_proc = mocker.Mock()
     fake_proc.pid = 99999
+    fake_proc.poll.return_value = 0  # 초단기 정상 종료 → 등록 대기 즉시 통과
     mocker.patch("subprocess.Popen", return_value=fake_proc)
 
     r = client.post("/api/runner/run", json={"pipeline_id": "universe", "mode_id": "default"})
@@ -31,6 +32,7 @@ def test_run_universe_spawns(client, mocker):
 def test_run_with_params(client, mocker):
     fake_proc = mocker.Mock()
     fake_proc.pid = 11111
+    fake_proc.poll.return_value = 0  # 초단기 정상 종료 → 등록 대기 즉시 통과
     mock_popen = mocker.patch("subprocess.Popen", return_value=fake_proc)
 
     r = client.post("/api/runner/run", json={
@@ -94,4 +96,30 @@ def test_run_concurrent_request_blocked_by_advisory_lock(client, db, test_db_url
         assert r.json()["detail"]["reason"] == "concurrent_request"
     finally:
         other.close()  # 세션 종료로 락 해제
+        app.dependency_overrides.pop(get_conn, None)
+
+
+def test_run_returns_error_when_child_dies_before_registering(client, db, mocker):
+    """spawn 직후 자식이 run 행 등록 전에 즉사(argparse exit 2, import error 등)하면
+    API 가 200+pid 를 돌려주고 pipeline_runs 엔 아무것도 안 남아 '눌렀는데 아무 일
+    없음'이 된다. 즉사를 감지해 502 로 가시화해야 한다."""
+    from api.deps import get_conn
+
+    def override():
+        yield db
+    app.dependency_overrides[get_conn] = override
+
+    fake_proc = mocker.Mock()
+    fake_proc.pid = 77777
+    fake_proc.poll.return_value = 2       # 이미 종료 (argparse exit 2)
+    fake_proc.returncode = 2
+    mocker.patch("subprocess.Popen", return_value=fake_proc)
+
+    try:
+        r = client.post("/api/runner/run", json={
+            "pipeline_id": "universe", "mode_id": "default", "force": True,
+        })
+        assert r.status_code == 502, f"자식 즉사가 가시화되지 않음: {r.status_code}"
+        assert "exit" in r.json()["detail"]["message"] or "종료" in r.json()["detail"]["message"]
+    finally:
         app.dependency_overrides.pop(get_conn, None)

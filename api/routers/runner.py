@@ -6,6 +6,7 @@ from api.deps import get_conn
 from api.services.runner_service import (
     check_can_run_pipeline,
     spawn_pipeline,
+    wait_for_run_registration,
 )
 
 
@@ -60,6 +61,23 @@ def run(req: RunRequest, conn: Connection = Depends(get_conn)):
         spawn_result = spawn_pipeline(req.pipeline_id, req.mode_id, params=req.params, force=req.force)
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+    # 자식의 run 행 등록을 짧게 대기 — 즉사 가시화 + (advisory lock 보유 중이라)
+    # spawn 직후 boot window 의 이중 실행 틈새 축소. timeout 은 fail-open.
+    wait = wait_for_run_registration(conn, req.pipeline_id, spawn_result["proc"])
+    if wait["status"] == "died":
+        raise HTTPException(
+            502,
+            detail={
+                "reason": "spawn_failed",
+                "existing_run_id": None,
+                "existing_run_summary": None,
+                "message": (
+                    f"파이프라인 프로세스가 실행 등록 전에 종료됐습니다 (exit {wait['returncode']}). "
+                    "~/.kr-by-claude/cron.log 를 확인하세요."
+                ),
+            },
+        )
 
     return {
         "pipeline_id": req.pipeline_id,

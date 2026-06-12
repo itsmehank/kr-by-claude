@@ -275,4 +275,47 @@ def spawn_pipeline(pipeline_id: str, mode_id: str, params: dict | None = None, *
         )
     finally:
         log_file.close()
-    return {"pid": proc.pid, "command": " ".join(cmd)}
+    return {"pid": proc.pid, "command": " ".join(cmd), "proc": proc}
+
+
+def wait_for_run_registration(
+    conn, pipeline_id: str, proc, *, timeout_s: float = 2.5, poll_interval: float = 0.2
+) -> dict:
+    """spawn 후 자식이 pipeline_runs 에 running 행을 등록할 때까지 짧게 대기.
+
+    목적 둘:
+    1. 즉사 가시화 — 자식이 run_tracking 전에 죽으면(argparse exit 2,
+       import error, uv 문제) API 는 200+pid 를 돌려줬는데 run 행/로그가 없어
+       UI 에선 '눌렀는데 아무 일 없음'이 됐다 → died 로 감지해 에러 응답.
+    2. TOCTOU 잔여 틈새 축소 — 이 대기 동안 요청의 advisory xact lock 이
+       유지되므로, 자식이 등록을 마친 뒤에야 다음 요청이 check 를 통과한다.
+
+    Returns: {"status": "registered" | "died" | "timeout", "returncode": int|None}
+    timeout 은 fail-open(정상 진행) — 느린 부팅을 실패로 오판하지 않는다.
+    """
+    import time
+
+    spec = get_spec(pipeline_id)
+    pipeline_db = spec["pipeline_db_name"]
+    prefix = spec.get("mode_prefix")
+
+    deadline = time.monotonic() + timeout_s
+    while True:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT mode FROM pipeline_runs WHERE pipeline = %s AND status = 'running' "
+                "ORDER BY id DESC LIMIT 5",
+                (pipeline_db,),
+            )
+            rows = cur.fetchall()
+        if any(matches_mode_prefix(m, prefix) for (m,) in rows):
+            return {"status": "registered", "returncode": None}
+        rc = proc.poll()
+        if rc is not None:
+            if rc == 0:
+                # 초단기 작업이 이미 정상 종료(success 행) — 등록으로 간주
+                return {"status": "registered", "returncode": 0}
+            return {"status": "died", "returncode": rc}
+        if time.monotonic() >= deadline:
+            return {"status": "timeout", "returncode": None}
+        time.sleep(poll_interval)
