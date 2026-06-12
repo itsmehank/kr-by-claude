@@ -2,7 +2,10 @@ from datetime import date
 
 
 def test_daily_delta_dry_run(db, mocker):
-    """오늘 신규 자격 종목 → daily_delta 로 분류."""
+    """dry-run: 신규 자격 종목을 처리(processed≥1)하되 DB insert 없이 freeze 만.
+
+    (stale 정정: 0af04c7 에서 dry-run 이 'freeze 저장만, 분류 insert 없음'으로
+    바뀌었는데 테스트가 insert 를 기대한 채 방치돼 baseline 상시 실패였다.)"""
     today = date(2026, 5, 20)
     with db.cursor() as cur:
         cur.execute(
@@ -14,45 +17,25 @@ def test_daily_delta_dry_run(db, mocker):
                VALUES ('DD1', %s, 100, TRUE) ON CONFLICT DO NOTHING""",
             (today,),
         )
+        # 최근 7일 분류 제거해야 delta 가 DD1 을 신규 후보로 인식
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='DD1'")
     db.commit()
 
-    mocker.patch(
-        "kr_pipeline.llm_runner.daily_delta.build_analysis_zip",
-        return_value=b"fake_zip",
-    )
+    import kr_pipeline.llm_runner.daily_delta as dd
 
-    # 최근 7일 분류 제거해야 delta 가 DD1 을 신규 후보로 인식
-    with db.cursor() as cur:
-        cur.execute(
-            "DELETE FROM weekly_classification WHERE symbol='DD1'"
-        )
-    db.commit()
+    mocker.patch.object(dd, "build_analysis_zip", return_value=b"fake_zip")
+    freeze = mocker.patch.object(dd, "save_freeze")
 
-    from kr_pipeline.llm_runner.daily_delta import run
-
-    with db.cursor() as cur:
-        cur.execute(
-            "SELECT COUNT(*) FROM weekly_classification WHERE source='daily_delta' AND symbol='DD1'"
-        )
-        before = cur.fetchone()[0]
-
-    result = run(db, dry_run=True, as_of=today)
+    result = dd.run(db, dry_run=True, as_of=today)
 
     assert result["processed"] >= 1
-
-    with db.cursor() as cur:
-        cur.execute(
-            "SELECT source FROM weekly_classification WHERE symbol='DD1' ORDER BY classified_at DESC LIMIT 1"
-        )
-        assert cur.fetchone()[0] == "daily_delta"
+    assert freeze.call_count >= 1, "dry-run 도 freeze 는 저장해야 한다"
 
     with db.cursor() as cur:
         cur.execute(
             "SELECT COUNT(*) FROM weekly_classification WHERE source='daily_delta' AND symbol='DD1'"
         )
-        after = cur.fetchone()[0]
-
-    assert after > before
+        assert cur.fetchone()[0] == 0, "dry-run 이 분류를 insert 하면 안 된다"
 
 
 def test_daily_delta_zip_excludes_prior_analysis_and_pins_as_of(db, mocker):

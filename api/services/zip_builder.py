@@ -1,4 +1,4 @@
-"""LLM 분석/검증 ZIP 빌더. 14~15 파일 묶기."""
+"""LLM 분석/검증 ZIP 빌더. 14(원본 분석)~15(검증 모드) 파일 묶기."""
 import io
 import json
 import zipfile
@@ -149,11 +149,11 @@ def _fetch_latest_analysis_result(conn: Connection, ticker: str, on_date: date) 
 
 def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = None,
                        include_prior_analysis: bool = True) -> bytes:
-    """분석/검증 ZIP 빌더. 13 또는 15 파일 묶기.
+    """분석/검증 ZIP 빌더. 14 또는 15 파일 묶기.
 
-    종목에 weekly_classification 분류 이력이 있으면 analysis_result.json +
-    prompt_verify.md 를 추가해 *검증 모드 ZIP* (15 파일) 생성.
-    분류 이력 없으면 기존 *원본 분석 ZIP* (14 파일 — prompt_verify 항상 포함).
+    종목에 weekly_classification 분류 이력이 있으면(on_date 이하)
+    analysis_result.json 을 추가해 *검증 모드 ZIP* (15 파일) 생성.
+    분류 이력 없으면 *원본 분석 ZIP* (14 파일 — prompt_verify.md 는 항상 포함).
     """
     if on_date is None:
         on_date = date.today()

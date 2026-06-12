@@ -22,8 +22,11 @@ def _seed_minimal(db, ticker="ZIP1"):
     db.commit()
 
 
-def test_build_analysis_zip_contains_13_files(db):
-    """ZIP 에 13 파일 모두 있는지 확인."""
+def test_build_analysis_zip_contains_14_files(db):
+    """원본 분석 ZIP = 14 파일 (분류 이력 없을 때 — prompt_verify.md 는 항상 포함).
+
+    (stale 정정: prompt_verify.md 추가 후 13→14 가 됐는데 테스트가 미갱신돼
+    baseline 상시 실패로 방치돼 있었다.)"""
     _seed_minimal(db)
     zip_bytes = build_analysis_zip(db, "ZIP1", on_date=date(2026, 5, 17))
 
@@ -32,6 +35,7 @@ def test_build_analysis_zip_contains_13_files(db):
 
     expected_files = {
         "README.md", "prompt_step1_analyze.md", "prompt_step2_entry_params.md",
+        "prompt_verify.md",
         "payload.json", "market_context.json", "corporate_actions.json",
         "minervini.json", "daily.csv", "weekly.csv",
         "market_index_daily.csv", "market_index_weekly.csv",
