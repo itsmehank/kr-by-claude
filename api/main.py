@@ -1,12 +1,24 @@
 """FastAPI 앱 진입점."""
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.deps import init_pool, close_pool
 from api.routers import stocks, indicators, heatmap, render, prompts, runs, market_context, signals, performance, runner, pipelines, classifications, triggers, index
 from api.routers import cron as cron_router
 
 
-app = FastAPI(title="kr-by-claude API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_pool()   # 요청당 신규 TCP 연결 대신 풀 재사용
+    try:
+        yield
+    finally:
+        close_pool()
+
+
+app = FastAPI(title="kr-by-claude API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
