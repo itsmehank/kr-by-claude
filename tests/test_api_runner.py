@@ -123,3 +123,29 @@ def test_run_returns_error_when_child_dies_before_registering(client, db, mocker
         assert "exit" in r.json()["detail"]["message"] or "종료" in r.json()["detail"]["message"]
     finally:
         app.dependency_overrides.pop(get_conn, None)
+
+
+def test_batch_zip_skips_integrity_failure_per_ticker(client, mocker):
+    """batch ZIP: 1종목의 DataIntegrityError 가 전체 503 으로 번지면 안 된다 —
+    그 종목만 skip + manifest 사유 기록, 나머지는 정상 포함."""
+    import io, zipfile
+    from api.services.integrity_guard import DataIntegrityError
+    from datetime import date as _date
+
+    def fake_build(conn, t, **kw):
+        if t == "BADT1":
+            raise DataIntegrityError(
+                ticker=t, on_date=_date(2026, 6, 10), column="adj_close",
+                p_value=100.0, i_value=50.0,
+            )
+        return b"PK\x03\x04fake"
+    mocker.patch("api.routers.prompts.build_analysis_zip", side_effect=fake_build)
+
+    r = client.get("/api/prompts/batch.zip?tickers=GOODT1,BADT1")
+    assert r.status_code == 200, f"1종목 integrity 실패로 전체 {r.status_code}"
+    with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+        names = z.namelist()
+        assert "analysis-GOODT1.zip" in names
+        assert "analysis-BADT1.zip" not in names
+        manifest = z.read("manifest.txt").decode()
+    assert "BADT1" in manifest and ("integrity" in manifest or "정합" in manifest)

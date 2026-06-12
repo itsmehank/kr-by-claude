@@ -34,22 +34,21 @@ def batch_zip(
             400, f"Too many tickers (max {MAX_BATCH_TICKERS})"
         )
 
+    from api.services.integrity_guard import DataIntegrityError
+
     buf = io.BytesIO()
-    skipped: list[str] = []
+    skipped: dict[str, str] = {}  # ticker -> 사유
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as outer:
         for t in ticker_list:
             try:
                 inner_bytes = build_analysis_zip(conn, t)
                 outer.writestr(f"analysis-{t}.zip", inner_bytes)
             except ValueError:
-                skipped.append(t)
-                continue
-            except Exception as e:
-                # Re-raise data integrity errors as 503 to signal transient/data issue
-                from api.services.integrity_guard import DataIntegrityError
-                if isinstance(e, DataIntegrityError):
-                    raise HTTPException(status_code=503, detail=str(e))
-                raise
+                skipped[t] = "not found"
+            except DataIntegrityError as e:
+                # 한 종목의 데이터 정합성 문제(예: 기업행위 보정 후 지표 미재계산)가
+                # 만들던 batch 전체 503 폐기 → 그 종목만 skip + 사유 기록.
+                skipped[t] = f"integrity: {e}"
 
         manifest_lines = [
             f"# Batch analysis package — {date.today().isoformat()}",
@@ -59,7 +58,7 @@ def batch_zip(
         ]
         for t in ticker_list:
             if t in skipped:
-                manifest_lines.append(f"  - {t}  [SKIPPED — not found]")
+                manifest_lines.append(f"  - {t}  [SKIPPED — {skipped[t]}]")
             else:
                 manifest_lines.append(f"  - {t}")
         outer.writestr("manifest.txt", "\n".join(manifest_lines))
