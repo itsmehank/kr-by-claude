@@ -212,10 +212,12 @@ def test_normalize_entry_params_other_warnings_list_serialized():
     assert s["other_warnings"] == "plain"                            # 문자열은 그대로
 
 
-def test_risk_flags_taxonomy_has_14():
+def test_risk_flags_taxonomy_has_15():
     from kr_pipeline.llm_runner.risk_flags import RISK_FLAGS_TAXONOMY
-    assert len(RISK_FLAGS_TAXONOMY) == 14
+    # 15종: 기존 14 + topping_distribution(§6.2 force-ignore, 2026-06-13)
+    assert len(RISK_FLAGS_TAXONOMY) == 15
     assert "climax_run" in RISK_FLAGS_TAXONOMY and "handle_quality" in RISK_FLAGS_TAXONOMY
+    assert "topping_distribution" in RISK_FLAGS_TAXONOMY
 
 
 def test_validate_classification():
