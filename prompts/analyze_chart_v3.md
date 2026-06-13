@@ -257,6 +257,7 @@ Select from **exactly this taxonomy** (no other values are permitted):
 | `unfavorable_market_context` | Market direction is downtrend/correction/unconfirmed rally_attempt, OR distribution day count ≥ 5 over last 25 sessions |
 | `etf_methodology_mismatch` | Instrument is an ETF/fund (handled in Pre-Check) |
 | `handle_quality` | cup_with_handle 의 핸들이 faulty (깊이 >12% / 컵깊이 대비 과대 / 하단절반 / 50일선 아래 / 위로 wedging / 핸들 구간 분배). **품질 층 flag — shape 를 none 으로 만들지 않는다**(Gate3 faulty 분기와 함께). |
+| `topping_distribution` | Stage 3→4 top — emit ONLY when the §6.2 gate is satisfied (force-ignore). Never from a single down week. |
 
 **Three inviolable rules — violation makes the output invalid:**
 
@@ -350,6 +351,28 @@ is in progress or ≤2 weeks past its high. Once price has corrected >15% from t
 climax high or 4+ weeks have elapsed, it is post-climax consolidation: do NOT emit.
 Refer to the past event in reasoning as "prior climax (history)" — exempt from
 consistency rule #2 (see §5 rule #2 exception).
+
+#### 6.2 topping_distribution — force-ignore gate (Stage 3→4)
+
+GLOBAL PRECONDITION G0: this gate operates ONLY when the weekly close is BELOW the
+10-week SMA. (O'Neil HMMS p.269 Breaking Support; Minervini Stage 4 = price below
+declining MAs.) A leader's deepest correction often occurs mid-advance while still
+ABOVE the 10-week line — that is a shakeout, not a top, and G0 keeps this gate silent
+there.
+
+Force-ignore (emit topping_distribution) if G0 holds AND ANY ONE of:
+- T-A Largest weekly price DECLINE since the advance began (§6.1 anchor).
+      (Minervini TTLC Ch.9; O'Neil HMMS p.268 #2.)
+- T-B Lived below the 10-week SMA for ≥ TOPPING_BELOW_10W_WEEKS (8) consecutive weeks
+      without a weekly close back above. (O'Neil HMMS p.269.) NOTE: a SINGLE weekly
+      close below the 10-week line is a normal pullback, NOT topping — do not
+      force-ignore on one week.
+- T-C 40-week SMA (≈SMA-200) turns DOWN after a prolonged advance. (HMMS p.269 #4.)
+- T-D Heaviest weekly DOWN-volume since the advance began, OR ≥
+      STOCK_DISTRIBUTION_COUNT_25D (4) stock-distribution days in the last 25 sessions
+      (the §6 count). (The below-10-week condition is already required by G0.)
+
+A force-ignore here overrides any watch-eligible pivot.
 
 ### 7. Pivot & Breakout Accuracy
 
