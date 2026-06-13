@@ -39,7 +39,7 @@ If `market == "ETF"` or the instrument is a fund vehicle (sector is null with a 
 
 - **entry**: Stock is at or near a proper buy point with a clean base, in a Stage 2 advance, with market direction confirmed favorable. A swing trade entry is appropriate now or imminently (within ~5 trading days). Includes proper pivot breakouts and pocket pivot entries within a valid base.
 - **watch**: Stock passes the trend template but is not at a buy point. Causes include: base forming but not complete; stock extended beyond entry zone; market direction unfavorable forcing demotion from `entry`; marginal trend template traits requiring further confirmation. Re-evaluation in 1–4 weeks is appropriate.
-- **ignore**: Despite passing the trend template, this stock is not a Minervini/O'Neil-quality setup. Examples: thin or wide-and-loose base, climax run, late-stage advance, no clean base, post-reverse-split speculation, ETF.
+- **ignore**: Reserved for a stock that, despite passing the trend template, is in a blow-off (climax, §6.1) or topping/distribution (Stage 3→4, §6.2). These are the ONLY two ignore conditions (see §5.1). A forming/absent base, looseness, late-stage, or extension is `watch`, not ignore.
 
 ## Inputs
 
@@ -124,7 +124,7 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 아래 트리를 *순서대로* 적용해 `pattern` 을 도출하라. "무슨 모양 같나" 게슈탈트로 라벨을 먼저 정하지 말 것.
 **`none` 으로 떨어질 때마다 그 Gate 를 `measurements.rejected_gate` 에 기록**(어느 분기에서 갈렸는지 감사 가능하게).
 
-- **1차 라우팅**: cup 계열 기하가 *명백히* 아님(**명백한** climax run = 직전 급등 + 단일봉 초대형 거래량·스프레드 / base 자체가 전혀 없음 / 명백한 비-cup) → `none`, `rejected_gate=not_cup_family`. (단 `prior_uptrend_pct`·`cup_depth_pct`·`cup_shape` 는 그래도 측정해 보고.) ⚠ *애매하면 여기서 배제하지 말 것* — 아래 경계 수렴 규칙.
+- **1차 라우팅**: cup 계열 기하가 *명백히* 아님(**명백한** climax *형태*(shape 휴리스틱 — pattern 라우팅용. verdict=ignore 는 §6.1 게이트만 결정; 이 형태 신호로 climax_run flag 를 emit 하지 말 것) = 직전 급등 + 단일봉 초대형 거래량·스프레드 / base 자체가 전혀 없음 / 명백한 비-cup) → `none`, `rejected_gate=not_cup_family`. (단 `prior_uptrend_pct`·`cup_depth_pct`·`cup_shape` 는 그래도 측정해 보고.) ⚠ *애매하면 여기서 배제하지 말 것* — 아래 경계 수렴 규칙.
 - **Gate0**: `prior_uptrend_pct < CUP_PRIOR_UPTREND_MIN_PCT(30%)` → `none`, `rejected_gate=gate0` (O'Neil: 모든 cup 전제).
 - **Gate1**: `cup_depth_pct > 깊이상한` → `none`, `rejected_gate=gate1`. 깊이상한 = 정상장 CUP_DEPTH_MAX_NORMAL_PCT(33%);
   단 `market_context` 가 downtrend→confirmed_uptrend 전환(최근 60세션)이면 CUP_DEPTH_MAX_BEAR_RECOVERY_PCT(50%).
@@ -328,7 +328,7 @@ Synthesize Steps 1–7 into `entry / watch / ignore`:
 
 - **`entry`**: clean base, at or near pivot (or valid pocket pivot per §4.5), Stage 2, volume confirmation available, market direction confirmed favorable (per §3.5).
 - **`watch`**: trend template OK, but one or more of: base still forming, stock extended beyond entry zone, marginal trend template, unfavorable market context, weak RS Line leadership, stock-level distribution accumulating.
-- **`ignore`**: climax run, wide-and-loose, no base, late-stage with multiple high-impact flags, post-reverse-split distortion, or ETF.
+- **`ignore`**: ONLY when the §6.1 climax gate OR the §6.2 topping gate is satisfied. No other condition produces ignore. "No base / forming base" is NOT ignore — it is watch (base_forming): a TT-passing leader without a current pivot is waiting for one, not disqualified. wide-and-loose / late-stage / extended / volume-contraction / reverse-split are DEMOTE-TO-WATCH or INFORMATIONAL per §5.1, never ignore. (ETF/fund is handled upstream by the Pre-Check.)
 
 ### 8.5. watch_reason (classification == "watch" 일 때 필수)
 
