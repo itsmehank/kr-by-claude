@@ -8,4 +8,5 @@ RISK_FLAGS_TAXONOMY = frozenset({
     "prior_uptrend_insufficient", "volume_contraction_on_advance",
     "reverse_split_distortion", "unfavorable_market_context",
     "etf_methodology_mismatch", "handle_quality",
-})  # 14종
+    "topping_distribution",
+})  # 15종
