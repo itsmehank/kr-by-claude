@@ -51,6 +51,13 @@ cup-tree(`not_cup_family → none`)도 이 경로로 수렴: pattern=none 은 sh
 climax/topping 게이트 미발화 시 verdict=watch(base_forming). 기존 "경계 수렴 규칙"과
 정합(이미 watch 로 수렴하던 방향의 완성).
 
+**M3 — cup-tree "climax" 와 §6.1 의 layer 분리 (필수)**: cup-tree 1차 라우팅의
+"명백한 climax run → pattern=none" 은 *느슨한 shape 휴리스틱*(pattern 결정)이고, §6.1 은
+*엄격한 verdict 게이트*(ignore 결정)다. §5.1 이 "climax_run force-ignore = §6.1 충족 시"로
+이미 바인딩하지만, cup-tree 의 느슨한 climax 가 §6.1 을 우회해 ignore 를 만들지 않도록
+cup-tree 1차 라우팅 문구를 **"climax 형태(shape; verdict 는 §6.1 이 판정) → pattern=none"**
+으로 명시 — climax_run flag 발화와 ignore 는 §6.1 게이트만이 결정한다.
+
 ## 3. §5.1 — risk flag → verdict 매핑 (신설)
 
 risk flags 표 직후 삽입. flag 존재가 곧 verdict 가 아님:
@@ -76,6 +83,9 @@ risk flags 표 직후 삽입. flag 존재가 곧 verdict 가 아님:
 - **Anchor (advance start = base-count 앵커, 동일 주)**: Stage 1→2 전환 — 직전 Stage 1
   (40주선 평탄/하락 아래) 후 첫 베이스를 주간 거래량 ≥ `BREAKOUT_VOL_FLOOR`(1.4×, 50주
   평균 — 50일 아님) 로 돌파하며 30주·40주선 상향전환·그 위로 올라선 가장 최근 주.
+  **MA 입력**: 30주·40주선은 사전계산본이 아님 — LLM 이 104주 종가로 계산하거나 공급되는
+  daily SMA-150(≈30주)·SMA-200(≈40주)으로 근사. 50주 거래량평균은 payload 의
+  `weekly_ohlcv_recent_104w.adj_volume` 로 계산.
   104주 창 밖이면 P1 충족 간주 + baseline "left-censored" 라벨(창 왼쪽 끝을 가짜
   시작점으로 쓰지 않음).
 - **Preconditions (ALL)**: P1 성숙도(앵커 후 ≥18주, 후기 베이스발이면 ≥12주) · P2(max
@@ -96,8 +106,9 @@ risk flags 표 직후 삽입. flag 존재가 곧 verdict 가 아님:
   발생)을 force-ignore 하는 오발화를 차단 — SK하이닉스 검증: 03-06(-12.9%) 등 5/6 하락주가
   10주선 위라 trivially 침묵, 유일 G0-통과 주 08-22 도 T-A~D 미발화로 침묵.
 - **Triggers (G0 ∧ ≥1)**: T-A 전체 advance 내 최대 주간 하락 · T-B 10주선 아래 연속 ≥8주
-  (단일 종가 하회는 정상 눌림, topping 아님) · T-C 40주선 하락전환 · T-D 최대 주간
-  down-거래량 OR (분배 ≥`STOCK_DISTRIBUTION_COUNT_25D`(4) AND 10주선 아래).
+  (단일 종가 하회는 정상 눌림, topping 아님) · T-C 40주선(≈daily SMA-200) 하락전환 ·
+  T-D 최대 주간 down-거래량 OR 분배 ≥`STOCK_DISTRIBUTION_COUNT_25D`(4).
+  (T-D 의 "10주선 아래" 조건은 G0 가 이미 요구하므로 생략 — 중복 제거.)
 - SK하이닉스는 in-window topping 없음 → §6.2 0 기여(false-positive 검증 전용).
 
 ## 6. thresholds.py 변경 (provenance 태그 필수)
