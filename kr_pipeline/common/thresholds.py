@@ -238,3 +238,35 @@ MEASUREMENT_TOLERANCE_PCT: Final[float] = 5.0
 """[heuristic · calibration-target] LLM 측정값 경계 허용밴드 %. **고정상수 아님** —
 shape 가 LLM 소유라 밴드폭이 안정성의 load-bearing 변수. 재측정(plan Task 11)의 'depth read
 회차간 분산'으로 보정. 5% 는 잠정 시작값(사용자 ±5% 노이즈 정책)."""
+
+# ===== Climax run — §6.1 게이트 (prompts/analyze_chart_v3.md) =====
+
+CLIMAX_GAIN_PCT: Final[float] = 25.0
+"""[PRESERVES] climax 가속 상승률 임계 (max(1~3주) 수익률). O'Neil HMMS p.262-263,
+Minervini TTLC Ch.9 ('25-50% in 1-3 weeks')."""
+CLIMAX_GAIN_WINDOW_WEEKS: Final[int] = 3
+"""[PRESERVES] climax 상승률 측정 창 상한(주). HMMS p.262-263 '1-2 weeks', TTLC '1-3 weeks'."""
+
+CLIMAX_UP_DAYS_PCT: Final[float] = 70.0
+"""[PRESERVES] climax T4 트리거: 윈도우 내 상승일 비율 임계. TTLC Ch.9 / HMMS p.263 (#4)."""
+CLIMAX_UP_DAYS_WINDOW_MIN: Final[int] = 7
+CLIMAX_UP_DAYS_WINDOW_MAX: Final[int] = 15
+"""[PRESERVES] T4 상승일 측정 윈도우 (거래일 7~15). TTLC Ch.9."""
+
+CLIMAX_MATURITY_WEEKS: Final[int] = 18
+"""숫자 [PRESERVES] HMMS p.263 ('usually at least 18 weeks out of a first- or second-
+stage base'); **적용은 EXTENDS** — advance-start 앵커에 묶은 hard P1 게이트는 시스템 채택.
+drift 테스트 목적 = '이 값 변경 시 §6.1 climax 게이트 재검증 필요' 신호 (책 변경 감지 아님)."""
+CLIMAX_LATE_MATURITY_WEEKS: Final[int] = 12
+"""숫자 [PRESERVES] HMMS p.263 ('12 weeks or more if ... later-stage base'); 적용 EXTENDS (위와 동일)."""
+
+# ===== Topping/distribution — §6.2 게이트 =====
+
+TOPPING_BELOW_10W_WEEKS: Final[int] = 8
+"""[PRESERVES] topping T-B: 10주선 아래 연속 주 임계. O'Neil HMMS p.269 ('living below
+the 10-week line for 8-9 weeks')."""
+
+STOCK_DISTRIBUTION_COUNT_25D: Final[int] = 4
+"""[DESIGN-JUDGMENT] 종목 25세션 내 분배일 카운트 임계. 분배 *개념*은 책(O'Neil),
+카운트 4 는 IBD/community convention — 책 literal 아님. §6 stock-distribution flag +
+§6.2 T-D 가 공유 (기존 prompt 리터럴 '4+ distribution days' 를 SSOT 로 승격)."""

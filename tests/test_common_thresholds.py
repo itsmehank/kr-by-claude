@@ -107,3 +107,18 @@ def test_rs_line_window_constants():
     assert t.RS_LINE_UPTREND_SHORT_WEEKS == 6
     assert t.RS_LINE_UPTREND_LONG_WEEKS == 13
     assert t.RS_LINE_DECLINE_GATE_WEEKS == 30
+
+
+def test_climax_thresholds():
+    assert thresholds.CLIMAX_GAIN_PCT == 25.0
+    assert thresholds.CLIMAX_GAIN_WINDOW_WEEKS == 3
+    assert thresholds.CLIMAX_UP_DAYS_PCT == 70.0
+    assert thresholds.CLIMAX_UP_DAYS_WINDOW_MIN == 7
+    assert thresholds.CLIMAX_UP_DAYS_WINDOW_MAX == 15
+    assert thresholds.CLIMAX_MATURITY_WEEKS == 18
+    assert thresholds.CLIMAX_LATE_MATURITY_WEEKS == 12
+
+
+def test_topping_thresholds():
+    assert thresholds.TOPPING_BELOW_10W_WEEKS == 8
+    assert thresholds.STOCK_DISTRIBUTION_COUNT_25D == 4
