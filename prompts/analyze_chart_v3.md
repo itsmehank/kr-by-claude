@@ -243,7 +243,7 @@ Select from **exactly this taxonomy** (no other values are permitted):
 
 | Flag | When to apply |
 |---|---|
-| `climax_run` | Price up ≥25% in 1–3 weeks; largest weekly price spread and heaviest volume of the current move (Minervini Stage 3 warning) |
+| `climax_run` | Terminal acceleration of a mature advance — see §6.1 gate. Emit ONLY when §6.1 is satisfied; never from a loose "looks parabolic" impression. |
 | `late_stage_base` | 3rd or later base in the current Stage 2 advance |
 | `extended_from_ma` | Price > SMA-50 by more than 15% |
 | `faulty_pivot` | Pivot is at a prior resistance level that has failed 2+ times, OR the pivot sits atop a structurally faulty base feature — e.g. an immediate V-shaped new high without any pullback, or a breakout that lacks volume confirmation. (Handle-specific faults — wedging handle, lower-half handle, depth >12% — are covered in §4 cup_with_handle handle quality block.) |
@@ -306,6 +306,50 @@ Separate from the market-level distribution count in `market_context`, evaluate 
 - **Use the `distribution_day_flag` series in `indicators_recent_60d` as the authoritative per-day signal for this count; the textual definition above describes how that flag is computed.** (Same convention as `pocket_pivot_flag` in §4.5 — column is authoritative.)
 - If `STOCK_DISTRIBUTION_COUNT_25D`+ (=4) distribution days within the past 25 sessions on the stock itself: institutions are selling even in Stage 2. Add `volume_contraction_on_advance` if volume is also drying up on up-days, or demote to `watch`. (This is demote-to-watch per §5.1 — NOT ignore. The same count gates §6.2 T-D for the topping force-ignore, which additionally requires G0 = below the 10-week line.)
 - A single distribution day is normal; clusters are warnings.
+
+#### 6.1 climax_run — qualification gate
+
+Anchor — "advance start" (= the base-count anchor used for late_stage; SAME week):
+The Stage 1→2 transition: the most recent week where, after a preceding Stage 1
+(price flat/declining below a flat-or-falling 40-week SMA), price broke out of its
+first base on weekly volume ≥ BREAKOUT_VOL_FLOOR (1.4×) of the 50-WEEK average AND
+both the 30-week (≈SMA-150) and 40-week (≈SMA-200) lines turned up with price above
+them. This one week anchors BOTH base count (= base #1) and the "entire advance"
+baseline for P2/T1–T4. Compute the 30/40-week SMAs from the 104-week weekly closes
+(or approximate with the supplied daily SMA-150/SMA-200); the 50-week volume average
+from weekly_ohlcv_recent_104w.
+If the anchor lies OUTSIDE the 104-week window (no Stage-1 base + MA turn-up visible,
+i.e. >2 years in Stage 2): treat P1 as satisfied, compute P2/T1–T2 extremes over the
+visible window only, and label the baseline "left-censored (advance predates window)".
+Do NOT treat the window's left edge as a fresh move-start.
+
+Preconditions (ALL must hold):
+- P1 Maturity: ≥ CLIMAX_MATURITY_WEEKS (18) weeks since the anchor, or ≥
+  CLIMAX_LATE_MATURITY_WEEKS (12) if the current run emerged from a 3rd-or-later base.
+- P2 Acceleration vs the stock's OWN trend: max(1w,2w,3w) return ≥ CLIMAX_GAIN_PCT (25%)
+  AND this is the steepest 1–3 week pace of the ENTIRE advance (no earlier rolling
+  3-week window since the anchor exceeded it).
+
+Triggers (≥1, measured against the ENTIRE advance since the anchor):
+- T1 Largest weekly high-low spread since the advance began
+- T2 Heaviest weekly volume since the advance began
+- T3 Exhaustion gap on the daily chart
+- T4 ≥ CLIMAX_UP_DAYS_PCT (70%) up days over a 7–15 day window (e.g. 8 of 10)
+Supporting (strengthens, never sufficient alone): price ≥ 70% above SMA-200.
+
+Exclusion (NARROW — applies ONLY to breakouts from a 1st- or 2nd-stage base):
+- E1 If the ≥25% gain occurred within 3 weeks of a valid breakout from base #1 or #2,
+  it is LEADERSHIP, not climax — do not emit climax_run. (O'Neil HMMS p.269
+  eight-week-hold rule.)
+- E1 does NOT apply to breakouts from 3rd-or-later bases: a sharp surge out of a
+  late-stage base is exactly where blow-off tops occur — E1 stays silent and this
+  gate decides. (Minervini TLSMW Ch.5 pp.82-83; O'Neil HMMS p.268.)
+
+Temporal scope: climax_run describes THIS WEEK. Emit only while terminal acceleration
+is in progress or ≤2 weeks past its high. Once price has corrected >15% from the
+climax high or 4+ weeks have elapsed, it is post-climax consolidation: do NOT emit.
+Refer to the past event in reasoning as "prior climax (history)" — exempt from
+consistency rule #2 (see §5 rule #2 exception).
 
 ### 7. Pivot & Breakout Accuracy
 
