@@ -21,10 +21,16 @@ PROMPT_SYNCED = [
     "HANDLE_DEPTH_BULL_MAX_PCT",
     "HANDLE_LEGIT_MIN_DAYS",
     "MEASUREMENT_TOLERANCE_PCT",
+    "STOCK_DISTRIBUTION_COUNT_25D",
+    "CLIMAX_GAIN_PCT",
+    "CLIMAX_MATURITY_WEEKS",
+    "CLIMAX_LATE_MATURITY_WEEKS",
+    "CLIMAX_UP_DAYS_PCT",
+    "TOPPING_BELOW_10W_WEEKS",
 ]
 
 BLOCK_RE = re.compile(r"<!-- SSOT-THRESHOLDS -->(.*?)<!-- /SSOT-THRESHOLDS -->", re.S)
-LINE_RE = re.compile(r"-\s*([A-Z_]+)\s*=\s*([0-9.]+)")
+LINE_RE = re.compile(r"-\s*([A-Z0-9_]+)\s*=\s*([0-9.]+)")
 
 
 def _parse_block() -> dict[str, float]:
