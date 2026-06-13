@@ -432,6 +432,11 @@ git commit -m "feat(prompt): §6.1 climax 게이트 — anchor+P1/P2+T1~4+E1(1·
 **Files:**
 - Modify: `prompts/analyze_chart_v3.md` (§6.1 뒤 §6.2 신설)
 
+- [ ] **Step 0: §5 taxonomy 표에 topping_distribution 행 추가 (Gap A — VD-4 리뷰 발견)** — §5(line 240~)의 risk flags 표에 `handle_quality` 행 다음에 추가 (§5 가 "Select from exactly this taxonomy" 라 표에 없으면 LLM 이 emit 불가):
+```
+| `topping_distribution` | Stage 3→4 top — emit ONLY when the §6.2 gate is satisfied (force-ignore). Never from a single down week. |
+```
+
 - [ ] **Step 1: §6.2 신설** — §6.1 뒤에 추가:
 
 ```
