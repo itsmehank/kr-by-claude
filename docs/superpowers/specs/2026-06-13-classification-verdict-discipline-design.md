@@ -39,12 +39,13 @@ SK하이닉스(2025-06~2026-06, +1,039%, RS 평균 94, 전 기간 TT 통과)의 
 ```
 변경 후:
 ```
-- **ignore**: ONLY when §6.1 climax gate OR §6.2 topping gate is satisfied.
-  No other condition produces ignore. "No base / forming base" is NOT ignore —
-  it is watch (base_forming): a TT-passing leader without a current pivot is
+- **ignore**: ONLY when §6.1 climax gate OR §6.2 topping gate OR §1 data-distortion
+  (reverse_split_distortion within ~12 weeks with no clean post-split base) is
+  satisfied. No other condition produces ignore. "No base / forming base" is NOT
+  ignore — it is watch (base_forming): a TT-passing leader without a current pivot is
   waiting for one, not disqualified. wide-and-loose / late-stage / extended /
-  volume-contraction / reverse-split are DEMOTE-TO-WATCH or INFORMATIONAL per
-  §5.1, never ignore. (ETF/fund handled upstream by the Pre-Check.)
+  volume-contraction are DEMOTE-TO-WATCH or INFORMATIONAL per §5.1, never ignore.
+  (ETF/fund handled upstream by the Pre-Check.)
 ```
 
 cup-tree(`not_cup_family → none`)도 이 경로로 수렴: pattern=none 은 shape 판정일 뿐,
@@ -62,21 +63,33 @@ cup-tree 1차 라우팅 문구를 **"climax 형태(shape; verdict 는 §6.1 이 
 
 risk flags 표 직후 삽입. flag 존재가 곧 verdict 가 아님:
 
-- **FORCE-IGNORE (verdict=ignore, 평일 감시 제외) — 둘뿐**:
-  `climax_run`(§6.1 충족), `topping_distribution`(§6.2 충족).
+- **FORCE-IGNORE (verdict=ignore, 평일 감시 제외) — 셋뿐**:
+  `climax_run`(§6.1 충족), `topping_distribution`(§6.2 충족), `reverse_split_distortion`
+  (§1 — ~12주 내 reverse split AND clean post-split base 부재). 앞 둘은 *유효 데이터·
+  매수불가*, 셋째는 *데이터 무결성* 제외(가격 시계열 자체가 왜곡 → 차트 평가 불가;
+  ETF/fund Pre-Check 과 같은 데이터-유효성 축). **§1 카브아웃**: split 후 clean base 가
+  완성되면 flag 는 유지하되 verdict 는 normal(왜곡이 씻겨나가 post-split base 평가 가능).
 - **DEMOTE-TO-WATCH (verdict≤watch, 평일 경로 유지, entry-params 가 사이즈/손절 축소)**:
   `late_stage_base`(4th+, 평일 ×0.7), `wide_and_loose`(현 베이스 미매수·tighten 대기),
   `volume_contraction_on_advance`, `unfavorable_market_context`(§3.5 가 이미 watch 상한).
 - **INFORMATIONAL (단독으로 verdict 불변)**: `extended_from_ma`, `faulty_pivot`,
   `narrow_base`, `low_volume_breakout`(평일 entry-gate 소관), `prior_uptrend_insufficient`,
-  `reverse_split_distortion`, `thin_liquidity_us_only`.
+  `thin_liquidity_us_only`.
 - **결합 규칙**: ignore 는 FORCE-IGNORE 조건을 요구. DEMOTE/INFORMATIONAL 은 몇 개가
   겹쳐도 watch 로 cap 될 뿐 **ignore 로 합쳐지지 않음**.
 
-근거: TT 를 매주 통과하는 Stage 2 주도주가 근시일 매수 돌파를 못 만드는 책-정당
-사유는 blow-off(climax) 또는 top 뿐. 나머지는 "이번 진입이 더 작거나 신중" = watch +
-평일 사이즈 로직(`calculate_entry_params §3.3` 이 late_stage ×0.7 적용 — 종목이 평일
-경로에 도달해야 실행되므로 주말 force-ignore 는 이 로직을 죽은 코드로 만듦).
+근거: "ignore = climax OR topping 둘뿐" 의 암묵 전제는 *데이터가 유효함*. reverse-split
+왜곡은 그 전제 자체를 위반(SMA·52주·pivot 입력이 신뢰 불가) → 명제를 약화가 아니라
+정확히 범위 지정하는 정밀화. climax/topping = 유효 데이터 위 매수불가 셋업이라 setup-품질
+축이지만, reverse-split 은 데이터-유효성 축(ETF Pre-Check 와 동류)이라 INFORMATIONAL
+(셋업 품질 캐비엇) 이 아니라 FORCE-IGNORE 가 맞음. extended/faulty_pivot 등 나머지는
+"이번 진입이 더 작거나 신중" = watch + 평일 사이즈 로직(`calculate_entry_params §3.3` 이
+late_stage ×0.7 적용 — 종목이 평일 경로에 도달해야 실행되므로 주말 force-ignore 는 이
+로직을 죽은 코드로 만듦).
+
+> **§1 위치 유지**: reverse-split 룰은 분석 절차 내 §1(Corporate Action Check)에 남김.
+> ETF 의 하드 이진 배제(Pre-Check)와 달리 reverse-split 은 *조건부*(post-split base 평가
+> 필요)이므로 Pre-Check 로 승격하지 않음. §1 본문 유지 + §5.1/§8 cross-ref 한 줄.
 
 ## 4. §6.1 — climax_run 게이트 (재정의)
 

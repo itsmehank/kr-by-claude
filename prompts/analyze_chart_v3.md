@@ -29,9 +29,12 @@ If `market == "ETF"` or the instrument is a fund vehicle (sector is null with a 
 - MEASUREMENT_TOLERANCE_PCT = 5.0
 - STOCK_DISTRIBUTION_COUNT_25D = 4
 - CLIMAX_GAIN_PCT = 25.0
+- CLIMAX_GAIN_WINDOW_WEEKS = 3
 - CLIMAX_MATURITY_WEEKS = 18
 - CLIMAX_LATE_MATURITY_WEEKS = 12
 - CLIMAX_UP_DAYS_PCT = 70.0
+- CLIMAX_UP_DAYS_WINDOW_MIN = 7
+- CLIMAX_UP_DAYS_WINDOW_MAX = 15
 - TOPPING_BELOW_10W_WEEKS = 8
 <!-- /SSOT-THRESHOLDS -->
 
@@ -39,7 +42,7 @@ If `market == "ETF"` or the instrument is a fund vehicle (sector is null with a 
 
 - **entry**: Stock is at or near a proper buy point with a clean base, in a Stage 2 advance, with market direction confirmed favorable. A swing trade entry is appropriate now or imminently (within ~5 trading days). Includes proper pivot breakouts and pocket pivot entries within a valid base.
 - **watch**: Stock passes the trend template but is not at a buy point. Causes include: base forming but not complete; stock extended beyond entry zone; market direction unfavorable forcing demotion from `entry`; marginal trend template traits requiring further confirmation. Re-evaluation in 1–4 weeks is appropriate.
-- **ignore**: Reserved for a stock that, despite passing the trend template, is in a blow-off (climax, §6.1) or topping/distribution (Stage 3→4, §6.2). These are the ONLY two ignore conditions (see §5.1). A forming/absent base, looseness, late-stage, or extension is `watch`, not ignore.
+- **ignore**: Reserved for a stock that, despite passing the trend template, is in a blow-off (climax, §6.1), topping/distribution (Stage 3→4, §6.2), or whose price series is unreadable from a recent reverse split with no clean post-split base (data distortion, §1). These are the ONLY three ignore conditions (see §5.1). A forming/absent base, looseness, late-stage, or extension is `watch`, not ignore.
 
 ## Inputs
 
@@ -64,7 +67,7 @@ Read `price_data_notes.known_corporate_actions`.
 
 - If a **reverse split within the past ~12 weeks** is present: the historical price series is unreliable. Metrics spanning the split date (52w low, pct_above_52w_low, SMAs) are not meaningful.
 - You MUST add `reverse_split_distortion` to `risk_flags` in this case.
-- Stocks that have recently reverse-split typically reflect distress (per O'Neil, *HMMS*). Unless a clean multi-week base has formed entirely post-split with institutional volume confirmation, classify as `ignore`.
+- Stocks that have recently reverse-split typically reflect distress (per O'Neil, *HMMS*). Unless a clean multi-week base has formed entirely post-split with institutional volume confirmation, classify as `ignore`. (This is the third FORCE-IGNORE condition in §5.1 / §8 — a DATA-INTEGRITY exclusion, distinct from the climax/topping setup verdicts: the price series cannot be evaluated. The clean-post-split-base carveout above keeps the verdict normal.)
 - Forward stock splits (e.g., 2:1, 3:1) are NOT a problem provided adjusted prices are being used — note in reasoning but do not flag.
 
 ### 2. Trend Confirmation with Margin Analysis
@@ -244,7 +247,7 @@ Select from **exactly this taxonomy** (no other values are permitted):
 | Flag | When to apply |
 |---|---|
 | `climax_run` | Terminal acceleration of a mature advance — see §6.1 gate. Emit ONLY when §6.1 is satisfied; never from a loose "looks parabolic" impression. |
-| `late_stage_base` | 3rd or later base in the current Stage 2 advance |
+| `late_stage_base` | 4th or later base in the current Stage 2 advance. For a 3rd base, do NOT emit this flag — note "reduce size / tighten stop" in reasoning instead (preserves O'Neil's late-base caution without forcing demote-to-watch). |
 | `extended_from_ma` | Price > SMA-50 by more than 15% |
 | `faulty_pivot` | Pivot is at a prior resistance level that has failed 2+ times, OR the pivot sits atop a structurally faulty base feature — e.g. an immediate V-shaped new high without any pullback, or a breakout that lacks volume confirmation. (Handle-specific faults — wedging handle, lower-half handle, depth >12% — are covered in §4 cup_with_handle handle quality block.) |
 | `low_volume_breakout` | Breakout volume < 1.4× the 50-day average (O'Neil: 40-50% above normal at minimum) |
@@ -270,11 +273,18 @@ Select from **exactly this taxonomy** (no other values are permitted):
 A flag's presence does NOT by itself set the verdict.
 
 FORCE-IGNORE (verdict = ignore; stock DROPPED from weekday breakout monitoring)
-— ONLY these two, because for a stock passing the Trend Template every week the
-only book-grounded reasons it cannot produce a near-term buyable breakout are a
-blow-off or a top:
+— ONLY these three. For a stock passing the Trend Template every week the only
+book-grounded reasons it cannot produce a near-term buyable breakout are a blow-off
+or a top (valid data, un-buyable setup); the third is a DATA-INTEGRITY exclusion —
+the price series itself is distorted, so no setup on it can be trusted (the same
+data-validity axis as the ETF/fund Pre-Check, not a setup-quality judgment):
   - climax_run           when the §6.1 gate is fully satisfied (active acceleration)
   - topping_distribution when the §6.2 gate is satisfied (Stage 3→4 / breakdown)
+  - reverse_split_distortion when §1 applies — a reverse split within ~12 weeks
+                         AND no clean multi-week post-split base. CARVEOUT (§1): if a
+                         clean base has formed ENTIRELY post-split with volume
+                         confirmation, KEEP the flag but the verdict is normal — the
+                         distortion has washed out, so evaluate the post-split base.
 
 DEMOTE-TO-WATCH (verdict capped at watch; NEVER weekend "entry"; stock REMAINS on
 the weekday path; the entry-params stage applies reduced size / tighter stop):
@@ -289,7 +299,7 @@ INFORMATIONAL (annotates; never changes the verdict alone):
   - extended_from_ma  → price is not a buy point now; the question remains whether a
                         valid pivot exists/forms (pivot-relative discipline)
   - faulty_pivot, narrow_base, low_volume_breakout, prior_uptrend_insufficient,
-    reverse_split_distortion, thin_liquidity_us_only
+    thin_liquidity_us_only
     → qualify the QUALITY/sizing of a SPECIFIC entry; may block THIS pivot, but do
       not by themselves drop a Stage 2 leader to ignore. (low_volume_breakout is
       primarily a weekday entry-gate concern.)
@@ -341,7 +351,8 @@ Do NOT treat the window's left edge as a fresh move-start.
 Preconditions (ALL must hold):
 - P1 Maturity: ≥ CLIMAX_MATURITY_WEEKS (18) weeks since the anchor, or ≥
   CLIMAX_LATE_MATURITY_WEEKS (12) if the current run emerged from a 3rd-or-later base.
-- P2 Acceleration vs the stock's OWN trend: max(1w,2w,3w) return ≥ CLIMAX_GAIN_PCT (25%)
+- P2 Acceleration vs the stock's OWN trend: best rolling return over a
+  CLIMAX_GAIN_WINDOW_WEEKS (3)-week window (i.e. max of 1w,2w,3w) ≥ CLIMAX_GAIN_PCT (25%)
   AND this is the steepest 1–3 week pace of the ENTIRE advance (no earlier rolling
   3-week window since the anchor exceeded it).
 
@@ -349,7 +360,8 @@ Triggers (≥1, measured against the ENTIRE advance since the anchor):
 - T1 Largest weekly high-low spread since the advance began
 - T2 Heaviest weekly volume since the advance began
 - T3 Exhaustion gap on the daily chart
-- T4 ≥ CLIMAX_UP_DAYS_PCT (70%) up days over a 7–15 day window (e.g. 8 of 10)
+- T4 ≥ CLIMAX_UP_DAYS_PCT (70%) up days over a CLIMAX_UP_DAYS_WINDOW_MIN–CLIMAX_UP_DAYS_WINDOW_MAX
+  (7–15) day window (e.g. 8 of 10)
 Supporting (strengthens, never sufficient alone): price ≥ 70% above SMA-200.
 
 Exclusion (NARROW — applies ONLY to breakouts from a 1st- or 2nd-stage base):
@@ -409,7 +421,7 @@ Synthesize Steps 1–7 into `entry / watch / ignore`:
 
 - **`entry`**: clean base, at or near pivot (or valid pocket pivot per §4.5), Stage 2, volume confirmation available, market direction confirmed favorable (per §3.5).
 - **`watch`**: trend template OK, but one or more of: base still forming, stock extended beyond entry zone, marginal trend template, unfavorable market context, weak RS Line leadership, stock-level distribution accumulating.
-- **`ignore`**: ONLY when the §6.1 climax gate OR the §6.2 topping gate is satisfied. No other condition produces ignore. "No base / forming base" is NOT ignore — it is watch (base_forming): a TT-passing leader without a current pivot is waiting for one, not disqualified. wide-and-loose / late-stage / extended / volume-contraction / reverse-split are DEMOTE-TO-WATCH or INFORMATIONAL per §5.1, never ignore. (ETF/fund is handled upstream by the Pre-Check.)
+- **`ignore`**: ONLY when the §6.1 climax gate OR the §6.2 topping gate OR the §1 data-distortion rule (reverse_split_distortion within ~12 weeks with no clean post-split base) is satisfied. No other condition produces ignore. "No base / forming base" is NOT ignore — it is watch (base_forming): a TT-passing leader without a current pivot is waiting for one, not disqualified. wide-and-loose / late-stage / extended / volume-contraction are DEMOTE-TO-WATCH or INFORMATIONAL per §5.1, never ignore. (ETF/fund is handled upstream by the Pre-Check.)
 
 ### 8.5. watch_reason (classification == "watch" 일 때 필수)
 
@@ -451,7 +463,7 @@ pivot 미확정·추격 구간을 정당한 돌파 후보로 새지 않게 한�
 - Thin reasoning (under 100 words of internal analysis) or missing book-defined criteria: max confidence 0.6.
 - Pattern named but structure is absent in the data: max confidence 0.5.
 - 3+ marginal trend template conditions (per §2): max confidence 0.6.
-- Multiple high-impact flags: confidence reflects severity, but the VERDICT follows §5.1 — only `climax_run` (§6.1) or `topping_distribution` (§6.2) forces `ignore`. A stack of DEMOTE/INFORMATIONAL flags (e.g. `late_stage_base` + `extended_from_ma`) caps the verdict at `watch`, never compounds into `ignore` (§5.1 COMBINATION RULE).
+- Multiple high-impact flags: confidence reflects severity, but the VERDICT follows §5.1 — only `climax_run` (§6.1), `topping_distribution` (§6.2), or `reverse_split_distortion` (§1, absent a clean post-split base) forces `ignore`. A stack of DEMOTE/INFORMATIONAL flags (e.g. `late_stage_base` + `extended_from_ma`) caps the verdict at `watch`, never compounds into `ignore` (§5.1 COMBINATION RULE).
 - Pocket pivot entry without clear underlying base of ≥ 6 weeks: max confidence 0.55, prefer `watch`.
 - Unfavorable market context forcing demotion: lower confidence by 0.15 from what it would otherwise be.
 - RS Line leadership confirmed (per §4.6): may raise confidence by 0.05.

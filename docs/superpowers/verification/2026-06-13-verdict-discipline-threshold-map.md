@@ -18,15 +18,15 @@
 `grep -rn` 으로 식별한 소비처 (Python + prompt):
 - climax_run / topping_distribution flag → **§5.1 매핑** → classification=ignore → `weekly_classification` → 평일 트리거 경로(`load.get_active_monitoring`: entry/watch 만 감시) **제외**
 - §6 stock-distribution flag → §5.1 demote-to-watch (ignore 아님)
-- 모든 verdict 산출 = LLM prompt 판정. **Python 에 classification=ignore set 경로 없음**(전수 grep 확인: `gates.py:51` backstop 은 watch 까지만 강등; `disqualify` 는 별도 `disqualified` 이벤트). → ignore 의 단일 기제 = §8/§5.1/§6.1/§6.2 prompt 텍스트.
+- 모든 verdict 산출 = LLM prompt 판정. **Python 에 classification=ignore set 경로 없음**(전수 grep 확인: `gates.py:51` backstop 은 watch 까지만 강등; `disqualify` 는 별도 `disqualified` 이벤트). → ignore 의 단일 기제 = §8/§5.1/§6.1/§6.2/§1 prompt 텍스트(§1 = reverse-split 데이터-무결성 force-ignore, 조건부·clean post-split base 카브아웃).
 
 ## 3단계 (룰 내부 고정 상수) — 2축 판정
 
 | 상수 | 값 | 축1 환산? | 축2 영향? | 책정합 | 후속 |
 |---|---|---|---|---|---|
 | `CLIMAX_GAIN_PCT` | 25 | 부분(σ 보정 후보지만 종목레벨 미적용) | 있음 — climax force-ignore 빈도 직접 결정 | PRESERVES (HMMS p.262-3) | 보정 후보. 현재 정량 정의 복원이 목적 → B-수치(재백필로 climax 정확도 확인) |
-| `CLIMAX_GAIN_WINDOW_WEEKS` | 3 | 불가(시간) | 있음(측정 창) | PRESERVES (TTLC '1-3주') | 모니터링(책 명시 창) |
-| `CLIMAX_UP_DAYS_PCT` / WINDOW | 70 / 7-15 | 불가 | 있음(T4 트리거) | PRESERVES (TTLC Ch.9) | 모니터링 |
+| `CLIMAX_GAIN_WINDOW_WEEKS` | 3 | 불가(시간) | 있음(측정 창) | PRESERVES (TTLC '1-3주') | 모니터링(책 명시 창). SSOT 블록 등재 → drift 보호 |
+| `CLIMAX_UP_DAYS_PCT` / WINDOW | 70 / 7-15 | 불가 | 있음(T4 트리거) | PRESERVES (TTLC Ch.9) | 모니터링. WINDOW_MIN/MAX(7/15) SSOT 블록 등재 → drift 보호 |
 | `CLIMAX_MATURITY_WEEKS` / LATE | 18 / 12 | 불가(시간) | **있음** — P1 하드 전제, climax 발화 가부 좌우 | 숫자 PRESERVES (HMMS p.263 'usually'), **적용 EXTENDS** | **B-수치**: 적용이 EXTENDS 이므로 값 변경 시 §6.1 재검증 필수(drift 테스트가 이 신호 전달). 'usually' 수식 = 하드컷 아님, 재백필로 18/12 경계 종목 확인 |
 | `TOPPING_BELOW_10W_WEEKS` | 8 | 불가(시간) | 있음(§6.2 T-B) | PRESERVES (HMMS p.269) | 모니터링 |
 | `STOCK_DISTRIBUTION_COUNT_25D` | 4 | 불가(카운트) | **있음** — §6(demote) + §6.2 T-D(force-ignore) 이중 소비. 값↓ 시 양쪽 발화↑ | **DESIGN-JUDGMENT** (분배 개념 책, 카운트 4 는 IBD convention) | **B-수치**: §6.2 force-ignore 에 영향하므로 천정종목 재백필로 4 의 정합 확인. G0(10주선 아래)가 §6.2 쪽 추가 엄격화 |
