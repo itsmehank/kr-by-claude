@@ -249,7 +249,7 @@ Select from **exactly this taxonomy** (no other values are permitted):
 | `faulty_pivot` | Pivot is at a prior resistance level that has failed 2+ times, OR the pivot sits atop a structurally faulty base feature — e.g. an immediate V-shaped new high without any pullback, or a breakout that lacks volume confirmation. (Handle-specific faults — wedging handle, lower-half handle, depth >12% — are covered in §4 cup_with_handle handle quality block.) |
 | `low_volume_breakout` | Breakout volume < 1.4× the 50-day average (O'Neil: 40-50% above normal at minimum) |
 | `narrow_base` | Base duration below pattern-specific minimum (see §4) |
-| `wide_and_loose` | Weekly price swings > 10–15% during the base; erratic, difficult to trade — a loose, wide weekly footprint signals a failure-prone base (O'Neil/Minervini). **Bar-volatility flag**: the trigger is the *width of weekly price action*, NOT base depth. Base-*depth* limits are the `cup_with_handle` depth rule's job (§4); do not double-count depth here. |
+| `wide_and_loose` | Base is wide/loose/erratic RELATIVE to the stock's OWN normal volatility AND the market — measured over the consolidation window, not single weeks (see §5.2). Demote-to-watch only (a loose base can tighten later — O'Neil HMMS pp.140-143). |
 | `thin_liquidity_us_only` | US individual stock only: avg daily dollar volume (volume_ma20 × current_price) < $5M |
 | `prior_uptrend_insufficient` | Less than 20% run from prior base before current consolidation (flat base requirement) |
 | `volume_contraction_on_advance` | Price advancing on declining volume — distribution warning or weak demand |
@@ -298,6 +298,20 @@ COMBINATION RULE: ignore requires a FORCE-IGNORE condition. Any number of
 DEMOTE/INFORMATIONAL flags together cap the verdict at watch — they NEVER compound
 into ignore. A leader that is late-stage AND temporarily loose AND extended is
 still "watch — tracking for the next clean pivot", not ignore.
+
+### 5.2 wide_and_loose — measurement (replaces the absolute "10–15%" rule)
+
+Apply only if BOTH hold over the consolidation window:
+(a) Relative width: the MAJORITY of the base's weekly high-low spreads exceed ~1.5×
+    the stock's OWN median weekly spread over the prior ~6 months. An absolute
+    10–15% cut flags a high-beta KR leader's every week (a leader's median weekly
+    spread can be ~12%); normal volatility is NOT "loose". [1.5× = design-judgment,
+    operationalizes O'Neil's qualitative test — not a literal book figure.]
+(b) Structural fault: deep + erratic — depth exceeds CUP_DEPTH_MAX_NORMAL_PCT (33%)
+    AND the action is V-shaped straight-up / wedging / "large point spreads high-to-
+    low each week throughout the base" (O'Neil HMMS pp.140-143).
+The old "1.5–2.5× the general-market correction" figure is IBD-workshop convention,
+not literal in the source texts.
 
 ### 6. Stock-Level Distribution Check
 
