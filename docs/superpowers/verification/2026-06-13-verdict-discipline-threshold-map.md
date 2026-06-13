@@ -19,6 +19,7 @@
 - climax_run / topping_distribution flag → **§5.1 매핑** → classification=ignore → `weekly_classification` → 평일 트리거 경로(`load.get_active_monitoring`: entry/watch 만 감시) **제외**
 - §6 stock-distribution flag → §5.1 demote-to-watch (ignore 아님)
 - 모든 verdict 산출 = LLM prompt 판정. **Python 에 classification=ignore set 경로 없음**(전수 grep 확인: `gates.py:51` backstop 은 watch 까지만 강등; `disqualify` 는 별도 `disqualified` 이벤트). → ignore 의 단일 기제 = §8/§5.1/§6.1/§6.2/§1 prompt 텍스트(§1 = reverse-split 데이터-무결성 force-ignore, 조건부·clean post-split base 카브아웃).
+- ⚠ **비대칭 주의(미래 코드)**: `reverse_split_distortion` 은 "§1 조건이면 항상 emit + verdict 는 *조건부* force-ignore(clean post-split base 면 normal)" 이라, `climax_run`/`topping_distribution`("게이트 충족 시에만 emit, emit=곧 force-ignore")과 비대칭. 현재는 안전 — verdict 는 LLM 단일 산출이고 flag 로부터 Python 이 재도출하지 않음. **단 미래에 "force-ignore flag 존재 ⟹ classification=ignore" 를 가정하는 분석/집계 코드를 작성하면 reverse_split 카브아웃 케이스(flag 有 + verdict=normal)가 예외가 됨** → 그런 코드는 §1 카브아웃을 명시 처리할 것.
 
 ## 3단계 (룰 내부 고정 상수) — 2축 판정
 
