@@ -261,8 +261,42 @@ Select from **exactly this taxonomy** (no other values are permitted):
 **Three inviolable rules — violation makes the output invalid:**
 
 1. **Trend Template positive traits NEVER go in risk_flags.** High RS Rating, price above MAs, MA alignment, RS Line leadership — these are strengths. RS Rating ≥ 95 is not a risk. Do not flag it.
-2. **Reasoning ↔ flags consistency**: If your `reasoning` (across all 5 markdown sections) names a risk (e.g., "climax run", "wide-and-loose", "extended from MA", "market in correction"), the corresponding flag MUST appear in `risk_flags`. Conversely, every flag in `risk_flags` must be supported by something concrete in reasoning or the underlying data.
+2. **Reasoning ↔ flags consistency**: If your `reasoning` (across all 5 markdown sections) names a risk (e.g., "climax run", "wide-and-loose", "extended from MA", "market in correction"), the corresponding flag MUST appear in `risk_flags`. Conversely, every flag in `risk_flags` must be supported by something concrete in reasoning or the underlying data. EXCEPTION — historical references: if reasoning mentions a risk event as PAST context (e.g., "prior climax in July (history), now consolidating"), append "(history)" to that mention and do NOT emit the flag. Flags describe the CURRENT week's condition only.
 3. **Liquidity scope**: `thin_liquidity_us_only` applies ONLY to US individual stocks. For KR stocks (KOSPI/KOSDAQ) or ETFs, do not evaluate or report liquidity.
+
+### 5.1 Risk flag → classification influence
+
+A flag's presence does NOT by itself set the verdict.
+
+FORCE-IGNORE (verdict = ignore; stock DROPPED from weekday breakout monitoring)
+— ONLY these two, because for a stock passing the Trend Template every week the
+only book-grounded reasons it cannot produce a near-term buyable breakout are a
+blow-off or a top:
+  - climax_run           when the §6.1 gate is fully satisfied (active acceleration)
+  - topping_distribution when the §6.2 gate is satisfied (Stage 3→4 / breakdown)
+
+DEMOTE-TO-WATCH (verdict capped at watch; NEVER weekend "entry"; stock REMAINS on
+the weekday path; the entry-params stage applies reduced size / tighter stop):
+  - late_stage_base (4th+)        → weekday path at ×0.7 size, tighter stop
+  - wide_and_loose                → current base not buyable, but may tighten —
+                                    keep watching (O'Neil HMMS pp.140-143)
+  - volume_contraction_on_advance → demand warning; confirm volume on breakout
+  - unfavorable_market_context    → already capped at watch by §3.5; do NOT treat
+                                    as a second, independent ignore
+
+INFORMATIONAL (annotates; never changes the verdict alone):
+  - extended_from_ma  → price is not a buy point now; the question remains whether a
+                        valid pivot exists/forms (pivot-relative discipline)
+  - faulty_pivot, narrow_base, low_volume_breakout, prior_uptrend_insufficient,
+    reverse_split_distortion, thin_liquidity_us_only
+    → qualify the QUALITY/sizing of a SPECIFIC entry; may block THIS pivot, but do
+      not by themselves drop a Stage 2 leader to ignore. (low_volume_breakout is
+      primarily a weekday entry-gate concern.)
+
+COMBINATION RULE: ignore requires a FORCE-IGNORE condition. Any number of
+DEMOTE/INFORMATIONAL flags together cap the verdict at watch — they NEVER compound
+into ignore. A leader that is late-stage AND temporarily loose AND extended is
+still "watch — tracking for the next clean pivot", not ignore.
 
 ### 6. Stock-Level Distribution Check
 
