@@ -91,6 +91,13 @@ late_stage ×0.7 적용 — 종목이 평일 경로에 도달해야 실행되므
 > ETF 의 하드 이진 배제(Pre-Check)와 달리 reverse-split 은 *조건부*(post-split base 평가
 > 필요)이므로 Pre-Check 로 승격하지 않음. §1 본문 유지 + §5.1/§8 cross-ref 한 줄.
 
+> **3조건 비동등(실효 가중) — VD-11 발견 반영**: 세 force-ignore 는 명목상 동급이나 실효는
+> 다름. **climax(§6.1)=TT 통과 종목의 유일 실질 ignore**(고점에서 MA 위 과확장이라 TT 유지).
+> **topping(§6.2)=~99% inert**(topping ⟹ MA 아래 붕괴 ⟹ TT 탈락 ⟹ 상류 제외; §5.1-bis 참조).
+> **reverse-split(§1)=데이터무결성, 희소**. 초기 분배(아직 TT 통과)는 §6/§4.6 의
+> demote-to-watch 가 담당(force-ignore 아님 — watch-기아 방지). 즉 §5.1 전제 "climax 또는
+> top" 의 top 가지는 실무상 거의 비어있고, **load-bearing 수정은 §6.1+§5.1 demote** 다.
+
 ## 4. §6.1 — climax_run 게이트 (재정의)
 
 - **Anchor (advance start = base-count 앵커, 동일 주)**: Stage 1→2 전환 — 직전 Stage 1
@@ -123,6 +130,32 @@ late_stage ×0.7 적용 — 종목이 평일 경로에 도달해야 실행되므
   T-D 최대 주간 down-거래량 OR 분배 ≥`STOCK_DISTRIBUTION_COUNT_25D`(4).
   (T-D 의 "10주선 아래" 조건은 G0 가 이미 요구하므로 생략 — 중복 제거.)
 - SK하이닉스는 in-window topping 없음 → §6.2 0 기여(false-positive 검증 전용).
+
+### 5.1-bis §6.2 ~99% inert — VD-11 사전검증 발견 (2026-06-13)
+
+**§6.2 는 구조적으로 ~99% inert.** force-ignore 후보 풀(`get_qualifying_tickers`,
+daily_indicators.minervini_pass)은 **C5 = `close > sma_50`**(50일선)을 요구하는데,
+§6.2 **G0 = 주봉 close < 10주선**(≈50일선)이다. 50일선 ≈ 10주선 → **G0=참 ⟹ C5=거짓
+⟹ minervini 탈락 ⟹ 상류 제외** → §6.2 가 후보 풀에 거의 도달 못 함.
+
+전 종목 실측(2025-01~): G0 주 98,255 중 daily minervini 동반 통과 **743 (0.76%)** — 그나마
+일봉 50일선 vs 주봉 10주선 정의 차이의 **MA 교차 경계 노이즈**. 선정 천정 2종목(브이티·이니텍)
+은 발화 가능 주 **0개**(천정에서 10주선 하향과 TT 탈락이 동주 발생). → §6.2 false-negative
+백필은 **검증 불가**(VD-11 천정 쪽 moot, 스킵).
+
+- **T-B/T-C 는 C5/C3 와 공존 불가**: T-B(10주선 아래 ≥8주)=C5 지속 탈락, T-C(40주선 하락전환)
+  =C2/C3 탈락. 경계에서 발화 가능한 건 사실상 T-A/T-D 뿐인데 그것도 0.76% thin boundary.
+- **confirmed topping 은 minervini 스크리너가 처리**(TT 탈락 → 풀에서 제외 = exclusion-by-
+  default). §6.2 는 그 위 belt-and-suspenders.
+
+**처리 = Option 1(경량 유지 + 문서화)**. 재설계(G0 를 30주선 등으로) 기각 — 어떤 주요 MA로
+G0 를 잡아도 TT 와 충돌(10주선=C5, 30주선=C1/C4 정렬 더 inert). TT 통과 중 천정 신호는
+분배/RS 다이버전스인데 이미 §6(분배)·§4.6(RS)에서 **demote-to-watch 로 올바르게 처리** —
+force-ignore 화하면 watch-기아 재도입. 743셀 재선정도 기각(노이즈).
+
+> **[대안 메모 — 후속 옵션]** §6.2 제거 + ignore = "climax(§6.1) + reverse-split(§1)" 도
+> 정당(topping 은 minervini 스크리너가 상류 전담). 단 제거는 큰 변경이라 별도 후속 결정으로
+> 두고, 현재는 **유지 + 문서화**가 최소 안전수.
 
 ## 6. thresholds.py 변경 (provenance 태그 필수)
 

@@ -46,8 +46,18 @@
 4. 축2 "영향있음" 행의 후속: CLIMAX_GAIN_PCT·MATURITY·STOCK_DIST_COUNT = B-수치(재백필 검증 예약), CUP_DEPTH·BREAKOUT_VOL = 모니터링(근거: 재사용·값 불변), 나머지 PRESERVES = 모니터링(책 명시) ✓ — 근거 없는 모니터링 도피 없음
 5. 소비 경계 1줄 존재 ✓
 
+## §6.2 ~99% inert — VD-11 사전검증 발견 (2026-06-13)
+
+§6.2/`TOPPING_BELOW_10W_WEEKS`/`STOCK_DISTRIBUTION_COUNT_25D`(T-D) 소비처는 사실상
+도달 불가. force-ignore 후보 풀 필터 minervini **C5 = `close > sma_50`**(50일선) 과
+§6.2 **G0 = 주봉 close < 10주선**(≈50일선) 이 충돌 → G0=참 ⟹ C5=거짓 ⟹ TT 탈락 ⟹
+상류 제외. 전 종목 실측: G0 주 98,255 중 daily minervini 동반 743(0.76%, MA 교차 노이즈).
+→ **§6.2 force-ignore 도메인 ≈ ∅**. confirmed topping 은 minervini 스크리너가 exclusion-
+by-default 로 처리. `TOPPING_BELOW_10W_WEEKS`·T-D 카운트는 경계 노이즈에만 영향 →
+값 변경 영향도 무시 가능(B-수치 재백필 불요). 상세: spec §5.1-bis. 처리=경량 유지+문서화.
+
 ## 검증 아티팩트
 
-VD-11 양면 백필 (SK하이닉스 false-positive + 분배형 천정 false-negative) 결과가
-이 맵의 B-수치 항목(climax 정확도, §6.2 T-D, 18/12주 경계)을 실측 확인. 결과는
-`data/expert-inquiry/validation_results.md` 에 기록.
+VD-11 백필 = **SK하이닉스 false-positive 단독**(§6.2 천정 쪽은 inert 로 검증 불가 → 스킵).
+이 맵의 B-수치 중 climax 정확도(`CLIMAX_GAIN_PCT`·18/12주 경계)를 실측 확인.
+§6.2 T-D 항목은 위 inert 발견으로 moot. 결과는 `data/expert-inquiry/validation_results.md`.
