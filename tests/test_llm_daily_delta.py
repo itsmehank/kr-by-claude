@@ -23,7 +23,8 @@ def test_daily_delta_dry_run(db, mocker):
 
     import kr_pipeline.llm_runner.daily_delta as dd
 
-    mocker.patch.object(dd, "build_analysis_zip", return_value=b"fake_zip")
+    mocker.patch.object(dd, "build_analysis_inline",
+                        return_value=("inline", ["/tmp/_ddpng/daily_chart.png", "/tmp/_ddpng/weekly_chart.png"], b"fake_freeze"))
     freeze = mocker.patch.object(dd, "save_freeze")
 
     result = dd.run(db, dry_run=True, as_of=today)
@@ -39,11 +40,12 @@ def test_daily_delta_dry_run(db, mocker):
 
 
 def test_daily_delta_zip_excludes_prior_analysis_and_pins_as_of(db, mocker):
-    """신규 분석 ZIP 에 직전 분류(analysis_result.json)가 혼입되면 안 되고(anchoring),
+    """인라인 빌더는 항상 fresh(직전 분류 미첨부 — anchoring 방지)이고,
     --date 과거 재실행 시 미래 데이터가 새지 않도록 on_date=as_of 를 고정해야 한다."""
     from datetime import date
     import kr_pipeline.llm_runner.daily_delta as dd
-    zip_mock = mocker.patch.object(dd, "build_analysis_zip", return_value=b"fake_zip")
+    inline_mock = mocker.patch.object(dd, "build_analysis_inline",
+                                      return_value=("inline", ["/tmp/_ddpng/daily_chart.png", "/tmp/_ddpng/weekly_chart.png"], b"fake_freeze"))
     mocker.patch.object(dd, "save_freeze")
     with db.cursor() as cur:
         cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('DDZC1','T','KOSPI') ON CONFLICT DO NOTHING")
@@ -52,9 +54,8 @@ def test_daily_delta_zip_excludes_prior_analysis_and_pins_as_of(db, mocker):
     as_of = date(2025, 6, 10)
     dd._process_one(db, "DDZC1", dry_run=True, as_of=as_of)
 
-    _, kwargs = zip_mock.call_args
-    assert kwargs.get("include_prior_analysis") is False
-    assert kwargs.get("on_date") == as_of
+    _, kwargs = inline_mock.call_args
+    assert kwargs.get("on_date") == as_of  # inline 빌더는 항상 fresh — include_prior_analysis 개념 없음
 
 
 def test_daily_delta_aborts_on_usage_limit(db, mocker):

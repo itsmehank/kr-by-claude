@@ -56,8 +56,8 @@ def test_backfill_run_inserts_and_wires_on_date(db, monkeypatch):
             )
     db.commit()
     seen_on_date = []
-    monkeypatch.setattr(bf, "build_analysis_zip",
-                        lambda conn, symbol, on_date=None, **kw: seen_on_date.append(on_date) or b"zip")
+    monkeypatch.setattr(bf, "build_analysis_inline",
+                        lambda conn, symbol, on_date=None, **kw: (seen_on_date.append(on_date) or ("inline", ["/tmp/_bfpng/daily_chart.png", "/tmp/_bfpng/weekly_chart.png"], b"zip")))
     monkeypatch.setattr(bf, "call_claude",
                         lambda **kwargs: _result("watch"))
     try:
@@ -228,7 +228,7 @@ def test_backfill_run_multi_week_with_tickers(db, monkeypatch):
         cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,rs_line_not_declining_7m,adj_close) VALUES ('BKW1',%s,TRUE,TRUE,1000.0)", (s1,))
         cur.execute("INSERT INTO daily_indicators (ticker,date,minervini_pass,adj_close) VALUES ('BKW1',%s,FALSE,1000.0)", (s2,))
     db.commit()
-    monkeypatch.setattr(bf, "build_analysis_zip", lambda conn, symbol, on_date=None, **kw: b"zip")
+    monkeypatch.setattr(bf, "build_analysis_inline", lambda conn, symbol, on_date=None, **kw: ("inline", ["/tmp/_bfpng/daily_chart.png", "/tmp/_bfpng/weekly_chart.png"], b"zip"))
     monkeypatch.setattr(bf, "call_claude", lambda **kwargs: _result("watch"))
     try:
         res = bf.run(db, start=s1, end=s2, tickers=["BKW1"], dry_run=False)
@@ -288,8 +288,8 @@ def test_backfill_resume_after_usage_limit(db, monkeypatch):
 
     monkeypatch.setattr(bf, "get_qualifying_tickers",
                         lambda conn, as_of=None, tickers=None: [{"symbol": t, "market": "KOSPI"}])
-    monkeypatch.setattr(bf, "build_analysis_zip",
-                        lambda conn, symbol, on_date=None, **kw: b"zip")
+    monkeypatch.setattr(bf, "build_analysis_inline",
+                        lambda conn, symbol, on_date=None, **kw: ("inline", ["/tmp/_bfpng/daily_chart.png", "/tmp/_bfpng/weekly_chart.png"], b"zip"))
     canned = {"classification": "watch", "pattern": "flat_base", "confidence": 0.7,
               "reasoning": "x", "risk_flags": [], "pivot_price": 100.0,
               "pivot_basis": "range_high", "base_high": 100.0, "base_low": 90.0,

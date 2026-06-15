@@ -23,7 +23,8 @@ def test_weekend_batch_dry_run_processes_all_qualifying(db, mocker):
                 (t, today),
             )
     db.commit()
-    mocker.patch("kr_pipeline.llm_runner.weekend.build_analysis_zip", return_value=b"fake_zip_bytes")
+    mocker.patch("kr_pipeline.llm_runner.weekend.build_analysis_inline",
+                 return_value=("inline", ["/tmp/_wkpng/daily_chart.png", "/tmp/_wkpng/weekly_chart.png"], b"fake_freeze"))
 
     from kr_pipeline.llm_runner.weekend import run
     result = run(db, dry_run=True, as_of=today, concurrency=3)
@@ -154,18 +155,18 @@ def test_reaper_marks_stale_running_failed(db):
 
 
 def test_weekend_zip_excludes_prior_analysis_and_pins_as_of(db, mocker):
-    """신규 분석 ZIP 에 직전 분류(analysis_result.json)가 혼입되면 안 되고(anchoring),
+    """인라인 빌더는 항상 fresh(직전 분류 미첨부 — anchoring 방지)이고,
     --date 과거 재실행 시 미래 데이터가 새지 않도록 on_date=as_of 를 고정해야 한다."""
     import kr_pipeline.llm_runner.weekend as wk
-    zip_mock = mocker.patch.object(wk, "build_analysis_zip", return_value=b"fake_zip")
+    inline_mock = mocker.patch.object(wk, "build_analysis_inline",
+                                      return_value=("inline", ["/tmp/_wkpng/daily_chart.png", "/tmp/_wkpng/weekly_chart.png"], b"fake_freeze"))
     mocker.patch.object(wk, "save_freeze")
 
     as_of = date(2025, 6, 10)
     wk._process_one(db, "WKZC1", "KOSPI", dry_run=True, as_of=as_of)
 
-    _, kwargs = zip_mock.call_args
-    assert kwargs.get("include_prior_analysis") is False
-    assert kwargs.get("on_date") == as_of
+    _, kwargs = inline_mock.call_args
+    assert kwargs.get("on_date") == as_of  # inline 빌더는 항상 fresh — include_prior_analysis 개념 없음
 
 
 def test_weekend_aborts_batch_on_usage_limit(db, mocker):
