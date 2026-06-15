@@ -6,14 +6,14 @@
 from __future__ import annotations
 
 import logging
-import tempfile
+import shutil
 from datetime import date, datetime, timezone
 from pathlib import Path
 
 from psycopg import Connection
 
 from api.services.freeze_store import save_freeze
-from api.services.zip_builder import build_analysis_zip
+from api.services.inline_builder import build_analysis_inline
 from kr_pipeline.llm_runner.compute.delta import find_new_tickers
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 from kr_pipeline.llm_runner.store import insert_classification
@@ -95,20 +95,20 @@ def _process_one(conn: Connection, symbol: str, *, dry_run: bool, as_of: date) -
     market = row[0]
 
     started = datetime.now(timezone.utc)
-    # include_prior_analysis=False: 신규 분석에 직전 분류가 첨부되면 LLM 이
-    # 과거 판정에 anchoring 됨. on_date=as_of: --date 과거 재실행 look-ahead 방지.
-    zip_bytes = build_analysis_zip(conn, symbol, on_date=as_of, include_prior_analysis=False)
-    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
-        f.write(zip_bytes)
-        zip_path = f.name
+    # 인라인 입력 빌드(ZIP→텍스트 인라인 + 차트 PNG). 신규 분석은 직전 분류 미첨부
+    # (anchoring 방지). on_date=as_of: --date 과거 재실행 look-ahead 방지.
+    # freeze_bytes = 감사·재현용 ZIP(inline_input.md + 차트 2장).
+    inline_text, png_paths, freeze_bytes = build_analysis_inline(conn, symbol, on_date=as_of)
+    png_dir = str(Path(png_paths[0]).parent)
     try:
         result = call_claude(
             prompt_file="analyze_chart_v3.md",
-            attachments=[zip_path],
+            attachments=png_paths,
+            payload_inline=inline_text,
             dry_run=dry_run,
         )
     finally:
-        Path(zip_path).unlink(missing_ok=True)
+        shutil.rmtree(png_dir, ignore_errors=True)
 
     finished = datetime.now(timezone.utc)
 
@@ -118,7 +118,7 @@ def _process_one(conn: Connection, symbol: str, *, dry_run: bool, as_of: date) -
         # dry_run 에서도 freeze 저장 — classification_id=None (분류 row 없음)
         save_freeze(
             conn,
-            artifact_bytes=zip_bytes,
+            artifact_bytes=freeze_bytes,
             content_type="application/zip",
             ticker=symbol,
             stage="daily_delta",
@@ -141,7 +141,7 @@ def _process_one(conn: Connection, symbol: str, *, dry_run: bool, as_of: date) -
     # 분류 row 저장 후 freeze — fail-soft, 반환값 무시
     save_freeze(
         conn,
-        artifact_bytes=zip_bytes,
+        artifact_bytes=freeze_bytes,
         content_type="application/zip",
         ticker=symbol,
         stage="daily_delta",

@@ -7,8 +7,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import subprocess
-import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -19,7 +19,7 @@ import psycopg
 from psycopg import Connection
 
 from api.services.freeze_store import save_freeze
-from api.services.zip_builder import build_analysis_zip
+from api.services.inline_builder import build_analysis_inline
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude, ClaudeCLIError, UsageLimitError
 from kr_pipeline.llm_runner.load import get_qualifying_tickers
 from kr_pipeline.llm_runner.store import insert_classification
@@ -300,24 +300,21 @@ def _process_one(
     """단일 종목 (5) 호출 + INSERT."""
     started = datetime.now(timezone.utc)
 
-    # ZIP 빌드 (dry-run 도 가짜 bytes 받음).
-    # include_prior_analysis=False: 신규 분석에 직전 분류가 첨부되면 LLM 이
-    # 과거 판정에 anchoring 됨. on_date=as_of: --date 과거 재실행 look-ahead 방지.
-    zip_bytes = build_analysis_zip(conn, symbol, on_date=as_of, include_prior_analysis=False)
-
-    # ZIP 을 임시 파일로 저장 (Claude CLI attach 용)
-    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
-        f.write(zip_bytes)
-        zip_path = f.name
-
+    # 인라인 입력 빌드 (ZIP→텍스트 인라인 + 차트 PNG). dry-run 도 실제 빌드.
+    # 신규 분석은 직전 분류를 첨부하지 않음(anchoring 방지) — inline_builder 는
+    # 항상 fresh. on_date=as_of: --date 과거 재실행 look-ahead 방지.
+    # freeze_bytes = 감사·재현용 ZIP(inline_input.md + 차트 2장).
+    inline_text, png_paths, freeze_bytes = build_analysis_inline(conn, symbol, on_date=as_of)
+    png_dir = str(Path(png_paths[0]).parent)
     try:
         result = call_claude(
             prompt_file="analyze_chart_v3.md",
-            attachments=[zip_path],
+            attachments=png_paths,
+            payload_inline=inline_text,
             dry_run=dry_run,
         )
     finally:
-        Path(zip_path).unlink(missing_ok=True)
+        shutil.rmtree(png_dir, ignore_errors=True)
 
     finished = datetime.now(timezone.utc)
     duration_s = (finished - started).total_seconds()
@@ -328,7 +325,7 @@ def _process_one(
         # dry_run 에서도 freeze 저장 — classification_id=None (분류 row 없음)
         save_freeze(
             conn,
-            artifact_bytes=zip_bytes,
+            artifact_bytes=freeze_bytes,
             content_type="application/zip",
             ticker=symbol,
             stage="weekend",
@@ -355,7 +352,7 @@ def _process_one(
     # weekly_classification PK 는 composite (symbol, classified_at), BIGINT id 없어 classification_id=None
     save_freeze(
         conn,
-        artifact_bytes=zip_bytes,
+        artifact_bytes=freeze_bytes,
         content_type="application/zip",
         ticker=symbol,
         stage="weekend",

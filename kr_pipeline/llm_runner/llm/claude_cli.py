@@ -173,7 +173,7 @@ RETRY_DELAYS = [1, 3, 9]
 def call_claude(
     prompt_file: str,
     attachments: list[str] | None = None,
-    payload_inline: dict | None = None,
+    payload_inline: dict | str | None = None,
     dry_run: bool = False,
     timeout_seconds: int = 600,
 ) -> dict:
@@ -182,7 +182,9 @@ def call_claude(
     Args:
         prompt_file: prompts/ 하위 파일명 (예: "analyze_chart_v3.md")
         attachments: 첨부 파일 절대경로 리스트 (ZIP, PNG 등)
-        payload_inline: 텍스트로 직접 전달할 JSON (가벼운 payload 용)
+        payload_inline: 프롬프트 본문에 직접 붙일 입력.
+            dict → ```json 블록으로 직렬화(가벼운 payload 용).
+            str  → 원문 그대로 append(인라인 데이터 섹션 용; analyze_chart_v3 인라인 경로).
         dry_run: True 면 LLM 호출 안 함, mock JSON 반환
         timeout_seconds: subprocess timeout
 
@@ -205,9 +207,12 @@ def call_claude(
     # Build prompt input
     prompt_text = prompt_path.read_text(encoding="utf-8")
     if payload_inline is not None:
-        prompt_text += "\n\n## Input (JSON)\n\n```json\n"
-        prompt_text += json.dumps(payload_inline, ensure_ascii=False, indent=2)
-        prompt_text += "\n```\n"
+        if isinstance(payload_inline, str):
+            prompt_text += "\n\n" + payload_inline + "\n"
+        else:
+            prompt_text += "\n\n## Input (JSON)\n\n```json\n"
+            prompt_text += json.dumps(payload_inline, ensure_ascii=False, indent=2)
+            prompt_text += "\n```\n"
 
     cmd = ["claude", "--print", "--permission-mode", "bypassPermissions"]
 

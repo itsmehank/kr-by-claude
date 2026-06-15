@@ -6,13 +6,13 @@
 from __future__ import annotations
 
 import logging
-import tempfile
+import shutil
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from psycopg import Connection
 
-from api.services.zip_builder import build_analysis_zip
+from api.services.inline_builder import build_analysis_inline
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 from kr_pipeline.llm_runner.load import get_qualifying_tickers
 from kr_pipeline.llm_runner.store import insert_backfill_classification
@@ -99,18 +99,18 @@ def run(conn: Connection, *, start: date, end: date, tickers: list[str] | None =
 
 def _process_one(conn: Connection, symbol: str, market: str, *, dry_run: bool, as_of: date) -> None:
     started = datetime.now(timezone.utc)
-    zip_bytes = build_analysis_zip(conn, symbol, on_date=as_of, include_prior_analysis=False)
-    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
-        f.write(zip_bytes)
-        zip_path = f.name
+    # 인라인 입력 빌드(ZIP→텍스트 인라인 + 차트 PNG). backfill 은 freeze 미저장.
+    inline_text, png_paths, _freeze_bytes = build_analysis_inline(conn, symbol, on_date=as_of)
+    png_dir = str(Path(png_paths[0]).parent)
     try:
         result = call_claude(
             prompt_file="analyze_chart_v3.md",
-            attachments=[zip_path],
+            attachments=png_paths,
+            payload_inline=inline_text,
             dry_run=dry_run,
         )
     finally:
-        Path(zip_path).unlink(missing_ok=True)
+        shutil.rmtree(png_dir, ignore_errors=True)
 
     finished = datetime.now(timezone.utc)
 
