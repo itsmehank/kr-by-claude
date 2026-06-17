@@ -6,10 +6,18 @@ def w52_high_low(
     adj_high: pd.Series,
     adj_low: pd.Series,
     window: int = 252,
+    min_periods: int | None = None,
 ) -> tuple[pd.Series, pd.Series]:
-    """52주(기본 252영업일) 수정 고가 rolling max / 수정 저가 rolling min."""
-    high = adj_high.rolling(window=window, min_periods=window).max()
-    low = adj_low.rolling(window=window, min_periods=window).min()
+    """52주(기본 252영업일) 수정 고가 rolling max / 수정 저가 rolling min.
+
+    min_periods 미지정 시 window(엄격). 거래정지일은 adj_high/adj_low 가 NULL(NaN)이며
+    pandas rolling 은 NaN 을 *제외* 하고 min/max 계산(min_periods 는 유효개수 판정)하므로,
+    min_periods<window 면 고정 252행 윈도우를 유지하면서 halt 거래일만 건너뛴 실값을 얻는다.
+    일봉은 min_periods=240(≤12 halt 허용 → 고립 halt 통과, 장기정지는 유효일<240 → NaN →
+    제외). 신규상장(거래일<240)도 NaN(히스토리 부족 보존). dropna 금지(달력 윈도우 왜곡)."""
+    mp = window if min_periods is None else min_periods
+    high = adj_high.rolling(window=window, min_periods=mp).max()
+    low = adj_low.rolling(window=window, min_periods=mp).min()
     return high, low
 
 

@@ -13,9 +13,13 @@ from kr_pipeline.common.thresholds import (
 )
 
 
-def avg_volume(adj_volume: pd.Series, window: int) -> pd.Series:
-    """rolling mean. window 미만 NaN."""
-    return adj_volume.rolling(window=window, min_periods=window).mean()
+def avg_volume(adj_volume: pd.Series, window: int, min_periods: int | None = None) -> pd.Series:
+    """rolling mean. min_periods 미지정 시 window(엄격).
+
+    거래정지일 adj_volume 은 NULL(NaN) — rolling mean 은 NaN 제외 평균이므로 min_periods 만
+    낮추면 고정 윈도우 유지하며 halt 거래일을 뺀 실평균. 일봉은 min_periods=40(≤10 halt 허용)."""
+    mp = window if min_periods is None else min_periods
+    return adj_volume.rolling(window=window, min_periods=mp).mean()
 
 
 def volume_ratio(adj_volume: pd.Series, avg_volume_series: pd.Series) -> pd.Series:

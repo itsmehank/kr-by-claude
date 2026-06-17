@@ -66,3 +66,33 @@ def test_pct_from_high_low_zero_denominator_is_nan():
     assert pct_h.isna().all() and pct_l.isna().all()
     assert not np.isinf(pct_h.to_numpy(dtype=float)).any()
     assert not np.isinf(pct_l.to_numpy(dtype=float)).any()
+
+
+import numpy as np
+
+
+def test_w52_min_periods_isolated_halt_uses_real_value():
+    """고립 halt(거래일 중 소수 NaN): min_periods 임계 내면 NaN 제외하고 실 min/max.
+    w52_high 도 NaN 안 됨(adj_high NULL regression 해소)."""
+    high = pd.Series([10.0] * 252); low = pd.Series([5.0] * 252)
+    # 2일 halt(NaN)
+    high.iloc[100] = np.nan; high.iloc[150] = np.nan
+    low.iloc[100] = np.nan; low.iloc[150] = np.nan
+    h, l = w52_high_low(high, low, window=252, min_periods=240)
+    assert l.iloc[-1] == 5.0          # 실 min (NaN 제외)
+    assert h.iloc[-1] == 10.0         # 실 max (NaN 아님 — regression 해소)
+
+
+def test_w52_min_periods_long_suspension_is_nan():
+    """긴 정지(>12 halt): 유효 거래일 <240 → NaN → 제외."""
+    low = pd.Series([5.0] * 252); high = pd.Series([10.0] * 252)
+    low.iloc[-20:] = np.nan; high.iloc[-20:] = np.nan   # 최근 20일 정지
+    h, l = w52_high_low(high, low, window=252, min_periods=240)
+    assert np.isnan(l.iloc[-1]) and np.isnan(h.iloc[-1])
+
+
+def test_w52_default_min_periods_unchanged():
+    """회귀: min_periods 미지정 시 기존(window) 동작 — NaN 1개도 NaN."""
+    s = pd.Series([5.0] * 252); s.iloc[100] = np.nan
+    _, l = w52_high_low(s, s, window=252)
+    assert np.isnan(l.iloc[-1])

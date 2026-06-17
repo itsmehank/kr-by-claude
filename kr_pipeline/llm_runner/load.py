@@ -33,6 +33,12 @@ def get_qualifying_tickers(
            AND i.minervini_pass = TRUE
            AND i.rs_line_not_declining_7m = TRUE
            AND s.delisted_at IS NULL
+           -- #4 현재 정지 제외: as_of 당일 거래정지(adj_low NULL)면 거래 불가 → 후보 제외.
+           -- min_periods 임계(장기정지 NaN)와 상보 — 오늘 정지/재개 직후 슬쩍통과 차단.
+           AND NOT EXISTS (
+               SELECT 1 FROM daily_prices p
+                WHERE p.ticker = i.ticker AND p.date = i.date AND p.adj_low IS NULL
+           )
     """
     params: list = [target_date]
     if tickers:

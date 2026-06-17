@@ -152,3 +152,21 @@ def test_distribution_day_threshold_1_25x():
     result = distribution_day(is_down_day, adj_volume, avg_volume_50, threshold=1.25)
     assert result.iloc[0] == False    # exactly 1.25x → not >
     assert result.iloc[1] == True     # slightly above
+
+
+import numpy as np
+import pandas as pd
+from kr_pipeline.indicators.compute.volume import avg_volume as _avg_volume
+
+
+def test_avg_volume_min_periods_skips_halt():
+    """avg_volume: min_periods 임계 내 NaN(halt) 제외하고 거래일 평균."""
+    v = pd.Series([100.0] * 50); v.iloc[10] = np.nan; v.iloc[20] = np.nan
+    out = _avg_volume(v, window=50, min_periods=40)
+    assert out.iloc[-1] == 100.0      # NaN 제외 거래일 평균
+
+
+def test_avg_volume_min_periods_long_halt_nan():
+    v = pd.Series([100.0] * 50); v.iloc[-15:] = np.nan
+    out = _avg_volume(v, window=50, min_periods=40)
+    assert np.isnan(out.iloc[-1])

@@ -151,7 +151,7 @@ def _process_ticker_daily(
 
     # V3: daily_prices.adj_volume 직접 읽기 (split-adjusted volume 재계산 제거)
     adj_volume = df["adj_volume"]
-    avg_vol_50 = avg_volume(adj_volume, window=50)
+    avg_vol_50 = avg_volume(adj_volume, window=50, min_periods=40)  # halt(NULL) 거래일 ≤10 허용·실평균
     vol_ratio_50 = volume_ratio(adj_volume, avg_vol_50)
 
     is_up = adj_close > adj_close.shift(1)
@@ -173,7 +173,7 @@ def _process_ticker_daily(
     dist_flag = distribution_day(is_down, adj_volume, avg_vol_50)
 
     # 52w
-    w52h, w52l = w52_high_low(df["adj_high"], df["adj_low"], window=252)
+    w52h, w52l = w52_high_low(df["adj_high"], df["adj_low"], window=252, min_periods=240)  # 거래정지 ≤12일 허용
     pct_h, pct_l = pct_from_high_low(adj_close, w52h, w52l)
 
     # RS Line
@@ -535,7 +535,7 @@ def _process_ticker_weekly(
 
     # V3: weekly_prices.adj_volume 직접 읽기 (split-adjusted volume 재계산 제거, 주봉 window=10)
     adj_volume = df["adj_volume"]
-    avg_vol_10w = avg_volume(adj_volume, window=10)
+    avg_vol_10w = avg_volume(adj_volume, window=10, min_periods=8)  # 주봉 halt ≤2주 허용
     vol_ratio_10w = volume_ratio(adj_volume, avg_vol_10w)
 
     is_up = adj_close > adj_close.shift(1)
@@ -545,7 +545,7 @@ def _process_ticker_weekly(
     sma_10w_s = sma(adj_close, 10)
     sma_30w_s = sma(adj_close, 30)
     sma_40w_s = sma(adj_close, 40)
-    w52h, w52l = w52_high_low(df["adj_high"], df["adj_low"], window=52)
+    w52h, w52l = w52_high_low(df["adj_high"], df["adj_low"], window=52, min_periods=50)  # 주봉 정지 ≤2주 허용
     pct_h, pct_l = pct_from_high_low(adj_close, w52h, w52l)
     rs_line = compute_rs_line(adj_close, df["index_close"])
     rs_line_high, rs_line_high_date = compute_rs_line_52w_high_and_date(rs_line, window=52)
