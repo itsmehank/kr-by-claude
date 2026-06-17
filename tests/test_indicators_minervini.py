@@ -132,3 +132,22 @@ def test_null_input_produces_null_condition():
     result = compute_minervini_c1_to_c7(df, sma_200_lookback=22)
     # c5 = close > sma_50; sma_50=NaN → c5 = NaN
     assert pd.isna(result["minervini_c5"].iloc[0])
+
+
+def test_c6_data_defect_w52low_zero_is_nan():
+    """w52_low=0 (저가 데이터 결함) → C6 평가 불가 → NaN (가짜 통과 방지).
+
+    현재 버그: close >= 0*1.25=0 이 항상 True 라 결함 종목이 가짜로 minervini 통과.
+    """
+    df = _input_df(close=[100.0], sma50=[90.0], sma150=[95.0], sma200=[90.0],
+                   w52h=[120.0], w52l=[0.0])
+    result = compute_minervini_c1_to_c7(df, sma_200_lookback=22)
+    assert pd.isna(result["minervini_c6"].iloc[0])
+
+
+def test_c6_positive_w52low_unchanged_regression():
+    """회귀: w52_low>0 정상 → C6 = close >= w52_low*1.25 (125>=125 → True)."""
+    df = _input_df(close=[125.0], sma50=[90.0], sma150=[95.0], sma200=[90.0],
+                   w52h=[200.0], w52l=[100.0])
+    result = compute_minervini_c1_to_c7(df, sma_200_lookback=22)
+    assert result["minervini_c6"].iloc[0] == True

@@ -63,4 +63,10 @@ def compute_minervini_c1_to_c7(
         out[c] = out[c].astype(object)
         out.loc[nan_mask, c] = np.nan
 
+    # 데이터 결함 가드: w52_low<=0 (저가 0행으로 rolling min 이 0) 이면 C6 평가 불가.
+    # close>=0 이 항상 True 라 가짜 통과되는 것을 막고, NaN(cannot-evaluate)으로 둬
+    # minervini_pass(c6 IS TRUE AND ...)에서 FALSE → 후보 제외. 데이터 복구 시 자동 복귀.
+    # (w52l<=0 비교는 NaN 행을 False 로 둬 위 NaN 보존과 충돌하지 않음.)
+    out.loc[w52l <= 0, "minervini_c6"] = np.nan
+
     return out

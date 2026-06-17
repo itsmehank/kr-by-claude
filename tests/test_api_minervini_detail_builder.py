@@ -84,3 +84,18 @@ def test_build_minervini_detail_full(db):
     assert detail["c1"]["passed"] is True
     assert detail["c1"]["description"]
     assert "margin_pct" in detail["c1"]
+
+
+def test_margin_pct_c6_w52low_zero_returns_none():
+    """w52_low=0 (데이터 결함) → ÷0 방지, None (no crash)."""
+    assert margin_pct_c6({"close": 5330, "w52_low": 0}) is None
+
+
+def test_margin_pct_c5_sma50_zero_returns_none():
+    """sma_50=0 → ÷0 방지, None."""
+    assert margin_pct_c5({"close": 100, "sma_50": 0}) is None
+
+
+def test_margin_pct_c7_w52high_zero_returns_none():
+    """w52_high=0 → ÷0 방지, None."""
+    assert margin_pct_c7({"close": 100, "w52_high": 0}) is None

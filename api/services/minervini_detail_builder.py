@@ -49,22 +49,25 @@ def margin_pct_c4(values: dict) -> float | None:
 
 
 def margin_pct_c5(values: dict) -> float | None:
-    if values.get("close") is None or values.get("sma_50") is None:
+    sma_50 = values.get("sma_50")
+    if values.get("close") is None or not sma_50 or sma_50 <= 0:  # 데이터결함(0) → ÷0 방지
         return None
-    return round((values["close"] - values["sma_50"]) / values["sma_50"] * 100, 2)
+    return round((values["close"] - sma_50) / sma_50 * 100, 2)
 
 
 def margin_pct_c6(values: dict) -> float | None:
-    if values.get("close") is None or values.get("w52_low") is None:
+    w52_low = values.get("w52_low")
+    if values.get("close") is None or not w52_low or w52_low <= 0:  # 저가 0행 결함 → ÷0 방지
         return None
-    threshold = values["w52_low"] * 1.25
+    threshold = w52_low * 1.25
     return round((values["close"] - threshold) / threshold * 100, 2)
 
 
 def margin_pct_c7(values: dict) -> float | None:
-    if values.get("close") is None or values.get("w52_high") is None:
+    w52_high = values.get("w52_high")
+    if values.get("close") is None or not w52_high or w52_high <= 0:  # ÷0 방지
         return None
-    threshold = values["w52_high"] * 0.75
+    threshold = w52_high * 0.75
     return round((values["close"] - threshold) / threshold * 100, 2)
 
 
