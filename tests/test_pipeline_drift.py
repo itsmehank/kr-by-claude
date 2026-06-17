@@ -120,6 +120,45 @@ def test_reload_ticker_sequence(mocker):
     assert out["ticker"] == "AAA" and out["adj_rows"] == 1
 
 
+def test_reload_ticker_nullifies_halt_rows(mocker):
+    """거래정지일(adj OHLV=0·vol=0·close>0) reload 시 chokepoint 경유 → adj_*=None(NULL).
+
+    드리프트 재적재가 update_adj_prices 에 0 을 그대로 넘기면 w52_low=0 재오염.
+    nullify_halt_adj 를 거쳐 halt 행 adj_high/low/open/volume 이 None 이어야 한다.
+    정상 거래일 행은 실값 유지.
+    """
+    import kr_pipeline.pipeline.drift as d
+    import pandas as pd
+
+    captured = {}
+    mocker.patch.object(d, "get_daily_min_date", return_value=date(2020, 1, 1))
+    fake_df = pd.DataFrame([
+        # 정상 거래일
+        {"date": date(2024, 1, 2), "open": 9.0, "high": 11.0, "low": 8.0,
+         "close": 10.0, "volume": 100.0, "value": 1000.0},
+        # 거래정지일 — OHLV·volume 0, close 만 직전가 carry
+        {"date": date(2024, 1, 3), "open": 0.0, "high": 0.0, "low": 0.0,
+         "close": 10.0, "volume": 0.0, "value": 0.0},
+    ])
+    mocker.patch.object(d, "fetch_adj_only", side_effect=lambda t, s, e: fake_df)
+    mocker.patch.object(d, "update_adj_prices",
+                        side_effect=lambda conn, rows: captured.setdefault("rows", rows) or len(rows))
+    mocker.patch.object(d.indicators, "recompute_ticker_daily", return_value=5)
+    mocker.patch.object(d.weekly, "run", side_effect=lambda *a, **k: _stats())
+    mocker.patch.object(d.indicators, "recompute_ticker_weekly", return_value=3)
+
+    d.reload_ticker(conn=None, ticker="AAA", as_of=date(2024, 1, 10))
+
+    rows = captured["rows"]
+    # tuple: (ticker, date, adj_close, adj_high, adj_low, adj_open, adj_volume)
+    normal = next(r for r in rows if r[1] == date(2024, 1, 2))
+    halt = next(r for r in rows if r[1] == date(2024, 1, 3))
+    assert normal == ("AAA", date(2024, 1, 2), 10.0, 11.0, 8.0, 9.0, 100.0)
+    # halt: close 유지, 나머지 adj_* 는 None
+    assert halt[2] == 10.0  # adj_close carry 유지
+    assert halt[3] is None and halt[4] is None and halt[5] is None and halt[6] is None
+
+
 def test_detect_drifted_tickers_uses_given_tickers(mocker):
     """tickers 인자가 주어지면 _active_tickers 대신 그 목록만 검사."""
     import kr_pipeline.pipeline.drift as d

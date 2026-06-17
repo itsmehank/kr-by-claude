@@ -1,4 +1,30 @@
+import logging
+
 from psycopg import Connection
+
+log = logging.getLogger("kr_pipeline.ohlcv.store")
+
+
+def _warn_unnormalized_halt(rows: list[tuple]) -> int:
+    """tripwire(경보 전용) — chokepoint(transform.nullify_halt_adj) 를 안 거친 halt 행이
+    store 에 도달했는지 탐지. update_adj_prices 7-튜플
+    (ticker, date, adj_close, adj_high, adj_low, adj_open, adj_volume) 기준,
+    halt 패턴(adj_high=adj_low=adj_open=adj_volume=0 AND adj_close>0)이면 정규화 누락 의심.
+
+    데이터를 바꾸지 않는다(halt 정의의 SSOT 는 nullify_halt_adj 1곳). 정규화된 halt 행은
+    adj_*=None 이라 미탐지. 향후 신규 writer 가 chokepoint 를 우회하면 조기에 로그로 드러낸다."""
+    n = 0
+    for r in rows:
+        adj_close, adj_high, adj_low, adj_open, adj_volume = r[2], r[3], r[4], r[5], r[6]
+        if (adj_high == 0 and adj_low == 0 and adj_open == 0 and adj_volume == 0
+                and adj_close is not None and adj_close > 0):
+            n += 1
+    if n:
+        log.warning(
+            "%d halt-pattern rows reached store un-normalized (transform.nullify_halt_adj "
+            "bypass?) — check the adj_* writer (drift.reload_ticker / _run_full_refresh)", n
+        )
+    return n
 
 
 def upsert_daily_prices(conn: Connection, rows: list[tuple]) -> int:
@@ -37,6 +63,7 @@ def update_adj_prices(conn: Connection, rows: list[tuple]) -> int:
     """
     if not rows:
         return 0
+    _warn_unnormalized_halt(rows)  # tripwire — 정규화 누락 조기탐지(데이터 변경 없음)
     with conn.cursor() as cur:
         cur.execute("""
             CREATE TEMP TABLE _adj_updates (

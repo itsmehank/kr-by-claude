@@ -3,6 +3,30 @@ from datetime import date
 from kr_pipeline.ohlcv.store import upsert_daily_prices, update_adj_prices, upsert_index_daily
 
 
+def test_warn_unnormalized_halt_detects_and_logs(caplog):
+    """tripwire: chokepoint(nullify_halt_adj) 우회로 halt 패턴(adj OHLV=0·close>0) 행이
+    store 에 도달하면 경고+카운트 반환. 정규화(None)·정상 행은 미탐지(데이터 변경 없음)."""
+    from kr_pipeline.ohlcv.store import _warn_unnormalized_halt
+    rows = [
+        ("AAA", date(2024, 1, 2), 10.0, 11.0, 8.0, 9.0, 100.0),    # 정상 거래
+        ("AAA", date(2024, 1, 3), 10.0, 0, 0, 0, 0),                # halt 미정규화 → 탐지
+        ("AAA", date(2024, 1, 4), 10.0, None, None, None, None),    # 정규화됨 → 미탐지
+    ]
+    with caplog.at_level("WARNING"):
+        n = _warn_unnormalized_halt(rows)
+    assert n == 1
+    assert "halt" in caplog.text.lower()
+
+
+def test_warn_unnormalized_halt_clean_no_warning(caplog):
+    from kr_pipeline.ohlcv.store import _warn_unnormalized_halt
+    rows = [("AAA", date(2024, 1, 2), 10.0, 11.0, 8.0, 9.0, 100.0)]
+    with caplog.at_level("WARNING"):
+        n = _warn_unnormalized_halt(rows)
+    assert n == 0
+    assert "halt" not in caplog.text.lower()
+
+
 def _seed_stock(db, ticker="005930"):
     with db.cursor() as cur:
         cur.execute(

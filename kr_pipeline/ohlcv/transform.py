@@ -11,9 +11,11 @@ def nullify_halt_adj(df: pd.DataFrame) -> pd.DataFrame:
     (KRX 가 정지일에 OHLV/거래량 0, 종가만 직전가 carry 로 줌 — raw·adj 동일). adj_close 유지.
     adj_volume>0(실거래 mis-fetch)은 제외 — halt 아님(별도 처리).
 
-    adj_* 를 쓰는 *모든* 경로가 이 함수를 경유해야 한다 — daily INSERT(merge_raw_and_adjusted)
-    와 adj-refresh(_run_full_refresh) 두 경로 모두. 한 경로라도 누락하면 다음 적재가
-    halt 행을 0 으로 되돌린다(weekly 는 daily 파생이라 상속). 신규 writer 추가 시 필수 경유."""
+    adj_* 를 쓰는 *모든* 경로가 이 함수를 경유해야 한다 — ①daily INSERT(merge_raw_and_adjusted)
+    ②adj-refresh(_run_full_refresh._process_ticker) ③드리프트 재적재(drift.reload_ticker)
+    세 경로 모두. 한 경로라도 누락하면 다음 적재가 halt 행을 0 으로 되돌린다(weekly 는 daily
+    파생이라 상속). 신규 writer 추가 시 필수 경유 — store._warn_unnormalized_halt 트립와이어가
+    누락을 로그로 조기 경보한다."""
     halt = (
         (df["adj_open"] == 0) & (df["adj_high"] == 0) & (df["adj_low"] == 0)
         & (df["adj_volume"] == 0) & (df["adj_close"] > 0)

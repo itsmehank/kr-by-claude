@@ -7,10 +7,12 @@ from __future__ import annotations
 import logging
 from datetime import date, timedelta
 
+import pandas as pd
 from psycopg import Connection
 
 from kr_pipeline.ohlcv.fetch import fetch_adj_only
 from kr_pipeline.ohlcv.store import update_adj_prices
+from kr_pipeline.ohlcv.transform import nullify_halt_adj
 from kr_pipeline.weekly.load import get_daily_min_date
 from kr_pipeline.weekly import modes as weekly
 from kr_pipeline.indicators import modes as indicators
@@ -148,10 +150,20 @@ def reload_ticker(conn: Connection, ticker: str, *, as_of: date) -> dict:
     """
     start = get_daily_min_date(conn) or (as_of - timedelta(days=365 * 5))
     df = fetch_adj_only(ticker, start, as_of)
+    # 단일 chokepoint 경유 — adj-refresh(_run_full_refresh._process_ticker) 와 동일하게
+    # 거래정지일 adj_* 를 NULL 화. fetch_adj_only 컬럼(open/high/low/close/volume=수정값)을
+    # adj_* 로 매핑 후 nullify_halt_adj. 이를 빠뜨리면 halt 행이 0 으로 적재돼 w52_low=0 재오염.
+    if not df.empty:
+        df = df.rename(columns={"close": "adj_close", "high": "adj_high", "low": "adj_low",
+                                "open": "adj_open", "volume": "adj_volume"})
+        df = nullify_halt_adj(df)
+
+    def _n(v):
+        return None if pd.isna(v) else float(v)
     rows = [
-        (ticker, row.date, float(row.close), float(row.high),
-         float(row.low), float(row.open), float(row.volume))
-        for row in df.itertuples(index=False)
+        (ticker, r["date"], _n(r["adj_close"]), _n(r["adj_high"]), _n(r["adj_low"]),
+         _n(r["adj_open"]), _n(r["adj_volume"]))
+        for _, r in df.iterrows()
     ]
     updated = update_adj_prices(conn, rows) if rows else 0
 
