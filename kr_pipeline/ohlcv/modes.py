@@ -3,11 +3,14 @@ from datetime import date, timedelta
 from enum import Enum
 import logging
 
+import pandas as pd
 from psycopg import Connection
 
 from kr_pipeline.db.runs import run_tracking
 from kr_pipeline.ohlcv.fetch import fetch_many, fetch_index
-from kr_pipeline.ohlcv.transform import merge_raw_and_adjusted, to_price_rows, to_index_rows
+from kr_pipeline.ohlcv.transform import (
+    merge_raw_and_adjusted, to_price_rows, to_index_rows, nullify_halt_adj,
+)
 from kr_pipeline.ohlcv.store import upsert_daily_prices, update_adj_prices, upsert_index_daily
 
 
@@ -183,9 +186,17 @@ def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.
         adj = fetch_adj_only(ticker, start, end)
         if adj.empty:
             return 0
+        # 단일 chokepoint 경유 — adj-refresh 도 halt 정규화(adj_* NULL) 적용.
+        # fetch_adj_only 컬럼(open/high/low/close/volume = 수정값)을 adj_* 로 매핑 후 정규화.
+        adj = adj.rename(columns={"close": "adj_close", "high": "adj_high", "low": "adj_low",
+                                  "open": "adj_open", "volume": "adj_volume"})
+        adj = nullify_halt_adj(adj)
+
+        def _n(v):
+            return None if pd.isna(v) else float(v)
         rows = [
-            (ticker, r["date"], float(r["close"]), float(r["high"]), float(r["low"]),
-             float(r["open"]), float(r["volume"]))
+            (ticker, r["date"], _n(r["adj_close"]), _n(r["adj_high"]), _n(r["adj_low"]),
+             _n(r["adj_open"]), _n(r["adj_volume"]))
             for _, r in adj.iterrows()
         ]
         affected = update_adj_prices(conn, rows)

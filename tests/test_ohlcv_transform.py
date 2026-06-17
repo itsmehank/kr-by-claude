@@ -140,3 +140,23 @@ def test_to_price_rows_halt_adj_becomes_none():
     assert t[7] is None and t[8] is None      # adj_high, adj_low → None
     assert t[9] is None and t[10] is None     # adj_open, adj_volume → None
     assert t[4] == 0 and t[5] == 5330         # raw low=0, close 유지
+
+
+from kr_pipeline.ohlcv.transform import nullify_halt_adj
+
+
+def test_nullify_halt_adj_single_chokepoint():
+    """단일 chokepoint: adj OHLV=0 & adj_vol=0 & adj_close>0 → adj_* NaN, adj_close 유지."""
+    df = pd.DataFrame([{"adj_open": 0.0, "adj_high": 0.0, "adj_low": 0.0,
+                        "adj_close": 5330.0, "adj_volume": 0.0}])
+    out = nullify_halt_adj(df).iloc[0]
+    assert math.isnan(out["adj_low"]) and math.isnan(out["adj_high"])
+    assert math.isnan(out["adj_open"]) and math.isnan(out["adj_volume"])
+    assert out["adj_close"] == 5330.0
+
+
+def test_nullify_halt_adj_excludes_volume_positive():
+    """adj_low=0 인데 adj_volume>0(실거래 mis-fetch) → halt 아님 → 정규화 제외."""
+    df = pd.DataFrame([{"adj_open": 0.0, "adj_high": 0.0, "adj_low": 0.0,
+                        "adj_close": 1395.0, "adj_volume": 278989.0}])
+    assert not math.isnan(nullify_halt_adj(df).iloc[0]["adj_low"])

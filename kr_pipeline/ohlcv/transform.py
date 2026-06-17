@@ -1,6 +1,26 @@
 import numpy as np
 import pandas as pd
 
+_HALT_ADJ_COLS = ["adj_open", "adj_high", "adj_low", "adj_volume"]
+
+
+def nullify_halt_adj(df: pd.DataFrame) -> pd.DataFrame:
+    """**단일 chokepoint** — 거래정지/무거래일의 수정 OHLV·volume → NaN(NULL).
+
+    검출(adj 기준): adj_open=adj_high=adj_low=0 AND adj_volume=0 AND adj_close>0
+    (KRX 가 정지일에 OHLV/거래량 0, 종가만 직전가 carry 로 줌 — raw·adj 동일). adj_close 유지.
+    adj_volume>0(실거래 mis-fetch)은 제외 — halt 아님(별도 처리).
+
+    adj_* 를 쓰는 *모든* 경로가 이 함수를 경유해야 한다 — daily INSERT(merge_raw_and_adjusted)
+    와 adj-refresh(_run_full_refresh) 두 경로 모두. 한 경로라도 누락하면 다음 적재가
+    halt 행을 0 으로 되돌린다(weekly 는 daily 파생이라 상속). 신규 writer 추가 시 필수 경유."""
+    halt = (
+        (df["adj_open"] == 0) & (df["adj_high"] == 0) & (df["adj_low"] == 0)
+        & (df["adj_volume"] == 0) & (df["adj_close"] > 0)
+    )
+    df.loc[halt, _HALT_ADJ_COLS] = np.nan
+    return df
+
 
 def merge_raw_and_adjusted(raw: pd.DataFrame, adjusted: pd.DataFrame) -> pd.DataFrame:
     """raw(원가 OHLCV) + adjusted(수정 OHLC) → raw + adj_close/adj_high/adj_low/adj_open/adj_volume.
@@ -43,16 +63,8 @@ def merge_raw_and_adjusted(raw: pd.DataFrame, adjusted: pd.DataFrame) -> pd.Data
         merged["adj_volume"] = merged["volume"]
     merged["adj_volume"] = merged["adj_volume"].fillna(merged["volume"]).astype(float)
 
-    # 거래정지/무거래일(raw open=high=low=0 AND close>0 AND volume=0):
-    # adj_open/high/low/volume → NaN(NULL). raw 0 은 보존(halt 마커),
-    # close/adj_close 는 직전가 carry 유지. → w52_low(rolling min)·avg_volume(mean)
-    # 가 0 을 흡수하지 않음. volume>0(실거래 mis-fetch)은 제외.
-    halt = (
-        (merged["open"] == 0) & (merged["high"] == 0) & (merged["low"] == 0)
-        & (merged["close"] > 0) & (merged["volume"] == 0)
-    )
-    merged.loc[halt, ["adj_open", "adj_high", "adj_low", "adj_volume"]] = np.nan
-    return merged
+    # 단일 chokepoint 경유 — 거래정지일 adj_* → NULL (raw 0 은 halt 마커로 보존).
+    return nullify_halt_adj(merged)
 
 
 def to_price_rows(ticker: str, merged: pd.DataFrame) -> list[tuple]:
