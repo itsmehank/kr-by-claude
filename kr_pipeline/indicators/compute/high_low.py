@@ -14,7 +14,10 @@ def w52_high_low(
     pandas rolling 은 NaN 을 *제외* 하고 min/max 계산(min_periods 는 유효개수 판정)하므로,
     min_periods<window 면 고정 252행 윈도우를 유지하면서 halt 거래일만 건너뛴 실값을 얻는다.
     일봉은 min_periods=240(≤12 halt 허용 → 고립 halt 통과, 장기정지는 유효일<240 → NaN →
-    제외). 신규상장(거래일<240)도 NaN(히스토리 부족 보존). dropna 금지(달력 윈도우 왜곡)."""
+    제외). 신규상장(거래일<240)도 NaN(히스토리 부족 보존). dropna 금지(달력 윈도우 왜곡).
+
+    NOTE: min_periods 임계(240/252·50/52)는 **설계판단**(허용 halt 일수의 엔지니어링 트레이드오프)
+    이며 book(Minervini/O'Neil) 근거 임계가 아니다 — 따라서 thresholds.py SSOT 가 아닌 호출처 인라인."""
     mp = window if min_periods is None else min_periods
     high = adj_high.rolling(window=window, min_periods=mp).max()
     low = adj_low.rolling(window=window, min_periods=mp).min()
