@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 
@@ -41,11 +42,28 @@ def merge_raw_and_adjusted(raw: pd.DataFrame, adjusted: pd.DataFrame) -> pd.Data
     if "adj_volume" not in merged.columns:
         merged["adj_volume"] = merged["volume"]
     merged["adj_volume"] = merged["adj_volume"].fillna(merged["volume"]).astype(float)
+
+    # 거래정지/무거래일(raw open=high=low=0 AND close>0 AND volume=0):
+    # adj_open/high/low/volume → NaN(NULL). raw 0 은 보존(halt 마커),
+    # close/adj_close 는 직전가 carry 유지. → w52_low(rolling min)·avg_volume(mean)
+    # 가 0 을 흡수하지 않음. volume>0(실거래 mis-fetch)은 제외.
+    halt = (
+        (merged["open"] == 0) & (merged["high"] == 0) & (merged["low"] == 0)
+        & (merged["close"] > 0) & (merged["volume"] == 0)
+    )
+    merged.loc[halt, ["adj_open", "adj_high", "adj_low", "adj_volume"]] = np.nan
     return merged
 
 
 def to_price_rows(ticker: str, merged: pd.DataFrame) -> list[tuple]:
-    """daily_prices executemany 용 tuple 리스트."""
+    """daily_prices executemany 용 tuple 리스트.
+
+    adj_* 는 halt 정규화로 NaN 일 수 있음 → None(NULL). raw open/high/low/volume·close 는
+    NOT NULL 이며 halt 에서도 0/close 값을 유지(0 은 halt 마커).
+    """
+    def _adj(v):
+        return None if pd.isna(v) else float(v)
+
     return [
         (
             ticker,
@@ -54,11 +72,11 @@ def to_price_rows(ticker: str, merged: pd.DataFrame) -> list[tuple]:
             int(r["high"]),
             int(r["low"]),
             int(r["close"]),
-            float(r["adj_close"]),
-            float(r["adj_high"]),
-            float(r["adj_low"]),
-            float(r["adj_open"]),
-            float(r["adj_volume"]),
+            _adj(r["adj_close"]),
+            _adj(r["adj_high"]),
+            _adj(r["adj_low"]),
+            _adj(r["adj_open"]),
+            _adj(r["adj_volume"]),
             int(r["volume"]),
             int(r["value"]),
         )

@@ -99,3 +99,21 @@ def test_margin_pct_c5_sma50_zero_returns_none():
 def test_margin_pct_c7_w52high_zero_returns_none():
     """w52_high=0 → ÷0 방지, None."""
     assert margin_pct_c7({"close": 100, "w52_high": 0}) is None
+
+
+def test_margin_pct_c1_zero_denominator_returns_none():
+    """c1 분모(sma_150/sma_200) 0 → ÷0 방지, None (÷0 통일 가드)."""
+    from api.services.minervini_detail_builder import margin_pct_c1
+    assert margin_pct_c1({"close": 100, "sma_150": 0, "sma_200": 90}) is None
+    assert margin_pct_c1({"close": 100, "sma_150": 95, "sma_200": 0}) is None
+
+
+def test_margin_pct_c2_zero_denominator_returns_none():
+    from api.services.minervini_detail_builder import margin_pct_c2
+    assert margin_pct_c2({"sma_150": 95, "sma_200": 0}) is None
+
+
+def test_margin_pct_c4_zero_denominator_returns_none():
+    from api.services.minervini_detail_builder import margin_pct_c4
+    assert margin_pct_c4({"sma_50": 100, "sma_150": 0, "sma_200": 90}) is None
+    assert margin_pct_c4({"sma_50": 100, "sma_150": 95, "sma_200": 0}) is None

@@ -102,3 +102,41 @@ def test_to_index_rows_null_volume_value():
     ])
     rows = to_index_rows("2001", df)
     assert rows == [("2001", date(2026, 6, 10), 901.23, 905.67, 898.41, 903.89, None, None)]
+
+
+import math
+
+
+def test_halt_row_nulls_adj_keeps_close_and_raw():
+    """거래정지일(open=high=low=0 & close>0 & volume=0): adj_open/high/low/volume→NaN(NULL),
+    adj_close·raw 는 보존. (w52_low rolling min·avg_volume 가 0을 흡수하지 않도록)"""
+    raw = pd.DataFrame([_ohlcv_row(date(2026, 5, 12), 0, 0, 0, 5330, 0, 0)])
+    adj = pd.DataFrame([{"date": date(2026, 5, 12), "open": 0.0, "high": 0.0,
+                         "low": 0.0, "close": 5330.0, "volume": 0, "value": 0}])
+    m = merge_raw_and_adjusted(raw, adj).iloc[0]
+    assert math.isnan(m["adj_low"]) and math.isnan(m["adj_high"])
+    assert math.isnan(m["adj_open"]) and math.isnan(m["adj_volume"])
+    assert m["adj_close"] == 5330.0          # close 보존
+    assert m["low"] == 0 and m["close"] == 5330  # raw 보존(halt 마커)
+
+
+def test_halt_detector_excludes_volume_positive_misfetch():
+    """low=0 인데 volume>0 = 실거래 mis-fetch → halt 아님 → adj 정규화 제외(별도 처리)."""
+    raw = pd.DataFrame([_ohlcv_row(date(2026, 5, 12), 0, 0, 0, 1395, 278989, 0)])
+    adj = pd.DataFrame([{"date": date(2026, 5, 12), "open": 0.0, "high": 0.0,
+                         "low": 0.0, "close": 1395.0, "volume": 278989, "value": 0}])
+    m = merge_raw_and_adjusted(raw, adj).iloc[0]
+    assert not math.isnan(m["adj_low"])      # 정규화 안 됨
+
+
+def test_to_price_rows_halt_adj_becomes_none():
+    """halt 행 to_price_rows: adj_* 튜플 위치 None(NULL), raw/close 위치는 값 유지."""
+    raw = pd.DataFrame([_ohlcv_row(date(2026, 5, 12), 0, 0, 0, 5330, 0, 0)])
+    adj = pd.DataFrame([{"date": date(2026, 5, 12), "open": 0.0, "high": 0.0,
+                         "low": 0.0, "close": 5330.0, "volume": 0, "value": 0}])
+    rows = to_price_rows("009310", merge_raw_and_adjusted(raw, adj))
+    t = rows[0]  # (ticker,date,open,high,low,close,adj_close,adj_high,adj_low,adj_open,adj_volume,volume,value)
+    assert t[6] == 5330.0                     # adj_close 유지
+    assert t[7] is None and t[8] is None      # adj_high, adj_low → None
+    assert t[9] is None and t[10] is None     # adj_open, adj_volume → None
+    assert t[4] == 0 and t[5] == 5330         # raw low=0, close 유지

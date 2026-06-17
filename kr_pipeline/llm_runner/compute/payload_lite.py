@@ -54,6 +54,8 @@ def build_for_5b(
                    COALESCE(adj_volume, volume)
               FROM daily_prices
              WHERE ticker = %s AND date <= %s
+               -- 거래정지/무거래일 제외 (0-바 LLM 노출 방지)
+               AND NOT (open = 0 AND high = 0 AND low = 0 AND volume = 0)
              ORDER BY date DESC LIMIT 20
             """,
             (symbol, as_of),

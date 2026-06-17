@@ -41,6 +41,7 @@ def render_daily_chart(conn: Connection, ticker: str, range_days: int = 365, on_
               FROM daily_prices p
               LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
              WHERE p.ticker = %(ticker)s {date_filter}
+               AND NOT (p.open = 0 AND p.high = 0 AND p.low = 0 AND p.volume = 0)
              ORDER BY p.date DESC
              LIMIT %(range_days)s
             """,
@@ -76,6 +77,7 @@ def render_weekly_chart(conn: Connection, ticker: str, range_weeks: int = 104, o
               FROM weekly_prices p
               LEFT JOIN weekly_indicators i ON i.ticker = p.ticker AND i.week_end_date = p.week_end_date
              WHERE p.ticker = %(ticker)s {date_filter}
+               AND NOT (p.open = 0 AND p.high = 0 AND p.low = 0 AND p.volume = 0)
              ORDER BY p.week_end_date DESC
              LIMIT %(range_weeks)s
             """,

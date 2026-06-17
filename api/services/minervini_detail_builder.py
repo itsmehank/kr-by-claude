@@ -16,18 +16,22 @@ CONDITION_DESCRIPTIONS = {
 
 
 def margin_pct_c1(values: dict) -> float | None:
-    if values.get("close") is None or values.get("sma_150") is None or values.get("sma_200") is None:
+    sma_150 = values.get("sma_150")
+    sma_200 = values.get("sma_200")
+    if values.get("close") is None or not sma_150 or sma_150 <= 0 or not sma_200 or sma_200 <= 0:
         return None
     return round(min(
-        (values["close"] - values["sma_150"]) / values["sma_150"] * 100,
-        (values["sma_150"] - values["sma_200"]) / values["sma_200"] * 100,
+        (values["close"] - sma_150) / sma_150 * 100,
+        (sma_150 - sma_200) / sma_200 * 100,
     ), 2)
 
 
 def margin_pct_c2(values: dict) -> float | None:
-    if values.get("sma_150") is None or values.get("sma_200") is None:
+    sma_150 = values.get("sma_150")
+    sma_200 = values.get("sma_200")
+    if sma_150 is None or not sma_200 or sma_200 <= 0:
         return None
-    return round((values["sma_150"] - values["sma_200"]) / values["sma_200"] * 100, 2)
+    return round((sma_150 - sma_200) / sma_200 * 100, 2)
 
 
 def margin_pct_c3(values: dict) -> float | None:
@@ -40,11 +44,14 @@ def margin_pct_c3(values: dict) -> float | None:
 
 
 def margin_pct_c4(values: dict) -> float | None:
-    if values.get("sma_50") is None or values.get("sma_150") is None or values.get("sma_200") is None:
+    sma_50 = values.get("sma_50")
+    sma_150 = values.get("sma_150")
+    sma_200 = values.get("sma_200")
+    if sma_50 is None or not sma_150 or sma_150 <= 0 or not sma_200 or sma_200 <= 0:
         return None
     return round(min(
-        (values["sma_50"] - values["sma_150"]) / values["sma_150"] * 100,
-        (values["sma_150"] - values["sma_200"]) / values["sma_200"] * 100,
+        (sma_50 - sma_150) / sma_150 * 100,
+        (sma_150 - sma_200) / sma_200 * 100,
     ), 2)
 
 

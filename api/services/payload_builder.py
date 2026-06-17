@@ -102,6 +102,8 @@ def _fetch_daily_ohlcv(conn: Connection, ticker: str, on_date: date, days: int =
                    COALESCE(adj_volume,volume) AS v
               FROM daily_prices
              WHERE ticker = %s AND date <= %s
+               -- 거래정지/무거래일(OHLV·volume 0) 제외: 0-저가/0-거래량 바 LLM 노출 방지
+               AND NOT (open = 0 AND high = 0 AND low = 0 AND volume = 0)
              ORDER BY date DESC LIMIT %s
         """, (ticker, on_date, days))
         rows = cur.fetchall()
