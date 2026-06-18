@@ -334,3 +334,79 @@ def test_backfill_resume_after_usage_limit(db, monkeypatch):
         with db.cursor() as cur:
             cur.execute("DELETE FROM classification_backfill WHERE symbol=%s", (t,))
         db.commit()
+
+
+def test_backfill_parallel_aggregates_and_retries(db, monkeypatch):
+    """한 토요일 다중 종목 병렬: transient(TimeoutExpired) 1회 재시도 후 성공 집계."""
+    import subprocess
+    from datetime import date
+    import kr_pipeline.llm_runner.backfill as bf
+
+    monkeypatch.setattr(bf, "get_qualifying_tickers",
+                        lambda conn, as_of=None, tickers=None: [
+                            {"symbol": "PB01", "market": "KOSPI"},
+                            {"symbol": "PB02", "market": "KOSPI"}])
+    monkeypatch.setattr(bf, "_already_backfilled", lambda conn, as_of: set())
+    seen = {}
+    def fake_process_one(conn, symbol, market, *, dry_run, as_of):
+        seen[symbol] = seen.get(symbol, 0) + 1
+        if symbol == "PB02" and seen[symbol] == 1:
+            raise subprocess.TimeoutExpired(cmd="claude", timeout=1)  # 1회 일시오류
+    monkeypatch.setattr(bf, "_process_one", fake_process_one)
+
+    res = bf.run(db, start=date(2024, 1, 6), end=date(2024, 1, 6),
+                 tickers=["PB01", "PB02"], dry_run=True, concurrency=2)
+    assert res["processed"] == 2
+    assert res["failures"] == 0
+    assert seen["PB02"] == 2  # 재시도로 2회 호출
+
+
+def test_backfill_worker_connect_failure_does_not_abort(db, mocker):
+    """워커 connect 실패는 그 종목만 실패 — 배치 전체 중단 안 함."""
+    from datetime import date
+    import kr_pipeline.llm_runner.backfill as bf
+    import kr_pipeline.llm_runner.parallel as parallel
+
+    mocker.patch.object(bf, "get_qualifying_tickers", return_value=[
+        {"symbol": "CF01", "market": "KOSPI"}, {"symbol": "CF02", "market": "KOSPI"}])
+    mocker.patch.object(bf, "_already_backfilled", return_value=set())
+    mocker.patch.object(parallel.psycopg, "connect", side_effect=OSError("no conn"))
+
+    res = bf.run(db, start=date(2024, 1, 6), end=date(2024, 1, 6),
+                 tickers=["CF01", "CF02"], dry_run=True, concurrency=2)
+    assert res["processed"] == 0
+    assert res["failures"] == 2
+    assert res["weeks"] == 1
+
+
+def test_backfill_integrity_error_skips_not_fails(db, monkeypatch):
+    """DataIntegrityError 는 integrity_skipped 로 분류(실패 집계 아님)."""
+    from datetime import date
+    import kr_pipeline.llm_runner.backfill as bf
+    from api.services.integrity_guard import DataIntegrityError
+
+    monkeypatch.setattr(bf, "get_qualifying_tickers",
+                        lambda conn, as_of=None, tickers=None: [{"symbol": "IG01", "market": "KOSPI"}])
+    monkeypatch.setattr(bf, "_already_backfilled", lambda conn, as_of: set())
+    def fake_process_one(conn, symbol, market, *, dry_run, as_of):
+        raise DataIntegrityError(ticker=symbol, on_date=date(2024, 1, 5),
+                                 p_value=100.0, i_value=50.0, column="adj_close")
+    monkeypatch.setattr(bf, "_process_one", fake_process_one)
+
+    res = bf.run(db, start=date(2024, 1, 6), end=date(2024, 1, 6),
+                 tickers=["IG01"], dry_run=True, concurrency=1)
+    assert res["processed"] == 0
+    assert res["failures"] == 0
+    assert len(res["integrity_skipped"]) == 1
+    assert res["integrity_skipped"][0]["symbol"] == "IG01"
+
+
+def test_backfill_run_returns_expected_keys(db, monkeypatch):
+    """반환 dict 키 보존(__main__ / run_tracking 소비 계약)."""
+    from datetime import date
+    import kr_pipeline.llm_runner.backfill as bf
+    monkeypatch.setattr(bf, "get_qualifying_tickers", lambda conn, as_of=None, tickers=None: [])
+    monkeypatch.setattr(bf, "_already_backfilled", lambda conn, as_of: set())
+    res = bf.run(db, start=date(2024, 1, 6), end=date(2024, 1, 6), tickers=["X"], dry_run=True)
+    assert set(res) == {"weeks", "processed", "skipped_existing", "failures",
+                        "failed", "integrity_skipped", "start", "end"}
