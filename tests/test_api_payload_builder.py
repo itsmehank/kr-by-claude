@@ -80,3 +80,24 @@ def test_fetch_weekly_ohlcv_uses_adjusted(db):
     assert out[0]["open"] == 2000.0 and out[0]["high"] == 2100.0
     assert out[0]["low"] == 1960.0 and out[0]["close"] == 2000.0
     assert out[0]["volume"] == 500   # adj_volume (int(round(float)))
+
+
+def test_fetch_indicators_recent_uses_adjusted_volume(db):
+    """indicators_recent.volume 은 adj(daily_indicators.volume) — raw(daily_prices.volume) 아님.
+    daily_ohlcv(adj)·avg_volume_50d/volume_ratio(adj)와 같은 도메인으로 통일."""
+    from api.services.payload_builder import _fetch_indicators_recent
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES ('ADJI','t','KOSPI') ON CONFLICT DO NOTHING")
+        # raw volume=1000, 그러나 adj(daily_indicators.volume)=500
+        cur.execute("""INSERT INTO daily_prices
+            (ticker,date,open,high,low,close,adj_close,adj_volume,volume,value)
+            VALUES ('ADJI',%s,10000,10500,9800,10000,2000,500.0,1000,10000000)
+            ON CONFLICT DO NOTHING""", (date(2026,1,2),))
+        cur.execute("""INSERT INTO daily_indicators
+            (ticker,date,adj_close,volume,avg_volume_50d,volume_ratio_50d)
+            VALUES ('ADJI',%s,2000,500,480,1.04)
+            ON CONFLICT DO NOTHING""", (date(2026,1,2),))
+    db.commit()
+    out = _fetch_indicators_recent(db, "ADJI", date(2026,1,31), days=60)
+    assert len(out) == 1
+    assert out[0]["volume"] == 500   # i.volume(adj), raw=1000 이면 실패

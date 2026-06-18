@@ -152,7 +152,9 @@ def _fetch_indicators_recent(conn: Connection, ticker: str, on_date: date, days:
     """daily_prices(가격·거래량) + daily_indicators(지표) JOIN → 최근 N일 series."""
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT p.date, p.adj_close, p.volume,
+            -- volume 은 i.volume(=adj_volume, modes.py:231) — daily_ohlcv·avg_volume_50d·
+            -- volume_ratio 가 전부 adj 라, 여기서 p.volume(raw) 을 쓰면 같은 날 두 도메인 혼입.
+            SELECT p.date, p.adj_close, i.volume,
                    i.sma_10, i.sma_21, i.sma_50, i.sma_150, i.sma_200,
                    i.w52_high, i.w52_low, i.rs_line, i.rs_rating, i.minervini_pass,
                    i.avg_volume_50d, i.volume_ratio_50d, i.pocket_pivot_flag, i.distribution_day_flag,
@@ -167,7 +169,7 @@ def _fetch_indicators_recent(conn: Connection, ticker: str, on_date: date, days:
         {
             "date": r[0].isoformat(),
             "adj_close": float(r[1]) if r[1] is not None else None,
-            "volume": int(r[2]) if r[2] is not None else None,
+            "volume": int(round(float(r[2]))) if r[2] is not None else None,  # adj(i.volume), halt=NULL
             "sma_10": float(r[3]) if r[3] is not None else None,
             "sma_21": float(r[4]) if r[4] is not None else None,
             "sma_50": float(r[5]) if r[5] is not None else None,
