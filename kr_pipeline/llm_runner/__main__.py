@@ -45,6 +45,7 @@ def main() -> int:
     parser.add_argument("--end", type=str, help="YYYY-MM-DD (backfill 범위 종료)")
     parser.add_argument("--tickers", type=str, help="쉼표 구분 종목 코드 (backfill 전용, 생략 시 전 종목)")
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--concurrency", type=int, help="병렬 워커 수 (backfill 전용). 생략 시 BACKFILL_CONCURRENCY env 또는 4")
     args = parser.parse_args()
 
     # --ticker 는 현재 weekend mode 만 함수 시그니처가 지원. 다른 mode 에서 ticker
@@ -59,8 +60,8 @@ def main() -> int:
 
     # --start/--end/--tickers 는 backfill 전용. 다른 모드와 쓰면 조용히 무시되어
     # 의도와 다른 동작을 할 수 있으므로 명시적 에러로 차단.
-    if args.mode != "backfill" and (args.start or args.end or args.tickers):
-        parser.error("--start/--end/--tickers is only supported with --mode=backfill.")
+    if args.mode != "backfill" and (args.start or args.end or args.tickers or args.concurrency):
+        parser.error("--start/--end/--tickers/--concurrency is only supported with --mode=backfill.")
     if args.mode == "backfill" and (not args.start or not args.end):
         parser.error("--start and --end are required with --mode=backfill (기간 없는 백필은 무의미).")
 
@@ -110,7 +111,8 @@ def main() -> int:
                 _end = _date.fromisoformat(args.end)
                 _tickers = [t.strip() for t in args.tickers.split(",")] if args.tickers else None
                 result = backfill.run(conn, start=_start, end=_end, tickers=_tickers,
-                                      dry_run=args.dry_run, limit=args.limit)
+                                      dry_run=args.dry_run, limit=args.limit,
+                                      concurrency=args.concurrency)
             elif args.mode == "disqualify":
                 result = disqualify.run(conn, dry_run=args.dry_run, as_of=as_of, limit=args.limit)
             else:

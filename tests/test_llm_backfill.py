@@ -171,7 +171,7 @@ def test_range_args_rejected_for_non_backfill_modes():
     for extra in ("--start=2024-05-01", "--end=2024-05-31", "--tickers=000660"):
         _assert_parser_error(
             ["prog", "--mode=weekend", extra],
-            "--start/--end/--tickers is only supported with --mode=backfill",
+            "--start/--end/--tickers/--concurrency is only supported with --mode=backfill",
         )
 
 
@@ -410,3 +410,19 @@ def test_backfill_run_returns_expected_keys(db, monkeypatch):
     res = bf.run(db, start=date(2024, 1, 6), end=date(2024, 1, 6), tickers=["X"], dry_run=True)
     assert set(res) == {"weeks", "processed", "skipped_existing", "failures",
                         "failed", "integrity_skipped", "start", "end"}
+
+
+def test_concurrency_arg_rejected_for_non_backfill(capsys):
+    """--concurrency 는 backfill 전용 — 다른 모드와 함께 쓰면 우리 가드가 명시적 에러."""
+    import sys
+    import pytest
+    from kr_pipeline.llm_runner.__main__ import main
+    old = sys.argv
+    sys.argv = ["prog", "--mode=weekend", "--concurrency=4"]
+    try:
+        with pytest.raises(SystemExit):
+            main()
+        err = capsys.readouterr().err
+        assert "only supported with --mode=backfill" in err  # 구현 전: "unrecognized arguments"
+    finally:
+        sys.argv = old
