@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
+import threading
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -15,6 +17,7 @@ from psycopg import Connection
 from api.services.inline_builder import build_analysis_inline
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 from kr_pipeline.llm_runner.load import get_qualifying_tickers
+from kr_pipeline.llm_runner.parallel import run_parallel_batch
 from kr_pipeline.llm_runner.store import insert_backfill_classification
 
 log = logging.getLogger("kr_pipeline.llm_runner.backfill")
@@ -46,20 +49,26 @@ def _already_backfilled(conn: Connection, as_of: date) -> set[str]:
 
 
 def run(conn: Connection, *, start: date, end: date, tickers: list[str] | None = None,
-        dry_run: bool = False, limit: int | None = None) -> dict:
-    """기간 × 매주 토요일 백필. 토요일마다 그 주 minervini 통과 종목(또는 지정 종목)을 분류."""
+        dry_run: bool = False, limit: int | None = None, concurrency: int | None = None) -> dict:
+    """기간 × 매주 토요일 백필(병렬). 토요일마다 그 주 minervini 통과 종목(또는 지정 종목)을 분류."""
     saturdays = _enumerate_saturdays(start, end)
+    concurrency = concurrency or int(os.environ.get("BACKFILL_CONCURRENCY", "4"))
     agg = {
         "weeks": 0,
         "processed": 0,
         "skipped_existing": 0,
         "failures": 0,
         "failed": [],
+        "integrity_skipped": [],
         "start": str(start),
         "end": str(end),
     }
+    dsn = conn.info.dsn
+    abort = threading.Event()   # 토요일을 가로지르는 단일 abort — 사용량 한도 시 전체 중단
 
     for as_of in saturdays:
+        if abort.is_set():
+            break
         candidates = get_qualifying_tickers(conn, as_of=as_of, tickers=tickers)
         done = _already_backfilled(conn, as_of)
         skipped = [c for c in candidates if c["symbol"] in done]
@@ -69,30 +78,26 @@ def run(conn: Connection, *, start: date, end: date, tickers: list[str] | None =
 
         log.info("backfill week=%s: %d candidate(s) (done %d)", as_of, len(candidates), len(done))
 
-        for c in candidates:
-            symbol = c["symbol"]
-            market = c["market"]
-            try:
-                _process_one(conn, symbol, market, dry_run=dry_run, as_of=as_of)
-                agg["processed"] += 1
-                conn.commit()
-            except UsageLimitError:
-                # 사용량 제한(5시간) — 남은 (종목, 토요일) 순회가 전부 헛호출이므로
-                # 즉시 중단 + 예외 전파(run_tracking failed → 재실행 force 불필요).
-                # 기적재분은 종목별 commit + _already_backfilled skip 으로 보존
-                # → 재실행 = 이어하기. (weekend/daily_delta 와 동일 정책)
-                conn.rollback()
-                log.warning("backfill usage limit at %s @ %s — aborting (processed=%d)",
-                            symbol, as_of, agg["processed"])
-                raise
-            except Exception as e:  # noqa: BLE001
-                log.warning("backfill %s @ %s failed: %s", symbol, as_of, e)
-                agg["failed"].append([symbol, str(as_of), str(e)])
-                agg["failures"] += 1
-                conn.rollback()
-
+        r = run_parallel_batch(
+            dsn=dsn, candidates=candidates, process_fn=_process_one,
+            concurrency=concurrency, dry_run=dry_run, as_of=as_of, run_id=None, abort=abort,
+        )
+        agg["processed"] += r["processed"]
+        for ft in r["failed_tickers"]:
+            agg["failed"].append([ft["symbol"], str(as_of), ft.get("error", "")])
+        agg["failures"] += len(r["failed_tickers"])
+        agg["integrity_skipped"].extend(r["integrity_skipped"])
         agg["skipped_existing"] += len(skipped)
         agg["weeks"] += 1
+        # 토요일별 main 커넥션 스냅샷 해제(읽기 트랜잭션 정리) — 다음 토요일 _already_backfilled 가
+        # 워커 commit 을 최신으로 보게 함(READ COMMITTED 라 정합하나, 긴 트랜잭션 위생).
+        conn.commit()
+
+        if r["usage_limited"]:
+            log.warning("backfill usage limit at %s — aborting (processed=%d)", as_of, agg["processed"])
+            raise UsageLimitError(
+                f"usage limit — backfill aborted: processed={agg['processed']}, reason={r['usage_error']}"
+            )
 
     return agg
 
