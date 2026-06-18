@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import type { PipelineDetail, PipelineRef } from "../lib/types";
+import { summarizeWeekendRun } from "../lib/runDetails";
 import { relativeTime, formatDuration, formatKst } from "../lib/utils";
 import { Tooltip } from "../components/ui/Tooltip";
 import { RunDialog, type RunDialogPipeline } from "../components/RunDialog";
@@ -287,6 +288,7 @@ export default function PipelinePage() {
             <tbody>
               {p.recent_runs.map((r) => {
                 const hasDetails = r.details && typeof r.details === "object" && Object.keys(r.details).length > 0;
+                const weekendView = summarizeWeekendRun(r.details, r.status, Date.now());
                 const expanded = expandedRuns.has(r.id);
                 return (
                   <Fragment key={r.id}>
@@ -336,23 +338,65 @@ export default function PipelinePage() {
                       <tr className="border-b border-hairline last:border-b-0 bg-cream/40">
                         <td colSpan={6} className="py-3 px-6">
                           <div className="caps text-faint mb-2">세부 결과</div>
-                          <ul className="space-y-1 text-data-xs">
-                            {Object.entries(r.details as Record<string, unknown>).map(([stepKey, stepValue]) => {
-                              const label = SUB_STEP_LABELS[stepKey] ?? stepKey;
-                              const fields = stepValue && typeof stepValue === "object"
-                                ? (stepValue as Record<string, unknown>)
-                                : {};
-                              const parts = Object.entries(fields)
-                                .filter(([k]) => k !== "failed_tickers")
-                                .map(([k, v]) => `${SUB_STEP_FIELD_LABELS[k] ?? k} ${v}`);
-                              return (
-                                <li key={stepKey} className="text-data text-ink">
-                                  <span className="font-semibold">{label}:</span>{" "}
-                                  <span className="text-muted">{parts.join(" · ") || "(no data)"}</span>
-                                </li>
-                              );
-                            })}
-                          </ul>
+                          {weekendView ? (
+                            <div className="space-y-2 text-data-xs">
+                              {weekendView.stale && (
+                                <div className="text-danger font-semibold">
+                                  ⚠ 중단됨(stale) — heartbeat 2분+ 끊김, 프로세스 종료 의심
+                                </div>
+                              )}
+                              {weekendView.progress && (
+                                <div className="text-data text-ink">
+                                  <span className="font-semibold">진행:</span>{" "}
+                                  <span className="num">
+                                    {weekendView.progress.done}/{weekendView.progress.total}
+                                  </span>{" "}
+                                  <span className="text-muted">
+                                    · 동시 {weekendView.progress.inFlight} · 실패 {weekendView.progress.failed}
+                                  </span>
+                                </div>
+                              )}
+                              {weekendView.summary.length > 0 && (
+                                <div className="text-data text-muted">
+                                  {weekendView.summary.map((s) => `${s.label} ${s.value}`).join(" · ")}
+                                </div>
+                              )}
+                              {weekendView.failedTickers.length > 0 && (
+                                <div>
+                                  <div className="caps text-faint mb-1">
+                                    실패 종목 ({weekendView.failedTickers.length})
+                                  </div>
+                                  <ul className="space-y-0.5">
+                                    {weekendView.failedTickers.map((f) => (
+                                      <li key={f.symbol} className="text-data text-ink">
+                                        <span className="num font-semibold">{f.symbol}</span>{" "}
+                                        <span className="text-muted">{f.error || "—"}</span>{" "}
+                                        <span className="text-faint">(시도 {f.attempts})</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <ul className="space-y-1 text-data-xs">
+                              {Object.entries(r.details as Record<string, unknown>).map(([stepKey, stepValue]) => {
+                                const label = SUB_STEP_LABELS[stepKey] ?? stepKey;
+                                const fields = stepValue && typeof stepValue === "object"
+                                  ? (stepValue as Record<string, unknown>)
+                                  : {};
+                                const parts = Object.entries(fields)
+                                  .filter(([k]) => k !== "failed_tickers")
+                                  .map(([k, v]) => `${SUB_STEP_FIELD_LABELS[k] ?? k} ${v}`);
+                                return (
+                                  <li key={stepKey} className="text-data text-ink">
+                                    <span className="font-semibold">{label}:</span>{" "}
+                                    <span className="text-muted">{parts.join(" · ") || "(no data)"}</span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
                         </td>
                       </tr>
                     )}
