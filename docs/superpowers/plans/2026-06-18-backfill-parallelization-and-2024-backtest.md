@@ -755,3 +755,20 @@ git commit -m "docs(backtest): 2024 주말분류 백테스트 결과·유형별 
 - **Type 일관성:** `run_parallel_batch` 시그니처/반환 키가 Task1 정의 ↔ Task2/Task3 사용에서 일치.
   `process_fn(conn, symbol, market, *, dry_run, as_of)` 시그니처가 weekend/backfill `_process_one`,
   테스트 fake와 일치. backfill 반환 키 집합이 Task2 정의 ↔ Task3 assert 일치.
+
+## 2차 검토 확인 (원본 1:1 대조 — 영향도 재확인)
+
+- **verbatim 이식 확정:** `_write_heartbeat`/`_TRANSIENT_EXC` 동일, `_process_one_worker`는
+  `process_fn` 주입만 차이. 실행 루프 동일. weekend 4개 핵심 테스트 assert
+  (parallel_aggregates / aborts_on_usage_limit / interrupt_cancels / no_worker_retry_on_claude_cli_error)를
+  재작성 코드로 추적 → 전부 보존.
+- **import 삭제 안전:** weekend의 `ClaudeCLIError`·`import psycopg`(모듈) 제거 — weekend에서 import하는
+  외부/테스트 없음(`no_worker_retry` 테스트는 claude_cli에서 직접 import). 린트 도구 미설정
+  (pyproject에 ruff/flake8/pre-commit 없음) → 빌드 영향 0.
+- **이식 내부 심볼 외부 참조 0:** `_process_one_worker`/`_write_heartbeat`/`_TRANSIENT_EXC`/
+  `reap_stale_weekend_runs` grep — weekend.py 외 참조 없음.
+- **web `runDetails.ts` 영향 0:** weekend-shape 감지는 `failed_tickers`(완료)/`weekend_progress`(진행) 키 기준.
+  backfill은 `failed` 키 반환 + `run_id=None`(weekend_progress 미기록)이라 기존과 동일하게 generic 표시
+  (오탐 없음). weekend의 `failed_tickers` 키는 반환에서 유지 → weekend 표시 불변.
+- **run_tracking 트랜잭션 안전:** `start_run` 후 즉시 commit, 성공/실패 각각 commit. backfill 토요일별
+  `conn.commit()`은 weekend가 reaper 후 하던 패턴과 동일 → 충돌 없음.
