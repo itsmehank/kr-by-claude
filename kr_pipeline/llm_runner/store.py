@@ -341,7 +341,7 @@ def _normalize_entry_params(result: dict) -> dict:
         rr = target_pct / abs(stop_pct)
         if abs(rr) >= 1000:  # NUMERIC(5,2) 범위 밖 → 오버플로(=조용한 실패) 방지
             rr = None
-    return {
+    n = {
         "entry_mode": result["entry_mode"],
         "pivot_price": result["pivot_price"],
         "trigger_price": result["trigger_price"],
@@ -367,6 +367,71 @@ def _normalize_entry_params(result: dict) -> dict:
         "other_warnings": _as_text(result.get("other_warnings")),
         "notes": result.get("notes"),
     }
+    return _validate_entry_params_sanity(n)
+
+
+# D-3 가격/부호 sanity 검증의 책 근거 범위 (calculate_entry_params_v2_0.md).
+_STOP_PCT_FROM_PIVOT_FLOOR = -10.0  # §2 floor
+_TARGET_PCT_RANGE = (15.0, 50.0)    # §4 clamp
+_WEIGHT_RANGE = (3.0, 25.0)         # §3 final clamp
+_TRIGGER_BUFFER_MAX = 1.005         # §1.3 trigger ≤ pivot×1.005
+
+
+def _validate_entry_params_sanity(n: dict) -> dict:
+    """매수계획 숫자의 부호·대소·범위 sanity 검증 (D-3).
+
+    HARD(거부, ValueError): 가격 ≤ 0 / 손절가 ≥ 진입가 / 목표가 ≤ 진입가 /
+        stop_pct 양수 / target_pct ≤ 0 — long 돌파 진입에서 항상 깨지는 계획.
+    SOFT(경고, known_warnings 에 sanity_* 마커): 책 권장 범위 이탈(방향은 맞음).
+    None(미제공)은 비교 불가라 해당 검사 skip — scope=주어진 값의 정합성.
+
+    entry_params 는 go_now 실매수 신호에만 저장되므로 HARD 위반은 fail-closed(저장 안 함).
+    """
+    entry = n.get("entry_price")
+    stop = n.get("stop_loss")
+    target = n.get("expected_target_price")
+
+    hard: list[str] = []
+    for k in ("pivot_price", "trigger_price", "current_price", "entry_price",
+              "stop_loss", "expected_target_price"):
+        v = n.get(k)
+        if v is not None and v <= 0:
+            hard.append(f"{k}={v} (<=0)")
+    if stop is not None and entry is not None and stop >= entry:
+        hard.append(f"stop_loss={stop} >= entry_price={entry}")
+    if target is not None and entry is not None and target <= entry:
+        hard.append(f"expected_target_price={target} <= entry_price={entry}")
+    sp_pivot = n.get("stop_loss_pct_from_pivot")
+    sp_cur = n.get("stop_loss_pct_from_current_price")
+    tp = n.get("expected_target_pct")
+    if sp_pivot is not None and sp_pivot > 0:
+        hard.append(f"stop_loss_pct_from_pivot={sp_pivot} (>0)")
+    if sp_cur is not None and sp_cur > 0:
+        hard.append(f"stop_loss_pct_from_current_price={sp_cur} (>0)")
+    if tp is not None and tp <= 0:
+        hard.append(f"expected_target_pct={tp} (<=0)")
+    if hard:
+        raise ValueError("entry_params sanity violation: " + "; ".join(hard))
+
+    warns: list[str] = []
+    if sp_pivot is not None and not (_STOP_PCT_FROM_PIVOT_FLOOR <= sp_pivot < 0.0):
+        warns.append("sanity_stop_pct_from_pivot_out_of_book_range")
+    if tp is not None and not (_TARGET_PCT_RANGE[0] <= tp <= _TARGET_PCT_RANGE[1]):
+        warns.append("sanity_target_pct_out_of_book_range")
+    wt = n.get("position_size_pct")
+    if wt is not None and not (_WEIGHT_RANGE[0] <= wt <= _WEIGHT_RANGE[1]):
+        warns.append("sanity_weight_out_of_book_range")
+    piv, trg = n.get("pivot_price"), n.get("trigger_price")
+    if piv is not None and trg is not None and not (piv < trg <= piv * _TRIGGER_BUFFER_MAX):
+        warns.append("sanity_trigger_out_of_book_range")
+    win = n.get("entry_window_days")
+    if win is not None and win < 1:
+        warns.append("sanity_entry_window_too_short")
+    if warns:
+        n["known_warnings"] = list(n.get("known_warnings") or []) + warns
+        log.warning("entry_params soft sanity warnings %s (entry=%s stop=%s target=%s)",
+                    warns, entry, stop, target)
+    return n
 
 
 def _as_text(v):

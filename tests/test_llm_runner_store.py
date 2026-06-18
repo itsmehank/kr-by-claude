@@ -153,6 +153,72 @@ def test_normalize_entry_params_rr_zero_and_overflow():
     assert _normalize_entry_params(_s9_result(stop_loss_pct_from_current_price=-0.01))["risk_reward_ratio"] is None
 
 
+# --- D-3: entry_params 가격/부호 sanity 검증 (HARD=거부, SOFT=경고) ---
+
+def test_sanity_rejects_stop_at_or_above_entry():
+    """손절가 ≥ 진입가(trigger) → 매수계획 깨짐 → ValueError(거부)."""
+    import pytest
+    from kr_pipeline.llm_runner.store import _normalize_entry_params
+    # entry_price = trigger_price = 192.69. stop 을 그 위로.
+    with pytest.raises(ValueError, match="sanity"):
+        _normalize_entry_params(_s9_result(stop_loss_price=200.0))
+    with pytest.raises(ValueError, match="sanity"):
+        _normalize_entry_params(_s9_result(stop_loss_price=192.69))  # ==entry → 즉시손절
+
+
+def test_sanity_rejects_target_at_or_below_entry():
+    """목표가 ≤ 진입가 → 이익 없음 → 거부."""
+    import pytest
+    from kr_pipeline.llm_runner.store import _normalize_entry_params
+    with pytest.raises(ValueError, match="sanity"):
+        _normalize_entry_params(_s9_result(expected_target_price=150.0))
+    with pytest.raises(ValueError, match="sanity"):
+        _normalize_entry_params(_s9_result(expected_target_price=192.69))
+
+
+def test_sanity_rejects_nonpositive_price():
+    """가격 ≤ 0 → 거부."""
+    import pytest
+    from kr_pipeline.llm_runner.store import _normalize_entry_params
+    for over in (dict(pivot_price=0), dict(stop_loss_price=-1.0), dict(current_price=0.0),
+                 dict(trigger_price=-5.0), dict(expected_target_price=0)):
+        with pytest.raises(ValueError, match="sanity"):
+            _normalize_entry_params(_s9_result(**over))
+
+
+def test_sanity_rejects_wrong_sign_pct():
+    """stop_pct 양수 / target_pct ≤ 0 → 부호 오류 → 거부(rr 도 보호)."""
+    import pytest
+    from kr_pipeline.llm_runner.store import _normalize_entry_params
+    with pytest.raises(ValueError, match="sanity"):
+        _normalize_entry_params(_s9_result(stop_loss_pct_from_pivot=3.0))
+    with pytest.raises(ValueError, match="sanity"):
+        _normalize_entry_params(_s9_result(stop_loss_pct_from_current_price=2.0))
+    with pytest.raises(ValueError, match="sanity"):
+        _normalize_entry_params(_s9_result(expected_target_pct=-5.0))
+
+
+def test_sanity_soft_range_warns_but_keeps():
+    """책 범위 이탈(방향은 맞음) → 거부 아님, known_warnings 에 sanity_ 마커."""
+    from kr_pipeline.llm_runner.store import _normalize_entry_params
+    n = _normalize_entry_params(_s9_result(suggested_weight_pct=30.0))  # [3,25] 초과
+    assert any(w.startswith("sanity_") for w in n["known_warnings"])
+
+
+def test_sanity_skips_none_values():
+    """미제공(None)은 비교 불가 → 검사 skip(거부 안 함). scope=주어진 값의 정합성."""
+    from kr_pipeline.llm_runner.store import _normalize_entry_params
+    n = _normalize_entry_params(_s9_result(expected_target_price=None, expected_target_pct=None))
+    assert n["expected_target_price"] is None  # 통과(예외 없음)
+
+
+def test_sanity_valid_params_pass_clean():
+    """정상 계획은 거부도 경고도 없음."""
+    from kr_pipeline.llm_runner.store import _normalize_entry_params
+    n = _normalize_entry_params(_s9_result())
+    assert not any(w.startswith("sanity_") for w in n["known_warnings"])
+
+
 def test_insert_entry_params_roundtrip_s9(db):
     from datetime import datetime, timezone
     from kr_pipeline.llm_runner.store import insert_entry_params
