@@ -77,7 +77,8 @@ def test_weekend_worker_connect_failure_does_not_abort(db, mocker):
         {"symbol": "C2", "market": "KOSPI"},
     ])
     # 워커가 여는 psycopg.connect 만 실패시킨다(run_id=None → 하트비트/리퍼 connect 없음).
-    mocker.patch.object(wk.psycopg, "connect", side_effect=OSError("no conn"))
+    import kr_pipeline.llm_runner.parallel as parallel
+    mocker.patch.object(parallel.psycopg, "connect", side_effect=OSError("no conn"))
 
     r = wk.run(db, dry_run=True, concurrency=2, run_id=None)
 
