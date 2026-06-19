@@ -243,6 +243,31 @@ def test_classifications_default_excludes_disqualified(db, _clean_dq):
     assert "API_DQ" in syms2
 
 
+def test_disqualified_visible_despite_source_filter(db, _clean_dq):
+    """자격상실 행은 source='system_disqualify' 이므로, UI 기본 소스 필터
+    (weekend/daily_delta) 가 켜진 상태에서도 classifications=['disqualified'] 선택 시
+    보여야 한다. (프로덕션 버그: 소스 필터가 모든 자격상실 행을 제외 → '체크해도 변화 없음')."""
+    from api.routers.classifications import get_classifications
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stocks (ticker, name, market) VALUES ('API_DQ', 'API_DQ', 'KOSPI') ON CONFLICT DO NOTHING"
+        )
+        cur.execute(
+            """INSERT INTO weekly_classification (symbol, classified_at, market, classification, source)
+               VALUES ('API_DQ', NOW(), 'KOSPI', 'disqualified', 'system_disqualify')"""
+        )
+    db.commit()
+    syms = {
+        r.symbol
+        for r in get_classifications(
+            classifications=["disqualified"],
+            sources=["weekend", "daily_delta"],
+            conn=db,
+        )
+    }
+    assert "API_DQ" in syms
+
+
 def test_latest_picked_by_analyzed_for_date_not_classified_at(client, db):
     """더 오래전 데이터(analyzed_for_date)지만 더 늦게 실행(classified_at)된 행이
     최신 상태를 덮어쓰지 않는다."""

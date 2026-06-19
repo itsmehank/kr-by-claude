@@ -60,7 +60,11 @@ def get_classifications(
                  (%(classifications)s::text[] IS NULL AND l.classification <> 'disqualified')
                  OR (%(classifications)s::text[] IS NOT NULL AND l.classification = ANY(%(classifications)s::text[]))
                )
-           AND (%(sources)s::text[] IS NULL OR l.source = ANY(%(sources)s::text[]))
+           -- 소스 필터는 LLM 분류(weekend/daily_delta)의 출처 선택용. 자격상실은
+           -- 시스템 강등 이벤트(source='system_disqualify')라 user-facing 소스 옵션이
+           -- 없으므로 소스 필터에서 면제 — 노출 여부는 classification 필터만으로 결정.
+           AND (%(sources)s::text[] IS NULL OR l.source = ANY(%(sources)s::text[])
+                OR l.classification = 'disqualified')
            AND COALESCE(l.confidence, 0) >= %(min_confidence)s
          ORDER BY {sort_clause}
          LIMIT %(limit)s
