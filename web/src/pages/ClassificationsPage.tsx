@@ -18,6 +18,7 @@ import {
   BREAKOUT_VOL_PREFERRED,
   MARKET_DISTRIBUTION_LOOKBACK_DAYS,
 } from "../data/thresholds.generated";
+import { matchesPresenceFilters } from "../lib/classificationFilters";
 
 
 type SortOption = "classified_at_desc" | "confidence_desc";
@@ -29,6 +30,9 @@ interface Filters {
   sources: string[];
   min_confidence: number;
   sort: SortOption;
+  // 클라이언트 측 presence 필터 (백엔드 쿼리 비관여) — 받아온 행을 화면에서 거른다.
+  has_pattern: boolean;
+  has_pivot: boolean;
 }
 
 
@@ -38,6 +42,8 @@ const DEFAULT_FILTERS: Filters = {
   sources: ["weekend", "daily_delta"],
   min_confidence: 0.0,
   sort: "classified_at_desc",
+  has_pattern: false,
+  has_pivot: false,
 };
 
 const CLASSIFICATION_ORDER = ["watch", "entry", "ignore", "disqualified"] as const;
@@ -375,12 +381,14 @@ export default function ClassificationsPage() {
       ignore: [],
       disqualified: [],
     };
+    const presence = { hasPattern: filters.has_pattern, hasPivot: filters.has_pivot };
     for (const row of emptySelection ? [] : q.data ?? []) {
+      if (!matchesPresenceFilters(row, presence)) continue;
       const c = grouped[row.classification] ?? (grouped[row.classification] = []);
       c.push(row);
     }
     return grouped;
-  }, [q.data, emptySelection]);
+  }, [q.data, emptySelection, filters.has_pattern, filters.has_pivot]);
 
   const counts = {
     watch: rowsByClassification.watch?.length ?? 0,
@@ -388,6 +396,11 @@ export default function ClassificationsPage() {
     ignore: rowsByClassification.ignore?.length ?? 0,
     disqualified: rowsByClassification.disqualified?.length ?? 0,
   };
+
+  // presence 필터 적용 후 화면에 남는 총 행 수. q.data 는 있으나 클라이언트
+  // 필터가 전부 걸러내면 0 — 이때 빈 화면 대신 안내를 띄우기 위해 별도 집계.
+  const totalVisible = counts.watch + counts.entry + counts.ignore + counts.disqualified;
+  const presenceActive = filters.has_pattern || filters.has_pivot;
 
   const toggleRow = (symbol: string) => {
     setExpandedRows((prev) => {
@@ -503,6 +516,43 @@ export default function ClassificationsPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <span className="caps text-faint">조건</span>
+            <Tooltip
+              content={
+                <div className="leading-relaxed">
+                  받아온 분류 행을 화면에서 추가로 거른다 (watch 목록 추리기용).
+                  <br />
+                  · pattern 있음 — base 패턴이 식별된 종목 ('none'/미식별 제외)
+                  <br />
+                  · pivot 있음 — buy point(pivot)가 계산된 종목
+                </div>
+              }
+            >
+              <span className="text-faint cursor-help">
+                <Info size={11} />
+              </span>
+            </Tooltip>
+            <label className="flex items-center gap-1 cursor-pointer text-data-xs">
+              <input
+                type="checkbox"
+                checked={filters.has_pattern}
+                onChange={() => setFilters((p) => ({ ...p, has_pattern: !p.has_pattern }))}
+                className="accent-accent"
+              />
+              pattern 있음
+            </label>
+            <label className="flex items-center gap-1 cursor-pointer text-data-xs">
+              <input
+                type="checkbox"
+                checked={filters.has_pivot}
+                onChange={() => setFilters((p) => ({ ...p, has_pivot: !p.has_pivot }))}
+                className="accent-accent"
+              />
+              pivot 있음
+            </label>
+          </div>
+
+          <div className="flex items-center gap-2">
             <span className="caps text-faint">최소 conf</span>
             <input
               type="number"
@@ -531,15 +581,21 @@ export default function ClassificationsPage() {
 
       {q.isLoading && <div className="text-muted">로딩 중…</div>}
       {q.isError && <div className="text-danger">에러: {String(q.error)}</div>}
-      {q.data && q.data.length === 0 && (
+      {q.data && totalVisible === 0 && (
         <div className="bento p-8 text-center text-muted">
-          최근 {filters.lookback_days}일간 분류 결과 없음.
-          <div className="text-data-xs text-faint mt-2">
-            /runner 에서 'LLM 주말 분류' 또는 'LLM 평일 전체 분석' 실행.
-          </div>
+          {presenceActive ? (
+            "선택한 조건(pattern/pivot 있음)에 맞는 종목이 없습니다."
+          ) : (
+            <>
+              최근 {filters.lookback_days}일간 분류 결과 없음.
+              <div className="text-data-xs text-faint mt-2">
+                /runner 에서 'LLM 주말 분류' 또는 'LLM 평일 전체 분석' 실행.
+              </div>
+            </>
+          )}
         </div>
       )}
-      {q.data && q.data.length > 0 && (
+      {q.data && totalVisible > 0 && (
         <>
           {CLASSIFICATION_ORDER.map((c) => (
             <ClassificationGroup
