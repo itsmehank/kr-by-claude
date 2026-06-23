@@ -126,3 +126,75 @@ def simulate(ticker: str, watch_rows: list[WatchRow], day_bars: list[DayBar],
         trades.append(cur)
 
     return trades, promotion_count
+
+
+from psycopg import Connection
+from kr_pipeline.llm_runner.compute.trigger_gate import ALLOWED_WATCH_REASONS
+
+_INDEX_CODE = {"KOSPI": "1001", "KOSDAQ": "2001"}
+
+
+def load_watchlist(conn: Connection, ticker: str, start: date, end: date) -> list[WatchRow]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT analyzed_for_date, pivot_price, base_low, watch_reason
+              FROM classification_backfill
+             WHERE symbol = %s AND classification = 'watch'
+               AND analyzed_for_date BETWEEN %s AND %s
+             ORDER BY analyzed_for_date
+            """,
+            (ticker, start, end),
+        )
+        return [
+            WatchRow(ticker=ticker, sat=r[0],
+                     pivot_price=float(r[1]) if r[1] is not None else None,
+                     base_low=float(r[2]) if r[2] is not None else None,
+                     watch_reason=r[3])
+            for r in cur.fetchall()
+        ]
+
+
+def load_daily_series(conn: Connection, ticker: str, start: date, end: date) -> list[DayBar]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT p.date, p.adj_close, p.volume, i.sma_50, i.avg_volume_50d,
+                   LAG(p.adj_close) OVER (ORDER BY p.date) AS prev_close
+              FROM daily_prices p
+              LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
+             WHERE p.ticker = %s AND p.date BETWEEN %s AND %s
+             ORDER BY p.date
+            """,
+            (ticker, start, end),
+        )
+        return [
+            DayBar(d=r[0], close=float(r[1]), volume=int(r[2]) if r[2] is not None else 0,
+                   sma_50=float(r[3]) if r[3] is not None else None,
+                   avg_volume_50d=float(r[4]) if r[4] is not None else None,
+                   prev_close=float(r[5]) if r[5] is not None else None)
+            for r in cur.fetchall()
+        ]
+
+
+def load_index_series(conn: Connection, market: str, start: date, end: date) -> dict[date, float]:
+    code = _INDEX_CODE[market]
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT date, close FROM index_daily WHERE index_code = %s AND date BETWEEN %s AND %s",
+            (code, start, end),
+        )
+        return {r[0]: float(r[1]) for r in cur.fetchall()}
+
+
+def classify_rows(watch_rows: list[WatchRow]) -> dict:
+    """production(적격 reason+pivot) / shadow(비적격 reason+pivot) / census(pivot 없음) 분류."""
+    production, shadow, census = [], [], []
+    for r in watch_rows:
+        if r.pivot_price is None:
+            census.append(r)
+        elif r.watch_reason in ALLOWED_WATCH_REASONS:
+            production.append(r)
+        else:
+            shadow.append(r)
+    return {"production": production, "shadow": shadow, "census": census}

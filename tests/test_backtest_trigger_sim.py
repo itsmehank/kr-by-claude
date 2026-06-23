@@ -150,3 +150,21 @@ def test_invalid_mode_raises():
     wr = [_watch(date(2024, 1, 6), 100.0, 90.0, "valid_base_awaiting_breakout")]
     with pytest.raises(ValueError):
         simulate("T", wr, [], mode="prod")
+
+
+def test_loaders_smoke():
+    """실 DB 에서 8종목 중 하나(가온칩스 399720)의 watch/일봉/지수 로드 동작."""
+    from datetime import date
+    from kr_pipeline.db.connection import connect
+    from kr_pipeline.backtest.trigger_sim import (
+        load_watchlist, load_daily_series, load_index_series, classify_rows,
+    )
+    with connect() as conn:
+        wr = load_watchlist(conn, "399720", date(2024, 1, 6), date(2024, 12, 28))
+        assert len(wr) >= 1
+        bars = load_daily_series(conn, "399720", date(2024, 1, 1), date(2024, 12, 31))
+        assert len(bars) > 200  # 2024 거래일
+        idx = load_index_series(conn, "KOSDAQ", date(2024, 1, 1), date(2024, 12, 31))
+        assert len(idx) > 200
+        cls = classify_rows(wr)
+        assert set(cls) == {"production", "shadow", "census"}
