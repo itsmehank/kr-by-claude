@@ -150,12 +150,15 @@ def market_relative(trade: Trade, index_series: dict[date, float]) -> float | No
 _INDEX_CODE = {"KOSPI": "1001", "KOSDAQ": "2001"}
 
 
-def load_watchlist(conn: Connection, ticker: str, start: date, end: date) -> list[WatchRow]:
+def load_watchlist(conn: Connection, ticker: str, start: date, end: date,
+                   table: str = "classification_backfill") -> list[WatchRow]:
+    if table not in ("classification_backfill", "backtest_classification"):
+        raise ValueError(f"load_watchlist: unknown table {table!r}")
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             SELECT analyzed_for_date, pivot_price, base_low, watch_reason
-              FROM classification_backfill
+              FROM {table}
              WHERE symbol = %s AND classification = 'watch'
                AND analyzed_for_date BETWEEN %s AND %s
              ORDER BY analyzed_for_date
