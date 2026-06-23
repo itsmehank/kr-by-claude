@@ -166,11 +166,15 @@ def insert_backfill_classification(
     source: str,
     llm_meta: dict,
     analyzed_for_date: date,
+    table: str = "classification_backfill",
 ) -> None:
     """백필 분류 결과를 classification_backfill 에 INSERT (멱등: symbol+analyzed_for_date).
 
     insert_classification 과 동일하게 Phase 1 2-A 후처리 게이트 적용. freeze 는 만들지 않음.
+    table 파라미터로 대상 테이블 지정 가능 (allowlist: classification_backfill, backtest_classification).
     """
+    if table not in ("classification_backfill", "backtest_classification"):
+        raise ValueError(f"insert_backfill_classification: unknown table {table!r}")
     _validate_classification(result)
     _original = copy.deepcopy(result)
     try:
@@ -188,8 +192,8 @@ def insert_backfill_classification(
 
     with conn.cursor() as cur:
         cur.execute(
-            """
-            INSERT INTO classification_backfill
+            f"""
+            INSERT INTO {table}
               (symbol, classified_at, analyzed_for_date, market, classification, pattern,
                pivot_price, pivot_basis, base_high, base_low, base_depth_pct, base_start_date,
                risk_flags, confidence, reasoning,
