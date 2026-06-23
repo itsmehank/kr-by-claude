@@ -7,7 +7,6 @@ production backfill(kr_pipeline/llm_runner/backfill.py)과 격리된 드라이�
 from __future__ import annotations
 
 import logging
-import os
 import shutil
 import threading
 from datetime import date, datetime, timezone
@@ -26,6 +25,7 @@ log = logging.getLogger(__name__)
 
 BT_TABLE = "backtest_classification"
 BT_SOURCE = "backtest"
+BT_CONCURRENCY = 2   # 실측 안전 동시성 상한 (c1·c2=100%, c4=9.6% rc=1 실패). 한 건 ≈103s.
 
 
 def already_done(conn: Connection, as_of: date) -> set[str]:
@@ -65,7 +65,7 @@ def run_backtest_backfill(conn: Connection, *, start: date, end: date, tickers: 
     """기간 × 매주 토요일, 지정 tickers 중 그 주 qualifying 종목을 분류해 BT_TABLE 에 적재.
     멱등: 이미 적재된 (symbol, 토요일)은 skip. 사용량 한도 시 abort(다음 실행이 이어감)."""
     saturdays = _enumerate_saturdays(start, end)
-    concurrency = concurrency or int(os.environ.get("BACKFILL_CONCURRENCY", "4"))
+    concurrency = concurrency or BT_CONCURRENCY
     agg = {"weeks": 0, "processed": 0, "skipped_existing": 0, "failures": 0,
            "failed": [], "integrity_skipped": [], "start": str(start), "end": str(end)}
     dsn = conn.info.dsn
