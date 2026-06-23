@@ -44,7 +44,7 @@
 | 실리콘투(③클라이맥스) | watch / ignore | 22 / 8 | +28.1 / +21.2 | **+135.2** / +13.2 | ignore가 climax 포착하나 **조기 발동**(초기 ignore 이후도 급등) △ |
 | 노루홀딩스(④횡보) | watch | 24 | −2.3 | **+0.3** | 전부 watch, 이후 평탄 → entry 안 준 게 적절 ✓ |
 | 윙입푸드(⑤변동성) | watch | 12 | −10.4 | −14.2 | 전부 watch, 변동성 구간 진입 안 함(이후 하락) ✓(보수적) |
-| HD현대일렉트릭(⑥장기) | watch / ignore | 36 / 10 | +12.1 / +19.9 | +36.9 / **+50.3** | **ignore가 조기 발동**: climax로 걸렀으나 이후 +50~127% 추가 상승 ✗ |
+| HD현대일렉트릭(⑥장기) | watch / ignore | 36 / 10 | +12.1 / +19.9 | +36.9 / **+50.3** | climax ignore가 §6.1-정당(P1 43주·E1 후기·신고가연속) — "조기발동" 미확정(§7.3) |
 
 ### ignore 상세 — `climax_run` 플래그 동작
 ignore 27건은 **전부 `climax_run`** 플래그(대개 `extended_from_ma`, `unfavorable_market_context` 동반).
@@ -55,11 +55,11 @@ ignore 27건은 **전부 `climax_run`** 플래그(대개 `extended_from_ma`, `un
 
 **F1 — entry는 191건 중 0건.** weekly 스냅샷에서 entry 미발생. `watch_reason` 분포가 원인을 설명:
 `base_forming` 115 / `extended` 42 / `valid_base_awaiting_breakout` 2 / `unfavorable_market` 4 / `marginal_tt` 1.
-→ 토요일 시점엔 종목이 "베이스 형성 중"이거나 "이미 과대확장"으로 보여, 정확한 돌파일(주중 발생)을 못 잡는다. 현 설정에서 **entry 판정은 사실상 도달 불가**.
+→ 토요일 시점엔 종목이 "베이스 형성 중"이거나 "이미 과대확장"으로 보여, 정확한 돌파일(주중 발생)을 못 잡는다. (정정: 주말 entry는 **희소-도달가능**이지 죽은 라벨 아님 — §7.1. 매수 actionability는 평일 evaluate_pivot 트리거 소관.)
 
 **F2 — watch가 예측력의 핵심이자 기회비용.** watch 평균 +12주 +33.7%, 승자(실리콘투 +135, 삼양 +44, 인화 +27, HD +37)가 전부 watch. 시스템은 **올바른 종목을 골랐지만 한 번도 actionable(entry)로 전환하지 못했다.**
 
-**F3 — `ignore=climax`는 진짜 천정엔 유효, 지속 추세엔 과민.** 가온칩스·후반 실리콘투/삼양은 적중. 그러나 HD현대일렉트릭(이후 +127%)·초반 실리콘투처럼 **고RS 지속 추세**에서 조기 ignore로 큰 상승을 놓침.
+**F3 — (정정됨, §7.3) `ignore=climax`는 진짜 천정엔 유효; "지속 추세 과민"은 결정론 검정에서 미확인.** 가온칩스·후반 실리콘투/삼양은 적중. HD현대일렉트릭(이후 +127%)을 당초 "조기 ignore 과민"으로 봤으나, P1(43주 성숙)·E1(후기-스테이지)·temporal-scope를 손계산하니 **climax 발화가 §6.1-정당**했다(이후 상승은 "extended 추격 금지" 규율의 알려진 비용). → §6.1 결함 미확정. 상세 §7.3.
 
 **F4 — 횡보 처리 적절.** 노루홀딩스 전부 watch, 이후 +0.3%(평탄) → entry 미발급이 옳음.
 
@@ -71,7 +71,7 @@ watch 유지, 강등 경로 없음"으로 서술했으나 부정확. −53.4%는
 ## 5. 시사점 (후속 검토 — 이번엔 미구현)
 
 1. **entry 게이트 재검토**: `valid_base_awaiting_breakout`(2건)이 entry로 승격되는 경로가 실제로 작동하는가? weekly 한정이면 daily_delta 경로에서 돌파 포착이 필요한지 점검.
-2. **`climax_run` 민감도**: 고RS·장기 지속 추세(예: HD현대일렉트릭)에서 조기 ignore를 줄일 조건(예: RS·추세 지속성 가중) 검토.
+2. **`climax_run` 민감도**: (§7.3에서 결정론 검정 결과 HD현대 climax는 §6.1-정당 → **현재는 변경 불필요**. 다른 종목·연도에서 명백한 temporal-scope 위반이 반복될 때만 재검토.)
 3. **watch 강등 신호**: 무너지는 베이스(에이팩트형)에 대해 게이트 탈락 전 단계적 de-rating/경고가 필요한지.
 
 ## 6. 한계·주의
@@ -106,19 +106,24 @@ watch 유지, 강등 경로 없음"으로 서술했으나 부정확. −53.4%는
 - 즉 **보호(제거)는 일어났고**, 빠진 건 명시적 `disqualified` write 단계뿐. "candidate-pool 제외 ≠ explicit
   disqualified write" — 후자는 stale watch 행을 `disqualified`로 덮어쓰는 단계로 backfill에서 0건.
 
-### 7.3 (B) 이슈3 — climax_run이 §6.1 P2 미충족 주에도 적용됨
-HD현대일렉트릭 ignore 주들의 주봉 1주/3주 상승률 검증:
-- 가속 주(04-12: 1주 +20.9%, 3주 +41.1%)는 climax 해석 가능.
-- 그러나 **비가속·하락 주에도 ignore 지속**: 02-29(1주 −7.2%, 3주 +15.8%), 05-03(1주 −8.0%, 3주 −2.1%),
-  05-17(1주 −4.6%, 3주 0.0%) — §6.1 **P2("전체 advance 중 최급등 ≥25%")를 명백히 미충족**하는데 `climax_run` ignore.
-- → 임계(숫자) 문제가 아니라 **LLM이 §6.1 게이트를 넘어 climax를 과·지속 적용**(prompt adherence) 정황.
-  프롬프트 자체 규칙(§3.2: "extension은 watch지 ignore 아님")과도 충돌.
-- **단정 금지**: P1(성숙도 ≥18주/후기 ≥12주)·E1(base #1/#2 leadership 면제)은 베이스 구조 식별이 필요해 본
-  검증에서 미산출. §6.1 변경 전 P1/E1까지 결정론 손계산 필요. **단일-run 재백필 카운트 비교 금지**(strobing 교훈).
+### 7.3 (B) 이슈3 — temporal-scope·P1·E1 검정 결과: §6.1 위반 미확인 (당초 주장 철회)
+검정을 "P2 미충족"이 아니라 리뷰 교정대로 **temporal-scope(≤2주/4주·15%) + P1 성숙도 + E1 베이스번호**로
+다시 수행한 결과, **당초의 "LLM이 §6.1 게이트를 넘어 climax 과발화" 주장은 데이터로 뒷받침되지 않아 철회한다.**
+
+- **temporal-scope**: HD현대 ignore 주는 대부분 **신고가 갱신(running-max 대비 낙폭 0%)**, 음수 주도 −8%/−4.6%로
+  **>15% 조정·4주 경과 기준에 미달**(연속 신고가). 당초 위반으로 지목한 05-03·05-17도 **05-10에 신고가(262k>04-26 250k)**가
+  나와 각각 직전 1주 내 → 위반 아님(04-12를 단일 피크로 앵커한 가정이 신고가 데이터로 교정됨).
+- **P1 성숙도**: 30주선 상향 advance가 **2023-01부터 연속 → 첫 ignore(02-23)까지 43주 성숙** (≥18주 압도적 충족).
+- **E1**: 첫 ignore 전 이미 +260%(37k→134k) 진행한 **명백한 후기-스테이지 advance** → base #1/#2 leadership 면제 미적용.
+- → §6.1 발화 자격(P1·E1)과 temporal-scope·P2(대부분 주)가 **충족**. climax ignore는 **게이트-정당**했고, 이후
+  +127% 추가상승은 "mature+extended 추격 금지" 규율의 *알려진 비용*이지 게이트 결함이 아니다(책: climax/extended는 매수 회피).
+- **결론**: 이슈3은 당초 "유일한 단일-층 유효 발견"으로 보였으나, 결정론 검정 시 **명확한 결함으로 확정되지 않음.**
+  §6.1을 바꿀 근거 부족. (LLM 비결정성·단일-run 한계도 동일 결론을 지지 — 특정 주 카운트 과해석 금지.)
 
 ### 7.4 다음 작업
 - **(A) 평일경로 백테스트가 본체** — 같은 8종목/2024에 `disqualify → daily_delta → evaluate_pivot →
   entry_params → performance`를 과거 replay(반드시 **disqualify 포함** — de-rating 층). 평일 다중-날짜 replay
   하네스는 현재 부재 → 별도 설계·구현 프로젝트(brainstorm→plan→build).
-- §6.1 튜닝은 (A) 및 P1/E1 결정론 검증 이후. 변경 시 `threshold-change-checklist.md` 의존성 맵 필수
-  (`CLIMAX_GAIN_PCT/MATURITY_WEEKS/LATE_MATURITY_WEEKS/UP_DAYS_PCT` = SSOT, 대부분 책 수치 `[PRESERVES]`).
+- §6.1 튜닝은 **현 증거로는 불필요**(§7.3 — HD현대 climax는 게이트-정당). 다른 종목·연도에서 *명백한*
+  temporal-scope 위반(15% 조정 또는 4주+ 경과 후 climax 지속)이 **반복 관측될 때만** P2-lite 결정론 가드를
+  재검토하고, 그때 `threshold-change-checklist.md` 의존성 맵 점검. 단일-run·단일-종목으로 임계 변경 금지.
