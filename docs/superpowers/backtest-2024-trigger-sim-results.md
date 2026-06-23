@@ -22,6 +22,8 @@
 | shadow(extended 9 + base_forming 5, pivot有) | 14 | 2 트레이드 | 게이트 우회 가정 |
 | census(pivot 없음) | 143 | — | 구조적 매수불가(미완성 base) |
 
+정합: 7 + 14 + 143 = **164 watch**(설계 근사 census 170은 ignore 27을 포함한 값 — 143 no-pivot watch + 27 ignore = 170. 본 시뮬은 watch만 대상이라 census=143).
+
 (ignore 27건은 watch 아님 → 본 시뮬 비대상. promotion 발화 176회 = 적격 watch가 pivot 95~100% 근접했으나 못 넘음.)
 
 거래량 단위: 게이트의 `avg_volume_50d`가 **수정 거래량(adj)** 기준이므로 numerator도 `daily_prices.adj_volume`
