@@ -27,6 +27,10 @@ BT_TABLE = "backtest_classification"
 BT_SOURCE = "backtest"
 BT_CONCURRENCY = 2   # 실측 안전 동시성 상한 (c1·c2=100%, c4=9.6% rc=1 실패). 한 건 ≈103s.
 
+CIRCUIT_BREAKER_WEEKS = 2        # 나쁜 주 K연속 시 클린 중단
+CIRCUIT_BREAKER_FAIL_RATE = 0.5  # 한 주 실패율 >= 50% 면 '나쁜 주'
+CIRCUIT_BREAKER_MIN_SAMPLE = 3   # 시도수 < 3 인 주는 판정 보류(노이즈 회피)
+
 
 def already_done(conn: Connection, as_of: date) -> set[str]:
     with conn.cursor() as cur:
@@ -67,9 +71,11 @@ def run_backtest_backfill(conn: Connection, *, start: date, end: date, tickers: 
     saturdays = _enumerate_saturdays(start, end)
     concurrency = concurrency or BT_CONCURRENCY
     agg = {"weeks": 0, "processed": 0, "skipped_existing": 0, "failures": 0,
-           "failed": [], "integrity_skipped": [], "start": str(start), "end": str(end)}
+           "failed": [], "integrity_skipped": [], "start": str(start), "end": str(end),
+           "circuit_broken": False}
     dsn = conn.info.dsn
     abort = threading.Event()
+    consec_bad_weeks = 0
 
     for as_of in saturdays:
         if abort.is_set():
@@ -96,4 +102,25 @@ def run_backtest_backfill(conn: Connection, *, start: date, end: date, tickers: 
             raise UsageLimitError(
                 f"usage limit — bt-backfill aborted: processed={agg['processed']}, reason={r['usage_error']}"
             )
+        # 서킷브레이커: 한 주 실패율이 임계 이상인 '나쁜 주'가 K연속이면 systemic 실패로
+        # 클린 중단. processed==0(하드 한도)뿐 아니라 1건만 성공+대량 실패(만성 부분실패=
+        # 동시성 저하 등)도 잡는다. 시도수 적은 주는 판정 보류(노이즈 회피).
+        # (rc=1 빈출력 형태의 한도/장애가 UsageLimitError 로 안 잡혀도 여기서 멈춤.)
+        week_total = r["processed"] + len(r["failed_tickers"])
+        if week_total >= CIRCUIT_BREAKER_MIN_SAMPLE:
+            fail_rate = len(r["failed_tickers"]) / week_total
+            if fail_rate >= CIRCUIT_BREAKER_FAIL_RATE:
+                consec_bad_weeks += 1
+                if consec_bad_weeks >= CIRCUIT_BREAKER_WEEKS:
+                    agg["circuit_broken"] = True
+                    agg["stop_reason"] = (
+                        f"{consec_bad_weeks} consecutive weeks with fail-rate "
+                        f">= {CIRCUIT_BREAKER_FAIL_RATE:.0%} (likely usage limit / "
+                        f"concurrency / CLI failure) — 적재분 보존, rerun=resume"
+                    )
+                    log.warning("bt-backfill circuit breaker: %s", agg["stop_reason"])
+                    break
+            else:
+                consec_bad_weeks = 0
+        # week_total < MIN_SAMPLE: 판정 보류(카운터 유지)
     return agg
