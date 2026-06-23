@@ -140,5 +140,13 @@ def test_shadow_bypasses_entry_gate_but_exit_unchanged():
     # production: extended 비적격 -> 진입 없음
     assert simulate("T", wr, bars, mode="production")[0] == []
     # shadow: 이유 게이트 우회로 진입, 청산은 reason 비의존이라 sma_50 binding 동일
-    st, _ = simulate("T", wr, bars, mode="shadow")
+    st, promo_s = simulate("T", wr, bars, mode="shadow")
     assert len(st) == 1 and st[0].binding_exit == "sma_50"
+    assert promo_s == 0
+
+
+def test_invalid_mode_raises():
+    import pytest
+    wr = [_watch(date(2024, 1, 6), 100.0, 90.0, "valid_base_awaiting_breakout")]
+    with pytest.raises(ValueError):
+        simulate("T", wr, [], mode="prod")

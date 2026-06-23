@@ -65,6 +65,8 @@ def simulate(ticker: str, watch_rows: list[WatchRow], day_bars: list[DayBar],
     production: watch_reason 을 그대로 전달(비적격은 자연 불발). shadow: 적격 사유로 치환해
     가격/거래량/fresh_cross 로직만 태움(이유 게이트 우회). 반환 (trades, promotion_count).
     """
+    if mode not in ("production", "shadow"):
+        raise ValueError(f"mode must be 'production' or 'shadow', got {mode!r}")
     rows = sorted([r for r in watch_rows if r.pivot_price is not None], key=lambda r: r.sat)
     bars = sorted(day_bars, key=lambda b: b.d)
     trades: list[Trade] = []
