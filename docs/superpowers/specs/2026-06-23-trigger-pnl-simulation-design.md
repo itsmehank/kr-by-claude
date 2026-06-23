@@ -53,6 +53,10 @@ LLM 트리거 확인·abort, (c) `entry_params` LLM 포지션 사이징. "시스
 8종목 각각 2024 거래일을 일별 walk하며 이벤트 구동:
 
 - **active pivot**: 직전 토요일 분류 행의 `pivot_price`(+`base_low`=stop, +`watch_reason`). 매 토요일 갱신.
+- **promotion 카운트(진입 안 함)**: `trigger_gate.evaluate`는 watch에 `promotion`(close가 pivot의
+  95~100% 구간)도 반환. promotion은 책 근거 없는 staging이라 **매수 아님**(`evaluate_pivot §3.3`) → 진입
+  미발생. 단 **발화 횟수는 census에 기록** → "적격 watch가 pivot 근처까진 갔으나 끝내 못 넘은" 횟수가
+  보여 이슈 2 해석에 도움.
 - **트리거 판정(매일)**: `trigger_gate.evaluate(close, pivot_price, volume, avg_volume_50d,
   stop_loss=base_low, sma_50, classification='watch', prev_close, watch_reason)` →
   `breakout_from_watch` / `invalidation` / `promotion` / None. 입력은 **그날(`date<=as_of`)까지만**.
@@ -62,6 +66,10 @@ LLM 트리거 확인·abort, (c) `entry_params` LLM 포지션 사이징. "시스
 - **청산(사전 고정)**: 진입 후 `close < base_low` 또는 `close < sma_50` 첫날 **종가**에 청산.
   목표가 없음(ride-to-stop, 책 정합). **트레이드별로 어느 조건이 binding이었는지 기록**
   (sma_50 vs base_low — 채점엔 미사용, 사후분석용 데이터. 청산 규칙 자체는 변경 금지).
+  - 각주(결과 문서): `trigger_gate.evaluate`의 invalidation은 `close<sma_50`/`close<base_low`만 보고
+    **거래량을 보지 않는다**(LLM `evaluate_pivot §3.2`는 거래량 동반을 함께 봄). 따라서 본 시뮬 청산은
+    LLM invalidation보다 **거래량 없는 이탈에도 더 빨리 파는 보수적 청산** = P&L 하한에 부합(진입도 게이트
+    결정론 기준이라 일관). "왜 실제보다 일찍 팔았나" 오해 방지용으로 명시.
 - **재진입 상한(사전 고정)**: 청산 후 **active pivot이 새 토요일 분류로 갱신되어야** 재진입 가능.
   같은 pivot에서 반복 진입↔청산(톱니) 금지 — 한 셋업이 다중 트레이드로 부풀려지는 노이즈 차단.
 - **look-ahead 차단**: 진입·청산 판정은 그날까지의 일봉만 사용. 트리거~청산 사이 미래가격으로 진입/청산
@@ -82,8 +90,10 @@ LLM 트리거 확인·abort, (c) `entry_params` LLM 포지션 사이징. "시스
   - `extended`(9): pivot +5% 위 추격 구간. `trigger_gate`의 `fresh_cross`(어제 pivot 이하→오늘 돌파)
     조건상 **대부분 자연 불발 예상**. extended가 shadow에서 0~소수 발화면 = "추격 차단이 가격 조건
     자체로도 정당"(이슈 2에 강한 답). "막아서 못 번 돈"이 아니라 "막아서 피한 위험"일 수 있음.
-  - `base_forming`(5): pivot 미확정인데 우연히 채워진 경우 → shadow 트리거는 미완성 베이스 위 발화.
-    "정당하게 막은 것"일 가능성.
+  - `base_forming`(5): pivot 미확정(핸들 등 정의요소 미완성, `§8.5`)인데 우연히 채워진 경우 → shadow
+    트리거는 **미완성 베이스 위 발화**. 여기서 **+수익이 나와도 "미완성 베이스에서 운 좋게 맞은 것"이지
+    시스템이 놓친 정당한 기회가 아니다** — 책(O'Neil HMMS, 핸들 shakeout 전 매수 금지)상 막은 게 방법론적으로
+    옳다. **base_forming shadow가 +수익이어도 "과보수 증거"로 읽지 말 것.**
   - → **합산 한 숫자로 "과보수 확정" 금지.** 사유별로 "위험 회피였나 vs 기회 손실이었나"를 본다.
 - **census(170)**: "watch가 돈을 못 벌었다"가 아니라 "watch 대부분이 **구조적으로 매수 대상이 아니었다**
   (pivot 미확정·미완성 base = 매수 신호 경로가 설계상 막힘)" = 이슈 2의 진짜 답(결함 아닌 설계).
