@@ -28,7 +28,7 @@
 - **Create** `kr_pipeline/backtest/__init__.py` — 빈 패키지 마커.
 - **Create** `kr_pipeline/backtest/trigger_sim.py` — 코어: dataclasses(WatchRow/DayBar/Trade) + `simulate()`(순수) + DB 로더(`load_watchlist`/`load_daily_series`/`load_index_series`) + `classify_rows()` + `market_relative()`.
 - **Create** `kr_pipeline/backtest/__main__.py` — 얇은 CLI: 8종목 production+shadow 실행 → 표·census 출력.
-- **Create** `tests/test_backtest_trigger_sim.py` — `simulate()` 합성 단위테스트(8 케이스) + 로더 스모크.
+- **Create** `tests/test_backtest_trigger_sim.py` — `simulate()` 합성 단위테스트(10 케이스) + 로더 스모크.
 - **Create** `docs/superpowers/backtest-2024-trigger-sim-results.md` — 결과 문서(Task 4).
 
 ---
@@ -55,7 +55,7 @@ Create `kr_pipeline/backtest/__init__.py`:
 """백테스트 분석 도구 (읽기전용). 프로덕션 파이프라인은 이 패키지를 import 하지 않는다."""
 ```
 
-- [ ] **Step 2: 실패 테스트 작성 (8 케이스)**
+- [ ] **Step 2: 실패 테스트 작성 (10 케이스)**
 
 Create `tests/test_backtest_trigger_sim.py`:
 ```python
@@ -187,6 +187,22 @@ def test_promotion_counted_not_entered():
     trades, promo = simulate("T", wr, bars, mode="production")
     assert trades == []
     assert promo == 1
+
+
+def test_shadow_bypasses_entry_gate_but_exit_unchanged():
+    # 보완: shadow 치환(_SHADOW_REASON)은 *진입* 게이트만 우회. invalidation 은 watch_reason
+    # 비의존이라 청산은 production 과 동일해야 한다.
+    wr = [_watch(date(2024, 1, 6), 100.0, 80.0, "extended")]  # 비적격 reason
+    bars = _bars([
+        (date(2024, 1, 8), 98.0, 200, 95.0, 100.0, 97.0),
+        (date(2024, 1, 9), 105.0, 200, 95.0, 100.0, 98.0),   # fresh cross
+        (date(2024, 1, 10), 94.0, 200, 95.0, 100.0, 105.0),  # close<sma50 -> 청산
+    ])
+    # production: extended 비적격 -> 진입 없음
+    assert simulate("T", wr, bars, mode="production")[0] == []
+    # shadow: 이유 게이트 우회로 진입, 청산은 reason 비의존이라 sma_50 binding 동일
+    st, _ = simulate("T", wr, bars, mode="shadow")
+    assert len(st) == 1 and st[0].binding_exit == "sma_50"
 ```
 
 - [ ] **Step 3: 테스트 실패 확인**
@@ -278,6 +294,8 @@ def simulate(ticker: str, watch_rows: list[WatchRow], day_bars: list[DayBar],
             continue
         # 보유 중이면 진입 시점 base_low 로 invalidation 판정; 아니면 active 의 base_low.
         stop_for_gate = cur.base_low if cur is not None else active.base_low
+        # shadow 치환은 *진입*(breakout_from_watch) 게이트 우회용. invalidation 은 평가순서상 가장 먼저이고
+        # watch_reason 비의존이라, 이 치환은 청산 동작을 바꾸지 않는다(청산은 production 과 동일).
         reason_for_gate = _SHADOW_REASON if mode == "shadow" else active.watch_reason
         sig = gate_evaluate(
             close=b.close,
@@ -327,7 +345,7 @@ def simulate(ticker: str, watch_rows: list[WatchRow], day_bars: list[DayBar],
 - [ ] **Step 5: 테스트 통과 확인**
 
 Run: `uv run pytest tests/test_backtest_trigger_sim.py -q`
-Expected: PASS (9 tests).
+Expected: PASS (10 tests).
 
 - [ ] **Step 6: 커밋**
 
@@ -453,7 +471,7 @@ def test_loaders_smoke():
 - [ ] **Step 3: 테스트 통과 확인**
 
 Run: `uv run pytest tests/test_backtest_trigger_sim.py -q`
-Expected: PASS (10 tests). (실 DB 연결 필요 — kr_pipeline DB.)
+Expected: PASS (11 tests). (실 DB 연결 필요 — kr_pipeline DB.)
 
 - [ ] **Step 4: 커밋**
 
@@ -578,7 +596,8 @@ def main() -> int:
             out["census"]["promotion_fires"] += promo
             for t in prod_trades:
                 out["production"].append(_trade_row(t, idx))
-            # shadow: 비적격(pivot有) 행을 게이트 우회로
+            # shadow: 비적격(pivot有) 행을 게이트 우회로. promotion 반환값(_)은 의도적으로 버림 —
+            # census 의 promotion_fires 는 production(적격 watch) 한정 지표이므로 shadow promotion 은 세지 않는다.
             shadow_trades, _ = simulate(ticker, cls["shadow"], bars, mode="shadow")
             for t in shadow_trades:
                 out["shadow"].append(_trade_row(t, idx))
@@ -593,7 +612,7 @@ if __name__ == "__main__":
 - [ ] **Step 6: 전체 테스트 + CLI 스모크**
 
 Run: `uv run pytest tests/test_backtest_trigger_sim.py -q`
-Expected: PASS (11 tests).
+Expected: PASS (12 tests).
 Run: `uv run python -m kr_pipeline.backtest`
 Expected: JSON 출력 — `counts.production`+`counts.shadow`+`counts.census`가 8종목 watch 합계와 일치, production/shadow trade 배열·census 출력. 에러 없음.
 
