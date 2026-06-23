@@ -152,6 +152,17 @@ def test_invalid_mode_raises():
         simulate("T", wr, [], mode="prod")
 
 
+def test_market_relative_subtracts_index():
+    from datetime import date
+    from kr_pipeline.backtest.trigger_sim import Trade, market_relative
+    t = Trade(ticker="T", watch_reason="x", pivot_sat=date(2024, 1, 6), pivot_price=100.0,
+              base_low=90.0, entry_date=date(2024, 1, 9), entry_close=100.0,
+              exit_date=date(2024, 1, 16), exit_close=110.0, pnl_pct=10.0, binding_exit="open")
+    idx = {date(2024, 1, 9): 1000.0, date(2024, 1, 16): 1040.0}  # 시장 +4%
+    # 종목 +10% - 시장 +4% = +6% 초과
+    assert abs(market_relative(t, idx) - 6.0) < 1e-6
+
+
 def test_loaders_smoke():
     """실 DB 에서 8종목 중 하나(가온칩스 399720)의 watch/일봉/지수 로드 동작."""
     from datetime import date

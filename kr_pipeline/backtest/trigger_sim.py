@@ -130,6 +130,23 @@ def simulate(ticker: str, watch_rows: list[WatchRow], day_bars: list[DayBar],
     return trades, promotion_count
 
 
+def _nearest_on_or_before(series: dict[date, float], d: date) -> float | None:
+    cands = [k for k in series if k <= d]
+    return series[max(cands)] if cands else None
+
+
+def market_relative(trade: Trade, index_series: dict[date, float]) -> float | None:
+    """트레이드 보유기간 지수수익을 차감한 초과수익%. 데이터 없으면 None."""
+    if trade.pnl_pct is None or trade.exit_date is None:
+        return None
+    base = _nearest_on_or_before(index_series, trade.entry_date)
+    end = _nearest_on_or_before(index_series, trade.exit_date)
+    if base is None or end is None or base == 0:
+        return None
+    index_pct = (end / base - 1) * 100
+    return trade.pnl_pct - index_pct
+
+
 _INDEX_CODE = {"KOSPI": "1001", "KOSDAQ": "2001"}
 
 
