@@ -168,3 +168,4 @@ def test_loaders_smoke():
         assert len(idx) > 200
         cls = classify_rows(wr)
         assert set(cls) == {"production", "shadow", "census"}
+        assert sum(len(v) for v in cls.values()) == len(wr)  # rows conserved

@@ -7,7 +7,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from kr_pipeline.llm_runner.compute.trigger_gate import evaluate as gate_evaluate
+from psycopg import Connection
+
+from kr_pipeline.llm_runner.compute.trigger_gate import evaluate as gate_evaluate, ALLOWED_WATCH_REASONS
 
 # shadow 모드에서 watch_reason 적격 게이트만 우회(가격/거래량/fresh_cross 로직은 동일 유지).
 _SHADOW_REASON = "valid_base_awaiting_breakout"
@@ -17,7 +19,7 @@ _SHADOW_REASON = "valid_base_awaiting_breakout"
 class WatchRow:
     ticker: str
     sat: date
-    pivot_price: float
+    pivot_price: float | None
     base_low: float | None
     watch_reason: str | None
 
@@ -127,9 +129,6 @@ def simulate(ticker: str, watch_rows: list[WatchRow], day_bars: list[DayBar],
 
     return trades, promotion_count
 
-
-from psycopg import Connection
-from kr_pipeline.llm_runner.compute.trigger_gate import ALLOWED_WATCH_REASONS
 
 _INDEX_CODE = {"KOSPI": "1001", "KOSDAQ": "2001"}
 
