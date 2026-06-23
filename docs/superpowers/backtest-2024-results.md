@@ -40,7 +40,7 @@
 | 삼양식품(①상승) | watch / ignore | 17 / 7 | +17.3 / +12.2 | **+43.9** / −8.1 | watch가 큰 상승 선행 ✓, ignore는 국지 고점에서 발동 |
 | 인화정공(①상승) | watch | 26 | +12.2 | **+27.4** | 전 구간 watch, 상승 선행 ✓ (entry는 0) |
 | 가온칩스(②돌파실패) | watch / ignore | 13 / 2 | +15.7 / −2.0 | +14.7 / **−29.6** | **ignore가 천정 적중**(이후 −30%) ✓ |
-| 에이팩트(②돌파실패) | watch | 14 | −2.8 | **−19.2** | 하락 내내 watch/base_forming, 경고 없음 ✗ |
+| 에이팩트(②돌파실패) | watch | 14 | −2.8 | **−19.2** | 고점 −17%에서 후보-풀 제외(작동) → 이후 −51%. "경고없음"은 측정부재(§7.2) |
 | 실리콘투(③클라이맥스) | watch / ignore | 22 / 8 | +28.1 / +21.2 | **+135.2** / +13.2 | ignore가 climax 포착하나 **조기 발동**(초기 ignore 이후도 급등) △ |
 | 노루홀딩스(④횡보) | watch | 24 | −2.3 | **+0.3** | 전부 watch, 이후 평탄 → entry 안 준 게 적절 ✓ |
 | 윙입푸드(⑤변동성) | watch | 12 | −10.4 | −14.2 | 전부 watch, 변동성 구간 진입 안 함(이후 하락) ✓(보수적) |
@@ -63,7 +63,10 @@ ignore 27건은 **전부 `climax_run`** 플래그(대개 `extended_from_ma`, `un
 
 **F4 — 횡보 처리 적절.** 노루홀딩스 전부 watch, 이후 +0.3%(평탄) → entry 미발급이 옳음.
 
-**F5 — 실패하는 베이스에 de-rating 없음.** 에이팩트는 −53%까지 내려가는 동안 계속 `watch/base_forming`. watch는 게이트 탈락 전까지 강등 경로가 없어, 무너지는 종목에 조기 경고를 못 준다.
+**F5 — (정정됨, §7.2 참조) 실패하는 베이스에 "경고 없음"은 측정 부재 산물.** 당초 "에이팩트가 −53%까지
+watch 유지, 강등 경로 없음"으로 서술했으나 부정확. −53.4%는 그 watch 시점의 *12주 후* forward-return이고,
+실제로는 minervini 상실로 **고점 −17%에서 후보-풀에서 조용히 제외**된 뒤 −51% 추락이 일어났다. de-rating(제거)은
+작동했으며, backfill이 명시적 `disqualified` write 단계(disqualify)를 안 돌렸을 뿐이다. 상세는 §7.2.
 
 ## 5. 시사점 (후속 검토 — 이번엔 미구현)
 
@@ -78,3 +81,44 @@ ignore 27건은 **전부 `climax_run`** 플래그(대개 `extended_from_ma`, `un
 - **표본**: 2024년 단일 연도 × 8종목(유형 대표). 일반화엔 추가 표본 필요.
 - **forward-return**: 수정종가(adj_close) 기준, +4/+12주 모두 측정 가능 데이터 존재(2026-06까지).
 - **분석 쿼리**: `scripts/backtest_2024_analysis.sql` (재현 가능).
+
+## 7. 외부 리뷰 결론 + 결정론 검증 (2026-06-23)
+
+외부 리뷰(GitHub 연결 프로젝트) + 결정론 오프라인 검증(B/B′) 결과로 §3~5 일부 프레이밍을 정정·확정한다.
+
+### 7.1 중심 결론 — 백테스트는 3층 중 1층만 측정
+`--mode=backfill`은 **주말 분류층만** 과거 replay하고, (i) 평일 actionability 층
+(`daily_delta → evaluate_pivot → entry_params`; `trigger_gate`의 `breakout`/`breakout_from_watch` → `go_now`)과
+(ii) de-rating 층(`disqualify`)을 **둘 다 미실행**. 따라서:
+- **entry=0은 결함 아님** — 매수 시점은 `evaluate_pivot`의 pivot-cross(트리거)에서 나오며 그 층을 안 돌렸다.
+  entry 분류 라벨은 **희소-도달가능**(주말 entry 실사례 009970)이지 *vestigial 아님*(이전 표현 정정).
+- **watch +33.7%는 기회비용이 아니라 워치리스트 층 성공 신호**(올바른 종목 선별). 기회비용은 평일 트리거 층을
+  돌려야만 측정된다.
+- **이슈1 가설 분해(데이터)**: `watch_reason` 96%(base_forming 115 + extended 42 = 157/164)가 **타이밍 원인**
+  (§8.5 ±5% pivot 밴드 + 주1회 cadence가 돌파 *당일*을 못 밟음). 시장게이트(`unfavorable_market`)는 4/164뿐
+  → "게이트 과보수" 가설은 기각.
+
+### 7.2 (B′) de-rating은 작동했다 — "경고 없음"은 측정 부재
+- `disqualify.run`은 라이브에서 평일·주말 **둘 다** 맨 앞에서 작동(`modes.py`)하나 backfill은 미실행.
+- 그러나 **후보-풀 제외(silent drop)는 backfill도 적용**(`get_qualifying_tickers`): 에이팩트는 minervini를
+  주봉 7/12(5,980원)까지 통과 후 **7/19부터 영구 FALSE** → **고점 대비 −17%에서 워치리스트에서 제때 제외**,
+  이후 −51%(→2,915원) 추락은 제외 *후* 발생. 가온칩스도 −10%에서 제외 후 −42%.
+- 즉 **보호(제거)는 일어났고**, 빠진 건 명시적 `disqualified` write 단계뿐. "candidate-pool 제외 ≠ explicit
+  disqualified write" — 후자는 stale watch 행을 `disqualified`로 덮어쓰는 단계로 backfill에서 0건.
+
+### 7.3 (B) 이슈3 — climax_run이 §6.1 P2 미충족 주에도 적용됨
+HD현대일렉트릭 ignore 주들의 주봉 1주/3주 상승률 검증:
+- 가속 주(04-12: 1주 +20.9%, 3주 +41.1%)는 climax 해석 가능.
+- 그러나 **비가속·하락 주에도 ignore 지속**: 02-29(1주 −7.2%, 3주 +15.8%), 05-03(1주 −8.0%, 3주 −2.1%),
+  05-17(1주 −4.6%, 3주 0.0%) — §6.1 **P2("전체 advance 중 최급등 ≥25%")를 명백히 미충족**하는데 `climax_run` ignore.
+- → 임계(숫자) 문제가 아니라 **LLM이 §6.1 게이트를 넘어 climax를 과·지속 적용**(prompt adherence) 정황.
+  프롬프트 자체 규칙(§3.2: "extension은 watch지 ignore 아님")과도 충돌.
+- **단정 금지**: P1(성숙도 ≥18주/후기 ≥12주)·E1(base #1/#2 leadership 면제)은 베이스 구조 식별이 필요해 본
+  검증에서 미산출. §6.1 변경 전 P1/E1까지 결정론 손계산 필요. **단일-run 재백필 카운트 비교 금지**(strobing 교훈).
+
+### 7.4 다음 작업
+- **(A) 평일경로 백테스트가 본체** — 같은 8종목/2024에 `disqualify → daily_delta → evaluate_pivot →
+  entry_params → performance`를 과거 replay(반드시 **disqualify 포함** — de-rating 층). 평일 다중-날짜 replay
+  하네스는 현재 부재 → 별도 설계·구현 프로젝트(brainstorm→plan→build).
+- §6.1 튜닝은 (A) 및 P1/E1 결정론 검증 이후. 변경 시 `threshold-change-checklist.md` 의존성 맵 필수
+  (`CLIMAX_GAIN_PCT/MATURITY_WEEKS/LATE_MATURITY_WEEKS/UP_DAYS_PCT` = SSOT, 대부분 책 수치 `[PRESERVES]`).
