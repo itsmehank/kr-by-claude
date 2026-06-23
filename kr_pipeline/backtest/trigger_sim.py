@@ -173,9 +173,10 @@ def load_watchlist(conn: Connection, ticker: str, start: date, end: date) -> lis
 
 def load_daily_series(conn: Connection, ticker: str, start: date, end: date) -> list[DayBar]:
     with conn.cursor() as cur:
+        # adj_volume 사용 — gate 의 avg_volume_50d(=daily_indicators, adj 기준)와 단위 일치(raw 쓰면 기업행위 종목 오발화). cf. payload_raw_vs_adj_volume_mismatch
         cur.execute(
             """
-            SELECT p.date, p.adj_close, p.volume, i.sma_50, i.avg_volume_50d,
+            SELECT p.date, p.adj_close, p.adj_volume, i.sma_50, i.avg_volume_50d,
                    LAG(p.adj_close) OVER (ORDER BY p.date) AS prev_close
               FROM daily_prices p
               LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
@@ -185,7 +186,7 @@ def load_daily_series(conn: Connection, ticker: str, start: date, end: date) -> 
             (ticker, start, end),
         )
         return [
-            DayBar(d=r[0], close=float(r[1]), volume=int(r[2]) if r[2] is not None else 0,
+            DayBar(d=r[0], close=float(r[1]), volume=int(float(r[2])) if r[2] is not None else 0,
                    sma_50=float(r[3]) if r[3] is not None else None,
                    avg_volume_50d=float(r[4]) if r[4] is not None else None,
                    prev_close=float(r[5]) if r[5] is not None else None)

@@ -180,3 +180,7 @@ def test_loaders_smoke():
         cls = classify_rows(wr)
         assert set(cls) == {"production", "shadow", "census"}
         assert sum(len(v) for v in cls.values()) == len(wr)  # rows conserved
+        # adj-volume 일치 가드(raw 쓰면 기업행위 종목 오발화) — 101930 2024-06-13 adj=130800, raw=26160
+        bars2 = load_daily_series(conn, "101930", date(2024, 1, 1), date(2024, 12, 31))
+        bar_0613 = next(b for b in bars2 if str(b.d) == "2024-06-13")
+        assert bar_0613.volume == 130800
