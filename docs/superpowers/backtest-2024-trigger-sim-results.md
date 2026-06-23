@@ -22,7 +22,12 @@
 | shadow(extended 9 + base_forming 5, pivot有) | 14 | 2 트레이드 | 게이트 우회 가정 |
 | census(pivot 없음) | 143 | — | 구조적 매수불가(미완성 base) |
 
-(ignore 27건은 watch 아님 → 본 시뮬 비대상. promotion 발화 118회 = 적격 watch가 pivot 95~100% 근접했으나 못 넘음.)
+(ignore 27건은 watch 아님 → 본 시뮬 비대상. promotion 발화 176회 = 적격 watch가 pivot 95~100% 근접했으나 못 넘음.)
+
+거래량 단위: 게이트의 `avg_volume_50d`가 **수정 거래량(adj)** 기준이므로 numerator도 `daily_prices.adj_volume`
+사용(프로덕션 `daily_indicators.volume`와 동일). raw 사용 시 기업행위 종목(인화정공 raw=0.2×adj, 윙입푸드
+=4×adj) 오발화 — 최종 리뷰에서 교정(cf. `payload_raw_vs_adj_volume_mismatch`). 교정 후 4 프로덕션·2 shadow
+트레이드는 불변, promotion 카운트만 118→176 변동.
 
 ## 1. 프로덕션 (적격 7행 → 4 트레이드) — 모두 sma_50 추세이탈로 청산
 
