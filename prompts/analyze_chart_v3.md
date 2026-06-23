@@ -567,6 +567,7 @@ For non-VCP patterns (`flat_base`, `cup_with_handle`, etc.), both fields MUST be
 
 - Do not output any text outside the JSON object.
 - Do not invent data not in the input (e.g., do not speculate about earnings dates, news catalysts).
+- Use ONLY the provided inputs (attached chart PNGs + inline data). Do NOT use web search, external lookups, news, or earnings calendars — no information beyond the provided inputs, and no future information.
 - Do not give entry parameters here (stop loss, position size) — that is a separate task (`calculate_entry_params`). pivot_price and base fields ARE output by this prompt (§4.7).
 - Do not include Trend Template positive signals (high RS Rating, price above MAs, MA alignment, RS Line leadership) as risk_flags.
 - Do not invent risk flags outside the 14-value taxonomy.

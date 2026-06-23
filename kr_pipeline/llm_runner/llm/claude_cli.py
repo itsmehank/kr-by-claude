@@ -214,7 +214,12 @@ def call_claude(
             prompt_text += json.dumps(payload_inline, ensure_ascii=False, indent=2)
             prompt_text += "\n```\n"
 
-    cmd = ["claude", "--print", "--permission-mode", "bypassPermissions"]
+    # --tools Read: default-deny tool surface. Classification reads only the
+    # attached chart PNGs (@absolute_path → Read); web/news/external lookups must
+    # NOT be reachable (point-in-time integrity + determinism). Web*/Bash/etc. are
+    # not even exposed. bypassPermissions keeps the non-interactive --print flow
+    # from prompting on the allowed Read.
+    cmd = ["claude", "--print", "--permission-mode", "bypassPermissions", "--tools", "Read"]
 
     # 모델 핀(옵션): 미설정 시 사용자 기본 모델 — 배치 비용·품질을 사용자
     # /model 변경에서 분리하고 싶으면 KR_CLAUDE_MODEL 로 고정.
