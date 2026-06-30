@@ -11,7 +11,7 @@ import sys
 from datetime import date
 
 from kr_pipeline.db.connection import connect
-from kr_pipeline.backtest.sample import build_frame, draw_sample, sample_composition, DEFAULT_SEED
+from kr_pipeline.backtest.sample import build_frame, sample_composition, DEFAULT_SEED
 from kr_pipeline.backtest.backfill import run_backtest_backfill
 from kr_pipeline.backtest.profitability_run import run_analysis
 from kr_pipeline.backtest.frozen_sample import FROZEN_SAMPLE
