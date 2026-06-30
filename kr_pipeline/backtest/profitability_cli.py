@@ -14,22 +14,25 @@ from kr_pipeline.db.connection import connect
 from kr_pipeline.backtest.sample import build_frame, draw_sample, sample_composition, DEFAULT_SEED
 from kr_pipeline.backtest.backfill import run_backtest_backfill
 from kr_pipeline.backtest.profitability_run import run_analysis
+from kr_pipeline.backtest.frozen_sample import FROZEN_SAMPLE
 
 START, END = date(2021, 1, 1), date(2024, 12, 31)          # 분류 윈도(주간)
 PX_START, PX_END = date(2020, 7, 1), date(2025, 6, 30)      # 가격(선행 SMA + forward 청산)
 
 
 def _sample(conn) -> list[str]:
-    frame = build_frame(conn, START, END)
-    return draw_sample(frame, n=100, seed=DEFAULT_SEED)
+    # 사전등록 동결 100종목 고정(라이브 build_frame 재계산 금지 — 지표 드리프트로
+    # 표본이 흔들렸던 §2 위반 복구). cf. frozen_sample.py
+    return list(FROZEN_SAMPLE)
 
 
 def cmd_sample(conn) -> int:
-    frame = build_frame(conn, START, END)
-    sample = draw_sample(frame, n=100, seed=DEFAULT_SEED)
+    sample = _sample(conn)                      # 동결 100
     comp = sample_composition(conn, sample)
-    print(json.dumps({"seed": DEFAULT_SEED, "frame_size": len(frame),
-                      "sample": sample, "composition": comp}, ensure_ascii=False, indent=2))
+    frame = build_frame(conn, START, END)       # 참고용 라이브 frame 크기만 표시
+    print(json.dumps({"seed": DEFAULT_SEED, "frame_size_live": len(frame),
+                      "frozen": True, "sample": sample, "composition": comp},
+                     ensure_ascii=False, indent=2))
     return 0
 
 
