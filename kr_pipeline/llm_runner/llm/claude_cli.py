@@ -221,11 +221,10 @@ def call_claude(
     # from prompting on the allowed Read.
     cmd = ["claude", "--print", "--permission-mode", "bypassPermissions", "--tools", "Read"]
 
-    # 모델 핀(옵션): 미설정 시 사용자 기본 모델 — 배치 비용·품질을 사용자
-    # /model 변경에서 분리하고 싶으면 KR_CLAUDE_MODEL 로 고정.
-    pinned_model = os.environ.get("KR_CLAUDE_MODEL")
-    if pinned_model:
-        cmd.extend(["--model", pinned_model])
+    # 모델 핀: 기본 'sonnet'(별칭 — 그 시점의 최신 Sonnet). 사용자 /model·
+    # settings.json 변경이 production 분류 모델을 조용히 바꾸지 않도록 항상 핀.
+    # 예외적으로 다른 모델이 필요하면 KR_CLAUDE_MODEL 로 오버라이드.
+    cmd.extend(["--model", os.environ.get("KR_CLAUDE_MODEL", "sonnet")])
 
     # 첨부 파일들의 디렉토리를 --add-dir 로 등록 (claude CLI 최신 API)
     attach_dirs: set[str] = set()

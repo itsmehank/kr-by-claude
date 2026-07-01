@@ -220,20 +220,22 @@ def test_call_claude_picks_last_json_object(mocker):
 
 
 def test_call_claude_pins_model_from_env(mocker, monkeypatch):
-    """KR_CLAUDE_MODEL 설정 시 --model 로 핀 — 사용자 기본 모델 변경에 배치
-    비용·품질이 따라 흔들리지 않도록."""
+    """KR_CLAUDE_MODEL 설정 시 --model 로 오버라이드, 미설정 시 기본 'sonnet' 핀 —
+    사용자 /model·settings.json 변경에 production 분류 모델이 따라 흔들리지 않도록.
+    'sonnet' 은 별칭이라 그 시점의 최신 Sonnet 으로 해석된다."""
     from kr_pipeline.llm_runner.llm.claude_cli import call_claude
 
-    monkeypatch.setenv("KR_CLAUDE_MODEL", "claude-sonnet-4-6")
+    monkeypatch.setenv("KR_CLAUDE_MODEL", "claude-opus-4-8")
     mock_run = mocker.patch("subprocess.run")
     mock_run.return_value = subprocess.CompletedProcess(
         args=[], returncode=0, stdout='{"ok": true}', stderr="",
     )
     call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/f.zip"])
     cmd = mock_run.call_args[0][0]
-    assert "--model" in cmd and "claude-sonnet-4-6" in cmd
+    assert "--model" in cmd and "claude-opus-4-8" in cmd
 
     monkeypatch.delenv("KR_CLAUDE_MODEL")
     call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/f.zip"])
     cmd2 = mock_run.call_args[0][0]
-    assert "--model" not in cmd2, "미설정 시 기존 동작(기본 모델) 유지"
+    assert "--model" in cmd2, "미설정 시에도 프로젝트 기본 모델 핀"
+    assert cmd2[cmd2.index("--model") + 1] == "sonnet", "기본 핀 = 최신 Sonnet 별칭"
