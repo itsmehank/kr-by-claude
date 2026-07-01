@@ -426,3 +426,39 @@ def test_concurrency_arg_rejected_for_non_backfill(capsys):
         assert "only supported with --mode=backfill" in err  # 구현 전: "unrecognized arguments"
     finally:
         sys.argv = old
+
+
+def test_insert_backfill_classification_records_llm_model(db):
+    """llm_meta.model → llm_model 컬럼 기록 (미제공 시 NULL 하위호환)."""
+    from kr_pipeline.llm_runner.store import insert_backfill_classification
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES ('BKF2','B','KOSPI') ON CONFLICT DO NOTHING")
+        cur.execute("DELETE FROM classification_backfill WHERE symbol='BKF2'")
+    db.commit()
+    insert_backfill_classification(
+        db, symbol="BKF2", classified_at=datetime(2026, 7, 2, 1, tzinfo=timezone.utc),
+        market="KOSPI", result=_result("watch"), source="backfill",
+        llm_meta={"duration_s": 10.0, "input_tokens": 100, "output_tokens": 50,
+                  "model": "claude-sonnet-5"},
+        analyzed_for_date=date(2025, 10, 7),
+    )
+    # 하위호환: model 키 없는 llm_meta 도 그대로 동작 (NULL 저장)
+    insert_backfill_classification(
+        db, symbol="BKF2", classified_at=datetime(2026, 7, 2, 2, tzinfo=timezone.utc),
+        market="KOSPI", result=_result("watch"), source="backfill",
+        llm_meta={"duration_s": 10.0, "input_tokens": None, "output_tokens": None},
+        analyzed_for_date=date(2025, 10, 14),
+    )
+    db.commit()
+    try:
+        with db.cursor() as cur:
+            cur.execute(
+                "SELECT analyzed_for_date, llm_model FROM classification_backfill "
+                "WHERE symbol='BKF2' ORDER BY analyzed_for_date"
+            )
+            rows = cur.fetchall()
+        assert rows == [(date(2025, 10, 7), "claude-sonnet-5"), (date(2025, 10, 14), None)]
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM classification_backfill WHERE symbol='BKF2'")
+        db.commit()

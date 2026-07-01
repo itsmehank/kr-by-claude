@@ -105,11 +105,13 @@ def run(
 def _process_one(conn, symbol, eval_at, prior_at, *, dry_run, as_of):
     started = datetime.now(timezone.utc)
     payload = build_for_6(conn, symbol, evaluation_at=eval_at)
+    llm_io: dict = {}
     result = call_claude(
         prompt_file="calculate_entry_params_v2_0.md",
         attachments=[],
         payload_inline=payload,
         dry_run=dry_run,
+        meta_out=llm_io,
     )
     finished = datetime.now(timezone.utc)
 
@@ -130,7 +132,9 @@ def _process_one(conn, symbol, eval_at, prior_at, *, dry_run, as_of):
         trigger_evaluation_at=eval_at,
         prior_classification_at=prior_at,
         llm_meta={"duration_s": (finished - started).total_seconds(),
-                  "input_tokens": None, "output_tokens": None},
+                  "input_tokens": llm_io.get("input_tokens"),
+                  "output_tokens": llm_io.get("output_tokens"),
+                  "model": llm_io.get("model")},
         analyzed_for_date=as_of,
     )
 

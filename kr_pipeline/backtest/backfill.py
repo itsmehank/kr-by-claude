@@ -44,10 +44,12 @@ def _process_one(conn: Connection, symbol: str, market: str, *, dry_run: bool, a
     started = datetime.now(timezone.utc)
     inline_text, png_paths, _ = build_analysis_inline(conn, symbol, on_date=as_of)
     png_dir = str(Path(png_paths[0]).parent)
+    llm_io: dict = {}
     try:
         result = call_claude(
             prompt_file="analyze_chart_v3.md",
             attachments=png_paths, payload_inline=inline_text, dry_run=dry_run,
+            meta_out=llm_io,
         )
     finally:
         shutil.rmtree(png_dir, ignore_errors=True)
@@ -59,7 +61,9 @@ def _process_one(conn: Connection, symbol: str, market: str, *, dry_run: bool, a
         conn, symbol=symbol, classified_at=finished, market=market, result=result,
         source=BT_SOURCE,
         llm_meta={"duration_s": (finished - started).total_seconds(),
-                  "input_tokens": None, "output_tokens": None},
+                  "input_tokens": llm_io.get("input_tokens"),
+                  "output_tokens": llm_io.get("output_tokens"),
+                  "model": llm_io.get("model")},
         analyzed_for_date=as_of, table=BT_TABLE,
     )
 

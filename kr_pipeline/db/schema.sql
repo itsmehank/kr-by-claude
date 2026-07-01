@@ -284,6 +284,7 @@ CREATE TABLE IF NOT EXISTS weekly_classification (
   llm_call_duration_s  NUMERIC(8, 2),
   llm_input_tokens     INTEGER,
   llm_output_tokens    INTEGER,
+  llm_model            VARCHAR(60),
 
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (symbol, classified_at)
@@ -335,6 +336,7 @@ CREATE TABLE IF NOT EXISTS trigger_evaluation_log (
   llm_call_duration_s     NUMERIC(8, 2),
   llm_input_tokens        INTEGER,
   llm_output_tokens       INTEGER,
+  llm_model               VARCHAR(60),
 
   created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (symbol, evaluated_at)
@@ -388,6 +390,7 @@ CREATE TABLE IF NOT EXISTS entry_params (
   llm_call_duration_s                     NUMERIC(8, 2),
   llm_input_tokens                        INTEGER,
   llm_output_tokens                       INTEGER,
+  llm_model                               VARCHAR(60),
 
   created_at                              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (symbol, signal_at)
@@ -470,6 +473,7 @@ CREATE TABLE IF NOT EXISTS classification_backfill (
   llm_call_duration_s  NUMERIC(8, 2),
   llm_input_tokens     INTEGER,
   llm_output_tokens    INTEGER,
+  llm_model            VARCHAR(60),
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   triggered_rules      JSONB,
   measurements         JSONB,
@@ -507,6 +511,7 @@ CREATE TABLE IF NOT EXISTS backtest_classification (
   llm_call_duration_s  NUMERIC(8, 2),
   llm_input_tokens     INTEGER,
   llm_output_tokens    INTEGER,
+  llm_model            VARCHAR(60),
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   triggered_rules      JSONB,
   measurements         JSONB,

@@ -176,6 +176,7 @@ def call_claude(
     payload_inline: dict | str | None = None,
     dry_run: bool = False,
     timeout_seconds: int = 600,
+    meta_out: dict | None = None,
 ) -> dict:
     """Claude CLI 호출.
 
@@ -187,6 +188,9 @@ def call_claude(
             str  → 원문 그대로 append(인라인 데이터 섹션 용; analyze_chart_v3 인라인 경로).
         dry_run: True 면 LLM 호출 안 함, mock JSON 반환
         timeout_seconds: subprocess timeout
+        meta_out: dict 를 주면 호출 메타를 채움 — model(별칭이 아닌 실제 해석된
+            모델 ID, 예: claude-sonnet-5), input_tokens, output_tokens.
+            봉투 파싱 실패(플레인 stdout 폴백) 시 미채움.
 
     Returns:
         parsed JSON dict
@@ -219,7 +223,10 @@ def call_claude(
     # NOT be reachable (point-in-time integrity + determinism). Web*/Bash/etc. are
     # not even exposed. bypassPermissions keeps the non-interactive --print flow
     # from prompting on the allowed Read.
-    cmd = ["claude", "--print", "--permission-mode", "bypassPermissions", "--tools", "Read"]
+    # --output-format json: 봉투(modelUsage/usage)로 실제 사용 모델·토큰을 기록
+    # 가능하게 한다 — 별칭 'sonnet' 핀이 어느 버전으로 해석됐는지 사후 추적용.
+    cmd = ["claude", "--print", "--permission-mode", "bypassPermissions",
+           "--tools", "Read", "--output-format", "json"]
 
     # 모델 핀: 기본 'sonnet'(별칭 — 그 시점의 최신 Sonnet). 사용자 /model·
     # settings.json 변경이 production 분류 모델을 조용히 바꾸지 않도록 항상 핀.
@@ -259,7 +266,35 @@ def call_claude(
                 objs = _extract_json_objects(result.stdout)
                 if not objs:
                     raise ValueError("No JSON in output")
-                return objs[-1]
+                envelope = objs[-1]
+                if envelope.get("type") == "result" and "result" in envelope:
+                    # --output-format json 봉투: 답 텍스트는 result 필드에.
+                    text = envelope.get("result") or ""
+                    if _is_usage_limit(text):
+                        raise UsageLimitError(f"usage limit: {text.strip()[:200]}")
+                    if meta_out is not None:
+                        mu = envelope.get("modelUsage") or {}
+                        # 복수 모델(서브에이전트 등) 시 출력토큰 최대 = 본 호출 모델.
+                        meta_out["model"] = max(
+                            mu, key=lambda k: mu[k].get("outputTokens", 0),
+                        ) if mu else None
+                        usage = envelope.get("usage") or {}
+                        # usage.input_tokens 는 비캐시 프리픽스만(실측 ~1.2k 고정) —
+                        # 실제 입력은 cache_creation/read 에 잡히므로 합산해 기록.
+                        in_parts = [usage.get("input_tokens"),
+                                    usage.get("cache_creation_input_tokens"),
+                                    usage.get("cache_read_input_tokens")]
+                        meta_out["input_tokens"] = (
+                            sum(p for p in in_parts if p is not None)
+                            if any(p is not None for p in in_parts) else None
+                        )
+                        meta_out["output_tokens"] = usage.get("output_tokens")
+                    inner = _extract_json_objects(text)
+                    if not inner:
+                        raise ValueError("No JSON in envelope result")
+                    return inner[-1]
+                # 봉투가 아니면(구버전/모킹) 기존 플레인 stdout 경로.
+                return envelope
             except (json.JSONDecodeError, ValueError) as e:
                 # rc=0 이어도 stdout 이 사용량 제한 안내 텍스트일 수 있음 — 재시도 무의미.
                 if _is_usage_limit(result.stdout):
