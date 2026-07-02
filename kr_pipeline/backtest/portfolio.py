@@ -47,7 +47,9 @@ class PortfolioConfig:
     exclude_down_phases: bool = False
     risk_pct: float = 0.0125        # 계좌 리스크/건 (TTLC §8)
     max_position_pct: float = 0.25
-    max_stop_pct: float = 0.10
+    fixed_stop_pct: float = 0.08    # v2: 매수가 기준 초기 스톱 (O'Neil 7-8% 상단)
+    max_stop_pct: float = 0.10      # uncle point — 불변식으로만 사용 (v2.2)
+    armed_gain_cap: float = 0.20    # armed = min(3R, +20%) (HMMS 20% 룰)
     max_chase_pct: float = 5.0
     tranche_fracs: tuple = (0.5, 0.3, 0.2)   # T1/T2/T3
     tranche_mults: tuple = (1.02, 1.04)       # T2/T3 트리거 (T1가 대비)
@@ -59,12 +61,14 @@ class Position:
     t1_date: date
     t1_price: float
     stop_pct: float
-    base_low: float | None
+    base_low: float | None          # 기록용 — v2 에서 포지션 청산에는 미사용
     pivot: float
     pivot_sat: date
     target_krw: float
     qty: float
     cost_krw: float                 # 총 매입원가(수수료 제외) — avg = cost/qty
+    premium_pct: float = 0.0        # 진입 프리미엄 (T1종가/pivot − 1)×100, 계측용
+    n_fills: int = 1                # 체결 트랜치 수 (피라미딩 분리 계측)
     pending_tranches: list = field(default_factory=list)  # [(mult, frac), ...]
     armed: bool = False
     exempt_until: date | None = None
@@ -92,10 +96,12 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
     positions: dict[str, Position] = {}
     entered_pivots: set[tuple] = set()
     last_close: dict[str, float] = {}
+    assert cfg.fixed_stop_pct <= cfg.max_stop_pct, \
+        "uncle point 불변식 위반: 초기 스톱 > 10% (TTLC §8)"   # v2.2
     stats = {"n_entries": 0, "n_replacements": 0, "n_tranche_fills": 0,
-             "n_half_sells": 0, "n_skipped_wide_stop": 0, "n_skipped_chase": 0,
+             "n_half_sells": 0, "n_skipped_chase": 0,
              "n_skipped_down_phase": 0, "n_skipped_no_cash": 0,
-             "n_skipped_slots_full": 0, "entry_amounts": [], "wide_stop_pcts": [],
+             "n_skipped_slots_full": 0, "entry_amounts": [],
              "exit_reasons": {}, "exits": [], "tranche_expiry": {}}
     curve: list[tuple] = []
 
@@ -105,7 +111,9 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
         stats["exit_reasons"][reason] = stats["exit_reasons"].get(reason, 0) + 1
         stats["exits"].append({"ticker": pos.ticker, "date": str(d),
                                "reason": reason,
-                               "pnl_pct": round((close / pos.avg_price - 1) * 100, 2)})
+                               "pnl_pct": round((close / pos.avg_price - 1) * 100, 2),
+                               "premium_pct": round(pos.premium_pct, 2),
+                               "n_fills": pos.n_fills})
         del positions[pos.ticker]
 
     def _sell_half(pos: Position, close: float, d: date):
@@ -127,16 +135,18 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
             last_close[t] = bar.close
             pos = positions[t]
             avg = pos.avg_price
-            if pos.base_low is not None and bar.close < pos.base_low:
-                _full_exit(pos, bar.close, d, "base_low")
-                continue
-            if bar.sma_50 is not None and bar.close < bar.sma_50:
-                _full_exit(pos, bar.close, d, "sma_50")
-                continue
-            if bar.close >= avg * (1 + 3 * pos.stop_pct):
+            # v2.1 armed: min(3R, +20%) — 장전 먼저(같은 날 종가가 장전+이탈 동시는 불가능)
+            if bar.close >= avg * (1 + min(3 * pos.stop_pct, cfg.armed_gain_cap)):
                 pos.armed = True
-            if pos.armed and bar.close < avg:
-                _full_exit(pos, bar.close, d, "floor")
+            # v2.1 3층 스택: 유효 스톱 = max(초기 8%, armed 본전, Breakeven-or-Better sma50)
+            floors = [(avg * (1 - pos.stop_pct), "stop8")]
+            if pos.armed:
+                floors.append((avg, "floor"))
+            if bar.sma_50 is not None and bar.sma_50 >= avg:
+                floors.append((bar.sma_50, "sma50_trail"))
+            stop_level, stop_reason = max(floors)
+            if bar.close < stop_level:
+                _full_exit(pos, bar.close, d, stop_reason)
                 continue
             # +20% 최초 도달: 8주 면제 판정(전 시나리오) + 5B 분기(S3)
             if pos.hit20_date is None and bar.close >= avg * 1.20:
@@ -185,6 +195,7 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
                     cash -= amt * (1 + _COMM / 100)
                     pos.qty += amt / bar.close
                     pos.cost_krw += amt
+                    pos.n_fills += 1
                     stats["n_tranche_fills"] += 1
                 pos.pending_tranches = remaining
 
@@ -216,15 +227,9 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
             if cfg.exclude_down_phases and td.phase_by_date.get(d) in DOWN_PHASES:
                 stats["n_skipped_down_phase"] += 1
                 continue
-            stop_ref = max(x for x in (active.base_low, bar.sma_50) if x is not None)
-            stop_pct = (bar.close - stop_ref) / bar.close
-            if stop_pct > cfg.max_stop_pct:
-                stats["n_skipped_wide_stop"] += 1
-                stats["wide_stop_pcts"].append(round(stop_pct * 100, 1))
-                continue
-            stop_pct = max(stop_pct, 1e-9)
+            # v2.2: 스톱 = 매수가 기준 고정 8% — 구조적 스톱(base_low/sma50) 미사용
             signals.append({"ticker": t, "bar": bar, "active": active,
-                            "stop_pct": stop_pct,
+                            "stop_pct": cfg.fixed_stop_pct,
                             "rs": td.rs_by_date.get(d),
                             "volmult": bar.volume / bar.avg_volume_50d})
         signals.sort(key=lambda s: (-(s["rs"] if s["rs"] is not None else -inf),
@@ -260,6 +265,7 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
                 stop_pct=s["stop_pct"], base_low=active.base_low,
                 pivot=active.pivot_price, pivot_sat=active.sat,
                 target_krw=target, qty=amt / bar.close, cost_krw=amt,
+                premium_pct=(bar.close / active.pivot_price - 1) * 100,
                 pending_tranches=(list(zip(cfg.tranche_mults, cfg.tranche_fracs[1:]))
                                   if cfg.pyramiding else []),
             )
@@ -288,8 +294,56 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
         "avg_exposure_pct": round(exposure * 100, 1),
         "open_positions_at_end": len(positions),
     }
-    return {"metrics": metrics, "stats": stats,
-            "curve": [(str(d), e, inv) for d, e, inv in curve]}
+    return {"metrics": metrics, "validation": _validation(stats["exits"]),
+            "stats": stats, "curve": [(str(d), e, inv) for d, e, inv in curve]}
+
+
+def _validation(exits: list[dict]) -> dict:
+    """prereg v2.3 검증 기준 + 모니터링 지표 (실현 트레이드 = 청산분만)."""
+    losses = sorted(-e["pnl_pct"] for e in exits if e["pnl_pct"] < 0)
+    gains = [e["pnl_pct"] for e in exits if e["pnl_pct"] > 0]
+    mean_loss = sum(losses) / len(losses) if losses else None
+    med_loss = losses[len(losses) // 2] if losses else None
+    mean_gain = sum(gains) / len(gains) if gains else None
+    gap_over8 = [x - 8.0 for x in losses if x > 8.0]
+    buckets = {}
+    for lo, hi, label in ((0, 1, "0-1%"), (1, 3, "1-3%"), (3, 5.01, "3-5%")):
+        es = [e for e in exits if lo <= e["premium_pct"] < hi]
+        n = len(es)
+        buckets[label] = {
+            "n": n,
+            "stopout_rate": round(sum(1 for e in es if e["reason"] == "stop8") / n, 3)
+            if n else None,
+            "mean_pnl": round(sum(e["pnl_pct"] for e in es) / n, 2) if n else None,
+        }
+    pyr = [e for e in exits if e["n_fills"] > 1]
+    single = [e for e in exits if e["n_fills"] == 1]
+    return {
+        "criteria": {
+            "i_mean_loss_le_9": {"value": round(mean_loss, 2) if mean_loss else None,
+                                 "pass": (mean_loss <= 9.0) if mean_loss else None},
+            "ii_median_loss_lt_10": {"value": round(med_loss, 2) if med_loss else None,
+                                     "pass": (med_loss < 10.0) if med_loss else None},
+            "iii_mean_loss_lt_mean_gain": {
+                "mean_loss": round(mean_loss, 2) if mean_loss else None,
+                "mean_gain": round(mean_gain, 2) if mean_gain else None,
+                "pass": (mean_loss < mean_gain)
+                if (mean_loss and mean_gain) else None},
+        },
+        "monitoring": {
+            "gap_vs_5_6_target": round(mean_loss - 5.5, 2) if mean_loss else None,
+            "gap_over_8_n": len(gap_over8),
+            "gap_over_8_mean": round(sum(gap_over8) / len(gap_over8), 2)
+            if gap_over8 else None,
+            "entry_premium_buckets": buckets,
+            "stopout_rate_pyramided": round(
+                sum(1 for e in pyr if e["reason"] == "stop8") / len(pyr), 3)
+            if pyr else None,
+            "stopout_rate_single": round(
+                sum(1 for e in single if e["reason"] == "stop8") / len(single), 3)
+            if single else None,
+        },
+    }
 
 
 # ── DB 로더 + 시나리오 러너 ─────────────────────────────────────────────────
@@ -352,7 +406,7 @@ def main() -> int:
         d0 = date(2021, 1, 4)
         out["benchmark"] = {"KOSPI": _benchmark(conn, "KOSPI", d0, END),
                             "KOSDAQ": _benchmark(conn, "KOSDAQ", d0, END)}
-    with open("data/backtest/portfolio_curves_20260702.json", "w",
+    with open("data/backtest/portfolio_curves_v2_20260702.json", "w",
               encoding="utf-8") as f:
         json.dump(curves, f, ensure_ascii=False)
     print(json.dumps(out, ensure_ascii=False, indent=2))

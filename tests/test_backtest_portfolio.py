@@ -32,32 +32,52 @@ def _run(data, **over):
     return run_portfolio(data, PortfolioConfig(**over))
 
 
-def test_sizing_risk_based_and_10pct_skip():
-    """stop 6% → 포지션 = 1.25%/6% ≈ 20.8%. stop > 10% → 스킵."""
+def test_sizing_fixed_risk_over_8pct_stop():
+    """v2: stop 8% 고정 → 포지션 일률 1.25%/8% = 15.625%. wide-stop 스킵 없음."""
     start = date(2024, 1, 8)
-    # entry 104 (pivot 100, 추격상한 105 이내). stop_ref = sma 97.76 → stop 6.0%
     b1 = _bars(start, [(98, 200, 96), (104, 200, 97.76)])
     r = _run({"A": _tdata(b1)})
-    stop = (104 - 97.76) / 104
-    expect = min(0.0125 / stop, 0.25) * 100_000_000
-    assert abs(r["stats"]["entry_amounts"][0] - expect) < 1.0
-    # stop_ref = max(base_low 90, sma 89.44) = 90 → stop 13.5% > 10% → 스킵
+    assert abs(r["stats"]["entry_amounts"][0] - 0.15625 * 100_000_000) < 1.0
+    # v1 에서 스킵되던 wide-stop 케이스도 v2 에선 진입 (구조적 스톱 미사용)
     b2 = _bars(start, [(98, 200, 90), (104, 200, 89.44)])
     r2 = _run({"A": _tdata(b2)})
-    assert r2["stats"]["n_entries"] == 0
-    assert r2["stats"]["n_skipped_wide_stop"] == 1
+    assert r2["stats"]["n_entries"] == 1
 
 
-def test_breakeven_floor_arms_then_exits():
-    """+3R 도달 후 평균매입가 하회 종가 → 전량 청산(floor)."""
+def test_breakeven_floor_arms_at_20pct_then_exits():
+    """v2: armed = min(3R, +20%) = avg×1.20 도달 후, 평균매입가 하회 → floor 청산."""
     start = date(2024, 1, 8)
-    # entry 105 (=상한 경계, 초과 아님). stop_ref sma 99.75 → stop 5%, arm=120.75
     bars = _bars(start, [(98, 200, 96), (105, 200, 99.75),
-                         (121, 200, 100),   # armed
+                         (127, 200, 100),   # ≥ 126 (=105×1.20) → armed
                          (104, 200, 100)])  # < avg 105 → floor
     r = _run({"A": _tdata(bars)})
-    assert r["stats"]["n_entries"] == 1
     assert r["stats"]["exit_reasons"] == {"floor": 1}
+    # +20% 미달(121 < 126)이면 미장전 → 104 에서도 보유 유지(8% 스톱 96.6 위)
+    bars2 = _bars(start, [(98, 200, 96), (105, 200, 99.75),
+                          (121, 200, 100), (104, 200, 100)])
+    r2 = _run({"A": _tdata(bars2)})
+    assert r2["stats"]["exit_reasons"] == {}
+
+
+def test_initial_8pct_stop_exit():
+    """v2: 종가 < 평균매입가×0.92 → stop8 청산."""
+    start = date(2024, 1, 8)
+    bars = _bars(start, [(98, 200, 96), (105, 200, 99.75),
+                         (96, 200, 95)])    # 96 < 96.6 → stop8
+    r = _run({"A": _tdata(bars)})
+    assert r["stats"]["exit_reasons"] == {"stop8": 1}
+
+
+def test_sma50_trailing_only_after_breakeven():
+    """v2: sma50 < 평균매입가인 동안 sma50 이탈은 무시(v1 과 차이),
+    sma50 ≥ 평균매입가가 된 뒤의 이탈만 sma50_trail 청산."""
+    start = date(2024, 1, 8)
+    bars = _bars(start, [(98, 200, 96), (105, 200, 99.75),
+                         (98, 200, 99),     # 종가 < sma50(99) but sma50 < avg → 보유
+                         (108, 200, 105.5),
+                         (105.4, 200, 106)])  # sma50 106 ≥ avg 105, 종가 < 106 → trail
+    r = _run({"A": _tdata(bars)})
+    assert r["stats"]["exit_reasons"] == {"sma50_trail": 1}
 
 
 def test_replacement_swaps_weakest_but_not_same_day_entry():
