@@ -115,7 +115,7 @@ def insert_classification(
                pivot_price, pivot_basis, base_high, base_low, base_depth_pct, base_start_date,
                risk_flags, confidence, reasoning,
                source,
-               llm_call_duration_s, llm_input_tokens, llm_output_tokens,
+               llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model,
                triggered_rules,
                measurements,
                watch_reason)
@@ -123,7 +123,7 @@ def insert_classification(
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
-                    %s, %s, %s,
+                    %s, %s, %s, %s,
                     %s,
                     %s,
                     %s)
@@ -149,6 +149,7 @@ def insert_classification(
                 llm_meta.get("duration_s"),
                 llm_meta.get("input_tokens"),
                 llm_meta.get("output_tokens"),
+                llm_meta.get("model"),
                 json.dumps(triggered_rules) if triggered_rules is not None else None,
                 _measurements_json(result),
                 _watch_reason(result),
@@ -166,11 +167,15 @@ def insert_backfill_classification(
     source: str,
     llm_meta: dict,
     analyzed_for_date: date,
+    table: str = "classification_backfill",
 ) -> None:
-    """백필 분류 결과를 classification_backfill 에 INSERT (멱등: symbol+analyzed_for_date).
+    """백필 분류 결과를 `table` (기본 classification_backfill) 에 INSERT (멱등: symbol+analyzed_for_date).
 
     insert_classification 과 동일하게 Phase 1 2-A 후처리 게이트 적용. freeze 는 만들지 않음.
+    table 파라미터로 대상 테이블 지정 가능 (allowlist: classification_backfill, backtest_classification).
     """
+    if table not in ("classification_backfill", "backtest_classification"):
+        raise ValueError(f"insert_backfill_classification: unknown table {table!r}")
     _validate_classification(result)
     _original = copy.deepcopy(result)
     try:
@@ -188,13 +193,13 @@ def insert_backfill_classification(
 
     with conn.cursor() as cur:
         cur.execute(
-            """
-            INSERT INTO classification_backfill
+            f"""
+            INSERT INTO {table}
               (symbol, classified_at, analyzed_for_date, market, classification, pattern,
                pivot_price, pivot_basis, base_high, base_low, base_depth_pct, base_start_date,
                risk_flags, confidence, reasoning,
                source,
-               llm_call_duration_s, llm_input_tokens, llm_output_tokens,
+               llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model,
                triggered_rules,
                measurements,
                watch_reason)
@@ -202,7 +207,7 @@ def insert_backfill_classification(
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
-                    %s, %s, %s,
+                    %s, %s, %s, %s,
                     %s,
                     %s,
                     %s)
@@ -228,6 +233,7 @@ def insert_backfill_classification(
                 llm_meta.get("duration_s"),
                 llm_meta.get("input_tokens"),
                 llm_meta.get("output_tokens"),
+                llm_meta.get("model"),
                 json.dumps(triggered_rules) if triggered_rules is not None else None,
                 _measurements_json(result),
                 _watch_reason(result),
@@ -286,13 +292,13 @@ def insert_trigger_log(
                decision, confidence, reasoning, abort_reason,
                analyzed_for_date,
                prior_classification_at,
-               llm_call_duration_s, llm_input_tokens, llm_output_tokens)
+               llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model)
             VALUES (%s, %s, %s,
                     %s, %s, %s,
                     %s, %s, %s, %s,
                     %s,
                     %s,
-                    %s, %s, %s)
+                    %s, %s, %s, %s)
             ON CONFLICT (symbol, evaluated_at) DO NOTHING
             """,
             (
@@ -311,6 +317,7 @@ def insert_trigger_log(
                 llm_meta.get("duration_s"),
                 llm_meta.get("input_tokens"),
                 llm_meta.get("output_tokens"),
+                llm_meta.get("model"),
             ),
         )
 
@@ -467,7 +474,7 @@ def insert_entry_params(
                breakout_volume_requirement, observed_breakout_volume_ratio,
                known_warnings, other_warnings, notes,
                trigger_evaluation_at, prior_classification_at,
-               llm_call_duration_s, llm_input_tokens, llm_output_tokens)
+               llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model)
             VALUES (%s, %s, %s,
                     %s, %s, %s, %s, %s,
                     %s, %s, %s, %s,
@@ -477,7 +484,7 @@ def insert_entry_params(
                     %s, %s,
                     %s, %s, %s,
                     %s, %s,
-                    %s, %s, %s)
+                    %s, %s, %s, %s)
             ON CONFLICT (symbol, signal_at) DO NOTHING
             """,
             (
@@ -491,5 +498,6 @@ def insert_entry_params(
                 json.dumps(n["known_warnings"]), n["other_warnings"], n["notes"],
                 trigger_evaluation_at, prior_classification_at,
                 llm_meta.get("duration_s"), llm_meta.get("input_tokens"), llm_meta.get("output_tokens"),
+                llm_meta.get("model"),
             ),
         )

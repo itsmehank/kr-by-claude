@@ -9,13 +9,27 @@ from api.services.market_context_builder import build_market_context
 from api.services.minervini_detail_builder import build_minervini_detail
 
 
+_PRIOR_KEYS = (
+    "classified_at", "classification", "pattern", "pivot_price", "pivot_basis",
+    "base_high", "base_low", "base_depth_pct", "risk_flags", "reasoning",
+    "watch_reason",
+)
+
+
 def build_for_5b(
     conn: Connection,
     symbol: str,
     trigger_type: str,
     as_of: date | None = None,
+    prior_row: dict | None = None,
 ) -> dict:
-    """(5b) evaluate_pivot_trigger payload."""
+    """(5b) evaluate_pivot_trigger payload.
+
+    prior_row: 직전 분석을 직접 주입(키 = _PRIOR_KEYS). 백테스트 감사용 —
+        기본 조회는 weekly_classification 최신 1건(as_of 상한 없음)이라 과거
+        as_of 재생 시 미래 분류가 새어든다(look-ahead). production(오늘 실행)은
+        미주입 = 기존 동작 그대로.
+    """
     if as_of is None:
         as_of = date.today()
 
@@ -28,21 +42,24 @@ def build_for_5b(
             raise ValueError(f"Stock not found: {symbol}")
         name, market = meta
 
-        cur.execute(
-            """
-            SELECT classified_at, classification, pattern, pivot_price, pivot_basis,
-                   base_high, base_low, base_depth_pct, risk_flags, reasoning,
-                   watch_reason
-              FROM weekly_classification
-             WHERE symbol = %s
-               AND classification IN ('entry', 'watch')
-             ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC LIMIT 1
-            """,
-            (symbol,),
-        )
-        prior = cur.fetchone()
-        if prior is None:
-            raise ValueError(f"No active classification for {symbol}")
+        if prior_row is not None:
+            prior = tuple(prior_row[k] for k in _PRIOR_KEYS)
+        else:
+            cur.execute(
+                """
+                SELECT classified_at, classification, pattern, pivot_price, pivot_basis,
+                       base_high, base_low, base_depth_pct, risk_flags, reasoning,
+                       watch_reason
+                  FROM weekly_classification
+                 WHERE symbol = %s
+                   AND classification IN ('entry', 'watch')
+                 ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC LIMIT 1
+                """,
+                (symbol,),
+            )
+            prior = cur.fetchone()
+            if prior is None:
+                raise ValueError(f"No active classification for {symbol}")
 
         cur.execute(
             """

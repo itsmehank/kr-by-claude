@@ -166,5 +166,6 @@ Strict JSON only. No commentary, no markdown:
 - pivot/base/pattern 재산출 금지.
 - 새 키워드 만들지 말 것 (§3.3 카탈로그 외).
 - reasoning ≤200자 한국어.
+- Use ONLY the provided input payload. Do NOT use web search, external lookups, news, or earnings calendars — no information beyond the provided inputs, and no future information.
 
 ## Input Payload

@@ -32,6 +32,10 @@ class DayBar:
     sma_50: float | None
     avg_volume_50d: float | None
     prev_close: float | None
+    # prereg 2026-07-02 §2.3 청산가 밴드용 (미제공 시 밴드 폭 0 폴백)
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
 
 
 @dataclass
@@ -47,6 +51,8 @@ class Trade:
     exit_close: float | None
     pnl_pct: float | None
     binding_exit: str | None   # 'base_low' | 'sma_50' | 'open'
+    # prereg §2.3: 낙관 체결가(stop 레벨, 갭다운은 시가). 하한 = exit_close(종가).
+    exit_close_optimistic: float | None = None
 
 
 def _active_row(rows: list[WatchRow], d: date) -> WatchRow | None:
@@ -60,12 +66,26 @@ def _active_row(rows: list[WatchRow], d: date) -> WatchRow | None:
     return cur
 
 
+def _optimistic_exit(bar: DayBar, stop: float | None) -> float:
+    """청산일 낙관 체결가(prereg §2.3): stop ∈ [low, high] → stop, 갭다운(high<stop)
+    → 시가, OHLC/stop 미제공 → 종가(밴드 폭 0)."""
+    if stop is None or bar.low is None or bar.high is None:
+        return bar.close
+    if bar.low <= stop <= bar.high:
+        return stop
+    if bar.high < stop:
+        return bar.open if bar.open is not None else bar.close
+    return bar.close
+
+
 def simulate(ticker: str, watch_rows: list[WatchRow], day_bars: list[DayBar],
-             *, mode: str) -> tuple[list[Trade], int]:
+             *, mode: str, max_chase_pct: float | None = None) -> tuple[list[Trade], int]:
     """일별 walk 로 트리거 발화→진입→청산 시뮬. mode: 'production'|'shadow'.
 
     production: watch_reason 을 그대로 전달(비적격은 자연 불발). shadow: 적격 사유로 치환해
     가격/거래량/fresh_cross 로직만 태움(이유 게이트 우회). 반환 (trades, promotion_count).
+    max_chase_pct: prereg §2.1 추격 제한 — fresh cross 여도 close > pivot×(1+x%) 면
+    그 신호만 소멸(같은 pivot 의 이후 5% 이내 재돌파는 진입 가능). None = 기존 동작.
     """
     if mode not in ("production", "shadow"):
         raise ValueError(f"mode must be 'production' or 'shadow', got {mode!r}")
@@ -99,16 +119,21 @@ def simulate(ticker: str, watch_rows: list[WatchRow], day_bars: list[DayBar],
         if cur is not None:
             if sig == "invalidation":
                 binding = "base_low" if (cur.base_low is not None and b.close < cur.base_low) else "sma_50"
+                stop_level = cur.base_low if binding == "base_low" else b.sma_50
                 cur.exit_date = b.d
                 cur.exit_close = b.close
                 cur.pnl_pct = (b.close / cur.entry_close - 1) * 100
                 cur.binding_exit = binding
+                cur.exit_close_optimistic = _optimistic_exit(b, stop_level)
                 trades.append(cur)
                 cur = None
         else:
             if sig == "breakout_from_watch":
                 if last_entry_pivot_sat == active.sat:
                     continue  # 재진입 상한: 같은 pivot 재진입 금지
+                if (max_chase_pct is not None
+                        and b.close > active.pivot_price * (1 + max_chase_pct / 100)):
+                    continue  # prereg §2.1: 5% 초과 추격 진입 금지(신호 소멸)
                 cur = Trade(
                     ticker=ticker, watch_reason=active.watch_reason, pivot_sat=active.sat,
                     pivot_price=active.pivot_price, base_low=active.base_low,
@@ -125,6 +150,7 @@ def simulate(ticker: str, watch_rows: list[WatchRow], day_bars: list[DayBar],
         cur.exit_close = last.close
         cur.pnl_pct = (last.close / cur.entry_close - 1) * 100
         cur.binding_exit = "open"
+        cur.exit_close_optimistic = last.close  # 미청산 절단 — 밴드 폭 0
         trades.append(cur)
 
     return trades, promotion_count
@@ -150,12 +176,15 @@ def market_relative(trade: Trade, index_series: dict[date, float]) -> float | No
 _INDEX_CODE = {"KOSPI": "1001", "KOSDAQ": "2001"}
 
 
-def load_watchlist(conn: Connection, ticker: str, start: date, end: date) -> list[WatchRow]:
+def load_watchlist(conn: Connection, ticker: str, start: date, end: date,
+                   table: str = "classification_backfill") -> list[WatchRow]:
+    if table not in ("classification_backfill", "backtest_classification"):
+        raise ValueError(f"load_watchlist: unknown table {table!r}")
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             SELECT analyzed_for_date, pivot_price, base_low, watch_reason
-              FROM classification_backfill
+              FROM {table}
              WHERE symbol = %s AND classification = 'watch'
                AND analyzed_for_date BETWEEN %s AND %s
              ORDER BY analyzed_for_date
@@ -177,7 +206,9 @@ def load_daily_series(conn: Connection, ticker: str, start: date, end: date) -> 
         cur.execute(
             """
             SELECT p.date, p.adj_close, p.adj_volume, i.sma_50, i.avg_volume_50d,
-                   LAG(p.adj_close) OVER (ORDER BY p.date) AS prev_close
+                   LAG(p.adj_close) OVER (ORDER BY p.date) AS prev_close,
+                   COALESCE(p.adj_open, p.open), COALESCE(p.adj_high, p.high),
+                   COALESCE(p.adj_low, p.low)
               FROM daily_prices p
               LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
              WHERE p.ticker = %s AND p.date BETWEEN %s AND %s
@@ -189,7 +220,10 @@ def load_daily_series(conn: Connection, ticker: str, start: date, end: date) -> 
             DayBar(d=r[0], close=float(r[1]), volume=int(float(r[2])) if r[2] is not None else 0,
                    sma_50=float(r[3]) if r[3] is not None else None,
                    avg_volume_50d=float(r[4]) if r[4] is not None else None,
-                   prev_close=float(r[5]) if r[5] is not None else None)
+                   prev_close=float(r[5]) if r[5] is not None else None,
+                   open=float(r[6]) if r[6] is not None else None,
+                   high=float(r[7]) if r[7] is not None else None,
+                   low=float(r[8]) if r[8] is not None else None)
             for r in cur.fetchall()
         ]
 

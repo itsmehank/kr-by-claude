@@ -284,6 +284,7 @@ CREATE TABLE IF NOT EXISTS weekly_classification (
   llm_call_duration_s  NUMERIC(8, 2),
   llm_input_tokens     INTEGER,
   llm_output_tokens    INTEGER,
+  llm_model            VARCHAR(60),
 
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (symbol, classified_at)
@@ -335,6 +336,7 @@ CREATE TABLE IF NOT EXISTS trigger_evaluation_log (
   llm_call_duration_s     NUMERIC(8, 2),
   llm_input_tokens        INTEGER,
   llm_output_tokens       INTEGER,
+  llm_model               VARCHAR(60),
 
   created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (symbol, evaluated_at)
@@ -388,6 +390,7 @@ CREATE TABLE IF NOT EXISTS entry_params (
   llm_call_duration_s                     NUMERIC(8, 2),
   llm_input_tokens                        INTEGER,
   llm_output_tokens                       INTEGER,
+  llm_model                               VARCHAR(60),
 
   created_at                              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (symbol, signal_at)
@@ -470,6 +473,7 @@ CREATE TABLE IF NOT EXISTS classification_backfill (
   llm_call_duration_s  NUMERIC(8, 2),
   llm_input_tokens     INTEGER,
   llm_output_tokens    INTEGER,
+  llm_model            VARCHAR(60),
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   triggered_rules      JSONB,
   measurements         JSONB,
@@ -483,6 +487,39 @@ CREATE INDEX IF NOT EXISTS idx_classification_backfill_date
 -- breakout_from_watch: 기존 테이블에도 적용 (CREATE TABLE IF NOT EXISTS 는 신규 컬럼 미반영)
 ALTER TABLE classification_backfill
   ADD COLUMN IF NOT EXISTS watch_reason VARCHAR(40);
+
+-- ====== 수익성·강건성 백테스트 전용 분류 테이블 (2026-06-23) ======
+-- classification_backfill 스키마 복제. pre-lockdown 적재분과 격리해 "검색-차단 클린
+-- 환경" 을 구조적으로 보장(spec §5.0). 적재·멱등 resume 모두 이 테이블 기준.
+CREATE TABLE IF NOT EXISTS backtest_classification (
+  symbol               VARCHAR(10) NOT NULL,
+  classified_at        TIMESTAMPTZ NOT NULL,
+  analyzed_for_date    DATE NOT NULL,
+  market               VARCHAR(10) NOT NULL,
+  classification       VARCHAR(20) NOT NULL,
+  pattern              VARCHAR(50),
+  pivot_price          NUMERIC(12, 4),
+  pivot_basis          VARCHAR(30),
+  base_high            NUMERIC(12, 4),
+  base_low             NUMERIC(12, 4),
+  base_depth_pct       NUMERIC(5, 2),
+  base_start_date      DATE,
+  risk_flags           JSONB,
+  confidence           NUMERIC(3, 2),
+  reasoning            TEXT,
+  source               VARCHAR(20) NOT NULL,
+  llm_call_duration_s  NUMERIC(8, 2),
+  llm_input_tokens     INTEGER,
+  llm_output_tokens    INTEGER,
+  llm_model            VARCHAR(60),
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  triggered_rules      JSONB,
+  measurements         JSONB,
+  watch_reason         VARCHAR(40),
+  PRIMARY KEY (symbol, analyzed_for_date)
+);
+CREATE INDEX IF NOT EXISTS idx_backtest_classification_date
+  ON backtest_classification (analyzed_for_date);
 
 -- ====== Phase 0 Step 4: FREEZE 최소판 (#P0-S4) ======
 -- 분류 (weekend/daily_delta) 시점의 분석 입력 ZIP 을 사후 검증 가능하도록 보존.

@@ -220,20 +220,87 @@ def test_call_claude_picks_last_json_object(mocker):
 
 
 def test_call_claude_pins_model_from_env(mocker, monkeypatch):
-    """KR_CLAUDE_MODEL 설정 시 --model 로 핀 — 사용자 기본 모델 변경에 배치
-    비용·품질이 따라 흔들리지 않도록."""
+    """KR_CLAUDE_MODEL 설정 시 --model 로 오버라이드, 미설정 시 기본 'sonnet' 핀 —
+    사용자 /model·settings.json 변경에 production 분류 모델이 따라 흔들리지 않도록.
+    'sonnet' 은 별칭이라 그 시점의 최신 Sonnet 으로 해석된다."""
     from kr_pipeline.llm_runner.llm.claude_cli import call_claude
 
-    monkeypatch.setenv("KR_CLAUDE_MODEL", "claude-sonnet-4-6")
+    monkeypatch.setenv("KR_CLAUDE_MODEL", "claude-opus-4-8")
     mock_run = mocker.patch("subprocess.run")
     mock_run.return_value = subprocess.CompletedProcess(
         args=[], returncode=0, stdout='{"ok": true}', stderr="",
     )
     call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/f.zip"])
     cmd = mock_run.call_args[0][0]
-    assert "--model" in cmd and "claude-sonnet-4-6" in cmd
+    assert "--model" in cmd and "claude-opus-4-8" in cmd
 
     monkeypatch.delenv("KR_CLAUDE_MODEL")
     call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/f.zip"])
     cmd2 = mock_run.call_args[0][0]
-    assert "--model" not in cmd2, "미설정 시 기존 동작(기본 모델) 유지"
+    assert "--model" in cmd2, "미설정 시에도 프로젝트 기본 모델 핀"
+    assert cmd2[cmd2.index("--model") + 1] == "sonnet", "기본 핀 = 최신 Sonnet 별칭"
+
+
+def _envelope(result_text: str, model: str = "claude-sonnet-5",
+              in_tok: int = 1247, out_tok: int = 67) -> str:
+    """claude --print --output-format json 봉투 (실측 형태 축약)."""
+    import json
+    return json.dumps({
+        "type": "result", "subtype": "success", "is_error": False,
+        "result": result_text,
+        # 실측: input_tokens 는 비캐시 프리픽스만, 페이로드는 cache_* 에 잡힘.
+        "usage": {"input_tokens": in_tok, "output_tokens": out_tok,
+                  "cache_creation_input_tokens": 9395,
+                  "cache_read_input_tokens": 3219},
+        "modelUsage": {model: {"inputTokens": in_tok, "outputTokens": out_tok}},
+    })
+
+
+def test_call_claude_parses_json_envelope_and_fills_meta_out(mocker):
+    """--output-format json 봉투에서 답 JSON 추출 + meta_out 에 실모델·토큰 기록."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=0,
+        stdout=_envelope('분석 결과:\n{"classification": "watch"}'),
+        stderr="",
+    )
+    meta: dict = {}
+    result = call_claude(prompt_file="analyze_chart_v3.md",
+                         attachments=["/tmp/f.zip"], meta_out=meta)
+    assert result == {"classification": "watch"}
+    assert meta["model"] == "claude-sonnet-5"
+    assert meta["input_tokens"] == 1247 + 9395 + 3219, "입력 = 비캐시 + 캐시생성 + 캐시읽기 합"
+    assert meta["output_tokens"] == 67
+    cmd = mock_run.call_args[0][0]
+    assert "--output-format" in cmd and "json" in cmd
+
+
+def test_call_claude_plain_stdout_fallback(mocker):
+    """봉투가 아닌 플레인 JSON stdout (구버전/예외 경로) 도 기존대로 파싱."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout='{"classification": "watch"}', stderr="",
+    )
+    meta: dict = {}
+    result = call_claude(prompt_file="analyze_chart_v3.md",
+                         attachments=["/tmp/f.zip"], meta_out=meta)
+    assert result == {"classification": "watch"}
+    assert meta.get("model") is None, "봉투 없으면 모델 미상"
+
+
+def test_call_claude_usage_limit_inside_envelope(mocker):
+    """봉투 result 가 사용량 한도 안내 텍스트면 UsageLimitError (재시도 무의미)."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
+
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=0,
+        stdout=_envelope("Claude AI usage limit reached|1760000000"),
+        stderr="",
+    )
+    with pytest.raises(UsageLimitError):
+        call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/f.zip"])

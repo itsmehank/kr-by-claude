@@ -147,11 +147,13 @@ def _process_one(conn, active_row, trig_type, *, dry_run, as_of):
     started = datetime.now(timezone.utc)
 
     payload = build_for_5b(conn, symbol, trigger_type=trig_type, as_of=as_of)
+    llm_io: dict = {}
     result = call_claude(
         prompt_file="evaluate_pivot_trigger_v1.md",
         attachments=[],
         payload_inline=payload,
         dry_run=dry_run,
+        meta_out=llm_io,
     )
 
     finished = datetime.now(timezone.utc)
@@ -172,6 +174,8 @@ def _process_one(conn, active_row, trig_type, *, dry_run, as_of):
         result=result,
         prior_classification_at=active_row["classified_at"],
         llm_meta={"duration_s": (finished - started).total_seconds(),
-                  "input_tokens": None, "output_tokens": None},
+                  "input_tokens": llm_io.get("input_tokens"),
+                  "output_tokens": llm_io.get("output_tokens"),
+                  "model": llm_io.get("model")},
         analyzed_for_date=as_of,
     )

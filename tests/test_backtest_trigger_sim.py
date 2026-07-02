@@ -184,3 +184,73 @@ def test_loaders_smoke():
         bars2 = load_daily_series(conn, "101930", date(2024, 1, 1), date(2024, 12, 31))
         bar_0613 = next(b for b in bars2 if str(b.d) == "2024-06-13")
         assert bar_0613.volume == 130800
+
+
+def _bars_ohlc(seq):
+    """seq: (day, close, volume, sma_50, avgvol, prev_close, open, high, low)"""
+    return [DayBar(d=d, close=c, volume=v, sma_50=s, avg_volume_50d=a, prev_close=p,
+                   open=o, high=h, low=lo)
+            for (d, c, v, s, a, p, o, h, lo) in seq]
+
+
+def test_chase_rule_blocks_entry_above_5pct():
+    """prereg §2.1: fresh cross 여도 close > pivot×1.05 면 진입 안 함(신호 소멸).
+    같은 pivot 의 이후 5% 이내 fresh cross 는 진입 가능(pivot 소멸 아님)."""
+    wr = [_watch(date(2024, 1, 6), 100.0, 90.0, "valid_base_awaiting_breakout")]
+    bars = _bars([
+        (date(2024, 1, 8), 98.0, 200, 95.0, 100.0, 97.0),
+        (date(2024, 1, 9), 108.0, 200, 95.0, 100.0, 98.0),   # cross, but +8% > 5%
+        (date(2024, 1, 10), 99.0, 200, 95.0, 100.0, 108.0),  # back below pivot
+        (date(2024, 1, 11), 103.0, 200, 95.0, 100.0, 99.0),  # fresh cross, +3%
+    ])
+    trades, _ = simulate("T", wr, bars, mode="production", max_chase_pct=5.0)
+    assert len(trades) == 1
+    assert trades[0].entry_date == date(2024, 1, 11)
+    assert trades[0].entry_close == 103.0
+    # 기본(max_chase_pct=None)은 기존 동작: 1/9 에 진입
+    trades0, _ = simulate("T", wr, bars, mode="production")
+    assert trades0[0].entry_date == date(2024, 1, 9)
+
+
+def test_optimistic_exit_at_stop_within_range():
+    """prereg §2.3: 청산일 low ≤ stop ≤ high 면 낙관 체결가 = stop 레벨."""
+    wr = [_watch(date(2024, 1, 6), 100.0, 90.0, "valid_base_awaiting_breakout")]
+    bars = _bars_ohlc([
+        (date(2024, 1, 8), 98.0, 200, 95.0, 100.0, 97.0, 97.5, 99.0, 96.0),
+        (date(2024, 1, 9), 103.0, 200, 95.0, 100.0, 98.0, 99.0, 104.0, 98.5),
+        # sma_50=96 이탈 청산일: 종가 94, 장중 [93, 100] → stop(96) 체결 가능
+        (date(2024, 1, 10), 94.0, 200, 96.0, 100.0, 103.0, 100.0, 100.0, 93.0),
+    ])
+    trades, _ = simulate("T", wr, bars, mode="production")
+    t = trades[0]
+    assert t.binding_exit == "sma_50"
+    assert t.exit_close == 94.0                 # 하한(현행) = 종가
+    assert t.exit_close_optimistic == 96.0      # 상한 = stop 레벨
+
+
+def test_optimistic_exit_gap_down_uses_open():
+    """prereg §2.3: 갭다운(high < stop)이면 낙관 체결가 = 시가."""
+    wr = [_watch(date(2024, 1, 6), 100.0, 90.0, "valid_base_awaiting_breakout")]
+    bars = _bars_ohlc([
+        (date(2024, 1, 8), 98.0, 200, 95.0, 100.0, 97.0, 97.5, 99.0, 96.0),
+        (date(2024, 1, 9), 103.0, 200, 95.0, 100.0, 98.0, 99.0, 104.0, 98.5),
+        # base_low=90 이탈, 갭다운: 시가 87, 고가 88 < stop(90) → 낙관 = 시가 87
+        (date(2024, 1, 10), 85.0, 200, 95.0, 100.0, 103.0, 87.0, 88.0, 84.0),
+    ])
+    trades, _ = simulate("T", wr, bars, mode="production")
+    t = trades[0]
+    assert t.binding_exit == "base_low"
+    assert t.exit_close == 85.0
+    assert t.exit_close_optimistic == 87.0
+
+
+def test_optimistic_exit_falls_back_to_close_without_ohlc():
+    """OHLC 미제공(구형 DayBar) 시 낙관 체결가 = 종가(밴드 폭 0, 안전 폴백)."""
+    wr = [_watch(date(2024, 1, 6), 100.0, 90.0, "valid_base_awaiting_breakout")]
+    bars = _bars([
+        (date(2024, 1, 8), 98.0, 200, 95.0, 100.0, 97.0),
+        (date(2024, 1, 9), 103.0, 200, 95.0, 100.0, 98.0),
+        (date(2024, 1, 10), 94.0, 200, 96.0, 100.0, 103.0),
+    ])
+    trades, _ = simulate("T", wr, bars, mode="production")
+    assert trades[0].exit_close_optimistic == 94.0
