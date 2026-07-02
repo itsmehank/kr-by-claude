@@ -62,9 +62,12 @@
 
 ### 3.3 결정론 귀속 1층 (1차 잠금 확정)
 
-- **TT 판정은 금요일 기준**: 그 주 마지막 거래일의 `daily_indicators.minervini_pass`.
-  주말 러너의 실제 게이트(`llm_runner/load.py` — `minervini_pass=TRUE` 단일 조건)와
-  동일 — 주중 일시 통과는 시스템이 본 적 없으므로 집계하지 않는다.
+- **TT(게이트) 판정은 주 마지막 거래일 기준**: 주말 러너의 실제 게이트
+  (`llm_runner/load.py get_qualifying_tickers`)와 **완전 동일 4조건** —
+  `minervini_pass=TRUE` **AND** `rs_line_not_declining_7m=TRUE` **AND** 상장유지
+  **AND** 당일 거래정지 아님(`adj_low IS NOT NULL`). (정정 2026-07-02: 초안의
+  "minervini_pass 단일 조건" 은 사실 오류 — 실제 게이트에 맞춤. Phase 0 실행 전
+  정정.) 주중 일시 통과는 시스템이 본 적 없으므로 집계하지 않는다.
 - 에피소드 시작 −13주 ~ 고점 주 사이 금요일 TT 통과 주 **0** → 버킷 `filter_excluded`.
   LLM 없이 종결(개수 집계 + 상위 5건 육안 표본 확인).
 - **잔여 상승분** = 첫 TT 통과 주 금요일 adj 종가 → 에피소드 고점 수익률.
