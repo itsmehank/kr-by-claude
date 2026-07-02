@@ -430,3 +430,58 @@ def test_build_5b_history_bounded_by_as_of(db):
             cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
             cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
         db.commit()
+
+
+def test_build_5b_prior_row_injection(db):
+    """prior_row 주입 시 weekly_classification 조회를 건너뛰고 주입값 사용 —
+    백테스트 감사용(과거 as_of 에 최신 분류가 새어드는 look-ahead 차단).
+    미주입(기본)이면 기존 동작(테이블 조회, 없으면 ValueError) 불변."""
+    from datetime import date, datetime, timedelta, timezone
+    import pytest as _pytest
+    from kr_pipeline.llm_runner.compute.payload_lite import build_for_5b
+
+    today = date(2026, 5, 20)
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stocks (ticker, name, market) VALUES ('PL5BI', 'PI', 'KOSPI') ON CONFLICT DO NOTHING"
+        )
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='PL5BI'")
+        for i in range(25):
+            d = today - timedelta(days=24 - i)
+            if d.weekday() >= 5:
+                continue
+            cur.execute(
+                """INSERT INTO daily_prices
+                   (ticker, date, open, high, low, close, adj_close, volume, value)
+                   VALUES ('PL5BI', %s, 100, 105, 95, 100, 100, 1000000, 100000000)
+                   ON CONFLICT DO NOTHING""",
+                (d,),
+            )
+    db.commit()
+
+    injected = {
+        "classified_at": datetime(2022, 3, 12, tzinfo=timezone.utc),
+        "classification": "watch",
+        "pattern": "flat_base",
+        "pivot_price": 104.5,
+        "pivot_basis": "range_high",
+        "base_high": 104.5,
+        "base_low": 96.0,
+        "base_depth_pct": 8.1,
+        "risk_flags": [],
+        "reasoning": "backtest watch row",
+        "watch_reason": "unfavorable_market",
+    }
+    payload = build_for_5b(
+        db, "PL5BI", trigger_type="breakout_from_watch",
+        as_of=date(2022, 3, 15), prior_row=injected,
+    )
+    pa = payload["prior_analysis"]
+    assert pa["pivot_price"] == 104.5
+    assert pa["watch_reason"] == "unfavorable_market"
+    assert pa["classification"] == "watch"
+    assert pa["days_since_classification"] == 3  # 2022-03-12 → 03-15
+
+    # 미주입 + 분류 행 없음 → 기존 fail-loud 동작 보존
+    with _pytest.raises(ValueError, match="No active classification"):
+        build_for_5b(db, "PL5BI", trigger_type="breakout_from_watch", as_of=today)
