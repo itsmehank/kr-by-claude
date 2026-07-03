@@ -140,7 +140,10 @@ def winner_cells(
                 hit13 = e13 is not None and e13 >= t13 and r13 > 0
                 hit26 = e26 is not None and e26 >= t26 and r26 > 0
                 if hit13 or hit26:
-                    cells[t].append(i)
+                    # 셀 초과수익 = 자격 창의 excess 최댓값 (2차 잠금 층화 기준 입력)
+                    exc = max(e13 if hit13 else float("-inf"),
+                              e26 if hit26 else float("-inf"))
+                    cells[t].append((i, exc))
     return grid
 
 
@@ -285,10 +288,16 @@ def main() -> None:
     grid_summary = []
     for (t13, t26), cells in sorted(grid.items()):
         combo_eps = 0
-        for t, idxs in cells.items():
-            for ep_idx in merge_episodes(sorted(set(idxs))):
+        for t, cell_list in cells.items():
+            exc_by_idx: dict[int, float] = {}
+            for i, exc in cell_list:
+                exc_by_idx[i] = max(exc, exc_by_idx.get(i, float("-inf")))
+            for ep_idx in merge_episodes(sorted(exc_by_idx)):
                 row = episode_row(t13, t26, t, ep_idx)
                 if row:
+                    # 에피소드 초과수익 = 당첨 주 max(excess13, excess26) 의 최댓값 (2차 잠금)
+                    row["ep_excess_pct"] = round(
+                        max(exc_by_idx[i] for i in ep_idx) * 100, 1)
                     ep_rows.append(row)
                     combo_eps += 1
         grid_summary.append({"t13": t13, "t26": t26, "episodes": combo_eps})
