@@ -70,6 +70,54 @@ def ftd_validity_series(dates: list[date], closes: list[float],
     return out
 
 
+def bottoming_series(dates: list[date], closes: list[float],
+                     lows: list[float]) -> dict[date, tuple]:
+    """v4.1 bottoming_attempt: 15세션 신저가(레그 저점) → 이후 첫 상승 마감일부터
+    랠리 활성, 레그 저점 종가 이탈 시 리셋, 신저가 갱신 시 에피소드 교체.
+
+    반환: date -> (active: bool, episode_id: 레그 저점일 | None).
+    O'Neil 변형(신저가일 중간이상 마감 기산)은 미포함 — prereg v4.1 design-judgment.
+    """
+    out: dict[date, tuple] = {}
+    leg_low: float | None = None
+    leg_low_d: date | None = None
+    leg_low_i: int | None = None
+    rally = False
+    for i, d in enumerate(dates):
+        w = lows[max(0, i - 15):i]
+        if not w or lows[i] < min(w):        # 15세션 신저가 → 레그 교체·랠리 리셋
+            leg_low, leg_low_d, leg_low_i, rally = lows[i], d, i, False
+        elif leg_low is not None:
+            if closes[i] < leg_low:          # 레그 저점 종가 이탈 → 랠리 무효
+                rally = False
+            elif (not rally and leg_low_i is not None and i > leg_low_i
+                  and closes[i] > closes[i - 1]):
+                rally = True                 # 첫 상승 마감 → 카운트 시작
+        out[d] = (rally, leg_low_d if rally else None)
+    return out
+
+
+def compute_market_extras(conn: Connection, index_code: str,
+                          end: date) -> dict[date, dict]:
+    """v4 파일럿용 시장 부가 시계열: bottoming(활성·에피소드) + FTD 유효 여부."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT date, close, low FROM index_daily WHERE index_code = %s "
+            "AND date <= %s ORDER BY date", (index_code, end))
+        rows = cur.fetchall()
+        cur.execute(
+            "SELECT DISTINCT last_follow_through_day FROM market_context_daily "
+            "WHERE index_code = %s AND last_follow_through_day IS NOT NULL",
+            (index_code,))
+        ftd_dates = {r[0] for r in cur.fetchall()}
+    dates = [r[0] for r in rows]
+    closes = [float(r[1]) for r in rows]
+    lows = [float(r[2]) for r in rows]
+    bott = bottoming_series(dates, closes, lows)
+    ftd_valid = ftd_validity_series(dates, closes, lows, ftd_dates)
+    return {d: {"bottoming": bott[d], "ftd_valid": ftd_valid[d]} for d in dates}
+
+
 def _sma(vals: list[float], n: int, i: int) -> float | None:
     if i + 1 < n:
         return None

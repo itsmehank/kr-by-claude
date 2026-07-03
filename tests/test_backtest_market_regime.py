@@ -51,3 +51,21 @@ def test_rally_low_invalidation_series():
     assert v[dates[3]] is True      # FTD 당일 유효
     assert v[dates[4]] is True      # 96 > 랠리저점 90
     assert v[dates[5]] is False     # 종가 89 < 90 → 무효
+
+
+def test_bottoming_series_episode_lifecycle():
+    """v4.1: 15세션 신저가 → 첫 상승마감부터 활성, 저점 종가이탈 시 리셋,
+    신저가 갱신 시 에피소드 교체."""
+    from kr_pipeline.backtest.market_regime import bottoming_series
+    dates = [date(2024, 1, i) for i in range(2, 12)]
+    #        저점    하락    반등(활성)         이탈     신저가   반등(새 에피소드)
+    lows =  [95, 90, 91, 92, 93, 94, 89.5, 88, 87, 88]
+    closes = [96, 91, 90.5, 93, 94, 95, 89.8, 88.5, 88, 90]
+    b = bottoming_series(dates, closes, lows)
+    assert b[dates[2]] == (False, None) or b[dates[2]][0] is False  # 하락마감 — 미활성
+    assert b[dates[3]][0] is True and b[dates[3]][1] == dates[1]   # 93>90.5 상승마감, 에피소드=1/3 저점일
+    assert b[dates[5]][0] is True
+    # 1/8: low 89.5 는 직전 15세션 min(90) 미만 → 신저가 → 리셋 (새 레그, 미활성)
+    assert b[dates[6]][0] is False
+    # 1/9·1/10 연속 신저가 → 계속 미활성, 1/11 상승마감(90>88) → 새 에피소드(저점일=1/10)
+    assert b[dates[9]][0] is True and b[dates[9]][1] == dates[8]

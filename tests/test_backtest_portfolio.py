@@ -172,3 +172,55 @@ def test_gate_mode_variant_uses_variant_phases():
                     phase_variant_by_date={b.d: "confirmed_uptrend" for b in bars})
     assert _run({"A": td}, gate_mode="prod")["stats"]["n_entries"] == 0
     assert _run({"A": td}, gate_mode="variant")["stats"]["n_entries"] == 1
+
+
+def _pilot_td(bars, phase="downtrend", bottoming=True, ftd=False, rs=80):
+    from kr_pipeline.backtest.portfolio import TickerData
+    sat = bars[0].d - timedelta(days=2)
+    wr = [WatchRow(ticker="T", sat=sat, pivot_price=100.0, base_low=90.0,
+                   watch_reason="unfavorable_market")]
+    ep = bars[0].d - timedelta(days=5)
+    return TickerData(
+        market="KOSPI", bars=bars, watch_rows=wr,
+        rs_by_date={b.d: rs for b in bars},
+        phase_by_date={b.d: phase for b in bars},
+        bottoming_by_date={b.d: ((True, ep) if bottoming else (False, None))
+                           for b in bars},
+        ftd_valid_by_date={b.d: ftd for b in bars})
+
+
+def test_pilot_entry_size_and_6pct_stop():
+    """v4.2: bottoming 창의 차단 신호 → 파일럿 진입(정상의 50%=7.8125%), 스톱 6%."""
+    start = date(2024, 1, 8)
+    bars = _bars(start, [(98, 200, 90), (104, 200, 95),
+                         (97.5, 200, 92)])   # 97.5 < 104×0.94=97.76 → stop 청산
+    r = _run({"A": _pilot_td(bars)}, gate_mode="prod", pilot_mode=True)
+    assert r["stats"]["n_pilot_entries"] == 1
+    assert abs(r["stats"]["entry_amounts"][0] - 0.078125 * 100_000_000) < 1.0
+    assert r["stats"]["exit_reasons"] == {"stop8": 1}   # 스톱 레이어(6%)로 청산
+    # bottoming 아니면 기존대로 차단
+    r2 = _run({"A": _pilot_td(bars, bottoming=False)}, gate_mode="prod",
+              pilot_mode=True)
+    assert r2["stats"]["n_entries"] == 0
+
+
+def test_pilot_retry_cap_2_per_episode():
+    """v4.2: 같은 (종목, 에피소드) 최대 2회 — 3번째 신호는 스킵."""
+    start = date(2024, 1, 8)
+    # 진입→스톱아웃 → 재진입→스톱아웃 → 3번째 fresh cross 는 캡으로 스킵
+    seq = [(98, 200, 90), (104, 200, 95), (97, 200, 92),     # 1차 진입·스톱
+           (99, 200, 92), (104, 200, 95), (97, 200, 92),     # 2차 진입·스톱
+           (99, 200, 92), (104, 200, 95), (105, 200, 95)]    # 3번째 → 캡
+    r = _run({"A": _pilot_td(_bars(start, seq))}, gate_mode="prod", pilot_mode=True)
+    assert r["stats"]["n_pilot_entries"] == 2
+    assert r["stats"]["n_skipped_retry_cap"] == 1
+
+
+def test_scaleup_via_ftd_enters_normal_size():
+    """v4.2 증액 (i): FTD 유효한 날의 파일럿 경로 신호는 정상 사이즈(15.625%)."""
+    start = date(2024, 1, 8)
+    bars = _bars(start, [(98, 200, 90), (104, 200, 95)])
+    r = _run({"A": _pilot_td(bars, ftd=True)}, gate_mode="prod", pilot_mode=True)
+    assert r["stats"]["n_scaled_entries"] == 1
+    assert abs(r["stats"]["entry_amounts"][0] - 0.15625 * 100_000_000) < 1.0
+    assert r["stats"]["scaleup_triggers"] == {"i_ftd": 1}
