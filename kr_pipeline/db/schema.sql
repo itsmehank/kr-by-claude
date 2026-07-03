@@ -548,3 +548,36 @@ CREATE INDEX IF NOT EXISTS classification_freezes_classification_id_idx
 
 CREATE INDEX IF NOT EXISTS classification_freezes_stage_frozen_at_idx
   ON classification_freezes(stage, frozen_at);
+
+-- ====== 미포착 승자 recall 감사 전용 분류 테이블 (2026-07-03) ======
+-- backtest_classification 스키마 복제. spec: 2026-07-02-missed-winners-recall-audit-design.md §4
+-- production·기존 백테스트 적재분과 격리. analyzed_for_date = 주 마지막 거래일(anchor).
+CREATE TABLE IF NOT EXISTS recall_audit_classification (
+  symbol               VARCHAR(10) NOT NULL,
+  classified_at        TIMESTAMPTZ NOT NULL,
+  analyzed_for_date    DATE NOT NULL,
+  market               VARCHAR(10) NOT NULL,
+  classification       VARCHAR(20) NOT NULL,
+  pattern              VARCHAR(50),
+  pivot_price          NUMERIC(12, 4),
+  pivot_basis          VARCHAR(30),
+  base_high            NUMERIC(12, 4),
+  base_low             NUMERIC(12, 4),
+  base_depth_pct       NUMERIC(5, 2),
+  base_start_date      DATE,
+  risk_flags           JSONB,
+  confidence           NUMERIC(3, 2),
+  reasoning            TEXT,
+  source               VARCHAR(20) NOT NULL,
+  llm_call_duration_s  NUMERIC(8, 2),
+  llm_input_tokens     INTEGER,
+  llm_output_tokens    INTEGER,
+  llm_model            VARCHAR(60),
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  triggered_rules      JSONB,
+  measurements         JSONB,
+  watch_reason         VARCHAR(40),
+  PRIMARY KEY (symbol, analyzed_for_date)
+);
+CREATE INDEX IF NOT EXISTS idx_recall_audit_classification_date
+  ON recall_audit_classification (analyzed_for_date);
