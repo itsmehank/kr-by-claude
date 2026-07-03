@@ -35,7 +35,8 @@ class TickerData:
     bars: list[DayBar]
     watch_rows: list[WatchRow]
     rs_by_date: dict            # date -> rs_rating | None
-    phase_by_date: dict         # date -> phase str (excl 판정용)
+    phase_by_date: dict         # date -> phase str (현행 사다리)
+    phase_variant_by_date: dict = field(default_factory=dict)  # v3.2 변형 사다리
 
 
 @dataclass
@@ -44,7 +45,8 @@ class PortfolioConfig:
     max_positions: int = 5
     pyramiding: bool = False        # S2·S3
     sell_half: bool = False         # S3
-    exclude_down_phases: bool = False
+    exclude_down_phases: bool = False   # v2 레거시 별칭 (= gate_mode "legacy")
+    gate_mode: str | None = None    # v3.1: None|"legacy"|"prod"|"variant"
     risk_pct: float = 0.0125        # 계좌 리스크/건 (TTLC §8)
     max_position_pct: float = 0.25
     fixed_stop_pct: float = 0.08    # v2: 매수가 기준 초기 스톱 (O'Neil 7-8% 상단)
@@ -224,9 +226,18 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
             if bar.close > active.pivot_price * (1 + cfg.max_chase_pct / 100):
                 stats["n_skipped_chase"] += 1
                 continue
-            if cfg.exclude_down_phases and td.phase_by_date.get(d) in DOWN_PHASES:
-                stats["n_skipped_down_phase"] += 1
+            gate = cfg.gate_mode or ("legacy" if cfg.exclude_down_phases else None)
+            if gate == "legacy" and td.phase_by_date.get(d) in DOWN_PHASES:
+                stats["n_skipped_down_phase"] += 1      # v2 excl 그대로 (Arm C)
                 continue
+            if gate in ("prod", "variant"):
+                # v3.1: §3.5 코드화 분기 재현 — unfavorable_market 은 confirmed 필수
+                phases = (td.phase_variant_by_date if gate == "variant"
+                          else td.phase_by_date)
+                if (active.watch_reason == "unfavorable_market"
+                        and phases.get(d) != "confirmed_uptrend"):
+                    stats["n_skipped_down_phase"] += 1
+                    continue
             # v2.2: 스톱 = 매수가 기준 고정 8% — 구조적 스톱(base_low/sma50) 미사용
             signals.append({"ticker": t, "bar": bar, "active": active,
                             "stop_pct": cfg.fixed_stop_pct,
@@ -318,7 +329,10 @@ def _validation(exits: list[dict]) -> dict:
         }
     pyr = [e for e in exits if e["n_fills"] > 1]
     single = [e for e in exits if e["n_fills"] == 1]
+    realized = [e["pnl_pct"] for e in exits]
     return {
+        "expectancy_pct": round(sum(realized) / len(realized), 2) if realized else None,
+        "n_realized": len(realized),
         "criteria": {
             "i_mean_loss_le_9": {"value": round(mean_loss, 2) if mean_loss else None,
                                  "pass": (mean_loss <= 9.0) if mean_loss else None},
@@ -349,7 +363,9 @@ def _validation(exits: list[dict]) -> dict:
 # ── DB 로더 + 시나리오 러너 ─────────────────────────────────────────────────
 
 def load_ticker_data(conn) -> dict[str, TickerData]:
+    from kr_pipeline.backtest.market_regime import compute_variant_status
     pmaps: dict[str, list] = {}
+    vmaps: dict[str, dict] = {}
     out: dict[str, TickerData] = {}
     for ticker in FROZEN_SAMPLE:
         market = _market_of(conn, ticker)
@@ -357,7 +373,9 @@ def load_ticker_data(conn) -> dict[str, TickerData]:
         bars = load_daily_series(conn, ticker, START, END)
         if code not in pmaps:
             pmaps[code] = ph.load_phase_map(conn, code)
+            vmaps[code] = compute_variant_status(conn, code, START, END)
         phase_by_date = {b.d: ph.phase_at(pmaps[code], b.d) for b in bars}
+        phase_variant_by_date = {b.d: vmaps[code].get(b.d) for b in bars}
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT date, rs_rating FROM daily_indicators "
@@ -368,7 +386,8 @@ def load_ticker_data(conn) -> dict[str, TickerData]:
             market=market, bars=bars,
             watch_rows=load_watchlist(conn, ticker, WATCH_START, WATCH_END,
                                       table=BT_TABLE),
-            rs_by_date=rs, phase_by_date=phase_by_date)
+            rs_by_date=rs, phase_by_date=phase_by_date,
+            phase_variant_by_date=phase_variant_by_date)
     return out
 
 
@@ -381,10 +400,13 @@ def _benchmark(conn, code_market: str, d0: date, d1: date) -> dict:
             "cagr_pct": round((mult ** (1 / years) - 1) * 100, 2)}
 
 
-SCENARIOS = {
-    "S1": {"pyramiding": False, "sell_half": False},
-    "S2": {"pyramiding": True, "sell_half": False},
-    "S3": {"pyramiding": True, "sell_half": True},
+# v3.1 3-arm (S1 구성 고정): A=정밀 production 재현(신규 기준선), B=변형 사다리,
+# C=레거시 excl(연속성), incl=게이트 없음(참고)
+ARMS = {
+    "incl": {"gate_mode": None},
+    "armA-prod": {"gate_mode": "prod"},
+    "armB-variant": {"gate_mode": "variant"},
+    "armC-legacy": {"gate_mode": "legacy"},
 }
 
 
@@ -392,21 +414,23 @@ def main() -> int:
     from kr_pipeline.db.connection import connect
     with connect() as conn:
         data = load_ticker_data(conn)
-        out = {"prereg": "2026-07-02-portfolio-sim-prereg.md", "scenarios": {}}
+        out = {"prereg": "2026-07-02-portfolio-sim-prereg.md v3", "arms": {}}
         curves = {}
-        for name, flags in SCENARIOS.items():
-            for mode, excl in (("incl", False), ("excl", True)):
-                key = f"{name}-{mode}"
-                r = run_portfolio(data, PortfolioConfig(
-                    exclude_down_phases=excl, **flags))
-                curves[key] = r.pop("curve")
-                r["stats"].pop("entry_amounts")
-                r["stats"].pop("exits")
-                out["scenarios"][key] = r
+        for key, flags in ARMS.items():
+            r = run_portfolio(data, PortfolioConfig(**flags))
+            curves[key] = r.pop("curve")
+            r["stats"].pop("entry_amounts")
+            r["stats"].pop("exits")
+            out["arms"][key] = r
         d0 = date(2021, 1, 4)
         out["benchmark"] = {"KOSPI": _benchmark(conn, "KOSPI", d0, END),
                             "KOSDAQ": _benchmark(conn, "KOSDAQ", d0, END)}
-    with open("data/backtest/portfolio_curves_v2_20260702.json", "w",
+        a, b = out["arms"]["armA-prod"]["metrics"], out["arms"]["armB-variant"]["metrics"]
+        out["guardrail_mdd_B_minus_A_le_5pp"] = {
+            "value_pp": round(a["max_drawdown_pct"] - b["max_drawdown_pct"], 2),
+            "pass": (a["max_drawdown_pct"] - b["max_drawdown_pct"]) <= 5.0,
+        }
+    with open("data/backtest/portfolio_curves_v3_20260703.json", "w",
               encoding="utf-8") as f:
         json.dump(curves, f, ensure_ascii=False)
     print(json.dumps(out, ensure_ascii=False, indent=2))

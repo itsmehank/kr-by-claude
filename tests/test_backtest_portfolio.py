@@ -129,3 +129,46 @@ def test_down_phase_exclusion_skips_entry():
     r = _run({"A": td}, exclude_down_phases=True)
     assert r["stats"]["n_entries"] == 0
     assert r["stats"]["n_skipped_down_phase"] == 1
+
+
+def test_gate_mode_prod_blocks_by_watch_reason():
+    """v3 Arm A: unfavorable_market watch 는 confirmed_uptrend 외 전부 차단,
+    다른 사유(valid_base 등)는 rally_attempt 에서도 통과."""
+    from kr_pipeline.backtest.portfolio import TickerData
+    start = date(2024, 1, 8)
+    bars = _bars(start, [(98, 200, 90), (104, 200, 95)])
+    sat = bars[0].d - timedelta(days=2)
+
+    def td(reason, phase):
+        wr = [WatchRow(ticker="T", sat=sat, pivot_price=100.0, base_low=90.0,
+                       watch_reason=reason)]
+        return TickerData(market="KOSPI", bars=bars, watch_rows=wr,
+                          rs_by_date={b.d: 80 for b in bars},
+                          phase_by_date={b.d: phase for b in bars})
+
+    # unfavorable_market + rally_attempt → 차단 (기존 excl 은 허용했던 케이스)
+    r = _run({"A": td("unfavorable_market", "rally_attempt")}, gate_mode="prod")
+    assert r["stats"]["n_entries"] == 0
+    # unfavorable_market + confirmed → 통과
+    r2 = _run({"A": td("unfavorable_market", "confirmed_uptrend")}, gate_mode="prod")
+    assert r2["stats"]["n_entries"] == 1
+    # valid_base + rally_attempt → 통과 (사유별 분기)
+    r3 = _run({"A": td("valid_base_awaiting_breakout", "rally_attempt")},
+              gate_mode="prod")
+    assert r3["stats"]["n_entries"] == 1
+
+
+def test_gate_mode_variant_uses_variant_phases():
+    """v3 Arm B: 같은 게이트 의미론을 변형 사다리 국면으로 판정."""
+    from kr_pipeline.backtest.portfolio import TickerData
+    start = date(2024, 1, 8)
+    bars = _bars(start, [(98, 200, 90), (104, 200, 95)])
+    sat = bars[0].d - timedelta(days=2)
+    wr = [WatchRow(ticker="T", sat=sat, pivot_price=100.0, base_low=90.0,
+                   watch_reason="unfavorable_market")]
+    td = TickerData(market="KOSPI", bars=bars, watch_rows=wr,
+                    rs_by_date={b.d: 80 for b in bars},
+                    phase_by_date={b.d: "rally_attempt" for b in bars},
+                    phase_variant_by_date={b.d: "confirmed_uptrend" for b in bars})
+    assert _run({"A": td}, gate_mode="prod")["stats"]["n_entries"] == 0
+    assert _run({"A": td}, gate_mode="variant")["stats"]["n_entries"] == 1

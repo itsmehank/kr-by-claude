@@ -115,3 +115,61 @@ armed 조건: 종가 ≥ avg × min(1+3×stop_pct, 1.20)   # 스톱 8% → +20% 
 
 동일 6 시나리오 재실행, v1 결과(S1-incl CAGR +3.28%/MDD −20.6% 등, b72fce8 고정)
 와 나란히 보고. v1 재현은 git 이력으로 보장.
+
+---
+
+# v3 — 시장 게이트 3-arm 실험 (2026-07-03, 결과 산출 전 고정)
+
+에이전트 자문(하락장 게이트 설계 공간, 5R) + 승인 조건 3건 반영. production 무접촉
+(변형 국면은 백테스트 로컬 재계산 — market_context_daily 저장 이력 + index_daily).
+
+## v3.0 기존 수치 측정조건 주석 (승인 조건 ①)
+
+**기존 excl 모드(v1·v2의 "실전 재현")는 실제 production 게이트보다 느슨했다**:
+진입일 국면 ∈ {downtrend, correction}만 차단하고 rally_attempt 진입을 허용했으나,
+실제 트리거 확인(5b §3.5 분기)은 watch_reason=unfavorable_market 에 대해
+**rally_attempt 도 wait** 다(감사 33건 중 29건이 해당 사유). 따라서 기록된
+v2 S1-excl CAGR +1.49%·기회비용 ≈연 7.6%p 는 **하한이 아니라 느슨한-게이트
+측정치**이며, 진짜 재현은 더 낮을(기회비용은 더 클) 가능성이 높다.
+이후 모든 비교의 기준선은 v3 Arm A 로 교체한다.
+
+## v3.1 3-arm 정의 (승인 조건 ②) — 전부 v2 스톱 체계 + S1 구성, 동일 데이터
+
+| Arm | 게이트 | 국면 소스 |
+|---|---|---|
+| **A 정밀 production 재현 (신규 기준선)** | T1 신호의 watch_reason=unfavorable_market 이고 국면 ≠ confirmed_uptrend → 스킵. 그 외 사유는 통과 | 현행 사다리 (market_context_daily 저장값) |
+| **B 변형 사다리 (c)** | A 와 동일 게이트 의미론 | 변형 사다리 (v3.2) |
+| **C 레거시 (연속성 확인용)** | 국면 ∈ {downtrend, correction} → 전부 스킵 (v2 excl 그대로) | 현행 사다리 |
+
+한계 명시: Arm A 는 §3.5 의 코드화 가능한 분기(unfavorable_market)만 재현.
+감사에서 marginal_tt·valid_base 4건도 wait 였으므로(표준 검증 사유로 추정)
+실제 게이트는 A 보다 더 엄격할 수 있음 — A 는 게이트 강도의 하한.
+
+## v3.2 변형 사다리 (옵션 c) — 결정론 스펙 (승인 조건 ③)
+
+현행 6규칙에서 규칙 4·5만 교체, **우선순위 1→6 보존** (규칙 1·2·3 이 4' 보다
+상위 — confirmed 고아 경로 없음, 테스트로 확인):
+
+- 규칙 4′ (confirmed_uptrend): **유효한 FTD 존재 AND dist_count < 6**.
+  현행의 `close > SMA50` 대기와 `90일 시간창` **제거** (책에 없는 2차 게이트).
+- FTD 유효성: 발생일부터 **랠리 저점 종가 이탈 시까지**.
+  - **랠리 저점 = FTD 일 포함 직전 15세션의 최저 low** (FTD 는 저점 후 3~15세션
+    발생이므로 이 윈도가 랠리 기산 바닥을 포함). [무효화=신저가 회귀 개념: book /
+    앵커·윈도 수치: design-judgment]
+  - **이탈 판정 = 지수 종가 < 랠리 저점** (장중 아님 — 노이즈 무효화 방지,
+    design-judgment).
+  - FTD 이력 복원: market_context_daily.last_follow_through_day 는 90일 창
+    내에서만 기록되므로, 시계열 carry-forward 로 전 이력 복원(각 FTD 이벤트는
+    발생 후 90일간 컬럼에 존재 → 누락 없음).
+- 규칙 5′: close > SMA50 AND FTD 없음/무효화됨 → rally_attempt (시간 조건 제거).
+- 지수 SMA50/200·52주 고점 대비 하락률은 index_daily 종가로 재계산(현행 정의 동일).
+
+## v3.3 성공 기준 (사전 고정)
+
+- **1차: 트레이드 기대값** (실현 청산 기준, 승률×평균이익 − 패률×평균손실)
+  — Arm B > Arm A. 평균/중앙값 단독 판정 금지(파일럿류 분포 특성).
+- **가드레일: MDD(B) − MDD(A) ≤ 5%p** (악화 상한. 초과 시 기대값이 개선돼도
+  "가드레일 위반"으로 보고, 채택 논의는 그 사실 위에서).
+- 보고: 국면별 진입·기여도 분해, Arm C↔기존 v2-excl 일치 확인(연속성),
+  A↔C 차이 = 게이트 정밀화 효과 / B↔A 차이 = 사다리 변경 효과 (분리 보고).
+- correction(distribution 진행) 차단 유지 — 본 실험의 변경 대상 아님.
