@@ -112,6 +112,7 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
         cash += _sell_value(pos.qty, close, d)
         stats["exit_reasons"][reason] = stats["exit_reasons"].get(reason, 0) + 1
         stats["exits"].append({"ticker": pos.ticker, "date": str(d),
+                               "t1_date": str(pos.t1_date),
                                "reason": reason,
                                "pnl_pct": round((close / pos.avg_price - 1) * 100, 2),
                                "premium_pct": round(pos.premium_pct, 2),
