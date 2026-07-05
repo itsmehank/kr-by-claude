@@ -217,7 +217,7 @@ def analyze_episodes(conn: Connection) -> list[dict]:
             "n_watch": len(watch_rows),
             "n_ignore": sum(1 for r in rows if r["classification"] == "ignore"),
             "breakout_date": None, "gate_result": None, "audited_anchor": None,
-            "decision": None,
+            "decision": None, "caught_via": None,
         }
         if entry_rows:
             rec["bucket"] = "caught"
