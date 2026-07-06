@@ -1,0 +1,1031 @@
+{
+  "params": {
+    "stop_normal_pct": 0.08,
+    "stop_downtrend_pct": 0.06,
+    "breakeven_trigger_pct": 0.2,
+    "down_phases_definition": [
+      "downtrend",
+      "correction"
+    ]
+  },
+  "n_skipped_down_phase": 52,
+  "n_tickers": 34,
+  "n_tickers_with_trades": 22,
+  "n_trades_total": 51,
+  "n_closed_total": 48,
+  "n_open_total": 3,
+  "win_rate_overall": 0.271,
+  "avg_pnl_overall": 4.68,
+  "sum_pnl_overall": 224.51,
+  "mean_win_pnl": 38.41,
+  "mean_loss_pnl": -7.85,
+  "by_initial_stop": {
+    "normal_8pct": {
+      "n": 48,
+      "win_rate": 0.271,
+      "avg_pnl_pct": 4.68
+    },
+    "downtrend_6pct": {
+      "n": 0,
+      "win_rate": null,
+      "avg_pnl_pct": null
+    }
+  },
+  "by_exit_reason": {
+    "sma50_trail": 34,
+    "initial_stop": 14
+  },
+  "tickers": [
+    {
+      "ticker": "016710",
+      "n_trades": 1,
+      "n_closed": 1,
+      "n_open": 0,
+      "win_rate": 1.0,
+      "total_pnl_pct": 203.16,
+      "avg_pnl_pct": 203.16,
+      "best_pnl_pct": 203.16,
+      "worst_pnl_pct": 203.16,
+      "trades": [
+        {
+          "entry_date": "2021-04-02",
+          "entry_price": 30050.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-04-24",
+          "exit_price": 91100.0,
+          "pnl_pct": 203.16,
+          "exit_reason": "sma50_trail"
+        }
+      ]
+    },
+    {
+      "ticker": "003160",
+      "n_trades": 5,
+      "n_closed": 5,
+      "n_open": 0,
+      "win_rate": 0.6,
+      "total_pnl_pct": 148.27,
+      "avg_pnl_pct": 29.65,
+      "best_pnl_pct": 134.58,
+      "worst_pnl_pct": -16.18,
+      "trades": [
+        {
+          "entry_date": "2021-01-13",
+          "entry_price": 5030.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-05-11",
+          "exit_price": 6800.0,
+          "pnl_pct": 35.19,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2021-07-01",
+          "entry_price": 8680.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-09-07",
+          "exit_price": 9020.0,
+          "pnl_pct": 3.92,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2023-04-11",
+          "entry_price": 7900.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-04-26",
+          "exit_price": 7170.0,
+          "pnl_pct": -9.24,
+          "exit_reason": "initial_stop"
+        },
+        {
+          "entry_date": "2023-09-15",
+          "entry_price": 8900.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-09-19",
+          "exit_price": 7460.0,
+          "pnl_pct": -16.18,
+          "exit_reason": "initial_stop"
+        },
+        {
+          "entry_date": "2024-02-22",
+          "entry_price": 8590.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-07-12",
+          "exit_price": 20150.0,
+          "pnl_pct": 134.58,
+          "exit_reason": "sma50_trail"
+        }
+      ]
+    },
+    {
+      "ticker": "012450",
+      "n_trades": 5,
+      "n_closed": 5,
+      "n_open": 0,
+      "win_rate": 0.6,
+      "total_pnl_pct": 85.22,
+      "avg_pnl_pct": 17.04,
+      "best_pnl_pct": 48.84,
+      "worst_pnl_pct": -8.1,
+      "trades": [
+        {
+          "entry_date": "2021-06-18",
+          "entry_price": 49506.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-08-17",
+          "exit_price": 50932.0,
+          "pnl_pct": 2.88,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2023-01-26",
+          "entry_price": 79047.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-07-28",
+          "exit_price": 117654.0,
+          "pnl_pct": 48.84,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2023-07-31",
+          "entry_price": 124479.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-08-01",
+          "exit_price": 123766.0,
+          "pnl_pct": -0.57,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2024-01-11",
+          "entry_price": 144649.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-02-05",
+          "exit_price": 132935.0,
+          "pnl_pct": -8.1,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2024-02-14",
+          "entry_price": 149029.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-05-17",
+          "exit_price": 211881.0,
+          "pnl_pct": 42.17,
+          "exit_reason": "sma50_trail"
+        }
+      ]
+    },
+    {
+      "ticker": "004360",
+      "n_trades": 1,
+      "n_closed": 1,
+      "n_open": 0,
+      "win_rate": 1.0,
+      "total_pnl_pct": 11.07,
+      "avg_pnl_pct": 11.07,
+      "best_pnl_pct": 11.07,
+      "worst_pnl_pct": 11.07,
+      "trades": [
+        {
+          "entry_date": "2023-04-27",
+          "entry_price": 16260.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-04-28",
+          "exit_price": 18060.0,
+          "pnl_pct": 11.07,
+          "exit_reason": "sma50_trail"
+        }
+      ]
+    },
+    {
+      "ticker": "000390",
+      "n_trades": 0,
+      "n_closed": 0,
+      "n_open": 0,
+      "win_rate": null,
+      "total_pnl_pct": 0.0,
+      "avg_pnl_pct": null,
+      "best_pnl_pct": null,
+      "worst_pnl_pct": null,
+      "trades": []
+    },
+    {
+      "ticker": "000520",
+      "n_trades": 0,
+      "n_closed": 0,
+      "n_open": 0,
+      "win_rate": null,
+      "total_pnl_pct": 0.0,
+      "avg_pnl_pct": null,
+      "best_pnl_pct": null,
+      "worst_pnl_pct": null,
+      "trades": []
+    },
+    {
+      "ticker": "000850",
+      "n_trades": 0,
+      "n_closed": 0,
+      "n_open": 0,
+      "win_rate": null,
+      "total_pnl_pct": 0.0,
+      "avg_pnl_pct": null,
+      "best_pnl_pct": null,
+      "worst_pnl_pct": null,
+      "trades": []
+    },
+    {
+      "ticker": "002150",
+      "n_trades": 0,
+      "n_closed": 0,
+      "n_open": 0,
+      "win_rate": null,
+      "total_pnl_pct": 0.0,
+      "avg_pnl_pct": null,
+      "best_pnl_pct": null,
+      "worst_pnl_pct": null,
+      "trades": []
+    },
+    {
+      "ticker": "002220",
+      "n_trades": 0,
+      "n_closed": 0,
+      "n_open": 0,
+      "win_rate": null,
+      "total_pnl_pct": 0.0,
+      "avg_pnl_pct": null,
+      "best_pnl_pct": null,
+      "worst_pnl_pct": null,
+      "trades": []
+    },
+    {
+      "ticker": "002460",
+      "n_trades": 0,
+      "n_closed": 0,
+      "n_open": 0,
+      "win_rate": null,
+      "total_pnl_pct": 0.0,
+      "avg_pnl_pct": null,
+      "best_pnl_pct": null,
+      "worst_pnl_pct": null,
+      "trades": []
+    },
+    {
+      "ticker": "004270",
+      "n_trades": 0,
+      "n_closed": 0,
+      "n_open": 0,
+      "win_rate": null,
+      "total_pnl_pct": 0.0,
+      "avg_pnl_pct": null,
+      "best_pnl_pct": null,
+      "worst_pnl_pct": null,
+      "trades": []
+    },
+    {
+      "ticker": "011300",
+      "n_trades": 0,
+      "n_closed": 0,
+      "n_open": 0,
+      "win_rate": null,
+      "total_pnl_pct": 0.0,
+      "avg_pnl_pct": null,
+      "best_pnl_pct": null,
+      "worst_pnl_pct": null,
+      "trades": []
+    },
+    {
+      "ticker": "016880",
+      "n_trades": 0,
+      "n_closed": 0,
+      "n_open": 0,
+      "win_rate": null,
+      "total_pnl_pct": 0.0,
+      "avg_pnl_pct": null,
+      "best_pnl_pct": null,
+      "worst_pnl_pct": null,
+      "trades": []
+    },
+    {
+      "ticker": "024900",
+      "n_trades": 0,
+      "n_closed": 0,
+      "n_open": 0,
+      "win_rate": null,
+      "total_pnl_pct": 0.0,
+      "avg_pnl_pct": null,
+      "best_pnl_pct": null,
+      "worst_pnl_pct": null,
+      "trades": []
+    },
+    {
+      "ticker": "060980",
+      "n_trades": 1,
+      "n_closed": 0,
+      "n_open": 1,
+      "win_rate": null,
+      "total_pnl_pct": 0.0,
+      "avg_pnl_pct": null,
+      "best_pnl_pct": null,
+      "worst_pnl_pct": null,
+      "trades": [
+        {
+          "entry_date": "2025-05-14",
+          "entry_price": 38750.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2025-06-30",
+          "exit_price": 40500.0,
+          "pnl_pct": 4.52,
+          "exit_reason": "open"
+        }
+      ]
+    },
+    {
+      "ticker": "069730",
+      "n_trades": 0,
+      "n_closed": 0,
+      "n_open": 0,
+      "win_rate": null,
+      "total_pnl_pct": 0.0,
+      "avg_pnl_pct": null,
+      "best_pnl_pct": null,
+      "worst_pnl_pct": null,
+      "trades": []
+    },
+    {
+      "ticker": "251270",
+      "n_trades": 0,
+      "n_closed": 0,
+      "n_open": 0,
+      "win_rate": null,
+      "total_pnl_pct": 0.0,
+      "avg_pnl_pct": null,
+      "best_pnl_pct": null,
+      "worst_pnl_pct": null,
+      "trades": []
+    },
+    {
+      "ticker": "013580",
+      "n_trades": 1,
+      "n_closed": 1,
+      "n_open": 0,
+      "win_rate": 0.0,
+      "total_pnl_pct": -1.96,
+      "avg_pnl_pct": -1.96,
+      "best_pnl_pct": -1.96,
+      "worst_pnl_pct": -1.96,
+      "trades": [
+        {
+          "entry_date": "2021-04-08",
+          "entry_price": 35800.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-06-23",
+          "exit_price": 35100.0,
+          "pnl_pct": -1.96,
+          "exit_reason": "sma50_trail"
+        }
+      ]
+    },
+    {
+      "ticker": "006360",
+      "n_trades": 1,
+      "n_closed": 1,
+      "n_open": 0,
+      "win_rate": 0.0,
+      "total_pnl_pct": -8.19,
+      "avg_pnl_pct": -8.19,
+      "best_pnl_pct": -8.19,
+      "worst_pnl_pct": -8.19,
+      "trades": [
+        {
+          "entry_date": "2025-05-28",
+          "entry_price": 22600.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2025-06-30",
+          "exit_price": 20750.0,
+          "pnl_pct": -8.19,
+          "exit_reason": "initial_stop"
+        }
+      ]
+    },
+    {
+      "ticker": "003830",
+      "n_trades": 2,
+      "n_closed": 2,
+      "n_open": 0,
+      "win_rate": 0.0,
+      "total_pnl_pct": -9.01,
+      "avg_pnl_pct": -4.5,
+      "best_pnl_pct": -0.99,
+      "worst_pnl_pct": -8.02,
+      "trades": [
+        {
+          "entry_date": "2021-06-03",
+          "entry_price": 151000.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-07-20",
+          "exit_price": 149500.0,
+          "pnl_pct": -0.99,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2025-06-05",
+          "entry_price": 140900.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2025-06-30",
+          "exit_price": 129600.0,
+          "pnl_pct": -8.02,
+          "exit_reason": "initial_stop"
+        }
+      ]
+    },
+    {
+      "ticker": "002900",
+      "n_trades": 1,
+      "n_closed": 1,
+      "n_open": 0,
+      "win_rate": 0.0,
+      "total_pnl_pct": -9.2,
+      "avg_pnl_pct": -9.2,
+      "best_pnl_pct": -9.2,
+      "worst_pnl_pct": -9.2,
+      "trades": [
+        {
+          "entry_date": "2021-08-06",
+          "entry_price": 8827.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-08-12",
+          "exit_price": 8015.0,
+          "pnl_pct": -9.2,
+          "exit_reason": "initial_stop"
+        }
+      ]
+    },
+    {
+      "ticker": "183190",
+      "n_trades": 3,
+      "n_closed": 2,
+      "n_open": 1,
+      "win_rate": 0.0,
+      "total_pnl_pct": -10.01,
+      "avg_pnl_pct": -5.0,
+      "best_pnl_pct": -2.64,
+      "worst_pnl_pct": -7.37,
+      "trades": [
+        {
+          "entry_date": "2021-07-06",
+          "entry_price": 13250.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-07-07",
+          "exit_price": 12900.0,
+          "pnl_pct": -2.64,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2024-02-23",
+          "entry_price": 11400.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-03-21",
+          "exit_price": 10560.0,
+          "pnl_pct": -7.37,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2025-06-04",
+          "entry_price": 12290.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2025-06-30",
+          "exit_price": 12590.0,
+          "pnl_pct": 2.44,
+          "exit_reason": "open"
+        }
+      ]
+    },
+    {
+      "ticker": "092780",
+      "n_trades": 1,
+      "n_closed": 1,
+      "n_open": 0,
+      "win_rate": 0.0,
+      "total_pnl_pct": -10.19,
+      "avg_pnl_pct": -10.19,
+      "best_pnl_pct": -10.19,
+      "worst_pnl_pct": -10.19,
+      "trades": [
+        {
+          "entry_date": "2024-06-19",
+          "entry_price": 6180.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-07-22",
+          "exit_price": 5550.0,
+          "pnl_pct": -10.19,
+          "exit_reason": "sma50_trail"
+        }
+      ]
+    },
+    {
+      "ticker": "052690",
+      "n_trades": 1,
+      "n_closed": 1,
+      "n_open": 0,
+      "win_rate": 0.0,
+      "total_pnl_pct": -10.49,
+      "avg_pnl_pct": -10.49,
+      "best_pnl_pct": -10.49,
+      "worst_pnl_pct": -10.49,
+      "trades": [
+        {
+          "entry_date": "2024-07-18",
+          "entry_price": 82000.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-07-19",
+          "exit_price": 73400.0,
+          "pnl_pct": -10.49,
+          "exit_reason": "initial_stop"
+        }
+      ]
+    },
+    {
+      "ticker": "001460",
+      "n_trades": 5,
+      "n_closed": 5,
+      "n_open": 0,
+      "win_rate": 0.4,
+      "total_pnl_pct": -10.65,
+      "avg_pnl_pct": -2.13,
+      "best_pnl_pct": 10.23,
+      "worst_pnl_pct": -13.44,
+      "trades": [
+        {
+          "entry_date": "2021-02-03",
+          "entry_price": 30300.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-03-24",
+          "exit_price": 33400.0,
+          "pnl_pct": 10.23,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2021-05-26",
+          "entry_price": 39250.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-07-08",
+          "exit_price": 40400.0,
+          "pnl_pct": 2.93,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2021-07-23",
+          "entry_price": 39650.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-07-26",
+          "exit_price": 38600.0,
+          "pnl_pct": -2.65,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2021-12-23",
+          "entry_price": 54300.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-12-24",
+          "exit_price": 47000.0,
+          "pnl_pct": -13.44,
+          "exit_reason": "initial_stop"
+        },
+        {
+          "entry_date": "2023-02-17",
+          "entry_price": 47250.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-03-27",
+          "exit_price": 43600.0,
+          "pnl_pct": -7.72,
+          "exit_reason": "sma50_trail"
+        }
+      ]
+    },
+    {
+      "ticker": "017940",
+      "n_trades": 4,
+      "n_closed": 3,
+      "n_open": 1,
+      "win_rate": 0.333,
+      "total_pnl_pct": -11.71,
+      "avg_pnl_pct": -3.9,
+      "best_pnl_pct": 0.15,
+      "worst_pnl_pct": -6.47,
+      "trades": [
+        {
+          "entry_date": "2023-11-23",
+          "entry_price": 63100.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-01-02",
+          "exit_price": 59700.0,
+          "pnl_pct": -5.39,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2024-02-05",
+          "entry_price": 65100.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-04-12",
+          "exit_price": 65200.0,
+          "pnl_pct": 0.15,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2024-06-21",
+          "entry_price": 77300.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-07-09",
+          "exit_price": 72300.0,
+          "pnl_pct": -6.47,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2025-06-16",
+          "entry_price": 80700.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2025-06-30",
+          "exit_price": 78900.0,
+          "pnl_pct": -2.23,
+          "exit_reason": "open"
+        }
+      ]
+    },
+    {
+      "ticker": "090080",
+      "n_trades": 1,
+      "n_closed": 1,
+      "n_open": 0,
+      "win_rate": 0.0,
+      "total_pnl_pct": -13.67,
+      "avg_pnl_pct": -13.67,
+      "best_pnl_pct": -13.67,
+      "worst_pnl_pct": -13.67,
+      "trades": [
+        {
+          "entry_date": "2025-05-12",
+          "entry_price": 2085.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2025-05-14",
+          "exit_price": 1800.0,
+          "pnl_pct": -13.67,
+          "exit_reason": "initial_stop"
+        }
+      ]
+    },
+    {
+      "ticker": "004020",
+      "n_trades": 4,
+      "n_closed": 4,
+      "n_open": 0,
+      "win_rate": 0.25,
+      "total_pnl_pct": -14.41,
+      "avg_pnl_pct": -3.6,
+      "best_pnl_pct": 3.81,
+      "worst_pnl_pct": -8.99,
+      "trades": [
+        {
+          "entry_date": "2021-03-04",
+          "entry_price": 42950.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-03-10",
+          "exit_price": 41400.0,
+          "pnl_pct": -3.61,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2021-04-05",
+          "entry_price": 49900.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-06-07",
+          "exit_price": 51800.0,
+          "pnl_pct": 3.81,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2023-09-04",
+          "entry_price": 39500.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-10-05",
+          "exit_price": 35950.0,
+          "pnl_pct": -8.99,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2023-12-28",
+          "entry_price": 36500.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-01-03",
+          "exit_price": 34450.0,
+          "pnl_pct": -5.62,
+          "exit_reason": "sma50_trail"
+        }
+      ]
+    },
+    {
+      "ticker": "003200",
+      "n_trades": 2,
+      "n_closed": 2,
+      "n_open": 0,
+      "win_rate": 0.0,
+      "total_pnl_pct": -14.73,
+      "avg_pnl_pct": -7.37,
+      "best_pnl_pct": -6.09,
+      "worst_pnl_pct": -8.64,
+      "trades": [
+        {
+          "entry_date": "2021-06-11",
+          "entry_price": 11500.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2021-06-24",
+          "exit_price": 10800.0,
+          "pnl_pct": -6.09,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2023-02-20",
+          "entry_price": 13780.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-03-14",
+          "exit_price": 12590.0,
+          "pnl_pct": -8.64,
+          "exit_reason": "initial_stop"
+        }
+      ]
+    },
+    {
+      "ticker": "009150",
+      "n_trades": 3,
+      "n_closed": 3,
+      "n_open": 0,
+      "win_rate": 0.0,
+      "total_pnl_pct": -17.42,
+      "avg_pnl_pct": -5.81,
+      "best_pnl_pct": -3.94,
+      "worst_pnl_pct": -8.8,
+      "trades": [
+        {
+          "entry_date": "2023-01-27",
+          "entry_price": 149900.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-02-28",
+          "exit_price": 144000.0,
+          "pnl_pct": -3.94,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2023-07-17",
+          "entry_price": 158000.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-07-26",
+          "exit_price": 144100.0,
+          "pnl_pct": -8.8,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2024-07-04",
+          "entry_price": 162500.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-07-26",
+          "exit_price": 154900.0,
+          "pnl_pct": -4.68,
+          "exit_reason": "sma50_trail"
+        }
+      ]
+    },
+    {
+      "ticker": "002240",
+      "n_trades": 1,
+      "n_closed": 1,
+      "n_open": 0,
+      "win_rate": 0.0,
+      "total_pnl_pct": -19.44,
+      "avg_pnl_pct": -19.44,
+      "best_pnl_pct": -19.44,
+      "worst_pnl_pct": -19.44,
+      "trades": [
+        {
+          "entry_date": "2023-08-02",
+          "entry_price": 26210.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-08-04",
+          "exit_price": 21116.0,
+          "pnl_pct": -19.44,
+          "exit_reason": "initial_stop"
+        }
+      ]
+    },
+    {
+      "ticker": "259960",
+      "n_trades": 3,
+      "n_closed": 3,
+      "n_open": 0,
+      "win_rate": 0.333,
+      "total_pnl_pct": -19.55,
+      "avg_pnl_pct": -6.52,
+      "best_pnl_pct": 0.37,
+      "worst_pnl_pct": -11.4,
+      "trades": [
+        {
+          "entry_date": "2024-03-26",
+          "entry_price": 246500.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-04-25",
+          "exit_price": 225500.0,
+          "pnl_pct": -8.52,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2024-06-14",
+          "entry_price": 272000.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-08-05",
+          "exit_price": 273000.0,
+          "pnl_pct": 0.37,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2025-01-31",
+          "entry_price": 364000.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2025-02-12",
+          "exit_price": 322500.0,
+          "pnl_pct": -11.4,
+          "exit_reason": "initial_stop"
+        }
+      ]
+    },
+    {
+      "ticker": "077500",
+      "n_trades": 2,
+      "n_closed": 2,
+      "n_open": 0,
+      "win_rate": 0.0,
+      "total_pnl_pct": -20.8,
+      "avg_pnl_pct": -10.4,
+      "best_pnl_pct": -9.57,
+      "worst_pnl_pct": -11.23,
+      "trades": [
+        {
+          "entry_date": "2023-07-04",
+          "entry_price": 7255.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-10-23",
+          "exit_price": 6440.0,
+          "pnl_pct": -11.23,
+          "exit_reason": "sma50_trail"
+        },
+        {
+          "entry_date": "2024-02-22",
+          "entry_price": 9200.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2024-02-27",
+          "exit_price": 8320.0,
+          "pnl_pct": -9.57,
+          "exit_reason": "initial_stop"
+        }
+      ]
+    },
+    {
+      "ticker": "033240",
+      "n_trades": 3,
+      "n_closed": 3,
+      "n_open": 0,
+      "win_rate": 0.0,
+      "total_pnl_pct": -21.78,
+      "avg_pnl_pct": -7.26,
+      "best_pnl_pct": -3.28,
+      "worst_pnl_pct": -10.02,
+      "trades": [
+        {
+          "entry_date": "2023-02-16",
+          "entry_price": 29450.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-03-14",
+          "exit_price": 26500.0,
+          "pnl_pct": -10.02,
+          "exit_reason": "initial_stop"
+        },
+        {
+          "entry_date": "2023-04-19",
+          "entry_price": 33000.0,
+          "entry_classification": "watch",
+          "entry_phase": "confirmed_uptrend",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-04-25",
+          "exit_price": 30200.0,
+          "pnl_pct": -8.48,
+          "exit_reason": "initial_stop"
+        },
+        {
+          "entry_date": "2023-05-30",
+          "entry_price": 33500.0,
+          "entry_classification": "watch",
+          "entry_phase": "rally_attempt",
+          "initial_stop_pct": 8.0,
+          "exit_date": "2023-06-22",
+          "exit_price": 32400.0,
+          "pnl_pct": -3.28,
+          "exit_reason": "sma50_trail"
+        }
+      ]
+    }
+  ]
+}
