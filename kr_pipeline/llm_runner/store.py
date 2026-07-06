@@ -172,9 +172,11 @@ def insert_backfill_classification(
     """백필 분류 결과를 `table` (기본 classification_backfill) 에 INSERT (멱등: symbol+analyzed_for_date).
 
     insert_classification 과 동일하게 Phase 1 2-A 후처리 게이트 적용. freeze 는 만들지 않음.
-    table 파라미터로 대상 테이블 지정 가능 (allowlist: classification_backfill, backtest_classification).
+    table 파라미터로 대상 테이블 지정 가능 (allowlist: classification_backfill,
+    backtest_classification, recall_audit_classification).
     """
-    if table not in ("classification_backfill", "backtest_classification"):
+    if table not in ("classification_backfill", "backtest_classification",
+                     "recall_audit_classification"):
         raise ValueError(f"insert_backfill_classification: unknown table {table!r}")
     _validate_classification(result)
     _original = copy.deepcopy(result)

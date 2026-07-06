@@ -1,0 +1,119 @@
+{
+  "sample_buckets": {
+    "trigger_miss": 81,
+    "pivot_miss": 36,
+    "classification_miss": 2,
+    "caught": 1
+  },
+  "tertile_coverage": {
+    "T1": {
+      "sample": {
+        "trigger_miss": 33,
+        "pivot_miss": 7
+      },
+      "caught_rate": 0.0,
+      "pool_est_caught": 0.0
+    },
+    "T2": {
+      "sample": {
+        "classification_miss": 1,
+        "pivot_miss": 12,
+        "caught": 1,
+        "trigger_miss": 26
+      },
+      "caught_rate": 0.025,
+      "pool_est_caught": 6.5
+    },
+    "T3": {
+      "sample": {
+        "trigger_miss": 22,
+        "pivot_miss": 17,
+        "classification_miss": 1
+      },
+      "caught_rate": 0.0,
+      "pool_est_caught": 0.0
+    }
+  },
+  "wait_factor_counts": {
+    "wide_loose_spread": 28,
+    "close_weak_range": 22,
+    "volume_below": 19,
+    "market_phase": 18,
+    "other": 14,
+    "watch_reason_not_allowed": 11,
+    "close_below_pivot": 2
+  },
+  "breakout_market_phase": {
+    "confirmed_uptrend": 31,
+    "rally_attempt": 23,
+    "downtrend": 16,
+    "correction": 7
+  },
+  "gate_anyday_scan": {
+    "trigger_miss:fired": 38,
+    "pivot_miss:never": 36,
+    "trigger_miss:never": 43
+  },
+  "cls_miss_ignore_scores": [
+    {
+      "anchor": "2026-05-29",
+      "risk_flags": [
+        "climax_run",
+        "extended_from_ma"
+      ],
+      "pattern": "none",
+      "rs_rating": 94.0,
+      "sma50_gap_pct": 75.3,
+      "ret_1w_pct": 34.3,
+      "ret_2w_pct": 29.4,
+      "ret_3w_pct": 67.6,
+      "climax_flagged": true,
+      "climax_def_met": true,
+      "extended_flagged": true,
+      "extended_def_met": true,
+      "reasoning_head": "**시장 컨텍스트**\nKOSPI confirmed_uptrend, distribution day 3/25(양호), follow-through day 2026-05-29 당일 확인, 200일선 위 종목비율 38.3%. 시장 자체는 우호적이나 개별 종목의 극단적 리스크가 시장 판단을 무력화함(§6.1 force-ignore).\n\n**Base 구조**\n매수 가능",
+      "ticker": "001740"
+    },
+    {
+      "anchor": "2026-06-05",
+      "risk_flags": [
+        "climax_run"
+      ],
+      "pattern": "none",
+      "rs_rating": 95.0,
+      "sma50_gap_pct": 56.3,
+      "ret_1w_pct": -3.4,
+      "ret_2w_pct": 29.8,
+      "ret_3w_pct": 25.0,
+      "climax_flagged": true,
+      "climax_def_met": true,
+      "extended_flagged": false,
+      "extended_def_met": true,
+      "reasoning_head": "**시장 컨텍스트**\nKOSPI는 confirmed_uptrend, distribution day 4/25(아직 5 미만), follow-through day 2026-05-29(7일 전), 200일선 상회 비율 30.4%. 시장 자체는 우호적이나 이번 종목은 개별 리스크(클라이맥스)가 결정적이라 시장 판단과 무관하게 verdict가 정해짐.\n\n**Base",
+      "ticker": "001740"
+    },
+    {
+      "anchor": "2026-06-12",
+      "risk_flags": [
+        "climax_run",
+        "unfavorable_market_context"
+      ],
+      "pattern": "none",
+      "rs_rating": 97.0,
+      "sma50_gap_pct": 154.5,
+      "ret_1w_pct": 142.3,
+      "ret_2w_pct": 116.6,
+      "ret_3w_pct": 166.2,
+      "climax_flagged": true,
+      "climax_def_met": true,
+      "extended_flagged": false,
+      "extended_def_met": true,
+      "reasoning_head": "**시장 컨텍스트**\n현재 KOSPI는 \"correction\"(조정) 국면이며, 최근 25거래일 중 distribution day가 6회로 경고 기준(5회 이상)을 초과합니다. 어제(2026-06-11) follow-through day가 발생했으나 하루밖에 지나지 않아 신뢰하기 이릅니다. 200일선 위 종목 비율도 22.9%로 낮아 시장 전반이 약세입니다",
+      "ticker": "126640"
+    }
+  ],
+  "audit_decisions": {
+    "wait": 75,
+    "abort": 2
+  }
+}
