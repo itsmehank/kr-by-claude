@@ -121,3 +121,34 @@ def test_build_index_csv_respects_on_date(db):
         with db.cursor() as cur:
             cur.execute("DELETE FROM index_daily WHERE index_code=%s", (code,))
         db.commit()
+
+
+def test_build_daily_csv_volume_is_adjusted(db):
+    """기업행위 종목: daily.csv 의 volume 은 adj_volume(보정 거래량) 기준이어야 한다.
+
+    payload(JSON)와 daily.csv 가 같은 LLM 입력에 들어가므로 도메인(raw/adj)이 갈리면
+    같은 날 거래량이 두 숫자로 노출된다 — payload_builder(7850a0b)와 동일하게 adj 통일.
+    adj_volume NULL(거래정지 등)이면 raw volume 폴백(payload_builder.py:102 와 동일 패턴).
+    """
+    t = "ADJVOL1"
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'D','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        # 5:1 병합 가정 — raw 1000 → adj 200. adj_volume NULL 인 날 하나(폴백 확인).
+        cur.execute(
+            """INSERT INTO daily_prices (ticker,date,open,high,low,close,adj_close,volume,adj_volume,value)
+               VALUES (%s,'2026-05-01',100,105,95,100,100,1000,200,100000)""", (t,))
+        cur.execute(
+            """INSERT INTO daily_prices (ticker,date,open,high,low,close,adj_close,volume,adj_volume,value)
+               VALUES (%s,'2026-05-02',100,105,95,100,100,3000,NULL,100000)""", (t,))
+    db.commit()
+    try:
+        text = build_daily_csv(db, t, days=10).decode("utf-8")
+        lines = {l.split(",")[0]: l.split(",") for l in text.strip().split("\n")[1:]}
+        vol_col = 2  # header: date, adj_close, volume, ...
+        assert lines["2026-05-01"][vol_col] == "200", "adj_volume 이 있으면 보정값을 써야 함"
+        assert lines["2026-05-02"][vol_col] == "3000", "adj_volume NULL 이면 raw 폴백"
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        db.commit()

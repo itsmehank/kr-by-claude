@@ -29,7 +29,11 @@ def build_daily_csv(conn: Connection, ticker: str, days: int = 60, on_date: date
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            SELECT p.date, p.adj_close, p.volume,
+            -- volume 은 adj 우선 (payload_builder 와 동일 도메인 — 같은 LLM 입력에서
+            -- payload(adj)와 daily.csv(raw)가 갈리면 기업행위 종목의 같은 날 거래량이
+            -- 두 숫자로 노출됨). adj_volume NULL(거래정지 등)이면 raw 폴백.
+            SELECT p.date, p.adj_close,
+                   ROUND(COALESCE(p.adj_volume, p.volume))::bigint AS volume,
                    {indicator_cols_sql}
               FROM daily_prices p
               LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
