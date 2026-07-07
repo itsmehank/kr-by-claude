@@ -32,11 +32,17 @@ def run_daily_chain(conn: Connection, *, drift_check: bool = True, limit_tickers
                       params={"limit_tickers": limit_tickers, "drift": drift_check}) as state:
         as_of = date.today()
         drifted: list[str] = []
+        drift_unverified: list[str] = []
         if drift_check:
             candidates = drift.recent_corp_action_tickers(
                 conn, as_of=as_of, lookback_days=drift.CA_LOOKBACK_DAYS)
             drifted = drift.detect_drifted_tickers(
-                conn, as_of=as_of, tickers=candidates, limit_tickers=limit_tickers)
+                conn, as_of=as_of, tickers=candidates, limit_tickers=limit_tickers,
+                unverified_out=drift_unverified)
+            if drift_unverified:
+                state["warnings"].append(
+                    f"drift_unverified: {len(drift_unverified)} 종목 검증 못 함"
+                    f"(빈 재조회/예외 — '이상 없음' 아님): {drift_unverified[:20]}")
 
         r_price = ohlcv.run(conn, ohlcv.Mode.INCREMENTAL, limit_tickers=limit_tickers)
 
@@ -54,7 +60,8 @@ def run_daily_chain(conn: Connection, *, drift_check: bool = True, limit_tickers
 
         result = {
             "drift": {"detected": len(drifted), "reloaded": reloaded,
-                      "failures": reload_failures, "tickers": drifted},
+                      "failures": reload_failures, "tickers": drifted,
+                      "unverified": len(drift_unverified)},
             "ohlcv": {"rows": r_price.rows_affected, "failures": len(r_price.failures)},
             "indicators_daily": {"rows": r_ind.rows_affected, "failures": len(r_ind.failures)},
         }
@@ -75,11 +82,17 @@ def run_weekly_chain(conn: Connection, *, limit_tickers: int | None = None, full
                       params={"limit_tickers": limit_tickers, "full_sweep": full_sweep}) as state:
         as_of = date.today()
         swept: list[str] = []
+        sweep_unverified: list[str] = []
         sweep_reloaded, sweep_failures = 0, 0
         if full_sweep:
             swept = drift.detect_drifted_tickers(
                 conn, as_of=as_of, tickers=None,
-                recent_days=drift.SWEEP_RECENT_DAYS, limit_tickers=limit_tickers)
+                recent_days=drift.SWEEP_RECENT_DAYS, limit_tickers=limit_tickers,
+                unverified_out=sweep_unverified)
+            if sweep_unverified:
+                state["warnings"].append(
+                    f"sweep_unverified: {len(sweep_unverified)} 종목 검증 못 함"
+                    f"(빈 재조회/예외 — '이상 없음' 아님): {sweep_unverified[:20]}")
             for t in swept:
                 try:
                     drift.reload_ticker(conn, t, as_of=as_of)
@@ -93,7 +106,8 @@ def run_weekly_chain(conn: Connection, *, limit_tickers: int | None = None, full
                              check_freshness=True)  # 일봉 stale 시 부분 주봉 방지(fail-closed)
         r_ind = indicators.run_weekly(conn, indicators.Mode.INCREMENTAL, limit_tickers=limit_tickers)
         result = {
-            "sweep": {"detected": len(swept), "reloaded": sweep_reloaded, "failures": sweep_failures},
+            "sweep": {"detected": len(swept), "reloaded": sweep_reloaded,
+                      "failures": sweep_failures, "unverified": len(sweep_unverified)},
             "weekly": {"rows": r_price.rows_affected, "failures": len(r_price.failures)},
             "indicators_weekly": {"rows": r_ind.rows_affected, "failures": len(r_ind.failures)},
         }

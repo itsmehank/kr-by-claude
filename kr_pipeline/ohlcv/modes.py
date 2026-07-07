@@ -71,6 +71,26 @@ class RunStats:
     warnings: list[str] = field(default_factory=list)
 
 
+# [design judgment] 빈 응답 경고 강화 임계 — book 근거 아님. KRX throttling 은
+# 예외가 아닌 '빈 DataFrame' 으로 나타나 성공도 실패도 아닌 상태로 소멸했다
+# (2026-06-10 사고: backfill 607종목 과거 미적재인데 failures=0). 정상일에도
+# 거래정지 등으로 소수의 빈 응답은 있을 수 있어, 집계는 항상 하되 비율이
+# 이 임계를 넘으면 throttling 패턴으로 강조한다.
+_EMPTY_FETCH_WARN_RATIO = 0.01
+
+
+def _empty_fetch_warning(empties: list[str], total: int) -> list[str]:
+    """빈 응답 종목 계정 → warnings 항목. 빈 응답 0건이면 빈 리스트."""
+    if not empties:
+        return []
+    ratio = len(empties) / total if total else 0.0
+    msg = f"empty_fetch: {len(empties)}/{total} 종목 빈 응답 (KRX throttling 의심, {ratio:.1%})"
+    if ratio > _EMPTY_FETCH_WARN_RATIO:
+        msg += f" — 임계 {_EMPTY_FETCH_WARN_RATIO:.0%} 초과, 과거 조용한 누락 사고 패턴"
+    msg += f": {empties[:20]}"
+    return [msg]
+
+
 def _run_sanity_checks(conn: Connection, mode: Mode) -> list[str]:
     """OHLCV 적재 후 데이터 sanity 검증. 경고 메시지 리스트 반환 (실패 아님).
 
@@ -155,8 +175,11 @@ def run(
 def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
     successes, failures = fetch_many(tickers, start, end, max_workers=max_workers)
     rows_total = 0
+    empties: list[str] = []
     for ticker, (raw, adj) in successes.items():
         if raw.empty:
+            # 성공도 실패도 아닌 소멸 금지 — 계정 후 skip (P1-5 B)
+            empties.append(ticker)
             continue
         merged = merge_raw_and_adjusted(raw, adj)
         rows = to_price_rows(ticker, merged)
@@ -164,15 +187,20 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
         conn.commit()
 
     # 지수
+    empty_indexes: list[str] = []
     for index_code in ("1001", "2001"):
         idx_df = fetch_index(index_code, start, end)
         if idx_df.empty:
+            empty_indexes.append(index_code)
             continue
         idx_rows = to_index_rows(index_code, idx_df)
         upsert_index_daily(conn, idx_rows)
         conn.commit()
 
-    warnings = _run_sanity_checks(conn, mode)
+    warnings = _empty_fetch_warning(empties, len(tickers))
+    if empty_indexes:
+        warnings.append(f"empty_index_fetch: 지수 {empty_indexes} 빈 응답")
+    warnings.extend(_run_sanity_checks(conn, mode))
     return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)
 
 
@@ -181,10 +209,15 @@ def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.
     import time
     from kr_pipeline.ohlcv.fetch import fetch_adj_only
 
+    empties: list[str] = []
+
     def _process_ticker(ticker: str) -> int:
         """한 종목의 수정 OHLCV(종가/고가/저가/시가/거래량)를 가져와 업데이트. 영향받은 행 수 반환."""
         adj = fetch_adj_only(ticker, start, end)
         if adj.empty:
+            # 성공도 실패도 아닌 소멸 금지 — 계정 후 skip (P1-5 B)
+            if ticker not in empties:
+                empties.append(ticker)
             return 0
         # 단일 chokepoint 경유 — adj-refresh 도 halt 정규화(adj_* NULL) 적용.
         # fetch_adj_only 컬럼(open/high/low/close/volume = 수정값)을 adj_* 로 매핑 후 정규화.
@@ -230,5 +263,6 @@ def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.
         if failures:
             log.warning(f"After retry, {len(failures)} tickers still failed")
 
-    warnings = _run_sanity_checks(conn, mode)
+    warnings = _empty_fetch_warning(empties, len(tickers))
+    warnings.extend(_run_sanity_checks(conn, mode))
     return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)

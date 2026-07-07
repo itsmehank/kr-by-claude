@@ -221,3 +221,77 @@ def test_recent_corp_action_tickers_filters(db):
     assert "CAD2" not in out        # 비영향(cash_dividend)
     assert "CAD3" not in out        # 상폐
     assert "CAD4" not in out        # 미래 event_date (상한 밖)
+
+
+# ====== P1-5 Part C: '검증 못 함(unverified)' 을 '이상 없음' 과 구분 ======
+
+def test_detect_marks_unverified_on_empty_krx(mocker):
+    """recent+wide 재조회가 모두 빈 응답 → drifted 아님 + unverified 로 분리.
+
+    기존엔 overlap 없음 → is_drift False = '이상 없음' 으로 오판 — 놓친 split 이
+    무경고 통과하는 경로였다.
+    """
+    import kr_pipeline.pipeline.drift as d
+
+    mocker.patch.object(d, "_active_tickers", return_value=["AAA"])
+    mocker.patch.object(d, "_db_adj_close",
+                        side_effect=lambda conn, t, s, e: {date(2024, 1, 2): 50000.0})
+    mocker.patch.object(d, "_krx_adj_close", side_effect=lambda t, s, e: {})
+
+    unverified: list[str] = []
+    out = d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10),
+                                   unverified_out=unverified, sleep_s=0)
+    assert out == []
+    assert unverified == ["AAA"], "빈 재조회가 '이상 없음' 으로 뭉개짐"
+
+
+def test_detect_marks_unverified_on_fetch_error(mocker):
+    """재시도 소진 후 예외로 skip 된 종목도 '검증 못 함' 으로 집계."""
+    import kr_pipeline.pipeline.drift as d
+
+    mocker.patch.object(d, "_active_tickers", return_value=["ERR1"])
+    mocker.patch.object(d, "_db_adj_close",
+                        side_effect=lambda conn, t, s, e: {date(2024, 1, 2): 50000.0})
+    mocker.patch.object(d, "_krx_adj_close", side_effect=RuntimeError("boom"))
+
+    unverified: list[str] = []
+    out = d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10),
+                                   unverified_out=unverified, sleep_s=0)
+    assert out == []
+    assert unverified == ["ERR1"]
+
+
+def test_detect_normal_overlap_not_unverified(mocker):
+    """정상 겹침 종목은 unverified 에 안 들어가고 기존 드리프트 판정 유지."""
+    import kr_pipeline.pipeline.drift as d
+
+    mocker.patch.object(d, "_active_tickers", return_value=["SPL", "SAME"])
+    mocker.patch.object(d, "_db_adj_close", side_effect=lambda conn, t, s, e: {
+        "SPL": {date(2024, 1, 2): 50000.0},
+        "SAME": {date(2024, 1, 2): 50000.0},
+    }[t])
+    mocker.patch.object(d, "_krx_adj_close", side_effect=lambda t, s, e: {
+        "SPL": {date(2024, 1, 2): 10000.0},
+        "SAME": {date(2024, 1, 2): 50000.0},
+    }[t])
+
+    unverified: list[str] = []
+    out = d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10), rel_tol=0.01,
+                                   unverified_out=unverified, sleep_s=0)
+    assert out == ["SPL"]
+    assert unverified == []
+
+
+def test_detect_sleeps_between_tickers(mocker):
+    """스윕이 무-sleep 직렬 호출로 스스로 throttle 을 유발하지 않게 종목 간 대기."""
+    import kr_pipeline.pipeline.drift as d
+
+    mocker.patch.object(d, "_active_tickers", return_value=["AAA", "BBB"])
+    mocker.patch.object(d, "_db_adj_close",
+                        side_effect=lambda conn, t, s, e: {date(2024, 1, 2): 1.0})
+    mocker.patch.object(d, "_krx_adj_close",
+                        side_effect=lambda t, s, e: {date(2024, 1, 2): 1.0})
+    sleep_mock = mocker.patch.object(d.time, "sleep")
+
+    d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10), sleep_s=0.1)
+    assert sleep_mock.call_count == 2
