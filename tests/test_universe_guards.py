@@ -82,6 +82,9 @@ def test_mark_delisted_aborts_on_mass_delist(db):
             after = _active_tickers(cur)
         assert after == active, "abort 인데 일부가 폐지 처리됨 (fail-closed 깨짐)"
     finally:
+        # 실패 경로(예: 가드 미구현 red 단계)에서 mass delist 가 실제 실행된 채
+        # 정리 commit 에 묻어가는 것 방지 — 반드시 rollback 후 정리만 commit.
+        db.rollback()
         with db.cursor() as cur:
             cur.execute("DELETE FROM stocks WHERE ticker LIKE 'GRD%' AND name='가드테스트'")
         db.commit()
@@ -107,6 +110,8 @@ def test_mark_delisted_normal_small_delist_still_works(db):
             cur.execute("SELECT delisted_at FROM stocks WHERE ticker = %s", (victim,))
             assert cur.fetchone()[0] is not None
     finally:
+        # 실패 경로의 잔여 변경이 정리 commit 에 묻어가지 않게 rollback 선행
+        db.rollback()
         with db.cursor() as cur:
             cur.execute("DELETE FROM stocks WHERE ticker LIKE 'GRD%' AND name='가드테스트'")
         db.commit()
