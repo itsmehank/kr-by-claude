@@ -34,17 +34,22 @@ def test_insert_classification_basic(db):
 
     with db.cursor() as cur:
         cur.execute(
-            "SELECT classification, pattern, pivot_price, expires_at FROM weekly_classification WHERE symbol='CLS1'"
+            "SELECT classification, pattern, pivot_price, watch_reason FROM weekly_classification WHERE symbol='CLS1'"
         )
         row = cur.fetchone()
     assert row[0] == "entry"
     assert row[1] == "cup_with_handle"
     assert row[2] == 80000
-    # entry 는 expires_at NULL
+    # watch_reason 은 watch 전용 (store._watch_reason 불변식) — entry 는 NULL
     assert row[3] is None
 
 
-def test_insert_watch_sets_expires_at(db):
+def test_insert_watch_persists_watch_reason(db):
+    """watch 저장 시 watch_reason 이 함께 기록된다.
+
+    (구 expires_at 8주 만료는 스키마에서 제거됨 — 만료는 '최신 분류 우선'
+    규칙(get_active_monitoring 의 DISTINCT ON 최신행)으로 대체.)
+    """
     from kr_pipeline.llm_runner.store import insert_classification
 
     with db.cursor() as cur:
@@ -69,6 +74,7 @@ def test_insert_watch_sets_expires_at(db):
             "risk_flags": [],
             "confidence": 0.7,
             "reasoning": "test watch",
+            "watch_reason": "handle_forming",
         },
         source="weekend",
         llm_meta={"duration_s": 30.0, "input_tokens": 4000, "output_tokens": 150},
@@ -76,11 +82,10 @@ def test_insert_watch_sets_expires_at(db):
     db.commit()
 
     with db.cursor() as cur:
-        cur.execute("SELECT expires_at FROM weekly_classification WHERE symbol='CLS2'")
-        expires_at = cur.fetchone()[0]
-    # watch 는 8주 후 만료
-    expected_diff = (expires_at - classified_at).days
-    assert 55 <= expected_diff <= 57  # 56 ± 1
+        cur.execute("SELECT classification, watch_reason FROM weekly_classification WHERE symbol='CLS2'")
+        classification, watch_reason = cur.fetchone()
+    assert classification == "watch"
+    assert watch_reason == "handle_forming"
 
 
 def test_load_active_monitoring(db):

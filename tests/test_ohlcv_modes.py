@@ -123,11 +123,17 @@ def test_sanity_checks_coverage_warning(db):
     """활성 종목 100개 중 50개만 최근 일봉 들어왔으면 경고."""
     from kr_pipeline.ohlcv.modes import _run_sanity_checks, Mode
 
-    # Seed: 100 active stocks
+    # 커버리지 계산은 전체 활성 종목/전체 MAX(date) 기반 — 다른 테스트가 commit 하고
+    # 남긴 잔존 종목·일봉이 분모/기준일을 흔들지 않게 트랜잭션 안에서 중립화.
+    # commit 하지 않으므로 픽스처 rollback 으로 전부 원복 (finally 정리 불필요).
     with db.cursor() as cur:
+        cur.execute("DELETE FROM daily_prices")
+        cur.execute("UPDATE stocks SET delisted_at = '2020-01-01' WHERE delisted_at IS NULL")
+        # Seed: 100 active stocks
         for i in range(100):
             cur.execute(
-                "INSERT INTO stocks (ticker, name, market) VALUES (%s, %s, 'KOSPI') ON CONFLICT DO NOTHING",
+                "INSERT INTO stocks (ticker, name, market) VALUES (%s, %s, 'KOSPI') "
+                "ON CONFLICT (ticker) DO UPDATE SET delisted_at = NULL",
                 (f"{i:06d}", f"종목{i}"),
             )
         # 50 stocks with daily_prices for 2026-05-14
@@ -137,28 +143,25 @@ def test_sanity_checks_coverage_warning(db):
                 VALUES (%s, '2026-05-14', 100, 100, 100, 100, 100, 100, 100)
                 ON CONFLICT DO NOTHING
             """, (f"{i:06d}",))
-    db.commit()
 
-    try:
-        warnings = _run_sanity_checks(db, Mode.INCREMENTAL)
-        coverage_warnings = [w for w in warnings if w.startswith("coverage_low")]
-        assert len(coverage_warnings) == 1
-        assert "50/100" in coverage_warnings[0]
-    finally:
-        with db.cursor() as cur:
-            cur.execute("DELETE FROM daily_prices WHERE ticker ~ '^[0-9]{6}$'")
-            cur.execute("DELETE FROM stocks WHERE ticker ~ '^[0-9]{6}$'")
-        db.commit()
+    warnings = _run_sanity_checks(db, Mode.INCREMENTAL)
+    coverage_warnings = [w for w in warnings if w.startswith("coverage_low")]
+    assert len(coverage_warnings) == 1
+    assert "50/100" in coverage_warnings[0]
 
 
 def test_sanity_checks_no_warning_when_coverage_high(db):
     """80% 이상 커버리지면 경고 없음."""
     from kr_pipeline.ohlcv.modes import _run_sanity_checks, Mode
 
+    # 위 테스트와 동일 — 잔존행 중립화 후 무-commit (픽스처 rollback 원복)
     with db.cursor() as cur:
+        cur.execute("DELETE FROM daily_prices")
+        cur.execute("UPDATE stocks SET delisted_at = '2020-01-01' WHERE delisted_at IS NULL")
         for i in range(100):
             cur.execute(
-                "INSERT INTO stocks (ticker, name, market) VALUES (%s, %s, 'KOSPI') ON CONFLICT DO NOTHING",
+                "INSERT INTO stocks (ticker, name, market) VALUES (%s, %s, 'KOSPI') "
+                "ON CONFLICT (ticker) DO UPDATE SET delisted_at = NULL",
                 (f"{i:06d}", f"종목{i}"),
             )
         for i in range(90):
@@ -167,17 +170,10 @@ def test_sanity_checks_no_warning_when_coverage_high(db):
                 VALUES (%s, '2026-05-14', 100, 100, 100, 100, 100, 100, 100)
                 ON CONFLICT DO NOTHING
             """, (f"{i:06d}",))
-    db.commit()
 
-    try:
-        warnings = _run_sanity_checks(db, Mode.INCREMENTAL)
-        coverage_warnings = [w for w in warnings if w.startswith("coverage_low")]
-        assert coverage_warnings == []
-    finally:
-        with db.cursor() as cur:
-            cur.execute("DELETE FROM daily_prices WHERE ticker ~ '^[0-9]{6}$'")
-            cur.execute("DELETE FROM stocks WHERE ticker ~ '^[0-9]{6}$'")
-        db.commit()
+    warnings = _run_sanity_checks(db, Mode.INCREMENTAL)
+    coverage_warnings = [w for w in warnings if w.startswith("coverage_low")]
+    assert coverage_warnings == []
 
 
 def test_sanity_checks_bad_prices_warning(db):

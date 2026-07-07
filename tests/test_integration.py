@@ -22,8 +22,8 @@ def test_universe_then_ohlcv_incremental_smoke(test_db_url):
     with connect(test_db_url) as conn:
         # 1) 작은 universe 시드 (삼성전자, SK하이닉스)
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM daily_prices")
-            cur.execute("DELETE FROM stocks")
+            # 잔존행이 stocks 를 FK 로 참조할 수 있어(weekly_prices 등) CASCADE 로 일괄 정리
+            cur.execute("TRUNCATE stocks CASCADE")
             cur.execute("DELETE FROM pipeline_runs")
         import pandas as pd
         df = pd.DataFrame([
@@ -48,8 +48,7 @@ def test_universe_then_ohlcv_incremental_smoke(test_db_url):
         finally:
             # 4) 정리 — 후속 unit test 격리를 위해
             with conn.cursor() as cur:
-                cur.execute("DELETE FROM daily_prices")
                 cur.execute("DELETE FROM index_daily")
                 cur.execute("DELETE FROM pipeline_runs")
-                cur.execute("DELETE FROM stocks")
+                cur.execute("TRUNCATE stocks CASCADE")
             conn.commit()

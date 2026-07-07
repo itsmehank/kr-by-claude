@@ -5,6 +5,8 @@ def test_evaluate_pivot_dry_run(db, mocker):
     """active entry 종목 → 결정론 트리거 발동 → (5b) dry-run."""
     today = date(2026, 5, 20)
     with db.cursor() as cur:
+        # run() 은 전 종목의 활성 분류를 스캔 — 잔존 분류/트리거 행 선행 정리
+        cur.execute("TRUNCATE weekly_classification, trigger_evaluation_log, entry_params CASCADE")
         cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('EV1', 'E', 'KOSPI') ON CONFLICT DO NOTHING")
         prior_at = datetime(2026, 5, 17, 3, 0, tzinfo=timezone.utc)
         cur.execute(
@@ -62,13 +64,15 @@ def test_evaluate_pivot_dry_run(db, mocker):
     result = run(db, dry_run=True, as_of=today)
     assert result["evaluated"] >= 1
 
+    # dry-run 은 무부작용 미리보기 — trigger_evaluation_log 에 기록하지 않는다
+    # (evaluate_pivot._process_one 이 insert 전에 return). 과거엔 잔존행 때문에
+    # '기록됨' 단언이 가짜-통과했었다 (스키마 리셋으로 드러남).
     with db.cursor() as cur:
         cur.execute(
             "SELECT decision FROM trigger_evaluation_log WHERE symbol='EV1' ORDER BY evaluated_at DESC LIMIT 1"
         )
         row = cur.fetchone()
-    assert row is not None
-    assert row[0] in {"go_now", "wait", "abort"}
+    assert row is None
 
 
 def test_evaluate_aborts_on_usage_limit(db, mocker):

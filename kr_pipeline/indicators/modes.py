@@ -375,6 +375,7 @@ def run_daily(
     *,
     window: int = 30,
     limit_tickers: int | None = None,
+    only_tickers: list[str] | None = None,
 ) -> RunStats:
     """일봉 지표 파이프라인 실행."""
     global _phase_b_cache
@@ -386,6 +387,9 @@ def run_daily(
     log.info(f"daily indicators mode={mode.value} load={load_start}..{load_end} upsert={upsert_start}..{load_end}")
 
     tickers = load_active_tickers_with_market(conn, limit=limit_tickers)
+    if only_tickers is not None:
+        keep = set(only_tickers)
+        tickers = [(t, m) for (t, m) in tickers if t in keep]
     log.info(f"daily indicators tickers: {len(tickers)}")
 
     rows_total = 0

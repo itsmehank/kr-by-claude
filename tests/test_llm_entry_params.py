@@ -7,6 +7,9 @@ def test_entry_params_processes_go_now_only(db, mocker):
     prior_at = datetime(2026, 5, 17, 3, 0, tzinfo=timezone.utc)
 
     with db.cursor() as cur:
+        # run() 은 전 종목의 활성 분류·트리거를 스캔 — 다른 테스트가 commit 하고 남긴
+        # 분류/트리거 잔존행이 처리 순서·mock 소비를 오염시키지 않게 선행 정리
+        cur.execute("TRUNCATE weekly_classification, trigger_evaluation_log, entry_params CASCADE")
         cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('EP1', 'E', 'KOSPI') ON CONFLICT DO NOTHING")
         cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('EP2', 'E', 'KOSPI') ON CONFLICT DO NOTHING")
         cur.execute(
@@ -58,14 +61,18 @@ def test_entry_params_processes_go_now_only(db, mocker):
 
     result = run(db, dry_run=True, as_of=today)
 
-    # EP1 만 go_now → 1 새 entry_params row, EP2 는 wait → 추가 없음
+    # EP1 만 go_now → 처리 1건. EP2 는 wait → 후보 제외.
+    assert result == {"processed": 1, "failures": 0}
+
+    # dry-run 은 무부작용 — entry_params 에 기록하지 않는다 (_process_one 이 insert 전
+    # return). 과거엔 잔존행 때문에 '기록됨' 단언이 가짜-통과했었다 (스키마 리셋으로 드러남).
     with db.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM entry_params WHERE symbol='EP1'")
         after_ep1 = cur.fetchone()[0]
         cur.execute("SELECT COUNT(*) FROM entry_params WHERE symbol='EP2'")
         after_ep2 = cur.fetchone()[0]
 
-    assert after_ep1 - before_ep1 == 1
+    assert after_ep1 - before_ep1 == 0
     assert after_ep2 - before_ep2 == 0
 
 

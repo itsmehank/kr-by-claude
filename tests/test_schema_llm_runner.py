@@ -9,15 +9,18 @@ def test_weekly_classification_schema(db):
         """)
         cols = {r[0] for r in cur.fetchall()}
     required = {
-        "symbol", "classified_at", "market", "classification", "pattern",
+        "symbol", "classified_at", "analyzed_for_date", "market", "classification", "pattern",
         "pivot_price", "pivot_basis", "base_high", "base_low",
         "base_depth_pct", "base_start_date",
         "risk_flags", "confidence", "reasoning",
-        "source", "expires_at",
-        "llm_call_duration_s", "llm_input_tokens", "llm_output_tokens",
+        "source", "watch_reason", "sanity_warnings",
+        "triggered_rules", "measurements",
+        "llm_call_duration_s", "llm_input_tokens", "llm_output_tokens", "llm_model",
         "created_at",
     }
-    assert required.issubset(cols)
+    assert required.issubset(cols), f"missing: {required - cols}"
+    # expires_at 은 제거된 컬럼 (만료는 '최신 분류 우선' 규칙로 대체) — 재도입 감지
+    assert "expires_at" not in cols
 
 
 def test_trigger_evaluation_log_schema(db):
