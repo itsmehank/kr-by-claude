@@ -1,6 +1,7 @@
 # tests/test_market_context_integration.py
 from datetime import date, timedelta
 import pytest
+from freezegun import freeze_time
 
 from kr_pipeline.db.connection import connect
 from kr_pipeline.market_context.modes import Mode, run
@@ -106,6 +107,87 @@ def test_backfill_creates_kospi_and_kosdaq_rows(test_db_url):
                 """)
                 row = cur.fetchone()
                 assert row == ("market_context", "backfill", "success")
+        finally:
+            _cleanup(conn)
+
+
+def _seed_index_range(conn, end_d: date, cal_days: int = 300):
+    """end_d 까지(주말 제외) index_daily 만 시드.
+
+    daily_indicators 는 안 넣음 — breadth 는 유효 종목 0개 → None 경로 (안전).
+    P1-4 테스트용: 시드 종료일을 기준일(frozen today/yesterday)에 맞춘다.
+    """
+    base = end_d - timedelta(days=cal_days)
+    with conn.cursor() as cur:
+        for i in range(cal_days + 1):
+            d = base + timedelta(days=i)
+            if d.weekday() >= 5:
+                continue
+            kospi_close = 2500 + i * 1.0
+            cur.execute(
+                """INSERT INTO index_daily (index_code, date, open, high, low, close, volume, value)
+                   VALUES ('1001', %s, %s, %s, %s, %s, 1000, 1000000)
+                   ON CONFLICT DO NOTHING""",
+                (d, kospi_close - 5, kospi_close + 5, kospi_close - 8, kospi_close),
+            )
+            kosdaq_close = 700 + i * 0.5
+            cur.execute(
+                """INSERT INTO index_daily (index_code, date, open, high, low, close, volume, value)
+                   VALUES ('2001', %s, %s, %s, %s, %s, 500, 500000)
+                   ON CONFLICT DO NOTHING""",
+                (d, kosdaq_close - 3, kosdaq_close + 3, kosdaq_close - 5, kosdaq_close),
+            )
+    conn.commit()
+
+
+@freeze_time("2026-07-08")
+def test_incremental_computes_today_row(test_db_url):
+    """P1-4: 당일 index_daily 행이 있으면 incremental 이 당일 status 를 계산한다.
+
+    ohlcv 체인(18:30)이 당일 확정봉을 적재한 뒤 19:30 market_context 가
+    당일까지 계산해야 20:00 LLM 이 신선한 status 를 소비한다.
+    """
+    today = date(2026, 7, 8)  # 수요일
+    with connect(test_db_url) as conn:
+        _cleanup(conn)
+        _seed_index_range(conn, end_d=today)
+        try:
+            stats = run(conn, Mode.INCREMENTAL, window_days=30)
+            assert stats.failures == []
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT COUNT(*) FROM market_context_daily WHERE date = %s", (today,)
+                )
+                assert cur.fetchone()[0] == 2  # KOSPI + KOSDAQ
+        finally:
+            _cleanup(conn)
+
+
+@freeze_time("2026-07-08")
+def test_incremental_missing_today_naturally_skips(test_db_url):
+    """당일 행이 없으면(휴일/적재 전) 실패 없이 어제까지만 계산 — 자연 skip 안전망.
+
+    load_end=today 로 넓혀도 index_daily 에 당일 행이 없으면 로드 결과에
+    그 날짜가 없으므로 아무것도 추가 처리되지 않아야 한다 (실패 아님).
+    """
+    today = date(2026, 7, 8)
+    yesterday = date(2026, 7, 7)  # 화요일
+    with connect(test_db_url) as conn:
+        _cleanup(conn)
+        _seed_index_range(conn, end_d=yesterday)
+        try:
+            stats = run(conn, Mode.INCREMENTAL, window_days=30)
+            assert stats.failures == []
+            with conn.cursor() as cur:
+                cur.execute("SELECT MAX(date) FROM market_context_daily")
+                assert cur.fetchone()[0] == yesterday
+                cur.execute("SELECT COUNT(*) FROM market_context_daily WHERE date = %s", (today,))
+                assert cur.fetchone()[0] == 0
+                cur.execute("""
+                    SELECT status FROM pipeline_runs
+                     WHERE pipeline = 'market_context' ORDER BY id DESC LIMIT 1
+                """)
+                assert cur.fetchone()[0] == "success"
         finally:
             _cleanup(conn)
 
