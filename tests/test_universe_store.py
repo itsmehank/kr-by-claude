@@ -65,10 +65,19 @@ def test_mark_delisted_sets_date_for_missing_tickers(db):
     ])
     upsert_stocks(db, df_before)
 
-    df_after = pd.DataFrame([
-        {"ticker": "005930", "name": "삼성전자", "market": "KOSPI", "sector": None},
+    # 대량 오폐지 가드(_MAX_DELIST_RATIO=2%) 도입 후 계약: current_tickers 는
+    # '활성 전체에서 폐지분만 빠진' 집합. 활성 규모를 filler 로 확보해
+    # 1건 폐지가 상한 이하가 되게 한다 (rollback 격리라 잔존 없음).
+    filler = pd.DataFrame([
+        {"ticker": f"F{i:05d}", "name": "필러", "market": "KOSPI", "sector": None}
+        for i in range(60)
     ])
-    marked = mark_delisted(db, current_tickers=set(df_after["ticker"]), on_date=date(2026, 5, 15))
+    upsert_stocks(db, filler)
+    with db.cursor() as cur:
+        cur.execute("SELECT ticker FROM stocks WHERE delisted_at IS NULL")
+        active = {r[0] for r in cur.fetchall()}
+
+    marked = mark_delisted(db, current_tickers=active - {"999999"}, on_date=date(2026, 5, 15))
     assert marked == 1
 
     with db.cursor() as cur:
