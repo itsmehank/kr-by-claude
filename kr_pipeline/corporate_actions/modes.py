@@ -49,18 +49,27 @@ def compute_date_range(
     raise ValueError(f"Unknown mode: {mode}")
 
 
-def _process_ticker(
-    conn: Connection,
-    api_key: str,
-    ticker: str,
-    corp_code: str,
-    start_date: date,
-    end_date: date,
-) -> int:
-    """한 종목의 공시 fetch → 파싱 → UPSERT. 처리 행수 반환."""
-    disclosures = fetch_disclosures(api_key, corp_code, start_date, end_date)
+def _date_chunks(start: date, end: date, *, days: int = 90):
+    """[start..end] 를 최대 `days` 일 구간으로 분할 (빈틈·중복 없음).
+
+    일괄 조회(corp_code 생략)는 전 회사 공시를 받으므로, 긴 기간(backfill 5y)을
+    한 요청으로 던지면 페이지가 폭주한다 — 구간을 나눠 요청당 페이지 수를 bound.
+    """
+    cur = start
+    while cur <= end:
+        chunk_end = min(cur + timedelta(days=days - 1), end)
+        yield cur, chunk_end
+        cur = chunk_end + timedelta(days=1)
+
+
+def _rows_from_disclosures(disclosures: list[dict], corp_to_ticker: dict[str, str]) -> list[dict]:
+    """일괄 응답 → corp_code 역매핑 + 파싱. universe 밖 회사·비대상 공시는 skip."""
     rows = []
+    seen: set[tuple] = set()
     for d in disclosures:
+        ticker = corp_to_ticker.get(d.get("corp_code"))
+        if ticker is None:
+            continue   # 우리 universe(매핑된 활성 종목) 밖 회사
         report_nm = d.get("report_nm", "")
         event_type = parse_event_type(report_nm)
         if event_type is None:
@@ -70,6 +79,10 @@ def _process_ticker(
             event_date = date(int(rcept_dt_str[:4]), int(rcept_dt_str[4:6]), int(rcept_dt_str[6:8]))
         except (ValueError, IndexError):
             continue
+        key = (ticker, event_date, event_type, d.get("rcept_no"))
+        if key in seen:
+            continue   # 같은 executemany 안 중복 → ON CONFLICT 이중 갱신 에러 방지
+        seen.add(key)
         ratio = parse_ratio(report_nm, event_type)
         rows.append({
             "ticker": ticker,
@@ -80,6 +93,19 @@ def _process_ticker(
             "dart_rcept_no": d.get("rcept_no"),
             "raw_disclosure_title": report_nm,
         })
+    return rows
+
+
+def _process_chunk(
+    conn: Connection,
+    api_key: str,
+    corp_to_ticker: dict[str, str],
+    chunk_start: date,
+    chunk_end: date,
+) -> int:
+    """한 날짜 청크의 전 회사 공시 일괄 fetch → 역매핑·파싱 → UPSERT. 처리 행수 반환."""
+    disclosures = fetch_disclosures(api_key, None, chunk_start, chunk_end)
+    rows = _rows_from_disclosures(disclosures, corp_to_ticker)
     if not rows:
         return 0
     affected = upsert_corporate_actions(conn, rows)
@@ -147,32 +173,40 @@ def run(
                     conn.commit()
 
             tickers = load_active_tickers_with_corp_code(conn, limit=limit_tickers)
-            log.info(f"tickers to process: {len(tickers)}")
+            corp_to_ticker = {corp_code: ticker for ticker, corp_code in tickers}
+            chunks = list(_date_chunks(start_date, end_date))
+            log.info(
+                f"매핑 종목 {len(tickers)}개 — 기간 일괄 조회 {len(chunks)} 청크 "
+                f"(종목별 반복 호출 아님)"
+            )
 
-            for i, (ticker, corp_code) in enumerate(tickers, 1):
+            # failures 의 첫 원소는 청크 라벨 ('YYYY-MM-DD..YYYY-MM-DD') — 일괄 조회라
+            # 실패 단위가 종목이 아니라 날짜 구간.
+            for i, (cs, ce) in enumerate(chunks, 1):
                 try:
-                    rows_total += _process_ticker(conn, api_key, ticker, corp_code, start_date, end_date)
+                    rows_total += _process_chunk(conn, api_key, corp_to_ticker, cs, ce)
                 except DartApiError as e:
-                    failures.append((ticker, str(e)))
-                    log.warning(f"{ticker}: DART API error — {e}")
+                    failures.append((f"{cs}..{ce}", str(e)))
+                    log.warning(f"chunk {cs}..{ce}: DART API error — {e}")
                     conn.rollback()
                 except Exception as e:
-                    failures.append((ticker, str(e)))
-                    log.warning(f"{ticker}: {e}")
+                    failures.append((f"{cs}..{ce}", str(e)))
+                    log.warning(f"chunk {cs}..{ce}: {e}")
                     conn.rollback()
-                if i % 100 == 0:
-                    log.info(f"progress: {i}/{len(tickers)} (failures: {len(failures)})")
+                if i % 5 == 0 or i == len(chunks):
+                    log.info(f"progress: {i}/{len(chunks)} chunks (failures: {len(failures)})")
 
-            # 끝-of-run 1회 재시도
+            # 끝-of-run 1회 재시도 (실패 청크만)
             if failures:
-                log.warning(f"Retrying {len(failures)} failed tickers")
+                log.warning(f"Retrying {len(failures)} failed chunks")
                 retry_failures = []
-                ticker_to_corp = {t: c for t, c in tickers}
-                for ticker, _ in failures:
+                for label, _ in failures:
+                    cs_str, ce_str = label.split("..")
+                    cs, ce = date.fromisoformat(cs_str), date.fromisoformat(ce_str)
                     try:
-                        rows_total += _process_ticker(conn, api_key, ticker, ticker_to_corp[ticker], start_date, end_date)
+                        rows_total += _process_chunk(conn, api_key, corp_to_ticker, cs, ce)
                     except Exception as e:
-                        retry_failures.append((ticker, str(e)))
+                        retry_failures.append((label, str(e)))
                         conn.rollback()
                 failures = retry_failures
 
