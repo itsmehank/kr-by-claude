@@ -333,9 +333,15 @@
 </div>
 </div>
 
-<div class="card sev1">
+<div class="card sev1 done">
+<span class="done-badge">처리완료 · 2026-07-07</span>
 <h3>3. daily.csv의 raw volume 잔존 — 7850a0b 수정의 커버리지 구멍 <em>(신규 발견)</em></h3>
 <p>payload_builder는 6월에 adj로 통일됐지만 <code>api/services/csv_builder.py:32</code>가 여전히 <code>p.volume</code>(raw)이고, <code>inline_builder.py:68,90</code>이 daily.csv를 LLM 인라인 입력에 유지합니다. 기업행위 종목(~12%)에서 같은 날 두 개의 다른 거래량이 LLM에 노출됩니다. 수정 한 줄(<code>COALESCE(p.adj_volume, p.volume)</code>).</p>
+<div class="resolved">
+<span class="rlabel">처리 내역</span>
+<p><code>csv_builder.py</code>의 daily.csv SELECT를 <code>ROUND(COALESCE(p.adj_volume, p.volume))::bigint AS volume</code>으로 교체해 <code>payload_builder</code>와 동일 도메인(adj)으로 통일했습니다. <code>adj_volume</code> NULL(거래정지 등)이면 raw 폴백으로 기존 동작을 유지하고, "도메인 혼입 금지" 취지의 주석도 부착했습니다.</p>
+<p><strong>검증</strong>: 회귀 테스트 추가(<code>tests/test_api_csv_builder.py</code>) + 실물 대조(006740에서 daily.csv=payload=adj 일치 확인). <strong>커밋 <code>8121790</code> — origin/main 머지·푸시 완료.</strong></p>
+</div>
 </div>
 
 <div class="card sev1">
@@ -553,7 +559,8 @@ KRX 주가 수집 ─→ 지표 계산 ─→ 결정론 스크리너 ─→ [주
 </div>
 </div>
 
-<div class="card sev1">
+<div class="card sev1 done">
+<span class="done-badge">처리완료 · 2026-07-07</span>
 <h3>P1-3. AI에게 주는 자료 안에서, 같은 날 거래량이 두 가지 숫자로 나온다</h3>
 <p><b>배경</b>: 용어 사전의 raw/adj를 떠올려 주세요. 액면분할 등 기업행위가 있었던 종목은 보정 전(raw)과 보정 후(adj) 거래량이 다릅니다. AI에게 차트 분석을 시킬 때는 여러 형식의 자료(구조화된 payload, 표 형식의 daily.csv 등)를 한 묶음으로 주는데, 이 묶음 안의 모든 숫자는 <strong>한 가지 기준(adj)으로 통일</strong>돼야 합니다.</p>
 <div class="block why"><span class="blabel">무엇이 문제인가요?</span>
@@ -561,6 +568,11 @@ KRX 주가 수집 ─→ 지표 계산 ─→ 결정론 스크리너 ─→ [주
 <div class="block logic"><span class="blabel">실제 코드와의 연결</span>
 <p>문제 지점: <code>api/services/csv_builder.py:32</code>의 SQL이 <code>p.volume</code>(raw)을 선택. 이 CSV를 AI 입력에 포함시키는 곳: <code>inline_builder.py:68,90</code>(의도적으로 유지 중). 이미 올바르게 고쳐진 이웃: <code>payload_builder.py:155-157</code>(adj로 통일 + "도메인 혼입 금지" 주석까지 부착).</p></div>
 <div class="block fix"><span class="blabel">어떻게 고치나요</span><p>SQL 한 줄을 <code>COALESCE(p.adj_volume, p.volume)</code>(보정값이 있으면 보정값, 없으면 원본)으로 바꾸면 끝입니다. 발견 대비 수정 비용이 가장 작은 P1입니다.</p></div>
+<div class="resolved">
+<span class="rlabel">처리 내역 (2026-07-07 완료)</span>
+<p>계획대로 daily.csv를 만드는 SQL 한 줄을 "보정값이 있으면 보정값, 없으면 원본" 방식으로 바꿨습니다. 이제 payload와 daily.csv가 <strong>같은 기준(adj)의 거래량</strong>을 쓰므로, AI가 같은 날에 대해 서로 다른 두 숫자를 보는 일이 사라졌습니다. 거래정지처럼 보정값이 없는 날은 예전처럼 원본 값을 그대로 씁니다.</p>
+<p>고친 뒤 자동 테스트를 추가하고, 실제 종목(006740)에서 daily.csv와 payload의 거래량이 똑같이 나오는 것을 눈으로 확인했습니다. (커밋 <code>8121790</code>)</p>
+</div>
 </div>
 
 <div class="card sev1">
