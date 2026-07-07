@@ -133,3 +133,72 @@ def test_entry_params_sends_slack_signal_on_insert(db, mocker):
     notify.reset_mock()
     ep._process_one(db, "NTFY1", now, now, dry_run=True, as_of=now.date())
     assert notify.call_count == 0, "dry-run 에서 알림 발송 금지"
+
+
+# ====== P1-2 Part B: current_price echo 교차검증 ======
+
+def _canned_s9(current_price):
+    """§9 유효 출력 (current_price 만 가변)."""
+    return {
+        "entry_mode": "pivot_breakout", "pivot_price": 100.0, "trigger_price": 100.1,
+        "current_price": current_price, "stop_loss_price": 95.0,
+        "stop_loss_pct_from_pivot": -5.0, "stop_loss_pct_from_current_price": -5.1,
+        "suggested_weight_pct": 5.0, "expected_target_price": 120.0,
+        "expected_target_pct": 20.0, "pattern_basis": "flat_base",
+        "entry_window_days": 3, "max_chase_pct_from_pivot": 5.0,
+        "breakout_volume_requirement": "ge_1.4x_50day_avg",
+        "observed_breakout_volume_ratio": None,
+        "known_warnings": [], "other_warnings": "", "notes": "t",
+    }
+
+
+def _echo_mocks(mocker, *, close, current_price):
+    """build_for_6/call_claude/insert/notify 를 mock — echo 검증만 격리."""
+    import kr_pipeline.llm_runner.entry_params as ep
+
+    payload = {"symbol": "ECHO1", "name": "에코"}
+    if close is not None:
+        payload["current_state"] = {"close": close}
+    mocker.patch.object(ep, "build_for_6", return_value=payload)
+    mocker.patch.object(ep, "call_claude", return_value=_canned_s9(current_price))
+    insert = mocker.patch.object(ep, "insert_entry_params")
+    notify = mocker.patch.object(ep, "notify_signal")
+    return ep, insert, notify
+
+
+def test_entry_rejects_current_price_echo_mismatch(db, mocker):
+    """current_price 는 payload current_state.close 의 echo — 크게 어긋나면 오독
+    신호이므로 fail-closed: 저장·Slack 알림 모두 거부."""
+    import pytest
+
+    ep, insert, notify = _echo_mocks(mocker, close=1000.0, current_price=1050.0)
+    now = datetime.now(timezone.utc)
+    with pytest.raises(ValueError, match="echo"):
+        ep._process_one(db, "ECHO1", now, now, dry_run=False, as_of=now.date())
+    assert insert.call_count == 0, "오독 계획이 저장됨"
+    assert notify.call_count == 0, "오독 계획이 Slack 발송됨"
+
+
+def test_entry_accepts_exact_echo(db, mocker):
+    ep, insert, notify = _echo_mocks(mocker, close=1000.0, current_price=1000.0)
+    now = datetime.now(timezone.utc)
+    ep._process_one(db, "ECHO1", now, now, dry_run=False, as_of=now.date())
+    assert insert.call_count == 1
+    assert notify.call_count == 1
+
+
+def test_entry_skips_echo_check_without_close(db, mocker):
+    """payload 에 current_state.close 없으면 비교 불가 — 검사 skip (기존 동작 보존)."""
+    ep, insert, notify = _echo_mocks(mocker, close=None, current_price=100.0)
+    now = datetime.now(timezone.utc)
+    ep._process_one(db, "ECHO1", now, now, dry_run=False, as_of=now.date())
+    assert insert.call_count == 1
+
+
+def test_entry_accepts_integer_rounding_of_fractional_close(db, mocker):
+    """수정주가 소수부(예: 100.49)를 LLM 이 정수(100)로 echo — 절대 1원 허용이
+    흡수해야 함(상대 0.1% 단독이면 0.49% 로 오거부되는 케이스)."""
+    ep, insert, notify = _echo_mocks(mocker, close=100.49, current_price=100.0)
+    now = datetime.now(timezone.utc)
+    ep._process_one(db, "ECHO1", now, now, dry_run=False, as_of=now.date())
+    assert insert.call_count == 1

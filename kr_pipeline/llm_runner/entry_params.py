@@ -17,6 +17,12 @@ from kr_pipeline.llm_runner.store import insert_entry_params, _normalize_entry_p
 
 log = logging.getLogger("kr_pipeline.llm_runner.entry_params")
 
+# [design judgment] current_price echo 허용 오차 — book 근거 아닌 휴리스틱이라
+# thresholds.py 비등재. 상대 0.1%(오독 포착) 또는 절대 1원(수정주가 소수부의
+# 정수 반올림 흡수 — 예: close 100.49 를 100 으로 echo) 중 큰 쪽.
+_ECHO_REL_TOL = 0.001
+_ECHO_ABS_TOL = 1.0
+
 
 def _fetch_go_now_candidates(conn, as_of: date, force: bool = False) -> list:
     """as_of go_now breakout(+from_watch) 후보. 2E_tier2 제외.
@@ -127,6 +133,21 @@ def _process_one(conn, symbol, eval_at, prior_at, *, dry_run, as_of):
         _normalize_entry_params(result)  # §9 정합 검증(드리프트 시 ValueError) — insert 는 skip
         log.info("dry-run: validated entry plan for %s (skipping DB insert)", symbol)
         return
+
+    # P1-2 Part B: current_price 는 프롬프트가 payload current_state.close 를 그대로
+    # 되받아 적도록(echo) 지시한 값 — 정답을 아는 값이라 밴드가 아닌 거의-정확 일치.
+    # 불일치 = LLM 이 payload 숫자를 오독했다는 신호로, 같은 payload 에서 계산된
+    # stop/target 도 신뢰 불가 → fail-closed(저장·알림 거부). 종목 단위 격리는
+    # run() 루프 except 가, 같은 날 재실행 시 재시도는 NOT EXISTS 가드가 담당.
+    expected_close = (payload.get("current_state") or {}).get("close")
+    echoed = result.get("current_price")
+    if expected_close is not None and echoed is not None:
+        tol = max(abs(float(expected_close)) * _ECHO_REL_TOL, _ECHO_ABS_TOL)
+        if abs(float(echoed) - float(expected_close)) > tol:
+            raise ValueError(
+                f"current_price echo mismatch ({symbol}): LLM={echoed} "
+                f"vs payload close={expected_close} (tol={tol:.4f}) — payload 오독 의심"
+            )
 
     # 알림용 값은 insert 전에 캡처 — _normalize 가 §9 키를 리네임할 수 있음
     _ntf_entry = float(result["trigger_price"])
