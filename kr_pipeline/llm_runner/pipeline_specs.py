@@ -10,6 +10,9 @@ frontend / backend 양쪽이 참조하는 단일 진실. 각 pipeline 의:
                        (pipeline_runs.mode 가 이 prefix 로 시작하는 행만 매치)
   - modes: 실행 모드 리스트 [{id, label, args}]
   - default_cron: cron 표현식
+  - cron_mode (옵션): cron 라인에 쓸 mode id. 없으면 modes[0].
+                     (UI 기본 모드는 안전한 dry-run, cron 은 실제 실행이
+                      필요한 파이프라인용 — freeze-cleanup)
 """
 from __future__ import annotations
 
@@ -285,6 +288,28 @@ PIPELINE_SPECS: list[dict] = [
         "outputs": ["classification_backfill"],
         "depends_on": ["indicators-daily", "indicators-weekly", "market-context", "ohlcv"],
     },
+    {
+        "id": "freeze-cleanup",
+        "group": "llm",
+        "label": "Freeze 정리 (retention)",
+        "description": "classification freeze 아티팩트 retention — 90일 경과 + 비활성 종목 + stage 별 최신 제외분을 삭제해 디스크 회수.",
+        "module": "kr_pipeline.llm_runner.freeze_cleanup",
+        "pipeline_db_name": "freeze_cleanup",
+        "modes": [
+            {"id": "dry-run", "label": "미리보기 (dry-run)",
+             "args": [], "is_heavy": False},
+            {"id": "apply", "label": "실제 삭제", "args": ["--apply"], "is_heavy": True,
+             "params": [{"name": "days", "label": "보존 기간(일)", "type": "int",
+                         "default": 90, "min": 30, "max": 365}]},
+        ],
+        "default_cron": "40 4 * * 6",
+        "cron_mode": "apply",
+        "schedule_label": "주 1회 (토)",
+        "long_description": "LLM 분류 시 저장되는 freeze 아티팩트(zip)를 정리해 디스크를 회수합니다.\n\n삭제 조건 (모두 충족해야 삭제):\n- frozen_at 이 보존 기간(기본 90일) 경과\n- 그 종목의 최신 weekly_classification 이 entry/watch 가 아님 (활성 종목 보호)\n- (종목, stage) 그룹의 최신 freeze 는 classification 무관하게 항상 보존\n\n미리보기(dry-run)는 삭제 후보 수만 계산하고, 실제 삭제(--apply)는 아티팩트 파일 삭제 + DB 행 삭제를 함께 수행합니다. LLM 호출 없음.\n\ncron 은 실제 삭제(--apply) 로 등록됩니다 — dry-run cron 은 retention 을 수행하지 않아 무의미하기 때문. UI 기본 모드는 안전한 미리보기입니다.\n\n선행 작업: llm-full-daily, llm-weekend (freeze 생성 주체)\n후속 작업: 없음",
+        "inputs": ["classification_freezes", "weekly_classification"],
+        "outputs": ["classification_freezes"],
+        "depends_on": ["llm-full-daily", "llm-weekend"],
+    },
 ]
 
 
@@ -315,14 +340,18 @@ def matches_mode_prefix(mode: str | None, prefix: str | None) -> bool:
 
 
 def get_default_cron_lines() -> list[str]:
-    """PIPELINE_SPECS 의 default_cron + 첫 번째 mode args 로 cron 라인 생성."""
+    """PIPELINE_SPECS 의 default_cron + cron_mode(없으면 첫 번째 mode) args 로 cron 라인 생성."""
     from pathlib import Path
     project_dir = Path(__file__).parent.parent.parent.resolve()
     lines = []
     for spec in PIPELINE_SPECS:
         if not spec.get("default_cron"):
             continue  # 수동 전용 파이프라인(빈 cron)은 등록 안 함
-        default_mode = spec["modes"][0]
+        cron_mode_id = spec.get("cron_mode")
+        if cron_mode_id:
+            default_mode = next(m for m in spec["modes"] if m["id"] == cron_mode_id)
+        else:
+            default_mode = spec["modes"][0]
         args_str = " ".join(default_mode["args"])
         cmd = f"uv run python -m {spec['module']}"
         if args_str:

@@ -300,3 +300,31 @@ def test_active_protection_uses_analyzed_for_date(db):
             cur.execute("DELETE FROM classification_freezes WHERE ticker=%s", (sym,))
             cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (sym,))
         db.commit()
+
+
+def test_run_cli_records_pipeline_run(db):
+    """CLI 진입점은 pipeline_runs 에 run 을 기록한다 (pipeline_specs 등재 계약).
+
+    spec 의 pipeline_db_name='freeze_cleanup' 이 실재하려면 — UI 실행 가시화
+    (wait_for_run_registration)·중복 방지(check_can_run_pipeline)가 이 행에 의존.
+    """
+    from kr_pipeline.llm_runner.freeze_cleanup import run_cli
+
+    try:
+        result = run_cli(db, apply=False, retention_days=90)
+        assert result.deleted == 0  # dry-run 은 삭제 없음
+        with db.cursor() as cur:
+            cur.execute(
+                """SELECT mode, status, params FROM pipeline_runs
+                    WHERE pipeline = 'freeze_cleanup' ORDER BY id DESC LIMIT 1"""
+            )
+            row = cur.fetchone()
+        assert row is not None, "pipeline_runs 에 freeze_cleanup 행이 없음"
+        mode, status, params = row
+        assert mode == "dry-run"
+        assert status == "success"
+        assert params["days"] == 90
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM pipeline_runs WHERE pipeline = 'freeze_cleanup'")
+        db.commit()
