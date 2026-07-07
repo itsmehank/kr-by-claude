@@ -9,6 +9,13 @@
 - pattern, pivot_price 재산출 **금지**. (5) 가 정한 그대로 사용.
 - 출력은 오직 오늘 매수 결정만.
 
+<!-- SSOT-THRESHOLDS -->
+이 값들은 `kr_pipeline/common/thresholds.py` 와 동기화됨 (tests/test_prompt_threshold_drift.py 가 검증).
+코드가 소비하는 값만 등재 — wait 밴드(1.2~1.4×)·spread 1.5x·sma_50×0.98 등은 프롬프트 전용 판단값.
+- BREAKOUT_VOL_FLOOR = 1.4
+- GATE_PROMOTION_PRICE_RATIO = 0.95
+<!-- /SSOT-THRESHOLDS -->
+
 ## 2. Inputs (JSON)
 
 **가격 데이터 규약:** 제공되는 모든 가격(OHLCV·차트·지표·current_metrics)은 수정주가(split-adjusted) 기준입니다. 분할/액면병합은 이미 반영되어 있으므로 가격 단차로 오인하지 마세요.

@@ -8,6 +8,14 @@ import json
 
 from psycopg import Connection
 
+from kr_pipeline.common.thresholds import (
+    ENTRY_STOP_PCT_FROM_PIVOT_FLOOR,
+    ENTRY_TARGET_PCT_MIN,
+    ENTRY_TARGET_PCT_MAX,
+    ENTRY_WEIGHT_PCT_MIN,
+    ENTRY_WEIGHT_PCT_MAX,
+    ENTRY_TRIGGER_BUFFER_MAX,
+)
 from kr_pipeline.llm_runner.gates import apply_phase1_gates
 from kr_pipeline.llm_runner.risk_flags import RISK_FLAGS_TAXONOMY
 
@@ -446,11 +454,9 @@ def _normalize_entry_params(result: dict) -> dict:
     return _validate_entry_params_sanity(n)
 
 
-# D-3 가격/부호 sanity 검증의 책 근거 범위 (calculate_entry_params_v2_0.md).
-_STOP_PCT_FROM_PIVOT_FLOOR = -10.0  # §2 floor
-_TARGET_PCT_RANGE = (15.0, 50.0)    # §4 clamp
-_WEIGHT_RANGE = (3.0, 25.0)         # §3 final clamp
-_TRIGGER_BUFFER_MAX = 1.005         # §1.3 trigger ≤ pivot×1.005
+# D-3 sanity 의 책 근거 범위는 SSOT(thresholds.py ENTRY_* — P1-7 승격) 가 정의.
+# 프롬프트(calculate_entry_params_v2_0.md §1.3/§2/§3/§4)와의 동기화는
+# tests/test_prompt_threshold_drift.py 가 감시.
 
 
 def _validate_entry_params_sanity(n: dict) -> dict:
@@ -490,15 +496,15 @@ def _validate_entry_params_sanity(n: dict) -> dict:
         raise ValueError("entry_params sanity violation: " + "; ".join(hard))
 
     warns: list[str] = []
-    if sp_pivot is not None and not (_STOP_PCT_FROM_PIVOT_FLOOR <= sp_pivot < 0.0):
+    if sp_pivot is not None and not (ENTRY_STOP_PCT_FROM_PIVOT_FLOOR <= sp_pivot < 0.0):
         warns.append("sanity_stop_pct_from_pivot_out_of_book_range")
-    if tp is not None and not (_TARGET_PCT_RANGE[0] <= tp <= _TARGET_PCT_RANGE[1]):
+    if tp is not None and not (ENTRY_TARGET_PCT_MIN <= tp <= ENTRY_TARGET_PCT_MAX):
         warns.append("sanity_target_pct_out_of_book_range")
     wt = n.get("position_size_pct")
-    if wt is not None and not (_WEIGHT_RANGE[0] <= wt <= _WEIGHT_RANGE[1]):
+    if wt is not None and not (ENTRY_WEIGHT_PCT_MIN <= wt <= ENTRY_WEIGHT_PCT_MAX):
         warns.append("sanity_weight_out_of_book_range")
     piv, trg = n.get("pivot_price"), n.get("trigger_price")
-    if piv is not None and trg is not None and not (piv < trg <= piv * _TRIGGER_BUFFER_MAX):
+    if piv is not None and trg is not None and not (piv < trg <= piv * ENTRY_TRIGGER_BUFFER_MAX):
         warns.append("sanity_trigger_out_of_book_range")
     win = n.get("entry_window_days")
     if win is not None and win < 1:
