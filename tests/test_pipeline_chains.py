@@ -32,7 +32,7 @@ def test_run_daily_chain_calls_ohlcv_then_indicators_in_order(mocker):
     assert calls == ["ohlcv", "ind_daily"]
     assert fake.kwargs["pipeline"] == "data_daily"
     assert state["details"] == {
-        "drift": {"detected": 0, "reloaded": 0, "failures": 0, "tickers": []},
+        "drift": {"detected": 0, "reloaded": 0, "failures": 0, "tickers": [], "unverified": 0},
         "ohlcv": {"rows": 0, "failures": 0},
         "indicators_daily": {"rows": 0, "failures": 0},
     }
@@ -49,7 +49,7 @@ def test_run_weekly_chain_calls_weekly_then_indicators_in_order(mocker):
     assert calls == ["weekly", "ind_weekly"]
     assert fake.kwargs["pipeline"] == "data_weekly"
     assert state["details"] == {
-        "sweep": {"detected": 0, "reloaded": 0, "failures": 0},
+        "sweep": {"detected": 0, "reloaded": 0, "failures": 0, "unverified": 0},
         "weekly": {"rows": 0, "failures": 0},
         "indicators_weekly": {"rows": 0, "failures": 0},
     }
@@ -108,7 +108,7 @@ def test_run_daily_chain_reload_failure_isolated(mocker):
 
     ch.run_daily_chain(conn=None)
     assert calls == ["ind_daily"]
-    assert state["details"]["drift"] == {"detected": 2, "reloaded": 1, "failures": 1, "tickers": ["AAA", "BBB"]}
+    assert state["details"]["drift"] == {"detected": 2, "reloaded": 1, "failures": 1, "tickers": ["AAA", "BBB"], "unverified": 0}
     rb.assert_called_once()
 
 
@@ -143,7 +143,7 @@ def test_run_weekly_chain_full_sweep_reloads_before_weekly(mocker):
     assert [c[0] if isinstance(c, tuple) else c for c in calls] == ["detect", "reload", "weekly", "ind_weekly"]
     assert calls[0][1] is None    # tickers=None → 전 종목
     assert calls[0][2] == ch.drift.SWEEP_RECENT_DAYS
-    assert state["details"]["sweep"] == {"detected": 1, "reloaded": 1, "failures": 0}
+    assert state["details"]["sweep"] == {"detected": 1, "reloaded": 1, "failures": 0, "unverified": 0}
 
 
 def test_run_weekly_chain_sweep_reload_failure_isolated(mocker):
@@ -164,7 +164,7 @@ def test_run_weekly_chain_sweep_reload_failure_isolated(mocker):
 
     ch.run_weekly_chain(conn=None)
     assert calls == ["weekly", "ind_weekly"]
-    assert state["details"]["sweep"] == {"detected": 2, "reloaded": 1, "failures": 1}
+    assert state["details"]["sweep"] == {"detected": 2, "reloaded": 1, "failures": 1, "unverified": 0}
     rb.assert_called_once()
 
 
