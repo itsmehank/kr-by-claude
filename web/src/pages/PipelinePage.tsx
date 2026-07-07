@@ -39,7 +39,22 @@ const SUB_STEP_FIELD_LABELS: Record<string, string> = {
   backfilled: "갱신",
   count: "건수",
   rows_affected: "rows",
+  abort_skipped: "abort 자가리셋 스킵",
+  market_base_missing: "시장 기준 누락",
+  integrity_skipped: "무결성 스킵",
 };
+
+// 배열/객체 값이 "[object Object]" 로 뭉개지지 않게 사람이 읽을 형태로.
+// 배열(예: market_base_missing 종목 목록) → "N건 (앞 5개 …)".
+function formatDetailValue(v: unknown): string {
+  if (Array.isArray(v)) {
+    if (v.length === 0) return "0건";
+    const head = v.slice(0, 5).map((x) => (typeof x === "object" ? JSON.stringify(x) : String(x)));
+    return `${v.length}건 (${head.join(", ")}${v.length > 5 ? " …" : ""})`;
+  }
+  if (v !== null && typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
 
 function StatusChip({ status }: { status: string }) {
   if (status === "success")
@@ -387,7 +402,7 @@ export default function PipelinePage() {
                                   : {};
                                 const parts = Object.entries(fields)
                                   .filter(([k]) => k !== "failed_tickers")
-                                  .map(([k, v]) => `${SUB_STEP_FIELD_LABELS[k] ?? k} ${v}`);
+                                  .map(([k, v]) => `${SUB_STEP_FIELD_LABELS[k] ?? k} ${formatDetailValue(v)}`);
                                 return (
                                   <li key={stepKey} className="text-data text-ink">
                                     <span className="font-semibold">{label}:</span>{" "}
