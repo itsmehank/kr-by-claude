@@ -227,3 +227,60 @@ def test_sanity_checks_skips_coverage_for_full_refresh(db):
             cur.execute("DELETE FROM daily_prices WHERE ticker ~ '^[0-9]{6}$'")
             cur.execute("DELETE FROM stocks WHERE ticker ~ '^[0-9]{6}$'")
         db.commit()
+
+
+# ====== P1-5 Part B: 빈 응답 계정(accounting) ======
+
+def test_run_upsert_accounts_empty_fetches(monkeypatch, db):
+    """빈 응답 종목이 성공도 실패도 아닌 상태로 소멸하지 않고 warnings 에 집계.
+
+    과거 사고: backfill 시 KRX throttling 빈 응답 → 과거 미적재인데 failures=0
+    으로 보고돼 607종목 누락이 무경고 통과.
+    """
+    from kr_pipeline.ohlcv import modes
+
+    empty = pd.DataFrame()
+    monkeypatch.setattr(
+        modes, "fetch_many",
+        lambda tickers, s, e, max_workers: ({t: (empty, empty) for t in tickers}, []),
+    )
+    monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+
+    stats = modes._run_upsert(
+        db, ["EMA", "EMB", "EMC"], date(2026, 7, 1), date(2026, 7, 7), 2, modes.Mode.INCREMENTAL
+    )
+    joined = " ".join(stats.warnings)
+    assert "empty_fetch" in joined, f"빈 응답이 warnings 에 없음: {stats.warnings}"
+    assert "3/3" in joined and "EMA" in joined
+    # 100% > 1% 임계 초과 — 강한 경고 문구 포함
+    assert "%" in joined
+    # 지수 빈 응답도 집계
+    assert "empty_index" in joined
+
+
+def test_run_upsert_no_empty_no_warning(monkeypatch, db):
+    """빈 응답 0건이면 empty_fetch 경고 없음 (기존 동작 보존)."""
+    from kr_pipeline.ohlcv import modes
+
+    monkeypatch.setattr(modes, "fetch_many", lambda tickers, s, e, max_workers: ({}, []))
+    monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+
+    stats = modes._run_upsert(db, [], date(2026, 7, 1), date(2026, 7, 7), 2, modes.Mode.INCREMENTAL)
+    assert not any(w.startswith("empty_fetch") for w in stats.warnings)
+
+
+def test_full_refresh_accounts_empty_fetches(monkeypatch, db):
+    """full-refresh(adj 갱신) 경로의 빈 응답도 동일하게 집계."""
+    from kr_pipeline.ohlcv import modes
+    import kr_pipeline.ohlcv.fetch as ofetch
+
+    monkeypatch.setattr(ofetch, "fetch_adj_only", lambda t, s, e: pd.DataFrame())
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+
+    stats = modes._run_full_refresh(
+        db, ["EMFR1", "EMFR2"], date(2026, 7, 1), date(2026, 7, 7), 1
+    )
+    joined = " ".join(stats.warnings)
+    assert "empty_fetch" in joined and "2/2" in joined and "EMFR1" in joined
