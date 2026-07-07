@@ -12,6 +12,7 @@ import {
   Wrench,
   ListChecks,
   BookOpen,
+  Library,
   Activity,
   ShieldCheck,
   PanelLeftClose,
@@ -30,6 +31,7 @@ import TriggersPage from "./pages/TriggersPage";
 import LlmPipelinePage from "./pages/LlmPipelinePage";
 import LlmPipelineAuditPage from "./pages/LlmPipelineAuditPage";
 import PipelinePage from "./pages/PipelinePage";
+import LibraryPage from "./pages/LibraryPage";
 import { api } from "./lib/api";
 import type { PipelineRun } from "./lib/types";
 import { relativeTime, stalenessLevel } from "./lib/utils";
@@ -55,6 +57,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/performance", label: "Performance", kr: "시그널 성과", Icon: TrendingUp },
 
   // ─── 메타 문서 / 운영 ──────────────────────
+  { to: "/library", label: "Library", kr: "자료실", Icon: Library },
   { to: "/docs/llm-pipeline", label: "LLM Pipeline Guide", kr: "LLM 분석 안내", Icon: BookOpen },
   { to: "/docs/llm-pipeline/audit", label: "LLM Audit", kr: "LLM 분석 검증", Icon: ShieldCheck },
   { to: "/prompt", label: "LLM Prompt", kr: "LLM 프롬프트", Icon: FileArchive },
@@ -253,6 +256,7 @@ function App() {
           <Route path="/performance" element={<PerformancePage />} />
           <Route path="/classifications" element={<ClassificationsPage />} />
           <Route path="/triggers" element={<TriggersPage />} />
+          <Route path="/library" element={<LibraryPage />} />
           <Route path="/docs/llm-pipeline" element={<LlmPipelinePage />} />
           <Route path="/docs/llm-pipeline/audit" element={<LlmPipelineAuditPage />} />
           <Route path="/runner" element={<RunnerPage />} />

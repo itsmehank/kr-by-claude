@@ -1,0 +1,427 @@
+<details data-doc-meta style="box-sizing:border-box;margin:0;padding:10px 24px;background:#0f172a;color:#e2e8f0;font-family:'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;font-size:14px;line-height:1.75;border-bottom:3px solid #f59e0b;">
+<summary style="cursor:pointer;font-weight:700;color:#fbbf24;outline:none;">📌 이 문서는 왜 만들어졌나 — 목적 · 연관 문서 · 이력 (클릭해서 펼치기)</summary>
+<div style="max-width:880px;margin:14px auto 8px;">
+<p style="margin:0 0 12px;color:#94a3b8;font-size:13px;">생성: 2026-07-03 18:41 · 최종 업데이트: 2026-07-03 18:52 (KST) · 출처: Claude Code 세션 기록 기반 복원</p>
+<h3 style="margin:0 0 6px;font-size:15px;color:#fbbf24;">이 문서의 목적 (실제 요청 근거)</h3>
+<p>수익성·강건성 백테스트 세션(사전등록 → 시장 게이트 3-arm 실험 → 2단계 bottoming 파일럿 기각까지)의
+<b>전체 여정 보고서</b>. 요청 원문: "현재까지 진행한 작업(실험) 내용에 대해서 단계별로 설명해줘. 그리고
+그 결과도, 남은 작업 내용도. 초보자도 이해하기 쉽게. 전체적으로 검토해서 다듬는 작업을 2회 이상 수행하고,
+최종 내용은 HTML 페이지로 구성해 다시 2회 검토해줘."</p>
+<p>9단계 실험(v1 분류 정확도 → v4 bottoming 파일럿)의 내용·결과·판정과 세 가지 최종 답(방어는 입증,
+수익은 미입증, 다음 단계)을 담았다. 사용자가 "~/Downloads에 복사해달라"고 해 <b>백테스트_검증_리포트.html</b>
+사본이 존재한다.</p>
+<h3 style="margin:16px 0 6px;font-size:15px;color:#fbbf24;">연관 문서</h3>
+<ul style="margin:0;padding-left:20px;"><li style="margin:4px 0;"><a href="./backtest-explainer.html" style="color:#7dd3fc;text-decoration:underline;">한국 주식 자동분석 시스템, 4년치로 되돌려 검증해봤더니</a><span style='color:#94a3b8;'> — 같은 백테스트 여정의 입문 해설판 — 이 문서가 심화·전체 지도</span></li><li style="margin:4px 0;"><a href="./backtest_qna.html" style="color:#7dd3fc;text-decoration:underline;">리포트를 읽고 생긴 6가지 질문, 깊이 파헤친 답</a><span style='color:#94a3b8;'> — 이 리포트를 읽고 생긴 6가지 질문에 답한 후속 심화 해설</span></li><li style="margin:4px 0;"><a href="./final-review.html" style="color:#7dd3fc;text-decoration:underline;">두 대가의 원전 대조, 내 시스템 최종 진단</a><span style='color:#94a3b8;'> — 대장정 중간에 받은 오닐·미너비니 자문의 검증 최종본 — 실험 방향에 영향</span></li><li style="margin:4px 0;"><a href="./stop_variant_tabbed_report.html" style="color:#7dd3fc;text-decoration:underline;">손절 규칙 테스트 3종 비교 — 동결 100종목 (2021-2024)</a><span style='color:#94a3b8;'> — 같은 세션의 후속 실험 — 동결 100종목에 단순 손절 규칙 3종을 적용한 비교</span></li></ul>
+</div>
+</details>
+<title>매매 시스템 검증 대장정 — 실험·결과·남은 일</title>
+<style>
+  :root{
+    --ground:#FAFBFD; --card:#FFFFFF; --line:#D9E0E8;
+    --ink:#1C2733; --muted:#5B6B7A; --faint:#8B98A5;
+    --accent:#2456A6; --accent-soft:#E8EFF9;
+    --pass:#1E7D4F; --pass-soft:#E4F2EA;
+    --fail:#B3362E; --fail-soft:#F9E9E7;
+    --warn:#9A6A00; --warn-soft:#F7EFDC;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Segoe UI",Roboto,sans-serif;
+    line-height:1.72; font-size:16px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:860px; margin:0 auto; padding:56px 24px 96px}
+  .eyebrow{font-size:12px; letter-spacing:.14em; color:var(--accent); font-weight:700; text-transform:uppercase}
+  h1{font-size:clamp(26px,4.6vw,38px); line-height:1.3; margin:10px 0 6px; letter-spacing:-.02em; text-wrap:balance}
+  .sub{color:var(--muted); margin:0 0 22px; max-width:62ch}
+  h2{font-size:21px; margin:0 0 4px; letter-spacing:-.01em; text-wrap:balance}
+  h3{font-size:16px; margin:22px 0 6px}
+  p{margin:10px 0; max-width:66ch}
+  .pillrow{display:flex; flex-wrap:wrap; gap:8px; margin:18px 0 8px}
+  .pill{display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:999px; font-size:13.5px; font-weight:700; border:1px solid transparent}
+  .pill .dot{width:8px; height:8px; border-radius:50%; flex:none}
+  .pill.pass{background:var(--pass-soft); color:var(--pass)} .pill.pass .dot{background:var(--pass)}
+  .pill.fail{background:var(--fail-soft); color:var(--fail)} .pill.fail .dot{background:var(--fail)}
+  .pill.warn{background:var(--warn-soft); color:var(--warn)} .pill.warn .dot{background:var(--warn)}
+  .pill.info{background:var(--accent-soft); color:var(--accent)} .pill.info .dot{background:var(--accent)}
+  section{margin-top:56px}
+  .lede{border-left:3px solid var(--accent); padding:2px 0 2px 18px; margin:24px 0}
+  .lede p{margin:6px 0}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:22px 24px; margin-top:16px}
+  .grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; margin-top:14px}
+
+  /* 타임라인 */
+  .tl{position:relative; margin-top:26px; padding-left:34px}
+  .tl::before{content:""; position:absolute; left:11px; top:6px; bottom:6px; width:2px; background:var(--line)}
+  .stage{position:relative; margin-bottom:26px}
+  .stage::before{content:""; position:absolute; left:-30px; top:26px; width:12px; height:12px; border-radius:50%;
+    background:var(--card); border:3px solid var(--accent)}
+  .stage.v-pass::before{border-color:var(--pass)}
+  .stage.v-fail::before{border-color:var(--fail)}
+  .stage.v-warn::before{border-color:var(--warn)}
+  .stagehead{display:flex; flex-wrap:wrap; align-items:center; gap:10px}
+  .stageno{font-size:12px; font-weight:800; color:var(--faint); letter-spacing:.08em}
+  .easy{background:var(--accent-soft); border-radius:8px; padding:12px 16px; margin-top:14px; font-size:15px}
+  .easy b{color:var(--accent)}
+  .facts{display:flex; flex-wrap:wrap; gap:18px; margin-top:12px}
+  .fact{min-width:120px}
+  .fact .n{font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-.01em}
+  .fact .l{font-size:12.5px; color:var(--muted)}
+  .n.good{color:var(--pass)} .n.bad{color:var(--fail)} .n.mid{color:var(--warn)}
+
+  table{border-collapse:collapse; width:100%; font-size:14.5px; font-variant-numeric:tabular-nums}
+  .tblwrap{overflow-x:auto; margin-top:12px}
+  th{font-size:12.5px; color:var(--muted); text-align:left; font-weight:700; letter-spacing:.03em;
+     border-bottom:2px solid var(--line); padding:8px 12px 8px 0}
+  td{border-bottom:1px solid var(--line); padding:9px 12px 9px 0; vertical-align:top}
+  td.num,th.num{text-align:right; padding-right:0; padding-left:12px}
+
+  /* CAGR 비교 막대 */
+  .bars{margin-top:14px; display:grid; gap:9px}
+  .bar{display:grid; grid-template-columns:170px 1fr 74px; align-items:center; gap:10px; font-size:14px}
+  .bar .track{height:14px; background:#EEF2F7; border-radius:4px; position:relative; overflow:hidden}
+  .bar .fill{position:absolute; top:0; bottom:0; border-radius:4px}
+  .bar .fill.pos{left:0; background:var(--accent)}
+  .bar .fill.neg{left:0; background:var(--fail)}
+  .bar .val{font-weight:800; font-variant-numeric:tabular-nums; text-align:right}
+  .bar .lbl{color:var(--ink)}
+  .barnote{font-size:12.5px; color:var(--faint); margin-top:8px}
+
+  dl.gloss{display:grid; grid-template-columns:repeat(auto-fit,minmax(310px,1fr)); gap:4px 28px; margin-top:14px}
+  dl.gloss div{border-bottom:1px solid var(--line); padding:10px 0}
+  dt{font-weight:800; font-size:14.5px}
+  dd{margin:3px 0 0; font-size:14px; color:var(--muted)}
+
+  .lesson{display:grid; gap:12px; margin-top:14px}
+  .lesson .card{margin-top:0}
+  .footer{margin-top:64px; padding-top:18px; border-top:1px solid var(--line); font-size:13px; color:var(--faint)}
+  code{background:#EFF3F8; border-radius:4px; padding:1px 6px; font-size:.9em}
+  @media (prefers-reduced-motion:no-preference){
+    .stage{scroll-margin-top:20px}
+  }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">kr-by-claude · 백테스트 리포트 · 2026-06-23 → 07-03</div>
+  <h1>매매 시스템 검증 대장정<br>— 9단계 실험, 그리고 세 가지 답</h1>
+  <p class="sub">한국 주식 자동 매매 시스템을 4년치 과거 데이터로 검증한 전 과정을,
+  투자·통계를 처음 접하는 사람도 따라올 수 있게 정리했습니다.</p>
+  <div class="pillrow">
+    <span class="pill pass"><span class="dot"></span>방어력 — 2중으로 완벽 입증</span>
+    <span class="pill warn"><span class="dot"></span>수익성 — 증거 부족 (미입증)</span>
+    <span class="pill fail"><span class="dot"></span>완화 시도 2건 — 데이터가 기각</span>
+  </div>
+  <div class="lede">
+    <p><b>한 줄 결론:</b> 이 시스템의 <b>“잃지 않는 능력”은 확실하게 증명</b>됐습니다.
+    <b>“시장을 이기는 능력”은 아직 증거가 부족</b>합니다 — 손해라는 뜻이 아니라,
+    실력인지 운인지 통계적으로 구분할 표본이 안 된다는 뜻입니다.
+    그리고 안전장치를 완화해보려던 두 번의 시도는 둘 다 데이터가 기각했습니다 —
+    <b>지금의 안전장치가 측정된 최선</b>입니다.</p>
+  </div>
+</header>
+
+<section>
+  <h2>먼저: 이 시스템은 무엇이고, 무엇을 물었나</h2>
+  <div class="card">
+    <p>이 시스템은 매주 이렇게 움직입니다:</p>
+    <p><b>① 기계 필터</b> — 한국 상장주 약 2,552개를 미너비니 추세 조건 8개
+    (주가가 이동평균선들 위에 정렬돼 있는가, 52주 저점보다 25% 이상 올라왔는가 등)로
+    거릅니다. 4년간 한 번이라도 통과한 종목은 1,851개.</p>
+    <p><b>② AI 차트 분석</b> — 통과 종목의 차트를 AI가 보고
+    <b>entry(사라)&nbsp;/&nbsp;watch(지켜봐라)&nbsp;/&nbsp;ignore(무시)</b>로 분류하고,
+    watch 종목에는 <b>pivot(매수 기준가)</b>을 정해줍니다.</p>
+    <p><b>③ 매수 신호</b> — watch 종목의 주가가 pivot을 거래량을 동반해 처음
+    돌파하면 매수 신호. 단, <b>“시장이 나쁘면 사지 마라”는 게이트(문지기)</b>가
+    가로막을 수 있습니다.</p>
+    <p>검증하고 싶었던 질문은 두 개였습니다:</p>
+    <p><b>Q1. 하락장에서 정말 안 사는가?</b> (방어) &nbsp;·&nbsp;
+    <b>Q2. 이걸로 시장을 이길 수 있는가?</b> (수익)</p>
+  </div>
+  <h3>실험 전체를 지배한 규칙 — “사전등록”</h3>
+  <p>모든 실험은 <b>결과를 보기 전에 합격 기준을 문서로 박아두고</b> 시작했습니다.
+  결과가 나온 뒤 기준을 유리하게 바꾸는 자기기만(“이 정도면 통과지?”)을 원천 차단하는
+  장치이고, 이 리포트에 나오는 “기각”들이 신뢰할 수 있는 이유입니다.</p>
+</section>
+
+<section>
+  <h2>9단계 실험 여정</h2>
+
+  <div class="tl">
+
+  <div class="stage v-info">
+    <div class="stagehead"><span class="stageno">STAGE 0</span><h3 style="margin:0">공정한 시험장 만들기</h3>
+      <span class="pill info"><span class="dot"></span>완료</span></div>
+    <div class="card">
+      <p>1,851개 통과 종목에서 <b>무작위 100종목</b>을 뽑아 목록을 동결(중간에 못 바꿈)하고,
+      2021~2024년 매주 토요일마다 AI에게 “그 시점까지의 데이터만” 주고 분류를 시켰습니다 —
+      총 <b>2,135번의 판단</b>. 미래 데이터와 웹 검색은 코드 수준에서 차단·검증했습니다.</p>
+      <p>도중에 사고도 두 번 있었습니다 — AI 동시 호출 실패율 문제(동시 2건으로 조정),
+      표본이 몰래 바뀌는 버그(동결 목록 고정으로 수정) — 모두 잡고 완주했습니다.</p>
+      <div class="easy"><b>쉽게 말하면:</b> 시험 문제(종목)를 미리 정해 봉인하고, 커닝(미래 정보)이
+      불가능한 시험장을 만든 뒤, 4년치 모의고사를 치르게 한 겁니다.</div>
+    </div>
+  </div>
+
+  <div class="stage v-pass">
+    <div class="stagehead"><span class="stageno">STAGE 1</span><h3 style="margin:0">방어 1층 — AI가 하락장에서 “사라”고 하나?</h3>
+      <span class="pill pass"><span class="dot"></span>합격</span></div>
+    <div class="card">
+      <div class="facts">
+        <div class="fact"><div class="n good">0 / 1,075</div><div class="l">하락·조정장에서 “사라” 판정</div></div>
+        <div class="fact"><div class="n">1 / 2,135</div><div class="l">4년 전체 “사라” 판정 (상승 확정장에서)</div></div>
+      </div>
+      <p>하락·조정장의 판단 1,075번 중 “사라(entry)”가 <b>정확히 0번</b>.
+      유일한 entry 1번도 시장이 좋을 때 나왔습니다. 드리프트 사고로 섞였던 14종목을
+      포함해 재계산해도 결과는 같았습니다(민감도 검증).</p>
+      <div class="easy"><b>쉽게 말하면:</b> 브레이크 1단이 1,075번의 시험에서 한 번도 밀리지 않았습니다.</div>
+    </div>
+  </div>
+
+  <div class="stage v-warn">
+    <div class="stagehead"><span class="stageno">STAGE 2</span><h3 style="margin:0">수익성 1차 — 매매 한 건당 성적</h3>
+      <span class="pill warn"><span class="dot"></span>미입증</span></div>
+    <div class="card">
+      <div class="facts">
+        <div class="fact"><div class="n">66건</div><div class="l">시뮬레이션 매매</div></div>
+        <div class="fact"><div class="n">24%</div><div class="l">승률</div></div>
+        <div class="fact"><div class="n mid">+2.6%</div><div class="l">시장 대비 평균 (홈런 3방 의존)</div></div>
+      </div>
+      <p>평균은 플러스지만 수익 전체가 대박 3건(+222%, +160%, +100%)에 얹혀 있었습니다.
+      <b>최고 1건만 빼면 평균이 마이너스</b> — “잃을 땐 작게, 이길 땐 크게”라는 이 전략의
+      정상적인 모양이긴 하나, 66건으로는 실력과 운을 구분할 수 없습니다.</p>
+      <div class="easy"><b>쉽게 말하면:</b> 타율은 낮지만 안타가 홈런인 타자 — 그런데 홈런이
+      진짜 실력인지 알기엔 타석이 너무 적었습니다.</div>
+    </div>
+  </div>
+
+  <div class="stage v-pass">
+    <div class="stagehead"><span class="stageno">STAGE 3</span><h3 style="margin:0">개선 3종 — 감사·통계 보정·플라시보</h3>
+      <span class="pill pass"><span class="dot"></span>방어 2층 합격</span>
+      <span class="pill warn"><span class="dot"></span>수익 미입증 확정</span></div>
+    <div class="card">
+      <p><b>③-1 트리거 확인 감사 (방어 2층):</b> 시뮬레이션이 만든 하락장 매수 33건을,
+      실제 시스템의 “매수 직전 AI 최종 확인” 단계로 재생 →
+      <b>33건 전부 “기다려(wait)”</b>. 실전 하락장 노출은 0건임이 실측됐습니다.</p>
+      <p><b>③-2 통계 보정:</b> 거래 비용·추격매수 제한을 반영하고 신뢰구간을 계산 →
+      평균 +3.2%지만 <b>95% 신뢰구간 [−5.8%, +16.1%]가 0을 포함</b> = 실력인지 운인지
+      구분 불가.</p>
+      <p><b>③-3 플라시보 시험:</b> 같은 종목을 같은 기간, <b>아무 날이나</b> 산 가상 투자자
+      1,000명과 비교 → 실제 +3.2% vs 무작위 +1.1%, 하지만 무작위의 19%가 실제보다 좋았음
+      (p=0.19) → “돌파 타이밍의 가치”도 미입증.</p>
+      <div class="easy"><b>쉽게 말하면:</b> 브레이크 2단까지 완벽(33/33 차단).
+      하지만 “엔진이 특별하다”는 증거는 두 가지 통계 검사 모두에서 못 찾았습니다.</div>
+    </div>
+  </div>
+
+  <div class="stage v-info">
+    <div class="stagehead"><span class="stageno">STAGE 4</span><h3 style="margin:0">부산물 — 시스템 인프라 개선 (실서비스 반영)</h3>
+      <span class="pill info"><span class="dot"></span>완료</span></div>
+    <div class="card">
+      <p>실험 중 발견한 운영 허점 2개를 고쳐 실제 시스템에 반영했습니다:
+      ① AI 모델을 최신 Sonnet으로 <b>고정</b>(사용자 설정 변경이 분석 모델을 몰래 바꾸지 못하게),
+      ② 모든 AI 호출의 <b>사용 모델·토큰량을 DB에 기록</b>(전에는 어떤 모델이 판단했는지
+      사후 확인 불가였음). 이 시점에 실험 코드·문서 전체를 본 저장소(main)에 병합했습니다.</p>
+    </div>
+  </div>
+
+  <div class="stage v-info">
+    <div class="stagehead"><span class="stageno">STAGE 5</span><h3 style="margin:0">포트폴리오 시뮬 v1 — “1억을 넣었다면?”</h3>
+      <span class="pill info"><span class="dot"></span>지수 상회</span>
+      <span class="pill fail"><span class="dot"></span>결함 발견</span></div>
+    <div class="card">
+      <p>매매 한 건이 아니라 <b>계좌 전체</b>를 시뮬레이션했습니다. 규칙(얼마씩 살지,
+      몇 종목까지, 언제 갈아탈지)은 미너비니/오닐 전문 AI 에이전트와 문답으로
+      책 원문 근거를 달아 확정했습니다.</p>
+      <div class="facts">
+        <div class="fact"><div class="n good">+3.3%</div><div class="l">연수익 (KOSPI +0.95%)</div></div>
+        <div class="fact"><div class="n bad">−20.6%</div><div class="l">최악의 계좌 낙폭</div></div>
+        <div class="fact"><div class="n mid">53%</div><div class="l">매수 신호가 규칙상 매수 불가</div></div>
+      </div>
+      <p><b>중요한 결함 발견:</b> 신호의 절반이 “손절선이 너무 멀어서(10% 초과) 살 수 없음”으로
+      버려지고 있었습니다. 원인은 손절선을 차트 구조(베이스 바닥)에 뒀기 때문 —
+      책의 손절 개념(“산 가격에서 몇 %”)과 다른 물건이었습니다.</p>
+      <div class="easy"><b>쉽게 말하면:</b> 시장(코스피)에 묻는 것보단 나았지만, 브레이크
+      부품이 다른 차종 것이라는 정비 소견이 나왔습니다. 참고: 관찰 종목이 실전의
+      1/16이라 계좌 수익률 절대값은 실전 예상치로 쓰면 안 됩니다.</div>
+    </div>
+  </div>
+
+  <div class="stage v-info">
+    <div class="stagehead"><span class="stageno">STAGE 6</span><h3 style="margin:0">포트폴리오 v2 — 손절 시스템 교체</h3>
+      <span class="pill info"><span class="dot"></span>교환관계 발견</span></div>
+    <div class="card">
+      <p>손절을 책대로 3층으로 재설계했습니다: <b>① 산 가격 −8%(신입)</b> →
+      <b>② +20% 도달 시 본전 사수(검증됨)</b> → <b>③ 50일선이 매수가 위로 오면
+      50일선 추적(우등생)</b>. 매일 셋 중 가장 높은 선이 그날의 방어선입니다.</p>
+      <div class="facts">
+        <div class="fact"><div class="n good">+9.1%</div><div class="l">연수익 — 하락장 매수 허용 시</div></div>
+        <div class="fact"><div class="n mid">+2.2%</div><div class="l">연수익 — 실전 재현(하락장 차단)*</div></div>
+      </div>
+      <p>결과가 두 얼굴이었습니다. 하락장 매수를 <b>허용하면</b> 크게 이기고
+      (대박들이 −8% 손절 아래서 살아남아 자람), 실전처럼 <b>차단하면</b> 평범해집니다.
+      즉 <b>이 시스템의 수익 원천이 “하락장 바닥 진입 대박”에 집중</b>돼 있고, 안전장치가
+      정확히 그걸 막는다 — 방어와 수익의 정면 교환이 처음으로 또렷하게 드러났습니다.</p>
+      <p>덤 발견: 돌파가에서 3~5% 위로 추격해 산 4건은 <b>전부 손절</b>(평균 −14.8%) —
+      “정확히 pivot에서 사라”는 오닐 격언이 우리 데이터에서 그대로 재현.</p>
+      <div class="easy"><b>쉽게 말하면:</b> 새 브레이크는 잘 작동하는데, 알고 보니 월척이
+      전부 “폭풍 치는 바다(하락장)”에서 잡히고 있었고 우리 배는 그 바다에 못 나갑니다.
+      (*+2.2%는 이후 STAGE 7에서 정밀 재측정된 값)</div>
+    </div>
+  </div>
+
+  <div class="stage v-fail">
+    <div class="stagehead"><span class="stageno">STAGE 7</span><h3 style="margin:0">게이트 연구 1단계 — “문을 일찍 열자”</h3>
+      <span class="pill fail"><span class="dot"></span>기각</span>
+      <span class="pill info"><span class="dot"></span>반전 발견</span></div>
+    <div class="card">
+      <p>책 자문 결과, 두 스승의 의견이 갈렸습니다 — 오닐은 “시장 회복 신호(FTD) 전엔
+      절대 사지 마라”, 미너비니는 “바닥에서 일어나려 할 때 작게 사보라”. 우선
+      논쟁이 적은 수정(회복 신호 당일부터 허용 + 책에 없던 ‘90일 유효기간’ 제거)을
+      3개 버전 비교로 시험했습니다.</p>
+      <div class="facts">
+        <div class="fact"><div class="n good">+6.8%</div><div class="l">현행 게이트 — 매매당 기대값</div></div>
+        <div class="fact"><div class="n bad">+4.2%</div><div class="l">새 방식 — 기준 미달</div></div>
+      </div>
+      <p>합격 기준은 <b>기대값</b>(매매 한 건당 평균 성적 — 이긴 것·진 것 전부 합산)이
+      현행보다 좋아지는 것이었습니다.
+      <b>결과는 기각.</b> 새 방식이 추가로 연 진입은 대박 꼬리를 빼면 평균 −2.5%로 평범했습니다.
+      그리고 <b>반전</b> — 처음으로 정밀 재현한 진짜 현행 게이트(+2.2%)가 과거의 대충
+      재현(+1.5%)보다 좋았습니다. 현행 게이트는 “하락장 일괄 차단”이 아니라 <b>사유별로
+      가려 막는</b>, 생각보다 정교한 장치였습니다. (저와 자문 에이전트 모두 “진짜 재현은
+      더 나쁠 것”이라 예측했다가 틀렸고, 그 오류도 기록해뒀습니다.)</p>
+      <div class="easy"><b>쉽게 말하면:</b> “문 일찍 열기”는 별 볼 일 없는 손님만 더 들였고,
+      정작 지금 문지기가 손님을 가려 받는 안목이 있다는 게 밝혀졌습니다.</div>
+    </div>
+  </div>
+
+  <div class="stage v-fail">
+    <div class="stagehead"><span class="stageno">STAGE 8</span><h3 style="margin:0">게이트 연구 2단계 — “바닥 파일럿” (최종전)</h3>
+      <span class="pill fail"><span class="dot"></span>기각 — 가드의 승리</span></div>
+    <div class="card">
+      <p>미너비니의 <b>파일럿 매수</b>(정찰병처럼 평소의 절반 크기로 먼저 사보고, 잘 되면
+      늘리는 방식)를 시험했습니다 — 지수가 바닥에서 랠리를 시도하는 창에서만, 절반 크기 +
+      더 타이트한 손절(6%)로 진입 허용. 함정이 하나 있었죠: 이 규칙 자체가
+      대박 2건(2022-10, 2025-01)을 <b>보고 만든</b> 가설이라, 합격 기준에
+      <b>“그 2건을 빼고도 성적이 나야 통과”</b>라는 순환 방지 가드를 미리 박았습니다.</p>
+      <div class="facts">
+        <div class="fact"><div class="n good">+18.1%</div><div class="l">대박 포함 평균 — 통과처럼 보임</div></div>
+        <div class="fact"><div class="n bad">−5.9%</div><div class="l">대박 제외 평균 — 불합격</div></div>
+      </div>
+      <p>결과가 정확히 “답을 보고 채점” 패턴이었습니다 — 대박을 포함하면 훌륭해 보이고,
+      빼면 5건 중 4건 손실. 더 아픈 사실: <b>대박 종목(+101%)조차 파일럿 경로로 들어간
+      진입은 −12% 손절</b>이었고, 실제 수익은 다른 경로에서 났습니다. 가드가 없었다면
+      “그 2건에서만 작동하는 규칙”을 채택할 뻔했습니다.</p>
+      <div class="easy"><b>쉽게 말하면:</b> 시험 문제를 만들 때 참고한 족보 2문제를 빼고
+      채점했더니 낙제 — 안전장치(사전등록 가드)가 자기기만을 막아낸 순간입니다.</div>
+    </div>
+  </div>
+
+  </div><!-- /tl -->
+</section>
+
+<section>
+  <h2>최종 스코어보드</h2>
+  <div class="tblwrap"><table>
+    <thead><tr><th>질문</th><th>실험</th><th>결과</th><th>판정</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="2"><b>Q1. 하락장에서 안 사는가</b></td>
+        <td>주간 분류 1,075번</td><td>“사라” 0번</td>
+        <td><span class="pill pass"><span class="dot"></span>완벽</span></td></tr>
+      <tr><td>매수 직전 확인 33번</td><td>“기다려” 33번</td>
+        <td><span class="pill pass"><span class="dot"></span>완벽</span></td></tr>
+      <tr><td rowspan="3"><b>Q2. 시장을 이기는가</b></td>
+        <td>매매당 초과수익</td><td>+3.2%, 신뢰구간이 0 포함</td>
+        <td><span class="pill warn"><span class="dot"></span>미입증</span></td></tr>
+      <tr><td>타이밍 vs 무작위</td><td>p = 0.19</td>
+        <td><span class="pill warn"><span class="dot"></span>미입증</span></td></tr>
+      <tr><td>계좌 시뮬 (4.5년)</td><td>지수 상회, 단 표본 1/16</td>
+        <td><span class="pill warn"><span class="dot"></span>참고용</span></td></tr>
+      <tr><td rowspan="2"><b>게이트를 완화할까</b></td>
+        <td>1단계: 회복신호 당일 허용</td><td>기대값 4.2 &lt; 6.8</td>
+        <td><span class="pill fail"><span class="dot"></span>기각</span></td></tr>
+      <tr><td>2단계: 바닥 파일럿</td><td>대박 제외 −5.9%</td>
+        <td><span class="pill fail"><span class="dot"></span>기각</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>계좌 시뮬 최종 비교 (연수익, 2021.1 ~ 2025.6)</h3>
+  <div class="bars" role="img" aria-label="연수익 비교: 게이트 없음 9.1%, 현행 시스템 재현 2.2%, KOSPI 0.95%, KOSDAQ -4.9%">
+    <div class="bar"><span class="lbl">게이트 없음 (참고)</span><span class="track"><span class="fill pos" style="width:100%"></span></span><span class="val">+9.1%</span></div>
+    <div class="bar"><span class="lbl"><b>현행 시스템 재현</b></span><span class="track"><span class="fill pos" style="width:24%"></span></span><span class="val">+2.2%</span></div>
+    <div class="bar"><span class="lbl">KOSPI 묻어두기</span><span class="track"><span class="fill pos" style="width:10%"></span></span><span class="val">+0.95%</span></div>
+    <div class="bar"><span class="lbl">KOSDAQ 묻어두기</span><span class="track"><span class="fill neg" style="width:54%"></span></span><span class="val">−4.9%</span></div>
+  </div>
+  <p class="barnote">막대 길이는 절대값 비례 · 빨강 = 손실. “게이트 없음”과 “현행”의 차이가
+  안전장치의 기회비용이며, 그 차이를 좁히려던 두 시도가 모두 기각됐습니다.
+  표본이 실전의 1/16이라 절대값은 실전 예상치가 아닙니다.</p>
+</section>
+
+<section>
+  <h2>이 과정에서 배운 것 (방법론)</h2>
+  <div class="lesson">
+    <div class="card"><h3 style="margin-top:0">① 사전등록이 세 번 이겼다</h3>
+      <p>플라시보 검사, 1단계 기각, 2단계 순환 가드 — 세 번 모두 “결과를 보기 전에 박아둔
+      기준”이 그럴듯한 착각(홈런 몇 방, 족보 문제)을 걸러냈습니다. 기준을 나중에 정했다면
+      셋 다 “채택”으로 자기기만했을 가능성이 높습니다.</p></div>
+    <div class="card"><h3 style="margin-top:0">② 측정 전 추론은 방향조차 틀린다</h3>
+      <p>“진짜 게이트 재현은 성적이 더 나쁠 것”(실제론 더 좋았음), “추가된 7건의 기대값은
+      −0.6%”(전제인 포함관계 자체가 성립 안 함) — 구현자와 자문 에이전트가 함께 틀린
+      추정이 두 번 있었고, 둘 다 실측이 바로잡았습니다. 추정은 기록하되 믿지 않는다.</p></div>
+    <div class="card"><h3 style="margin-top:0">③ 기각도 성과다</h3>
+      <p>이번 여정의 “기각” 2건은 실패가 아니라, <b>현행 시스템이 측정된 최선</b>임을
+      확인해준 결과입니다. 부산물로 손절 체계 재설계, 책-검증 규칙 대장, 모델 기록
+      인프라, 정밀 게이트 재현기가 남았습니다.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>남은 작업</h2>
+  <div class="grid2">
+    <div class="card"><h3 style="margin-top:0">A. 표본·기간 확장 <span class="pill info" style="margin-left:6px"><span class="dot"></span>AI 비용 듦</span></h3>
+      <p>수익성 “미입증”을 판정으로 바꾸려면 표본이 커져야 하고, 기각된 게이트 아이디어를
+      재도전하려면 <b>가설을 만든 적 없는 새 데이터</b>가 필수입니다. 종목 추가(~2,000회
+      AI 호출, 약 1주 무인 가동) 또는 2016~2020 기간 확장이 후보입니다.</p></div>
+    <div class="card"><h3 style="margin-top:0">B. 추격 상한 5%→3% 검토 <span class="pill info" style="margin-left:6px"><span class="dot"></span>무료</span></h3>
+      <p>“3~5% 추격 매수 전패” 발견의 후속. 게이트 연구와 분리된 별개 스레드로,
+      에이전트 자문 → 사전등록 → 재실행 순서.</p></div>
+    <div class="card"><h3 style="margin-top:0">C. 실전 가동 논의 <span class="pill warn" style="margin-left:6px"><span class="dot"></span>선결과제 있음</span></h3>
+      <p>시스템은 아직 모의 모드(cron --dry-run)입니다. 실전 전에 반드시 채울 것:
+      ① <b>포지션 관리 기능이 아예 없음</b>(사는 것까지만 있고 보유·매도 관리 부재 —
+      이번에 검증한 3층 손절 스택이 그 설계도), ② 실서비스와 책-검증 규칙의
+      상충 4건(손절 기준점, 포지션 사이징 방식 등 — 규칙 대장 문서에 기록됨).</p></div>
+    <div class="card"><h3 style="margin-top:0">D. 보류·재검토 목록</h3>
+      <p>게이트 완화안 (c)는 “해롭다고 입증”이 아니라 “채택 근거 없음”이므로 표본 확대 후
+      재검토 목록에 유지. 그 외 시스템 백로그(AI 가격 sanity 검증 등)는 별도.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>용어 사전</h2>
+  <dl class="gloss">
+    <div><dt>pivot (피벗)</dt><dd>AI가 정한 매수 기준가. “이 가격을 거래량과 함께 넘으면 진짜 돌파”라고 보는 선.</dd></div>
+    <div><dt>게이트 (시장 문지기)</dt><dd>시장 국면이 나쁠 때 매수를 차단하는 규칙. 주간 분류와 매수 직전 확인, 2중으로 작동.</dd></div>
+    <div><dt>FTD (팔로우스루 데이)</dt><dd>오닐식 “시장 회복 공식 신호”. 바닥 반등 시도 3~15일차에 지수가 거래량 실린 큰 상승을 보이는 날.</dd></div>
+    <div><dt>CAGR (연평균 수익률)</dt><dd>기간 전체 수익을 “매년 몇 %씩 복리로 번 셈인가”로 환산한 값.</dd></div>
+    <div><dt>MDD (최대 낙폭)</dt><dd>계좌가 고점에서 최악의 순간까지 몇 % 빠졌었나. 견딜 수 있어야 하는 고통의 크기.</dd></div>
+    <div><dt>신뢰구간이 0을 포함</dt><dd>“진짜 실력이 플러스인지 마이너스인지 이 표본으로는 단정 못 함”이라는 뜻. 손해라는 뜻이 아님.</dd></div>
+    <div><dt>플라시보 시험</dt><dd>“아무 날이나 산” 가상 투자자들과 비교해, 진입 타이밍에 진짜 가치가 있는지 가려내는 검사.</dd></div>
+    <div><dt>사전등록</dt><dd>결과를 보기 전에 합격 기준·규칙을 문서로 고정하는 것. 사후 합리화 차단 장치.</dd></div>
+    <div><dt>순환 확인 (답 보고 채점)</dt><dd>가설을 만들 때 본 데이터로 그 가설을 검증하는 오류. 2단계에서 “대박 2건 제외” 가드로 차단.</dd></div>
+    <div><dt>기대값</dt><dd>매매 한 건당 평균적으로 얼마를 벌었나 (이긴 것과 진 것을 전부 합쳐서).</dd></div>
+    <div><dt>드라이런 (모의 모드)</dt><dd>실제 주문/기록 없이 흉내만 내며 도는 상태. 현재 실서비스 크론이 이 상태.</dd></div>
+    <div><dt>파일럿 매수</dt><dd>정찰병처럼 평소의 절반 이하 크기로 먼저 사보고, 검증되면 늘리는 미너비니식 진입.</dd></div>
+    <div><dt>watch / entry / ignore</dt><dd>AI의 3단 분류 — 지켜봐라 / 사라 / 무시해라. 실제 매수는 대부분 watch의 pivot 돌파에서 나옴.</dd></div>
+  </dl>
+</section>
+
+<div class="footer">
+  원본 기록: <code>docs/superpowers/backtest-profitability-results.md</code> ·
+  사전등록 <code>specs/2026-07-02-*-prereg.md</code> ·
+  규칙 대장 <code>docs/trading-rules-book-verified.md</code> ·
+  기간 2026-06-23 ~ 07-03 · 데이터 2021-01 ~ 2025-06 · 동결 100종목 · AI 분류 2,135건
+</div>
+
+</div>

@@ -1,0 +1,489 @@
+<details data-doc-meta style="box-sizing:border-box;margin:0;padding:10px 24px;background:#0f172a;color:#e2e8f0;font-family:'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;font-size:14px;line-height:1.75;border-bottom:3px solid #f59e0b;">
+<summary style="cursor:pointer;font-weight:700;color:#fbbf24;outline:none;">📌 이 문서는 왜 만들어졌나 — 목적 · 연관 문서 · 이력 (클릭해서 펼치기)</summary>
+<div style="max-width:880px;margin:14px auto 8px;">
+<p style="margin:0 0 12px;color:#94a3b8;font-size:13px;">생성: 2026-07-05 15:26 · 최종 업데이트: 2026-07-05 17:08 (KST) · 출처: Claude Code 세션 기록 기반 복원</p>
+<h3 style="margin:0 0 6px;font-size:15px;color:#fbbf24;">이 문서의 목적 (실제 요청 근거)</h3>
+<p>서사 계보의 종착점. 사용자 요청: "이제 소설이 아니라 <b>실제 시스템을 기반으로 시뮬레이션 게임</b>을
+만들어줘. DB에서 평가받은 종목들을 유형별 대표로 추리고, 각 종목이 단계별로 어떤 심사를 받아 최종
+어떻게 처리됐는지 플롯을 작성한 뒤, 내가 그 종목이라고 가정하고 심사·근거·다음 단계를 시각적으로
+따라가는 페이지로. 실제 데이터와 부합하는지 1회 검토."</p>
+<p>v3까지의 개정 근거: ① "자격명부는 5월 28일인데 첫 심사가 5월 21일? 시간 순서 오류" 지적 → 시간순
+정렬 수정 + "미너비니 8관문을 어떤 데이터로 통과했는지 조건별 차트·숫자로 folding 제공" ② "종목을
+2024.1~2025.12 분석 수행분에서 뽑고, 용어(invalidation, C5 등)는 마우스 오버 설명을 달고, 페이지 오른쪽에
+전체 단계 도식을 그려달라" → 실데이터 캐스트 7종목(실리콘투 +307.7%, HD현대 climax 보유, 한화에어로
+유일 entry, 이니텍 감사 wait 원문 등)·용어 툴팁 28종·8관문 실측 폴드·우측 파이프라인 레일.</p>
+<h3 style="margin:16px 0 6px;font-size:15px;color:#fbbf24;">연관 문서</h3>
+<ul style="margin:0;padding-left:20px;"><li style="margin:4px 0;"><a href="./class-tree.html" style="color:#7dd3fc;text-decoration:underline;">종목의 전직 도감 — 분류·태그·트리거·주문의 모든 경로</a><span style='color:#94a3b8;'> — 규정 원자료 — 시뮬레이터의 심사 로직 근거</span></li><li style="margin:4px 0;"><a href="./cheongam-guide.html" style="color:#7dd3fc;text-decoration:underline;">청암문 규정 안내서 — 소설 곁들이 표와 흐름도</a><span style='color:#94a3b8;'> — 단계 흐름 참조 문서</span></li><li style="margin:4px 0;"><a href="./system-atoz.html" style="color:#7dd3fc;text-decoration:underline;">종목 하나가 시스템을 통과하는 여정, A부터 Z까지</a><span style='color:#94a3b8;'> — 전체 여정 해설 — 시뮬레이터는 그 여정의 실데이터 실측판</span></li></ul>
+</div>
+</details>
+<title>나는 종목이다 — 2024·2025 실전 심사 시뮬레이터</title>
+<style>
+  :root{
+    --night:#12161C; --panel:#1A2028; --panel2:#20272F; --line:#2C3540;
+    --ink:#E7E2D5; --dim:#9AA3AD; --faint:#6B7480;
+    --jade:#7CC5AE; --jade-deep:#4E9B85; --crimson:#D08070; --gold:#C7A468; --blue:#7FA8D8;
+    --sans:'Pretendard','Apple SD Gothic Neo',-apple-system,system-ui,'Malgun Gothic',sans-serif;
+    --mono:'SF Mono',ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{margin:0; background:var(--night); color:var(--ink); font-family:var(--sans); font-size:16.5px; line-height:1.78; word-break:keep-all; -webkit-font-smoothing:antialiased}
+  .col{max-width:46rem; margin:0 auto; padding:0 clamp(16px,4.5vw,30px)}
+
+  header.hero{background:radial-gradient(ellipse 90% 70% at 50% 115%, rgba(124,197,174,.12), transparent 60%), linear-gradient(180deg,#0D1116 0%,#141A21 100%); border-bottom:1px solid var(--line); text-align:center; padding:clamp(2.4rem,6vw,3.6rem) 0 clamp(1.8rem,4vw,2.4rem)}
+  .hero .kick{font-family:var(--mono); font-size:.68rem; letter-spacing:.22em; color:var(--jade-deep); text-transform:uppercase; margin:0 0 .8rem}
+  .hero h1{font-size:clamp(1.5rem,4.5vw,2.2rem); font-weight:800; margin:0 0 .5rem; color:#fff}
+  .hero .sub{color:var(--dim); font-size:.92rem; margin:0; line-height:1.7}
+  .hero .sub b{color:var(--gold)}
+
+  main{padding:1.6rem 0 5rem}
+  .statbar{display:grid; grid-template-columns:repeat(2,1fr); gap:.5rem; margin:1.2rem 0}
+  @media(min-width:640px){.statbar{grid-template-columns:repeat(4,1fr)}}
+  .stat{border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:.55rem .7rem; text-align:center}
+  .stat .v{font-family:var(--mono); font-size:1.05rem; font-weight:700; color:var(--jade)}
+  .stat .v.zero{color:var(--crimson)}
+  .stat .k{font-size:.64rem; color:var(--faint)}
+  .note{font-size:.82rem; color:var(--dim); background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--jade-deep); border-radius:0 10px 10px 0; padding:.7rem 1rem; margin:1rem 0}
+  .note b{color:var(--ink)}
+  h2.sec{font-size:1.15rem; font-weight:800; color:var(--gold); margin:2rem 0 .6rem}
+
+  .cards{display:grid; grid-template-columns:1fr; gap:.6rem}
+  @media(min-width:600px){.cards{grid-template-columns:1fr 1fr}}
+  .card{border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:.85rem 1rem; cursor:pointer; text-align:left; color:var(--ink); font-family:var(--sans); transition:border-color .15s, transform .1s}
+  .card:hover{border-color:var(--jade-deep); transform:translateY(-1px)}
+  .card .top{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap}
+  .card .nm{font-weight:800; font-size:1rem}
+  .card .tk{font-family:var(--mono); font-size:.66rem; color:var(--faint)}
+  .card .hook{font-size:.8rem; color:var(--dim); margin-top:.3rem; line-height:1.6}
+  .badge{display:inline-block; font-family:var(--mono); font-size:.62rem; font-weight:700; padding:.08rem .5rem; border-radius:999px; border:1px solid; white-space:nowrap}
+  .b-g{color:#8FD3BC; border-color:#3A5D52; background:rgba(124,197,174,.1)}
+  .b-y{color:#D9BC7F; border-color:#5C4F33; background:rgba(199,164,104,.1)}
+  .b-r{color:#E09A8C; border-color:#5D3A34; background:rgba(208,128,112,.1)}
+  .b-b{color:#7FA8D8; border-color:#33455C; background:rgba(127,168,216,.1)}
+
+  #play{display:none}
+  .whoami{display:flex; align-items:center; gap:.7rem; flex-wrap:wrap; border:1px solid var(--jade-deep); border-radius:12px; background:rgba(124,197,174,.06); padding:.7rem 1rem; margin:1rem 0}
+  .whoami .nm{font-weight:800; font-size:1.05rem}
+  .whoami .tk{font-family:var(--mono); font-size:.7rem; color:var(--faint)}
+  .whoami .esc{margin-left:auto; background:none; border:1px solid var(--line); color:var(--dim); border-radius:999px; padding:.25rem .8rem; font-size:.74rem; cursor:pointer; font-family:var(--sans)}
+  .whoami .esc:hover{color:var(--jade); border-color:var(--jade-deep)}
+
+  .map{display:flex; gap:.35rem; overflow-x:auto; padding:.4rem 0 .6rem; margin:.4rem 0 1rem}
+  .mnode{flex:none; font-size:.66rem; font-family:var(--mono); border:1px solid var(--line); border-radius:999px; padding:.3rem .65rem; color:var(--faint); white-space:nowrap}
+  .mnode.on{color:#0E1216; background:var(--jade); border-color:var(--jade); font-weight:700}
+  .mnode.done{color:var(--jade); border-color:var(--jade-deep)}
+  .mnode.lock{opacity:.45}
+  .mnode.sim{border-style:dashed}
+
+  .steps{display:flex; flex-direction:column; gap:.8rem}
+  .step{border:1px solid var(--line); border-radius:14px; background:var(--panel); overflow:hidden}
+  .step .hd{display:flex; align-items:center; gap:.6rem; padding:.6rem 1rem; background:var(--panel2); border-bottom:1px solid var(--line); flex-wrap:wrap}
+  .step .hd .dt{font-family:var(--mono); font-size:.66rem; color:var(--faint)}
+  .step .hd .pl{font-size:.8rem; font-weight:700; color:var(--gold)}
+  .step .hd .simtag{font-family:var(--mono); font-size:.6rem; color:var(--blue); border:1px dashed #33455C; border-radius:999px; padding:.05rem .5rem}
+  .step .bd{padding:.8rem 1rem 1rem}
+  .step .tt{font-weight:800; font-size:.98rem; margin:0 0 .35rem}
+  .step .ds{font-size:.87rem; color:var(--dim); line-height:1.75}
+  .step .ds b{color:var(--ink)}
+  .quote{border-left:3px solid var(--jade-deep); background:#151B22; border-radius:0 8px 8px 0; padding:.55rem .85rem; margin:.6rem 0; font-size:.8rem; color:#C9D2CE; line-height:1.65}
+  .quote .src{display:block; font-family:var(--mono); font-size:.6rem; color:var(--faint); margin-top:.3rem}
+  .verdict{display:flex; align-items:center; gap:.5rem; margin-top:.6rem; flex-wrap:wrap}
+  .verdict .lb{font-size:.72rem; color:var(--faint)}
+  .nextto{font-size:.78rem; color:var(--dim); margin-top:.55rem; padding-top:.55rem; border-top:1px dashed #2A3540}
+  .nextto b{color:var(--jade)}
+
+  /* 용어 툴팁 */
+  .tm{color:var(--blue); border-bottom:1px dotted #4A6285; cursor:help; position:relative; font-style:normal}
+  .tm:hover::after,.tm:focus::after,.tm.tap::after{
+    content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 6px); z-index:80;
+    width:max-content; max-width:min(19rem,72vw); background:#0E141A; color:#D7DEE6;
+    border:1px solid var(--jade-deep); border-radius:8px; padding:.5rem .7rem;
+    font-size:.72rem; line-height:1.55; font-weight:400; white-space:normal;
+    box-shadow:0 8px 26px rgba(0,0,0,.5);
+  }
+
+  /* 조건 상세 folding */
+  details.fold{margin:.7rem 0 0; border:1px solid #26313B; border-radius:10px; background:#161C23; overflow:hidden}
+  details.fold summary{cursor:pointer; list-style:none; padding:.55rem .85rem; font-size:.78rem; font-weight:700; color:var(--blue); display:flex; align-items:center; gap:.4rem}
+  details.fold summary::-webkit-details-marker{display:none}
+  details.fold summary::after{content:"▾"; margin-left:auto; color:var(--faint); transition:transform .2s}
+  details.fold[open] summary::after{transform:rotate(180deg)}
+  details.fold .fbd{padding:.2rem .85rem .8rem; border-top:1px solid #232E33}
+  .ctbl{width:100%; border-collapse:collapse; font-size:.72rem; margin:.5rem 0}
+  .ctbl th{font-family:var(--mono); font-size:.6rem; color:var(--faint); text-align:left; padding:.3rem .45rem; border-bottom:1px solid #26313B; white-space:nowrap}
+  .ctbl td{padding:.34rem .45rem; border-bottom:1px solid #1F2830; vertical-align:top; color:var(--dim)}
+  .ctbl tr:last-child td{border-bottom:none}
+  .ctbl .cnum{font-family:var(--mono); white-space:nowrap}
+  .ctbl .ok{color:#8FD3BC; font-weight:700}
+  .ctbl .no{color:#E09A8C; font-weight:700}
+  .ctbl .mean{font-size:.68rem; color:var(--faint)}
+  .gauge{width:100%; height:auto; display:block; margin:.4rem 0 .1rem}
+  .glab{font-size:.62rem; color:var(--faint); margin:.1rem 0 .3rem}
+  .fnote{font-size:.68rem; color:var(--gold); margin:.4rem 0 0; line-height:1.55}
+
+  .controls{display:flex; gap:.6rem; margin:1.1rem 0 0; flex-wrap:wrap}
+  .btn{font-family:var(--sans); font-weight:700; font-size:.9rem; border-radius:999px; padding:.6rem 1.4rem; cursor:pointer; border:1px solid var(--jade-deep); background:var(--jade); color:#0E1216}
+  .btn:hover{filter:brightness(1.08)}
+  .btn.ghost{background:none; color:var(--dim); border-color:var(--line)}
+  .btn.ghost:hover{color:var(--jade); border-color:var(--jade-deep)}
+  .btn:disabled{opacity:.4; cursor:default}
+
+  .ending{border:1px solid var(--gold); border-radius:14px; background:rgba(199,164,104,.07); padding:1rem 1.1rem; margin-top:.9rem}
+  .ending .et{font-weight:800; color:var(--gold); font-size:1rem; margin-bottom:.35rem}
+  .ending .ed{font-size:.86rem; color:var(--dim); line-height:1.7}
+  .ending .ed b{color:var(--ink)}
+
+  /* 우측 파이프라인 도식 (넓은 화면) */
+  .rail{display:none}
+  @media(min-width:1180px){
+    .rail{display:block; position:fixed; right:clamp(10px,2vw,26px); top:50%; transform:translateY(-50%); z-index:40; width:13.5rem; font-family:var(--sans)}
+    .rail .rt{font-family:var(--mono); font-size:.6rem; letter-spacing:.14em; color:var(--faint); text-transform:uppercase; margin-bottom:.4rem; text-align:center}
+    .rnode{border:1px solid var(--line); border-radius:9px; background:var(--panel); padding:.34rem .6rem; font-size:.68rem; color:var(--faint); margin:.22rem 0; line-height:1.4}
+    .rnode .rn{font-weight:700; color:var(--dim)}
+    .rnode.sim{border-style:dashed}
+    .rnode.on{border-color:var(--jade); background:rgba(124,197,174,.12)}
+    .rnode.on .rn{color:var(--jade)}
+    .rnode.done{border-color:var(--jade-deep)}
+    .rnode.done .rn{color:#7fb8a5}
+    .rnode.lock{opacity:.42}
+    .rarr{text-align:center; color:#3A4552; font-size:.7rem; line-height:.9}
+    .rleg{font-size:.58rem; color:var(--faint); margin-top:.45rem; line-height:1.5; text-align:center}
+  }
+
+  footer.end{text-align:center; color:var(--faint); font-size:.76rem; line-height:1.8; border-top:1px solid var(--line); padding:1.8rem 0 2.6rem; margin-top:3rem}
+  footer.end a{color:var(--jade)}
+  a:focus-visible,button:focus-visible,summary:focus-visible,.tm:focus{outline:2px solid var(--jade); outline-offset:2px; border-radius:4px}
+</style>
+
+<header class="hero">
+  <div class="col">
+    <p class="kick">Real-Data Simulation · 2024.01 – 2025.12</p>
+    <h1>나는 종목이다 — 2024·2025</h1>
+    <p class="sub">2024~2025년 분석 데이터(백필 재현 + 백테스트 + 감사)로 만든 심사 시뮬레이터 — <b>실존 종목이 되어</b> 시간 순서대로 따라가 보세요. <span class="tm" tabindex="0" data-tip="파란 점선 밑줄이 있는 낱말은 전부 이렇게 마우스를 올리면(모바일은 터치) 뜻이 나옵니다.">파란 점선 용어</span>에 마우스를 올리면 뜻풀이가 나옵니다.</p>
+  </div>
+</header>
+
+<aside class="rail" id="rail" aria-label="전체 파이프라인 도식"></aside>
+
+<main>
+<div class="col">
+
+  <div class="statbar" aria-label="2024-25 실측 통계">
+    <div class="stat"><div class="v">2,456</div><div class="k">재현 분류 판정 (321+2,135)</div></div>
+    <div class="stat"><div class="v">1</div><div class="k">entry 판정 (한화에어로)</div></div>
+    <div class="stat"><div class="v">4</div><div class="k">시뮬 완주 트레이드</div></div>
+    <div class="stat"><div class="v zero">0/33</div><div class="k">하락장 돌파 감사 go_now</div></div>
+  </div>
+  <div class="note"><b>데이터 출처.</b> ① 2024년 11개 종목을 매주 토요일 기준으로 다시 심사한 <b>백필 재현</b>(321건) ② 무작위 100종목 × 2021~2024 <b>백테스트 분류</b>(2,135건) ③ 시뮬레이션이 만든 하락장 진입 33건을 실제 AI 감찰로 재검증한 <b>감사</b> 기록. 아래 여정 중 <span class="badge b-b" style="border-style:dashed">시뮬</span> 표시가 붙은 단계는 백테스트 시뮬레이션의 세계선입니다 — <b>감찰·주문서 단계를 생략하고 발화일 종가로 사고, 정해진 규칙으로 파는 "하한 근사"</b>라 실제 운영과 다를 수 있고, 그 차이 자체가 이 게임의 교훈입니다.</div>
+
+  <section id="select">
+    <h2 class="sec">당신이 될 종목을 고르세요 — 2024·2025 유형별 실존 대표 7</h2>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section id="play">
+    <div class="whoami"><span id="wNm" class="nm"></span><span id="wTk" class="tk"></span><span id="wBadge"></span><button class="esc" id="btnBack">← 다른 종목 되기</button></div>
+    <div class="map" id="map"></div>
+    <div class="steps" id="steps"></div>
+    <div class="controls">
+      <button class="btn" id="btnNext">다음 단계 →</button>
+      <button class="btn ghost" id="btnRestart">처음부터</button>
+    </div>
+  </section>
+
+</div>
+</main>
+
+<footer class="end">
+  <div class="col">
+    데이터: classification_backfill(2024 주간 재현) · backtest_classification(동결 100종목) · trigger_audit(하락장 진입 감사) · 트리거 시뮬 결과 문서 — 인용문은 판정 reasoning 원문 일부<br>
+    해설: <a href="https://claude.ai/code/artifact/16acb0d9-86bd-48af-9559-d3b45d8c5281">종목의 전직 도감</a> · <a href="https://claude.ai/code/artifact/a40cb632-203e-45e6-a7cd-63fdd1b2d443">규정 안내서</a> · 소설: <a href="https://claude.ai/code/artifact/10d91686-c093-488a-b7fa-7896f98170d8">청암문 입문 수업</a>
+  </div>
+</footer>
+
+<script>
+(function(){
+// ─── 용어 사전 (마우스 오버 툴팁) ───
+var G={
+ pivot:'pivot(피벗) — 베이스(다지기 구간)의 저항선 바로 위에 그은 돌파 목표가. 이 값을 거래량과 함께 넘는 날이 매수 신호의 출발점.',
+ base_low:'base_low(베이스 하한) — 다지기 구간의 바닥값. 종가가 이 아래로 내려가면 "구조가 깨졌다"는 붕괴 경보(invalidation)가 울린다.',
+ invalidation:'invalidation(붕괴 경보) — 종가가 base_low 또는 50일 이동평균선 아래로 내려갈 때 기계가 올리는 하향 경보. 매수가 아니라 "구조가 깨졌는지"를 심사하러 감찰로 보낸다.',
+ bfw:'breakout_from_watch — watch(관심) 종목이 어제까지 pivot 아래 있다가 오늘 처음 넘는 "신선한 돌파"를 했을 때 기계가 올리는 신호.',
+ promotion:'promotion(임박 예고) — 종가가 pivot의 95%까지 접근했을 때의 관찰 신호. 이 신호만으로는 절대 매수하지 않는다(선 아래 매수 금지).',
+ go_now:'go_now — 감찰(evaluate_pivot)의 세 판정 중 "지금 사라". 이것이 나와야만 주문서(entry_params) 단계로 넘어간다.',
+ wait:'wait — 감찰의 판정 중 "오늘은 아니다". 치명 결함은 아니라 내일 다시 기회가 있다.',
+ abort:'abort — 감찰의 판정 중 "구조가 깨졌다". 그 pivot으로는 종료되고 주말 재심사가 처음부터 다시 그린다.',
+ watch:'watch(관심) — 자격은 되지만 아직 살 때가 아닌 종목. 반드시 "왜 아직 아닌지" 사유 태그 1개가 함께 붙는다.',
+ entry:'entry(즉시후보) — 지금/곧 사도 되는 매수 시점이라는 최상위 판정. 극히 드물다(2021~24 재현 2,135건 중 1건).',
+ ignore:'ignore(제외) — 구조가 망가진 종목만 받는 판정. 과열 정점·천장 분산·병합 왜곡 3가지 깃발만이 이 판정을 강제할 수 있다.',
+ unfav:'unfavorable_market(시장 나쁨) — 종목 셋업은 즉시후보급인데 시장(하락장·조정·분배일 누적)이 나빠 watch로 강등됐다는 사유 태그. 이 태그만은 돌파 후 감찰에서 "오늘 시장이 회복됐는가"를 다시 검사받는다.',
+ valid_base:'valid_base_awaiting_breakout(돌파 대기) — 베이스와 pivot이 완성됐고 주가가 선 아래에서 정상 대기 중이라는 사유 태그. 돌파하면 표준 검증만으로 매수 가능(시장은 안 봄).',
+ base_forming:'base_forming(베이스 미완성) — 다지는 모양이 아직 덜 만들어져 pivot을 그을 수 없다는 사유 태그. 돌파 감시 자체가 없다.',
+ extended:'extended(지나침) — 이미 진입 구간을 5% 넘게 지나쳐 추격 구간이라는 사유 태그. 매수 경로가 구조적으로 닫힌다.',
+ confirmed:'confirmed_uptrend(확정 상승장) — 시장 판정 4국면 중 "사도 되는 상승장". 반등 확인일(FTD) 이후 + 지수가 50일선 위 + 분배일 적음일 때.',
+ downtrend:'downtrend(하락장) — 지수가 장기 추세선 아래 + 고점 대비 크게 하락한 국면. 시장 사유 강등과 감찰 차단의 근거가 된다.',
+ correction:'correction(조정) — 고점 대비 10% 이상 눌리고 지수가 50일선 아래인 중간 하락 국면.',
+ ftd:'FTD(follow-through day, 반등 확인일) — 하락하던 지수가 거래량을 동반해 크게 반등한 날. 새 상승장의 "출발 총성"으로 인정하는 신호.',
+ dday:'분배일(distribution day) — 지수가 거래량이 늘면서 하락한 날 = 기관 매도 흔적. 최근 25일 중 5개 이상 쌓이면 시장 경계 신호.',
+ mpass:'minervini_pass — 미너비니 8관문(추세·바닥탈출·고점근접·상대강도)을 전부 통과했다는 자격 표시. 매일 재검되며, 하나라도 무너지면 명부에서 즉시 제외된다.',
+ rs:'RS 등급 — 최근 1년 수익률이 시장에서 상위 몇 %인지의 등수(0~99, 높을수록 강함). 70 이상이 8관문의 마지막 조건.',
+ sma50:'50일선(SMA50) — 최근 50거래일 종가의 평균선. 단기 추세의 기준선이자 붕괴 경보의 기준 중 하나.',
+ climax:'climax_run(과열 정점) — 다지는 시간 없이 수직으로 치솟은 끝물 신호. 강제 제외 3깃발 중 하나.',
+ eparams:'entry_params(주문서) — go_now를 받은 종목의 매수가·손절가·수량·목표가를 계산하는 마지막 단계.',
+ fresh:'신선한 돌파(fresh cross) — 어제 종가는 pivot 이하, 오늘 종가는 pivot 위. "이미 넘어 있던 것"을 매일 다시 세지 않기 위한 조건.',
+ excess:'시장초과 수익 — 같은 기간 지수(코스피/코스닥) 수익률을 뺀 초과분. 시장이 다 같이 오른 효과를 제거한 진짜 성적.',
+ disq:'disqualified(자격상실) — 8관문 재검에서 탈락해 명부에서 제외되는 기계의 즉결 처분. AI 심사와 무관.',
+ haha:'하한 근사 — 백테스트 시뮬은 감찰(AI 확인)과 주문서(사이징)를 생략하고 발화일 종가로 사서 정해진 규칙(50일선/base_low 이탈)으로 판다. 실제 운영보다 성긴 재현이라 "최소 이 정도"의 추정.'
+};
+function t(k,label){return '<span class="tm" tabindex="0" data-tip="'+G[k].replace(/"/g,'&quot;')+'">'+(label||k)+'</span>';}
+function B(x,c){return '<span class="badge b-'+c+'">'+x+'</span>';}
+function W(n){return n>=1000?n.toLocaleString('en-US'):String(n);}
+
+// ─── 8관문 표 + 52주 게이지 ───
+function m8(m){
+  var c6t=Math.round(m.w52L*1.25), c7t=Math.round(m.w52H*0.75);
+  var rows=[
+   ['C1','종가 > 150일선 > 200일선', W(m.close)+' / '+W(m.s150)+' / '+W(m.s200), m.c[0], '주가가 중·장기 평균선 위'],
+   ['C2','150일선 > 200일선', W(m.s150)+' > '+W(m.s200), m.c[1], '중기 추세가 장기 위'],
+   ['C3','200일선이 22일 전보다 상승', W(m.s200)+' > '+W(m.lag), m.c[2], '장기 추세가 오르는 중'],
+   ['C4','50>150>200일선 정배열', W(m.s50)+' / '+W(m.s150)+' / '+W(m.s200), m.c[3], '단·중·장기 완전 정배열'],
+   ['C5','종가 > 50일선', W(m.close)+' vs '+W(m.s50), m.c[4], '단기 추세도 위'],
+   ['C6','종가 ≥ 52주 최저 ×1.25', W(m.close)+' ≥ '+W(c6t), m.c[5], '바닥에서 25% 이상 탈출'],
+   ['C7','종가 ≥ 52주 최고 ×0.75', W(m.close)+' ≥ '+W(c7t), m.c[6], '최고점 25% 이내(신고가 근처)'],
+   ['C8','RS 등급 ≥ 70', 'RS '+m.rs, m.c[7], '1년 성적 시장 상위 30%']
+  ];
+  var h='<table class="ctbl"><tr><th>관문</th><th>조건 (뜻)</th><th>실측</th><th>판정</th></tr>';
+  rows.forEach(function(r){h+='<tr><td class="cnum">'+r[0]+'</td><td>'+r[1]+'<div class="mean">'+r[4]+'</div></td><td class="cnum">'+r[2]+'</td><td class="'+(r[3]?'ok':'no')+'">'+(r[3]?'✓':'✗')+'</td></tr>';});
+  return h+'</table>'+gauge(m,c6t,c7t);
+}
+function gauge(m,c6t,c7t){
+  var lo=m.w52L*0.96, hi=m.w52H*1.04, w=600;
+  function x(v){return 30+(v-lo)/(hi-lo)*(w-60);}
+  function mk(v,col,lab,anchor){return '<line x1="'+x(v)+'" y1="19" x2="'+x(v)+'" y2="33" stroke="'+col+'" stroke-width="2"/><text x="'+x(v)+'" y="46" fill="'+col+'" font-size="9" text-anchor="'+(anchor||'middle')+'" font-family="monospace">'+lab+'</text>';}
+  var s='<svg class="gauge" viewBox="0 0 '+w+' 62" role="img" aria-label="52주 가격 범위 게이지">';
+  s+='<line x1="30" y1="26" x2="'+(w-30)+'" y2="26" stroke="#2C3540" stroke-width="3"/>';
+  s+=mk(m.w52L,'#6B7480','52주최저','start')+mk(c6t,'#D9BC7F','C6기준')+mk(m.s200,'#7FA8D8','200일')+mk(m.s150,'#7FA8D8','150일')+mk(m.s50,'#7FA8D8','50일')+mk(c7t,'#D9BC7F','C7기준')+mk(m.w52H,'#6B7480','52주최고','end');
+  s+='<circle cx="'+x(m.close)+'" cy="26" r="6" fill="#7CC5AE"/><text x="'+x(m.close)+'" y="12" fill="#7CC5AE" font-size="10" font-weight="bold" text-anchor="middle" font-family="monospace">종가 '+W(m.close)+'</text></svg>';
+  s+='<div class="glab">● 종가 위치 · 노란 눈금 = C6·C7 통과 기준선 · 파란 눈금 = 이동평균선</div>';
+  return s;
+}
+function condRows(rows){
+  var h='<table class="ctbl"><tr><th>검사</th><th>실측</th><th>판정</th></tr>';
+  rows.forEach(function(r){var v=r[2]===null?'<span style="color:#D9BC7F">—</span>':(r[2]?'<span class="ok">✓</span>':'<span class="no">✗</span>');h+='<tr><td>'+r[0]+'<div class="mean">'+r[3]+'</div></td><td class="cnum">'+r[1]+'</td><td>'+v+'</td></tr>';});
+  return h+'</table>';
+}
+function fold(title,inner,note){return '<details class="fold"><summary>📊 '+title+'</summary><div class="fbd">'+inner+(note?'<p class="fnote">'+note+'</p>':'')+'</div></details>';}
+
+// ─── 실측 지표 (daily_indicators, 수정주가) ───
+var IND={
+ sil:{close:8130,s50:8235,s150:8267,s200:7619,lag:7049,w52H:10610,w52L:2855,rs:92,c:[0,1,1,0,0,1,1,1]},
+ hd:{close:92800,s50:82604,s150:71838,s200:65149,lag:60457,w52H:93700,w52L:35700,rs:97,c:[1,1,1,1,1,1,1,1]},
+ inh:{close:2812,s50:2553,s150:2345,s200:2296,lag:2262,w52H:2852,w52L:1520,rs:84,c:[1,1,1,1,1,1,1,1]},
+ noru:{close:13990,s50:13075,s150:13116,s200:12915,lag:12750,w52H:15100,w52L:10580,rs:85,c:[1,1,1,0,1,1,1,1]},
+ hanwha:{close:254155,s50:225908,s150:181596,s200:164214,lag:151786,w52H:260775,w52L:91881,rs:95,c:[1,1,1,1,1,1,1,1]},
+ initech:{close:3880,s50:3440,s150:3446,s200:3409,lag:3395,w52H:4020,w52L:2995,rs:88,c:[1,1,1,0,1,1,1,1]},
+ apact:{close:5570,s50:5629,s150:4303,s200:4073,lag:3871,w52H:6880,w52L:2450,rs:95,c:[1,1,1,1,0,1,1,1]}
+};
+
+var STAGES=[{id:'scr',nm:'① 자격'},{id:'wk',nm:'② 대심사'},{id:'gate',nm:'③ 게이트'},{id:'ev',nm:'④ 감찰'},{id:'doc',nm:'⑤ 주문서'},{id:'sim',nm:'시뮬 매매',sim:1},{id:'end',nm:'결말'}];
+var RAILDESC={scr:'8관문 자격 재검(매일)',wk:'AI 분류 + 사유·깃발',gate:'돌파·임박·붕괴 감지',ev:'go_now/wait/abort',doc:'매수가·손절·수량',sim:'진입→보유→청산 (점선=백테스트 전용)',end:'여정의 끝'};
+
+var CHARS=[
+{tk:'257720', nm:'실리콘투', tag:B('시뮬 +307.7%','g'), hook:'2024년 최고의 완주 — 돌파 대기 태그로 기다리다 2월에 선을 넘고, 7월까지 보유해 시장초과 +315.4%p. 단, 이것은 "시뮬의 세계선"이다.',
+ steps:[
+  {st:'wk', dt:'2024-01-13', pl:'주말 대심사 (백필 재현)', tt:'watch — 돌파 대기, 출발선 확정', v:B('watch','y')+B('valid_base_awaiting_breakout','g')+B('double_bottom','b'),
+   ds:'바닥을 두 번 찍는 이중바닥 패턴이 인정되어 '+t('pivot','pivot(돌파 목표가)')+' <b>9,320원</b> / '+t('base_low','base_low(구조 하한)')+' <b>7,330원</b>이 그어졌습니다. 사유 태그는 '+t('valid_base','valid_base_awaiting_breakout')+' — 준비 끝, 선 넘는 날만 기다리면 되는 상태.',
+   q:'KOSDAQ는 confirmed_uptrend(확인된 상승추세). 분배일 4개로 5개 미만이라 우호적이며, 마지막 follow-through day는 2023-12-08(35일 전).', qs:'classification_backfill 2024-01-13 reasoning 발췌',
+   nx:'평일 게이트의 돌파 감시 대상으로'},
+  {st:'gate', dt:'2024-02-21', pl:'평일 결정론 게이트 (시뮬 재현)', tt:'신선한 돌파 — 발화', v:B('breakout_from_watch','g')+'<span class="badge b-b" style="border-style:dashed">시뮬</span>',
+   ds:'종가 10,400원이 pivot 9,320원을 '+t('fresh','처음으로')+' 넘었고 거래량 조건도 충족 — 신호 발화. <b>여기서 시뮬의 세계선이 갈라집니다</b>: 실제 운영이라면 이 밤 '+t('go_now','감찰(go_now 심사)')+'을 거치지만, 백테스트 시뮬은 '+t('haha','하한 근사')+' 방식이라 감찰·주문서를 생략하고 발화일 종가로 삽니다.',
+   fold:fold('참고 — 이날의 8관문 상태 (수정주가 기준)', m8(IND.sil), '눌림 구간 돌파라 C1(종가>150일선)·C4(정배열)·C5(종가>50일선) 세 관문이 일시 미달 상태였다 — 실제 운영이라면 매일 새벽의 자격 재검(disqualify)이 개입했을 수 있는 지점. 시뮬은 트리거만 재현하므로 이 차이도 "하한 근사"의 일부다.'),
+   nx:'시뮬 세계선: 진입'},
+  {st:'sim', dt:'2024-02-21 → 07-25', pl:'시뮬 매매 (결정론 재현)', tt:'보유 5개월 — 그리고 청산', v:'<span class="badge b-b" style="border-style:dashed">시뮬</span>'+B('+307.7%','g'),
+   ds:'10,400원에 사서 5개월을 보유합니다. 청산 규칙은 단순합니다 — 종가가 '+t('sma50','50일선')+' 아래로 내려가는 날 판다. 그날이 7월 25일, <b>42,400원.</b> 수익 <b>+307.7%</b>, '+t('excess','시장초과')+' <b>+315.4%p.</b>',
+   nx:'결말로'}
+ ],
+ end:{t:'🏁 결말 — 2024년의 증명 (단, 시뮬의)', d:'이 여정이 증명하는 것: <b>돌파 대기(valid_base) → 신선한 돌파 → 추세 보유</b>라는 경로가 2024년의 대형 상승을 실제로 포착할 수 있었다는 것. 동시에 기억할 것: 이 완주는 감찰·주문서를 생략한 <b>시뮬의 세계선</b>이다. 8종목 패널에서 이런 완주 트레이드는 4건 — 그중 당신이 최고 성적이었다.'}
+},
+{tk:'267260', nm:'HD현대일렉트릭', tag:B('보유 +216.8%','g')+B('climax','r'), hook:'1월에 선을 넘어 7월까지 보유 +216.8%. 그 사이 심사는 당신을 "과열 정점"으로 제외 판정했다 — 그런데 왜 수익은 그대로였을까?',
+ steps:[
+  {st:'wk', dt:'2024-01-06', pl:'주말 대심사 (백필 재현)', tt:'watch — 돌파 대기, pivot 90,900', v:B('watch','y')+B('valid_base_awaiting_breakout','g'),
+   ds:'토요일 심사에서 '+t('pivot','pivot')+' <b>90,900원</b> / '+t('base_low','base_low')+' <b>79,000원</b> 확정. 시장도 '+t('confirmed','확정 상승장')+'(분배일 3개)이라 좋은 출발이었습니다.',
+   q:'KOSPI는 confirmed_uptrend, 분배일 3개(≤3 양호), 직전 follow-through day 2023-12-28(8일 전)로 추세 신뢰 가능.', qs:'classification_backfill 2024-01-06 reasoning 발췌',
+   nx:'이틀 뒤—'},
+  {st:'scr', dt:'2024-01-08', pl:'자격 명부', tt:'8관문 전원 통과 — RS 97', v:B('minervini_pass ✓','g')+B('RS 97','g'),
+   ds:t('mpass','8관문 자격')+'을 전부 통과했고 '+t('rs','RS 등급')+'은 97 — 1년 성적이 시장 상위 3%였습니다.',
+   fold:fold('8관문 조건별 실측 + 52주 게이지 (1/8)', m8(IND.hd)),
+   nx:'이틀 뒤 자격 확인과 함께—'},
+  {st:'gate', dt:'2024-01-08', pl:'평일 결정론 게이트 (시뮬 재현)', tt:'신선한 돌파 — 진입', v:B('breakout_from_watch','g')+'<span class="badge b-b" style="border-style:dashed">시뮬</span>',
+   ds:'종가 92,800원 > pivot 90,900원. 시뮬 세계선에서 진입합니다.',
+   nx:'보유 — 그런데 두 달 뒤 심사장에서는'},
+  {st:'wk', dt:'2024-02-24 · 03-02', pl:'주말 대심사 (보유 중 재심사)', tt:'제외 판정 — climax_run', v:B('ignore','r')+B('climax_run','r'),
+   ds:'주가가 다지는 시간 없이 수직으로 치솟자, 심사는 당신을 '+t('climax','과열 정점(climax_run)')+'으로 '+t('ignore','제외(ignore)')+' 판정합니다. <b>그런데 중요한 것 — 이 판정은 "신규 매수 금지"일 뿐, 이미 산 보유분을 팔라는 명령이 아닙니다.</b> 시뮬의 청산 규칙(50일선 이탈)은 아직 발동되지 않았으므로, 보유는 계속됩니다.',
+   q:'매수 가능한 정상 base 부재. (climax_run + extended_from_ma)', qs:'classification_backfill 2024-02-24 발췌',
+   nx:'그대로 보유 — 5개월간'},
+  {st:'sim', dt:'2024-07-22 (1/8부터 보유)', pl:'시뮬 매매', tt:'청산 — 50일선 이탈', v:'<span class="badge b-b" style="border-style:dashed">시뮬</span>'+B('+216.8%','g'),
+   ds:'7월 22일 <b>294,000원</b>에서 50일선 이탈로 청산. 수익 <b>+216.8%</b>, '+t('excess','시장초과')+' <b>+209.2%p.</b>',
+   nx:'결말로'}
+ ],
+ end:{t:'🏁 결말 — "제외"가 수익을 못 건드린 이유', d:'이 여정이 증명하는 규칙: <b>분류는 신규 진입만 통제하고, 보유는 청산 규칙이 통제한다.</b> 과열 판정(climax)이 떴어도 이미 진입한 포지션은 추세가 꺾일 때(50일선 이탈)까지 산다 — 그래서 "climax 판정 때문에 상승을 놓쳤다"는 걱정은, 보유자에겐 해당이 없었다.'}
+},
+{tk:'012450', nm:'한화에어로스페이스', tag:B('유일한 entry','g'), hook:'무작위 100종목 × 4년(2,135건) 재현에서 단 하나뿐이었던 entry 판정 — "즉시후보"가 되기 위한 조건의 전부.',
+ steps:[
+  {st:'scr', dt:'2024-06-28', pl:'자격 명부', tt:'8관문 전원 통과 — RS 95', v:B('minervini_pass ✓','g')+B('RS 95','g'),
+   ds:'완벽한 자격. 아래 게이지에서 종가가 52주 최고가 바로 아래, 모든 이동평균선 위에 떠 있는 것을 확인해 보세요.',
+   fold:fold('8관문 조건별 실측 + 52주 게이지 (6/28)', m8(IND.hanwha)),
+   nx:'주말 대심사로'},
+  {st:'wk', dt:'2024-06-29', pl:'주말 대심사 (백테스트 재현)', tt:'entry — 2,135건 중 단 하나', v:B('entry','g')+B('cup_with_handle','b'),
+   ds:'컵-핸들 패턴 완성, '+t('pivot','pivot')+' <b>260,875원</b> / '+t('base_low','base_low')+' <b>197,618원</b>. 그리고 결정적으로 — 시장이 '+t('confirmed','확정 상승장')+'에 '+t('dday','분배일')+' 단 1개, '+t('ftd','반등 확인일(FTD)')+' 확인, 시장 폭 44.4%. <b>종목과 시장이 동시에 완벽해야</b> 이 판정이 나옵니다. 4년 2,135건 중 1건 — 확률 0.05%.',
+   q:'KOSPI는 confirmed_uptrend(확정 상승추세), 분배일 25거래일 중 1개(<5 안전), follow-through day 5/07 확인, 200일선 위 종목 44.4%.', qs:'backtest_classification 2024-06-29 reasoning 발췌',
+   fold:fold('entry가 되기 위한 시장 조건(§3.5) 체크', condRows([
+    ['시장 국면','confirmed_uptrend',true,'하락/조정이면 자동으로 watch 강등'],
+    ['반등 확인일(FTD)','5/07 확인',true,'상승장의 출발 총성'],
+    ['분배일 < 5','25일 중 1개',true,'기관 매도 흔적이 거의 없음'],
+    ['시장 폭(참고)','200일선 위 44.4%',null,'시장 전반의 건강도']
+   ])),
+   nx:'entry 풀 배치 — 자체 돌파 감시'},
+  {st:'gate', dt:'이후', pl:'평일 결정론 게이트', tt:'entry의 돌파 경로', v:B('감시','y'),
+   ds:'entry 판정을 받아도 즉시 매수가 아닙니다 — pivot 260,875원 돌파 + 거래량이 확인되어야 '+t('go_now','감찰의 go_now 심사')+'로 넘어갑니다. entry는 "먼저 사라"가 아니라 "준비되는 대로 보내마"입니다.',
+   nx:'결말로'}
+ ],
+ end:{t:'👑 결말 — 0.05%의 조건', d:'이 여정이 증명하는 규칙: <b>entry는 종목의 완성(패턴·pivot)과 시장의 완성(확정 상승장·FTD·분배일 1개)이 겹치는 교집합</b>에서만 나온다. 그리고 그마저도 즉시 매수가 아니라 돌파·감찰을 거친다. 이 시스템에서 "지금 사도 된다"는 말이 얼마나 무거운지의 실측이 0.05%다.'}
+},
+{tk:'053350', nm:'이니텍', tag:B('감사 wait','r')+B('방어의 실물','y'), hook:'하락장 한복판, 표준 검증을 전부 통과한 완벽한 돌파 — 그런데 실제 AI 감찰의 답은 wait였다. 방어 게이트가 대박 꼬리를 자르는 순간의 실물.',
+ steps:[
+  {st:'wk', dt:'2024-07-27 (pivot 기준일)', pl:'주말 대심사 (백테스트 재현)', tt:'watch — 시장 나쁨 태그', v:B('watch','y')+B('unfavorable_market','r'),
+   ds:'셋업은 좋은데 시장이 나빴습니다. 사유 태그 '+t('unfav','unfavorable_market(시장 나쁨)')+' — 이 태그의 의미는 단 하나, <b>돌파해도 감찰에서 "오늘 시장"을 다시 검사받는다</b>는 것.',
+   nx:'두 달 뒤, 하락장 속에서—'},
+  {st:'gate', dt:'2024-09-30', pl:'평일 결정론 게이트 (시뮬 재현)', tt:'하락장 속 신선한 돌파', v:B('breakout_from_watch','g')+B('downtrend','r'),
+   ds:'시장은 '+t('downtrend','하락장(downtrend)')+' 국면. 그런데 당신은 거래량 <b>2.39배</b>를 동반하며 선을 넘습니다. 시뮬은 여기서 진입했고 — 이 진입은 이후 큰 회복 국면을 타는 "하락기 바닥 대박" 유형이 됩니다.',
+   fold:fold('참고 — 이날의 8관문 상태', m8(IND.initech), 'C4(50>150>200일선 정배열)만 미달 — 하락장에서 갓 돌아서는 종목의 전형적인 모습이다.'),
+   nx:'그런데, 실제 운영이라면? — 감사가 검증했다'},
+  {st:'ev', dt:'감사 (2026-07-02 재현)', pl:'감찰 evaluate_pivot — 실제 AI 재검증', tt:'판정 — wait (하늘 탓 차단)', v:B('wait','y')+B('go_now 차단','r'),
+   ds:'백테스트가 만든 하락장 진입 33건을 <b>실제 감찰 AI로 재검증한 감사</b>에서, 당신의 이 돌파가 심사됐습니다. 표준 검증은 전부 통과 — 그러나 '+t('unfav','시장 나쁨 태그')+'의 추가 문제에서 걸렸습니다: 오늘 시장이 '+t('confirmed','확정 상승장')+'인가? 아니다, 하락장이다. <b>wait.</b>',
+   q:'거래량2.39x·상단마감·spread정상·무분배로 표준돌파는 충족. 그러나 watch_reason=unfavorable_market 승격조건인 market_context.current_status가 confirmed_uptrend 아닌 downtrend라 go_now 차단, wait 유지.', qs:'trigger_audit 2024-09-30건 reasoning 원문 (감사 33건 전건 wait)',
+   fold:fold('감찰 심문 조건별 결과', condRows([
+    ['거래량 > 1.4배','2.39배',true,'돌파의 힘은 차고 넘쳤다'],
+    ['일중 상단 마감','충족',true,'하루의 끝까지 힘이 실림'],
+    ['봉 폭(spread) 정상','충족',true,'어지럽지 않은 검로'],
+    ['최근 분배 없음','충족',true,'매도 흔적 없음'],
+    ['[추가] 오늘 시장 = 확정 상승장','downtrend',false,'시장 나쁨 태그의 추가 문제 — 여기서 차단']
+   ])),
+   nx:'결말로'}
+ ],
+ end:{t:'🛡️ 결말 — 방어가 수익을 자르는 순간', d:'이 여정이 증명하는 것이 이 시스템의 가장 깊은 긴장입니다. <b>시뮬 세계선에서 당신은 하락기 바닥 대박</b>(백테스트 문서 기준, 이후 회복 국면에 시뮬 +99.6% 유형의 앵커)이었지만, <b>실제 감찰은 33건 전부와 함께 당신을 wait로 막았습니다.</b> 방어는 손실도 막고 대박도 막는다 — 그 교환의 실물이 당신입니다.'}
+},
+{tk:'101930', nm:'인화정공', tag:B('시뮬 +45.8%','g')+B('하한 근사 주의','y'), hook:'조정장 속의 여름 대박 — 시뮬은 +45.8%로 완주했지만, 이니텍의 감사 결과를 알고 나면 이 완주가 달리 보인다.',
+ steps:[
+  {st:'wk', dt:'2024-06-01', pl:'주말 대심사 (백필 재현)', tt:'watch — 시장 나쁨 태그, pivot 2,740', v:B('watch','y')+B('unfavorable_market','r')+B('flat_base','b'),
+   ds:'평평한 베이스 완성, '+t('pivot','pivot')+' <b>2,740원</b> / '+t('base_low','base_low')+' <b>2,500원</b>. 그러나 코스닥이 '+t('correction','조정')+' 국면이라 '+t('unfav','시장 나쁨')+' 태그가 붙었습니다.',
+   q:'KOSDAQ는 correction(조정) 국면. follow-through day가 37일 전(4/24)이라 효력이 약화됐고 200일선 위 종목 비중이 32.7%.', qs:'classification_backfill 2024-06-01 reasoning 발췌',
+   nx:'2주 뒤—'},
+  {st:'gate', dt:'2024-06-14', pl:'평일 결정론 게이트 (시뮬 재현)', tt:'신선한 돌파 — 시뮬 진입', v:B('breakout_from_watch','g')+'<span class="badge b-b" style="border-style:dashed">시뮬</span>',
+   ds:'종가 2,812원 > pivot 2,740원. <b>여기서 정직한 각주 하나</b> — 당신의 태그는 시장 나쁨(unfavorable_market)이므로, <b>실제 운영이라면 이 돌파는 감찰에서 "오늘 시장" 검사를 받았을 것</b>입니다(이니텍 사례처럼). 시뮬은 '+t('haha','하한 근사')+'라 그 관문 없이 진입했습니다.',
+   fold:fold('참고 — 이날의 8관문 상태 (8/8 전원 통과)', m8(IND.inh)),
+   nx:'시뮬 세계선: 보유'},
+  {st:'sim', dt:'2024-06-14 → 08-13', pl:'시뮬 매매', tt:'두 달 보유 — 청산 +45.8%', v:'<span class="badge b-b" style="border-style:dashed">시뮬</span>'+B('+45.8%','g'),
+   ds:'8월 13일 4,100원에서 50일선 이탈 청산. 수익 <b>+45.8%</b>, '+t('excess','시장초과')+' <b>+57.1%p</b> — 시장이 빠지는 동안 홀로 오른, 진짜 초과 수익이었습니다.',
+   nx:'결말로'}
+ ],
+ end:{t:'⚖️ 결말 — 완주였을까, 요행이었을까', d:'시뮬 세계선에서 당신은 훌륭한 완주자입니다. 그러나 이니텍의 감사가 보여줬듯, <b>시장 나쁨 태그의 하락·조정기 돌파는 실제 감찰에서 막혔을 가능성이 높습니다.</b> 이 여정이 증명하는 것: 백테스트의 "하한 근사"가 왜 하한인지 — 그리고 방어 게이트가 이런 수익 기회와 무엇을 맞바꾸는지.'}
+},
+{tk:'000320', nm:'노루홀딩스', tag:B('시뮬 −2.6%','r'), hook:'4번의 완주 트레이드 중 유일한 손실 — 그러나 시장초과로는 +1.3%p. "지는 날의 모범 답안"이 어떻게 생겼는지 보여준다.',
+ steps:[
+  {st:'wk', dt:'2024-12-14', pl:'주말 대심사 (백필 재현)', tt:'watch — flat_base, pivot 14,010', v:B('watch','y')+B('flat_base','b'),
+   ds:'평평한 베이스에서 '+t('pivot','pivot')+' <b>14,010원</b> / '+t('base_low','base_low')+' <b>12,310원</b>이 그어졌습니다. 이때 시장은 '+t('correction','조정')+' 국면(분배일 5개, '+t('ftd','FTD')+' 92일 경과 만료)이었습니다.',
+   q:'KOSPI는 correction(조정) 국면. 최근 25일 분배일 5개로 매도 압력 누적, 마지막 follow-through day는 2024-09-12로 92일 경과(만료).', qs:'classification_backfill 2024-12-14 reasoning 발췌',
+   nx:'해를 넘겨 2025년 2월—'},
+  {st:'gate', dt:'2025-02-13', pl:'평일 결정론 게이트 (시뮬 재현)', tt:'신선한 돌파 — 시뮬 진입 @13,990', v:B('breakout_from_watch','g')+'<span class="badge b-b" style="border-style:dashed">시뮬</span>',
+   ds:'2024년의 pivot이 살아 있는 상태에서 2025년 2월에 돌파가 왔습니다(태그는 대심사 때만 갱신되므로 해를 넘겨도 유지). 시뮬 진입가 13,990원.',
+   fold:fold('참고 — 이날의 8관문 상태', m8(IND.noru), 'C4(정배열)만 미달 — 150일선이 50일선을 근소하게 웃도는 미묘한 배열이었다.'),
+   nx:'시뮬 세계선: 보유'},
+  {st:'sim', dt:'2025-02-13 → 03-31', pl:'시뮬 매매', tt:'청산 — 소폭 손실, 그러나', v:'<span class="badge b-b" style="border-style:dashed">시뮬</span>'+B('−2.6%','r')+B('시장초과 +1.3%p','g'),
+   ds:'상승이 이어지지 못했고 3월 31일 13,620원에서 '+t('sma50','50일선')+' 이탈 청산. 손실 <b>−2.6%</b> — 그러나 같은 기간 시장이 더 빠져 '+t('excess','시장초과')+'로는 <b>+1.3%p.</b> 손절선이 손실을 한 자릿수로 묶었습니다.',
+   nx:'결말로'}
+ ],
+ end:{t:'🪶 결말 — 지는 날의 모범 답안', d:'이 여정이 증명하는 규칙: <b>추세추종의 손실은 이렇게 생겨야 한다</b> — 빠르고, 작고, 기계적으로. 4건의 완주 중 유일한 손실이 −2.6%라는 것(나머지는 +307.7/+216.8/+45.8%)이 "잦은 소손절 + 드문 대박"이라는 이 전략의 수익 구조 그 자체다.'}
+},
+{tk:'200470', nm:'에이팩트', tag:B('무피벗 census','y'), hook:'14주 내내 심사를 받았지만 한 번도 출발선(pivot)이 그어지지 않았다 — 그리고 어느 여름, 명부에서 조용히 사라졌다.',
+ steps:[
+  {st:'wk', dt:'2024-02-24 ~ 07-13', pl:'주말 대심사 (백필 재현, 14회)', tt:'14주 연속 — watch(base_forming)', v:B('watch ×14','y')+B('base_forming','y')+B('pivot 0회','r'),
+   ds:'14번의 심사에서 14번 모두 '+t('base_forming','베이스 미완성(base_forming)')+'. '+t('pivot','pivot')+'이 한 번도 그어지지 않았다는 뜻은 — <b>돌파 감시 대상이 된 적이 단 한 주도 없다</b>는 뜻입니다. 2024년 백필 전체에서 이런 "구조적으로 살 수 없는" watch 행이 다수였습니다(패널의 pivot 없는 watch 143행).',
+   q:'KOSDAQ는 correction. 25세션 분배일 4개, 마지막 follow-through 79일 전으로 신선도 소멸, 200일선 위 종목 28.3%(약세 breadth).', qs:'classification_backfill 2024-07-13(마지막 행) reasoning 발췌',
+   fold:fold('참고 — 5/31의 8관문 상태', m8(IND.apact), 'C5(종가>50일선)가 미달인 날 — 이렇게 자격이 흔들리기 시작했다.'),
+   nx:'그리고 7월 13일 이후—'},
+  {st:'scr', dt:'2024-07-13 이후', pl:'자격 명부 (결정론 재검)', tt:'명부에서 사라짐', v:B('자격 이탈','r'),
+   ds:'고점 대비 하락으로 '+t('mpass','8관문 자격')+'이 무너지며, 다음 주말부터 심사 명단에 오르지 않게 됩니다. '+t('disq','자격상실')+'은 요란한 판정이 아닙니다 — <b>그냥 다음 명부에 이름이 없는 것.</b>',
+   nx:'결말로'}
+ ],
+ end:{t:'🌫️ 결말 — 소리 없는 퇴장', d:'이 여정이 증명하는 규칙: <b>watch의 대부분은 애초에 매수 신호 경로 밖에 있다.</b> pivot이 없으면 돌파도, 감찰도, 주문서도 없다 — 2024년 백테스트가 "watch가 돈을 못 벌었다"가 아니라 "watch 대부분이 설계상 살 수 없는 상태였다"고 결론 낸 이유가 당신이다.'}
+}
+];
+
+// ─── 렌더 ───
+var elCards=document.getElementById('cards'), elSel=document.getElementById('select'), elPlay=document.getElementById('play');
+var elSteps=document.getElementById('steps'), elMap=document.getElementById('map'), elRail=document.getElementById('rail');
+var cur=null, idx=0;
+CHARS.forEach(function(c,i){
+  var b=document.createElement('button'); b.className='card';
+  b.innerHTML='<div class="top"><span class="nm">'+c.nm+'</span><span class="tk">'+c.tk+'</span>'+c.tag+'</div><div class="hook">'+c.hook+'</div>';
+  b.addEventListener('click',function(){ start(i); });
+  elCards.appendChild(b);
+});
+function start(i){
+  cur=CHARS[i]; idx=0;
+  document.getElementById('wNm').textContent='나는 '+cur.nm;
+  document.getElementById('wTk').textContent=cur.tk;
+  document.getElementById('wBadge').innerHTML=cur.tag;
+  elSel.style.display='none'; elPlay.style.display='block';
+  elSteps.innerHTML=''; addStep();
+  elPlay.scrollIntoView({behavior:'smooth'});
+}
+function reached(){ var s={}; for(var k=0;k<=Math.min(idx,cur.steps.length-1);k++) s[cur.steps[k].st]=1; if(idx>=cur.steps.length) s['end']=1; return s; }
+function paint(){
+  var r=reached(); var curSt = idx>=cur.steps.length ? 'end' : cur.steps[idx].st;
+  var everSt={}; cur.steps.forEach(function(s){everSt[s.st]=1}); everSt['end']=1;
+  elMap.innerHTML=STAGES.map(function(s){
+    var cls='mnode'+(s.sim?' sim':'');
+    if(s.id===curSt) cls+=' on'; else if(r[s.id]) cls+=' done'; else if(!everSt[s.id]) cls+=' lock';
+    return '<span class="'+cls+'">'+s.nm+(!everSt[s.id]?' 🔒':'')+'</span>';
+  }).join('');
+  elRail.innerHTML='<div class="rt">전체 파이프라인</div>'+STAGES.map(function(s,i){
+    var cls='rnode'+(s.sim?' sim':'');
+    if(s.id===curSt) cls+=' on'; else if(r[s.id]) cls+=' done'; else if(!everSt[s.id]) cls+=' lock';
+    return '<div class="'+cls+'"><span class="rn">'+s.nm+(!everSt[s.id]?' 🔒':'')+'</span><br>'+RAILDESC[s.id]+'</div>'+(i<STAGES.length-1?'<div class="rarr">▼</div>':'');
+  }).join('')+'<div class="rleg">진한 초록 = 지금 위치 · 초록 테두리 = 지나온 곳 · 🔒 = 이 종목이 도달하지 않는 단계 · 점선 = 백테스트 시뮬 전용</div>';
+}
+function addStep(){
+  if(idx<cur.steps.length){
+    var s=cur.steps[idx];
+    var h='<div class="step"><div class="hd"><span class="dt">'+s.dt+'</span><span class="pl">📍 '+s.pl+'</span></div><div class="bd">';
+    h+='<p class="tt">'+s.tt+'</p><p class="ds">'+s.ds+'</p>';
+    if(s.q) h+='<div class="quote">“'+s.q+'”<span class="src">— '+s.qs+'</span></div>';
+    if(s.fold) h+=s.fold;
+    h+='<div class="verdict"><span class="lb">판정</span>'+s.v+'</div>';
+    h+='<div class="nextto">다음 행선지 → <b>'+s.nx+'</b></div></div></div>';
+    elSteps.insertAdjacentHTML('beforeend',h);
+  } else {
+    elSteps.insertAdjacentHTML('beforeend','<div class="ending"><div class="et">'+cur.end.t+'</div><div class="ed">'+cur.end.d+'</div></div>');
+    document.getElementById('btnNext').disabled=true;
+  }
+  paint();
+  var last=elSteps.lastElementChild; if(last) last.scrollIntoView({behavior:'smooth', block:'center'});
+}
+document.getElementById('btnNext').addEventListener('click',function(){ idx++; addStep(); });
+document.getElementById('btnRestart').addEventListener('click',function(){ idx=0; elSteps.innerHTML=''; document.getElementById('btnNext').disabled=false; addStep(); });
+document.getElementById('btnBack').addEventListener('click',function(){ elPlay.style.display='none'; elSel.style.display='block'; document.getElementById('btnNext').disabled=false; window.scrollTo({top:0,behavior:'smooth'}); });
+// 모바일: 용어 탭 토글
+document.addEventListener('click',function(e){
+  var tm=e.target.closest('.tm');
+  document.querySelectorAll('.tm.tap').forEach(function(x){ if(x!==tm) x.classList.remove('tap'); });
+  if(tm) tm.classList.toggle('tap');
+});
+// 초기 레일(선택 화면): 전 단계 중립 표시
+elRail.innerHTML='<div class="rt">전체 파이프라인</div>'+STAGES.map(function(s,i){
+  return '<div class="rnode'+(s.sim?' sim':'')+'"><span class="rn">'+s.nm+'</span><br>'+RAILDESC[s.id]+'</div>'+(i<STAGES.length-1?'<div class="rarr">▼</div>':'');
+}).join('')+'<div class="rleg">종목을 고르면 현재 위치가 이 지도 위에 표시됩니다 · 점선 = 백테스트 시뮬 전용</div>';
+})();
+</script>

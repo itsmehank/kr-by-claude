@@ -1,0 +1,571 @@
+<details data-doc-meta style="box-sizing:border-box;margin:0;padding:10px 24px;background:#0f172a;color:#e2e8f0;font-family:'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;font-size:14px;line-height:1.75;border-bottom:3px solid #f59e0b;">
+<summary style="cursor:pointer;font-weight:700;color:#fbbf24;outline:none;">📌 이 문서는 왜 만들어졌나 — 목적 · 연관 문서 · 이력 (클릭해서 펼치기)</summary>
+<div style="max-width:880px;margin:14px auto 8px;">
+<p style="margin:0 0 12px;color:#94a3b8;font-size:13px;">생성: 2026-07-03 17:31 · 최종 업데이트: 2026-07-03 17:32 (KST) · 출처: Claude Code 세션 기록 기반 복원</p>
+<h3 style="margin:0 0 6px;font-size:15px;color:#fbbf24;">이 문서의 목적 (실제 요청 근거)</h3>
+<p>백테스트 해설을 읽던 사용자가 "이 시스템의 두 측면(하락장 바닥 대박 포기 ↔ 하락장 진입 차단)을
+오닐·미너비니 전문 AI 에이전트에게 물어보고 싶다"며 자문 프롬프트 작성을 요청했고, 외부 AI의
+<b>1차 자문 응답</b>을 첨부하며 "현재 내 시스템에서 개선해야 하는 내용이 있는지 확인해줘"라고 요청했다.</p>
+<p>이 문서는 그 1차 자문 응답(원전 태그: book-mandated/해석/추측)을 실제 코드·백테스트 결과와
+대조 검증한 결과물이다. "위 내용 전부를 누락 없이 초보자도 이해하기 쉽게 HTML로 만들고 2회 검토"
+지시로 페이지화됐다.</p>
+<p>⚠️ 이후 2차 자문 응답과 통합된 <b>최종본(두 대가의 원전 대조, 내 시스템 최종 진단)이 이 문서를
+대체</b>한다. 이 페이지는 중간본으로 보존된 것.</p>
+<h3 style="margin:16px 0 6px;font-size:15px;color:#fbbf24;">연관 문서</h3>
+<ul style="margin:0;padding-left:20px;"><li style="margin:4px 0;"><a href="./backtest-explainer.html" style="color:#7dd3fc;text-decoration:underline;">한국 주식 자동분석 시스템, 4년치로 되돌려 검증해봤더니</a><span style='color:#94a3b8;'> — 발원 문서 — 백테스트 해설의 후속 질문에서 자문이 시작됨</span></li><li style="margin:4px 0;"><a href="./final-review.html" style="color:#7dd3fc;text-decoration:underline;">두 대가의 원전 대조, 내 시스템 최종 진단</a><span style='color:#94a3b8;'> — 이 문서(1차 자문 검증)를 2차 자문과 통합한 최종본. 최신 내용은 그쪽을 볼 것</span></li></ul>
+</div>
+</details>
+<style>
+  :root{
+    --paper:#F4F6F8; --card:#FFFFFF; --ink:#19222E; --slate:#566171;
+    --faint:#8A94A1; --line:#DCE2E8;
+    --accent:#0E6B5B; --accent-2:#128972; --accent-soft:#E2EFEC;
+    --good:#1C7A4E; --good-soft:#E5F1EA;
+    --warn:#A9741A; --warn-soft:#F7EFDD;
+    --bad:#B0413A; --bad-soft:#F6E5E3;
+    --oneil:#1D5FA8; --oneil-soft:#E5EEF8;
+    --minervini:#7A4BB0; --minervini-soft:#EFE8F6;
+    --sans:'Pretendard','Apple SD Gothic Neo',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,'Malgun Gothic',sans-serif;
+    --mono:'SF Mono',ui-monospace,Menlo,'Cascadia Mono',monospace;
+    --col:42rem;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:17px; line-height:1.75;
+    word-break:keep-all; overflow-wrap:break-word; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:74rem; margin:0 auto; padding:0 clamp(18px,4vw,40px)}
+  .layout{display:grid; grid-template-columns:1fr; gap:0}
+  @media (min-width:1040px){
+    .layout{grid-template-columns:15rem minmax(0,var(--col)); gap:3.5rem; justify-content:center}
+  }
+
+  /* Hero */
+  header.hero{background:linear-gradient(155deg,#0C2A26 0%,#123f39 48%,#0E6B5B 130%); color:#EAF2F0}
+  .hero .wrap{padding-top:clamp(46px,7vw,80px); padding-bottom:clamp(38px,6vw,60px)}
+  .kicker{font-family:var(--mono); font-size:.72rem; letter-spacing:.22em; text-transform:uppercase; color:#7FD8C6; margin:0 0 1.1rem}
+  .hero h1{font-size:clamp(1.85rem,4.4vw,2.9rem); line-height:1.2; font-weight:800; letter-spacing:-.02em; text-wrap:balance; margin:0 0 1rem; color:#fff}
+  .hero p.lead{font-size:clamp(1rem,1.6vw,1.16rem); color:#C4D8D3; max-width:39rem; margin:0; line-height:1.7}
+  .hero .meta{display:flex; flex-wrap:wrap; gap:.5rem .7rem; margin-top:1.7rem; font-family:var(--mono); font-size:.74rem; color:#9DBFB8}
+  .hero .meta span{border:1px solid rgba(127,216,198,.28); border-radius:999px; padding:.28rem .7rem}
+
+  /* TOC */
+  nav.toc{display:none}
+  @media (min-width:1040px){
+    nav.toc{display:block; position:sticky; top:2rem; align-self:start; padding-top:3.2rem; font-size:.86rem}
+    nav.toc .lbl{font-family:var(--mono); font-size:.66rem; letter-spacing:.18em; text-transform:uppercase; color:var(--faint); margin:0 0 .9rem}
+    nav.toc ol{list-style:none; margin:0 0 1.3rem; padding:0; display:flex; flex-direction:column; gap:.12rem}
+    nav.toc .grp{font-family:var(--mono); font-size:.64rem; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); margin:.4rem 0 .3rem .6rem; font-weight:600}
+    nav.toc a{display:block; text-decoration:none; color:var(--slate); padding:.3rem .6rem; border-left:2px solid transparent; border-radius:0 4px 4px 0; line-height:1.35; transition:color .15s,border-color .15s,background .15s}
+    nav.toc a:hover{color:var(--ink); background:var(--accent-soft)}
+    nav.toc a.active{color:var(--accent); border-left-color:var(--accent); font-weight:600}
+    nav.toc a .n{font-family:var(--mono); font-size:.72rem; color:var(--faint); margin-right:.5rem}
+    nav.toc a.active .n{color:var(--accent)}
+  }
+
+  main{padding:clamp(34px,5vw,56px) 0 5rem; min-width:0}
+  section{margin-bottom:clamp(2.4rem,5vw,3.6rem); scroll-margin-top:1.5rem}
+  section > h2{font-size:clamp(1.3rem,2.6vw,1.65rem); font-weight:800; letter-spacing:-.015em; line-height:1.25; margin:0 0 .5rem; text-wrap:balance; padding-bottom:.6rem; border-bottom:2px solid var(--line)}
+  .sec-num{font-family:var(--mono); font-size:.72rem; letter-spacing:.14em; font-weight:600; color:var(--accent); display:block; margin-bottom:.5rem; text-transform:uppercase}
+  h3{font-size:1.1rem; font-weight:700; margin:1.9rem 0 .5rem; letter-spacing:-.01em; line-height:1.35}
+  h4{font-size:.98rem; font-weight:700; margin:1.3rem 0 .3rem}
+  p{margin:.7rem 0}
+  a{color:var(--accent); text-underline-offset:2px}
+  strong{font-weight:700}
+  .muted{color:var(--slate)}
+  ul,ol{margin:.7rem 0; padding-left:1.3rem}
+  li{margin:.4rem 0}
+  li::marker{color:var(--accent)}
+  code{font-family:var(--mono); font-size:.82em; background:#EEF2F4; padding:.1em .38em; border-radius:4px; color:#0B3D36; word-break:break-all}
+  hr.soft{border:none; border-top:1px solid var(--line); margin:2.2rem 0}
+  .part-divider{margin:3rem 0 2.2rem; text-align:center}
+  .part-divider span{font-family:var(--mono); font-size:.7rem; letter-spacing:.2em; text-transform:uppercase; color:var(--accent); background:var(--accent-soft); padding:.4rem 1rem; border-radius:999px}
+
+  /* Callouts */
+  .box{border-radius:12px; padding:1.05rem 1.2rem; margin:1.2rem 0; border:1px solid var(--line); background:var(--card)}
+  .box .tag{font-family:var(--mono); font-size:.68rem; letter-spacing:.13em; text-transform:uppercase; font-weight:600; display:inline-flex; align-items:center; gap:.4rem; margin-bottom:.5rem}
+  .box p:first-of-type{margin-top:0} .box p:last-child{margin-bottom:0}
+  .box.key{background:var(--accent-soft); border-color:#BFDDD6} .box.key .tag{color:var(--accent)}
+  .box.good{background:var(--good-soft); border-color:#C4E2D0} .box.good .tag{color:var(--good)}
+  .box.warn{background:var(--warn-soft); border-color:#E9D6AE} .box.warn .tag{color:var(--warn)}
+  .box.bad{background:var(--bad-soft); border-color:#E9C6C2} .box.bad .tag{color:var(--bad)}
+  .dot{width:.62rem; height:.62rem; border-radius:50%; display:inline-block; flex:none}
+  .dot.g{background:var(--good)} .dot.w{background:var(--warn)} .dot.b{background:var(--bad)} .dot.a{background:var(--accent)}
+
+  /* Compare cards (O'Neil vs Minervini) */
+  .compare{display:grid; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:14px; overflow:hidden; margin:1.4rem 0}
+  @media (min-width:600px){.compare{grid-template-columns:1fr 1fr}}
+  .compare .side{background:var(--card); padding:1.2rem 1.3rem}
+  .compare .side .who{font-family:var(--mono); font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; font-weight:700; display:flex; align-items:center; gap:.5rem; margin-bottom:.6rem}
+  .compare .side.o{border-top:3px solid var(--oneil)} .compare .side.o .who{color:var(--oneil)}
+  .compare .side.m{border-top:3px solid var(--minervini)} .compare .side.m .who{color:var(--minervini)}
+  .compare .side .quote{font-size:.98rem; font-weight:700; line-height:1.45; margin:0 0 .5rem}
+  .compare .side p{font-size:.9rem; color:var(--slate); margin:.4rem 0}
+
+  /* Citation tags */
+  .cite{display:inline-block; font-family:var(--mono); font-size:.62rem; letter-spacing:.03em; padding:.08rem .4rem; border-radius:4px; font-weight:600; vertical-align:middle; white-space:nowrap}
+  .cite.book{background:var(--good-soft); color:var(--good)}
+  .cite.interp{background:var(--warn-soft); color:var(--warn)}
+  .cite.guess{background:#EDEFF2; color:var(--slate)}
+  .cite.notfound{background:var(--bad-soft); color:var(--bad)}
+  .legend{display:flex; flex-wrap:wrap; gap:.5rem .9rem; margin:1rem 0 0; padding:.8rem 1rem; background:#EEF2F4; border-radius:10px; font-size:.82rem; color:var(--slate)}
+  .legend .li{display:flex; align-items:center; gap:.4rem}
+
+  /* Tables */
+  .tbl-scroll{overflow-x:auto; margin:1.2rem 0; border:1px solid var(--line); border-radius:10px}
+  table{border-collapse:collapse; width:100%; font-size:.88rem; min-width:34rem}
+  thead th{background:#EDF1F3; text-align:left; font-weight:700; color:var(--ink); padding:.6rem .8rem; border-bottom:2px solid var(--line); white-space:nowrap; font-size:.8rem}
+  tbody td{padding:.6rem .8rem; border-bottom:1px solid var(--line); vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:#FAFBFC}
+  .num{font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap}
+  .pos{color:var(--good); font-weight:600} .neg{color:var(--bad); font-weight:600}
+
+  /* Verdict badges */
+  .badge{display:inline-block; font-family:var(--mono); font-size:.66rem; font-weight:700; letter-spacing:.02em; padding:.18rem .5rem; border-radius:999px; white-space:nowrap}
+  .badge.have{background:var(--good-soft); color:var(--good)}
+  .badge.gap{background:var(--accent-soft); color:var(--accent)}
+  .badge.rej{background:var(--bad-soft); color:var(--bad)}
+  .badge.part{background:var(--warn-soft); color:var(--warn)}
+  .badge.new{background:#EDEFF2; color:var(--slate)}
+
+  /* Priority list */
+  .prio{display:flex; flex-direction:column; gap:.8rem; margin:1.3rem 0}
+  .pcard{display:grid; grid-template-columns:auto 1fr; gap:1rem; border:1px solid var(--line); border-radius:11px; padding:.95rem 1.1rem; background:var(--card)}
+  .pcard .rank{font-family:var(--mono); font-weight:700; font-size:.78rem; padding:.3rem .55rem; border-radius:7px; height:fit-content; white-space:nowrap}
+  .pcard.p1 .rank{background:var(--good); color:#fff}
+  .pcard.p2 .rank{background:var(--accent); color:#fff}
+  .pcard.p3 .rank{background:#DCE2E8; color:var(--slate)}
+  .pcard.no .rank{background:var(--bad); color:#fff}
+  .pcard .t{font-weight:700; font-size:.98rem; margin:0 0 .2rem}
+  .pcard .d{font-size:.9rem; color:var(--slate); margin:0}
+
+  /* Book badge inline */
+  .bk{font-style:italic; color:var(--ink); font-weight:600}
+
+  .files{display:flex; flex-direction:column; gap:.5rem; margin:1.1rem 0}
+  .file{border:1px solid var(--line); border-radius:9px; padding:.65rem .9rem; background:var(--card)}
+  .file .path{font-family:var(--mono); font-size:.78rem; color:#0B3D36; word-break:break-all}
+  .file .desc{font-size:.85rem; color:var(--slate); margin-top:.15rem}
+
+  .gloss{border:1px solid var(--line); border-radius:12px; overflow:hidden; margin:1.3rem 0}
+  .gloss dl{margin:0}
+  .gloss .row{display:grid; grid-template-columns:1fr; border-bottom:1px solid var(--line)}
+  @media(min-width:520px){.gloss .row{grid-template-columns:11rem 1fr}}
+  .gloss .row:last-child{border-bottom:none}
+  .gloss dt{font-weight:700; padding:.7rem 1rem; background:#F5F8F9; color:var(--ink); font-size:.9rem; border-bottom:1px solid var(--line)}
+  @media(min-width:520px){.gloss dt{border-bottom:none; border-right:1px solid var(--line)}}
+  .gloss dt .en{display:block; font-family:var(--mono); font-size:.66rem; color:var(--faint); font-weight:500; margin-top:.1rem}
+  .gloss dd{margin:0; padding:.7rem 1rem; font-size:.9rem; color:var(--slate)}
+
+  .foot{color:var(--faint); font-size:.82rem; text-align:center; padding:2.4rem 0 1rem; line-height:1.7}
+  a:focus-visible, .toc a:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:3px}
+  .em-accent{color:var(--accent); font-weight:700}
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="kicker">Expert Review · O'Neil × Minervini</p>
+    <h1>두 대가 AI 자문 &rarr; 내 시스템,<br>정말 고칠 게 있을까?</h1>
+    <p class="lead">오닐·미너비니 전문 AI에게 "하락장 방어와 바닥 대박의 맞바꿈"을 물었습니다. 그 답변 전체를 쉽게 풀고, 실제 코드·백테스트 이력과 대조해 <strong>진짜 개선점만</strong> 가려냅니다.</p>
+    <div class="meta">
+      <span>전문가 응답 4문항</span>
+      <span>원전 대조 검증</span>
+      <span>진짜 갭 = 1건</span>
+      <span>이미 기각됨 = 1건</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="layout">
+
+  <nav class="toc" aria-label="목차">
+    <p class="lbl">목차</p>
+    <ol>
+      <li><a href="#tldr"><span class="n">00</span>3줄 요약</a></li>
+      <li><a href="#context"><span class="n">·</span>무슨 질문이었나</a></li>
+    </ol>
+    <p class="grp">Part 1 · 전문가 답변</p>
+    <ol>
+      <li><a href="#a1"><span class="n">A1</span>오닐 vs 미너비니</a></li>
+      <li><a href="#a2"><span class="n">A2</span>바닥 패턴과 대기</a></li>
+      <li><a href="#a3"><span class="n">A3</span>바닥 진입은 위반?</a></li>
+      <li><a href="#a4"><span class="n">A4</span>추가 판별 기준 6</a></li>
+      <li><a href="#plain"><span class="n">·</span>평문 요약</a></li>
+    </ol>
+    <p class="grp">Part 2 · 내 검증</p>
+    <ol>
+      <li><a href="#map"><span class="n">B1</span>권고 &times; 실제 상태</a></li>
+      <li><a href="#twist"><span class="n">B2</span>핵심 반전</a></li>
+      <li><a href="#improve"><span class="n">B3</span>개선 우선순위</a></li>
+      <li><a href="#process"><span class="n">B4</span>지킬 절차</a></li>
+    </ol>
+    <ol>
+      <li><a href="#gloss"><span class="n">↓</span>용어집</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- TLDR -->
+    <section id="tldr">
+      <span class="sec-num">00 — 세 줄 요약</span>
+      <h2>결론부터</h2>
+      <div class="box gap" style="background:var(--accent-soft);border-color:#BFDDD6">
+        <span class="tag" style="color:var(--accent)"><span class="dot a"></span>진짜 고칠 것 — 딱 1가지</span>
+        <p><strong>이미 계산되고 있는 "RS 라인 선행" 신호를, 지금은 참고용(soft)으로만 쓰는데 &rarr; 바닥 예외 경로의 <span class="em-accent">필수 조건(hard)</span>으로 승격.</strong> 데이터가 이미 있어 비용이 가장 낮고, 기존 백로그(Phase 2-D)와도 정확히 일치합니다.</p>
+      </div>
+      <div class="box bad">
+        <span class="tag"><span class="dot b"></span>이미 답이 아닌 것 — 1가지</span>
+        <p>전문가의 헤드라인 제안 <strong>"FTD 당일 즉시 매수 개방"은 이미 백테스트(v3)에서 시험 후 기각</strong>됐습니다. 전문가는 우리 백테스트 이력을 몰라 이 사실을 놓쳤습니다.</p>
+      </div>
+      <div class="box key">
+        <span class="tag"><span class="dot a"></span>놓치면 안 될 반전</span>
+        <p>기각된 실험(v4 바닥 파일럿)은 <strong>전문가의 제안과 "같지 않습니다".</strong> v4는 거친 바닥 신호로 아무 종목이나 잡았고, 전문가는 "아주 강한 종목만" 걸라고 합니다. 즉 <span class="em-accent">전문가의 선별적 제안 자체는 아직 반증되지 않았습니다.</span></p>
+      </div>
+    </section>
+
+    <!-- Context -->
+    <section id="context">
+      <span class="sec-num">배경</span>
+      <h2>무슨 질문을 던졌나?</h2>
+      <p>앞선 백테스트에서 이 시스템의 성격이 드러났습니다: <strong>하락장에서 매수를 막는 "방어"는 완벽하지만, 큰 수익은 바로 그 "하락장 바닥 진입"에 몰려 있다</strong>는 것. 방어와 수익이 정면으로 맞바꿈(trade-off)되는 구조였습니다.</p>
+      <p>그래서 오닐·미너비니 전문 AI에게 물었습니다: <em>"이 맞바꿈을 두 대가는 어떻게 볼까? 방어를 지키면서 바닥 선도주를 놓치지 않을 방법이 원전에 있을까?"</em> 아래 Part 1이 그 답변, Part 2가 제 검증입니다.</p>
+      <div class="legend" aria-label="근거 태그 범례">
+        <span style="font-weight:600;color:var(--ink)">근거 태그:</span>
+        <span class="li"><span class="cite book">원전근거</span> 책에 명시</span>
+        <span class="li"><span class="cite interp">해석</span> 추론</span>
+        <span class="li"><span class="cite guess">추측</span> 불확실</span>
+        <span class="li"><span class="cite notfound">원전없음</span> 책에서 못 찾음</span>
+      </div>
+      <p class="muted" style="font-size:.85rem;margin-top:.8rem">약어: HMMS=『How to Make Money in Stocks』(오닐) · TLOND=『Trade Like an O'Neil Disciple』 · TLSMW=『Trade Like a Stock Market Wizard』(미너비니) · TTLC=『Think &amp; Trade Like a Champion』(미너비니)</p>
+    </section>
+
+    <div class="part-divider"><span>Part 1 — 전문가는 무엇을 말했나</span></div>
+
+    <!-- A1 -->
+    <section id="a1">
+      <span class="sec-num">A1 — 전문가 답변</span>
+      <h2>오닐과 미너비니는 이 맞바꿈을 어떻게 볼까?</h2>
+      <p>흥미롭게도 두 대가는 <strong>서로 다른 방식으로 "맞바꿈을 피할 수 있다"</strong>고 답할 것이라고 합니다.</p>
+
+      <div class="compare">
+        <div class="side o">
+          <div class="who"><span class="dot" style="background:var(--oneil)"></span>오닐</div>
+          <p class="quote">"맞바꿈은 애초에 없다"</p>
+          <p>오닐에게 <strong>FTD(팔로우스루)</strong>는 대박을 <em>자르는</em> 장치가 아니라 <em>잡는 타이밍</em> 장치입니다. FTD는 바닥에서 반등 <strong>4~7일차</strong>에 나오는 게 가장 강력. <span class="cite book">원전근거</span></p>
+          <p>즉 바닥&rarr;FTD 지연은 겨우 4~7 거래일이라, "하락장 바닥 대박"의 대부분은 <strong>FTD 당일~직후 진입으로도 잡을 수 있어야</strong> 합니다.</p>
+          <p>1999년 10월 바닥에서 9일차 FTD가 뜨자 오닐은 즉시 <strong>"buy and buy big"</strong>을 선언했습니다. (TLOND 9장) <span class="cite book">원전근거</span></p>
+          <p>HMMS는 또 <strong>"큰돈은 새 강세장의 첫 1~2년에 벌린다"</strong>고 하는데 &mdash; 이는 <strong>우리 백테스트에서 수익이 바닥 직후에 몰린 관측과 정확히 일치</strong>합니다. <span class="cite book">원전근거</span></p>
+          <p class="em-accent" style="font-size:.9rem">&rarr; 오닐이라면 게이트가 아니라 <strong>게이트의 구현</strong>을 의심할 것: "FTD 당일 즉시 문이 열리는가?" <span class="cite interp">해석</span></p>
+        </div>
+        <div class="side m">
+          <div class="who"><span class="dot" style="background:var(--minervini)"></span>미너비니</div>
+          <p class="quote">"게이트를 지수 말고 포지션 크기에 걸어라"</p>
+          <p>미너비니: <strong>"슈퍼실적 종목의 90% 이상이 약세장·조정에서 나온다."</strong> 나스닥 신저가 당일 PCYC를, 시장 바닥 당일 AMZN을 매수한 사례. <span class="cite book">원전근거</span></p>
+          <p>그에게 지수 상태에 따른 <strong>이진(0/1) 진입 차단은 규율이 아니라 기회 상실</strong>입니다.</p>
+          <p>대신 그의 방어는 <strong>점진적 노출</strong>: 소액 파일럿으로 시작 &rarr; 성공할 때만 증액. "25% 투자에서 수익도 안 나는데 왜 75~100%로 올리나." <span class="cite book">원전근거</span></p>
+          <p class="em-accent" style="font-size:.9rem;color:var(--minervini)">&rarr; 조기 진입 리스크는 손절로: "너무 이르면 반복 손절될 것 — 그러면 잠시 물러나라."</p>
+        </div>
+      </div>
+
+      <div class="box key">
+        <span class="tag"><span class="dot a"></span>딱 갈리는 지점 (핵심)</span>
+        <p><strong>오닐</strong>은 <em>진입 허가</em>를 <strong>지수(FTD)</strong>에 겁니다. <strong>미너비니</strong>는 진입 허가를 <strong>개별 종목의 상승 추세(Stage 2)+셋업</strong>에 걸고, 시장 상태는 <strong>포지션 크기와 총 노출</strong>로만 반영합니다.</p>
+        <p style="margin-top:.5rem">&rarr; 현재 우리 시스템의 이진 게이트는 <strong>오닐 순수주의</strong>이고, 관측된 맞바꿈(방어↔수익)은 <strong>미너비니가 예측하는 비용</strong>입니다. <span class="cite book">원전근거</span> <span class="cite interp">해석</span></p>
+      </div>
+    </section>
+
+    <!-- A2 -->
+    <section id="a2">
+      <span class="sec-num">A2 — 전문가 답변</span>
+      <h2>바닥 패턴이 있는데도 "상승장 확인까지 대기"가 맞나?</h2>
+      <p>오닐에게는 약세장 후반 선도주를 잡는 특별한 패턴이 있습니다. 그렇다면 무조건 대기하는 현재 게이트는 지나친 걸까요?</p>
+
+      <h3>base-on-base = "식별 장치"이지 "조기 매수 면허"가 아님</h3>
+      <p>HMMS의 서술 순서가 명확합니다: 이 패턴은 <strong>약세장 후반에 형성</strong>되지만, <strong>매수 시점은 약세장이 끝난(=FTD) 후 첫 신고가 돌파</strong>입니다. 즉 base-on-base는 "워치리스트 우선순위를 정하는 도구"이고, 실행은 여전히 시장 게이트를 통과합니다. <span class="cite book">원전근거</span></p>
+      <div class="box good">
+        <span class="tag"><span class="dot g"></span>결론 1</span>
+        <p>따라서 <strong>하락·조정기 매수 차단은 base-on-base 교리와 충돌하지 않습니다.</strong> 현재 게이트가 맞습니다.</p>
+      </div>
+
+      <h3>ascending base는 더 애매함</h3>
+      <p>HMMS는 "각 풀백은 대개 시장이 하락 중이라 발생한다"고 하는데, <strong>세 번째 풀백 후 돌파가 시장의 FTD보다 먼저 올 수 있는지</strong>에 대해 원전은 명시가 없습니다. <span class="cite notfound">원전없음</span> "FTD를 기다리라"는 게 오닐 전체 체계와 정합적이라는 건 어디까지나 보수적 해석입니다. <span class="cite interp">해석</span></p>
+
+      <h3>결론: 현재 게이트는 오닐 교리에 맞다 — 단, 두 조건에서만</h3>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th style="width:2rem">조건</th><th>내용</th><th>근거</th></tr></thead>
+          <tbody>
+            <tr><td class="num">(a)</td><td><strong>FTD 당일 즉시 게이트가 열려야</strong> 한다. FTD 후 추가 대기를 요구하면 오닐보다 더 보수적이며, 이는 원전 근거가 없다.</td><td><span class="cite notfound">원전없음</span></td></tr>
+            <tr><td class="num">(b)</td><td>미확인 반등(rally_attempt) 상태에서의 차단은 맞다. "개선 첫 며칠로는 랠리 성공 여부를 알 수 없다."</td><td><span class="cite book">원전근거</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="box warn">
+        <span class="tag"><span class="dot w"></span>미묘한 단서</span>
+        <p>오닐 본인도 FTD를 <strong>기계적으로만 쓰지 않았습니다.</strong> 2001년 3월 FTD 직후 분산일(매도 신호)이 나왔을 때, "분산일이 약세로 누적되는지"를 <strong>맥락으로 판단</strong>해 FTD 유효성을 유지했습니다. 기계 시스템은 이 맥락 판단을 "반등 저점 이탈 시 무효화" 같은 결정론 규칙으로 근사할 수밖에 없고 &mdash; 이는 우리가 이미 채택한 방향과 일치합니다. <span class="cite interp">해석</span></p>
+      </div>
+    </section>
+
+    <!-- A3 -->
+    <section id="a3">
+      <span class="sec-num">A3 — 전문가 답변</span>
+      <h2>미너비니 관점: 바닥 진입은 규율 위반인가?</h2>
+      <div class="box" style="border-left:4px solid var(--minervini)">
+        <p style="margin:0"><strong>위반이 아니라, 오히려 SEPA(미너비니 방법론)의 핵심 수익 원천입니다 &mdash; 단 조건부.</strong> TTLC 7장 "선도주가 먼저 바닥친다": 약세장 바닥에서 하락을 가장 잘 버틴 선도주가 먼저 돌아서 베이스를 돌파한다. 투자자들이 이 신호를 인정 안 하고 <strong>"황금 기회를 놓친다"</strong>는 것 자체를 미너비니는 실수로 규정합니다. <span class="cite book">원전근거</span></p>
+      </div>
+
+      <h3>허용되는 예외의 요건 (4가지, 모두 원전 근거)</h3>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th style="width:2rem">#</th><th>요건</th><th>원전 사례</th></tr></thead>
+          <tbody>
+            <tr><td class="num">1</td><td><strong>종목 자체가 확정 상승추세(Stage 2)</strong>일 것 — 지수의 국면과 종목의 국면을 분리</td><td>AMZN: 시장은 약세장인데 종목은 이미 200일선 상승전환+추세템플릿 통과</td></tr>
+            <tr><td class="num">2</td><td><strong>RS 다이버전스</strong> — 상대강도 라인이 주가보다 먼저 신고가 (기관 매집 신호)</td><td>eBay: "RS 라인이 주가에 앞서 신고가 영역으로 진입"</td></tr>
+            <tr><td class="num">3</td><td><strong>정상 베이스의 pivot 돌파</strong>일 것 — 바닥권 아무 반등이나 사는 게 아님</td><td>TLSMW 9장</td></tr>
+            <tr><td class="num">4</td><td><strong>파일럿 사이즈 + 손절 규율 + 점진적 노출</strong> — "포트폴리오가 시장 확인 지표"</td><td>연속 손절 시 "너무 이르다" 판정 &rarr; 축소</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="box key">
+        <span class="tag"><span class="dot a"></span>핵심 통찰</span>
+        <p>SEPA에서 시장 게이트의 기능적 등가물은 <strong>(종목 Stage 2) &times; (RS 다이버전스) &times; (포지션 크기 스로틀)</strong>입니다. <span class="em-accent">진입을 막는 게 아니라, 진입 크기와 재시도 비용을 통제</span>합니다. <span class="cite book">원전근거</span></p>
+      </div>
+    </section>
+
+    <!-- A4 -->
+    <section id="a4">
+      <span class="sec-num">A4 — 전문가 답변</span>
+      <h2>방어를 지키며 조기 선도주를 잡는 추가 기준 6가지</h2>
+      <p>두 대가의 공통 근거가 강한 순서로 정리한 판별 기준입니다.</p>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th style="width:2rem">#</th><th>기준</th><th>원전 사례·비고</th><th>근거</th></tr></thead>
+          <tbody>
+            <tr><td class="num">①</td><td><strong>RS 라인 신고가 선행</strong> (가장 강한 단일 기준) — RS 라인이 주가보다 먼저 신고가</td><td>eBay·AMZN 둘 다 결정적 tip-off. 오닐 4대 요소 중 하나. &rarr; 현행 soft를 예외경로에서 hard로</td><td><span class="cite book">원전근거</span></td></tr>
+            <tr><td class="num">②</td><td><strong>지수 신저가 vs 종목 higher-lows 다이버전스</strong> — 시장이 저점 낮출 때 종목은 저점 높임</td><td>WMT 1981, AAPL 2004. 조정 국면에서 측정 가능한 결정론 신호</td><td><span class="cite book">원전근거</span></td></tr>
+            <tr><td class="num">③</td><td><strong>하락 중에도 52주 신고가 5~15% 근접</strong> 유지</td><td>현행 기준(신고가 25% 이내)보다 훨씬 엄격한 밴드를 예외경로에</td><td><span class="cite book">원전근거</span></td></tr>
+            <tr><td class="num">④</td><td><strong>base-on-base / ascending base 우대 + 저점 거래량 고갈</strong></td><td>약세장 선도주 시그니처 + 매집 확인(저점 거래량↓, 돌파 주 거래량↑)</td><td><span class="cite book">원전근거</span></td></tr>
+            <tr><td class="num">⑤</td><td><strong>시장 폭(breadth) 확인</strong> — 신고가 종목 수가 신저가를 추월·확장</td><td>지수 FTD 단독보다 강건. 바닥 파일럿 경로의 게이트 후보</td><td><span class="cite book">원전근거</span></td></tr>
+            <tr><td class="num">⑥</td><td><strong>포트폴리오 피드백 스로틀</strong> — 연속 N회 손절 시 경로 자동 잠금</td><td>미너비니식 '방어'. 이진 게이트 기능을 대체</td><td><span class="cite book">원전근거</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="box">
+        <span class="tag" style="color:var(--accent)"><span class="dot a"></span>전문가의 최종 설계 제안</span>
+        <p>하락·조정기의 <strong>완전 차단은 유지</strong>하되, (a) <strong>FTD 당일 즉시 개방</strong>(오닐 정합) + (b) 바닥/반등 국면에 한해 <strong>①+②+③을 모두 충족하는 종목만</strong> 파일럿 사이즈(정상 리스크의 25~50%)로 진입 허용하는 <strong>예외 경로</strong>. &mdash; 이것이 두 원전의 교집합에 가장 가깝다. (예외 경로 존재는 미너비니 <span class="cite book">원전근거</span>, 오닐 순수주의와의 충돌은 문서화 필요, 구체 임계값은 전부 <span class="cite guess">추측</span>/설계 판단)</p>
+      </div>
+    </section>
+
+    <!-- Plain -->
+    <section id="plain">
+      <span class="sec-num">평문 요약</span>
+      <h2>어려우면 이 두 문장만</h2>
+      <div class="compare">
+        <div class="side o">
+          <div class="who"><span class="dot" style="background:var(--oneil)"></span>오닐 (쉬운 말)</div>
+          <p style="font-size:.96rem;color:var(--ink)">"바닥 확인 신호(FTD)는 바닥에서 <strong>겨우 4~7일</strong> 뒤에 나온다. 그걸 기다려도 대박을 안 놓친다. 놓쳤다면 <strong>네 신호 감지가 느린 것</strong>이다."</p>
+        </div>
+        <div class="side m">
+          <div class="who"><span class="dot" style="background:var(--minervini)"></span>미너비니 (쉬운 말)</div>
+          <p style="font-size:.96rem;color:var(--ink)">"시장 말고 <strong>종목</strong>을 봐라. 강한 종목이 제대로 된 자리에서 돌파하면, 시장이 나빠도 <strong>작게 사보고, 맞으면 늘리고 틀리면 바로 잘라라.</strong>"</p>
+        </div>
+      </div>
+      <p>현재 시스템은 <strong>오닐 방식</strong>입니다. 그래서 핵심 질문은 "FTD가 뜨자마자 문이 열리는가"이고, 미너비니 방식을 일부 받아들이려면 <strong>'아주 강한 종목만, 작은 크기로, 연속 실패 시 자동 중단'</strong> 조건의 예외 문을 하나 만드는 게 원전에 맞는 절충입니다.</p>
+    </section>
+
+    <div class="part-divider"><span>Part 2 — 내 시스템에 적용하면?</span></div>
+
+    <!-- B1 map -->
+    <section id="map">
+      <span class="sec-num">B1 — 검증</span>
+      <h2>전문가 권고 &times; 우리 시스템의 실제 상태</h2>
+      <p>전문가는 우리 코드·백테스트를 모른 채 답했습니다. 각 권고를 <strong>실제 코드와 대조</strong>하면 세 부류로 갈립니다.</p>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>전문가 권고</th><th>실제 상태</th><th>판정</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>FTD 당일 즉시 개방</strong> (A1·A2)</td>
+              <td>시장 판정 규칙이 "FTD 90일 내 <strong>+ 지수가 50일 이동평균선(SMA50) 회복 + 분산일&lt;6</strong>"을 요구 &rarr; FTD만으론 안 열림, 며칠~몇 주 지연 가능</td>
+              <td><span class="badge rej">이미 기각</span></td>
+            </tr>
+            <tr>
+              <td><strong>① RS 라인 선행을 하드 조건화</strong></td>
+              <td><code>rs_line_at_52w_high</code> 등 <strong>이미 계산·저장·프롬프트 주입됨.</strong> 단 프롬프트에 "조언용, 게이트 아님"으로 명시</td>
+              <td><span class="badge gap">진짜 갭</span></td>
+            </tr>
+            <tr>
+              <td><strong>② 지수 신저가 vs 종목 higher-lows</strong></td>
+              <td>가격 기반 higher-low 다이버전스는 미계산 (RS 라인 기반만 존재)</td>
+              <td><span class="badge new">신규 신호</span></td>
+            </tr>
+            <tr>
+              <td><strong>③ 52주 신고가 5~15% 밴드</strong></td>
+              <td>현행 임계는 "신고가 25% 이내" &mdash; 제안보다 훨씬 느슨</td>
+              <td><span class="badge new">신규 임계</span></td>
+            </tr>
+            <tr>
+              <td><strong>④ base-on-base / ascending base</strong></td>
+              <td>두 패턴 모두 분석 프롬프트에 <strong>이미 정의됨</strong> + 거래량 신호 존재</td>
+              <td><span class="badge have">이미 있음</span></td>
+            </tr>
+            <tr>
+              <td><strong>⑤ 시장 폭(breadth) 확인</strong></td>
+              <td>"200일선 위 종목 비율"은 <strong>이미 계산·주입.</strong> 단 게이트 완화 신호로는 미사용, 신고가-신저가 breadth는 미계산</td>
+              <td><span class="badge part">부분 존재</span></td>
+            </tr>
+            <tr>
+              <td><strong>⑥ 포트폴리오 피드백 스로틀</strong></td>
+              <td>v4 파일럿에 <strong>재시도 캡 + 순환 확인 가드 이미 구현</strong> (단 발동 0회)</td>
+              <td><span class="badge have">개념 탐색됨</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- B2 twist -->
+    <section id="twist">
+      <span class="sec-num">B2 — 가장 중요</span>
+      <h2>전문가가 모르는 백테스트 이력 — 두 가지 반전</h2>
+
+      <div class="box bad">
+        <span class="tag"><span class="dot b"></span>반전 1 — 헤드라인 제안은 이미 기각됨</span>
+        <p>전문가의 핵심 제안 <strong>"FTD 당일 개방"은 v3 실험이 정확히 테스트</strong>했습니다("FTD 당일 confirmed + SMA50 대기 제거 + 만료 제거"). 결과: 건당 기대값 <span class="num neg">4.23% &lt; 6.82%</span>로 기각.</p>
+        <p style="margin-top:.5rem">전문가가 언급한 <em>"당신의 phase-1 롤아웃 계획(FTD-day buying)"</em>은 <strong>확인 결과 존재하지 않습니다.</strong> 그가 "간극을 메운다"고 본 계획이 실은 <strong>이미 돌려서 기각된 v3 실험</strong>입니다.</p>
+      </div>
+
+      <div class="box key">
+        <span class="tag"><span class="dot a"></span>반전 2 — 기각된 v4 ≠ 전문가 제안 (열쇠)</span>
+        <p>바닥 진입을 시험한 v4 파일럿은 실패했지만(대박 제외 &minus;5.9%), <strong>전문가의 제안과 결정적으로 다릅니다.</strong></p>
+        <div class="tbl-scroll" style="margin:.8rem 0 .4rem">
+          <table>
+            <thead><tr><th>구분</th><th>진입 조건</th></tr></thead>
+            <tbody>
+              <tr><td><strong>기각된 v4 파일럿</strong></td><td class="neg">"15세션 신저가 후 첫 상승마감" &mdash; <strong>거친 바닥 신호</strong>, 신저가에서 튀는 아무 종목이나</td></tr>
+              <tr><td><strong>전문가 제안</strong></td><td class="pos">(Stage 2 확정) &times; (RS 라인 선행) &times; (52주 5~15%) &times; (파일럿) &mdash; <strong>모두 충족</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>즉 <strong>v4는 전문가 제안의 "약한 버전"을 테스트해 실패</strong>한 것이지, 전문가의 선별적 제안 자체를 반증하지 못했습니다. v4 실패 원인이 "진짜 RS 선도주 대신 약한 바닥 반등을 잡아서"일 가능성이 열려 있습니다. <span class="em-accent">문이 완전히 닫힌 건 아닙니다.</span></p>
+      </div>
+    </section>
+
+    <!-- B3 improve -->
+    <section id="improve">
+      <span class="sec-num">B3 — 실행</span>
+      <h2>실제로 개선 가치가 있는 것 (우선순위)</h2>
+      <div class="prio">
+        <div class="pcard p1">
+          <div class="rank">1순위</div>
+          <div>
+            <p class="t">RS 라인 선행을 "조언" &rarr; "예외경로 필수 조건"으로 승격</p>
+            <p class="d">데이터(<code>rs_line_at_52w_high</code>)가 <strong>이미 계산돼 있는데 게이트로 안 씁니다.</strong> 전문가·기존 백로그(Phase 2-D "RS divergence 게이트")·이미 있는 데이터, 삼자가 같은 방향. 비용이 가장 낮습니다.</p>
+          </div>
+        </div>
+        <div class="pcard p2">
+          <div class="rank">2순위</div>
+          <div>
+            <p class="t">예외 경로를 "선별 필터"로 재설계 &rarr; 독립 데이터에서 재검증</p>
+            <p class="d">v4가 실패했으니 단순 재시도가 아니라, ①+②+③을 <strong>모두</strong> 건 선별적 경로를 만들고, <strong>반드시 표본·기간 확장(예: 2016~2020 독립 데이터)</strong>에서 테스트. (결과 문서 자신도 "그 데이터로 만든 규칙은 순환 오류 &rarr; 독립 데이터에서 가설 재수립"을 명시)</p>
+          </div>
+        </div>
+        <div class="pcard p3">
+          <div class="rank">3순위</div>
+          <div>
+            <p class="t">52주 5~15% 밴드 · higher-low 다이버전스 · 신고가/신저가 breadth</p>
+            <p class="d">단독 개선이 아니라 <strong>위 예외 경로의 구성요소</strong>로만 의미가 있습니다. 낮은 우선순위.</p>
+          </div>
+        </div>
+        <div class="pcard no">
+          <div class="rank">제외</div>
+          <div>
+            <p class="t">FTD 당일 즉시 개방 (단독)</p>
+            <p class="d">이미 소표본에서 기각. 재검토하려면 표본 확장 후 <strong>예외 경로와 묶어서만</strong>. 단독 개선은 답이 아닙니다.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- B4 process -->
+    <section id="process">
+      <span class="sec-num">B4 — 주의</span>
+      <h2>반드시 지킬 절차</h2>
+      <div class="box warn">
+        <span class="tag"><span class="dot w"></span>임계 변경 = 의존성 맵 필수</span>
+        <p>이 개선들은 전부 <strong>임계 상수 파일(<code>thresholds.py</code>)</strong>과 그 소비 로직을 건드립니다. 프로젝트 규칙(CLAUDE.md)상 <strong>임계 변경 시 "의존성 맵(2축 판정)" 작성이 필수</strong>입니다.</p>
+        <p style="margin-top:.5rem">특히 RS 조건을 하드화하면 기존 <strong>C8(RS 등급) 조건·추세템플릿 통과 로직</strong>과 상호작용하므로, 한 임계 상향이 의존 룰과 충돌하지 않는지 반드시 점검해야 합니다.</p>
+      </div>
+      <div class="box good">
+        <span class="tag"><span class="dot g"></span>한 줄 요약</span>
+        <p>진짜 개선 갭은 <strong>"이미 계산 중인 RS-라인-선행 신호를 예외 경로의 필수 게이트로 승격"</strong> 하나뿐이며(백로그 Phase 2-D와 일치), 이를 <strong>전문가의 선별 필터로 감싸 독립 데이터에서 재검증</strong>하는 것이 두 원전과 우리 백테스트 규율 양쪽에 맞는 유일한 길입니다. 전문가의 "FTD 당일 개방"은 이미 기각됐으니 답이 아닙니다.</p>
+      </div>
+    </section>
+
+    <hr class="soft">
+
+    <!-- Glossary -->
+    <section id="gloss">
+      <span class="sec-num">부록 — 용어집</span>
+      <h2>초보자를 위한 용어 사전</h2>
+      <div class="gloss">
+        <dl>
+          <div class="row"><dt>FTD<span class="en">follow-through day</span></dt><dd>팔로우스루 데이. 하락하던 시장이 <strong>거래량을 동반해 크게 반등한 날</strong>. 오닐은 이게 있어야 새 강세장을 인정. 대개 바닥 4~7일 뒤 발생.</dd></div>
+          <div class="row"><dt>confirmed_uptrend<span class="en">확정 상승장</span></dt><dd>시스템이 "지금은 사도 되는 상승장"이라 판정한 시장 국면. 현재 규칙은 FTD + 지수가 50일선 회복까지 요구.</dd></div>
+          <div class="row"><dt>Stage 2<span class="en">스테이지 2</span></dt><dd>미너비니가 나눈 주가 4단계 중 <strong>본격 상승 국면</strong>. 이 종목만 산다는 게 SEPA의 대전제.</dd></div>
+          <div class="row"><dt>RS 라인<span class="en">relative strength line</span></dt><dd>종목 주가 ÷ 시장 지수. 이 선이 오르면 "시장보다 강하다"는 뜻. <strong>주가보다 먼저 신고가</strong>를 내면 기관 매집 신호로 봄.</dd></div>
+          <div class="row"><dt>다이버전스<span class="en">divergence</span></dt><dd>두 지표가 <strong>서로 반대로 움직이는 것.</strong> 예: 시장은 저점을 낮추는데 종목은 저점을 높임 = 강함의 증거.</dd></div>
+          <div class="row"><dt>pivot<span class="en">피벗 / 매수 지점</span></dt><dd>주가가 바닥을 다지다가 이 가격을 뚫으면 상승이 시작된다고 보는 목표 돌파가격.</dd></div>
+          <div class="row"><dt>base-on-base<span class="en">베이스 위 베이스</span></dt><dd>주가가 한 번 다진 자리 바로 위에서 또 한 번 다지는 패턴. 약세장 후반 선도주의 신호.</dd></div>
+          <div class="row"><dt>ascending base<span class="en">상승 베이스</span></dt><dd>세 번의 10~20% 눌림이 각각 이전보다 높은 저점에서 형성되는 패턴. 시장 하락에 강한 선도주 신호.</dd></div>
+          <div class="row"><dt>SMA 50 / 200<span class="en">이동평균선</span></dt><dd>최근 50일(또는 200일) 종가의 평균을 이은 선. 주가·지수가 이 선 위에 있으면 상승 추세로 해석. 느리게 움직여 바닥 직후엔 아직 가격보다 위에 있는 경우가 많음.</dd></div>
+          <div class="row"><dt>분산일<span class="en">distribution day</span></dt><dd>지수가 거래량이 늘면서 하락한 날 = 기관 매도 신호. 쌓이면 시장이 나빠지는 것으로 봄.</dd></div>
+          <div class="row"><dt>breadth<span class="en">시장 폭</span></dt><dd>시장 <strong>전반</strong>의 건강도. 예: "200일선 위 종목 비율", "신고가 종목 수 vs 신저가 종목 수".</dd></div>
+          <div class="row"><dt>파일럿 진입<span class="en">pilot buy</span></dt><dd>확신이 덜 설 때 <strong>정상보다 작은 금액</strong>으로 먼저 사보는 것. 맞으면 늘리고 틀리면 작게 손절.</dd></div>
+          <div class="row"><dt>점진적 노출<span class="en">progressive exposure</span></dt><dd>파일럿 &rarr; 성공 시 증액으로 투자 비중을 <strong>단계적으로</strong> 키우는 미너비니식 방어법.</dd></div>
+          <div class="row"><dt>이진 게이트<span class="en">binary gate</span></dt><dd>"산다/못 산다"를 <strong>0 또는 1로만</strong> 가르는 관문. 크기 조절 없이 완전 차단.</dd></div>
+          <div class="row"><dt>순환 오류<span class="en">circular reasoning</span></dt><dd>"그 대박 종목을 보고 만든 규칙으로 그 종목을 다시 잡았다"고 자랑하는 논리 함정.</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <p class="foot">
+      오닐·미너비니 AI 자문 검토 자료 · 원전 대조 검증<br>
+      관련 코드: <code>status.py · trigger_gate.py · thresholds.py · kr_pipeline/backtest/</code><br>
+      모든 판정은 실제 코드·백테스트 이력과 대조해 도출됨.
+    </p>
+
+  </main>
+</div>
+</div>
+
+<script>
+(function(){
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {};
+  links.forEach(function(a){
+    var id = a.getAttribute('href').slice(1);
+    var el = document.getElementById(id);
+    if(el) map[id] = a;
+  });
+  var sections = Object.keys(map).map(function(id){return document.getElementById(id);});
+  if(!('IntersectionObserver' in window) || !sections.length) return;
+  var current = null;
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        if(current) current.classList.remove('active');
+        var a = map[e.target.id];
+        if(a){ a.classList.add('active'); current = a; }
+      }
+    });
+  }, {rootMargin:'-10% 0px -80% 0px', threshold:0});
+  sections.forEach(function(s){obs.observe(s);});
+})();
+</script>

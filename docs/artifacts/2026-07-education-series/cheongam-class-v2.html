@@ -1,0 +1,712 @@
+<details data-doc-meta style="box-sizing:border-box;margin:0;padding:10px 24px;background:#0f172a;color:#e2e8f0;font-family:'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;font-size:14px;line-height:1.75;border-bottom:3px solid #f59e0b;">
+<summary style="cursor:pointer;font-weight:700;color:#fbbf24;outline:none;">📌 이 문서는 왜 만들어졌나 — 목적 · 연관 문서 · 이력 (클릭해서 펼치기)</summary>
+<div style="max-width:880px;margin:14px auto 8px;">
+<p style="margin:0 0 12px;color:#94a3b8;font-size:13px;">생성: 2026-07-05 03:18 · 최종 업데이트: 2026-07-05 13:00 (KST) · 출처: Claude Code 세션 기록 기반 복원</p>
+<h3 style="margin:0 0 6px;font-size:15px;color:#fbbf24;">이 문서의 목적 (실제 요청 근거)</h3>
+<p>전직 도감마저 "무협이나 다른 장르 소설로 만들어 이해하기 쉽게 하고 싶다"는 요청으로 태어난
+<b>「반석의 검」 외전</b>. 조건: "모든 내용(모든 입력, 절차, 태그, 산출물, 선출 과정)이 놓치는 것 없이
+담기고, 길어져도 좋으니 추상적 표현 없이 쉽게 읽히며, 인물 간 대화가 풍부하고, 한자·어려운 용어는
+자연스럽게 풀어서 설명할 것. 2회 검토(원본 반영 여부 / 흥미)."</p>
+<p>v2 개정 근거: ① "읽다 보면 각자 어떤 평가를 받았는지 잊는다" → 페이지 오른쪽에 스크롤을 따라오는
+접이식 인물 현황판 추가 ② "각 인물이 어떤 단계에서 어떤 평가를 받았는지 <b>누적</b>으로 보고 싶다,
+탈락도 표현해달라" → 누적 이력 현황판으로 개편 ③ "명패가 한자라 너무 어렵다" → 한글화(소설 본문에도 반영).</p>
+<h3 style="margin:16px 0 6px;font-size:15px;color:#fbbf24;">연관 문서</h3>
+<ul style="margin:0;padding-left:20px;"><li style="margin:4px 0;"><a href="./class-tree.html" style="color:#7dd3fc;text-decoration:underline;">종목의 전직 도감 — 분류·태그·트리거·주문의 모든 경로</a><span style='color:#94a3b8;'> — 원작 — 이 소설이 각색한 전직 도감</span></li><li style="margin:4px 0;"><a href="./banseok-sword-illustrated.html" style="color:#7dd3fc;text-decoration:underline;">반석의 검 — 청암문 이레의 기록 (삽화판)</a><span style='color:#94a3b8;'> — 본편 소설(같은 세계관 청암문)</span></li><li style="margin:4px 0;"><a href="./cheongam-guide.html" style="color:#7dd3fc;text-decoration:underline;">청암문 규정 안내서 — 소설 곁들이 표와 흐름도</a><span style='color:#94a3b8;'> — 같은 요청에서 분화한 곁들이 규정 안내서 — 소설 읽을 때 옆에 두는 용도</span></li></ul>
+</div>
+</details>
+<title>청암문 입문 수업 — 반석의 검 외전</title>
+<style>
+  :root{
+    --night:#14181E; --panel:#1B212A; --panel2:#20272F; --line:#2C3540;
+    --ink:#E7E2D5; --dim:#9AA3AD; --faint:#6B7480;
+    --jade:#7CC5AE; --jade-deep:#4E9B85; --crimson:#D08070; --gold:#C7A468;
+    --serif:'Apple Myungjo','AppleMyungjo','Nanum Myeongjo','Noto Serif KR',Batang,'BatangChe',Georgia,serif;
+    --sans:'Pretendard','Apple SD Gothic Neo',-apple-system,system-ui,'Malgun Gothic',sans-serif;
+    --mono:'SF Mono',ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{margin:0; background:var(--night); color:var(--ink); font-family:var(--serif); font-size:17.5px; line-height:2.0; word-break:keep-all; overflow-wrap:break-word; -webkit-font-smoothing:antialiased}
+  .col{max-width:40rem; margin:0 auto; padding:0 clamp(18px,5vw,32px)}
+
+  header.hero{
+    background:radial-gradient(ellipse 90% 70% at 50% 110%, rgba(124,197,174,.10), transparent 60%), linear-gradient(180deg,#0E1216 0%,#151A21 100%);
+    border-bottom:1px solid var(--line); text-align:center; padding:clamp(3rem,8vw,5rem) 0 clamp(2.4rem,6vw,3.6rem);
+  }
+  .hero .hanja{font-size:clamp(2.2rem,8vw,3.6rem); letter-spacing:.3em; margin-left:.3em; color:var(--gold); font-weight:600; line-height:1.25; text-shadow:0 0 40px rgba(199,164,104,.25)}
+  .hero h1{font-size:clamp(1.3rem,3.6vw,1.8rem); font-weight:600; margin:.7rem 0 .4rem; letter-spacing:.12em}
+  .hero .sub{font-family:var(--sans); color:var(--dim); font-size:.92rem; margin:0}
+  .hero .meta{font-family:var(--mono); color:var(--faint); font-size:.7rem; letter-spacing:.15em; margin-top:1.5rem; text-transform:uppercase}
+
+  .note-top{font-family:var(--sans); font-size:.88rem; line-height:1.7; color:var(--dim); background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:1rem 1.2rem; margin:2.2rem 0}
+  .note-top a{color:var(--jade)}
+  .note-top strong{color:var(--ink)}
+
+  nav.chap{font-family:var(--sans); display:flex; flex-wrap:wrap; gap:.4rem; justify-content:center; margin:1.4rem 0 0}
+  nav.chap a{font-size:.78rem; color:var(--dim); text-decoration:none; border:1px solid var(--line); border-radius:999px; padding:.25rem .75rem; transition:color .15s,border-color .15s}
+  nav.chap a:hover{color:var(--jade); border-color:var(--jade-deep)}
+
+  details.cast{font-family:var(--sans); background:var(--panel); border:1px solid var(--line); border-radius:12px; margin:1.4rem 0 0; overflow:hidden}
+  details.cast summary{cursor:pointer; padding:.85rem 1.2rem; font-size:.9rem; font-weight:600; color:var(--gold); list-style:none; display:flex; align-items:center; gap:.5rem}
+  details.cast summary::-webkit-details-marker{display:none}
+  details.cast summary::after{content:"▾"; margin-left:auto; color:var(--faint); transition:transform .2s}
+  details.cast[open] summary::after{transform:rotate(180deg)}
+  details.cast .body{padding:0 1.2rem 1rem; font-size:.86rem; line-height:1.75; color:var(--dim); border-top:1px solid var(--line)}
+  details.cast .body b{color:var(--ink); font-weight:600}
+  details.cast .grp{color:var(--jade); font-weight:700; font-size:.78rem; letter-spacing:.1em; display:block; margin:.9rem 0 .2rem}
+
+  main{padding:1rem 0 5rem}
+  section.ch{margin:clamp(3rem,7vw,4.4rem) 0; scroll-margin-top:1.5rem}
+  .ch-head{text-align:center; margin-bottom:2rem}
+  .ch-head .big{font-size:clamp(1.8rem,5.5vw,2.5rem); color:var(--gold); letter-spacing:.18em; margin-left:.18em; line-height:1.3; font-weight:600}
+  .ch-head .t{font-size:1.1rem; letter-spacing:.2em; margin:.5rem 0 0; color:var(--ink); font-weight:600}
+  .ch-head .ord{font-family:var(--mono); font-size:.68rem; letter-spacing:.3em; color:var(--faint); text-transform:uppercase; display:block; margin-bottom:.7rem}
+  .ch-head::after{content:""; display:block; width:3.2rem; height:1px; background:var(--gold); opacity:.5; margin:1.4rem auto 0}
+
+  section.ch p{margin:1.02em 0; text-indent:1em}
+  section.ch p.noind{text-indent:0}
+  section.ch p.line{text-indent:0; text-align:center; color:var(--faint); letter-spacing:.5em; margin:1.6em 0}
+  .say{color:#F0EBDD}
+
+  /* 벽보(수업 노트) — 게임 도감 패널 */
+  .codex{font-family:var(--sans); border:1px solid var(--jade-deep); border-radius:12px; background:linear-gradient(180deg,#18211F 0%,#161D22 100%); margin:2.2rem 0; overflow:hidden; box-shadow:0 0 24px rgba(124,197,174,.06)}
+  .codex .hd{display:flex; align-items:center; gap:.6rem; padding:.7rem 1.1rem; border-bottom:1px solid #2A3B37; background:rgba(124,197,174,.07)}
+  .codex .hd .ic{font-size:1rem}
+  .codex .hd .tt{font-family:var(--mono); font-size:.78rem; letter-spacing:.14em; color:var(--jade); font-weight:700}
+  .codex .hd .st{margin-left:auto; font-family:var(--mono); font-size:.62rem; color:var(--faint); letter-spacing:.1em}
+  .codex .bd{padding:.9rem 1.1rem 1.1rem; font-size:.86rem; line-height:1.7; color:#C9D2CE}
+  .codex .bd b{color:var(--ink)}
+  .codex .bd .sec{font-family:var(--mono); font-size:.66rem; letter-spacing:.12em; color:var(--gold); display:block; margin:.9rem 0 .3rem; text-transform:uppercase}
+  .codex .bd .sec:first-child{margin-top:0}
+  .codex table{border-collapse:collapse; width:100%; font-size:.8rem; min-width:0}
+  .codex .tw{overflow-x:auto; margin:.4rem 0 .6rem; border:1px solid #2A3B37; border-radius:8px}
+  .codex .tw table{min-width:30rem}
+  .codex th{background:rgba(124,197,174,.08); color:var(--jade); text-align:left; font-weight:700; padding:.42rem .6rem; border-bottom:1px solid #2A3B37; white-space:nowrap; font-size:.72rem; font-family:var(--mono)}
+  .codex td{padding:.42rem .6rem; border-bottom:1px solid #232E33; vertical-align:top}
+  .codex tr:last-child td{border-bottom:none}
+  .codex code{font-family:var(--mono); font-size:.74em; background:#10181C; border:1px solid #2A3B37; border-radius:4px; padding:.06em .32em; color:var(--jade)}
+  .codex ul{margin:.3rem 0; padding-left:1.1rem}
+  .codex li{margin:.2rem 0}
+  .g{color:#8FD3BC; font-weight:700} .r{color:#E09A8C; font-weight:700} .y{color:#D9BC7F; font-weight:700}
+
+  details.gear{font-family:var(--sans); background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--jade-deep); border-radius:0 10px 10px 0; margin:1.6rem 0 0; overflow:hidden}
+  details.gear summary{cursor:pointer; padding:.8rem 1.1rem; font-size:.85rem; font-weight:600; color:var(--jade); list-style:none; display:flex; align-items:center; gap:.5rem}
+  details.gear summary::-webkit-details-marker{display:none}
+  details.gear summary::after{content:"▾"; margin-left:auto; color:var(--faint); transition:transform .2s}
+  details.gear[open] summary::after{transform:rotate(180deg)}
+  details.gear .body{padding:.2rem 1.15rem 1rem; font-size:.85rem; line-height:1.8; color:var(--dim); border-top:1px solid var(--line)}
+  details.gear .body b{color:var(--ink)}
+  details.gear .body code{font-family:var(--mono); font-size:.78em; background:#141920; border:1px solid var(--line); border-radius:4px; padding:.08em .35em; color:var(--jade)}
+  details.gear .body ul{margin:.5rem 0; padding-left:1.2rem}
+  details.gear .body li{margin:.25rem 0}
+
+  /* 인물 현황판 (우측 고정, 접이식) */
+  .tracker{position:fixed; right:clamp(10px,2vw,22px); top:clamp(4.5rem,16vh,9rem); z-index:60; font-family:var(--sans)}
+  .tk-toggle{display:flex; align-items:center; gap:.45rem; background:var(--panel); color:var(--jade); border:1px solid var(--jade-deep); border-radius:999px; padding:.5rem .85rem; cursor:pointer; font-size:.8rem; font-weight:700; box-shadow:0 4px 18px rgba(0,0,0,.45)}
+  .tk-toggle:hover{background:#20282F}
+  .tracker.open .tk-toggle{display:none}
+  .tk-panel{width:min(17.5rem,calc(100vw - 2.5rem)); background:#161C23; border:1px solid var(--jade-deep); border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,.55); overflow:hidden}
+  .tk-hd{display:flex; align-items:center; gap:.5rem; padding:.6rem .5rem .6rem .95rem; font-size:.8rem; font-weight:700; color:var(--jade); border-bottom:1px solid #2A3B37; background:rgba(124,197,174,.07)}
+  .tk-ch{margin-left:auto; font-family:var(--mono); font-size:.66rem; color:var(--gold); letter-spacing:.06em; white-space:nowrap}
+  .tk-close{background:none; border:none; color:var(--faint); font-size:1.05rem; cursor:pointer; padding:.05rem .5rem; line-height:1}
+  .tk-close:hover{color:var(--ink)}
+  .tk-note{font-size:.63rem; color:var(--faint); padding:.4rem .95rem; border-bottom:1px solid #232E33; line-height:1.5}
+  .tk-list{max-height:min(44vh,21rem); overflow-y:auto; padding:.25rem 0}
+  .tk-item{padding:.45rem .95rem; border-bottom:1px solid #1F2830}
+  .tk-item:last-child{border-bottom:none}
+  .tk-nm{font-size:.8rem; font-weight:700; color:var(--ink); display:flex; align-items:center; gap:.4rem; flex-wrap:wrap}
+  .tk-pill{font-family:var(--mono); font-size:.62rem; font-weight:700; padding:.04rem .42rem; border-radius:999px; border:1px solid}
+  .tk-pill.g{color:#8FD3BC; border-color:#3A5D52; background:rgba(124,197,174,.1)}
+  .tk-pill.y{color:#D9BC7F; border-color:#5C4F33; background:rgba(199,164,104,.1)}
+  .tk-pill.r{color:#E09A8C; border-color:#5D3A34; background:rgba(208,128,112,.1)}
+  .tk-fl{font-size:.62rem; color:var(--gold)}
+  .tk-st{font-size:.7rem; color:var(--dim); line-height:1.5; margin-top:.15rem}
+  .tk-tl{margin:.3rem 0 0; padding:0; list-style:none}
+  .tk-tl li{font-size:.66rem; color:var(--dim); line-height:1.45; display:flex; gap:.4rem; padding:.14rem 0; border-top:1px dashed #202A31}
+  .tk-tl li:first-child{border-top:none}
+  .tk-tl .m{flex:none; width:1.1em; text-align:center; font-weight:700}
+  .tk-tl .m.ok{color:#8FD3BC} .tk-tl .m.block{color:#E09A8C} .tk-tl .m.hold{color:#D9BC7F} .tk-tl .m.info{color:var(--faint)} .tk-tl .m.star{color:#C7A468}
+  .tk-legend{font-size:.6rem; color:var(--faint); padding:.45rem .95rem .6rem; border-top:1px solid #232E33; line-height:1.55}
+  @media (prefers-reduced-motion:no-preference){.tk-panel{animation:tkin .16s ease}@keyframes tkin{from{opacity:0; transform:translateY(-4px)}to{opacity:1; transform:none}}}
+  .fin{text-align:center; font-family:var(--sans); color:var(--faint); letter-spacing:.4em; margin:4rem 0 2rem; font-size:.85rem}
+  footer.end{font-family:var(--sans); text-align:center; color:var(--faint); font-size:.78rem; line-height:1.8; border-top:1px solid var(--line); padding:2.2rem 0 3rem}
+  footer.end a{color:var(--jade)}
+  a:focus-visible,summary:focus-visible{outline:2px solid var(--jade); outline-offset:2px; border-radius:4px}
+</style>
+
+<header class="hero">
+  <div class="col">
+    <div class="hanja">入門授業</div>
+    <h1>청암문 입문 수업</h1>
+    <p class="sub">— 반석의 검 외전 · 다섯 날의 규정 수업 —</p>
+    <p class="meta">A Class-Tree Codex Retelling</p>
+    <nav class="chap" aria-label="장 이동">
+      <a href="#c0">序</a><a href="#c1">一日</a><a href="#c2">二日</a><a href="#c3">三日</a><a href="#c4">四日</a><a href="#c5">五日</a><a href="#c6">終講</a>
+    </nav>
+  </div>
+</header>
+
+<aside class="tracker" id="tracker" aria-label="인물 현황판">
+  <button class="tk-toggle" id="tkToggle" aria-expanded="false">📋 <span>인물 현황</span></button>
+  <div class="tk-panel" id="tkPanel" hidden>
+    <div class="tk-hd">📋 인물 현황판 <span class="tk-ch" id="tkCh"></span><button class="tk-close" id="tkClose" aria-label="접기">×</button></div>
+    <div class="tk-note">지금 읽는 장까지의 <b>누적 이력</b> — 스크롤에 따라 갱신됩니다</div>
+    <div class="tk-list" id="tkList"></div>
+    <div class="tk-legend">목패: 미완(선 없음) · 과선(지나침) · 대기 · 난세 · 경계 · 파훼(재건 중) &nbsp;/&nbsp; 🏷️ = 부적(위험 깃발)</div>
+  </div>
+</aside>
+
+<main>
+<div class="col">
+
+  <div class="note-top">
+    이 소설은 <a href="https://claude.ai/code/artifact/16acb0d9-86bd-48af-9559-d3b45d8c5281">「종목의 전직 도감」</a>의 모든 내용 — 분류의 입력·절차·산출물, 두 종류의 태그, 게이트 신호 4종, 감찰의 네 시험장, 주문서 작성, 전체 경로와 일곱 결말 — 을 이야기로 옮긴 것입니다. 전작 <a href="https://claude.ai/code/artifact/45fdc315-ab9e-4a82-b4e0-0248625ddb27">「반석의 검」</a>을 안 읽었어도 序에서 다 따라잡을 수 있습니다. 수업마다 벽에 붙는 <strong>「전직 도감」 벽보</strong>가 그날 배운 규칙의 요약이고, 각 장 끝의 ⚙️ 상자가 실제 시스템 용어와의 대응표입니다.
+  </div>
+
+  <details class="cast">
+    <summary>📜 인물첩 — 읽기 전 훑어보기</summary>
+    <div class="body">
+      <span class="grp">가르치는 쪽</span>
+      <b>유심</b>(여) 이번 수업의 강사. 전작의 막내 — 검형의 손잡이가 거의 완성됐다 · <b>서기 노인</b> 마흔 해째 문파의 장부지기. 감독 겸 훈수꾼 · <b>한도경</b> 서열 68로 낙방했다 71로 재입문한 「경계」패 선배. 산증인 담당
+      <span class="grp">배우는 쪽 (신입 삼인방)</span>
+      <b>모가온</b>(여) 뭐든 "왜요?"부터 묻는 논리파 · <b>진소백</b> 성질 급한 소년. 설명이 끝나기 전에 몸이 먼저 나감 · <b>은솔</b>(여) 겁 많은 막내. 남들이 못 묻는 쉬운 질문을 대신 물어 주는 귀한 존재
+      <span class="grp">청강생과 어른들</span>
+      <b>조맹</b> 「과선」패 거한. 수업마다 "그래서 나는 언제 나가는데?"를 묻는다 · <b>혜안 장로</b> 대심사의 눈 · <b>묵영</b> 밤의 순찰 기관 · <b>백리결</b> 감찰전의 심문관 · <b>제갈윤</b> 군사 · <b>당하연</b>(여) 파훼 후 바닥을 다시 쌓는 중 · <b>남궁진</b> 침묵 수련 중(카메오)
+    </div>
+  </details>
+
+  <!-- ============ 序 ============ -->
+  <section class="ch" id="c0">
+    <div class="ch-head"><span class="ord">Prologue</span><div class="big">序</div><p class="t">벽보를 붙이는 아이</p></div>
+
+    <p class="noind">폭풍의 이레로부터 한 계절이 지났다.</p>
+    <p>그 이레에 무슨 일이 있었는지부터 짧게 말해 두자. 청암문은 강호의 수천 무인 중에서 "지금 내보낼 한 사람"을 규율로 골라내는 문파다. 그 규율의 이름난 사건이 하나 있었으니 — 같은 폭풍의 밤, 같은 힘으로 각자의 출사선을 넘은 두 제자 중 백서하는 문을 나섰고 남궁진은 문 앞에서 막혔다. 두 사람의 허리에 걸린 나무패가 달랐기 때문이다. 서하는 그 길로 강호에 나가 아직 소식이 없고, 진은 그날 이후 말수를 줄이고 수련만 한다. 장로회의는 그 밤의 모순을 장부에 적어 두었다. "규율 제삼조 비일관. 귀속 조사 후 재론."</p>
+    <p>그리고 봉화가 내려갔다. 강호에 태평의 종이 울리자, 청암문 산문 앞에 신입 지원자들이 줄을 서기 시작했다.</p>
+    <p>문제는 그다음에 생겼다.</p>
+    <p class="noind say">"규정을 모르는 신입이 스물여덟이다." 서기 노인이 허리를 두드리며 말했다. "그리고 노부의 허리가 어제 담을 넘었어."</p>
+    <p class="noind say">"…담을 왜 넘으셨는데요?"</p>
+    <p class="noind say">"말이 그렇다는 게다. 아무튼 서서 하는 수업은 못 해. 그러니 네가 해라, 유심."</p>
+    <p>유심은 하마터면 들고 있던 목검을 떨어뜨릴 뻔했다. 폭풍의 이레 때만 해도 그녀는 검형에 손잡이도 없던 막내였다. 지금은 손잡이가 거의 다 만들어졌다고는 하지만, 그래도 막내는 막내다.</p>
+    <p class="noind say">"제, 제가요? 규정은 어르신이 제일 잘 아시잖아요."</p>
+    <p class="noind say">"제일 잘 아는 사람이 가르치면 못 알아듣는다." 노인은 태연했다. "얼마 전까지 하나도 몰랐던 사람이 가르쳐야 알아듣지. 노부는 옆에서 훈수만 두마."</p>
+    <p>그렇게 다섯 날의 수업이 정해졌다. 유심은 밤을 새워 궁리하다가 한 가지 꾀를 냈다. 매일 배운 것을 큰 종이에 그려 강당 벽에 붙이기로 한 것이다. 제목도 지었다.</p>
+    <p class="line">— 전직 도감 —</p>
+    <p>전직이란 놀이패 아이들이 쓰는 말로, 견습이 직업을 얻고 특성을 고르고 시험을 쳐서 더 높은 계급으로 "직을 옮겨 가는" 것을 뜻한다. 유심이 보기에 청암문의 규정이 꼭 그랬다. 종목— 아니, 무인 하나가 직업을 받고, 패가 붙고, 시험을 치고, 마지막 문서에 이름이 오르는 것. 그 모든 갈래를 한 장에 그릴 수 있다면, 스물여덟 명이 헤매지 않을 것이다.</p>
+    <p>첫 수업 전날 밤, 유심은 빈 벽보 앞에서 붓을 들고 중얼거렸다.</p>
+    <p class="noind say">"이 문파의 방은 네 개야. 직업을 정하는 방, 그걸 지켜보는 밤, 시험을 치는 방, 그리고 문서를 쓰는 방. …그리고 패는—"</p>
+    <p>그녀는 제 허리의 「미완」패를 내려다보았다. 미완, 아직 완성되지 않았다는 뜻이다. 그 옆 옷깃에는 언제 붙었는지 모를 작은 부적 한 장이 나풀거렸다.</p>
+    <p class="noind say">"—패는, 두 종류지."</p>
+    <p>그 한 문장이 이 수업 전체에서 가장 중요한 문장이 될 것이었다.</p>
+
+    <details class="gear"><summary>⚙️ 이 장의 정체 — 실제 시스템에서는</summary><div class="body">
+      <ul>
+        <li><b>네 개의 방</b> = 주말 분류(analyze_chart) → 평일 결정론 게이트(trigger_gate) → 매수 확인(evaluate_pivot, 5b) → 주문 설계(entry_params).</li>
+        <li><b>"패는 두 종류"</b> = 이 소설의 핵심 예고. <code>watch_reason</code>(목패, 정확히 1개)과 <code>risk_flags</code>(부적, 0~여러 장)는 별개의 태그 시스템이다.</li>
+        <li><b>전직 도감</b> = 원본 페이지 「종목의 전직 도감」 그 자체 — 이 소설의 벽보가 곧 그 페이지다.</li>
+      </ul>
+    </div></details>
+  </section>
+
+  <!-- ============ 一日 ============ -->
+  <section class="ch" id="c1">
+    <div class="ch-head"><span class="ord">Day 1</span><div class="big">第一日</div><p class="t">두루마리에는 무엇이 들어 있나</p></div>
+
+    <p class="noind">첫날 아침, 강당에 신입 스물여덟이 모였다. 맨 뒷줄에는 부르지도 않은 청강생이 하나 앉아 있었다 — 「과선」패의 거한, 조맹이었다.</p>
+    <p class="noind say">"조맹 사형은 왜 여기 계세요?" 유심이 물었다.</p>
+    <p class="noind say">"규정을 알아야 나가지." 조맹이 팔짱을 꼈다. "그래서 나는 언제 나가는데?"</p>
+    <p class="noind say">"…그 얘기는 셋째 날에 해요."</p>
+    <p>수업은 참관으로 시작했다. 마침 토요일 — 대심사의 날이었기 때문이다. 신입들은 대전 구석에 줄지어 앉아, 혜안 장로가 제자 한 사람의 두루마리를 펴는 것을 지켜보았다.</p>
+    <p class="noind say">"저 두루마리에 뭐가 들었는지 아는 사람?" 유심이 속삭였다.</p>
+    <p class="noind say">"차트… 그림요?" 은솔이 조심스레 답했다.</p>
+    <p class="noind say">"그림도 들었지. 그런데 그림만 있는 게 아니야. 여섯 가지가 들어 있어."</p>
+    <p>유심은 손가락을 꼽았다. 첫째, 그 사람이 누구인지 — 이름과 출신 시장(중원인지 북천인지), 하는 일의 갈래. 둘째, 지난 두 해, 그러니까 백네 주 동안의 주간 행보 — 매주의 시작값·최고값·최저값·마감값과 그 주의 함성(거래량)이 전부 붓으로 적혀 있다. 셋째, 하루 단위의 세밀한 기록들 — 열흘·오십 일·백오십 일·이백 일짜리 근맥(이동평균)이 각각 어디를 지나는지, 강호 서열(같은 해에 누가 더 올랐나를 0에서 99까지 매긴 등수)이 어떻게 변해 왔는지, 함성이 평소의 몇 배인지, 그리고 특별한 날들의 표식 — 조용히 힘이 실린 날(포켓피벗), 함성이 커지며 되레 내려간 날(분산일 — 큰손들이 판 흔적이다).</p>
+    <p class="noind say">"넷째." 유심이 이어 말했다. "입문 팔관의 성적표. 여덟 관문을 통과했는지만이 아니라, <b>얼마나 여유 있게</b> 통과했는지 — 그 여유폭까지 적혀 있어. 이게 나중에 아주 중요해져."</p>
+    <p class="noind say">"다섯째는 하늘이야. 오늘 강호가 태평인지 난세인지, 분산일이 며칠 쌓였는지, 마지막 봉화 소식(하락장이 끝났음을 알리는 반등 확인일 — 팔로우스루라고 부른다)이 언제였는지, 이백 일 근맥 위에 선 무인이 전체의 몇 할인지."</p>
+    <p class="noind say">"여섯째가 그 그림 — 차트야. 숫자로 다 적어 놓고도 그림을 또 주는 건, 모양이라는 건 숫자만으로는 안 보이기 때문이고."</p>
+    <p>모가온이 손을 들었다. 첫날부터 "왜요"가 나왔다.</p>
+    <p class="noind say">"왜 그렇게 많이 줘요? 장로님 눈이 밝으시다면서요."</p>
+    <p class="noind say">"눈이 밝아도 안 보이는 건 안 보여." 뜻밖에 노인이 받았다. "눈은 모양을 읽고, 숫자는 그 모양이 착시가 아닌지 받쳐 주는 게야. 재료가 여섯인 건 많은 게 아니라 서로를 검산하는 거지."</p>
+    <p>참관이 이어지는 동안 유심은 장로의 작업 순서를 짚어 주었다. 장로는 언제나 네 걸음을 밟았다.</p>
+    <p>한 걸음 — 모양 찾기. 두 해의 행보에서 "힘을 모으는 자세", 즉 검형을 찾는다. 찻잔처럼 파였다가 손잡이를 만드는 형, 옆으로 판판하게 다지는 형, 바닥을 두 번 찍는 형, 눌릴 때마다 바닥이 높아지는 계단형 같은, 책에서 검증된 모양 중 무엇인가. 아무 모양도 없으면 "없음"이라 적는다.</p>
+    <p>두 걸음 — 재기. 찾은 모양의 깊이는 몇 푼인지, 몇 주나 다졌는지, 손잡이는 단정한지. 여기서 기준에 어긋나는 게 보이면 <b>부적</b>이 붙기 시작한다. 부적 이야기는 내일 한다.</p>
+    <p>세 걸음 — 숫자 긋기. 이 무인의 <b>출사선</b>(넘으면 출발인 가격선)을 어디에 그을지, 그 근거는 무엇인지, 그리고 검형의 <b>천장과 바닥</b>은 어디인지를 확정한다. 오늘 그은 이 숫자들이 앞으로 순찰과 시험과 문서, 모든 방의 기준선이 된다.</p>
+    <p>네 걸음 — 판정. 하늘의 규칙과 금족의 규칙을 마지막에 덮어씌우고, 세 직업 중 하나를 내린다. <b>출전(entry)</b> — 지금 나가도 좋은 극소수. <b>대기(watch)</b> — 좋다, 다만 아직 아니다. <b>금족(ignore)</b> — 문 안에 묶는다.</p>
+    <p>참관 말미에는 신입들 자신의 차례도 있었다. 입문 후 첫 대심사 — 스물여덟 명의 두루마리가 차례로 펼쳐졌고, 대부분 미완패를, 몇몇은 대기패를 받았다. 진소백은 대기패를 받고는 싱글벙글했다. "내 선이 생겼다!" 그 패가 사흘 뒤 무슨 일을 만드는지는, 넷째 날에 보게 된다.</p>
+    <p>그날 오후, 유심은 첫 벽보를 붙였다.</p>
+
+    <div class="codex">
+      <div class="hd"><span class="ic">📜</span><span class="tt">전직 도감 · 벽보 一</span><span class="st">DAY 1 / 재료·절차·산출</span></div>
+      <div class="bd">
+        <span class="sec">두루마리의 재료 — 여섯 가지 입력</span>
+        <div class="tw"><table>
+          <tr><th>재료</th><th>내용</th></tr>
+          <tr><td><b>신상</b></td><td>이름·시장(중원/북천)·업종</td></tr>
+          <tr><td><b>주간 행보 104주</b></td><td>2년치 주간 시·고·저·종가와 거래량 — 검형 판정의 본체</td></tr>
+          <tr><td><b>일일 기록</b></td><td>근맥 4종(10·50·150·200일)·서열(0~99) 추이·함성 배율·포켓피벗/분산일 표식·서열선 신고가 여부</td></tr>
+          <tr><td><b>팔관 성적표</b></td><td>8관문 통과 여부 + <b>여유폭(마진)</b></td></tr>
+          <tr><td><b>하늘</b></td><td>국면·분산일 수·마지막 봉화(FTD)·200일 근맥 위 비율</td></tr>
+          <tr><td><b>그림</b></td><td>차트 이미지 — 모양 판독 보조</td></tr>
+        </table></div>
+        <span class="sec">장로의 네 걸음</span>
+        <ul><li>① 모양 찾기(검형 패턴) → ② 재기(깊이·기간·품질 측정, 부적 발행) → ③ 숫자 긋기(출사선 + 천장·바닥) → ④ 판정(하늘·금족 규칙 → 출전/대기/금족)</li></ul>
+        <span class="sec">산출물 — 그리고 누가 물려받나</span>
+        <div class="tw"><table>
+          <tr><th>산출물</th><th>물려받는 방</th></tr>
+          <tr><td>직업 (출전/대기/금족)</td><td>순찰(감시 대상 결정)·시험·문서</td></tr>
+          <tr><td>검형 이름(패턴)</td><td>문서(패턴별 손절·함성 요건)</td></tr>
+          <tr><td><b>출사선</b> + 근거</td><td><b>순찰</b>(돌파·임박 기준)·시험·문서(매수점)</td></tr>
+          <tr><td><b>천장·바닥·깊이</b></td><td><b>순찰</b>(바닥 = 붕괴 경보선)·시험(파훼 기준)·문서(손절 계산)</td></tr>
+          <tr><td>목패 (대기일 때 1개)</td><td>순찰(자격)·<b>시험(문제 선택)</b> — 여기까지</td></tr>
+          <tr><td>부적 (0~여러 장)</td><td>판정 자체(상한) + <b>문서(감산)</b> — 끝까지 감</td></tr>
+          <tr><td>확신도·판단 근거 서술</td><td>기록·감사, 문서(진입 방식 감지)</td></tr>
+        </table></div>
+      </div>
+    </div>
+
+    <p>벽보를 다 읽은 진소백이 물었다. "목패랑 부적이 뭐가 달라요? 둘 다 패 아니에요?"</p>
+    <p class="noind say">"그게 내일 수업 전부야." 유심이 웃었다. "오늘은 이것만 기억해. <b>목패는 시험까지만 따라가고, 부적은 문서까지 따라간다.</b>"</p>
+
+    <details class="gear"><summary>⚙️ 이 장의 정체 — 실제 시스템에서는</summary><div class="body">
+      <ul>
+        <li><b>여섯 재료</b> = analyze_chart의 payload: 종목 정보 / 주봉 104주 OHLCV / 일봉 지표 시계열(SMA 10·50·150·200, RS Rating 추이, 거래량 평균·배율, pocket_pivot·distribution_day 플래그, RS라인 신고가) / 미너비니 8조건+마진 / market_context(국면·분산일·FTD·200일선 위 비율) / 차트 이미지.</li>
+        <li><b>네 걸음</b> = 패턴 판정 → 측정 → <code>pivot_price·pivot_basis·base_high·base_low·base_depth_pct</code> 산출 → §3.5 시장 규칙·verdict 규칙 적용.</li>
+        <li><b>산출물 상속표</b> = 분류 결과가 게이트·5b·entry_params의 실제 입력이 된다는 것. 목패=<code>watch_reason</code>, 부적=<code>risk_flags</code>, 확신도=<code>confidence</code>.</li>
+      </ul>
+    </div></details>
+  </section>
+
+  <!-- ============ 二日 ============ -->
+  <section class="ch" id="c2">
+    <div class="ch-head"><span class="ord">Day 2</span><div class="big">第二日</div><p class="t">목패는 하나, 부적은 여러 장</p></div>
+
+    <p class="noind">둘째 날 수업은 창고에서 열렸다. 문파의 패방 — 목패와 부적을 만들어 보관하는 방이다.</p>
+    <p>유심은 선반에서 나무패 다섯 개를 꺼내 탁자에 늘어놓았다. 미완, 과선, 대기, 난세, 경계.</p>
+    <p class="noind say">"먼저 목패. 이건 <b>대기(watch) 직업을 받은 사람에게만, 반드시, 딱 하나</b> 걸려. '왜 아직 출전이 아닌가'의 공식 사유야. 출전이나 금족을 받은 사람에겐 안 걸려 — 걸 이유가 없으니까."</p>
+    <p>그녀는 패를 하나씩 짚었다.</p>
+    <p class="noind say">"미완 — 아직 완성되지 않았다는 뜻. 검형의 마지막 부품이 덜 만들어져서 <b>출사선 자체를 못 그은</b> 사람. 나야, 지금까지는." 웃음이 났다. "과선 — 선을 지나쳤다는 뜻. 출사선은 있는데 이미 그 선을 5푼 넘게 지나쳐 버린 사람. 뒤늦게 쫓아가는 걸 추격이라 하는데, 추격은 금지야."</p>
+    <p class="noind say">"대기 — 기다린다는 뜻. 선은 그어졌고, 지금은 선 아래 5푼 밖에서 얌전히 기다리는 사람. 제일 흔하고 제일 건강한 목패. 난세 — 어지러운 세상이라는 뜻. <b>본인은 출전감인데 하늘이 나빠서</b> 대기로 강등된 사람. 경계 — 경계선에 있다는 뜻. 팔관을 통과는 했는데 <b>세 관문 이상이 여유폭 3푼 미만</b>, 종이 한 장 차이로 붙은 사람."</p>
+    <p>모가온이 바로 손을 들었다.</p>
+    <p class="noind say">"두 개에 해당하면요? 검형도 미완성인데 하늘도 나쁘면?"</p>
+    <p class="noind say">"좋은 질문. 그럴 땐 정해진 순서가 있어 — <b>미완과 과선이 먼저야.</b> 선이 없거나 선을 지나친 사람은, 다른 사정을 따질 것도 없이 일단 세워 두는 거지. 안전이 먼저니까. 그 둘이 아닐 때만 나머지 셋 중에서 골라. 그래서 목패는 언제나 정확히 하나."</p>
+    <p>다음으로 유심은 옻칠한 함을 열었다. 안에는 크기가 제각각인 부적들이 가득했다.</p>
+    <p class="noind say">"이게 부적. 목패랑 완전히 달라. <b>직업과 상관없이, 해당하는 조건이 보이는 만큼 전부</b> 붙어. 한 장도 없을 수 있고 대여섯 장이 붙을 수도 있어. 놀이패 말로 하면 목패는 '특성 한 칸'이고 부적은 '상태 이상 아이콘'이야 — 머리 위에 여러 개 뜰 수 있는."</p>
+    <p>한도경이 앞으로 나오더니, 제 옷깃을 젖혔다. 부적 두 장이 나란히 붙어 있었다.</p>
+    <p class="noind say">"보이나, 신입들. 나는 경계 목패에 부적 두 장이다. 하나는 '함성 부족' — 지난번 돌파 때 함성이 기준에 못 미쳤다는 표식이고, 하나는 '다진 기간 부족'. 목패 하나에 부적 여러 장, 이게 지극히 정상적인 몰골이야."</p>
+    <p class="noind say">"부적이 많으면… 금족되는 거 아니에요?" 은솔이 겁먹은 얼굴로 물었다.</p>
+    <p class="noind say">"바로 그게 오늘의 함정 문제야." 유심이 손뼉을 쳤다. "부적에는 <b>세 계급</b>이 있어."</p>
+    <p>그녀는 함에서 부적을 세 무더기로 나누었다.</p>
+    <p class="noind say">"첫째 무더기, 검은 부적 — <b>강제 금족</b>. 딱 세 장뿐이야. 주화입마(움츠림 없이 폭주하듯 오른 기), 심맥 누혈(겉은 멀쩡한데 속에서 큰손들이 빠져나가는 내상), 호적 왜곡(장부 기록 자체가 뒤틀려 읽을 수 없는 상태 — 최근에 문서를 병합한 경우인데, 병합 후 깨끗한 검형을 새로 다졌다면 예외). <b>이 셋 중 하나라도 붙으면 무조건 금족.</b>"</p>
+    <p class="noind say">"둘째 무더기, 붉은 부적 — <b>강등</b>. 네 장이야. 네 번째 이후의 늦물 검형(오를 만큼 오른 뒤의 다지기), 헐거운 검형, 오르는데 함성이 줄어드는 병(사자는 없는데 값만 뜨는 것), 그리고 하늘이 나쁨. 이게 붙으면 <b>아무리 잘나도 출전은 못 받아 — 상한이 대기야.</b>"</p>
+    <p class="noind say">"셋째 무더기, 흰 부적 — <b>정보</b>. 여섯 장쯤 돼. 오십 일 근맥에서 15푼 넘게 떠 있음, 출사선 자체에 흠이 있음, 다진 기간이 짧음, 돌파 함성 부족, 사전 상승 부족, 물이 얕음(먼 나라 전용). 이건 <b>직업을 바꾸지 못해.</b> 대신 — 이게 중요한데 — <b>닷새째 수업의 문서 방에서 값을 치르게 돼.</b> 병력이 깎이는 식으로."</p>
+    <p class="noind say">"그 밖에 손잡이 품질을 적는 부적과, 아예 심사 대상이 아닌 자(기금 무인)를 걸러내는 부적이 각각 한 장씩 더 있고. 다 합치면 열다섯 장."</p>
+    <p>모가온이 다시 손을 들었다. "그럼 흰 부적이랑 붉은 부적이 잔뜩 쌓이면요? 다섯 장, 여섯 장?"</p>
+    <p class="noind say">"<b>그래도 금족은 안 돼.</b>" 유심이 또박또박 말했다. "이게 조합 규칙이야. 강등·정보 부적은 아무리 쌓여도 상한이 대기까지야. 금족을 만들 수 있는 건 검은 부적 셋뿐. 거꾸로 말하면 — 출전을 받으려면 <b>붉은 부적이 한 장도 없어야</b> 해. 흰 부적은 들고도 출전이 가능하고. 다만 그 흰 부적 값은 문서 방에서 치른다니까."</p>
+    <p>수업 끝에, 유심은 어제의 예고를 회수했다.</p>
+    <p class="noind say">"자, 어제 그 질문. 목패랑 부적이 뭐가 다르냐 — 이제 답할 수 있지. 개수가 다르고, 붙는 대상이 다르고, 그리고 <b>수명이 달라.</b> 목패는 밤의 순찰과 시험의 방까지만 따라가서 <b>시험 문제를 고르는 데</b> 쓰이고 거기서 끝이야. 부적은 시험의 방을 지나 <b>문서의 방까지 따라가서 병력을 깎아.</b> 이 차이를 모르면 닷새째 수업이 하나도 이해가 안 될 거야."</p>
+
+    <div class="codex">
+      <div class="hd"><span class="ic">📜</span><span class="tt">전직 도감 · 벽보 二</span><span class="st">DAY 2 / 목패 5 · 부적 15</span></div>
+      <div class="bd">
+        <span class="sec">목패 — 대기 직업에만, 정확히 1개 (겹치면 미완·과선 우선)</span>
+        <div class="tw"><table>
+          <tr><th>목패</th><th>붙는 조건</th></tr>
+          <tr><td>미완</td><td>검형 부품 미완성 → 출사선 못 그음</td></tr>
+          <tr><td>과선</td><td>현재 위치 &gt; 출사선 × 1.05 (추격 구간)</td></tr>
+          <tr><td>대기</td><td>선 확정 + 현재 위치 &lt; 선 × 0.95</td></tr>
+          <tr><td>난세</td><td>본인은 출전감, 하늘 규칙이 강등</td></tr>
+          <tr><td>경계</td><td>팔관 3개 이상이 여유폭 3푼 미만</td></tr>
+        </table></div>
+        <span class="sec">부적 — 전 직업에, 0~여러 장 · 세 계급 15종</span>
+        <div class="tw"><table>
+          <tr><th>계급</th><th>장수</th><th>효과</th><th>목록</th></tr>
+          <tr><td class="r">☠️ 강제 금족</td><td>3</td><td>하나라도 → 무조건 금족</td><td>주화입마 · 심맥 누혈(천장 분산) · 호적 왜곡</td></tr>
+          <tr><td class="y">⬇️ 강등</td><td>4</td><td>출전 불가, 상한 = 대기</td><td>늦물 검형(4번째+) · 헐거움 · 상승 중 함성 감소 · 하늘 나쁨</td></tr>
+          <tr><td class="g">ℹ️ 정보</td><td>6</td><td>직업 불변 — <b>문서 방에서 병력 감산</b></td><td>근맥 15푼 이탈 · 흠 있는 출사선 · 짧은 다지기 · 돌파 함성 부족 · 사전 상승 부족 · 얕은 물</td></tr>
+          <tr><td>기타</td><td>2</td><td>품질 기록 · 대상 제외</td><td>손잡이 품질 · 기금 무인</td></tr>
+        </table></div>
+        <span class="sec">조합 규칙 &amp; 수명</span>
+        <ul>
+          <li>강등+정보 부적은 <b>몇 장이 쌓여도 금족을 못 만든다</b> (상한 = 대기)</li>
+          <li>출전 조건: <b>붉은(강등) 부적 0장</b> — 흰(정보) 부적은 들고도 출전 가능, 값은 문서 방에서</li>
+          <li>수명: <b>목패 → 순찰·시험까지</b> (문제 선택 후 소멸) / <b>부적 → 문서 방까지</b> (병력 감산)</li>
+        </ul>
+      </div>
+    </div>
+
+    <details class="gear"><summary>⚙️ 이 장의 정체 — 실제 시스템에서는</summary><div class="body">
+      <ul>
+        <li><b>목패 5종</b> = <code>watch_reason</code>: base_forming / extended(pivot×1.05 초과) / valid_base_awaiting_breakout(×0.95 미만) / unfavorable_market / marginal_tt(3개 이상 마진&lt;3%). watch에만 정확히 1개, 겹치면 base_forming·extended 우선(D4).</li>
+        <li><b>부적 15종</b> = <code>risk_flags</code>: ☠️ climax_run·topping_distribution·reverse_split_distortion(강제 ignore, 병합 후 깨끗한 베이스면 예외) / ⬇️ late_stage_base·wide_and_loose·volume_contraction_on_advance·unfavorable_market_context(verdict 상한 watch) / ℹ️ extended_from_ma(50일선+15%)·faulty_pivot·narrow_base·low_volume_breakout(1.4배 미달)·prior_uptrend_insufficient(20% 미만)·thin_liquidity_us_only / +handle_quality·etf_methodology_mismatch.</li>
+        <li><b>조합 규칙</b> = 깃발은 쌓여도 ignore 불가, entry는 강등 깃발 0개 필요. <b>수명 차이</b> = watch_reason은 5b까지, risk_flags는 entry_params의 §7 감산까지.</li>
+      </ul>
+    </div></details>
+  </section>
+
+  <!-- ============ 三日 ============ -->
+  <section class="ch" id="c3">
+    <div class="ch-head"><span class="ord">Day 3</span><div class="big">第三日</div><p class="t">밤의 순찰 — 네 가지 보고</p></div>
+
+    <p class="noind">셋째 날 수업은 해가 진 뒤에 시작했다. 오늘의 선생은 사람이 아니었다 — 묵영, 발소리 없는 밤의 순찰 기관이다. 유심과 신입들, 그리고 기어이 따라붙은 조맹이 등불을 들고 그 뒤를 따랐다.</p>
+    <p class="noind say">"묵영은 판단을 안 해." 유심이 걸으며 설명했다. "어제 그은 숫자들 — 출사선과 검형의 바닥 — 에 오늘 값을 기계처럼 대 보고, <b>네 가지 보고</b> 중 하나를 낼 뿐이야. 아무것도 해당 없으면 그냥 지나가고."</p>
+    <p>첫 번째 수련장 앞에서 묵영이 멈췄다. 마당의 기세가 검형의 바닥 아래로 주저앉아 있었다.</p>
+    <p class="noind say">"보고합니다. 붕괴 경보." 등불이 흔들렸다. "기세가 바닥 밑입니다. 오십 일 근맥 아래로 꺼져도 같은 보고를 냅니다."</p>
+    <p class="noind say">"첫 번째 보고 — <b>붕괴 경보</b>." 유심이 손가락 하나를 폈다. "그리고 묵영은 이걸 <b>제일 먼저</b> 확인해. 돌파보다 먼저. 깨진 게 급하니까."</p>
+    <p>두 번째 수련장. 이번엔 반대였다 — 어느 출전패 제자의 기세가 출사선을 넘어 있었고, 함성도 평소만은 되었다.</p>
+    <p class="noind say">"보고합니다. 돌파."</p>
+    <p class="noind say">"두 번째 — <b>돌파</b>. 출전 직업 전용 보고야. 재미있는 게, 출전패는 '오늘 처음 넘었는가'를 안 따져. 선 위에 있고 함성이 되면 <b>매일이라도</b> 보고가 나가. 어차피 판정은 시험의 방이 하니까."</p>
+    <p>세 번째 수련장 — 대기패 제자의 마당. 어제까지 선 아래 있던 기세가 오늘 처음으로 선을 넘어 있었다.</p>
+    <p class="noind say">"보고합니다. 신규 돌파."</p>
+    <p class="noind say">"세 번째 — <b>대기자의 돌파</b>. 이건 조건이 더 까다로워. <b>어제까지는 선 아래, 오늘 처음 넘음</b> — 이걸 '신선한 돌파'라고 해. 이미 넘어 있던 걸 매일 다시 세지 않으려는 거야. 함성도 평소만큼은 돼야 하고. 그리고—" 유심이 신입들을 돌아보았다. "<b>목패를 봐.</b> 이 보고는 대기·난세·경계 세 목패에만 나가. 미완은 넘을 선이 없고, 과선은…"</p>
+    <p class="noind say">"이미 지나 버렸으니까!" 진소백이 외쳤다.</p>
+    <p class="noind say">"맞아. 그래서—"</p>
+    <p class="noind say">"그래서 나는 언제 나가는데?" 뒤에서 조맹의 목소리가 들렸다.</p>
+    <p class="noind say">"사형 목패로는 <b>이 보고 자체가 안 나가요.</b> 새 출사선이 그어져야 — 그러니까 토요일 대심사가 새로 그림을 그려 줘야 해요. 그게 답이에요, 진짜로."</p>
+    <p>조맹은 뭐라 대꾸하려다가, 처음으로 입을 다물었다.</p>
+    <p>네 번째 수련장에서 묵영은 문에 작은 패를 걸었다. 「임박」 — 다가와 있다는 뜻이다. 기세가 출사선의 아흔다섯 푼, 거의 목전까지 차올라 있었다.</p>
+    <p class="noind say">"네 번째 — <b>임박 예고</b>. 선의 95푼까지 접근하면 붙어. 이건 목패를 안 가려 — 과선패한테도 붙어. 단, 하나만 명심해." 유심이 또박또박 말했다. "<b>임박 예고로는 절대, 무슨 일이 있어도, 못 나가.</b> 선 아래에서 문을 여는 법은 없어. 이건 그냥 '지켜보라'는 표시야."</p>
+    <p>돌아오는 길에 은솔이 물었다. "보고가 나가면… 그다음은요?"</p>
+    <p class="noind say">"보고를 받은 사람들이 그날 밤 시험의 방에 불려 가. 묵영은 신호수일 뿐이고, 판정은 전부 거기서 나. 그게 내일 수업이야."</p>
+
+    <div class="codex">
+      <div class="hd"><span class="ic">📜</span><span class="tt">전직 도감 · 벽보 三</span><span class="st">DAY 3 / 순찰 보고 4종</span></div>
+      <div class="bd">
+        <span class="sec">묵영의 보고 4종 (판단 없음 — 숫자 대조뿐)</span>
+        <div class="tw"><table>
+          <tr><th>보고</th><th>조건</th><th>비고</th></tr>
+          <tr><td class="r">① 붕괴 경보</td><td>기세 &lt; 검형 바닥 <b>또는</b> &lt; 50일 근맥</td><td><b>최우선 확인</b></td></tr>
+          <tr><td class="g">② 돌파 (출전 전용)</td><td>기세 &gt; 출사선 + 함성 ≥ 평소(1.0배)</td><td>신선함 불요 — 매일 가능</td></tr>
+          <tr><td class="g">③ 대기자의 돌파</td><td><b>신선한 돌파</b>(어제 이하→오늘 첫 돌파) + 함성 1.0배 + 목패 대기·난세·경계</td><td>미완·과선 제외</td></tr>
+          <tr><td class="y">④ 임박 예고</td><td>기세 ≥ 선 × 0.95 + 함성 1.0배 (목패 무관)</td><td><b>절대 이걸로는 못 나감</b></td></tr>
+        </table></div>
+        <span class="sec">감시 자격 — 직업 × 목패</span>
+        <div class="tw"><table>
+          <tr><th>직업·목패</th><th>①붕괴</th><th>②③돌파</th><th>④임박</th></tr>
+          <tr><td>출전</td><td class="g">✓</td><td class="g">✓(②)</td><td>—</td></tr>
+          <tr><td>대기·난세·경계</td><td class="g">✓</td><td class="g">✓(③)</td><td class="g">✓</td></tr>
+          <tr><td>과선</td><td class="g">✓</td><td class="r">✗</td><td class="g">✓ (자주)</td></tr>
+          <tr><td>미완</td><td colspan="3">선이 없어 순찰 대상 아님 — 대심사만이 경로</td></tr>
+          <tr><td>금족</td><td colspan="3">순찰 비대상 — 대심사만</td></tr>
+        </table></div>
+      </div>
+    </div>
+
+    <details class="gear"><summary>⚙️ 이 장의 정체 — 실제 시스템에서는</summary><div class="body">
+      <ul>
+        <li><b>네 보고</b> = trigger_gate의 4신호: invalidation(close&lt;base_low 또는 &lt;SMA50, 최우선) / breakout(entry, fresh cross 불요) / breakout_from_watch(fresh cross + 거래량 1.0배 + 허용 목패 3종) / promotion(pivot×0.95 접근, 목패 무관, 매수 불가).</li>
+        <li><b>"신선한 돌파"</b> = fresh cross. <b>임박 예고로 못 나감</b> = promotion 트리거는 5b에서 go_now가 원천 금지(피벗 아래 매수 방지).</li>
+        <li>조맹의 답 = extended는 게이트의 매수 경로에서 구조적으로 제외 — 주말 재분류(새 pivot)만이 길.</li>
+      </ul>
+    </div></details>
+  </section>
+
+  <!-- ============ 四日 ============ -->
+  <section class="ch" id="c4">
+    <div class="ch-head"><span class="ord">Day 4</span><div class="big">第四日</div><p class="t">감찰전 — 네 개의 시험장</p></div>
+
+    <p class="noind">넷째 날, 신입들은 감찰전 방청석에 앉았다. 오늘은 실물 수업이다 — 마침 간밤의 순찰 보고가 네 갈래 모두 들어와 있었다.</p>
+    <p>심문관 백리결이 규율집을 폈다. 유심이 방청석에서 속삭였다.</p>
+    <p class="noind say">"먼저 답의 종류부터. 이 방의 답은 언제나 셋 중 하나야. <b>출전</b> — 지금 나가라. <b>대기</b> — 오늘은 아니다, 내일 다시. <b>파훼</b> — 네 검형이 깨졌다, 처음부터 다시 쌓아라. 그리고 중요한 것 — <b>보고의 종류에 따라 시험장이 달라.</b> 네 방이 있어."</p>
+    <p class="line">◇</p>
+    <p class="noind">첫 번째 호출 — <b>출전패의 돌파</b>.</p>
+    <p>어제 돌파 보고가 나간 출전패 제자가 들어섰다. 백리결의 질문은 네 가지였다. 넘던 순간의 함성이 평소의 <b>한 배 반(1.4배)</b>을 넘었는가. 하루의 <b>마지막 순간까지 힘이 실렸는가</b> — 그날의 오르내림 폭에서 위쪽 3분의 1 안에서 마감했는가. 검로가 어지럽지 않았는가 — 그날의 폭이 평소 폭의 한 배 반을 넘지 않았는가. 최근 사흘 안에 <b>분산일</b>(큰손이 판 흔적)이 없었는가.</p>
+    <p class="noind say">"전부 충족. — 출전."</p>
+    <p class="noind say">"저 네 질문을 <b>표준 심문</b>이라고 해." 유심이 말했다. "그리고 눈치챘어? <b>하늘 얘기가 없어.</b> 출전패의 돌파는 오늘 하늘이 어떻든 묻지 않아."</p>
+    <p class="noind say">"어… 그래도 돼요?" 은솔이 놀랐다.</p>
+    <p class="noind say">"그게 '그래도 되나'가 요즘 장로회의의 숙제야. 일단 규칙은 그래. 참고로 함성 1.2~1.4배처럼 '부족하지만 무효는 아닌' 경우엔 대기가 나와. 그리고 바닥 이탈, 오십 일 근맥을 2푼 넘게 함성과 함께 이탈, 닷새 안에 분산일 셋, 돌파 직후의 이십 일 근맥 이탈 — 이런 게 보이면 파훼."</p>
+    <p class="line">◇</p>
+    <p class="noind">두 번째 호출 — <b>대기자의 돌파</b>. 오늘의 주인공은 대기패 제자였다.</p>
+    <p>표준 심문 네 가지가 똑같이 지나갔다. 전부 통과. 그런데 백리결이 규율집을 한 장 더 넘겼다.</p>
+    <p class="noind say">"목패 확인. — 대기패. 추가 문제 없음. 출전."</p>
+    <p class="noind say">"저기서 <b>목패가 일을 해.</b>" 유심이 힘주어 말했다. "대기자의 돌파는 표준 심문 <b>위에 목패별 추가 문제</b>가 얹혀. 대기패는 추가 문제가 없어 — 표준만 통과하면 끝. 난세패였다면 '오늘 하늘이 태평성대로 회복되었는가'를 물었을 거야 — 세 목패 중 <b>하늘을 묻는 건 난세패 하나뿐이야.</b> 경계패였다면 '팔관 여덟이 전부, 여유폭 3푼 미만이던 관문까지 말끔하게 통과되는가'를 물었을 거고. 어제 한도경 사숙이 그래서 아직 대기잖아."</p>
+    <p class="noind say">"불러서 하는 말이다만," 방청석 뒤에서 한도경이 끼어들었다. "내 여유폭이 이제 두 관문만 남았다. 곧 말끔해진다."</p>
+    <p class="line">◇</p>
+    <p class="noind">세 번째 호출 — <b>붕괴 경보</b>. 방 안의 공기가 무거워졌다.</p>
+    <p>간밤에 바닥이 꺼진 제자가 들어섰다. 백리결의 심문은 짧았다. 함성을 동반한 오십 일 근맥 이탈인가, 바닥 밑으로 꺼졌는가, 단 하루의 약세일 뿐인가.</p>
+    <p class="noind say">"…단일 약세. 검형은 아직 유효할 수 있다. — 대기. 관찰을 계속한다."</p>
+    <p class="noind say">"붕괴 경보의 방에는 <b>출전이라는 답 자체가 없어.</b>" 유심이 말했다. "나올 수 있는 답은 대기 아니면 파훼 둘뿐. 참고로 파훼가 나오면 정해진 사유 목록에서 골라 기록해 — '근맥 이탈에 분산 함성', '분산 무늬 뚜렷' 같은 식으로. 마음대로 새 사유를 지어내는 건 금지야."</p>
+    <p>방청석 구석에서 당하연이 조용히 그 광경을 보고 있었다. 한 계절 전, 저 방에서 파훼를 받았던 사람. 유심과 눈이 마주치자 그녀는 살짝 웃었다. "나 때는 저 목록 첫 줄이었어. 지금은 바닥 다시 세 주째." 파훼는 추방이 아니다 — 다시 쌓으라는 판정이다. 그 실물이 저기 앉아 있었다.</p>
+    <p class="line">◇</p>
+    <p class="noind">네 번째 호출 — <b>임박 예고</b>. 호명된 이름에 방청석이 웅성거렸다.</p>
+    <p class="noind say">"진소백."</p>
+    <p>유심이 이마를 짚었다. 신입 삼인방의 그 진소백이었다. 첫 대심사에서 대기패를 받은 그의 기세가, 수업을 듣는 나흘 사이에 선의 95푼까지 차올라 있던 것이다. 수업 들은 지 나흘 만에 방청석에서 피고인석으로 자리를 옮긴 소년은, 그러나 주눅 들기는커녕 잔뜩 상기되어 있었다.</p>
+    <p class="noind say">"함성이 대단합니다! 내일이면 넘습니다. 오늘 미리—"</p>
+    <p class="noind say">"임박의 방에서 출전은 <b>어떤 함성으로도 나가지 않는다.</b>" 백리결이 잘랐다. "선 아래에서 산 자는, 선이 끝내 오지 않을 때 가장 크게 다친다. — 대기."</p>
+    <p>방청석으로 돌아온 진소백에게 유심이 나직이 말했다. "그저께 네 입으로 외웠잖아. '이미 넘은 건 새로 넘는 게 아니'라고. 그 반대도 마찬가지야 — <b>아직 안 넘은 건, 넘은 게 아니야.</b>"</p>
+    <p>돌아오는 복도에서 유심이 정리했다.</p>
+    <p class="noind say">"오늘 본 것: 시험장은 넷 — 출전패의 돌파, 대기자의 돌파, 붕괴, 임박. 답은 셋 — 출전, 대기, 파훼. 그리고 <b>출전이 나올 수 있는 방은 앞의 두 방뿐이야.</b> 붕괴와 임박의 방에선 구조적으로 안 나와."</p>
+
+    <div class="codex">
+      <div class="hd"><span class="ic">📜</span><span class="tt">전직 도감 · 벽보 四</span><span class="st">DAY 4 / 시험장 4 × 답 3</span></div>
+      <div class="bd">
+        <span class="sec">표준 심문 (공통 5항목)</span>
+        <ul><li>선 위 마감(재확인) · 함성 &gt; 1.4배 · 일중 상단 1/3 마감 · 검로 폭 ≤ 평소 1.5배 · 최근 3일 분산일 없음</li></ul>
+        <span class="sec">시험장별 규칙</span>
+        <div class="tw"><table>
+          <tr><th>시험장</th><th>출전(go)</th><th>대기(wait)</th><th>파훼(abort)</th></tr>
+          <tr><td>돌파(출전패)</td><td>표준 5항목 전부 <b>(하늘 안 봄)</b></td><td>함성 1.2~1.4배 / 중간 1/3 마감 / 폭 경계선</td><td>바닥 이탈 / 50일 근맥 2푼+함성 이탈 / 5일 내 분산 3회 / 돌파 직후 20일 근맥 가드</td></tr>
+          <tr><td>돌파(대기자)</td><td>표준 + <b>목패별 추가 문제</b>: 대기 없음 / 난세 하늘=태평성대 / 경계 팔관 전부 말끔</td><td>표준 미달</td><td>위와 동일</td></tr>
+          <tr><td>붕괴 경보</td><td class="r">없음</td><td>단일 약세 수준</td><td>확정 붕괴 (사유 목록에서 기록)</td></tr>
+          <tr><td>임박 예고</td><td class="r">없음 (명문 금지)</td><td>기본값</td><td>붕괴 조건 겹치면</td></tr>
+        </table></div>
+        <span class="sec">파훼 이후</span>
+        <ul><li>그 출사선으로는 종료 — 토요일 대심사가 검형·선·패 전부 새로 그림 (파훼 = 추방 아님, 재건 명령)</li></ul>
+      </div>
+    </div>
+
+    <details class="gear"><summary>⚙️ 이 장의 정체 — 실제 시스템에서는</summary><div class="body">
+      <ul>
+        <li><b>네 시험장</b> = evaluate_pivot(5b)의 §3.1 breakout / §3.5 breakout_from_watch / §3.2 invalidation / §3.3 promotion. 답 = go_now / wait / abort.</li>
+        <li><b>표준 심문 5항목</b> = 종가&gt;pivot 재확인 · 거래량&gt;1.4배 · 일중 상단 1/3 · spread≤1.5배 · 최근 3일 분산일 없음. <b>목패별 추가 문제</b> = 대기 없음 / 난세 confirmed_uptrend 필수 / 경계 8조건 all-true + 마진 해소.</li>
+        <li><b>파훼 사유 목록</b> = §3.4 abort_reason 카탈로그(신규 키워드 금지). invalidation·promotion 방에서 go_now 원천 금지도 명문 그대로.</li>
+        <li>참고: 부적(risk_flags)도 이 방의 서류에 <b>참고 자료로는 함께 들어오지만</b>, 부적별 명시 규칙은 이 방에 없다 — 부적이 규칙으로 작동하는 곳은 문서의 방(§7)뿐.</li>
+        <li>하연 = abort 후 베이스 재형성의 실물 — abort는 그 pivot의 종료일 뿐, 주말 재분류로 순환한다.</li>
+      </ul>
+    </div></details>
+  </section>
+
+  <!-- ============ 五日 ============ -->
+  <section class="ch" id="c5">
+    <div class="ch-head"><span class="ord">Day 5</span><div class="big">第五日</div><p class="t">군사의 장부 — 문 앞에서 버려지는 것</p></div>
+
+    <p class="noind">닷새째, 마지막 정규 수업. 장소는 군사 제갈윤의 방이었다. 벽에는 강호 지도, 서가에는 지난 출정들의 장부. 제갈윤은 신입들을 앉혀 놓고 대뜸 모의 훈련부터 시켰다.</p>
+    <p class="noind say">"가상의 제자 하나를 두자. 이름은… '아무개'. 어제 시험의 방에서 출전 판정을 받았다. 지금부터 이 아무개의 출정 문서를 쓴다. 먼저 — 내가 뭘 보고 쓰는지부터."</p>
+    <p>그는 서류 꾸러미를 펼쳤다.</p>
+    <p class="noind say">"첫째, 대심사의 기록. 직업이 뭐였고, 검형이 무슨 모양이었고, <b>출사선이 어디고 그 근거가 뭐고, 천장과 바닥이 어디인지.</b> 매수점과 퇴각선은 하늘에서 떨어지는 게 아니라 이 숫자들에서 나온다. 둘째, <b>부적 전부.</b> 셋째, 시험의 방 기록 — 판정이 뭐였고, <b>어느 시험장을 거쳐 왔는지</b>, 확신도는 얼마였는지. 넷째, 오늘의 몸 상태 — 현재 기세, 함성, 쉰두 주 최고·최저."</p>
+    <p>모가온이 손을 들었다. "목패는요?"</p>
+    <p>제갈윤이 씩 웃었다. 기다린 질문이라는 얼굴이었다.</p>
+    <p class="noind say">"<b>이 방에 목패는 안 들어온다.</b>" 그가 문지방을 가리켰다. "저 문 앞에서 버려져. 내 서류엔 목패 칸 자체가 없어. 아무개가 대기패로 왔는지 난세패로 왔는지, 나는 모르고, 알 방법도 없다."</p>
+    <p class="noind say">"그리고 하나 더 — <b>오늘의 하늘도 안 들어온다.</b> 이 방엔 창이 없어. 나는 오늘 강호가 태평인지 난세인지 모른 채로 문서를 쓴다."</p>
+    <p>강당이 술렁였다. 유심이 조용히 덧붙였다. "이게 그저께 은솔이가 놀랐던 것의 두 번째 판이야. 시험의 방은 난세패한테만 하늘을 물었고, 문서의 방은 <b>아예 아무한테도 안 물어.</b>"</p>
+    <p>제갈윤은 붓을 들고 문서를 항목별로 채워 나갔다.</p>
+    <p class="noind say">"하나 — <b>진입 방식.</b> 표준 돌파인가, 아니면 '조용한 매집 신호'로 들어온 경우인가(근맥 위에서 함성이 실린 조기 신호 — 포켓피벗이라 한다). 방식에 따라 손절과 함성 요건이 달라지니 제일 먼저 정한다. 둘 — <b>매수점과 발동가.</b> 출사선 기준으로, 이미 얼마나 지나쳤는지 반영해서. 셋 — <b>퇴각선.</b> 두 가지로 계산한다. 검형의 구조에서 나오는 '논리적 퇴각선'과, 어떤 경우에도 넘지 않는 '절대 한도'(매수가에서 10푼 아래가 바닥, 조용한 매집 진입은 더 바싹). 둘 중 보수적인 쪽으로 쓰되 둘 다 기록해."</p>
+    <p class="noind say">"넷 — <b>병력.</b> 기본 병력에서 시작해서, <b>부적 한 장마다 깎는다.</b>" 그는 주판을 튕겼다. "늦물 검형 부적이면 열에 일곱만. 얕은 물 부적도 일곱. 하늘 나쁨 부적이면 <b>절반.</b> 부적이 여러 장이면 곱해서 계속 깎고, 그래도 바닥은 있다 — 최소 병력 밑으로는 안 내려. 다섯 — <b>목적지와 창구.</b> 어디쯤에서 이문을 거둘지, 이 문서가 며칠 유효한지, 추격은 몇 푼까지 허용할지(기본 5푼), 체결에 요구할 함성은 몇 배일지. 여섯 — <b>경고문.</b> 뭘 왜 깎았는지 전부 기록. '늦물이라 병력 감축' 하는 식으로."</p>
+    <p>필기를 하던 모가온의 붓이 멈췄다. 그녀는 한참 서류를 노려보다가 손을 들었다.</p>
+    <p class="noind say">"군사님. 방금 '하늘 나쁨 부적이면 절반'이라고 하셨잖아요. 그런데 그저께 배웠는데… 대기자의 돌파로 온 사람은 <b>그 부적을 무시하는 특례</b>가 있다면서요."</p>
+    <p class="noind say">"있다." 제갈윤이 고개를 끄덕였다. "이유도 그럴듯해. '난세패는 하늘이 회복돼야만 시험을 통과하니, 이 방까지 왔다는 것 자체가 하늘이 갠 증거다. 그러니 대심사 때 붙은 낡은 하늘 부적으로 병력을 깎지 마라' — 규율집에 그렇게 적혀 있지."</p>
+    <p class="noind say">"그런데요," 모가온의 목소리가 커졌다. "그 이유는 <b>난세패한테만 맞잖아요.</b> 대기패는 하늘이 안 개어도 시험을 통과하는데요. 대기패가 난세에 돌파해서 여기 오면 — 하늘 부적은 특례로 무시되고, 이 방은 하늘을 안 보고 — 그럼 <b>난세에 병력 한 톨 안 깎이고 전량으로 나가는 거 아니에요?</b>"</p>
+    <p>방이 조용해졌다.</p>
+    <p>제갈윤은 바로 답하지 않았다. 대신 새 종이 두 장을 나란히 펴더니, 왼쪽에 <b>"난세패 아무개"</b>, 오른쪽에 <b>"대기패 아무개"</b>라고 적었다.</p>
+    <p class="noind say">"말로 하면 헷갈린다. 서류로 따라가 보자. 조건은 똑같이 준다 — 둘 다 <b>오늘 밤은 난세</b>고, 둘 다 간밤에 제 선을 넘었고, 둘 다 표준 심문 네 가지는 통과할 실력이다. 자, 왼쪽부터."</p>
+    <p><b>왼쪽 종이 — 난세패.</b> 붓이 움직였다. "시험의 방. 표준 심문 통과. 다음, 난세패의 추가 문제 — '오늘 하늘이 태평인가?' 아니다, 난세다. 판정, <b>대기.</b>" 그는 종이 가운데에 크게 가위표를 그었다. "여기서 끝. 이 사람은 <b>문서의 방까지 오지도 못한다.</b> 하늘이 갤 때까지."</p>
+    <p><b>오른쪽 종이 — 대기패.</b> "시험의 방. 표준 심문 통과. 다음, 대기패의 추가 문제 — <b>없음.</b> 판정, <b>출전.</b> 문서의 방으로 넘어온다." 붓이 문서 항목을 하나씩 채워 내려갔다. "매수점, 발동가, 퇴각선… 자, 병력 차례다. 이 아무개의 옷깃엔 대심사 때 붙은 <b>'하늘 나쁨' 부적</b>이 있다 — 심사받던 날도 난세였으니까. 원칙대로면 병력 절반. 그런데 특례가 말한다. '대기자의 돌파로 온 자는 그 부적으로 깎지 마라.' 그래서 안 깎는다. 그럼 오늘 하늘이라도 봐야 할 텐데 — 이 방엔 창이 없다. 결과—"</p>
+    <p>붓이 멈췄다. 오른쪽 종이의 병력 칸에는, 감산 없는 숫자가 그대로 적혀 있었다.</p>
+    <p class="noind say">"—난세 한복판에, 전량 출정." 제갈윤이 낮게 말했다. "…서류상으로는, 신입 말이 맞다."</p>
+    <p>은솔이 조심스레 손을 들었다. "그, 그럼 특례 자체가 잘못된 거예요?"</p>
+    <p class="noind say">"특례의 <b>이유가 절반만 맞는 게다.</b>" 노인이 받았다. "'이 방까지 왔다는 것 자체가 하늘이 갠 증거다' — 이 근거는 하늘을 <b>묻고 통과한</b> 난세패에겐 참말이야. 왼쪽 종이를 봐라, 난세패는 하늘이 개지 않으면 애초에 못 오잖니. 그런데 하늘을 <b>묻지도 않는</b> 대기패에겐 헛말이지. 같은 특례가, 한쪽에선 이치에 맞고 다른 쪽에선 구멍이 되는 게야."</p>
+    <p>말을 마친 노인이 천천히 제 장부를 폈다. "…거기 신입. 이름이 뭐라고 했지?"</p>
+    <p class="noind say">"모가온인데요."</p>
+    <p class="noind say">"기억해 두마." 노인은 장부에 한 줄을 적었다. <em>규율 제삼조의 구멍, 문서 방까지 이어짐 — 신입 모가온 지적. 장로회의 안건에 병기.</em> "폭풍의 이레에 남궁진이 연 문제를, 네가 한 층 더 팠구나. 규율은 이렇게 고쳐지는 게야 — 누군가 장부에 적어 두는 것으로 시작해서."</p>
+
+    <div class="codex">
+      <div class="hd"><span class="ic">📜</span><span class="tt">전직 도감 · 벽보 五</span><span class="st">DAY 5 / 문서의 방</span></div>
+      <div class="bd">
+        <span class="sec">보는 것 / 안 보는 것</span>
+        <div class="tw"><table>
+          <tr><th>들어오는 서류 ✓</th><th>문 앞에서 버려지는 것 ✗</th></tr>
+          <tr><td>직업·검형 이름·분류 시점 / <b>출사선+근거, 천장·바닥·깊이</b> / <b>부적 전부</b> / 시험 판정·<b>어느 시험장 경유</b>·확신도·판단 서술 / 오늘의 기세·함성·52주 고저</td><td><b>목패</b> (서류에 칸 자체가 없음) / <b>오늘의 하늘</b> (이 방엔 창이 없음)</td></tr>
+        </table></div>
+        <span class="sec">문서 작성 6단계</span>
+        <ul><li>① 진입 방식(표준 돌파 / 포켓피벗) → ② 매수점·발동가 → ③ 퇴각선 이중 계산(논리 + 절대한도 −10푼 바닥) → ④ 병력 = 기본 × 부적 감산(×0.7, 하늘 부적 ×0.5, 누적 곱, 최소 바닥 있음) → ⑤ 목적지·유효 창구(일수)·추격 상한(기본 5푼)·요구 함성 → ⑥ 경고문 기록</li></ul>
+        <span class="sec">완성된 문서의 칸</span>
+        <ul><li>진입방식 · 매수점 · 발동가 · 퇴각선(+두 기준 %) · 병력(%) · 목표(+%) · 유효일수 · 추격상한 · 요구함성 · 경고문들</li></ul>
+        <span class="sec">특례와 구멍 — 같은 난세의 밤, 두 종이 비교</span>
+        <div class="tw"><table>
+          <tr><th>단계</th><th>난세패 아무개</th><th>대기패 아무개</th></tr>
+          <tr><td>시험의 방</td><td>추가 문제 "하늘 태평?" → 난세 → <b>대기 (차단)</b></td><td>추가 문제 없음 → <b>출전</b></td></tr>
+          <tr><td>문서의 방</td><td class="y">도달 못 함</td><td>하늘 부적 = 특례로 무시 + 이 방엔 창이 없음(오늘 하늘 모름)</td></tr>
+          <tr><td>결과</td><td>출정 없음 — 하늘 갤 때까지</td><td class="r">난세 한복판, 감산 없이 전량 출정</td></tr>
+        </table></div>
+        <ul><li>특례: 대기자의 돌파 경유자는 "하늘 나쁨 부적" 감산 면제 (근거: 난세패는 하늘이 개야만 통과하므로)</li><li><span class="r">구멍</span>: 그 근거는 하늘을 <b>묻고 통과한</b> 난세패에만 성립 — 하늘을 <b>묻지도 않는</b> 대기패는 난세에도 통과하므로, 차단도 감산도 없이 전량 출정 가능</li></ul>
+      </div>
+    </div>
+
+    <details class="gear"><summary>⚙️ 이 장의 정체 — 실제 시스템에서는</summary><div class="body">
+      <ul>
+        <li><b>들어오는 서류</b> = entry_params payload(build_for_6): classification·pattern·classified_at / pivot_price·pivot_basis·base_high·base_low·depth / <b>risk_flags</b> / decision·trigger_type·confidence·reasoning / 현재가·거래량·52주. <b>watch_reason과 live market_context는 payload에 없음.</b></li>
+        <li><b>6단계</b> = entry_mode 판별(pivot_breakout/pocket_pivot) → 매수점·트리거가 → 손절 이중(논리+절대, −10% 바닥, 포켓은 타이트) → §7 깃발 감산(×0.7/×0.5 누적, 사이즈 바닥) → 목표·entry_window·max_chase(5%)·요구 거래량 → known_warnings.</li>
+        <li><b>특례</b> = breakout_from_watch의 stale unfavorable_market_context 면제. <b>구멍</b> = 그 근거가 valid_base 경로에선 무너짐 — 최종 진단 페이지의 구조적 결함 ②가 사이징 층까지 이어지는 지점.</li>
+        <li>실제 매수 집행은 문서 작성 다음 거래일이다.</li>
+      </ul>
+    </div></details>
+  </section>
+
+  <!-- ============ 終講 ============ -->
+  <section class="ch" id="c6">
+    <div class="ch-head"><span class="ord">Final</span><div class="big">終講</div><p class="t">일곱 개의 결말</p></div>
+
+    <p class="noind">마지막 날은 시험이었다. 다만 문제를 내는 쪽은 신입들이 아니라 유심이었다 — 그녀는 닷새간의 벽보를 전부 떼어다 강당 벽 하나에 이어 붙이고, 그 위에 굵은 붓으로 갈래길을 그렸다. 완성된 전직 도감이었다.</p>
+    <p class="noind say">"자, 종강 문제. 무인 하나를 아무나 골라서, 이 그림 위에서 <b>일주일 동안 갈 수 있는 길을 전부</b> 따라가 봐."</p>
+    <p>진소백이 먼저 나섰다. "저요! 대기 목패요. 음… 새벽에 팔관 재시험을 통과하면 살아남고, 밤에 신선한 돌파가 나면 시험의 방, 표준 심문 통과면 출전, 문서 쓰고, 다음 장날에 출정!"</p>
+    <p class="noind say">"통과 못 하면?"</p>
+    <p class="noind say">"대기! 내일 또 기회!"</p>
+    <p class="noind say">"바닥이 꺼지면?"</p>
+    <p class="noind say">"붕괴 경보… 시험의 방에서 대기 아니면 파훼."</p>
+    <p class="noind say">"새벽 재시험에서 팔관이 무너지면?"</p>
+    <p>진소백이 머뭇거리자 은솔이 작게 답했다. "…하산이요. 그건 시험의 방도 안 거쳐요. 문답무용."</p>
+    <p class="noind say">"맞아. 그게 <b>하산(disqualify)과 파훼(abort)의 차이</b>야." 유심이 벽보 두 곳을 짚었다. "하산은 <b>자격</b>의 문제 — 팔관 성적이 무너진 거라 기관이 즉결로 명부에서 지워. 파훼는 <b>검형</b>의 문제 — 값이 구조를 깬 거라 시험의 방이 심문 끝에 판정해. 헷갈리기 쉬운데 완전히 다른 문이야."</p>
+    <p>모가온이 손을 들었다. "결말이 총 몇 개예요?"</p>
+    <p class="noind say">"일곱." 유심이 벽보 아래쪽에 큰 글씨로 적었다. "㉮ 출정 문서 확정 — 유일한 '나가는' 결말. ㉯ 대기 — 내일 다시. ㉰ 임박 관찰 — 선 근처에서 지켜봄. ㉱ 파훼 — 재건 명령. ㉲ 하산 — 자격 상실. ㉳ 금족 — 검은 부적의 방. ㉴ 재분류 순환 — 아무 일도 없던 이들 모두의 종착지, 토요일. 그리고 잊지 마 — <b>토요일이 오면 이 그림 전체가 새로 그려져.</b> 직업도 목패도 부적도 출사선도, 전부."</p>
+    <p>맨 뒷줄에서 조맹이 벽보의 한 줄을 오래 들여다보고 있었다. 과선 — 임박·붕괴만 / 출정 없음. 닷새 내내 같은 질문을 하던 그가, 이번에는 묻지 않았다. 대신 자리에서 일어나며 유심에게 한마디를 던졌다.</p>
+    <p class="noind say">"…토요일에 보자, 강사. 새 선 그으러 간다."</p>
+    <p>그것이 조맹이 닷새 만에 스스로 찾은 답이었다. 지나간 선을 조르는 대신, 새 선이 그어질 자리를 만들러 가는 것.</p>
+    <p class="line">◇</p>
+    <p class="noind">수업이 파하고 신입들이 흩어진 뒤, 강당에 두 사람이 남았다.</p>
+    <p>남궁진이었다. 침묵 수련 중이라던 그가 언제부터인가 문가에 서서 벽보를 보고 있었다.</p>
+    <p class="noind say">"…잘 그렸군." 그가 말했다. 한 계절 만에 유심이 듣는 그의 목소리였다. "내가 막혔던 문이 어디인지, 이 그림엔 정확히 그려져 있어."</p>
+    <p>그는 벽보의 한 지점 — 대기자의 돌파 시험장, 난세패의 추가 문제 칸 — 을 오래 바라보다가, 몸을 돌렸다.</p>
+    <p class="noind say">"다음 대심사가 며칠 남았지."</p>
+    <p class="noind say">"이틀요."</p>
+    <p class="noind say">"그래. …수고했다, 강사."</p>
+    <p class="line">◇</p>
+    <p class="noind">이틀 뒤, 대심사.</p>
+    <p>혜안 장로가 유심의 두루마리를 폈다. 찻잔은 완성되어 있었고, 그 위로 마지막 몇 주 — 단정하게 다물린 손잡이가 있었다. 장로는 오래 보지 않았다.</p>
+    <p class="noind say">"손잡이, 완성. 출사선을 긋는다." 붓이 움직였다. "현재 기세는 선 아래 다섯 푼 밖. — 목패 교체."</p>
+    <p>미완패가 걷히고, 새 패가 걸렸다. 대기.</p>
+    <p>유심은 제 허리의 새 목패를 내려다보았다. 자기가 닷새 동안 가르친 바로 그 규정이, 이제 자기 차례가 되어 돌아온 것이다. 기다림의 차례가.</p>
+    <p>강당을 나서는데 서기 노인이 담장 아래서 기다리고 있었다.</p>
+    <p class="noind say">"수업은 끝났다만, 마지막 훈수 하나 두마." 노인이 벽보 쪽을 턱짓했다. "저 그림에서 제일 중요한 게 뭔지 아느냐."</p>
+    <p class="noind say">"…패는 두 종류라는 거요?"</p>
+    <p class="noind say">"그건 두 번째고." 노인이 웃었다. "제일 중요한 건, 저 그림이 <b>다 그려져 있다는 사실 그 자체</b>야. 길이 일곱 갈래건 일흔 갈래건, 전부 미리 그려져 있고 누구든 볼 수 있지. 사십 년 전엔 저게 없어서 — 어디로 가는지도 모른 채 다들 걸었단다."</p>
+    <p>노인은 장부를 고쳐 안고 돌아섰다.</p>
+    <p class="noind say">"기다림의 차례를 축하한다, 강사. 네 선을 넘는 밤에 보자꾸나."</p>
+
+    <div class="codex">
+      <div class="hd"><span class="ic">📜</span><span class="tt">전직 도감 · 최종 벽보</span><span class="st">FINAL / 전 경로 · 일곱 결말</span></div>
+      <div class="bd">
+        <span class="sec">직업 × 목패 종합표</span>
+        <div class="tw"><table>
+          <tr><th>직업·목패</th><th>순찰 보고</th><th>출전 추가 조건</th><th>문서 방 특례</th><th>가능한 결말</th></tr>
+          <tr><td>출전(entry)</td><td>돌파·붕괴</td><td>표준 5항목 (하늘 안 봄)</td><td>부적 감산 전부 적용</td><td>㉮㉯㉱㉲㉴</td></tr>
+          <tr><td>대기</td><td>돌파·임박·붕괴</td><td>표준만 (하늘 안 봄)</td><td class="r">하늘 부적 면제 ← 구멍</td><td>㉮㉯㉰㉱㉲㉴</td></tr>
+          <tr><td>난세</td><td>돌파·임박·붕괴</td><td>표준 + <b>하늘 = 태평성대</b></td><td>하늘 부적 면제 (이쪽은 논리 성립)</td><td>㉮㉯㉰㉱㉲㉴</td></tr>
+          <tr><td>경계</td><td>돌파·임박·붕괴</td><td>표준 + 팔관 전부 말끔</td><td>하늘 부적 면제</td><td>㉮㉯㉰㉱㉲㉴</td></tr>
+          <tr><td>과선</td><td>임박·붕괴만</td><td>— (돌파 시험장 못 감)</td><td>—</td><td>㉯㉰㉱㉲㉴ (출정 없음)</td></tr>
+          <tr><td>미완</td><td>없음 (선 없음)</td><td>—</td><td>—</td><td>㉲㉴만</td></tr>
+          <tr><td>금족(ignore)</td><td>없음</td><td>—</td><td>—</td><td>㉳㉴</td></tr>
+        </table></div>
+        <span class="sec">일곱 결말</span>
+        <ul>
+          <li><span class="g">㉮ 출정 문서 확정</span> — go 판정 + 문서 완성 → 다음 장날 집행 · <span class="y">㉯ 대기</span> — 내일 다시 · <span class="y">㉰ 임박 관찰</span> · <span class="r">㉱ 파훼</span> — 재건 명령(대심사로) · <span class="r">㉲ 하산</span> — 팔관 자격 상실(즉결) · <span class="r">㉳ 금족</span> — 검은 부적 3종 · <span class="y">㉴ 재분류 순환</span> — 토요일마다 전체가 새로 그려짐</li>
+        </ul>
+        <span class="sec">헷갈림 방지 세 줄</span>
+        <ul>
+          <li>하산(자격·기관 즉결) ≠ 파훼(검형·시험의 방 판정)</li>
+          <li>붕괴·임박 보고도 시험의 방으로 간다 — 다만 그 방들엔 '출전'이란 답이 없다</li>
+          <li>목패는 시험까지, 부적은 문서까지 — 두 태그의 수명은 다르다</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="fin">終</p>
+
+    <details class="gear"><summary>⚙️ 이 장의 정체 — 실제 시스템에서는</summary><div class="body">
+      <ul>
+        <li><b>일곱 결말</b> = 원본 도감의 종착점 7종: 매수 주문 확정 / wait / promotion 관찰 / abort / disqualify / ignore / 재분류 순환. <b>종합표</b> = 직업×목패 매트릭스 그대로.</li>
+        <li><b>하산 vs 파훼</b> = disqualify(트렌드템플릿 재검, 결정론 즉결)와 invalidation→abort(가격이 베이스를 깸, 5b 판정)의 구분.</li>
+        <li>유심의 목패 교체(미완→대기) = 주말 재분류가 태그·pivot을 새로 그리는 순환의 실물. 남궁진의 카메오 = 전작 「반석의 검」과의 연결.</li>
+        <li>이 소설의 벽보 전체 = <a href="https://claude.ai/code/artifact/16acb0d9-86bd-48af-9559-d3b45d8c5281" style="color:var(--jade)">원본 「종목의 전직 도감」</a> — 이제 그 페이지를 열면 벽보의 원본이 보일 것이다.</li>
+      </ul>
+    </div></details>
+  </section>
+
+</div>
+</main>
+
+<footer class="end">
+  <div class="col">
+    「청암문 입문 수업」 — 반석의 검 외전 · 벽보가 곧 원본 도감입니다<br>
+    원본: <a href="https://claude.ai/code/artifact/16acb0d9-86bd-48af-9559-d3b45d8c5281">종목의 전직 도감</a> · 전작: <a href="https://claude.ai/code/artifact/45fdc315-ab9e-4a82-b4e0-0248625ddb27">반석의 검</a> · 해설: <a href="https://claude.ai/code/artifact/067a5c8e-e57b-45f2-84c1-2c0cbef99609">시스템 A→Z</a>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // 인물별 누적 이력: [장, 표시, 내용] — 장이 진행될수록 아래로 쌓입니다.
+  // 표시: ok=✓ 통과 / block=⛔ 막힘(자격 미달로 다음 단계 진행 불가) / hold=● 보류·대기 / info=· 참고 / star=★ 특별
+  var ORDER=['c0','c1','c2','c3','c4','c5','c6'];
+  var CHARS=[
+    {n:'유심', tags:{c0:'미완', c6:'대기'}, hist:[
+      ['c0','ok','팔관 여덟 관문 통과(입문)'],
+      ['c0','hold','대심사 「미완」 — 검형 손잡이 미완성, 출사선 없음'],
+      ['c0','info','신입 수업 강사 발탁'],
+      ['c6','ok','손잡이 완성 → 대심사 「대기」로 교체(출사선 획득)']
+    ]},
+    {n:'진소백', tags:{c1:'대기'}, hist:[
+      ['c1','ok','팔관 통과(입문)'],
+      ['c1','ok','첫 대심사 「대기」 — 출사선 획득'],
+      ['c4','info','기세가 선의 95푼 도달 → 임박 보고'],
+      ['c4','block','감찰전 임박의 방 — "선 아래 매수 금지"로 출전 불가(관찰 대기)'],
+      ['c6','hold','신선한 돌파(오늘 처음 선을 넘는 것)를 기다리는 중']
+    ]},
+    {n:'모가온', tags:{c1:'미완'}, hist:[
+      ['c1','ok','팔관 통과(입문)'],
+      ['c1','hold','첫 대심사 「미완」 — 출사선 없음'],
+      ['c5','star','특례의 구멍 발견 — 장로회의 안건에 이름 오름']
+    ]},
+    {n:'은솔', tags:{c1:'미완'}, hist:[
+      ['c1','ok','팔관 통과(입문)'],
+      ['c1','hold','첫 대심사 「미완」'],
+      ['c5','info','"특례가 잘못된 거예요?" — 핵심 질문 담당']
+    ]},
+    {n:'조맹', tags:{c0:'과선'}, hist:[
+      ['c0','hold','대심사 「과선」 — 출사선을 5푼 넘게 지나침(추격 구간)'],
+      ['c0','block','돌파 보고 대상 아님 — 감찰전(시험의 방)으로 갈 길 자체가 없음'],
+      ['c3','block','담치기 시도 → 묵영 제지("이미 넘은 건 새로 넘는 게 아님")'],
+      ['c6','ok','스스로 답을 찾음 — "토요일에 새 선 그으러 간다"(재분류 예정)']
+    ]},
+    {n:'한도경', tags:{c0:'경계'}, hist:[
+      ['c0','ok','팔관 재수 끝 통과(서열 68 → 71)'],
+      ['c0','hold','대심사 「경계」 — 세 관문이 여유폭 3푼 미만'],
+      ['c2','info','부적 2장 공개: 돌파 함성 부족 · 다진 기간 부족'],
+      ['c4','block','출전 조건 미충족 — 팔관 전부 말끔해질 때까지 시험 통과 불가(남은 관문 2개)']
+    ]},
+    {n:'남궁진', tags:{c0:'난세'}, hist:[
+      ['c0','hold','전작 대심사 「난세」 — 실력은 출전감, 하늘이 강등'],
+      ['c0','block','전작 폭풍의 밤 — 돌파·표준 심문 통과에도 하늘(난세) 탓 출전 차단'],
+      ['c6','info','침묵 수련 — 다음 대심사 이틀 전']
+    ]},
+    {n:'당하연', tags:{c0:'파훼'}, hist:[
+      ['c0','block','전작 — 바닥 붕괴 경보 → 감찰전 「파훼」 판정(검형 무효)'],
+      ['c0','ok','재건 시작 — 바닥부터 다시 쌓는 중'],
+      ['c4','info','재건 3주째 — 감찰전 방청'],
+      ['c6','ok','장로 평 "서두르지 않음, 좋다"']
+    ]}
+  ];
+  var LABEL={c0:'서장',c1:'1일차',c2:'2일차',c3:'3일차',c4:'4일차',c5:'5일차',c6:'종강'};
+  var PCLS={'미완':'y','과선':'r','대기':'g','난세':'r','경계':'y','파훼':'r'};
+  var MARK={ok:'✓',block:'⛔',hold:'●',info:'·',star:'★'};
+  var cur='c0';
+  function idx(ch){return ORDER.indexOf(ch);}
+  function render(){
+    var ci=idx(cur); if(ci<0) ci=0;
+    document.getElementById('tkCh').textContent='현재 · '+LABEL[cur];
+    var h='';
+    CHARS.forEach(function(c){
+      var visible=c.hist.filter(function(e){return idx(e[0])<=ci;});
+      if(!visible.length) return; // 아직 등장 전
+      var tag=''; ORDER.forEach(function(ch,i){ if(i<=ci && c.tags[ch]) tag=c.tags[ch]; });
+      var fl = (c.n==='한도경' && ci>=idx('c2')) ? '<span class="tk-fl">🏷️×2</span>' : '';
+      h+='<div class="tk-item"><div class="tk-nm">'+c.n
+        +(tag?' <span class="tk-pill '+(PCLS[tag]||'y')+'">'+tag+'</span>':'')
+        +fl+'</div><ul class="tk-tl">';
+      visible.forEach(function(e){
+        h+='<li><span class="m '+e[1]+'">'+MARK[e[1]]+'</span><span>'+e[2]+'</span></li>';
+      });
+      h+='</ul></div>';
+    });
+    document.getElementById('tkList').innerHTML=h;
+  }
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ cur=e.target.id; render(); } });
+    },{rootMargin:'-12% 0px -72% 0px', threshold:0});
+    ORDER.forEach(function(id){ var el=document.getElementById(id); if(el) obs.observe(el); });
+  }
+  var tr=document.getElementById('tracker'), tg=document.getElementById('tkToggle'), pn=document.getElementById('tkPanel');
+  function setOpen(o){ tr.classList.toggle('open',o); pn.hidden=!o; tg.setAttribute('aria-expanded',String(o)); }
+  tg.addEventListener('click',function(){ setOpen(true); });
+  document.getElementById('tkClose').addEventListener('click',function(){ setOpen(false); });
+  render();
+})();
+</script>

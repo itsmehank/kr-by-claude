@@ -1,0 +1,591 @@
+<details data-doc-meta style="box-sizing:border-box;margin:0;padding:10px 24px;background:#0f172a;color:#e2e8f0;font-family:'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;font-size:14px;line-height:1.75;border-bottom:3px solid #f59e0b;">
+<summary style="cursor:pointer;font-weight:700;color:#fbbf24;outline:none;">📌 이 문서는 왜 만들어졌나 — 목적 · 연관 문서 · 이력 (클릭해서 펼치기)</summary>
+<div style="max-width:880px;margin:14px auto 8px;">
+<p style="margin:0 0 12px;color:#94a3b8;font-size:13px;">생성: 2026-07-05 02:53 · 최종 업데이트: 2026-07-05 02:55 (KST) · 출처: Claude Code 세션 기록 기반 복원</p>
+<h3 style="margin:0 0 6px;font-size:15px;color:#fbbf24;">이 문서의 목적 (실제 요청 근거)</h3>
+<p>소설 「반석의 검」을 읽던 사용자가 실제 로직이 궁금해져 던진 질문들에 답한 문서. 발단 질문:
+"'패'(tag)를 붙일 때 시장 상황이 안 좋다는 건 오직 pivot 근처 종목에만 붙이는 거야? 소설에서는 '진'에게만
+시장 상황을 확인하고 '서하'는 확인을 안 하는 것 같아."</p>
+<p>이어진 본 요청: "종목 분류 시 어떤 데이터로 어떻게 분석하는지 / 태그는 한 종목에 하나만 붙는지 여러 개
+붙는지 / 각 태그의 의미 / evaluate_pivot이 분류·태그에 따라 다른 로직으로 평가하는지 / entry_param에서는
+과거 분류·태그 정보가 사용되는지" — 를 전부 실제 코드 기반으로 해부해달라는 것.</p>
+<p>분류(watch/entry/ignore/disqualified)·태그(watch_reason 등)·트리거 판정·진입 주문의 모든 경로를
+게임 '전직 트리'에 빗대 정리한 <b>태그 해부 도감</b>이다.</p>
+<h3 style="margin:16px 0 6px;font-size:15px;color:#fbbf24;">연관 문서</h3>
+<ul style="margin:0;padding-left:20px;"><li style="margin:4px 0;"><a href="./banseok-sword-illustrated.html" style="color:#7dd3fc;text-decoration:underline;">반석의 검 — 청암문 이레의 기록 (삽화판)</a><span style='color:#94a3b8;'> — 발원 — 이 소설을 읽다 생긴 태그·로직 질문에 답한 문서</span></li><li style="margin:4px 0;"><a href="./system-atoz.html" style="color:#7dd3fc;text-decoration:underline;">종목 하나가 시스템을 통과하는 여정, A부터 Z까지</a><span style='color:#94a3b8;'> — 선행 개요 — 전체 여정 설명. 이 문서는 그중 분류·태그를 심화</span></li><li style="margin:4px 0;"><a href="./cheongam-class-v2.html" style="color:#7dd3fc;text-decoration:underline;">청암문 입문 수업 — 반석의 검 외전</a><span style='color:#94a3b8;'> — 이 문서를 소설화한 외전 「청암문 입문 수업」</span></li><li style="margin:4px 0;"><a href="./cheongam-guide.html" style="color:#7dd3fc;text-decoration:underline;">청암문 규정 안내서 — 소설 곁들이 표와 흐름도</a><span style='color:#94a3b8;'> — 이 문서 내용을 표·흐름도로 압축한 규정 안내서</span></li><li style="margin:4px 0;"><a href="./stock-sim.html" style="color:#7dd3fc;text-decoration:underline;">나는 종목이다 — 2024·2025 실전 심사 시뮬레이터</a><span style='color:#94a3b8;'> — 이 문서의 규정을 실제 DB 데이터로 체험하는 시뮬레이터</span></li></ul>
+</div>
+</details>
+<title>종목의 전직 도감 — 분류·태그·트리거·주문의 모든 경로</title>
+<style>
+  :root{
+    --paper:#F4F6F8; --card:#FFFFFF; --ink:#19222E; --slate:#566171;
+    --faint:#8A94A1; --line:#DCE2E8;
+    --accent:#0E6B5B; --accent-2:#128972; --accent-soft:#E2EFEC;
+    --good:#1C7A4E; --good-soft:#E5F1EA;
+    --warn:#A9741A; --warn-soft:#F7EFDD;
+    --bad:#B0413A; --bad-soft:#F6E5E3;
+    --blue:#1D5FA8; --blue-soft:#E5EEF8;
+    --purple:#7A4BB0; --purple-soft:#EFE8F6;
+    --sans:'Pretendard','Apple SD Gothic Neo',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,'Malgun Gothic',sans-serif;
+    --mono:'SF Mono',ui-monospace,Menlo,'Cascadia Mono',monospace;
+    --col:43rem;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); font-size:17px; line-height:1.75; word-break:keep-all; overflow-wrap:break-word; -webkit-font-smoothing:antialiased}
+  .wrap{max-width:75rem; margin:0 auto; padding:0 clamp(18px,4vw,40px)}
+  .layout{display:grid; grid-template-columns:1fr; gap:0}
+  @media (min-width:1060px){.layout{grid-template-columns:15.5rem minmax(0,var(--col)); gap:3.4rem; justify-content:center}}
+
+  header.hero{background:linear-gradient(155deg,#0C2A26 0%,#123f39 48%,#0E6B5B 130%); color:#EAF2F0}
+  .hero .wrap{padding-top:clamp(46px,7vw,80px); padding-bottom:clamp(38px,6vw,58px)}
+  .kicker{font-family:var(--mono); font-size:.72rem; letter-spacing:.22em; text-transform:uppercase; color:#7FD8C6; margin:0 0 1.1rem}
+  .hero h1{font-size:clamp(1.8rem,4.3vw,2.8rem); line-height:1.22; font-weight:800; letter-spacing:-.02em; text-wrap:balance; margin:0 0 1rem; color:#fff}
+  .hero p.lead{font-size:clamp(1rem,1.6vw,1.15rem); color:#C4D8D3; max-width:40rem; margin:0; line-height:1.7}
+  .hero .meta{display:flex; flex-wrap:wrap; gap:.5rem .7rem; margin-top:1.7rem; font-family:var(--mono); font-size:.73rem; color:#9DBFB8}
+  .hero .meta span{border:1px solid rgba(127,216,198,.28); border-radius:999px; padding:.28rem .7rem}
+
+  nav.toc{display:none}
+  @media (min-width:1060px){
+    nav.toc{display:block; position:sticky; top:1.5rem; align-self:start; padding-top:3rem; font-size:.84rem; max-height:calc(100vh - 2rem); overflow-y:auto}
+    nav.toc .lbl{font-family:var(--mono); font-size:.64rem; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); margin:0 0 .8rem}
+    nav.toc ol{list-style:none; margin:0 0 1rem; padding:0; display:flex; flex-direction:column; gap:.1rem}
+    nav.toc a{display:block; text-decoration:none; color:var(--slate); padding:.3rem .55rem; border-left:2px solid transparent; border-radius:0 4px 4px 0; line-height:1.32; transition:color .15s,border-color .15s,background .15s}
+    nav.toc a:hover{color:var(--ink); background:var(--accent-soft)}
+    nav.toc a.active{color:var(--accent); border-left-color:var(--accent); font-weight:600}
+    nav.toc a .n{font-family:var(--mono); font-size:.7rem; color:var(--faint); margin-right:.45rem}
+    nav.toc a.active .n{color:var(--accent)}
+  }
+
+  main{padding:clamp(34px,5vw,56px) 0 5rem; min-width:0}
+  section{margin-bottom:clamp(2.6rem,5vw,3.8rem); scroll-margin-top:1.5rem}
+  section > h2{font-size:clamp(1.3rem,2.6vw,1.65rem); font-weight:800; letter-spacing:-.015em; line-height:1.25; margin:0 0 .5rem; text-wrap:balance; padding-bottom:.6rem; border-bottom:2px solid var(--line)}
+  .sec-num{font-family:var(--mono); font-size:.72rem; letter-spacing:.14em; font-weight:600; color:var(--accent); display:block; margin-bottom:.5rem; text-transform:uppercase}
+  h3{font-size:1.12rem; font-weight:700; margin:1.9rem 0 .5rem; letter-spacing:-.01em; line-height:1.35}
+  h4{font-size:.98rem; font-weight:700; margin:1.3rem 0 .3rem}
+  p{margin:.7rem 0}
+  a{color:var(--accent); text-underline-offset:2px}
+  strong{font-weight:700}
+  .muted{color:var(--slate)}
+  ul,ol{margin:.7rem 0; padding-left:1.3rem}
+  li{margin:.4rem 0}
+  li::marker{color:var(--accent)}
+  code{font-family:var(--mono); font-size:.82em; background:#EEF2F4; padding:.1em .38em; border-radius:4px; color:#0B3D36; word-break:break-all}
+  hr.soft{border:none; border-top:1px solid var(--line); margin:2.2rem 0}
+
+  /* 섹션 도입 요약 박스 */
+  .intro{
+    background:var(--accent-soft); border:1px solid #BFDDD6; border-radius:10px;
+    padding:.8rem 1.1rem; margin:.9rem 0 1.3rem; font-size:.92rem; color:var(--ink);
+  }
+  .intro .lb{font-family:var(--mono); font-size:.64rem; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); font-weight:700; display:block; margin-bottom:.25rem}
+
+  .box{border-radius:12px; padding:1.05rem 1.2rem; margin:1.2rem 0; border:1px solid var(--line); background:var(--card)}
+  .box .tag{font-family:var(--mono); font-size:.68rem; letter-spacing:.12em; text-transform:uppercase; font-weight:600; display:inline-flex; align-items:center; gap:.4rem; margin-bottom:.5rem}
+  .box p:first-of-type{margin-top:0} .box p:last-child{margin-bottom:0}
+  .box.key{background:var(--accent-soft); border-color:#BFDDD6} .box.key .tag{color:var(--accent)}
+  .box.good{background:var(--good-soft); border-color:#C4E2D0} .box.good .tag{color:var(--good)}
+  .box.warn{background:var(--warn-soft); border-color:#E9D6AE} .box.warn .tag{color:var(--warn)}
+  .box.bad{background:var(--bad-soft); border-color:#E9C6C2} .box.bad .tag{color:var(--bad)}
+  .dot{width:.62rem; height:.62rem; border-radius:50%; display:inline-block; flex:none}
+  .dot.g{background:var(--good)} .dot.w{background:var(--warn)} .dot.b{background:var(--bad)} .dot.a{background:var(--accent)} .dot.bl{background:var(--blue)}
+
+  .analogy{border:1px solid #D8E6E2; border-left:4px solid var(--accent-2); border-radius:0 10px 10px 0; background:#F0F7F5; padding:.9rem 1.15rem; margin:1.1rem 0}
+  .analogy .h{font-weight:700; font-size:.9rem; color:var(--accent); margin-bottom:.3rem; display:flex; align-items:center; gap:.4rem}
+  .analogy p{margin:.3rem 0; font-size:.94rem}
+
+  .tbl-scroll{overflow-x:auto; margin:1.2rem 0; border:1px solid var(--line); border-radius:10px}
+  table{border-collapse:collapse; width:100%; font-size:.87rem; min-width:34rem}
+  thead th{background:#EDF1F3; text-align:left; font-weight:700; color:var(--ink); padding:.58rem .75rem; border-bottom:2px solid var(--line); white-space:nowrap; font-size:.79rem}
+  tbody td{padding:.55rem .75rem; border-bottom:1px solid var(--line); vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:#FAFBFC}
+  .num{font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap}
+  .yes{color:var(--good); font-weight:700} .no{color:var(--bad); font-weight:700} .semi{color:var(--warn); font-weight:700}
+
+  .pill{display:inline-block; font-family:var(--mono); font-size:.68rem; font-weight:600; padding:.14rem .5rem; border-radius:999px; white-space:nowrap}
+  .pill.g{background:var(--good-soft); color:var(--good)}
+  .pill.w{background:var(--warn-soft); color:var(--warn)}
+  .pill.b{background:var(--bad-soft); color:var(--bad)}
+  .pill.bl{background:var(--blue-soft); color:var(--blue)}
+  .pill.pu{background:var(--purple-soft); color:var(--purple)}
+
+  /* 스킬트리 */
+  .tree{font-family:var(--sans); margin:1.4rem 0}
+  .tnode{border:1px solid var(--line); border-radius:11px; padding:.75rem 1rem; background:var(--card); margin:.45rem 0}
+  .tnode .lyr{font-family:var(--mono); font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; font-weight:600; margin-bottom:.15rem; color:var(--faint)}
+  .tnode .nm{font-weight:700; font-size:.96rem}
+  .tnode .ds{font-size:.86rem; color:var(--slate); margin-top:.15rem}
+  .tnode.det{border-left:4px solid var(--blue)}
+  .tnode.llm{border-left:4px solid var(--accent)}
+  .tnode.endgood{border-left:4px solid var(--good); background:var(--good-soft)}
+  .tnode.endwait{border-left:4px solid var(--warn); background:var(--warn-soft)}
+  .tnode.endbad{border-left:4px solid var(--bad); background:var(--bad-soft)}
+  .tarr{text-align:center; color:var(--faint); font-size:1rem; line-height:.8; margin:.1rem 0}
+  .tsplit{display:grid; gap:.6rem; margin:.45rem 0}
+  @media(min-width:640px){.tsplit.c2{grid-template-columns:1fr 1fr} .tsplit.c3{grid-template-columns:1fr 1fr 1fr}}
+
+  .flag3{display:grid; gap:.7rem; margin:1.2rem 0}
+  @media(min-width:640px){.flag3{grid-template-columns:1fr 1fr 1fr}}
+  .fcat{border:1px solid var(--line); border-radius:11px; background:var(--card); overflow:hidden}
+  .fcat .h{padding:.55rem .8rem; font-weight:700; font-size:.85rem; border-bottom:1px solid var(--line)}
+  .fcat.k1 .h{background:var(--bad-soft); color:var(--bad)}
+  .fcat.k2 .h{background:var(--warn-soft); color:var(--warn)}
+  .fcat.k3 .h{background:var(--blue-soft); color:var(--blue)}
+  .fcat ul{margin:.5rem 0; padding:0 .9rem 0 1.9rem; font-size:.8rem; line-height:1.6}
+  .fcat li{margin:.25rem 0}
+  .fcat code{font-size:.72rem}
+  .fcat .sub{font-size:.74rem; color:var(--slate); padding:0 .9rem .6rem; display:block}
+
+  .qa{border:1px solid var(--line); border-radius:12px; overflow:hidden; margin:1rem 0}
+  .qa .q{background:#F5F8F9; padding:.7rem 1rem; font-weight:700; font-size:.93rem; border-bottom:1px solid var(--line)}
+  .qa .a{padding:.7rem 1rem; font-size:.92rem}
+  .qa .a p{margin:.4rem 0}
+
+  .foot{color:var(--faint); font-size:.82rem; text-align:center; padding:2.4rem 0 1rem; line-height:1.7}
+  a:focus-visible, .toc a:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:3px}
+  .em-accent{color:var(--accent); font-weight:700}
+  .em-bad{color:var(--bad); font-weight:700}
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="kicker">Class &amp; Spec Codex · Pipeline Deep-Dive</p>
+    <h1>종목의 전직(轉職) 도감<br>— 분류·태그·트리거·주문의 모든 경로</h1>
+    <p class="lead">종목 하나가 <strong>직업(분류)</strong>을 받고, <strong>특성(태그)</strong>이 붙고, <strong>전직 시험(돌파·심사)</strong>을 치러 <strong>마스터클래스(매수 주문)</strong>에 이르는 모든 경우의 수를, 실제 코드·프롬프트 그대로 초보자 눈높이로 정리했습니다.</p>
+    <div class="meta">
+      <span>태그 시스템 2종 완전 해부</span>
+      <span>트리거 4종 × 판정 3종</span>
+      <span>전 경로 매트릭스</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="layout">
+
+  <nav class="toc" aria-label="목차">
+    <p class="lbl">목차</p>
+    <ol>
+      <li><a href="#s0"><span class="n">00</span>전체 지도</a></li>
+      <li><a href="#s1"><span class="n">01</span>대심사 — 직업 배정</a></li>
+      <li><a href="#s2"><span class="n">02</span>★ 태그는 두 종류</a></li>
+      <li><a href="#s3"><span class="n">03</span>게이트 — 신호 4종</a></li>
+      <li><a href="#s4"><span class="n">04</span>5b — 전직 시험</a></li>
+      <li><a href="#s5"><span class="n">05</span>entry_params — 주문서</a></li>
+      <li><a href="#s6"><span class="n">06</span>★ 전체 경로 도감</a></li>
+      <li><a href="#s7"><span class="n">07</span>질문에 대한 직답</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ============ 00 ============ -->
+    <section id="s0">
+      <span class="sec-num">00 — 전체 지도</span>
+      <h2>먼저 큰 그림: 4개의 방, 2종류의 태그</h2>
+      <div class="intro"><span class="lb">이 섹션에서</span>전체 파이프라인을 게임의 전직 체계에 빗대 한 장으로 보여주고, 이 페이지의 가장 중요한 예고 — "태그는 사실 두 종류다" — 를 먼저 밝힙니다.</div>
+
+      <p>당신이 알고 있는 흐름 — <strong>분류 → evaluate_pivot → entry_params</strong> — 은 정확합니다. 이 페이지는 그 세 단계 사이사이에 있는 <strong>결정론 게이트</strong>까지 포함해 4개의 방으로 그리고, 각 방에서 종목이 무엇을 얻고 무엇을 잃는지를 추적합니다.</p>
+
+      <div class="analogy">
+        <div class="h">🎮 게임 비유 — 이 페이지의 프레임</div>
+        <p><strong>직업 배정(대심사)</strong> → 종목이 entry / watch / ignore 중 하나의 "직업"을 받고, 능력치(pivot·base)와 특성·상태 태그가 붙는다.</p>
+        <p><strong>전직 퀘스트 발동(게이트)</strong> → 평일에 기계가 "이 캐릭터가 전직 조건을 건드렸나"를 감지한다.</p>
+        <p><strong>전직 시험(evaluate_pivot, 5b)</strong> → 시험관이 합격(go_now)/보류(wait)/탈락(abort)을 판정한다. <strong>직업·특성에 따라 시험 문제가 다르다.</strong></p>
+        <p><strong>마스터클래스 각인(entry_params)</strong> → 합격자의 최종 스펙(매수가·손절·수량·목표)이 새겨진다. <strong>여기서도 태그가 스펙을 깎는다.</strong></p>
+      </div>
+
+      <div class="box key">
+        <span class="tag"><span class="dot a"></span>이 페이지의 가장 중요한 문장</span>
+        <p>이 시스템의 "태그"는 <strong>두 종류</strong>입니다. ① <strong>watch_reason(목패)</strong> — watch에만, <strong>정확히 1개</strong>. ② <strong>risk_flags(깃발)</strong> — 모든 분류에, <strong>0개~여러 개</strong>. 둘은 붙는 규칙도, 이후 단계에 미치는 영향도, <strong>수명도 다릅니다</strong>. 이 구분이 잡히면 나머지 질문이 전부 풀립니다. (→ <a href="#s2">02장</a>)</p>
+      </div>
+
+      <p class="muted">이제 첫 번째 방부터 순서대로 들어갑니다. 모든 것의 출발점 — 토요일의 대심사입니다.</p>
+    </section>
+
+    <!-- ============ 01 ============ -->
+    <section id="s1">
+      <span class="sec-num">01 — 1단계 · 주말 분류</span>
+      <h2>대심사 — 무슨 데이터로, 어떤 순서로, 무엇이 나오나</h2>
+      <div class="intro"><span class="lb">이 섹션에서</span>분류(analyze_chart)가 받는 <strong>입력 데이터 전체</strong>, 분석이 진행되는 <strong>4단계 절차</strong>, 그리고 이후 모든 단계의 "능력치"가 되는 <strong>산출물 목록</strong>을 다룹니다. (질문 ①에 대한 답)</div>
+
+      <h3>입력 — AI가 받아 드는 것들</h3>
+      <p>토요일마다 AI는 종목 하나당 아래 꾸러미(payload)를 통째로 받습니다. 차트 "이미지"만 보는 게 아니라, 숫자 시계열까지 함께 봅니다.</p>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>입력</th><th>내용</th><th>무엇에 쓰이나</th></tr></thead>
+        <tbody>
+          <tr><td><strong>종목 정보</strong></td><td>이름·시장(KOSPI/KOSDAQ)·업종·날짜</td><td>기본 식별 (ETF면 여기서 컷)</td></tr>
+          <tr><td><strong>주봉 104주</strong></td><td>2년치 주간 시가·고가·저가·종가·거래량</td><td><strong>베이스 패턴 판정의 본체</strong></td></tr>
+          <tr><td><strong>일봉 지표 시계열</strong></td><td>이동평균(10·50·150·200일), RS 라인·RS 등급 추이, 거래량 평균·비율, 포켓피벗·분산일 플래그, RS라인 신고가 여부 등</td><td>추세 강도·수급 판단 보조</td></tr>
+          <tr><td><strong>미너비니 8조건</strong></td><td>C1~C8 각각의 통과 여부 + <strong>통과 마진(여유폭)</strong></td><td>marginal_tt(경계) 판정의 근거</td></tr>
+          <tr><td><strong>시장 상태</strong></td><td>국면(confirmed_uptrend = "사도 되는 상승장" 판정 등)·분산일 수(분산일 = 거래량이 늘며 하락한 날, 기관 매도 흔적)·마지막 FTD(하락장 종료를 알리는 반등 확인일)·200일선 위 종목 비율</td><td><strong>시장 방향 규칙(§3.5)의 입력</strong></td></tr>
+          <tr><td><strong>차트 이미지</strong></td><td>주봉/일봉 차트 그림</td><td>모양(형태) 판독 보조</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>절차 — 4단계로 진행되는 분석</h3>
+      <p>받은 재료로 AI는 다음 순서를 밟습니다. 순서가 중요합니다 — <strong>먼저 종목 자체를 보고, 마지막에 시장이 덮어씁니다.</strong></p>
+      <div class="tree">
+        <div class="tnode llm"><div class="lyr">STEP 1</div><div class="nm">베이스 패턴 판정</div><div class="ds">주봉 2년치에서 "힘을 모으는 모양"을 찾음 — 컵-손잡이·평평한 베이스·이중 바닥·VCP·상승 베이스·베이스 위 베이스 등 책에서 검증된 패턴 목록 중 하나, 없으면 none</div></div>
+        <div class="tarr">▼</div>
+        <div class="tnode llm"><div class="lyr">STEP 2</div><div class="nm">측정 — 패턴의 품질을 숫자로</div><div class="ds">베이스 깊이(%)·기간(주)·핸들 품질·사전 상승폭 등을 실측. 여기서 기준 미달이면 위험 깃발(risk_flags)이 붙기 시작</div></div>
+        <div class="tarr">▼</div>
+        <div class="tnode llm"><div class="lyr">STEP 3</div><div class="nm">숫자 산출 — pivot과 베이스 경계</div><div class="ds"><strong>pivot_price(돌파 목표가)</strong>와 그 근거(pivot_basis), <strong>base_high / base_low(베이스 천장·바닥)</strong>, 깊이(base_depth_pct)를 확정. 이 숫자들이 이후 모든 단계의 기준선이 된다</div></div>
+        <div class="tarr">▼</div>
+        <div class="tnode llm"><div class="lyr">STEP 4</div><div class="nm">판정 — 시장 규칙과 verdict 규칙 적용</div><div class="ds">시장이 나쁘면 entry를 watch로 강등(§3.5 하드룰), 금족 3금기(§6.1 climax / §6.2 topping / 액면병합 왜곡) 검사 → 최종 <strong>entry / watch / ignore</strong> + 태그 확정</div></div>
+      </div>
+
+      <h3>산출물 — 이후 전 단계가 물려받는 "능력치"</h3>
+      <p>분류가 끝나면 종목 하나당 아래 필드들이 저장됩니다. <strong>핵심은 이 산출물이 그냥 기록이 아니라, 뒤 단계들이 실제로 소비하는 입력이라는 것</strong>입니다 — 오른쪽 열을 보세요.</p>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>산출물</th><th>뜻</th><th>누가 물려받나</th></tr></thead>
+        <tbody>
+          <tr><td><code>classification</code></td><td>직업: entry / watch / ignore</td><td>게이트(감시 대상 결정), 5b, entry_params</td></tr>
+          <tr><td><code>pattern</code></td><td>베이스 패턴 이름 (또는 none)</td><td>entry_params (패턴별 손절·거래량 요건)</td></tr>
+          <tr><td><code>pivot_price</code> + <code>pivot_basis</code></td><td>돌파 목표가와 그 근거</td><td><strong>게이트</strong>(돌파·승격 기준), 5b, entry_params(매수점)</td></tr>
+          <tr><td><code>base_high / base_low / base_depth_pct</code></td><td>베이스의 천장·바닥·깊이</td><td><strong>게이트</strong>(base_low = 붕괴 경보선), 5b(abort 기준), entry_params(손절 계산)</td></tr>
+          <tr><td><code>watch_reason</code> <span class="pill w">목패</span></td><td>watch일 때 "왜 아직 아닌가" — 딱 1개</td><td>게이트(감시 자격), <strong>5b(시험 문제 선택)</strong> — 여기까지만!</td></tr>
+          <tr><td><code>risk_flags</code> <span class="pill b">깃발</span></td><td>위험 깃발 배열 — 0~여러 개</td><td>분류 자신(verdict 상한) + <strong>entry_params(사이즈 깎기)</strong></td></tr>
+          <tr><td><code>confidence</code> · <code>reasoning</code></td><td>확신도(0~1)와 판단 근거 서술</td><td>기록·감사, entry_params(entry_mode 감지)</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="box key"><span class="tag"><span class="dot a"></span>연결 — 다음 섹션으로</span><p>표에서 <span class="pill w">목패</span>와 <span class="pill b">깃발</span>의 "물려받는 곳"이 서로 다른 게 보이시나요? 목패는 5b에서 수명이 끝나고, 깃발은 entry_params까지 살아남습니다. 이 <strong>두 태그 시스템의 차이</strong>가 다음 섹션의 주제입니다.</p></div>
+    </section>
+
+    <!-- ============ 02 ============ -->
+    <section id="s2">
+      <span class="sec-num">02 — ★ 핵심</span>
+      <h2>태그는 두 종류다 — 목패(1개)와 깃발(여러 개)</h2>
+      <div class="intro"><span class="lb">이 섹션에서</span>질문 ②·③의 답: 태그가 어떻게 붙는지, 한 종목에 몇 개까지 붙는지, 각각 무슨 뜻인지. <strong>watch_reason(특성)과 risk_flags(상태 이상)는 완전히 별개의 시스템</strong>임을 해부합니다.</div>
+
+      <div class="analogy">
+        <div class="h">🎮 비유 — 특성(Trait) vs 상태 이상(Debuff)</div>
+        <p><strong>watch_reason(목패)</strong> = 직업 <strong>특성</strong>. watch라는 직업을 받을 때 <strong>반드시, 정확히 1개</strong> 골라 받는다. "왜 아직 출전이 아닌가"의 공식 사유.</p>
+        <p><strong>risk_flags(깃발)</strong> = <strong>상태 이상 아이콘</strong>. 직업과 무관하게 <strong>조건에 해당하는 만큼 전부</strong> 붙는다(0개~여러 개). 캐릭터 머리 위에 여러 개 뜰 수 있는 디버프 같은 것.</p>
+      </div>
+
+      <h3>2-A. watch_reason — 목패는 정확히 1개</h3>
+      <p>규칙부터: <strong>watch로 분류되면 5개 중 정확히 1개가 필수</strong>로 붙고, <strong>entry·ignore이면 반드시 null</strong>(없음)입니다. 즉 "목패 없는 watch"도 "목패 두 개인 watch"도 존재할 수 없습니다.</p>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>목패</th><th>붙는 조건 (실제 규칙)</th><th>쉬운 뜻</th></tr></thead>
+        <tbody>
+          <tr><td><code>base_forming</code> 未</td><td>pivot 정의 요소 미완성 → pivot 미확정</td><td>출발선 그릴 재료가 아직 안 됨</td></tr>
+          <tr><td><code>extended</code> 過</td><td>현재가 &gt; pivot × 1.05</td><td>출발선을 5% 넘게 지나침 (추격 구간)</td></tr>
+          <tr><td><code>valid_base_awaiting_breakout</code> 待</td><td>pivot 확정 + 현재가 &lt; pivot × 0.95</td><td>선 아래서 정상 대기</td></tr>
+          <tr><td><code>unfavorable_market</code> 亂</td><td>셋업은 entry급인데 시장 규칙(§3.5)이 강등</td><td>종목은 완벽, 하늘이 문제</td></tr>
+          <tr><td><code>marginal_tt</code> 境</td><td>8관문 중 3개 이상이 마진 3% 미만으로 간신히 통과</td><td>통과가 종이 한 장 차이</td></tr>
+        </tbody>
+      </table></div>
+      <p><strong>겹치면?</strong> 한 종목이 여러 조건에 해당할 수 있는데(예: 베이스 미완성 + 시장도 나쁨), 그땐 우선순위 규칙이 정합니다: <strong>base_forming·extended가 하나라도 해당하면 그것이 우선</strong>(안전 우선), 둘 다 아니면 나머지 셋 중 선택. 그래서 최종적으로는 언제나 1개.</p>
+
+      <h3>2-B. risk_flags — 깃발은 해당하는 만큼 전부</h3>
+      <p>깃발은 목패와 달리 <strong>"이 조건이 관측되면 무조건 꽂는다"</strong>는 체크리스트입니다. 15종이 있고, 한 종목에 여러 개가 동시에 붙을 수 있으며, entry·watch·ignore 어느 직업에나 붙습니다. 중요한 건 깃발마다 <strong>"계급"</strong>이 달라서 분류에 미치는 힘이 다르다는 점:</p>
+
+      <div class="flag3">
+        <div class="fcat k1">
+          <div class="h">☠️ 강제 금족 — 3종</div>
+          <span class="sub">하나라도 뜨면 무조건 ignore</span>
+          <ul>
+            <li><code>climax_run</code> — 과열 정점(주화입마)</li>
+            <li><code>topping_distribution</code> — 천장 분산(내상)</li>
+            <li><code>reverse_split_distortion</code> — 액면병합 왜곡 (병합 후 깨끗한 베이스 없을 때)</li>
+          </ul>
+        </div>
+        <div class="fcat k2">
+          <div class="h">⬇️ 강등 — 4종</div>
+          <span class="sub">verdict 상한이 watch로 (entry 불가)</span>
+          <ul>
+            <li><code>late_stage_base</code> — 4번째 이후 베이스</li>
+            <li><code>wide_and_loose</code> — 베이스가 헐거움</li>
+            <li><code>volume_contraction_on_advance</code> — 오르는데 거래량 감소</li>
+            <li><code>unfavorable_market_context</code> — 시장이 나쁨</li>
+          </ul>
+        </div>
+        <div class="fcat k3">
+          <div class="h">ℹ️ 정보 — 6종+α</div>
+          <span class="sub">분류는 안 바꿈, 나중에 사이즈를 깎음</span>
+          <ul>
+            <li><code>extended_from_ma</code> — 50일선 위 15% 초과</li>
+            <li><code>faulty_pivot</code> — 결함 있는 pivot</li>
+            <li><code>narrow_base</code> — 기간 미달 베이스</li>
+            <li><code>low_volume_breakout</code> — 돌파 거래량 부족</li>
+            <li><code>prior_uptrend_insufficient</code> — 사전 상승 부족</li>
+            <li><code>thin_liquidity_us_only</code> — 유동성 (미국 전용)</li>
+            <li class="muted"><code>handle_quality</code>·<code>etf_methodology_mismatch</code> (품질·사전 컷)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="box warn"><span class="tag"><span class="dot w"></span>조합 규칙 — 깃발은 쌓여도 ignore가 안 된다</span>
+        <p>강등·정보 깃발이 <strong>아무리 여러 개 쌓여도 ignore로 떨어지지 않습니다.</strong> 최대가 watch입니다. ignore는 오직 ☠️ 3종만 만들 수 있습니다. 반대로 말하면 — <strong>entry가 되려면 강등 깃발이 0개</strong>여야 합니다(정보 깃발은 들고도 entry 가능. 단 그 깃발값은 나중에 치릅니다 → <a href="#s5">05장</a>).</p>
+      </div>
+
+      <h3>2-C. 두 태그의 운명 — 언제까지 살아 있나</h3>
+      <p>여기가 질문 ⑤·⑦로 이어지는 다리입니다. 두 태그는 <strong>수명이 다릅니다</strong>:</p>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th></th><th>목패 (watch_reason)</th><th>깃발 (risk_flags)</th></tr></thead>
+        <tbody>
+          <tr><td>개수</td><td class="num">정확히 1 (watch만)</td><td class="num">0~여러 개 (전 직업)</td></tr>
+          <tr><td>게이트(2단계)</td><td class="yes">✓ 감시 자격을 결정</td><td class="no">✗ 안 봄</td></tr>
+          <tr><td>5b 시험(3단계)</td><td class="yes">✓ 시험 문제를 결정</td><td class="semi">△ 참고 입력으로 전달될 뿐, 깃발별 명시 규칙 없음</td></tr>
+          <tr><td>entry_params(4단계)</td><td class="no">✗ <strong>payload에 아예 없음</strong></td><td class="yes">✓ 사이즈·손절·목표를 깎음</td></tr>
+        </tbody>
+      </table></div>
+      <p>즉 <strong>목패는 "시험 문제 선택용"으로 5b에서 소멸하고, 깃발은 끝까지 따라가 최종 주문서의 스펙을 깎습니다.</strong> 이 표를 기억하고 다음 섹션(평일의 첫 관문, 게이트)으로 갑니다.</p>
+    </section>
+
+    <!-- ============ 03 ============ -->
+    <section id="s3">
+      <span class="sec-num">03 — 2단계 · 평일 게이트</span>
+      <h2>결정론 게이트 — 4가지 신호와 감시 자격</h2>
+      <div class="intro"><span class="lb">이 섹션에서</span>분류가 끝난 종목을 평일에 기계가 어떻게 감시하는지 — 게이트가 낼 수 있는 <strong>신호 4종</strong>과, <strong>직업·목패별로 누가 어떤 신호의 대상인지</strong>를 다룹니다. 5b는 이 신호를 받아야만 열립니다.</div>
+
+      <p>01장의 산출물 중 <code>pivot_price</code>와 <code>base_low</code>가 여기서 처음 소비됩니다. 게이트는 매일 각 종목의 종가·거래량을 이 기준선들과 기계적으로 비교해, 다음 4가지 중 하나의 신호를 냅니다 (아무것도 아니면 무신호):</p>
+
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>신호</th><th>발동 조건 (실제 코드)</th><th>뜻</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill b">invalidation</span><br>붕괴 경보</td><td>종가 &lt; base_low <strong>또는</strong> 종가 &lt; 50일선. <strong>가장 먼저 검사</strong>(깨진 게 급하니까)</td><td>베이스 구조가 깨졌을 수 있다 — 하향 경보</td></tr>
+          <tr><td><span class="pill g">breakout</span><br>돌파 (entry용)</td><td>종가 &gt; pivot + 거래량 ≥ 50일 평균(1.0배). <strong>fresh cross 불요</strong> — pivot 위면 매일 발동 가능</td><td>entry 직업의 표준 돌파</td></tr>
+          <tr><td><span class="pill g">breakout_from_watch</span><br>돌파 (watch용)</td><td><strong>fresh cross</strong>(어제 종가 ≤ pivot &lt; 오늘 종가) + 거래량 ≥ 1.0배 + <strong>목패가 待·亂·境 중 하나</strong></td><td>watch의 정당한 신규 돌파</td></tr>
+          <tr><td><span class="pill pu">promotion</span><br>승격 후보</td><td>종가 ≥ pivot × 0.95 + 거래량 ≥ 1.0배 (watch 전체, 목패 무관)</td><td>"곧 올 수 있다"는 관찰 표시 — <strong>이 신호로는 절대 매수 없음</strong></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>누가 어떤 신호의 대상인가 — 직업 × 목패 매트릭스</h3>
+      <p>여기서 목패의 첫 번째 역할이 드러납니다. <strong>같은 watch라도 목패에 따라 받을 수 있는 신호가 다릅니다:</strong></p>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>직업 · 목패</th><th>invalidation</th><th>breakout(_from_watch)</th><th>promotion</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill g">entry</span></td><td class="yes">✓</td><td class="yes">✓ (breakout)</td><td class="no">— (watch 전용)</td></tr>
+          <tr><td>watch · <code>valid_base</code> 待</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>watch · <code>unfavorable_market</code> 亂</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>watch · <code>marginal_tt</code> 境</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>watch · <code>extended</code> 過</td><td class="yes">✓</td><td class="no">✗ (허용 목록 밖 + 이미 위라 fresh cross 불가)</td><td class="semi">✓ 자주 (이미 95% 위)</td></tr>
+          <tr><td>watch · <code>base_forming</code> 未</td><td colspan="3" style="text-align:center" class="no">pivot이 없어 게이트 평가 자체가 없음 — 주말 재분류만이 경로</td></tr>
+          <tr><td><span class="pill b">ignore</span></td><td colspan="3" style="text-align:center" class="no">게이트 비대상 — 주말 재분류만</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="box key"><span class="tag"><span class="dot a"></span>연결 — 다음 섹션으로</span><p>게이트는 신호만 낼 뿐 <strong>아무것도 결정하지 않습니다.</strong> 신호를 받은 종목은 그날 밤 5b 시험장으로 넘어가고 — 거기서 <strong>신호의 종류(트리거 타입)와 목패가 시험 문제를 결정</strong>합니다.</p></div>
+    </section>
+
+    <!-- ============ 04 ============ -->
+    <section id="s4">
+      <span class="sec-num">04 — 3단계 · 매수 확인</span>
+      <h2>evaluate_pivot(5b) — 트리거 타입별로 다른 시험</h2>
+      <div class="intro"><span class="lb">이 섹션에서</span>질문 ④·⑤의 답: 5b가 어떤 로직으로 평가하고 어떤 결과를 내는지, 그리고 <strong>분류(직업)와 목패가 어떻게 다른 시험 문제를 만드는지</strong>. 결과는 언제나 셋 중 하나 — go_now / wait / abort.</div>
+
+      <p>5b에 들어온 종목은 게이트가 준 <strong>트리거 타입</strong>(03장의 4신호)에 따라 서로 다른 규칙 절(§)로 배정됩니다. 즉 "종목별로 다른 로직"이 아니라, 정확히는 <strong>트리거 타입별 + (watch면) 목패별로 다른 로직</strong>입니다:</p>
+
+      <h3>시험장 ① — breakout (entry 직업의 돌파, §3.1)</h3>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>판정</th><th>조건</th></tr></thead>
+        <tbody>
+          <tr><td class="yes">go_now</td><td>거래량 &gt; 1.4배 <strong>그리고</strong> 종가가 일중 상단 1/3 <strong>그리고</strong> 봉 폭(spread) ≤ 평균 1.5배 <strong>그리고</strong> 최근 3일 분산일 없음 — <strong>전부</strong> 충족</td></tr>
+          <tr><td class="semi">wait</td><td>거래량 1.2~1.4배 / 종가 중간 1/3 / spread 경계선 — "부족하지만 무효는 아님"</td></tr>
+          <tr><td class="no">abort</td><td>base_low 이탈 / 50일선 2% 이상 이탈+거래량 동반 / 5일 내 분산일 3+ / 돌파 직후 20일선 가드 위반</td></tr>
+        </tbody>
+      </table></div>
+      <p class="muted" style="font-size:.9rem">주목: <strong>시장 국면 조건이 없습니다.</strong> entry 직업의 돌파도 시장을 안 봅니다 — 이건 결함 논의(사유별 구멍)와 연결되는 특징입니다.</p>
+
+      <h3>시험장 ② — breakout_from_watch (watch의 돌파, §3.5) ★목패가 갈리는 곳</h3>
+      <p>먼저 <strong>공통 표준 검증</strong>(위 §3.1의 go_now 조건과 동일 — 종가&gt;pivot 재확인까지 5항목)을 통과해야 하고, 그 위에 <strong>목패별 추가 문제</strong>가 얹힙니다:</p>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>목패</th><th>go_now 추가 조건</th><th>오늘 시장 확인?</th></tr></thead>
+        <tbody>
+          <tr><td><code>valid_base</code> 待</td><td>없음 — 공통 검증 통과면 go_now</td><td class="no">안 봄</td></tr>
+          <tr><td><code>unfavorable_market</code> 亂</td><td><strong>오늘 시장이 confirmed_uptrend(확정 상승장)일 것</strong></td><td class="yes">본다 (유일)</td></tr>
+          <tr><td><code>marginal_tt</code> 境</td><td>8관문 전부 통과 + 경계(마진&lt;3%)가 해소됐을 것</td><td class="no">안 봄</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>시험장 ③ — invalidation (붕괴 경보, §3.2)</h3>
+      <p>하향 경보의 확인 심사입니다. <strong>go_now는 아예 없습니다</strong> — 결과는 abort(확정 붕괴: 50일선 2%+ 이탈+거래량, base_low 미만 등) 또는 wait(단일 약세일 수준, 아직 유효할 수 있음) 둘뿐.</p>
+
+      <h3>시험장 ④ — promotion (승격 후보, §3.3)</h3>
+      <p>역시 <strong>go_now 금지</strong>가 명문화되어 있습니다 — pivot 아래에서 사는 것을 유발하기 때문입니다. "어떤 강도의 거래량에서도 go_now 반환 금지." 기본 wait, 붕괴 조건이 겹치면 abort.</p>
+
+      <div class="box warn"><span class="tag"><span class="dot w"></span>abort를 받으면 그다음은?</span>
+        <p>abort는 정해진 사유 카탈로그(예: 50일선 이탈+분산 거래량, 분산 패턴 뚜렷 등) 중 하나로 기록되고, <strong>그 종목은 그 pivot으로는 더 진행하지 않습니다.</strong> 다음 토요일 대심사가 처음부터 다시 그립니다(패턴·pivot·태그 전부 갱신). 게임으로 치면 "전직 시험 탈락 → 다음 시즌 재배치".</p>
+      </div>
+
+      <div class="box key"><span class="tag"><span class="dot a"></span>연결 — 다음 섹션으로</span><p>go_now를 받은 소수만이 마지막 방으로 갑니다. 거기서 흥미로운 일이 벌어집니다 — <strong>목패는 문 앞에서 버려지고, 깃발은 함께 들어갑니다.</strong></p></div>
+    </section>
+
+    <!-- ============ 05 ============ -->
+    <section id="s5">
+      <span class="sec-num">05 — 4단계 · 주문서 작성</span>
+      <h2>entry_params — 무엇을 보고, 무엇을 안 보고, 무엇을 내놓나</h2>
+      <div class="intro"><span class="lb">이 섹션에서</span>질문 ⑥·⑦의 답: entry_params가 받는 입력(무엇을 보는지/안 보는지), 계산 로직, 산출되는 주문 파라미터 전체 목록. <strong>"go_now만 갖고 평가하는 게 아니다"</strong>가 핵심입니다.</div>
+
+      <h3>입력 — "go_now만 보는 것"이 아니다</h3>
+      <p>많이들 오해하는 지점입니다(질문 ⑦). entry_params의 payload를 코드(<code>build_for_6</code>)로 확인하면, <strong>과거 분류의 산출물 대부분을 그대로 물려받습니다:</strong></p>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>보는 것 ✓</th><th>구체적으로</th></tr></thead>
+        <tbody>
+          <tr><td>분류 정보</td><td>classification(직업)·<strong>pattern</strong>(패턴별 규칙 적용)·분류 시점</td></tr>
+          <tr><td>분류의 숫자들</td><td><strong>pivot_price</strong>(매수점 기준)·pivot_basis·base_high/<strong>base_low</strong>(손절 계산)·깊이</td></tr>
+          <tr><td><span class="pill b">깃발</span> risk_flags</td><td><strong>사이즈·손절·목표를 깎는 §7 보수화의 입력</strong></td></tr>
+          <tr><td>5b 결과</td><td>decision(go_now)·<strong>trigger_type</strong>(breakout이냐 breakout_from_watch냐 — 특례 분기)·confidence·reasoning</td></tr>
+          <tr><td>현재 상태</td><td>현재가·거래량·52주 고저 등</td></tr>
+        </tbody>
+      </table></div>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>안 보는 것 ✗</th><th>의미</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill w">목패</span> watch_reason</td><td><strong>payload에 아예 없음</strong> — 목패의 수명은 5b에서 끝. 어느 목패로 왔는지 이 단계는 모른다</td></tr>
+          <tr><td>오늘의 시장 상태</td><td>live market_context 미수신 — 시장은 이 단계에서 재평가되지 않는다</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>로직 — 주문서가 채워지는 순서</h3>
+      <ol>
+        <li><strong>진입 모드 판별</strong> — 표준 pivot 돌파인지, 포켓피벗(이동평균선 위에서의 조기 진입 신호)인지. 모드에 따라 손절·거래량 기준이 달라짐.</li>
+        <li><strong>매수점·트리거가 산출</strong> — pivot 기반. 이미 얼마나 지나쳤는지 반영.</li>
+        <li><strong>손절 이중 산출</strong> — 베이스 구조에서 나오는 "논리적 손절"과 "절대 한도"(-10% 바닥, 포켓피벗은 더 타이트)를 함께 계산해 보수적으로 채택·보고.</li>
+        <li><strong>포지션 사이즈</strong> — 기본값에서 시작해 <strong>깃발마다 배수로 깎음</strong>(예: late_stage ×0.7, 유동성 ×0.7… 누적 적용, 바닥 3%).</li>
+        <li><strong>목표가·진입 창구(며칠 유효)·추격 상한·요구 거래량</strong> 확정.</li>
+        <li><strong>경고 코드 발행</strong> — 무엇이 깎였는지 기록(known_warnings).</li>
+      </ol>
+
+      <h3>산출물 — 최종 주문 파라미터</h3>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>필드</th><th>뜻</th></tr></thead>
+        <tbody>
+          <tr><td><code>entry_mode</code></td><td>pivot_breakout / pocket_pivot</td></tr>
+          <tr><td><code>buy_point</code> · <code>trigger_price</code></td><td>매수 기준점과 발동가</td></tr>
+          <tr><td><code>stop_loss_price</code> (+pivot 기준·현재가 기준 % 이중 보고)</td><td>손절가</td></tr>
+          <tr><td><code>position_size_pct</code></td><td>포트폴리오 대비 몇 %를 살지</td></tr>
+          <tr><td><code>expected_target_price / pct</code></td><td>목표가</td></tr>
+          <tr><td><code>entry_window_days</code></td><td>이 주문이 유효한 날수</td></tr>
+          <tr><td><code>max_chase_pct_from_pivot</code></td><td>추격 허용 상한(기본 5%)</td></tr>
+          <tr><td><code>breakout_volume_requirement</code></td><td>체결에 요구할 거래량 배수</td></tr>
+          <tr><td><code>known_warnings / other_warnings</code></td><td>깎인 이유들의 기록</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="box bad"><span class="tag"><span class="dot b"></span>한 가지 특례 — 그리고 알려진 구멍</span>
+        <p>깃발 중 <code>unfavorable_market_context</code>(시장 나쁨)는 원래 사이즈 ×0.5 등 가장 무거운 보수화인데, <strong>trigger_type이 breakout_from_watch면 이 깃발만은 무시</strong>하라는 특례(stale 예외)가 있습니다. 근거는 "亂 목패는 시장이 회복돼야만 go_now되니, 왔다는 것 자체가 회복 증거"라는 것 — 그런데 이 논리는 <strong>待 목패에는 성립하지 않습니다</strong>(待는 하락장에도 go_now 가능). 결과: 待 종목은 하락장 돌파 시 <strong>차단도, 사이즈 축소도 없이</strong> 통과합니다. 「최종 진단」 페이지의 구조적 결함 ②가 사이징 층까지 이어지는 지점입니다.</p>
+      </div>
+
+      <div class="box key"><span class="tag"><span class="dot a"></span>연결 — 다음 섹션으로</span><p>이제 부품을 전부 봤습니다. 마지막으로 이 모든 것을 <strong>한 장의 스킬 트리</strong>로 합쳐, 종목이 도달할 수 있는 모든 결말을 셉니다.</p></div>
+    </section>
+
+    <!-- ============ 06 ============ -->
+    <section id="s6">
+      <span class="sec-num">06 — ★ 전체 경로</span>
+      <h2>전직 도감 — 모든 경우의 수 한 장에</h2>
+      <div class="intro"><span class="lb">이 섹션에서</span>질문 ⑧의 답: 스크리너부터 주문까지 <strong>모든 갈래</strong>를 트리와 종합 매트릭스로 정리하고, 종목이 도달할 수 있는 <strong>종착점 7종</strong>을 셉니다.</div>
+
+      <h3>스킬 트리</h3>
+      <div class="tree">
+        <div class="tnode det"><div class="lyr">입구 · 매일</div><div class="nm">결정론 스크리너 (팔관 C1~C8)</div><div class="ds">불통 → 대상 외. 명부에 있다가 불통 → <strong>disqualify(하산)</strong> ⓔ. 통과자만 아래로</div></div>
+        <div class="tarr">▼</div>
+        <div class="tnode llm"><div class="lyr">직업 배정 · 토요일(전체) / 평일(신규만)</div><div class="nm">AI 분류 — 직업 + 목패 1개 + 깃발 0~n개 + pivot·base 숫자</div></div>
+        <div class="tsplit c3">
+          <div class="tnode endbad"><div class="nm">ignore ⓕ</div><div class="ds">☠️ 깃발 3종에서만. 평일 경로 없음 — 다음 대심사 대기</div></div>
+          <div class="tnode"><div class="nm">watch (5목패)</div><div class="ds">아래 목패별 갈래로</div></div>
+          <div class="tnode"><div class="nm">entry</div><div class="ds">극희소. breakout 경로로</div></div>
+        </div>
+        <div class="tarr">▼ watch의 목패별 갈래</div>
+        <div class="tsplit c2">
+          <div class="tnode endwait"><div class="nm">未 base_forming</div><div class="ds">pivot 없음 → <strong>게이트 무신호</strong>. 유일한 경로 = 주말 재분류(손잡이 완성 대기) ⓖ</div></div>
+          <div class="tnode endwait"><div class="nm">過 extended</div><div class="ds">돌파 경로 없음. promotion(관찰)·invalidation만 가능 — 매수 불가, 새 pivot은 재분류가</div></div>
+        </div>
+        <div class="tnode"><div class="nm">待 · 亂 · 境 (+ entry)</div><div class="ds">평일 게이트 감시 대상 — 매일 밤 세 갈래 중 하나(또는 무신호)</div></div>
+        <div class="tsplit c3">
+          <div class="tnode det"><div class="nm">invalidation</div><div class="ds">→ 5b: wait / <strong>abort</strong> ⓓ (go_now 없음)</div></div>
+          <div class="tnode det"><div class="nm">promotion</div><div class="ds">→ 5b: wait ⓒ (go_now 금지 명문화)</div></div>
+          <div class="tnode det"><div class="nm">breakout(_from_watch)</div><div class="ds">→ 5b 본시험으로 ▼</div></div>
+        </div>
+        <div class="tarr">▼</div>
+        <div class="tnode llm"><div class="lyr">5b 본시험</div><div class="nm">공통 검증 5항목 + 목패별 추가 문제</div><div class="ds">entry·待: 추가 없음 / 亂: +오늘 confirmed_uptrend / 境: +8관문 clean</div></div>
+        <div class="tsplit c3">
+          <div class="tnode endwait"><div class="nm">wait ⓑ</div><div class="ds">오늘은 부족 — 내일 다시 기회</div></div>
+          <div class="tnode endbad"><div class="nm">abort ⓓ</div><div class="ds">구조 붕괴 판정 — 재분류로</div></div>
+          <div class="tnode endgood"><div class="nm">go_now → entry_params</div><div class="ds">▼ 주문서 작성</div></div>
+        </div>
+        <div class="tarr">▼</div>
+        <div class="tnode endgood"><div class="lyr">종착 · 마스터클래스</div><div class="nm">매수 주문 파라미터 확정 ⓐ</div><div class="ds">매수점·손절·사이즈(깃발로 감산)·목표·창구·상한 — 실제 매수는 다음 거래일 집행</div></div>
+      </div>
+
+      <h3>도달 가능한 종착점 — 7종</h3>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th></th><th>종착점</th><th>어떻게 도달</th><th>그다음</th></tr></thead>
+        <tbody>
+          <tr><td>ⓐ</td><td class="yes">매수 주문 확정</td><td>go_now + entry_params 완료</td><td>다음 거래일 집행</td></tr>
+          <tr><td>ⓑ</td><td class="semi">wait</td><td>5b에서 조건 미달(치명 아님)</td><td>내일 게이트부터 다시</td></tr>
+          <tr><td>ⓒ</td><td class="semi">promotion 관찰</td><td>pivot 95% 접근</td><td>돌파하면 본시험, 아니면 유지</td></tr>
+          <tr><td>ⓓ</td><td class="no">abort</td><td>구조 붕괴 판정(5b)</td><td>그 pivot 종료 — 주말 재분류</td></tr>
+          <tr><td>ⓔ</td><td class="no">disqualify 하산</td><td>새벽 재시험(팔관) 탈락</td><td>명부 제외 — 재통과 시 신규로</td></tr>
+          <tr><td>ⓕ</td><td class="no">ignore 금족</td><td>☠️ 깃발 3종</td><td>다음 대심사 대기</td></tr>
+          <tr><td>ⓖ</td><td class="semi">재분류 순환</td><td>未·過 등 신호 없는 대기</td><td>토요일마다 전부 다시 그려짐</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>종합 매트릭스 — 직업 × 목패의 전체 규칙 한 장</h3>
+      <p class="muted" style="font-size:.85rem">표기: <code>bfw</code> = breakout_from_watch(watch의 돌파 신호)</p>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>직업·목패</th><th>게이트 신호</th><th>5b go_now 조건</th><th>entry_params 특례</th><th>가능한 결말</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill g">entry</span></td><td>breakout·invalidation</td><td>공통 검증 4종 (시장 안 봄)</td><td>깃발 보수화 전부 적용</td><td>ⓐⓑⓓⓔⓖ</td></tr>
+          <tr><td>watch 待</td><td>bfw·promotion·invalidation</td><td>공통 검증만 (시장 안 봄)</td><td><strong>시장 깃발 무시 특례</strong> ← 구멍</td><td>ⓐⓑⓒⓓⓔⓖ</td></tr>
+          <tr><td>watch 亂</td><td>bfw·promotion·invalidation</td><td>공통 + <strong>confirmed_uptrend</strong></td><td>시장 깃발 무시 특례 (이쪽은 논리 성립)</td><td>ⓐⓑⓒⓓⓔⓖ</td></tr>
+          <tr><td>watch 境</td><td>bfw·promotion·invalidation</td><td>공통 + 8관문 clean</td><td>시장 깃발 무시 특례</td><td>ⓐⓑⓒⓓⓔⓖ</td></tr>
+          <tr><td>watch 過</td><td>promotion·invalidation</td><td>— (본시험 못 감)</td><td>—</td><td>ⓑⓒⓓⓔⓖ (매수 없음)</td></tr>
+          <tr><td>watch 未</td><td>없음 (pivot 없음)</td><td>—</td><td>—</td><td>ⓔⓖ만</td></tr>
+          <tr><td><span class="pill b">ignore</span></td><td>없음</td><td>—</td><td>—</td><td>ⓕⓖ</td></tr>
+        </tbody>
+      </table></div>
+      <p class="muted" style="font-size:.9rem">※ 어떤 직업·목패든 <strong>토요일 대심사가 오면 전부 새로 그려집니다</strong>(직업·목패·깃발·pivot 갱신). 위 표는 "한 주 안에서"의 경로입니다.</p>
+    </section>
+
+    <!-- ============ 07 ============ -->
+    <section id="s7">
+      <span class="sec-num">07 — 직답</span>
+      <h2>보내주신 질문 8개, 한 줄씩 직접 답</h2>
+      <div class="intro"><span class="lb">이 섹션에서</span>원래 질문 각각에 위 내용을 근거로 짧게 직답합니다. 자세한 근거는 괄호의 섹션으로.</div>
+
+      <div class="qa"><div class="q">① 분류는 무슨 데이터로 어떻게 분석하나?</div><div class="a"><p>주봉 104주 + 일봉 지표 시계열 + 8관문 마진 + 시장 상태 + 차트 이미지를 받아, 패턴 판정 → 측정 → pivot/base 산출 → 시장·verdict 규칙 순으로 진행합니다. (→ <a href="#s1">01장</a>)</p></div></div>
+      <div class="qa"><div class="q">② 태그는 하나만 붙나, 여러 개 붙나?</div><div class="a"><p>둘 다 맞습니다 — 시스템이 2개라서요. <strong>목패(watch_reason)는 watch에 정확히 1개</strong>(우선순위 규칙으로 단일화), <strong>깃발(risk_flags)은 모든 직업에 0~여러 개</strong>. (→ <a href="#s2">02장</a>)</p></div></div>
+      <div class="qa"><div class="q">③ 각 태그의 의미는?</div><div class="a"><p>목패 5종(未·過·待·亂·境)과 깃발 15종(☠️강제금족 3 / ⬇️강등 4 / ℹ️정보 6+α)을 표로 정리했습니다. (→ <a href="#s2">02장</a>)</p></div></div>
+      <div class="qa"><div class="q">④ evaluate_pivot은 어떤 로직으로 어떤 결과를 내나?</div><div class="a"><p>게이트의 트리거 타입(4종)별로 다른 시험장(§3.1/3.2/3.3/3.5)에 배정되어 go_now / wait / abort 중 하나를 받습니다. invalidation·promotion에선 go_now가 원천 금지. (→ <a href="#s4">04장</a>)</p></div></div>
+      <div class="qa"><div class="q">⑤ 분류·태그는 evaluate_pivot에 어떻게 영향을 주나? 태그별로 다른 로직인가?</div><div class="a"><p>네 — 직업은 트리거 종류(breakout vs breakout_from_watch)를 가르고, <strong>목패는 breakout_from_watch의 추가 문제를 가릅니다</strong>(待=없음 / 亂=시장 회복 / 境=8관문 clean). 깃발은 5b에 참고 입력으로 전달되지만, 깃발별 명시 규칙은 없습니다. (→ <a href="#s3">03</a>·<a href="#s4">04장</a>)</p></div></div>
+      <div class="qa"><div class="q">⑥ entry_params는 어떤 평가로 어떤 결과를 내나?</div><div class="a"><p>진입 모드 판별 → 매수점·이중 손절 → 깃발 감산 사이징 → 목표·창구·상한·요구 거래량 → 경고 코드. 산출물은 주문 파라미터 9~11필드. (→ <a href="#s5">05장</a>)</p></div></div>
+      <div class="qa"><div class="q">⑦ entry_params는 go_now 정보만 쓰나?</div><div class="a"><p><strong>아니요.</strong> 분류의 pattern·pivot·base 숫자와 <strong>깃발(risk_flags)</strong>, 5b의 trigger_type까지 씁니다. 다만 <strong>목패(watch_reason)와 오늘의 시장은 안 봅니다</strong> — 목패의 수명은 5b까지. (→ <a href="#s5">05장</a>)</p></div></div>
+      <div class="qa"><div class="q">⑧ 전체 경우의 수는?</div><div class="a"><p>직업 3 × 목패 5의 조합별 게이트 신호·시험 조건·특례·결말을 매트릭스 한 장으로, 종착점 7종과 함께 정리했습니다. (→ <a href="#s6">06장</a>)</p></div></div>
+
+      <div class="box good"><span class="tag"><span class="dot g"></span>덤 — 예상하신 것보다 약했을 수 있는 부분 3가지</span>
+        <p>① <strong>깃발(risk_flags)의 존재</strong> — 목패만 알고 있으면 entry_params의 사이즈 감산이 설명되지 않습니다. ② <strong>promotion·invalidation도 5b로 간다</strong>는 것 — 5b는 "매수 확인"만이 아니라 승격 관찰·붕괴 확인까지 하는 시험장입니다. ③ <strong>disqualify(팔관 재시험)와 invalidation(구조 붕괴)의 구분</strong> — 전자는 자격(지표) 문제로 명부에서 빠지는 것, 후자는 가격이 베이스를 깨는 것으로 5b가 판정합니다.</p>
+      </div>
+    </section>
+
+    <p class="foot">
+      종목의 전직 도감 · 실제 코드(<code>trigger_gate.py · build_for_5b/6</code>)와 프롬프트(<code>analyze_chart_v3 · evaluate_pivot_trigger_v1 · calculate_entry_params_v2_0</code>) 대조로 작성<br>
+      함께 보기: <a href="https://claude.ai/code/artifact/067a5c8e-e57b-45f2-84c1-2c0cbef99609">시스템 A→Z</a> · <a href="https://claude.ai/code/artifact/45fdc315-ab9e-4a82-b4e0-0248625ddb27">소설 「반석의 검」</a> · <a href="https://claude.ai/code/artifact/b743a4e7-6873-4546-a4d4-5ae5bf6db2a9">최종 진단</a>
+    </p>
+
+  </main>
+</div>
+</div>
+
+<script>
+(function(){
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {};
+  links.forEach(function(a){ var id=a.getAttribute('href').slice(1); var el=document.getElementById(id); if(el) map[id]=a; });
+  var sections = Object.keys(map).map(function(id){return document.getElementById(id);});
+  if(!('IntersectionObserver' in window) || !sections.length) return;
+  var current=null;
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){ if(current) current.classList.remove('active'); var a=map[e.target.id]; if(a){a.classList.add('active'); current=a;} }
+    });
+  }, {rootMargin:'-8% 0px -82% 0px', threshold:0});
+  sections.forEach(function(s){obs.observe(s);});
+})();
+</script>

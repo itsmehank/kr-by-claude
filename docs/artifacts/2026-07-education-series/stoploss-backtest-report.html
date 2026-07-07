@@ -1,0 +1,3256 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>2025-2026 대상 종목 — 돌파+거래량 매수 · 이동 손절 시뮬레이션</title>
+<style>
+:root {
+  --bg:#0b0f14; --panel:#11161d; --panel2:#161d26; --line:#212a35;
+  --ink:#e6edf3; --muted:#8b98a5; --faint:#5c6773;
+  --pos:#3ecf8e; --neg:#f2545b; --amber:#e8a33d; --accent:#4f9dff;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font-family:'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif; }
+.wrap { max-width:980px; margin:0 auto; padding:32px 20px 80px; }
+h1 { font-size:26px; font-weight:800; margin:0 0 6px; letter-spacing:-.01em; }
+.sub { color:var(--muted); font-size:14px; line-height:1.7; margin:0 0 20px; }
+.assume { background:#241a0f; border:1px solid #4a3418; border-radius:12px; padding:16px 18px; margin-bottom:24px; }
+.assume h2 { font-size:14px; color:var(--amber); margin:0 0 8px; }
+.assume ul { margin:0; padding-left:18px; font-size:13.5px; line-height:1.8; color:#dcc9a3; }
+.assume b { color:#fbbf24; }
+
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:28px; }
+.stat { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+.stat .k { font-size:11.5px; color:var(--faint); text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px; }
+.stat .v { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
+.stat .v.pos { color:var(--pos); } .stat .v.neg { color:var(--neg); }
+
+.legend { font-size:12.5px; color:var(--faint); margin:4px 0 20px; }
+
+.stock-card { background:var(--panel); border:1px solid var(--line); border-radius:12px; margin-bottom:8px; overflow:hidden; }
+.stock-card.no-trade { opacity:.55; }
+.stock-head { width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px;
+  background:none; border:none; color:inherit; cursor:pointer; padding:14px 16px; font:inherit; text-align:left; }
+.stock-head:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; border-radius:10px; }
+.stock-card.no-trade .stock-head { cursor:default; }
+.stock-id { display:flex; align-items:baseline; gap:8px; min-width:0; }
+.stock-id .sym { font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--faint); }
+.stock-id .name { font-weight:700; font-size:14.5px; }
+.stock-agg { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.tag { font-size:11.5px; padding:3px 8px; border-radius:999px; background:var(--panel2); color:var(--muted); white-space:nowrap; }
+.tag.avg.pos { background:#0f2b20; color:var(--pos); }
+.tag.avg.neg { background:#301316; color:var(--neg); }
+.tag.muted { color:var(--faint); }
+.chev { color:var(--faint); font-size:12px; transition:transform .15s; }
+.stock-card.open .chev { transform:rotate(180deg); }
+
+.trades { max-height:0; overflow:hidden; transition:max-height .2s ease; border-top:1px solid transparent; }
+.stock-card.open .trades { max-height:4000px; border-top-color:var(--line); }
+.trade-row { display:grid; grid-template-columns:1fr 1fr 1.1fr 1fr 1fr; gap:10px; padding:12px 16px;
+  border-bottom:1px solid var(--line); }
+.trade-row:last-child { border-bottom:none; }
+.trade-col .k { font-size:10.5px; color:var(--faint); text-transform:uppercase; letter-spacing:.02em; }
+.trade-col .v { font-size:13.5px; font-weight:600; margin-top:2px; font-variant-numeric:tabular-nums; }
+.trade-col .v.big { font-size:16px; }
+.trade-col .sub { font-size:11.5px; color:var(--muted); margin-top:3px; }
+.v.pos { color:var(--pos); } .v.neg { color:var(--neg); } .v.zero { color:var(--muted); }
+.badge { font-size:10.5px; padding:2px 6px; border-radius:6px; background:var(--panel2); color:var(--muted); }
+.badge.lock { background:#12293f; color:var(--accent); }
+.badge.dt { background:#301316; color:#f2a3a7; }
+
+.footer { margin-top:32px; font-size:12px; color:var(--faint); line-height:1.8; border-top:1px solid var(--line); padding-top:16px; }
+
+@media (max-width:640px) {
+  .trade-row { grid-template-columns:1fr 1fr; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .trades, .chev { transition:none !important; }
+}
+</style>
+</head>
+<body>
+<details data-doc-meta style="box-sizing:border-box;margin:0;padding:10px 24px;background:#0f172a;color:#e2e8f0;font-family:'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;font-size:14px;line-height:1.75;border-bottom:3px solid #f59e0b;">
+<summary style="cursor:pointer;font-weight:700;color:#fbbf24;outline:none;">📌 이 문서는 왜 만들어졌나 — 목적 · 연관 문서 · 이력 (클릭해서 펼치기)</summary>
+<div style="max-width:880px;margin:14px auto 8px;">
+<p style="margin:0 0 12px;color:#94a3b8;font-size:13px;">생성: 2026-07-07 07:18 · 최종 업데이트: 2026-07-07 07:18 (KST) · 출처: Claude Code 세션 기록 기반 복원</p>
+<h3 style="margin:0 0 6px;font-size:15px;color:#fbbf24;">이 문서의 목적 (실제 요청 근거)</h3>
+<p>위 동결 100종목(2021-2024) 실험과 <b>같은 손절 규칙을 2025-2026 recall 감사 모집단에 적용해달라</b>는
+요청의 산출물: "2025-2026 백테스트 대상 종목에 대해 테스트 — 각 종목별 결과를 html 페이지로."
+모집단 = recall_audit_classification 의 watch/entry + pivot 설정 67종목, 91건 거래.</p>
+<p>⚠️ 이 판본은 애매했던 규칙 2가지를 사용자 확인 없이 추측으로 해석함(+20% 도달 시 손절가=매수가×1.20
+고정 / 하락장=downtrend만). 이후 프로젝트 기존 관례(stop_variant_sim.py)와 다름이 확인되어
+<b>해석 비교판(v1 vs v2)이 이 문서를 대체</b> — 중간본으로 보존.</p>
+<h3 style="margin:16px 0 6px;font-size:15px;color:#fbbf24;">연관 문서</h3>
+<ul style="margin:0;padding-left:20px;"><li style="margin:4px 0;"><a href="./stoploss-backtest-compare.html" style="color:#7dd3fc;text-decoration:underline;">손절 규칙 해석 비교 v1 vs v2 (2025-2026)</a><span style='color:#94a3b8;'> — 이 문서를 대체한 해석 비교판(v1 vs v2). 최신 결과는 그쪽</span></li><li style="margin:4px 0;"><a href="./recall-audit-story.html" style="color:#7dd3fc;text-decoration:underline;">미포착 승자 감사 — 처음부터 끝까지</a><span style='color:#94a3b8;'> — 모집단 출처 — recall 감사의 watch/entry+pivot 67종목</span></li><li style="margin:4px 0;"><a href="./stop_variant_tabbed_report.html" style="color:#7dd3fc;text-decoration:underline;">손절 규칙 테스트 3종 비교 — 동결 100종목 (2021-2024)</a><span style='color:#94a3b8;'> — 같은 규칙의 동결 100종목(2021-2024) 자매 실험</span></li></ul>
+</div>
+</details>
+
+<div class="wrap">
+  <h1>2025-2026 대상 종목 — 돌파+거래량 매수 · 이동 손절 시뮬레이션</h1>
+  <p class="sub">
+    모집단: <b>미포착 승자 recall 감사</b>(2025-01~2026-06)에서 watch/entry 로 분류되고 pivot 가격이
+    설정됐던 종목 <b>67개</b> (recall_audit_classification 테이블). 각 종목의 pivot 유효 구간(다음
+    주말 재분류 전까지)에서 <b>돌파일 = adj 고가 ≥ pivot AND 그날 거래량 &gt; 50일 평균거래량</b> 인
+    최초 날짜를 찾아 pivot 가격에 매수했다고 가정하고, 아래 규칙으로 손절 시뮬레이션했습니다.
+  </p>
+
+  <div class="assume">
+    <h2>⚠️ 규칙 해석 — 사용자 확인 없이 진행한 가정 2가지 (결과에 영향을 주므로 먼저 확인해 주세요)</h2>
+    <ul>
+      <li><b>+20% 손절 규칙</b>: "수익률 20% 도달시 손절가를 20%로 올림(본전사수)" 문장에서 숫자와
+        괄호 라벨이 서로 다른 값을 가리켜, <b>문장의 숫자 그대로(손절가 = 매수가×1.20, 즉 최소 확정수익
+        +20%)</b>로 해석했습니다. 만약 의도가 "본전(매수가, 0%)으로 손절가를 올리는 것"이었다면 결과가
+        달라집니다 — 특히 <b>59/91건</b>이 이 조건에 걸렸습니다.</li>
+      <li><b>'하락장' 범위</b>: 국면 4단계(확정상승장·<b>하락장</b>·조정·상승시도) 중 <b>downtrend 만</b>을
+        하락장으로 보고 -6% 손절을 적용했습니다(조정·상승시도는 기본 -8%). 이 좁은 정의로 -6%가 적용된
+        거래는 <b>15/91건</b>입니다. '조정'까지 포함하면 이 수가 늘어납니다.</li>
+    </ul>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">모집단 종목</div><div class="v">67</div></div>
+    <div class="stat"><div class="k">거래 발생 종목</div><div class="v">59</div></div>
+    <div class="stat"><div class="k">총 거래</div><div class="v">91</div></div>
+    <div class="stat"><div class="k">승률</div><div class="v">64.8%</div></div>
+    <div class="stat"><div class="k">평균 수익률</div><div class="v pos">+15.24%</div></div>
+    <div class="stat"><div class="k">평균 승리 폭</div><div class="v pos">+27.46%</div></div>
+    <div class="stat"><div class="k">평균 손실 폭</div><div class="v neg">-7.29%</div></div>
+    <div class="stat"><div class="k">최대 / 최소</div><div class="v">+214.40% / -11.63%</div></div>
+  </div>
+  <p class="legend">모든 거래는 데이터 종료 시점(2026-07 초) 이전에 전부 손절 청산됨(보유중 0건). 카드를 클릭하면 종목별 개별 거래를 펼쳐 볼 수 있습니다.</p>
+
+  
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">458870</span><span class="name">씨어스</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +214.40%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-08-25</div>
+            <div class="sub">12,006원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-01-08</div>
+            <div class="sub">37,747원 · 136일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">조정</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+287.79%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+214.40%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">420770</span><span class="name">기가비스</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +189.05%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2026-01-19</div>
+            <div class="sub">35,950원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-06-08</div>
+            <div class="sub">103,914원 · 140일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+339.50%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+189.05%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">077360</span><span class="name">덕산하이메탈</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +57.03%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2026-02-02</div>
+            <div class="sub">6,680원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-03-30</div>
+            <div class="sub">10,490원 · 56일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+124.55%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+57.03%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">319660</span><span class="name">피에스케이</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +49.58%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-15</div>
+            <div class="sub">22,150원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-11-18</div>
+            <div class="sub">33,132원 · 64일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+86.91%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+49.58%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">000720</span><span class="name">현대건설</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">2승 0패</span>
+          <span class="tag avg pos">평균 +43.96%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-05-19</div>
+            <div class="sub">39,850원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-05-21</div>
+            <div class="sub">47,700원 · 2일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+24.09%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+19.70%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-05-26</div>
+            <div class="sub">39,850원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-07-22</div>
+            <div class="sub">67,034원 · 57일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+113.55%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+68.22%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">218410</span><span class="name">RFHIC</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">2승 0패</span>
+          <span class="tag avg pos">평균 +32.40%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-06-02</div>
+            <div class="sub">17,070원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-06-02</div>
+            <div class="sub">19,250원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+24.19%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+12.77%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-06-30</div>
+            <div class="sub">16,950원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-08-11</div>
+            <div class="sub">25,767원 · 42일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+76.99%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+52.02%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">037270</span><span class="name">YG PLUS</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">2승 0패</span>
+          <span class="tag avg pos">평균 +29.60%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-05-28</div>
+            <div class="sub">6,100원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-06-17</div>
+            <div class="sub">7,010원 · 20일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+20.82%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+14.92%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-07-07</div>
+            <div class="sub">5,510원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-08-04</div>
+            <div class="sub">7,950원 · 28일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+106.89%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+44.28%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">090710</span><span class="name">휴림로봇</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +28.82%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-10-20</div>
+            <div class="sub">3,735원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-11-25</div>
+            <div class="sub">4,812원 · 36일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+109.63%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+28.82%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">115180</span><span class="name">큐리언트</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 3건</span>
+          <span class="tag">2승 1패</span>
+          <span class="tag avg pos">평균 +26.33%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-02-19</div>
+            <div class="sub">5,730원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-02-19</div>
+            <div class="sub">5,160원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+5.41%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-9.95%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-02-24</div>
+            <div class="sub">5,730원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-03-12</div>
+            <div class="sub">6,750원 · 16일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+34.20%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+17.80%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-03-17</div>
+            <div class="sub">5,730원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-06-05</div>
+            <div class="sub">9,807원 · 80일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+125.65%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+71.14%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">023810</span><span class="name">인팩</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +24.65%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2026-01-12</div>
+            <div class="sub">7,010원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-02-02</div>
+            <div class="sub">8,738원 · 21일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+93.44%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+24.65%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">008830</span><span class="name">대동기어</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +24.57%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-02-24</div>
+            <div class="sub">13,530원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-03-26</div>
+            <div class="sub">16,855원 · 30일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+79.73%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+24.57%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">004800</span><span class="name">효성</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +20.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-10-22</div>
+            <div class="sub">90,700원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-10-24</div>
+            <div class="sub">108,840원 · 2일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+25.58%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+20.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">017510</span><span class="name">세명전기</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +20.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-08-19</div>
+            <div class="sub">7,900원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-09-04</div>
+            <div class="sub">9,480원 · 16일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">조정</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+62.28%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+20.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">093370</span><span class="name">후성</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +20.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2026-06-15</div>
+            <div class="sub">12,550원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-07-03</div>
+            <div class="sub">15,060원 · 18일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+87.65%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+20.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">267270</span><span class="name">HD건설기계</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +20.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-01-21</div>
+            <div class="sub">66,900원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-02-14</div>
+            <div class="sub">80,280원 · 24일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+36.77%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+20.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">376300</span><span class="name">디어유</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +20.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-02-17</div>
+            <div class="sub">39,000원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-02-20</div>
+            <div class="sub">46,800원 · 3일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+28.97%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+20.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">475150</span><span class="name">SK이터닉스</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +20.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2026-02-13</div>
+            <div class="sub">25,650원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-02-20</div>
+            <div class="sub">30,780원 · 7일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+33.14%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+20.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">166090</span><span class="name">하나머티리얼즈</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +19.53%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2026-01-26</div>
+            <div class="sub">46,350원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-01-26</div>
+            <div class="sub">55,400원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+35.27%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+19.53%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">015760</span><span class="name">한국전력</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">2승 0패</span>
+          <span class="tag avg pos">평균 +18.82%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-04-15</div>
+            <div class="sub">22,950원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-05-16</div>
+            <div class="sub">27,000원 · 31일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">조정</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+22.44%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+17.65%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-05-26</div>
+            <div class="sub">22,950원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-06-10</div>
+            <div class="sub">27,540원 · 15일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+38.13%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+20.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">240810</span><span class="name">원익IPS</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">2승 0패</span>
+          <span class="tag avg pos">평균 +18.34%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-15</div>
+            <div class="sub">42,750원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-10-02</div>
+            <div class="sub">51,300원 · 17일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+41.75%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+20.00%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-10-13</div>
+            <div class="sub">46,800원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-10-13</div>
+            <div class="sub">54,600원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+23.50%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+16.67%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">048770</span><span class="name">TPC로보틱스</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +17.33%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2026-01-26</div>
+            <div class="sub">3,115원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-01-26</div>
+            <div class="sub">3,655원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+20.70%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+17.33%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">092870</span><span class="name">엑시콘</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 3건</span>
+          <span class="tag">2승 1패</span>
+          <span class="tag avg pos">평균 +17.19%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2026-01-05</div>
+            <div class="sub">16,100원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-01-21</div>
+            <div class="sub">15,457원 · 16일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+12.92%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-4.00%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2026-01-26</div>
+            <div class="sub">18,750원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-01-27</div>
+            <div class="sub">20,850원 · 1일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+22.67%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+11.20%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2026-02-02</div>
+            <div class="sub">18,470원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-03-30</div>
+            <div class="sub">26,667원 · 56일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+86.79%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+44.38%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">100840</span><span class="name">SNT에너지</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +17.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-05-26</div>
+            <div class="sub">40,000원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-05-26</div>
+            <div class="sub">46,800원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+22.00%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+17.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">101490</span><span class="name">에스앤에스텍</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 3건</span>
+          <span class="tag">3승 0패</span>
+          <span class="tag avg pos">평균 +17.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-06-09</div>
+            <div class="sub">37,050원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-07-03</div>
+            <div class="sub">42,750원 · 24일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+25.51%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+15.38%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-07-09</div>
+            <div class="sub">41,900원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-07-28</div>
+            <div class="sub">48,450원 · 19일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+22.91%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+15.63%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-08-18</div>
+            <div class="sub">41,900원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-08-20</div>
+            <div class="sub">50,280원 · 2일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+30.79%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+20.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">014680</span><span class="name">한솔케미칼</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">2승 0패</span>
+          <span class="tag avg pos">평균 +16.74%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-15</div>
+            <div class="sub">180,100원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-09-24</div>
+            <div class="sub">208,000원 · 9일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+21.32%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+15.49%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-10-01</div>
+            <div class="sub">187,300원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-10-10</div>
+            <div class="sub">221,000원 · 9일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+20.93%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+17.99%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">263860</span><span class="name">지니언스</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +14.77%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-06-26</div>
+            <div class="sub">19,910원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-07-11</div>
+            <div class="sub">22,850원 · 15일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+20.04%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+14.77%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">114810</span><span class="name">한솔아이원스</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 3건</span>
+          <span class="tag">2승 1패</span>
+          <span class="tag avg pos">평균 +14.26%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-04</div>
+            <div class="sub">9,440원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-09-04</div>
+            <div class="sub">8,630원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">조정</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+1.91%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-8.58%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-08</div>
+            <div class="sub">9,840원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-09-16</div>
+            <div class="sub">11,600원 · 8일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+24.64%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+17.88%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-10-01</div>
+            <div class="sub">9,680원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-11-21</div>
+            <div class="sub">12,920원 · 51일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+75.41%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+33.47%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">353200</span><span class="name">대덕전자</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 3건</span>
+          <span class="tag">3승 0패</span>
+          <span class="tag avg pos">평균 +14.07%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-03</div>
+            <div class="sub">21,000원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-09-09</div>
+            <div class="sub">24,000원 · 6일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">조정</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+21.43%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+14.29%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-15</div>
+            <div class="sub">24,250원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-09-24</div>
+            <div class="sub">27,000원 · 9일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+20.41%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+11.34%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-30</div>
+            <div class="sub">24,750원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-10-01</div>
+            <div class="sub">28,850원 · 1일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+22.63%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+16.57%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">082920</span><span class="name">비츠로셀</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +13.59%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-01-06</div>
+            <div class="sub">11,329원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-01-21</div>
+            <div class="sub">12,869원 · 15일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+22.95%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+13.59%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">098120</span><span class="name">마이크로컨텍솔</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">2승 0패</span>
+          <span class="tag avg pos">평균 +12.86%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-06-23</div>
+            <div class="sub">18,600원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-06-24</div>
+            <div class="sub">20,950원 · 1일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+29.03%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+12.63%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-10-13</div>
+            <div class="sub">24,450원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-10-27</div>
+            <div class="sub">27,650원 · 14일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+20.65%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+13.09%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">336260</span><span class="name">두산퓨얼셀</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">2승 0패</span>
+          <span class="tag avg pos">평균 +12.27%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-08-27</div>
+            <div class="sub">25,500원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-08-27</div>
+            <div class="sub">29,450원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+22.94%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+15.49%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-01</div>
+            <div class="sub">25,450원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-09-11</div>
+            <div class="sub">27,750원 · 10일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">조정</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+21.81%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+9.04%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">131970</span><span class="name">두산테스나</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +12.19%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2026-01-26</div>
+            <div class="sub">56,600원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-01-28</div>
+            <div class="sub">63,500원 · 2일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+21.55%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+12.19%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">023160</span><span class="name">태광</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +11.63%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-01-13</div>
+            <div class="sub">19,170원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-01-21</div>
+            <div class="sub">21,400원 · 8일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+24.15%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+11.63%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">072710</span><span class="name">농심홀딩스</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +11.22%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-15</div>
+            <div class="sub">82,900원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-09-15</div>
+            <div class="sub">92,200원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+38.00%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+11.22%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">091580</span><span class="name">상신이디피</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +8.41%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-29</div>
+            <div class="sub">10,700원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-10-24</div>
+            <div class="sub">11,600원 · 25일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+21.12%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+8.41%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">095610</span><span class="name">테스</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">1승 1패</span>
+          <span class="tag avg pos">평균 +7.68%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-06-17</div>
+            <div class="sub">25,400원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-07-23</div>
+            <div class="sub">24,741원 · 36일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+10.83%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-2.59%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-08-19</div>
+            <div class="sub">28,150원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-09-11</div>
+            <div class="sub">33,200원 · 23일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">조정</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+20.25%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+17.94%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">025980</span><span class="name">아난티</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">1승 1패</span>
+          <span class="tag avg pos">평균 +6.92%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-04-30</div>
+            <div class="sub">6,970원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-05-02</div>
+            <div class="sub">6,540원 · 2일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+0.29%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-6.17%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-05-21</div>
+            <div class="sub">7,330원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-06-12</div>
+            <div class="sub">8,796원 · 22일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+38.06%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+20.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">236200</span><span class="name">슈프리마</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">1승 1패</span>
+          <span class="tag avg pos">평균 +6.78%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-04-02</div>
+            <div class="sub">29,500원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-04-02</div>
+            <div class="sub">27,600원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+2.54%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-6.44%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-05-19</div>
+            <div class="sub">28,450원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-05-19</div>
+            <div class="sub">34,140원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+21.79%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+20.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">003240</span><span class="name">태광산업</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">1승 1패</span>
+          <span class="tag avg pos">평균 +6.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-05-20</div>
+            <div class="sub">849,000원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-05-21</div>
+            <div class="sub">781,080원 · 1일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+0.47%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-8.00%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-05-29</div>
+            <div class="sub">895,000원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-06-09</div>
+            <div class="sub">1,074,000원 · 11일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+24.69%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+20.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">332290</span><span class="name">누보</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">1승 0패</span>
+          <span class="tag avg pos">평균 +5.07%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-08-19</div>
+            <div class="sub">1,398원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-08-20</div>
+            <div class="sub">1,469원 · 1일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">조정</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+36.26%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+5.07%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">402030</span><span class="name">코난테크놀로지</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">1승 1패</span>
+          <span class="tag avg pos">평균 +4.75%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-05-13</div>
+            <div class="sub">28,002원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-05-13</div>
+            <div class="sub">26,322원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+5.93%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-6.00%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-06-23</div>
+            <div class="sub">29,664원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-07-17</div>
+            <div class="sub">34,258원 · 24일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+54.86%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+15.49%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">103590</span><span class="name">일진전기</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 3건</span>
+          <span class="tag">2승 1패</span>
+          <span class="tag avg pos">평균 +2.97%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-01-16</div>
+            <div class="sub">30,950원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-01-24</div>
+            <div class="sub">33,000원 · 8일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+21.32%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+6.62%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-06-30</div>
+            <div class="sub">34,450원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-06-30</div>
+            <div class="sub">38,000원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+20.75%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+10.30%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-07-15</div>
+            <div class="sub">41,600원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-07-15</div>
+            <div class="sub">38,272원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+0.84%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-8.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">105840</span><span class="name">우진</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 3건</span>
+          <span class="tag">1승 2패</span>
+          <span class="tag avg neg">평균 -1.68%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-08-06</div>
+            <div class="sub">11,530원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-08-19</div>
+            <div class="sub">10,500원 · 13일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+2.34%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-8.93%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-10</div>
+            <div class="sub">11,870원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-09-15</div>
+            <div class="sub">10,920원 · 5일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+3.62%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-8.00%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-10-10</div>
+            <div class="sub">13,300원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-10-10</div>
+            <div class="sub">14,880원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+29.47%</div>
+            <div class="sub"><span class="badge lock">+20%락 발동</span></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big pos">+11.88%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">078160</span><span class="name">메디포스트</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">0승 1패</span>
+          <span class="tag avg neg">평균 -4.10%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-12-01</div>
+            <div class="sub">17,650원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-12-22</div>
+            <div class="sub">16,926원 · 21일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+19.26%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-4.10%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">006730</span><span class="name">서부T&D</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">0승 1패</span>
+          <span class="tag avg neg">평균 -5.18%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-17</div>
+            <div class="sub">10,330원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-09-30</div>
+            <div class="sub">9,795원 · 13일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+10.16%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-5.18%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">042000</span><span class="name">카페24</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">0승 1패</span>
+          <span class="tag avg neg">평균 -6.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-01-14</div>
+            <div class="sub">41,050원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-01-14</div>
+            <div class="sub">38,587원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+2.80%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-6.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">064820</span><span class="name">케이프</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">0승 1패</span>
+          <span class="tag avg neg">평균 -6.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-05-07</div>
+            <div class="sub">6,800원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-05-16</div>
+            <div class="sub">6,392원 · 9일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+4.56%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-6.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">182360</span><span class="name">큐브엔터</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">0승 2패</span>
+          <span class="tag avg neg">평균 -6.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-03-27</div>
+            <div class="sub">17,850원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-04-01</div>
+            <div class="sub">16,779원 · 5일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+8.29%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-6.00%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-04-30</div>
+            <div class="sub">19,790원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-05-12</div>
+            <div class="sub">18,603원 · 12일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+4.85%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-6.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">080580</span><span class="name">오킨스전자</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">0승 2패</span>
+          <span class="tag avg neg">평균 -7.08%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-08-13</div>
+            <div class="sub">7,000원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-08-18</div>
+            <div class="sub">6,568원 · 5일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+9.00%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-6.17%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-12-17</div>
+            <div class="sub">10,730원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-12-19</div>
+            <div class="sub">9,872원 · 2일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+0.56%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-8.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">452430</span><span class="name">사피엔반도체</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 3건</span>
+          <span class="tag">0승 3패</span>
+          <span class="tag avg neg">평균 -7.58%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-15</div>
+            <div class="sub">30,750원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-09-22</div>
+            <div class="sub">28,386원 · 7일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+9.92%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-7.69%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-10-28</div>
+            <div class="sub">31,550원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-11-03</div>
+            <div class="sub">29,322원 · 6일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+5.07%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-7.06%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-12-10</div>
+            <div class="sub">35,100원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-12-11</div>
+            <div class="sub">32,292원 · 1일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+2.14%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-8.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">050890</span><span class="name">쏠리드</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">0승 1패</span>
+          <span class="tag avg neg">평균 -8.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-10-14</div>
+            <div class="sub">7,600원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-10-14</div>
+            <div class="sub">6,992원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+0.66%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-8.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">086520</span><span class="name">에코프로</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">0승 1패</span>
+          <span class="tag avg neg">평균 -8.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-12-08</div>
+            <div class="sub">102,400원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-12-19</div>
+            <div class="sub">94,208원 · 11일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+18.75%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-8.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">289930</span><span class="name">웨이비스</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">0승 1패</span>
+          <span class="tag avg neg">평균 -8.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2026-04-27</div>
+            <div class="sub">21,300원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-05-07</div>
+            <div class="sub">19,596원 · 10일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">조정</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+15.73%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-8.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">475960</span><span class="name">토모큐브</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">0승 1패</span>
+          <span class="tag avg neg">평균 -8.00%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-12-03</div>
+            <div class="sub">54,400원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-12-03</div>
+            <div class="sub">50,048원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+2.57%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-8.00%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">049630</span><span class="name">재영솔루텍</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">0승 1패</span>
+          <span class="tag avg neg">평균 -8.14%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-05-27</div>
+            <div class="sub">4,795원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-05-27</div>
+            <div class="sub">4,405원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+1.04%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-8.14%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">196170</span><span class="name">알테오젠</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 2건</span>
+          <span class="tag">0승 2패</span>
+          <span class="tag avg neg">평균 -8.40%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-03-17</div>
+            <div class="sub">418,500원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-03-17</div>
+            <div class="sub">393,390원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">하락장</div>
+            <div class="sub"><span class="badge dt">하락장 -6%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+5.32%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-6.00%</div>
+          </div>
+        </div>
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-07-07</div>
+            <div class="sub">416,500원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-07-07</div>
+            <div class="sub">371,500원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">상승 시도</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+0.12%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-10.80%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">000150</span><span class="name">두산</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">0승 1패</span>
+          <span class="tag avg neg">평균 -8.95%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-10-17</div>
+            <div class="sub">659,000원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-10-17</div>
+            <div class="sub">600,000원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+9.56%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-8.95%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">006910</span><span class="name">보성파워텍</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">0승 1패</span>
+          <span class="tag avg neg">평균 -9.06%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2025-09-09</div>
+            <div class="sub">4,360원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2025-09-09</div>
+            <div class="sub">3,965원 · 0일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+1.60%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-9.06%</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="stock-card">
+      <button class="stock-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="stock-id"><span class="sym">039440</span><span class="name">에스티아이</span></div>
+        <div class="stock-agg">
+          <span class="tag">거래 1건</span>
+          <span class="tag">0승 1패</span>
+          <span class="tag avg neg">평균 -11.63%</span>
+          <span class="chev">▾</span>
+        </div>
+      </button>
+      <div class="trades">
+        <div class="trade-row">
+          <div class="trade-col date">
+            <div class="k">매수</div>
+            <div class="v">2026-02-02</div>
+            <div class="sub">36,100원</div>
+          </div>
+          <div class="trade-col date">
+            <div class="k">청산</div>
+            <div class="v">2026-02-06</div>
+            <div class="sub">31,900원 · 4일 보유</div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">진입 시 국면</div>
+            <div class="v">확정 상승장</div>
+            <div class="sub"><span class="badge">기본 -8%</span></div>
+          </div>
+          <div class="trade-col ctx">
+            <div class="k">경로 중 최고 수익</div>
+            <div class="v">+2.49%</div>
+            <div class="sub"></div>
+          </div>
+          <div class="trade-col ret">
+            <div class="k">최종 수익률</div>
+            <div class="v big neg">-11.63%</div>
+          </div>
+        </div></div>
+    </div>
+        <div class="stock-card no-trade">
+          <div class="stock-head">
+            <div class="stock-id"><span class="sym">008490</span><span class="name">서흥</span></div>
+            <div class="stock-agg"><span class="tag muted">돌파 없음</span></div>
+          </div>
+        </div>
+        <div class="stock-card no-trade">
+          <div class="stock-head">
+            <div class="stock-id"><span class="sym">011930</span><span class="name">신성이엔지</span></div>
+            <div class="stock-agg"><span class="tag muted">돌파 없음</span></div>
+          </div>
+        </div>
+        <div class="stock-card no-trade">
+          <div class="stock-head">
+            <div class="stock-id"><span class="sym">014990</span><span class="name">인디에프</span></div>
+            <div class="stock-agg"><span class="tag muted">돌파 없음</span></div>
+          </div>
+        </div>
+        <div class="stock-card no-trade">
+          <div class="stock-head">
+            <div class="stock-id"><span class="sym">020150</span><span class="name">롯데에너지머티리얼즈</span></div>
+            <div class="stock-agg"><span class="tag muted">돌파 없음</span></div>
+          </div>
+        </div>
+        <div class="stock-card no-trade">
+          <div class="stock-head">
+            <div class="stock-id"><span class="sym">032820</span><span class="name">우리기술</span></div>
+            <div class="stock-agg"><span class="tag muted">돌파 없음</span></div>
+          </div>
+        </div>
+        <div class="stock-card no-trade">
+          <div class="stock-head">
+            <div class="stock-id"><span class="sym">039830</span><span class="name">오로라</span></div>
+            <div class="stock-agg"><span class="tag muted">돌파 없음</span></div>
+          </div>
+        </div>
+        <div class="stock-card no-trade">
+          <div class="stock-head">
+            <div class="stock-id"><span class="sym">059090</span><span class="name">미코</span></div>
+            <div class="stock-agg"><span class="tag muted">돌파 없음</span></div>
+          </div>
+        </div>
+        <div class="stock-card no-trade">
+          <div class="stock-head">
+            <div class="stock-id"><span class="sym">168360</span><span class="name">펨트론</span></div>
+            <div class="stock-agg"><span class="tag muted">돌파 없음</span></div>
+          </div>
+        </div>
+
+  <div class="footer">
+    데이터 출처: recall_audit_classification(모집단) + daily_prices/daily_indicators(가격·거래량·SMA50) +
+    market_context_daily(국면). 돌파 판정은 수정주가(adj) 기준. 손절 체결은 당일 저가가 손절가 이하로
+    떨어지면 손절가에, 시가가 이미 손절가 아래로 갭다운했으면 시가에 체결한 것으로 가정. pivot_price 는
+    원본 값에 소수점 0.1 오프셋이 포함되어 있어(파이프라인 관례) 그대로 사용 — 결과에 미치는 영향은
+    무시할 수준. 이 시뮬레이션은 5b(LLM 최종 확인) 단계를 생략한 순수 기계적 규칙이며, 기존 recall
+    감사의 "trigger_miss/pivot_miss" 판정과는 별개의 실험입니다.
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,686 @@
+<details data-doc-meta style="box-sizing:border-box;margin:0;padding:10px 24px;background:#0f172a;color:#e2e8f0;font-family:'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;font-size:14px;line-height:1.75;border-bottom:3px solid #f59e0b;">
+<summary style="cursor:pointer;font-weight:700;color:#fbbf24;outline:none;">📌 이 문서는 왜 만들어졌나 — 목적 · 연관 문서 · 이력 (클릭해서 펼치기)</summary>
+<div style="max-width:880px;margin:14px auto 8px;">
+<p style="margin:0 0 12px;color:#94a3b8;font-size:13px;">생성: 2026-07-07 09:42 · 최종 업데이트: 2026-07-07 09:42 (KST) · 출처: Claude Code 세션 기록 기반 복원</p>
+<h3 style="margin:0 0 6px;font-size:15px;color:#fbbf24;">이 문서의 목적 (실제 요청 근거)</h3>
+<p>별도 세션의 요청: "이 프로젝트의 전체 내용에 대해서 파악한 다음 어떤 점을 개선하면 좋을지
+우선순위로 정리해줘. 프로젝트 코드와 문서들을 모두 읽고 판단해줘. 정리한 내용은 1회 검토."</p>
+<p>이후 페이지화 요청: "하나의 html 페이지를 2개 탭으로 — ① 원본 탭 ② 원본 내용 전체를 초보자도
+이해하기 쉽게 풀고 배경·용어 설명을 더한 해설 탭. 각 내용이 실제 로직과 어떻게 연관되는지도 상세히."
+이 리뷰에서 발견된 이슈들(P1-1 사용량 한도초과 시 성공 오기록 등)은 GitHub 이슈로도 등록됨.</p>
+<p>참고: 2026-07-07 09:42 기준 사본 — 원 세션이 활동 중이었어 이후 갱신됐다면 교체 필요.</p>
+<h3 style="margin:16px 0 6px;font-size:15px;color:#fbbf24;">연관 문서</h3>
+<ul style="margin:0;padding-left:20px;"><li style="margin:4px 0;"><a href="./final-review.html" style="color:#7dd3fc;text-decoration:underline;">두 대가의 원전 대조, 내 시스템 최종 진단</a><span style='color:#94a3b8;'> — 다른 축의 진단 — 저쪽은 두 대가 원전 대조, 이쪽은 코드·문서 전수 리뷰 기반 개선 우선순위</span></li><li style="margin:4px 0;"><a href="./system-atoz.html" style="color:#7dd3fc;text-decoration:underline;">종목 하나가 시스템을 통과하는 여정, A부터 Z까지</a><span style='color:#94a3b8;'> — 리뷰가 전제하는 시스템 전체 구조의 해설 문서</span></li></ul>
+</div>
+</details>
+<title>kr-by-claude 전체 리뷰 — 원본 &amp; 초보자 해설</title>
+<style>
+  :root {
+    --bg: #F5F7F6;
+    --surface: #FFFFFF;
+    --ink: #1D2724;
+    --muted: #5B6A65;
+    --line: #DDE4E1;
+    --accent: #0E6B5B;
+    --accent-ink: #0B5347;
+    --accent-soft: #E3F0ED;
+    --p1: #B23A2A;
+    --p1-bg: #F9ECE9;
+    --p2c: #96660F;
+    --p2-bg: #F7F0DF;
+    --p3c: #55645F;
+    --p3-bg: #ECF0EE;
+    --code-bg: #EDF1EF;
+    --shadow: 0 1px 2px rgba(29,39,36,.05), 0 8px 24px rgba(29,39,36,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111917; --surface: #18211E; --ink: #E2EAE6; --muted: #94A49E;
+      --line: #2A3733; --accent: #55B7A4; --accent-ink: #7ECCBD; --accent-soft: #1C2C28;
+      --p1: #E28575; --p1-bg: #322019; --p2c: #D8AA5B; --p2-bg: #2E2718;
+      --p3c: #94A49E; --p3-bg: #1F2926; --code-bg: #202B27;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111917; --surface: #18211E; --ink: #E2EAE6; --muted: #94A49E;
+    --line: #2A3733; --accent: #55B7A4; --accent-ink: #7ECCBD; --accent-soft: #1C2C28;
+    --p1: #E28575; --p1-bg: #322019; --p2c: #D8AA5B; --p2-bg: #2E2718;
+    --p3c: #94A49E; --p3-bg: #1F2926; --code-bg: #202B27;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F7F6; --surface: #FFFFFF; --ink: #1D2724; --muted: #5B6A65;
+    --line: #DDE4E1; --accent: #0E6B5B; --accent-ink: #0B5347; --accent-soft: #E3F0ED;
+    --p1: #B23A2A; --p1-bg: #F9ECE9; --p2c: #96660F; --p2-bg: #F7F0DF;
+    --p3c: #55645F; --p3-bg: #ECF0EE; --code-bg: #EDF1EF;
+    --shadow: 0 1px 2px rgba(29,39,36,.05), 0 8px 24px rgba(29,39,36,.06);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Apple SD Gothic Neo", Pretendard, "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  code, .path {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .84em;
+    background: var(--code-bg);
+    border-radius: 4px;
+    padding: .1em .35em;
+  }
+  a { color: var(--accent-ink); }
+
+  header.site {
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .site-inner {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 40px 24px 0;
+  }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    font-weight: 700;
+    margin: 0 0 10px;
+  }
+  h1.title {
+    font-size: clamp(24px, 4.5vw, 34px);
+    line-height: 1.3;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    margin: 0 0 8px;
+    text-wrap: balance;
+  }
+  .subtitle { color: var(--muted); margin: 0 0 26px; max-width: 62ch; }
+
+  /* 탭 */
+  .tabs {
+    display: flex;
+    gap: 4px;
+  }
+  .tab-btn {
+    appearance: none;
+    border: 1px solid var(--line);
+    border-bottom: none;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-weight: 700;
+    font-size: 15px;
+    padding: 11px 20px 10px;
+    border-radius: 10px 10px 0 0;
+    cursor: pointer;
+  }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tab-btn[aria-selected="true"] {
+    background: var(--bg);
+    color: var(--accent-ink);
+    position: relative;
+  }
+  .tab-btn[aria-selected="true"]::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -1px;
+    height: 2px;
+    background: var(--bg);
+  }
+  .tab-hint { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+
+  main { max-width: 880px; margin: 0 auto; padding: 36px 24px 90px; }
+  .panel[hidden] { display: none; }
+
+  /* 본문 타이포 */
+  .prose { max-width: 720px; }
+  .prose p { margin: 0 0 1em; }
+  h2 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -.015em;
+    margin: 2.4em 0 .7em;
+    text-wrap: balance;
+  }
+  h2:first-child { margin-top: 0; }
+  h3 {
+    font-size: 17.5px;
+    font-weight: 750;
+    margin: 2em 0 .5em;
+    text-wrap: balance;
+  }
+  ul, ol { padding-left: 1.3em; margin: 0 0 1.1em; }
+  li { margin: .35em 0; }
+  strong { font-weight: 750; }
+
+  .sev {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    border-radius: 4px;
+    padding: 2px 8px;
+    vertical-align: 2px;
+    margin-right: 8px;
+  }
+  .sev.s1 { color: var(--p1); background: var(--p1-bg); }
+  .sev.s2 { color: var(--p2c); background: var(--p2-bg); }
+  .sev.s3 { color: var(--p3c); background: var(--p3-bg); }
+  .sev.ok { color: var(--accent-ink); background: var(--accent-soft); }
+
+  /* 카드/표 */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin: 0 0 16px;
+    box-shadow: var(--shadow);
+  }
+  .card > :first-child { margin-top: 0; }
+  .card > :last-child { margin-bottom: 0; }
+  .card.sev1 { border-left: 3px solid var(--p1); }
+  .card.sev2 { border-left: 3px solid var(--p2c); }
+  .card.sev3 { border-left: 3px solid var(--p3c); }
+
+  .tablewrap { overflow-x: auto; margin: 0 0 1.2em; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12.5px; letter-spacing: .06em; color: var(--muted); font-weight: 700; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { white-space: nowrap; font-weight: 700; }
+
+  /* 탭2 해설 블록 */
+  .block {
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    border: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .block .blabel {
+    display: block;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    margin-bottom: 6px;
+  }
+  .block > p:last-child, .block > ul:last-child { margin-bottom: 0; }
+  .block.why   { background: var(--p1-bg); border-color: transparent; }
+  .block.why .blabel { color: var(--p1); }
+  .block.logic { background: var(--code-bg); border-color: transparent; }
+  .block.logic .blabel { color: var(--muted); }
+  .block.fix   { background: var(--accent-soft); border-color: transparent; }
+  .block.fix .blabel { color: var(--accent-ink); }
+
+  .term-list { margin: 0; }
+  .term-list dt {
+    font-weight: 750;
+    margin-top: .9em;
+  }
+  .term-list dd { margin: .15em 0 0 0; color: var(--ink); }
+  .term-list dd + dt { margin-top: 1em; }
+
+  .flow {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.9;
+    background: var(--code-bg);
+    border-radius: 10px;
+    padding: 14px 18px;
+    overflow-x: auto;
+    white-space: pre;
+    margin: 0 0 1.2em;
+  }
+
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 0 0 28px;
+    font-size: 14.5px;
+  }
+  .toc b { display: block; font-size: 12px; letter-spacing: .1em; color: var(--muted); margin-bottom: 8px; }
+  .toc ol { margin: 0; }
+
+  footer.note {
+    max-width: 880px; margin: 0 auto; padding: 0 24px 60px;
+    color: var(--muted); font-size: 13.5px;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .panel { animation: fadein .18s ease-out; }
+    @keyframes fadein { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+  }
+</style>
+
+<header class="site">
+  <div class="site-inner">
+    <p class="eyebrow">kr-by-claude · 코드/문서 전수 리뷰 · 2026-07-07</p>
+    <h1 class="title">프로젝트 전체 리뷰 — 개선 우선순위</h1>
+    <p class="subtitle">5개 영역(파이프라인 코어 · LLM 러너 · 백테스트/문서 · API/웹 · 테스트/리포 위생)을 전수 분석하고, P1급 주장 8건을 코드에서 직접 재검증한 결과입니다.</p>
+    <div class="tabs" role="tablist" aria-label="보기 선택">
+      <button class="tab-btn" id="tab1-btn" role="tab" aria-selected="true" aria-controls="tab1">원본 리뷰</button>
+      <button class="tab-btn" id="tab2-btn" role="tab" aria-selected="false" aria-controls="tab2">초보자 해설판</button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- ================================================================ -->
+<!-- 탭 1 · 원본 -->
+<!-- ================================================================ -->
+<section class="panel prose" id="tab1" role="tabpanel" aria-labelledby="tab1-btn">
+
+<h2>프로젝트 현황 한눈 요약</h2>
+<p>결정론 스크리너(Minervini/CAN SLIM) → Claude CLI 분류/트리거/진입 파라미터 파이프라인은 <strong>설계 성숙도가 높은 상태</strong>입니다. 과거 사고마다 방어층(chokepoint+트립와이어, 자가치유, freshness 게이트, 멱등 재개, run 추적)을 쌓은 흔적이 잘 남아 있고, 백테스트 서브시스템(19모듈)은 사전등록→잠금→실측→판정 규율을 실제로 지켰습니다(v4 파일럿 기각을 그대로 수용한 기록 포함). SSOT(thresholds.py→generated.ts)는 diff 0으로 동기화 정상, 웹 tsc 클린, 의존성 최신권입니다.</p>
+<p>남은 리스크의 공통 패턴은 두 가지입니다: <strong>① "예외가 아닌 빈 결과가 정상 흐름으로 통과하는 지점"</strong>(universe/ohlcv/drift 모두 같은 뿌리 — 과거 "607종목 조용한 누락" 사고의 구조적 원인이 코드에 그대로 남아 있음), <strong>② 코드보다 문서·메모리 계층의 노후</strong>(ROADMAP은 5주 stale로 백테스트 서브시스템의 존재 자체를 모르고, 알려진 이슈 3건은 이미 해소됐는데 STILL-OPEN으로 기록돼 있었음 — 이번에 메모리 갱신 완료).</p>
+
+<h2><span class="sev s1">P1</span>정확성 직결 / 실전 가동 전 필수</h2>
+
+<div class="card sev1">
+<h3>1. evaluate/entry의 UsageLimitError 미처리 — go_now 유실이 "성공 run"으로 위장 <em>(실가동 최우선 블로커)</em></h3>
+<p><code>daily_delta.py:63</code>은 <code>except UsageLimitError: raise</code>로 배치를 즉시 중단하지만, <code>evaluate_pivot.py:127-134</code>와 <code>entry_params.py:95-100</code>은 generic <code>except Exception</code>뿐이라 사용량 한도에 걸린 날 남은 종목을 헛호출하며 순회하고 run은 성공으로 기록됩니다. 매수 신호가 조용히 유실되는 경로입니다. 수정은 2곳 각 4줄.</p>
+</div>
+
+<div class="card sev1">
+<h3>2. 분류층 pivot/base 가격 sanity 부재 — D-3의 남은 절반</h3>
+<p>entry_params 층은 이미 해소됐습니다(<code>store.py:389-443</code> <code>_validate_entry_params_sanity</code>, HARD fail-closed + SOFT 경고 — 메모리의 "D-3 STILL-OPEN"은 낡은 기록이었음). 그러나 <code>insert_classification</code>(store.py:94)은 enum/risk_flags만 검증하고 <code>pivot_price/base_high/base_low</code>의 부호·대소·범위 체크가 0입니다. 이 pivot이 평일 결정론 게이트(<code>trigger_gate.py:83</code> close&gt;pivot)와 손절(base_low)의 상류 입력이라, 오염된 값 하나가 매일 오발화 또는 영구 침묵을 만듭니다 — recall 감사가 지목한 "병목=트리거 경로"의 상류 데이터. 추가로 entry_params의 <code>current_price</code>를 payload 실제 close와 교차검증하는 것도 필요합니다(LLM 가격 오독이 Slack 매수알림까지 통과 가능).</p>
+</div>
+
+<div class="card sev1">
+<h3>3. daily.csv의 raw volume 잔존 — 7850a0b 수정의 커버리지 구멍 <em>(신규 발견)</em></h3>
+<p>payload_builder는 6월에 adj로 통일됐지만 <code>api/services/csv_builder.py:32</code>가 여전히 <code>p.volume</code>(raw)이고, <code>inline_builder.py:68,90</code>이 daily.csv를 LLM 인라인 입력에 유지합니다. 기업행위 종목(~12%)에서 같은 날 두 개의 다른 거래량이 LLM에 노출됩니다. 수정 한 줄(<code>COALESCE(p.adj_volume, p.volume)</code>).</p>
+</div>
+
+<div class="card sev1">
+<h3>4. market_context가 구조적으로 T-1(주말은 T-2) stale</h3>
+<p><code>market_context/modes.py:98-103</code>이 INCREMENTAL의 load_end를 어제로 고정하는데, crontab 실측상 ohlcv 체인(18:30)은 당일봉을 적재하고 market_context(19:30)만 어제까지 계산 → 20:00 LLM이 어제 status를, <strong>토 03:20 주말 분류는 목요일 기준 시장 status</strong>를 소비합니다. FTD/분배일 급변이 1~2세션 늦게 반영되는, LLM 판단 품질에 직접 닿는 유일한 신선도 이슈입니다.</p>
+</div>
+
+<div class="card sev1">
+<h3>5. "빈 결과 침묵 통과" 3형제 — 계정(accounting) 로직 추가</h3>
+<ul>
+<li><strong>universe</strong>: 한 시장 fetch가 빈 리스트면 그 시장 전 종목(~1,700개)이 일괄 delisted 처리될 수 있음 — <code>universe/store.py:36</code>의 가드는 "완전히 빈 경우"만 방어. 시장별 최소 종목 수 + delist 비율 상한 fail-closed 필요.</li>
+<li><strong>ohlcv</strong>: 빈 응답이 <code>modes.py:160-161</code>에서 성공도 실패도 아닌 상태로 소멸(failures=0) — 과거 607종목 누락 사고의 구조 원인이 그대로. empty_tickers를 run warnings로 승격.</li>
+<li><strong>drift</strong>: 재조회가 throttle로 비면 drift 아님 판정(<code>drift.py:70</code>) + 토요일 전종목 스윕이 sleep 없이 직렬 호출이라 스스로 throttle 유발.</li>
+</ul>
+</div>
+
+<div class="card sev1">
+<h3>6. 리포 위생 즉효 3건</h3>
+<ul>
+<li><code>.gitignore</code>에 <code>data/freezes/</code>(106MB, 런타임 산출물)와 <code>.claude/</code>(223MB, worktree) 부재 — 확인 완료, 실수 커밋 시 리포가 329MB 불어남.</li>
+<li><strong>테스트 격리 수리</strong>: 오늘 실측 실패 24개(792개 중, 37.5초 완주)의 근본 원인이 진단됐습니다 — (A) 죽은 컬럼 <code>expires_at</code> 참조 낡은 테스트 5개(<code>test_llm_store_load.py:37,47,79</code>, <code>test_schema_llm_runner.py:16</code> — 코드/스키마에 grep 0건), (B) commit+finally 수동청소 패턴의 영구 누수(kr_test stocks에 잔존 가짜 종목 137행 실측, 31→24 표류의 기전). conftest에 세션 시작 시 <code>DROP SCHEMA public CASCADE</code> 초기화 + 낡은 테스트 5개 갱신이면 <strong>baseline 0이 달성 가능한 스위트</strong>입니다.</li>
+<li><strong>미커밋 Library(자료실) 작업</strong>: 웹 4파일 + <code>web/public/library</code> 심링크 + 타깃인 <code>docs/artifacts/</code>(7.1MB)를 함께 커밋해야 fresh clone에서 동작. 단 <code>library.ts:245</code>의 recall-audit-story가 "진행 중 스냅샷"이라 최종본 교체 후 커밋.</li>
+</ul>
+</div>
+
+<div class="card sev1">
+<h3>7. 프롬프트↔thresholds drift 테스트가 1/3만 커버</h3>
+<p>drift 테스트는 <code>analyze_chart_v3.md</code>의 SSOT 블록만 검증합니다. <code>evaluate_pivot_trigger_v1.md</code>(1.4×, 95% 등)와 <code>calculate_entry_params_v2_0.md</code>(1.005 버퍼, weight/target clamp)는 전부 raw 리터럴이고, 심지어 <code>store.py:383-386</code>이 같은 수치를 사설 상수로 3중 복제(SSOT 미등재) — 프롬프트 갱신 시 sanity 검증과 어긋나 정상 출력이 오탐됩니다. 두 프롬프트에 SSOT 블록 도입 + 사설 상수 4개 thresholds.py 승격. (CLAUDE.md의 threshold-change-checklist 대상 작업.)</p>
+</div>
+
+<h2><span class="sev s2">P2</span>중요하지만 급하지 않음</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>항목</th><th>요지</th></tr></thead>
+<tbody>
+<tr><td>CI 도입</td><td><code>.github/</code> 없음. 스위트 37.5초 + postgres service container면 fresh DB라 로컬보다 안정적. P1-6 선행 후 워크플로 1개면 충분</td></tr>
+<tr><td>ROADMAP/README stale</td><td>ROADMAP §4가 2026-05-29 기준, backtest 서브시스템(19모듈)·수익성/recall 결론 전부 부재. living-doc 원칙 자기 위반</td></tr>
+<tr><td>dry-run freeze 무한 축적</td><td>dry-run cron이 매주 ~150종목 ZIP 저장 + <code>freeze_cleanup.py</code>가 cron/spec 미등록이라 retention 90일이 한 번도 실행 안 됨</td></tr>
+<tr><td>모델 별칭 핀 <code>sonnet</code></td><td>Anthropic이 별칭을 옮기면 3개 프롬프트 모델이 동시에 스왑됨. 5b/6 프롬프트는 Sonnet 5 미검증인데 자동 활성화 리스크. 구체 ID 핀 권장</td></tr>
+<tr><td>cron real 전환 메커니즘</td><td><code>pipeline_specs.py</code>의 modes[0]이 dry-run이라 <code>register()</code> 기본 호출로는 영원히 dry-run — 실가동용 전환 경로 자체가 없음</td></tr>
+<tr><td>daily_delta 직렬</td><td>종목당 2~4분 — 회복장에서 신규 후보 수십 개면 1~2시간. <code>run_parallel_batch</code> 재사용 가능하게 이미 설계돼 있음</td></tr>
+<tr><td>weekly NaN 잠복</td><td><code>weekly/transform.py:83-93</code> NaN→<code>'NaN'::numeric</code> 경로(daily의 <code>_adj()</code> 부재). 현재 production 0건이지만 발화 시 payload JSON 오염</td></tr>
+<tr><td>market_context per-date rollback 누락</td><td><code>modes.py:289-294</code> — DB 예외 1건이 잔여 날짜 전부 연쇄 실패</td></tr>
+<tr><td>corporate_actions N+1</td><td>매 평일 ~2,500 종목 × DART 개별 조회 → corp_code 생략 일괄 조회로 수십 분→수 분</td></tr>
+<tr><td>stop_variant 명세-구현 불일치</td><td>docstring "pivot 가격에 매수" vs 구현 <code>entry_price=b.close</code>(:151) — 확인 완료. 결과 문서·재현 경로도 부재(가장 최근 실험부터 규율이 느슨해진 신호)</td></tr>
+<tr><td>수익성 문서 LLM 사후지식 누출 한계 미기재</td><td>recall spec에는 명시된 "모델 컷오프(2026-01) &gt; 창(2021-24)" 오염 가능성이 수익성 결과 §8에 0건</td></tr>
+<tr><td>무인증 부수효과 엔드포인트</td><td><code>POST /runner/run</code>·<code>/cron/register</code>가 무인증(CORS는 브라우저만 제한). <code>VITE_API_TARGET</code> 도입으로 원격 시나리오가 열려 바인드/토큰 정책 명시 필요</td></tr>
+<tr><td>UI 노출 잔여 ⑥⑧</td><td><code>market_base_missing</code>·<code>abort_skipped</code>가 웹 grep 0건 — PipelinePage.tsx:383-397 한 곳 수정으로 둘 다 해결</td></tr>
+<tr><td>Decimal 0→None</td><td><code>api/routers/indicators.py:178,209-210</code> — signals.py에서 이미 고친 버그 클래스의 잔존 2곳</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2><span class="sev s3">P3</span>낮은 우선순위 (선별)</h2>
+<p>CLAUDE.md baseline 문구 갱신(격리 수리 후 "0" 기준으로), <code>achart_v3_speed_report.md</code> 루트→docs/ 이동, sonnet5 SEALED 번들은 블라인드 평가 완주 후 커밋, rs_line <code>raw=False</code> 성능(backfill 한정), Phase B/C/D의 <code>limit_tickers</code> 무시(production 오염 가능한 테스트 footgun), 지수코드 하드코딩 산재, deprecated 별칭·죽은 코드 정리, pandas FutureWarning(<code>transform.py:54</code>), batch.zip 동기 처리, runs <code>/summary</code> N+1.</p>
+
+<h2>전략적 다음 작업 (버그가 아닌 로드맵 — 문서들이 스스로 지목)</h2>
+<ol>
+<li><strong>manage_active_trade 포지션 관리 production 이식</strong> — trading-rules 문서가 "실전 가동의 선결 과제"로 명시(8% 스톱·트레일링 부재)</li>
+<li><strong>평일경로 백테스트(A)</strong> — "본체"로 명시된 미착수 항목, recall H1/H2 검증(issue #2)과 자연 결합</li>
+<li><strong>Sonnet 5 [B] 블라인드 평가 완주</strong> — 번들 v2 생성됐으나 미평가 상태로 방치</li>
+<li><strong>기간 확장(2016-2020)</strong> — 수익 미입증(CI 0 포함) 결론의 직접 후속</li>
+</ol>
+
+<h2>검토 패스 결과 (요청하신 1회 검토)</h2>
+<p><strong>직접 재검증 — P1급 주장 8건 전부 코드에서 확인됨</strong>: csv_builder raw volume(:32), UsageLimitError 처리 비대칭(daily_delta만 있음), market_context load_end=yesterday + crontab 시각(19:30/20:00/토03:20), universe 빈-집합만 가드, stop_variant docstring↔<code>entry_price=b.close</code>, .gitignore 공백(freezes 106M·.claude 223M du 실측), expires_at 코드 참조 0건, insert_classification의 가격 검증 부재.</p>
+<p><strong>정정된 것 (기존 기록이 실제와 어긋났던 3건 — 메모리 파일 갱신 완료)</strong>:</p>
+<ul>
+<li>"payload raw vs adj volume 불일치 STILL-OPEN" → payload_builder는 7850a0b로 <strong>해소됨</strong>. 단 같은 혼입이 csv_builder에 남아 있어 이슈가 "종결"이 아니라 "이동"(위 P1-3).</li>
+<li>"D-3 LLM 가격 sanity 없음 STILL-OPEN" → entry_params 층은 <strong>해소됨</strong>(54787ca). 분류층만 잔여(위 P1-2).</li>
+<li>테스트 baseline "~31개(CLAUDE.md는 ~25)" → 오늘 실측 <strong>24개</strong> + 표류의 근본 원인 진단 완료. "고정 수치 baseline" 관리 방식 자체가 문제였음.</li>
+</ul>
+<p><strong>에이전트 간 판단 충돌 2건 — 조정한 결론</strong>:</p>
+<ul>
+<li>sonnet5 평가 번들: "커밋" vs "씰 취지 상충" → 블라인드 평가 <strong>완주 후</strong> 결과+SEALED 매핑 동시 커밋이 무결성에 맞음.</li>
+<li><code>docs/artifacts/</code>(7.1MB): "gitignore+URL만" vs "커밋" → Library 페이지 심링크의 타깃이므로 <strong>커밋이 맞음</strong>(기능 의존성이 판단을 결정).</li>
+</ul>
+<p><strong>부족했던 내용 (초안에 없어 보완한 것)</strong>: ① schema.sql이 수동 psql 적용 방식이고 마이그레이션 도구가 없음 — 지금까지 두 번 이상 "적용 누락 → 테스트/INSERT 실패"를 겪은 known pain인데 어떤 에이전트도 개선안으로 올리지 않았습니다. 스키마 변경 빈도를 볼 때 최소한 버전 체크(스키마 해시 비교) 정도는 P2 가치가 있습니다. ② DB 백업/복구 전략은 어디에도 문서화돼 있지 않음 — production DB가 유일 사본이면 KRX 재백필로 복구 가능한 데이터(OHLCV)와 불가능한 데이터(LLM 분류 이력, trigger_evaluation_log)의 구분이 필요합니다. LLM 분류 이력은 재실행 비교 금지 원칙상 사실상 대체 불가 데이터라 백업 가치가 가장 높습니다.</p>
+<p><strong>한계 고지</strong>: 이 리뷰는 정적 분석 + 테스트 1회 실행 기반이며, production DB 데이터 품질은 에이전트가 일부 spot-check(weekly NaN 0건, trigger_log 32행 등)만 수행했습니다. P1 항목들은 수정 전 각각 해당 테스트로 재현 확인을 권합니다.</p>
+
+</section>
+
+<!-- ================================================================ -->
+<!-- 탭 2 · 초보자 해설판 -->
+<!-- ================================================================ -->
+<section class="panel prose" id="tab2" role="tabpanel" aria-labelledby="tab2-btn" hidden>
+
+<div class="toc">
+<b>이 탭의 구성</b>
+<ol>
+<li>이 프로젝트는 무엇을 하는 시스템인가요? (배경)</li>
+<li>먼저 알아두면 좋은 용어 사전</li>
+<li>지금 상태에 대한 총평</li>
+<li>P1 — 가장 먼저 고쳐야 할 7가지</li>
+<li>P2 — 중요하지만 당장 급하지는 않은 14가지</li>
+<li>P3 — 여유 있을 때 정리할 것들</li>
+<li>버그 수리가 아닌, 다음에 만들 것들 (로드맵)</li>
+<li>이 리뷰 자체를 한 번 더 검토한 결과</li>
+</ol>
+</div>
+
+<h2>1. 이 프로젝트는 무엇을 하는 시스템인가요?</h2>
+<p>kr-by-claude는 <strong>한국 주식(코스피/코스닥) 중에서 "지금 사볼 만한 종목"을 자동으로 골라내는 시스템</strong>입니다. 미국의 유명 트레이더 마크 미너비니(Minervini)와 윌리엄 오닐(O'Neil)이 책으로 정리한 종목 선정 규칙을 컴퓨터 프로그램으로 옮긴 것입니다.</p>
+<p>전체 과정은 크게 3단계입니다.</p>
+<ol>
+<li><strong>데이터 수집</strong>: 매일 저녁, 한국거래소(KRX)에서 전 종목(~2,550개)의 주가와 거래량을 내려받아 데이터베이스에 저장합니다.</li>
+<li><strong>1차 선별(스크리너)</strong>: 수학 공식으로 계산 가능한 조건(예: "주가가 200일 평균선 위에 있는가")을 전 종목에 적용해, 조건을 통과한 종목만 추립니다. 이 단계는 사람이나 AI의 판단 없이 <em>숫자 계산만으로</em> 이루어집니다. 그래서 "결정론(deterministic) 스크리너"라고 부릅니다 — 같은 입력이면 언제나 같은 결과가 나온다는 뜻입니다.</li>
+<li><strong>2차 판단(AI 분석)</strong>: 1차를 통과한 종목의 차트 이미지를 Claude(AI)에게 보여주고, "이 차트가 매수하기 좋은 모양인가?"를 판정하게 합니다. AI는 종목마다 <em>entry(진입 후보) / watch(관찰) / ignore(무시)</em> 같은 등급을 매기고, 매수 기준가(pivot)도 산출합니다.</li>
+</ol>
+<p>그 뒤 평일마다 "관찰 중이던 종목이 오늘 매수 기준가를 돌파했는가"를 검사하고, 돌파하면 AI에게 한 번 더 "지금 사도 되는가"를 묻고(go_now/wait/abort), 사도 된다면 매수가·손절가·목표가를 계산해 Slack 메신저로 알림을 보냅니다. 이 모든 과정은 <strong>cron</strong>(정해진 시각에 프로그램을 자동 실행해 주는 예약 장치)으로 매일 자동 실행됩니다. 단, 현재는 <strong>모의 실행(dry-run) 모드</strong>라서 실제 알림/기록 없이 연습 가동 중입니다.</p>
+<div class="flow">데이터 흐름 (매일 저녁)
+
+KRX 주가 수집 ─→ 지표 계산 ─→ 결정론 스크리너 ─→ [주말] AI 차트 분류
+   18:30            (자동)        (자동)              (토 03:20)
+                                                        │
+시장 상태 계산 ─────────────────────────────┐           ▼
+   19:30                                    ├→ [평일 20:00] 돌파 검사
+                                            │      → AI "지금 살까?" 판단
+                                            │      → 매수 파라미터 계산
+                                            └      → Slack 알림 (현재 dry-run)</div>
+
+<h2>2. 먼저 알아두면 좋은 용어 사전</h2>
+<div class="card">
+<dl class="term-list">
+<dt>파이프라인 (pipeline)</dt>
+<dd>여러 처리 단계를 순서대로 이어 붙인 것. 공장 컨베이어벨트처럼 "수집 → 계산 → 선별 → 판단"이 차례로 흘러갑니다.</dd>
+<dt>pivot (피벗, 매수 기준가)</dt>
+<dd>AI가 차트를 보고 정하는 "이 가격을 넘으면 상승 추세가 확인된 것"이라는 기준 가격. 주가가 이 선을 넘는 순간을 "돌파(breakout)"라고 부르고, 그때가 매수 후보 시점이 됩니다.</dd>
+<dt>go_now / wait / abort</dt>
+<dd>돌파가 일어났을 때 AI가 내리는 세 가지 결정. go_now = 지금 매수해도 좋음, wait = 아직 기다림, abort = 이 종목은 포기.</dd>
+<dt>raw / adj (원본 가격 / 수정 가격)</dt>
+<dd>회사가 주식을 쪼개면(액면분할) 주가 숫자가 하루아침에 1/10로 보이는 왜곡이 생깁니다. 이를 보정해 과거~현재를 연속으로 이어 붙인 값이 <b>adj(수정 주가/수정 거래량)</b>, 보정 전 원본이 <b>raw</b>입니다. 차트 분석에는 반드시 adj를 써야 하며, 한 화면에 둘을 섞으면 "같은 날인데 숫자가 두 개"인 모순이 생깁니다.</dd>
+<dt>프롬프트 (prompt)</dt>
+<dd>AI에게 주는 지시문. 이 프로젝트에서는 "차트를 이렇게 분석해라"라는 긴 지시문이 별도 텍스트 파일(<code>prompts/*.md</code>)로 관리됩니다. 프롬프트 안에도 기준 숫자("거래량 1.4배")가 적혀 있어서, 코드의 숫자와 어긋나지 않게 관리하는 것이 과제입니다.</dd>
+<dt>payload (페이로드)</dt>
+<dd>AI에게 분석을 시킬 때 함께 건네는 자료 묶음. 최근 주가 표, 계산된 지표, 시장 상태 등을 정리한 JSON(구조화된 텍스트) 형식입니다. 차트 이미지, daily.csv(표 형식 시세 파일)와 함께 한 세트로 전달됩니다.</dd>
+<dt>FTD / 분배일</dt>
+<dd>시장 전체 상태를 판정하는 두 가지 신호. <b>FTD(팔로우스루 데이)</b>는 하락장이 끝나고 상승 전환을 확인해 주는 급등일, <b>분배일</b>은 반대로 기관이 물량을 파는 것으로 보이는 하락일입니다. 이 신호들이 쌓여 "상승장/하락장" 판정(market_context)이 매일 갱신됩니다.</dd>
+<dt>cron / crontab</dt>
+<dd>컴퓨터에 "매일 몇 시에 이 프로그램을 실행해라"라고 예약해 두는 장치(cron)와 그 예약 목록(crontab).</dd>
+<dt>dry-run (모의 실행)</dt>
+<dd>실제 저장·알림 없이 "돌아가는 흉내"만 내는 연습 모드. 실수 비용 없이 시스템을 점검할 때 씁니다.</dd>
+<dt>백테스트 (backtest)</dt>
+<dd>"이 규칙대로 과거에 투자했다면 돈을 벌었을까?"를 과거 데이터로 검증하는 모의시험.</dd>
+<dt>SSOT (Single Source of Truth, 단일 진실 원천)</dt>
+<dd>같은 숫자(예: "거래량이 평균의 1.4배 이상")를 여러 파일에 흩어 적으면 하나만 고치고 나머지를 빠뜨리는 사고가 납니다. 그래서 숫자를 <b>한 파일(thresholds.py)에만</b> 정의하고 나머지는 거기서 가져다 쓰게 하는 원칙입니다.</dd>
+<dt>fail-closed / fail-open</dt>
+<dd>문제가 감지됐을 때 <b>fail-closed</b>는 "일단 멈춤"(안전 우선), <b>fail-open</b>은 "경고만 하고 계속 진행"(가용성 우선). 돈이 걸린 시스템은 대부분 fail-closed가 안전합니다.</dd>
+<dt>침묵 실패 (silent failure)</dt>
+<dd>실패했는데 에러 메시지조차 없이 조용히 지나가는 것. 가장 위험한 종류의 버그입니다. "실패 0건"이라는 보고가 사실은 "실패를 셀 줄 모름"일 수 있기 때문입니다.</dd>
+<dt>커밋 (commit) / .gitignore</dt>
+<dd>커밋은 코드 변경사항을 git(버전 관리 장부)에 기록하는 것. .gitignore는 "이 파일들은 장부에 올리지 마라"는 제외 목록입니다.</dd>
+<dt>테스트 격리 (test isolation)</dt>
+<dd>자동 테스트끼리 서로의 흔적(데이터)을 남기지 않게 하는 것. 격리가 깨지면 "내 코드는 멀쩡한데 앞 테스트가 남긴 쓰레기 데이터 때문에 실패"하는 일이 생깁니다.</dd>
+<dt>P1 / P2 / P3</dt>
+<dd>우선순위 등급. P1 = 정확성에 직접 영향, 가장 먼저. P2 = 중요하지만 당장 급하지 않음. P3 = 여유 있을 때.</dd>
+</dl>
+</div>
+
+<h2>3. 지금 상태에 대한 총평</h2>
+<p><strong>결론부터: 이 프로젝트는 잘 만들어져 있습니다.</strong> 원본 리뷰의 첫 문단이 말하는 "설계 성숙도가 높다"는 평가의 근거를 풀면 이렇습니다.</p>
+<ul>
+<li><strong>사고에서 배운 흔적이 코드에 있다</strong>: 과거에 데이터 오염 사고를 겪을 때마다(예: 거래정지일의 0원 주가가 지표를 오염시킨 사건), 같은 사고가 재발하지 못하게 막는 안전장치를 겹겹이 추가해 왔습니다. 원본 리뷰에 나오는 어려운 단어들은 전부 이런 안전장치의 이름입니다:
+<ul>
+<li><em>chokepoint</em> — 모든 데이터가 반드시 통과해야 하는 단일 검문소</li>
+<li><em>트립와이어</em> — 누군가 검문소를 우회하면 울리는 경보</li>
+<li><em>자가치유</em> — 오염 데이터를 발견하면 스스로 지우고 다시 만드는 로직</li>
+<li><em>freshness 게이트</em> — 데이터가 오늘 것인지 확인하고, 낡았으면 실행을 멈추는 문</li>
+<li><em>멱등 재개</em> — 중간에 끊긴 작업을 끊긴 곳부터 다시 시작해도 결과가 같게 하는 성질</li>
+<li><em>run 추적</em> — 모든 실행의 성공/실패를 남기는 기록부</li>
+</ul></li>
+<li><strong>검증 방법론이 과학적이다</strong>: 백테스트를 할 때 "결과를 보고 나서 기준을 바꾸는" 자기기만을 막으려고, 실험 전에 판정 기준을 미리 등록하고(사전등록) 잠근 뒤 결과를 측정합니다. 실제로 기대에 어긋난 실험(v4 파일럿)을 기준대로 기각한 기록이 남아 있습니다 — 규칙을 만들기만 한 게 아니라 지켰다는 증거입니다.</li>
+<li><strong>숫자 관리가 깨끗하다</strong>: 책에서 가져온 기준값들이 SSOT 원칙대로 한 파일에 모여 있고, 웹 화면용 사본과의 동기화도 어긋남 없이(diff 0) 유지되고 있습니다.</li>
+<li><strong>기반도 건강하다</strong>: 웹 코드는 타입 검사(tsc — 자료형이 어긋난 코드를 잡아내는 자동 검사)를 오류 0으로 통과하고, 사용 중인 라이브러리들도 모두 최신 버전대라 알려진 보안 취약점이 없습니다.</li>
+</ul>
+<p>그럼에도 남아 있는 문제들은 두 가지 공통 패턴으로 묶입니다.</p>
+<p><strong>패턴 ① "빈 결과가 조용히 통과한다"</strong>. 외부 서버(KRX)에 데이터를 요청했는데 에러 대신 <em>빈 응답</em>이 돌아오는 경우가 있습니다. 지금 코드는 "에러"는 잘 잡지만 "빈 것"은 정상 취급하고 넘어갑니다. 실제로 과거에 이 문제로 607개 종목의 과거 데이터가 누락됐는데 시스템은 "실패 0건"이라고 보고한 사고가 있었고, 그 구조적 원인이 아직 코드에 남아 있습니다.</p>
+<p><strong>패턴 ② "코드보다 문서가 낡았다"</strong>. 코드는 계속 고쳐졌는데 프로젝트 설명 문서(ROADMAP)는 5주 전에 멈춰 있고, "아직 안 고쳐진 문제" 목록에는 이미 고쳐진 것 3건이 남아 있었습니다(이번 리뷰에서 확인 후 기록을 갱신했습니다). 문서가 낡으면 다음 작업자가 이미 해결된 문제를 다시 파거나, 존재하는 기능을 모르고 새로 만드는 낭비가 생깁니다.</p>
+
+<h2>4. P1 — 가장 먼저 고쳐야 할 7가지</h2>
+<p>P1은 "틀린 매매 신호가 나가거나, 나가야 할 신호가 사라질 수 있는" 문제들입니다. 하나씩 쉽게 풀어 보겠습니다.</p>
+
+<div class="card sev1">
+<h3>P1-1. 사용량 한도에 걸린 날, 매수 신호가 조용히 사라질 수 있다</h3>
+<p><b>배경</b>: 이 시스템은 AI(Claude)를 명령줄 도구(CLI)로 호출하는데, AI 사용에는 하루 사용량 한도가 있습니다. 한도에 도달하면 "한도 초과" 에러가 돌아옵니다. 코드에는 이를 위한 전용 에러 타입 <code>UsageLimitError</code>가 준비돼 있습니다.</p>
+<div class="block why"><span class="blabel">무엇이 문제인가요?</span>
+<p>평일 파이프라인의 세 단계 중 첫 단계(신규 종목 분석, daily_delta)는 한도 초과를 만나면 <em>"더 해봐야 소용없으니 전체를 멈추고 실패로 기록"</em>하도록 올바르게 짜여 있습니다. 그런데 그다음 두 단계 — "지금 살까?" 판단(evaluate)과 매수 파라미터 계산(entry) — 는 한도 초과를 <em>일반 오류와 똑같이</em> 취급합니다. 그래서 한도에 걸린 날에도 남은 종목들을 계속 호출하고(전부 실패), 마지막에 실행 기록은 <strong>"성공"</strong>으로 남습니다.</p>
+<p>가장 나쁜 시나리오: 어떤 종목이 오늘 매수 적기(go_now)였는데, 한도 초과로 판단 자체가 실행되지 못했고, 시스템은 성공했다고 기록했으니 아무도 눈치채지 못합니다. <strong>사야 할 종목을 놓쳤는데 놓친 줄도 모르는</strong> 상황입니다.</p></div>
+<div class="block logic"><span class="blabel">실제 코드와의 연결</span>
+<p>올바른 처리의 견본이 이미 같은 코드베이스에 있습니다: <code>kr_pipeline/llm_runner/daily_delta.py:63</code>의 <code>except UsageLimitError: raise</code>(한도 초과면 즉시 중단하고 위로 전파). 문제 지점은 <code>evaluate_pivot.py:127-134</code>와 <code>entry_params.py:95-100</code> — 둘 다 <code>except Exception</code>(모든 오류를 한 덩어리로) 하나뿐이라 한도 초과가 그 안에 삼켜집니다.</p></div>
+<div class="block fix"><span class="blabel">어떻게 고치나요</span><p>두 파일에 daily_delta와 똑같은 4줄(한도 초과면 되돌리고 즉시 중단)을 추가하면 됩니다. 수정량은 작지만, 실전 가동 전에 반드시 필요해서 P1 중에서도 1순위입니다.</p></div>
+</div>
+
+<div class="card sev1">
+<h3>P1-2. AI가 정한 "매수 기준가"를 아무도 검산하지 않는다</h3>
+<p><b>배경</b>: AI는 가끔 숫자를 틀립니다(가격 자릿수를 잘못 읽는 등). 그래서 AI가 낸 숫자는 저장 전에 "말이 되는 숫자인지" 기계적으로 검사(sanity check)해야 합니다. 예: 가격이 0보다 큰가? 손절가가 매수가보다 낮은가?</p>
+<div class="block why"><span class="blabel">무엇이 문제인가요?</span>
+<p>이 시스템에서 AI가 숫자를 내는 곳은 두 층입니다. <strong>마지막 층(매수 파라미터)은 이미 검사가 잘 붙어 있습니다</strong> — 치명적 오류(가격≤0, 손절가≥매수가 등)는 저장 자체를 거부하고, 애매한 값(책의 권장 범위 이탈)은 경고 표시를 답니다. 이번 리뷰에서 확인해 보니 이 부분은 예전 기록("검증 없음")과 달리 이미 해결돼 있었습니다.</p>
+<p>문제는 <strong>첫 층(주말 차트 분류)</strong>입니다. AI가 여기서 정하는 pivot_price(매수 기준가), base_high/base_low(차트 패턴의 윗선/아랫선)는 <em>아무 검사 없이</em> 저장됩니다. 그런데 이 pivot이야말로 이후 모든 판단의 출발점입니다 — 평일마다 "주가가 pivot을 넘었나?"를 기계가 비교하고, base_low는 손절 기준으로 쓰입니다. pivot 하나가 오염되면(예: 자릿수 오류로 10배 큰 값) 그 종목은 <em>영원히 돌파가 안 일어나거나</em>(기준가가 터무니없이 높음) <em>매일 가짜 돌파가 일어납니다</em>(터무니없이 낮음). 최근 수행한 "놓친 승자 감사"에서 병목이 바로 이 돌파 검사 경로로 지목됐는데, 이 문제는 그 경로의 <em>입력 데이터</em>를 오염시킬 수 있는 위치에 있습니다.</p>
+<p>덧붙여, 마지막 층에도 남은 구멍이 하나 있습니다: AI가 보고한 현재가(current_price)를 <em>데이터베이스에 있는 실제 종가와 비교</em>하지는 않습니다. AI가 가격을 크게 오독해도 내부 논리만 맞으면(손절&lt;매수&lt;목표) 통과되어 Slack 매수 알림까지 그대로 나갈 수 있습니다.</p></div>
+<div class="block logic"><span class="blabel">실제 코드와의 연결</span>
+<p>잘된 예: <code>kr_pipeline/llm_runner/store.py:389-443</code>의 <code>_validate_entry_params_sanity</code>(매수 파라미터 검사). 구멍: 같은 파일의 <code>insert_classification</code>(:94)은 분류 등급의 종류(enum)와 위험 플래그 이름만 확인하고 가격 숫자는 그대로 저장. 그 pivot을 소비하는 곳: <code>trigger_gate.py:83</code>(종가&gt;pivot 비교), <code>load.py:164</code>(base_low를 손절가로 사용).</p></div>
+<div class="block fix"><span class="blabel">어떻게 고치나요</span><p>분류 저장 시 최소 규칙 추가: pivot&gt;0, base_low&gt;0, base_low&lt;base_high, base_low≤pivot (위반 시 저장 거부). 여기에 "pivot이 최근 종가와 수십% 이상 동떨어지면 경고"를 더하면 자릿수 오류도 잡힙니다. 매수 파라미터 쪽에는 "AI의 current_price와 DB 실제 종가가 ±5~10% 이내인지" 교차검증을 추가합니다.</p></div>
+</div>
+
+<div class="card sev1">
+<h3>P1-3. AI에게 주는 자료 안에서, 같은 날 거래량이 두 가지 숫자로 나온다</h3>
+<p><b>배경</b>: 용어 사전의 raw/adj를 떠올려 주세요. 액면분할 등 기업행위가 있었던 종목은 보정 전(raw)과 보정 후(adj) 거래량이 다릅니다. AI에게 차트 분석을 시킬 때는 여러 형식의 자료(구조화된 payload, 표 형식의 daily.csv 등)를 한 묶음으로 주는데, 이 묶음 안의 모든 숫자는 <strong>한 가지 기준(adj)으로 통일</strong>돼야 합니다.</p>
+<div class="block why"><span class="blabel">무엇이 문제인가요?</span>
+<p>6월에 payload 쪽의 raw/adj 혼용을 발견해서 고쳤습니다(커밋 7850a0b). 그런데 이번 리뷰에서 <strong>같은 묶음에 함께 들어가는 daily.csv 파일이 여전히 raw 거래량을 쓰고 있는 것</strong>을 새로 발견했습니다. 즉 기업행위가 있었던 종목(전체의 약 12%)에서는 AI가 같은 날짜에 대해 서로 다른 두 거래량을 보게 됩니다. 거래량은 "돌파가 진짜인지"를 가리는 핵심 신호라서(거래량이 평균의 1.4배 이상이어야 진짜 돌파로 인정), 헷갈린 AI가 잘못된 판단을 할 수 있습니다.</p></div>
+<div class="block logic"><span class="blabel">실제 코드와의 연결</span>
+<p>문제 지점: <code>api/services/csv_builder.py:32</code>의 SQL이 <code>p.volume</code>(raw)을 선택. 이 CSV를 AI 입력에 포함시키는 곳: <code>inline_builder.py:68,90</code>(의도적으로 유지 중). 이미 올바르게 고쳐진 이웃: <code>payload_builder.py:155-157</code>(adj로 통일 + "도메인 혼입 금지" 주석까지 부착).</p></div>
+<div class="block fix"><span class="blabel">어떻게 고치나요</span><p>SQL 한 줄을 <code>COALESCE(p.adj_volume, p.volume)</code>(보정값이 있으면 보정값, 없으면 원본)으로 바꾸면 끝입니다. 발견 대비 수정 비용이 가장 작은 P1입니다.</p></div>
+</div>
+
+<div class="card sev1">
+<h3>P1-4. AI가 참고하는 "시장 전체 상태"가 항상 하루(주말엔 이틀) 늦다</h3>
+<p><b>배경</b>: 개별 종목 판단과 별도로, 시스템은 매일 "시장 전체가 상승장인가 하락장인가"(market_context)를 계산합니다. AI는 이 시장 상태를 참고해서 판단합니다 — 같은 차트라도 상승장에서는 매수, 하락장에서는 보류가 맞을 수 있으니까요.</p>
+<div class="block why"><span class="blabel">무엇이 문제인가요?</span>
+<p>자동 실행 시각을 실측해 보면: 주가 수집은 18:30에 <em>오늘</em> 데이터까지 저장하는데, 시장 상태 계산(19:30)은 코드가 계산 범위를 <em>어제까지</em>로 잘라 놓았습니다. 그래서 20:00에 도는 AI는 항상 <strong>어제의 시장 상태</strong>를 봅니다. 주말은 더 심합니다: 금요일 19:30 계산이 목요일까지만 다루므로, 토요일 새벽의 주간 차트 분류는 <strong>목요일 기준 시장 상태</strong>로 판단합니다. 목~금 사이에 시장이 급변하면 — 예를 들어 상승 전환 신호(FTD)가 뜨거나 기관 매도일(분배일)이 쌓여 판정이 바뀌면 — 그 변화가 1~2일 늦게 반영됩니다.</p></div>
+<div class="block logic"><span class="blabel">실제 코드와의 연결</span>
+<p>원인: <code>kr_pipeline/market_context/modes.py:98-103</code> — 증분 모드의 계산 종료일을 <code>yesterday</code>로 반환. 시각 증거: crontab에 주가 체인 18:30 / market_context 19:30 / AI 평일 20:00 / AI 주말 토 03:20. AI가 시장 상태를 읽는 곳: <code>market_context_builder.py</code>의 "기준일 이하 중 최신" 조회 — 오늘 행이 없으니 자연히 어제 행이 잡힙니다.</p></div>
+<div class="block fix"><span class="blabel">어떻게 고치나요</span><p>계산 종료일을 <code>yesterday</code>에서 <code>today</code>로 바꾸면 됩니다. 주가 체인(18:30)이 이미 당일 지수 데이터를 넣어 두므로 재료는 준비돼 있고, 혹시 당일 데이터가 없는 날이면 지금처럼 자연스럽게 건너뜁니다(안전).</p></div>
+</div>
+
+<div class="card sev1">
+<h3>P1-5. "빈 응답"이 정상 취급되는 3곳 — 침묵 실패의 뿌리</h3>
+<p><b>배경</b>: 외부 서버(KRX)는 과부하일 때 에러 대신 <em>빈 데이터</em>를 돌려주기도 합니다(요청 제한, throttling). 에러는 코드가 잡아서 재시도하지만, "정상적으로 도착한 빈 것"은 검사 로직이 따로 없으면 그냥 통과합니다.</p>
+<div class="block why"><span class="blabel">무엇이 문제인가요? — 같은 뿌리의 세 갈래</span>
+<ul>
+<li><strong>종목 목록(universe)</strong>: 매월 1회 "현재 상장 종목 목록"을 받아서, 목록에 없는 종목을 상장폐지로 처리합니다. 안전장치는 "목록이 <em>완전히</em> 비면 아무것도 안 함" 하나뿐입니다. 만약 코스피 목록은 정상인데 코스닥 목록만 빈 채로 오면? 코스닥 <strong>약 1,700개 종목 전부가 상장폐지로 잘못 처리</strong>되고, 상장폐지 종목은 이후 모든 파이프라인에서 제외되므로 다음 달 자동 실행까지 스스로 복구되지 않습니다.</li>
+<li><strong>주가 수집(ohlcv)</strong>: 어떤 종목의 응답이 비면 "성공도 실패도 아닌 상태"로 조용히 건너뜁니다. 실행 후 보고서에는 실패 0건. 실제로 과거에 이 경로로 607개 종목의 과거 데이터가 빠졌는데 아무 경고가 없었던 사고가 있었고, 데이터는 복구했지만 <strong>코드의 구멍 자체는 그대로</strong>입니다.</li>
+<li><strong>가격 보정 감시(drift)</strong>: 액면분할을 놓치지 않으려고 주기적으로 DB와 KRX를 대조하는데, 대조용 재조회가 빈 응답이면 "차이 없음"으로 판정합니다. 놓친 분할이 무경고로 지나갈 수 있습니다. 게다가 토요일 전수 검사는 약 2,550개 종목을 쉼 없이 연속 호출해서 <em>스스로 요청 제한을 유발</em>하는 구조입니다.</li>
+</ul></div>
+<div class="block logic"><span class="blabel">실제 코드와의 연결</span>
+<p>universe: <code>kr_pipeline/universe/store.py:36</code>(빈 집합 가드가 전부-빈 경우만 방어). ohlcv: <code>kr_pipeline/ohlcv/modes.py:160-161</code>(<code>if raw.empty: continue</code> — 집계 없이 소멸). drift: <code>kr_pipeline/pipeline/drift.py:70</code>(겹침 없으면 "드리프트 아님") + <code>:121-133</code>(무-sleep 직렬 호출).</p></div>
+<div class="block fix"><span class="blabel">어떻게 고치나요</span><p>공통 원칙은 하나: <strong>"빈 결과 = 검증이 필요한 신호"로 취급하고 세기(counting)</strong>. universe에는 시장별 최소 종목 수(코스피≥700, 코스닥≥1,300)와 "폐지 처리 대상이 활성 종목의 2%를 넘으면 중단" 가드. ohlcv에는 빈 응답 종목 수를 실행 보고서에 경고로 승격 + 1% 초과 시 알림. drift에는 "검증 못 한 종목" 카운트 분리 + 호출 사이 대기 시간 삽입.</p></div>
+</div>
+
+<div class="card sev1">
+<h3>P1-6. 저장소 위생 3건 — 작은 수고로 큰 효과</h3>
+<div class="block why"><span class="blabel">① 대용량 산출물이 git 제외 목록에 없다</span>
+<p>시스템이 돌 때마다 만들어지는 보관용 압축파일 폴더(<code>data/freezes/</code>, 106MB)와 도구 작업 폴더(<code>.claude/</code>, 223MB)가 <code>.gitignore</code>(제외 목록)에 등록돼 있지 않습니다. 실수로 커밋 한 번이면 저장소가 329MB 무거워지고, 되돌리기도 번거롭습니다. 제외 목록에 두 줄 추가하면 끝나는 일입니다.</p></div>
+<div class="block why"><span class="blabel">② 자동 테스트 24개가 "원래 실패하는 것"으로 방치돼 있다</span>
+<p>이 프로젝트에는 자동 테스트가 792개 있고 37.5초 만에 전부 돕니다(빠른 편). 그중 24개가 실패하는데, 지금까지는 "원래 약 25개쯤 실패하는 게 기본 상태"라고 여기고 지나쳤습니다. 이번 리뷰에서 근본 원인을 실측으로 밝혔습니다: <b>(A)</b> 코드에서 이미 삭제된 <code>expires_at</code>이라는 DB 컬럼을 아직 참조하는 낡은 테스트 5개 — 코드가 맞고 테스트가 낡은 경우입니다. <b>(B)</b> 일부 테스트가 테스트용 DB에 데이터를 쓰고 끝날 때 지우는 방식인데, 테스트가 도중에 죽으면 청소를 못 해서 가짜 데이터가 <em>영구히</em> 쌓입니다(실측: 가짜 종목 137행 잔존). 이 쓰레기가 다른 테스트를 연쇄로 실패시키고, 실패 수가 31개→24개처럼 실행할 때마다 표류하는 이유도 이것입니다. "기준 실패 수와 비교해 회귀를 판정"하는 현재 방식은 기준 자체가 흔들려서 믿을 수 없습니다.</p></div>
+<div class="block why"><span class="blabel">③ 만들다 만 작업(자료실 페이지)이 커밋되지 않은 채 남아 있다</span>
+<p>웹에 "자료실(Library)" 페이지(교육 콘텐츠 14편 열람)가 새로 만들어졌는데 아직 커밋 전입니다. 이 페이지는 <code>docs/artifacts/</code> 폴더를 바로가기(심볼릭 링크)로 연결해 쓰므로, 웹 코드만 커밋하고 폴더를 빠뜨리면 다른 컴퓨터에서는 자료실이 전부 빈 페이지(404)가 됩니다. 넷을 한 세트로 커밋해야 하며, 목록 데이터에 "진행 중 스냅샷이라 교체 예정"이라고 표시된 문서 1건은 최종본으로 바꾼 뒤 커밋해야 합니다.</p></div>
+<div class="block logic"><span class="blabel">실제 코드와의 연결</span>
+<p>② 낡은 테스트: <code>tests/test_llm_store_load.py:37,47,79</code>, <code>tests/test_schema_llm_runner.py:16</code>(코드·스키마 전체에서 <code>expires_at</code> 참조 0건 확인). 누수 기전: <code>tests/conftest.py</code>의 스키마 적용이 "테이블 없으면 만들기"라 기존 쓰레기를 못 지움. ③ 관련 파일: <code>web/src/pages/LibraryPage.tsx</code>, <code>web/src/data/library.ts</code>(:245에 교체 예정 표시), <code>web/public/library</code>(심링크), <code>docs/artifacts/</code>(7.1MB).</p></div>
+<div class="block fix"><span class="blabel">어떻게 고치나요</span><p>①은 .gitignore 두 줄. ②는 테스트 시작 시 테스트 DB를 통째로 초기화(<code>DROP SCHEMA</code> 후 재생성)하고 낡은 테스트 5개를 갱신 — 그러면 "실패 0개"가 정상 상태가 되어, 이후로는 실패 1개만 떠도 즉시 회귀임을 알 수 있습니다. ③은 recall 문서 교체 후 4종 세트 커밋.</p></div>
+</div>
+
+<div class="card sev1">
+<h3>P1-7. 기준 숫자의 "복사본 어긋남"을 감시하는 테스트가 1/3만 커버한다</h3>
+<p><b>배경</b>: AI에게 주는 지시문(프롬프트)은 그냥 텍스트 파일이라, 그 안의 숫자("거래량 1.4배 이상")는 코드의 SSOT 파일에서 자동으로 가져올 수 없고 사람이 손으로 맞춰야 합니다. 그래서 "프롬프트 속 숫자와 SSOT 숫자가 어긋나면 테스트가 실패"하게 만든 감시 테스트(drift test)가 있습니다.</p>
+<div class="block why"><span class="blabel">무엇이 문제인가요?</span>
+<p>그 감시 테스트가 3개 프롬프트 중 <strong>1개(차트 분류용)만</strong> 지킵니다. 나머지 2개 — "지금 살까?" 판단용과 매수 파라미터 계산용 — 안의 숫자들(1.4배, 95%, 1.005 버퍼, 비중 3~25% 등)은 감시 없는 생 숫자입니다. SSOT 값을 바꿔도 이 프롬프트들은 옛 숫자로 남고, 테스트는 침묵합니다. 더 꼬인 문제: 검증 코드(store.py)가 같은 숫자를 <em>자기만의 사설 상수로 또 한 벌</em> 갖고 있습니다. 같은 숫자가 세 곳(SSOT, 프롬프트, 검증 코드)에 살고 있어서, 한 곳만 고치면 <strong>정상적인 AI 출력이 검증에서 오탐으로 걸리는</strong> 역효과까지 가능합니다.</p></div>
+<div class="block logic"><span class="blabel">실제 코드와의 연결</span>
+<p>감시가 있는 곳: <code>tests/test_prompt_threshold_drift.py</code> ↔ <code>prompts/analyze_chart_v3.md</code>의 SSOT 표식 블록(16개 상수, 양방향 검증 — 이 부분은 잘 만들어져 있음). 감시가 없는 곳: <code>prompts/evaluate_pivot_trigger_v1.md</code>(:32,:75,:122 등), <code>prompts/calculate_entry_params_v2_0.md</code>(:162,:265,:288 등). 3중 복제: <code>kr_pipeline/llm_runner/store.py:383-386</code>의 사설 상수 4개(SSOT 미등재).</p></div>
+<div class="block fix"><span class="blabel">어떻게 고치나요</span><p>나머지 두 프롬프트에도 SSOT 표식 블록을 넣고 감시 테스트를 프롬프트별로 확장 + 사설 상수 4개를 SSOT 파일(thresholds.py)로 승격해 가져다 쓰기. 참고로 이 작업은 프로젝트 규칙(CLAUDE.md)상 "임계값 변경 체크리스트"를 작성해야 하는 대상입니다 — 임계값이 얽힌 곳을 표로 그려 상호작용 사고를 막는 절차입니다.</p></div>
+</div>
+
+<h2>5. P2 — 중요하지만 당장 급하지는 않은 14가지</h2>
+<p>P1만큼 시급하지 않은 이유는 대부분 "아직 실전 가동 전(dry-run)이거나, 발생 조건이 드물거나, 불편이지 오답은 아니기" 때문입니다.</p>
+
+<div class="card sev2"><h3>① CI(자동 검사 장치) 도입</h3>
+<p>CI는 코드를 올릴 때마다 서버가 자동으로 전체 테스트를 돌려 주는 장치입니다. 지금은 없어서 테스트 실행이 전적으로 사람의 기억에 달려 있습니다. 이 프로젝트는 테스트가 37.5초면 끝나서 CI 비용이 아주 쌉니다. CI 서버는 매번 새 DB로 시작하므로 P1-6②의 쓰레기 누적 문제도 원천적으로 없습니다. P1-6②(낡은 테스트 정리)를 먼저 하면 바로 "전부 통과"를 기준으로 삼을 수 있습니다.</p></div>
+
+<div class="card sev2"><h3>② 프로젝트 로드맵 문서가 5주째 낡아 있음</h3>
+<p>ROADMAP 문서의 "현재 상태" 절이 5월 29일에 멈춰 있습니다. 그 후에 만들어진 가장 큰 자산 — 백테스트 서브시스템(모듈 19개)과 그 결론들(수익성 검증, 놓친 승자 감사) — 이 문서에는 존재 자체가 없습니다. 문서 스스로 "새 영역이 생기면 갱신한다"는 원칙을 적어 두고 어겼습니다. 새 작업자(또는 미래의 자신)가 전체 그림을 문서로 파악할 수 없는 상태입니다.</p></div>
+
+<div class="card sev2"><h3>③ 모의 실행이 보관용 파일을 무한히 쌓는 중</h3>
+<p>AI 분석을 할 때마다 "나중에 재현할 수 있게" 입력 자료를 압축해 보관(freeze)하는데, 모의 실행(dry-run)에서도 저장합니다. 지금 크론이 모의 실행이므로 매주 ~150종목분의 압축파일이 <em>실제 분석도 아닌데</em> 쌓입니다(보관 폴더 전체는 이미 106MB — 압축파일 1,212개). 90일 지난 파일을 지우는 청소 프로그램은 만들어져 있지만 <strong>예약(cron)에 등록된 적이 없어서 한 번도 돈 적이 없습니다</strong>. 청소기를 예약에 등록하고, 모의 실행은 보관을 끄는 게 맞습니다.</p></div>
+
+<div class="card sev2"><h3>④ AI 모델을 별명으로 지정 — 예고 없는 모델 교체 위험</h3>
+<p>사용할 AI 모델을 <code>sonnet</code>이라는 <em>별명</em>으로 지정해 놓았습니다. 별명은 제조사(Anthropic)가 신모델을 내면 자동으로 최신 모델을 가리키게 됩니다. 편리해 보이지만, 3개 프롬프트가 검증도 안 된 새 모델로 <em>어느 날 소리 없이 동시에</em> 바뀔 수 있다는 뜻입니다. 실제로 신모델 검증은 3개 프롬프트 중 1개(차트 분류)만 완료된 상태입니다. 구체적인 모델 ID로 고정하고, 모델 교체를 의도적인 절차로 만들어야 합니다.</p></div>
+
+<div class="card sev2"><h3>⑤ "실전 모드로 켜는 스위치"가 아예 없음</h3>
+<p>크론 등록 코드가 항상 각 파이프라인의 <em>첫 번째 모드</em>를 쓰는데, AI 파이프라인들의 첫 번째 모드가 dry-run으로 정의돼 있습니다. 즉 표준 등록 절차로는 <strong>영원히 모의 실행</strong>입니다. 실전 전환은 운영 결정이 필요한 일이지만, 결정했을 때 누를 스위치 자체는 미리 만들어 둬야 합니다.</p></div>
+
+<div class="card sev2"><h3>⑥ 평일 신규 종목 분석이 한 번에 한 종목씩(직렬)</h3>
+<p>주말 분석은 4종목씩 동시에 처리하는 병렬 장치가 이미 있는데, 평일 신규 후보 분석은 한 종목씩 차례로 합니다. 종목당 2~4분이 걸려서, 시장이 좋아져 신규 후보가 수십 개 쏟아지는 날엔 평일 배치가 1~2시간으로 늘어납니다. 주말용 병렬 장치를 재사용할 수 있게 함수 모양도 이미 맞춰져 있어서 수정이 쉽습니다.</p></div>
+
+<div class="card sev2"><h3>⑦ 주봉 집계에 숨어 있는 NaN 오염 경로</h3>
+<p>일봉을 주봉으로 합칠 때, 한 주 내내 거래정지였던 종목이 있으면 계산 결과가 NaN(숫자 아님)이 되는데, 일봉 쪽에는 이를 NULL(빈 값)로 바꾸는 처리가 있고 주봉 쪽에는 없습니다. NaN이 DB에 들어가면 나중에 AI에게 주는 JSON 자료가 형식 오류로 깨질 수 있습니다. 현재 DB를 조회해 보니 실제 발생 건은 0건 — 아직 안 터진 지뢰라서 P2이고, 일봉과 같은 변환 한 줄이면 제거됩니다.</p></div>
+
+<div class="card sev2"><h3>⑧ 시장 상태 계산에서 오류 하나가 연쇄 실패를 부름</h3>
+<p>날짜별로 계산하다 하루가 DB 오류로 실패하면, 그 오류를 정리(rollback)하지 않고 다음 날짜로 넘어갑니다. DB는 "오류가 정리되지 않은 상태"에서 새 작업을 거부하므로, 그날 이후의 모든 날짜가 도미노처럼 함께 실패합니다. rollback 한 줄이면 하루 실패로 격리됩니다. (다른 모듈들은 이미 이렇게 처리하고 있어서, 그 패턴을 복사하면 됩니다.)</p></div>
+
+<div class="card sev2"><h3>⑨ 공시 수집이 종목마다 따로 요청 (2,500회)</h3>
+<p>매 평일 아침 기업행위 공시를 종목별로 1회씩, 약 2,500번 요청합니다. 공시 API(DART)는 종목을 지정하지 않으면 기간 내 전체 공시를 한 번에(몇 페이지로) 주는 기능이 있어서, 요청 횟수를 수천 회에서 몇 회로 줄일 수 있습니다. 실행 시간이 수십 분에서 수 분으로 줄고, 요청 실패 확률도 줄어듭니다.</p></div>
+
+<div class="card sev2"><h3>⑩ 최근 실험(손절 변형)의 설명서와 실제 코드가 다름</h3>
+<p>실험 설명에는 "pivot 가격에 매수"라고 적혀 있는데 코드는 <em>돌파일 종가</em>(보통 pivot보다 높음)에 매수하도록 짜여 있습니다. 매수가가 다르면 손절 기준과 수익률이 전부 달라지므로, 이 실험의 수치는 설명서와 다른 조건의 결과입니다. 결과 정리 문서도 없고 일부 결과 파일은 재현 방법이 남아 있지 않습니다. 그동안 백테스트마다 지켜 온 규율(사전등록·문서화·재현 경로)이 <strong>가장 최근 실험에서 처음 느슨해진 신호</strong>라서 짚었습니다.</p></div>
+
+<div class="card sev2"><h3>⑪ 수익성 검증 문서에 "AI가 미래를 알고 있었을 가능성" 미기재</h3>
+<p>2021~2024년 데이터로 백테스트했는데, 사용한 AI의 학습 데이터는 2026년 1월까지입니다. 즉 AI는 "그 종목이 그 후 올랐다"를 학습으로 <em>이미 알고 있었을 가능성</em>이 있습니다(사후지식 누출). 다른 실험 문서에는 이 한계가 명시돼 있는데 수익성 결과 문서에만 빠져 있습니다. 결과 해석을 왜곡할 수 있는 한계이므로 문서의 한계 절에 추가해야 합니다. (기계 계산으로만 판정되는 부분은 이 문제와 무관하다는 점도 함께 적으면 좋습니다.)</p></div>
+
+<div class="card sev2"><h3>⑫ 파이프라인을 실행시키는 웹 API에 인증이 없음</h3>
+<p>웹 화면의 "실행" 버튼이 호출하는 API(파이프라인 실행, 크론 등록/해제)는 아무나 요청을 보내면 동작합니다. 지금은 서버가 본인 컴퓨터 안(localhost)에서만 열려 있어 실질 위험은 낮지만, 최근 "API 주소를 환경변수로 바꿔 원격 서버를 바라볼 수 있게" 하는 변경이 들어와서, 원격 배포 시나리오가 열리면 이야기가 달라집니다. "localhost 전용" 정책을 명문화하거나 간단한 토큰 인증을 붙여야 합니다.</p></div>
+
+<div class="card sev2"><h3>⑬ 백엔드는 계산해 주는데 화면에 안 보이는 정보 2가지</h3>
+<p>"시장 기준 데이터 누락 목록"과 "abort 후 자동 복귀로 건너뛴 종목 수"는 백엔드가 이미 계산해서 실행 기록에 담아 주는데, 웹 화면이 이를 보여주지 않습니다(하나는 아예 숨김, 하나는 "[object Object]"라는 깨진 표기로 노출). 화면 코드 한 곳(PipelinePage)만 고치면 둘 다 해결됩니다.</p></div>
+
+<div class="card sev2"><h3>⑭ "0"을 "없음"으로 바꿔치기하는 자잘한 버그 2곳</h3>
+<p>거래량 비율이 정확히 0인 날(무거래일)을 "데이터 없음"으로 잘못 표시하는 코드 패턴이 API 두 곳에 남아 있습니다. 같은 버그가 다른 파일에서는 이미 발견·수정됐고 수정 주석까지 있는데, 이 두 곳에만 옛 패턴이 남았습니다.</p></div>
+
+<h2>6. P3 — 여유 있을 때 정리할 것들</h2>
+<div class="card sev3">
+<ul>
+<li><strong>CLAUDE.md의 테스트 기준 문구 갱신</strong> — P1-6② 수리 후에는 "약 25개 실패가 기본"이 아니라 "0개가 기본"으로.</li>
+<li><strong>보고서 파일 위치 정리</strong> — 속도 실험 보고서(<code>achart_v3_speed_report.md</code>)가 저장소 맨 위(루트)에 놓여 있어 docs/ 관례 위치로 이동.</li>
+<li><strong>sonnet5 평가 자료의 커밋 시점</strong> — 블라인드 평가(정답을 가린 채 채점)용 자료는 평가를 마친 뒤에 정답 파일과 함께 커밋해야 "가림"의 의미가 지켜짐.</li>
+<li><strong>RS 지표 계산 속도</strong> — 계산 옵션 하나(<code>raw=False</code>)가 수십 배 느린 방식이라, 과거 전체 재계산 때만 체감되는 병목. 옵션 변경으로 개선 가능.</li>
+<li><strong>테스트용 부분 실행이 전체 데이터를 덮어쓸 수 있는 함정</strong> — 일부 종목만 지정해 실행해도 순위 계산(Phase B~D)은 전 종목을 대상으로 갱신해서, 테스트 실행이 실데이터 순위를 "부분 데이터 기준"으로 오염시킬 수 있음. 지정 실행 시 순위 단계는 건너뛰게.</li>
+<li><strong>지수 코드("1001"=코스피 등) 하드코딩 산재</strong> — 같은 문자열이 5개 파일에 흩어져 있어 상수 한 곳으로 모으기.</li>
+<li><strong>은퇴 예정 코드 정리</strong> — "deprecated(더 이상 쓰지 말 것)" 표시가 붙은 옛 이름들과 죽은 코드가 예고만 되고 정리는 안 됨.</li>
+<li><strong>pandas 경고 1건</strong> — 라이브러리 차기 버전에서 동작이 바뀔 예정이라는 경고(<code>transform.py:54</code>). 미리 고쳐두면 업그레이드가 순탄.</li>
+<li><strong>대량 ZIP 생성이 요청 하나를 수 분간 점유</strong> — 200종목 자료를 한 요청에서 순차 생성. 내부 도구라 급하지 않음.</li>
+<li><strong>실행 요약 API의 반복 조회(N+1)</strong> — 파이프라인 종류 수만큼 DB를 반복 조회. 쿼리 1개로 합칠 수 있음.</li>
+</ul>
+</div>
+
+<h2>7. 버그 수리가 아닌, 다음에 만들 것들 (로드맵)</h2>
+<p>아래 4가지는 고장이 아니라 <strong>프로젝트 문서들이 스스로 "다음 단계"로 지목해 둔 굵직한 작업</strong>입니다.</p>
+<ol>
+<li><strong>보유 중 관리(manage_active_trade) 기능 이식</strong> — 지금 시스템은 "언제 살까"까지만 자동화돼 있고, 산 <em>다음</em>의 규칙(8% 손절, 본전 방어, 이익 추적 매도)은 없습니다. 트레이딩 규칙 문서가 이를 "실전 가동의 선결 과제"로 명시하고 있습니다. 매수만 자동이고 매도가 수동이면 반쪽 시스템이기 때문입니다.</li>
+<li><strong>평일 경로 백테스트</strong> — 지금까지의 백테스트는 주로 주말 분류 단계를 검증했습니다. 실제 매수 신호는 평일 5단계(강등→신규분석→돌파판단→파라미터→성과)를 거쳐 나오므로, 이 전체 경로를 과거 데이터로 재생(replay)하는 검증이 "본체"라고 문서에 명시돼 있습니다. 최근 감사에서 나온 가설 2개(돌파 판단이 너무 엄격한가? 게이트 결합이 과한가?)의 검증과 자연스럽게 묶입니다.</li>
+<li><strong>Sonnet 5 블라인드 평가 완주</strong> — AI 모델 교체 검증의 2단계(정답을 가린 채 신·구 모델 판정 비교)용 자료를 만들어 놓고 평가를 안 한 상태입니다. 마무리해야 모델 교체 결정을 데이터로 할 수 있습니다.</li>
+<li><strong>백테스트 기간 확장(2016~2020)</strong> — 수익성 검증의 결론이 "손해는 안 봤지만 돈이 된다는 통계적 증거도 아직 없음"이었습니다. 표본(시장 국면의 다양성)이 부족한 것이 한 원인이라, 기간을 넓혀 다시 재는 것이 문서가 지목한 직접 후속입니다.</li>
+</ol>
+
+<h2>8. 이 리뷰 자체를 한 번 더 검토한 결과</h2>
+<p>리뷰를 정리한 뒤, 정리 내용이 실제와 맞는지 별도의 검토 단계를 거쳤습니다. AI 분석은 그럴듯하지만 틀린 주장을 섞을 수 있어서, <strong>중요한 주장은 코드를 다시 열어 직접 대조</strong>했습니다.</p>
+<div class="card">
+<p><strong>① 직접 재검증 — P1급 주장 8건 전부 사실로 확인</strong>: 문제로 지목된 코드 8곳(raw 거래량 SQL, 한도초과 처리 비대칭, 시장상태 계산의 "어제까지" 절단과 크론 시각표, 종목목록의 허술한 가드, 손절 실험의 설명-코드 불일치, git 제외 목록 공백과 폴더 용량, 삭제된 컬럼을 참조하는 테스트, 분류 저장의 가격 무검증)을 전부 다시 열어서 지목된 줄이 실제로 그렇게 적혀 있는지 확인했습니다. 8건 모두 사실이었습니다.</p>
+<p><strong>② 기존 기록 3건이 낡은 것으로 판명 — 프로젝트 기록(메모리) 갱신 완료</strong>:</p>
+<ul>
+<li>"거래량 raw/adj 혼입 미해결" → 주 경로는 6월에 이미 해결돼 있었습니다. 다만 부속 경로(daily.csv)에 같은 문제가 남아 있어, 이슈가 "끝난 것"이 아니라 "자리를 옮긴 것"입니다(P1-3).</li>
+<li>"AI 가격 검증 없음(D-3) 미해결" → 두 층 중 한 층(매수 파라미터)은 이미 해결. 나머지 한 층(차트 분류)만 남았습니다(P1-2).</li>
+<li>"테스트 기본 실패 약 31개" → 오늘 실측 24개. 숫자가 계속 변하는 이유(쓰레기 데이터 누적)까지 밝혀서, "고정 숫자 기준" 방식 자체를 폐기해야 한다는 결론을 얻었습니다(P1-6②).</li>
+</ul>
+<p><strong>③ 분석자 간 의견 충돌 2건 — 판단 근거를 정해 결론</strong>:</p>
+<ul>
+<li>AI 평가용 자료를 지금 커밋할까? → 블라인드(정답 가림) 평가의 취지상 <strong>평가 완주 후</strong> 정답과 함께 커밋하는 쪽으로.</li>
+<li>교육 콘텐츠 폴더(7.1MB)를 커밋할까 제외할까? → 자료실 페이지가 이 폴더에 <strong>기능적으로 의존</strong>하므로 커밋하는 쪽으로. (기능이 의존하면 커밋, 아니면 취향 문제 — 라는 기준으로 판정.)</li>
+</ul>
+<p><strong>④ 다섯 분석 모두가 놓친 것 2건 — 검토 단계에서 추가</strong>:</p>
+<ul>
+<li><strong>DB 구조 변경 관리 도구 부재</strong>: 테이블 구조(schema)가 바뀌면 두 DB에 사람이 직접 명령을 쳐야 반영됩니다. 이미 두 번 이상 "반영을 깜빡해서 실패"를 겪은 알려진 고충인데 개선 목록에 아무도 올리지 않았습니다. 최소한 "코드의 스키마와 DB의 스키마가 다르면 경고"하는 자동 대조라도 둘 가치가 있습니다.</li>
+<li><strong>DB 백업 전략 부재</strong>: 주가 데이터는 날려도 KRX에서 다시 받으면 되지만, <strong>AI의 분류·판단 이력은 다시 만들 수 없습니다</strong> — 같은 AI를 다시 돌려도 완전히 같은 답이 나온다는 보장이 없어서, 이 프로젝트 스스로 "재실행 비교 금지"를 원칙으로 삼았을 정도입니다. 즉 AI 이력 테이블들이 사실상 유일본인데 백업 문서가 없습니다. 백업 우선순위가 가장 높은 데이터입니다.</li>
+</ul>
+<p><strong>⑤ 이 리뷰의 한계</strong>: 코드를 읽고(정적 분석) 테스트를 1회 실행한 결과이며, 실제 운영 DB의 데이터 품질은 표본 확인만 했습니다(주봉 NaN 0건, 트리거 기록 32행 등). P1을 고치기 전에는 각 항목을 테스트로 재현해 확인하는 것을 권합니다 — "고치기 전에 문제를 재현한다"는 이 프로젝트가 지켜온 디버깅 원칙 그대로입니다.</p>
+</div>
+
+</section>
+</main>
+
+<footer class="note">
+<p>이 문서는 2026-07-07 기준 코드·문서·크론탭·테스트 실행 실측을 근거로 작성됐습니다. 원본 탭의 <code>file:line</code> 표기는 저장소 루트 기준 경로입니다.</p>
+</footer>
+
+<script>
+(function () {
+  var btns = [document.getElementById('tab1-btn'), document.getElementById('tab2-btn')];
+  var panels = [document.getElementById('tab1'), document.getElementById('tab2')];
+  function select(i) {
+    btns.forEach(function (b, j) { b.setAttribute('aria-selected', String(i === j)); });
+    panels.forEach(function (p, j) { p.hidden = (i !== j); });
+    window.scrollTo({ top: 0 });
+  }
+  btns.forEach(function (b, i) {
+    b.addEventListener('click', function () { select(i); });
+    b.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        var n = (i + 1) % 2;
+        select(n); btns[n].focus();
+      }
+    });
+  });
+})();
+</script>

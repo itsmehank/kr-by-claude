@@ -1,0 +1,657 @@
+<details data-doc-meta style="box-sizing:border-box;margin:0;padding:10px 24px;background:#0f172a;color:#e2e8f0;font-family:'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;font-size:14px;line-height:1.75;border-bottom:3px solid #f59e0b;">
+<summary style="cursor:pointer;font-weight:700;color:#fbbf24;outline:none;">📌 이 문서는 왜 만들어졌나 — 목적 · 연관 문서 · 이력 (클릭해서 펼치기)</summary>
+<div style="max-width:880px;margin:14px auto 8px;">
+<p style="margin:0 0 12px;color:#94a3b8;font-size:13px;">생성: 2026-07-04 12:48 · 최종 업데이트: 2026-07-06 16:40 (KST) · 출처: Claude Code 세션 기록 기반 복원</p>
+<h3 style="margin:0 0 6px;font-size:15px;color:#fbbf24;">이 문서의 목적 (실제 요청 근거)</h3>
+<p>최종 진단 페이지를 읽던 사용자가 "[같은 날 같은 하락장인데 valid_base 사유 watch는 매수되고
+unfavorable_market 사유 watch는 차단된다]를 이해하려면, 어떤 과정에서 그런 태그가 종목에 매겨지는지부터
+알아야 한다 — <b>우리 시스템의 A to Z</b>, 어떤 과정에 의해 종목이 분류되고 분석되는지 별도 페이지로
+구성해도 좋으니 설명해달라"고 요청해서 만들어진 문서.</p>
+<p>토요일 주말 분류부터 평일 트리거 평가·진입 파라미터 산출까지, 종목 하나가 시스템을 통과하는 전 과정을
+단계별로 따라가는 해설 페이지다. 이후 "부족→오류→초보자 가독성" 3회 검토를 거쳤다.</p>
+<p>이 문서가 무협 소설 「반석의 검」의 <b>원작</b>이 된다.</p>
+<p>2026-07-06 보강: 별도 세션(미포착 승자 감사)에서 나온 질문 — "토요일 entry 종목도 평일 절차를 다
+거치나? entry와 '시장 탓 watch'가 같은 날 공존 가능한가?" — 에 답하기 위해 <b>시장 규칙의 강제(hard)/
+권고(soft) 구분</b> 섹션과 실제 규칙 문서 발췌가 추가됐다.</p>
+<h3 style="margin:16px 0 6px;font-size:15px;color:#fbbf24;">연관 문서</h3>
+<ul style="margin:0;padding-left:20px;"><li style="margin:4px 0;"><a href="./final-review.html" style="color:#7dd3fc;text-decoration:underline;">두 대가의 원전 대조, 내 시스템 최종 진단</a><span style='color:#94a3b8;'> — 발원 문서 — 최종 진단을 읽다가 태그 부여 과정 의문에서 파생됨</span></li><li style="margin:4px 0;"><a href="./banseok-sword-illustrated.html" style="color:#7dd3fc;text-decoration:underline;">반석의 검 — 청암문 이레의 기록 (삽화판)</a><span style='color:#94a3b8;'> — 이 문서를 원작으로 한 무협 소설</span></li><li style="margin:4px 0;"><a href="./wuxia-scenario.md" style="color:#7dd3fc;text-decoration:underline;">「반석의 검」 시나리오 + 삽화 이미지 프롬프트</a><span style='color:#94a3b8;'> — 소설화 설계도(시나리오)</span></li><li style="margin:4px 0;"><a href="./class-tree.html" style="color:#7dd3fc;text-decoration:underline;">종목의 전직 도감 — 분류·태그·트리거·주문의 모든 경로</a><span style='color:#94a3b8;'> — 이 문서의 분류·태그 부분을 더 깊게 판 후속 해부 문서</span></li><li style="margin:4px 0;"><a href="./recall-audit-story.html" style="color:#7dd3fc;text-decoration:underline;">미포착 승자 감사 — 처음부터 끝까지</a><span style='color:#94a3b8;'> — 07-06 보강(시장 규칙 강제/권고 구분)의 발원 — 그 감사를 읽다 나온 질문에 답한 것</span></li></ul>
+</div>
+</details>
+<style>
+  :root{
+    --paper:#F4F6F8; --card:#FFFFFF; --ink:#19222E; --slate:#566171;
+    --faint:#8A94A1; --line:#DCE2E8;
+    --accent:#0E6B5B; --accent-2:#128972; --accent-soft:#E2EFEC;
+    --good:#1C7A4E; --good-soft:#E5F1EA;
+    --warn:#A9741A; --warn-soft:#F7EFDD;
+    --bad:#B0413A; --bad-soft:#F6E5E3;
+    --blue:#1D5FA8; --blue-soft:#E5EEF8;
+    --sans:'Pretendard','Apple SD Gothic Neo',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,'Malgun Gothic',sans-serif;
+    --mono:'SF Mono',ui-monospace,Menlo,'Cascadia Mono',monospace;
+    --col:43rem;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); font-size:17px; line-height:1.75; word-break:keep-all; overflow-wrap:break-word; -webkit-font-smoothing:antialiased}
+  .wrap{max-width:75rem; margin:0 auto; padding:0 clamp(18px,4vw,40px)}
+  .layout{display:grid; grid-template-columns:1fr; gap:0}
+  @media (min-width:1060px){.layout{grid-template-columns:15.5rem minmax(0,var(--col)); gap:3.4rem; justify-content:center}}
+
+  header.hero{background:linear-gradient(155deg,#0C2A26 0%,#123f39 48%,#0E6B5B 130%); color:#EAF2F0}
+  .hero .wrap{padding-top:clamp(46px,7vw,82px); padding-bottom:clamp(38px,6vw,60px)}
+  .kicker{font-family:var(--mono); font-size:.72rem; letter-spacing:.22em; text-transform:uppercase; color:#7FD8C6; margin:0 0 1.1rem}
+  .hero h1{font-size:clamp(1.8rem,4.3vw,2.9rem); line-height:1.2; font-weight:800; letter-spacing:-.02em; text-wrap:balance; margin:0 0 1rem; color:#fff}
+  .hero p.lead{font-size:clamp(1rem,1.6vw,1.16rem); color:#C4D8D3; max-width:40rem; margin:0; line-height:1.7}
+  .hero .meta{display:flex; flex-wrap:wrap; gap:.5rem .7rem; margin-top:1.7rem; font-family:var(--mono); font-size:.73rem; color:#9DBFB8}
+  .hero .meta span{border:1px solid rgba(127,216,198,.28); border-radius:999px; padding:.28rem .7rem}
+
+  nav.toc{display:none}
+  @media (min-width:1060px){
+    nav.toc{display:block; position:sticky; top:1.5rem; align-self:start; padding-top:3rem; font-size:.84rem; max-height:calc(100vh - 2rem); overflow-y:auto}
+    nav.toc .lbl{font-family:var(--mono); font-size:.64rem; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); margin:0 0 .8rem}
+    nav.toc ol{list-style:none; margin:0 0 1rem; padding:0; display:flex; flex-direction:column; gap:.1rem}
+    nav.toc a{display:block; text-decoration:none; color:var(--slate); padding:.3rem .55rem; border-left:2px solid transparent; border-radius:0 4px 4px 0; line-height:1.32; transition:color .15s,border-color .15s,background .15s}
+    nav.toc a:hover{color:var(--ink); background:var(--accent-soft)}
+    nav.toc a.active{color:var(--accent); border-left-color:var(--accent); font-weight:600}
+    nav.toc a .n{font-family:var(--mono); font-size:.7rem; color:var(--faint); margin-right:.45rem}
+    nav.toc a.active .n{color:var(--accent)}
+  }
+
+  main{padding:clamp(34px,5vw,56px) 0 5rem; min-width:0}
+  section{margin-bottom:clamp(2.4rem,5vw,3.6rem); scroll-margin-top:1.5rem}
+  section > h2{font-size:clamp(1.3rem,2.6vw,1.65rem); font-weight:800; letter-spacing:-.015em; line-height:1.25; margin:0 0 .5rem; text-wrap:balance; padding-bottom:.6rem; border-bottom:2px solid var(--line)}
+  .sec-num{font-family:var(--mono); font-size:.72rem; letter-spacing:.14em; font-weight:600; color:var(--accent); display:block; margin-bottom:.5rem; text-transform:uppercase}
+  h3{font-size:1.12rem; font-weight:700; margin:1.9rem 0 .5rem; letter-spacing:-.01em; line-height:1.35}
+  h4{font-size:.98rem; font-weight:700; margin:1.3rem 0 .3rem}
+  p{margin:.7rem 0}
+  a{color:var(--accent); text-underline-offset:2px}
+  strong{font-weight:700}
+  .muted{color:var(--slate)}
+  ul,ol{margin:.7rem 0; padding-left:1.3rem}
+  li{margin:.4rem 0}
+  li::marker{color:var(--accent)}
+  code{font-family:var(--mono); font-size:.82em; background:#EEF2F4; padding:.1em .38em; border-radius:4px; color:#0B3D36; word-break:break-all}
+  hr.soft{border:none; border-top:1px solid var(--line); margin:2.2rem 0}
+
+  .box{border-radius:12px; padding:1.05rem 1.2rem; margin:1.2rem 0; border:1px solid var(--line); background:var(--card)}
+  .box .tag{font-family:var(--mono); font-size:.68rem; letter-spacing:.12em; text-transform:uppercase; font-weight:600; display:inline-flex; align-items:center; gap:.4rem; margin-bottom:.5rem}
+  .box p:first-of-type{margin-top:0} .box p:last-child{margin-bottom:0}
+  .box.key{background:var(--accent-soft); border-color:#BFDDD6} .box.key .tag{color:var(--accent)}
+  .box.good{background:var(--good-soft); border-color:#C4E2D0} .box.good .tag{color:var(--good)}
+  .box.warn{background:var(--warn-soft); border-color:#E9D6AE} .box.warn .tag{color:var(--warn)}
+  .box.bad{background:var(--bad-soft); border-color:#E9C6C2} .box.bad .tag{color:var(--bad)}
+  .box.blue{background:var(--blue-soft); border-color:#C6D9EF} .box.blue .tag{color:var(--blue)}
+  .dot{width:.62rem; height:.62rem; border-radius:50%; display:inline-block; flex:none}
+  .dot.g{background:var(--good)} .dot.w{background:var(--warn)} .dot.b{background:var(--bad)} .dot.a{background:var(--accent)} .dot.bl{background:var(--blue)}
+
+  /* analogy box */
+  .analogy{border:1px solid #D8E6E2; border-left:4px solid var(--accent-2); border-radius:0 10px 10px 0; background:#F0F7F5; padding:.9rem 1.15rem; margin:1.1rem 0}
+  .analogy .h{font-weight:700; font-size:.9rem; color:var(--accent); margin-bottom:.3rem; display:flex; align-items:center; gap:.4rem}
+  .analogy p{margin:.3rem 0; font-size:.94rem}
+
+  /* pipeline flow */
+  .flow{display:flex; flex-direction:column; gap:.5rem; margin:1.4rem 0}
+  .fnode{border:1px solid var(--line); border-radius:11px; padding:.8rem 1rem; background:var(--card); position:relative}
+  .fnode .lyr{font-family:var(--mono); font-size:.64rem; letter-spacing:.1em; text-transform:uppercase; font-weight:600; margin-bottom:.2rem}
+  .fnode .nm{font-weight:700; font-size:1rem}
+  .fnode .ds{font-size:.88rem; color:var(--slate); margin-top:.2rem}
+  .fnode.data{border-left:4px solid var(--faint)} .fnode.data .lyr{color:var(--faint)}
+  .fnode.det{border-left:4px solid var(--blue)} .fnode.det .lyr{color:var(--blue)}
+  .fnode.llm{border-left:4px solid var(--accent)} .fnode.llm .lyr{color:var(--accent)}
+  .farr{text-align:center; color:var(--faint); font-size:1.1rem; line-height:.7}
+  .ftag{display:inline-block; font-family:var(--mono); font-size:.6rem; font-weight:700; padding:.1rem .4rem; border-radius:4px; margin-left:.4rem; vertical-align:middle}
+  .ftag.d{background:var(--blue-soft); color:var(--blue)} .ftag.l{background:var(--accent-soft); color:var(--accent)}
+
+  .tbl-scroll{overflow-x:auto; margin:1.2rem 0; border:1px solid var(--line); border-radius:10px}
+  table{border-collapse:collapse; width:100%; font-size:.88rem; min-width:34rem}
+  thead th{background:#EDF1F3; text-align:left; font-weight:700; color:var(--ink); padding:.58rem .75rem; border-bottom:2px solid var(--line); white-space:nowrap; font-size:.8rem}
+  tbody td{padding:.58rem .75rem; border-bottom:1px solid var(--line); vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:#FAFBFC}
+  .num{font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap}
+  .yes{color:var(--good); font-weight:700} .no{color:var(--bad); font-weight:700}
+
+  .pill{display:inline-block; font-family:var(--mono); font-size:.68rem; font-weight:600; padding:.14rem .5rem; border-radius:999px; white-space:nowrap}
+  .pill.g{background:var(--good-soft); color:var(--good)}
+  .pill.w{background:var(--warn-soft); color:var(--warn)}
+  .pill.b{background:var(--bad-soft); color:var(--bad)}
+  .pill.bl{background:var(--blue-soft); color:var(--blue)}
+
+  /* tag cards */
+  .tagcard{border:1px solid var(--line); border-radius:12px; padding:1rem 1.15rem; margin:.9rem 0; background:var(--card); border-left:4px solid var(--accent)}
+  .tagcard.blocked{border-left-color:var(--bad)}
+  .tagcard.pass{border-left-color:var(--good)}
+  .tagcard .th{display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin-bottom:.35rem}
+  .tagcard .cd{font-family:var(--mono); font-size:.82rem; font-weight:700; color:var(--ink)}
+  .tagcard .kr{font-size:.85rem; color:var(--slate)}
+  .tagcard p{margin:.35rem 0; font-size:.92rem}
+  .tagcard .row2{display:grid; grid-template-columns:1fr; gap:.4rem; margin-top:.5rem}
+  @media(min-width:560px){.tagcard .row2{grid-template-columns:1fr 1fr}}
+  .tagcard .mini{background:#F5F8F9; border-radius:8px; padding:.5rem .7rem; font-size:.85rem}
+  .tagcard .mini .lab{font-family:var(--mono); font-size:.6rem; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); display:block; margin-bottom:.15rem}
+
+  /* pivot band diagram */
+  .band{border:1px solid var(--line); border-radius:12px; overflow:hidden; margin:1.3rem 0}
+  .band .lvl{display:grid; grid-template-columns:8.5rem 1fr; align-items:center; border-bottom:1px solid var(--line)}
+  .band .lvl:last-child{border-bottom:none}
+  .band .lvl .px{font-family:var(--mono); font-size:.78rem; font-weight:700; padding:.7rem .8rem; text-align:center; border-right:1px solid var(--line)}
+  .band .lvl .de{padding:.6rem .9rem; font-size:.88rem}
+  .band .lvl.ex .px{background:var(--warn-soft); color:var(--warn)}
+  .band .lvl.en .px{background:var(--good-soft); color:var(--good)}
+  .band .lvl.vb .px{background:var(--blue-soft); color:var(--blue)}
+
+  .walk{border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:0 10px 10px 0; background:#F7FAFA; padding:1rem 1.2rem; margin:1.2rem 0}
+  .walk .step{display:grid; grid-template-columns:1.7rem 1fr; gap:.7rem; margin:.6rem 0; font-size:.93rem}
+  .walk .step .s{font-family:var(--mono); font-weight:700; color:var(--accent); font-size:.85rem}
+
+  .xref{display:block; margin:1.1rem 0; padding:.8rem 1rem; border:1px dashed #BFDDD6; border-radius:10px; background:var(--accent-soft); font-size:.9rem; text-decoration:none; color:var(--ink)}
+  .xref strong{color:var(--accent)}
+
+  .gloss{border:1px solid var(--line); border-radius:12px; overflow:hidden; margin:1.3rem 0}
+  .gloss dl{margin:0}
+  .gloss .row{display:grid; grid-template-columns:1fr; border-bottom:1px solid var(--line)}
+  @media(min-width:520px){.gloss .row{grid-template-columns:11rem 1fr}}
+  .gloss .row:last-child{border-bottom:none}
+  .gloss dt{font-weight:700; padding:.7rem 1rem; background:#F5F8F9; color:var(--ink); font-size:.9rem; border-bottom:1px solid var(--line)}
+  @media(min-width:520px){.gloss dt{border-bottom:none; border-right:1px solid var(--line)}}
+  .gloss dt .en{display:block; font-family:var(--mono); font-size:.65rem; color:var(--faint); font-weight:500; margin-top:.1rem}
+  .gloss dd{margin:0; padding:.7rem 1rem; font-size:.9rem; color:var(--slate)}
+
+  .foot{color:var(--faint); font-size:.82rem; text-align:center; padding:2.4rem 0 1rem; line-height:1.7}
+  a:focus-visible, .toc a:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:3px}
+  .em-accent{color:var(--accent); font-weight:700}
+  .em-bad{color:var(--bad); font-weight:700}
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="kicker">System A → Z · 종목의 여정</p>
+    <h1>종목 하나가 시스템을 통과하는<br>여정, A부터 Z까지</h1>
+    <p class="lead">"베이스 대기(valid_base)는 사고, 시장 나빠서(unfavorable_market)는 못 산다" &mdash; 이런 문장을 이해하려면, 종목이 <strong>어떤 관문을 거쳐 분류되고, 어떤 '이유 태그'가 붙고, 그 태그가 이후 매수 판단을 어떻게 기계적으로 바꾸는지</strong>를 알아야 합니다. 처음부터 끝까지, 코드 그대로, 쉽게 풀었습니다.</p>
+    <div class="meta">
+      <span>결정론 스크리너 → LLM 분류 → 트리거 → 매수</span>
+      <span>watch 5개 태그 완전 해부</span>
+      <span>실제 코드 기반</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="layout">
+
+  <nav class="toc" aria-label="목차">
+    <p class="lbl">목차</p>
+    <ol>
+      <li><a href="#big"><span class="n">00</span>큰 그림 — 두 리듬</a></li>
+      <li><a href="#s1"><span class="n">01</span>재료 준비 (데이터)</a></li>
+      <li><a href="#s2"><span class="n">02</span>1차 관문: 트렌드템플릿</a></li>
+      <li><a href="#s3"><span class="n">03</span>2차 관문: LLM 분류</a></li>
+      <li><a href="#s4"><span class="n">04</span>★ watch의 5가지 이유</a></li>
+      <li><a href="#s5"><span class="n">05</span>★★ 태그의 기계적 영향</a></li>
+      <li><a href="#s6"><span class="n">06</span>완결 예시로 추적</a></li>
+      <li><a href="#s7"><span class="n">07</span>평일 흐름 전체</a></li>
+      <li><a href="#s8"><span class="n">08</span>전체 여정 요약</a></li>
+      <li><a href="#gloss"><span class="n">↓</span>용어집</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- 00 big picture -->
+    <section id="big">
+      <span class="sec-num">00 — 큰 그림</span>
+      <h2>이 시스템은 "두 개의 리듬"으로 움직입니다</h2>
+      <p>먼저 큰 틀만 잡고 갑시다. 이 시스템은 서로 다른 두 리듬으로 돕니다.</p>
+      <div class="analogy">
+        <div class="h">🏫 비유 — 스카우트(선발) 담당과 경기 당일 감독</div>
+        <p><strong>주말(토요일)</strong>은 "스카우트"입니다. 후보 선수들을 찬찬히 뜯어보고 <strong>등급표(관심/즉시투입/제외)</strong>를 매겨 명단을 정리합니다.</p>
+        <p><strong>평일(매일)</strong>은 "경기 당일 감독"입니다. 이미 정리된 명단을 보고, <strong>오늘 실제로 뛸 선수가 있는지</strong>만 빠르게 판단합니다.</p>
+      </div>
+      <p>이렇게 나누는 이유는 앞선 분석 페이지에서 다뤘습니다 &mdash; 종목의 <strong>실력(셋업)</strong>은 천천히 변하니 주간에 판단하고, <strong>매수 타이밍</strong>은 매일 바뀌니 평일에 본다는 관심사 분리입니다.</p>
+
+      <h3>전체 파이프라인 한눈에</h3>
+      <p>종목 하나가 통과하는 전체 경로입니다. <span class="ftag d">결정론</span>은 기계가 규칙대로, <span class="ftag l">LLM</span>은 AI가 차트를 보고 판단하는 단계입니다.</p>
+      <div class="flow">
+        <div class="fnode data"><div class="lyr">0 · 매일 · 재료 준비</div><div class="nm">데이터 &amp; 지표 계산 <span class="ftag d">결정론</span></div><div class="ds">가격·거래량 → 이동평균·RS·시장 국면(0층)까지 매일 자동 계산</div></div>
+        <div class="farr">▼</div>
+        <div class="fnode det"><div class="lyr">1 · 1차 관문 · 결정론 스크리너</div><div class="nm">트렌드 템플릿 C1~C8 <span class="ftag d">결정론</span></div><div class="ds">8개 조건을 <strong>전부</strong> 통과한 종목만(minervini_pass) 다음 단계로. 나머지는 여기서 컷.</div></div>
+        <div class="farr">▼</div>
+        <div class="fnode llm"><div class="lyr">2 · 2차 관문 · 주말 분류</div><div class="nm">analyze_chart (AI 차트 분석) <span class="ftag l">LLM</span></div><div class="ds">통과 종목을 AI가 3등급으로 분류: <span class="pill g">entry</span> <span class="pill w">watch</span> <span class="pill b">ignore</span> + watch면 <strong>이유 태그</strong> 부여</div></div>
+        <div class="farr">▼</div>
+        <div class="fnode det"><div class="lyr">3 · 평일 · 결정론 게이트</div><div class="nm">trigger_gate (돌파 감지) <span class="ftag d">결정론</span></div><div class="ds"><strong>entry·watch 종목 전부</strong>를 대상으로 "오늘 신호가 있나"를 기계적으로 검사 (돌파·무효화·승격접근). 실행 위치는 바로 아래 4단계(evaluate_pivot) 작업의 <strong>첫 부분</strong> — 게이트가 신호를 낸 종목만 AI 확인으로 넘어감</div></div>
+        <div class="farr">▼</div>
+        <div class="fnode llm"><div class="lyr">4 · 평일 · 매수 확인</div><div class="nm">evaluate_pivot (5b) <span class="ftag l">LLM</span></div><div class="ds">돌파한 종목을 AI가 최종 확인: <strong>go_now(사라) / wait(기다려) / abort(취소)</strong></div></div>
+        <div class="farr">▼</div>
+        <div class="fnode llm"><div class="lyr">5 · 평일 · 매수 설계</div><div class="nm">entry_params (매수 파라미터) <span class="ftag l">LLM</span></div><div class="ds">go_now면 매수가·손절가·수량·목표가를 계산</div></div>
+      </div>
+      <p class="muted" style="font-size:.9rem">※ 이 페이지에서 "0~5단계"라고 하면 <strong>위 그림의 번호</strong>를 가리킵니다 — 3단계=결정론 게이트(trigger_gate), 4단계=AI 매수 확인(evaluate_pivot의 LLM 호출), 5단계=매수 설계(entry_params). 이 페이지는 이 여정을 단계별로 풀어가며, 특히 2단계에서 붙는 <strong>이유 태그</strong>(4장)가 3~5단계 매수를 어떻게 좌우하는지(5장)가 핵심입니다.</p>
+    </section>
+
+    <!-- 01 data -->
+    <section id="s1">
+      <span class="sec-num">01 — 재료 준비</span>
+      <h2>매일, 기계가 먼저 재료를 만든다</h2>
+      <p>사람도 AI도 판단하기 전에, 매일 밤 기계가 <strong>순수하게 계산만</strong> 하는 재료가 있습니다. 여기엔 판단이 없습니다 &mdash; 그냥 숫자입니다.</p>
+      <ul>
+        <li><strong>가격·거래량(OHLCV)</strong> — 매일의 시가·고가·저가·종가·거래량</li>
+        <li><strong>이동평균선</strong> — 50일·150일·200일 평균선 (주가 추세의 뼈대)</li>
+        <li><strong>RS Rating</strong> — 그 종목의 1년 수익률이 <strong>전체 시장에서 몇 등(백분위)</strong>인지. <span class="num">0~99</span>, 99가 가장 강함. (예: 70 = 상위 30%)</li>
+        <li><strong>시장 국면(0층)</strong> — 지금이 상승장/조정/하락장 중 무엇인지 (KOSPI·KOSDAQ 각각). 자세한 판정 규칙은 앞선 분석 페이지 참고.</li>
+      </ul>
+      <div class="box"><span class="tag" style="color:var(--accent)"><span class="dot a"></span>왜 중요한가</span><p>이 재료들은 <strong>다음 관문의 입력</strong>이 됩니다. 특히 이동평균선과 RS Rating은 바로 아래 "1차 관문"에서 합격/불합격을 가르는 잣대가 됩니다.</p></div>
+    </section>
+
+    <!-- 02 trend template -->
+    <section id="s2">
+      <span class="sec-num">02 — 1차 관문</span>
+      <h2>트렌드 템플릿 C1~C8 — 기계가 거르는 첫 번째 체</h2>
+      <p>AI를 부르기 전에, <strong>기계가 규칙만으로</strong> 후보를 대폭 걸러냅니다. 미너비니의 <strong>"추세 템플릿(Trend Template)"</strong>이라는 8개 조건입니다. 목적은 하나 &mdash; <strong>"이미 강한 상승 추세에 올라탄 종목"만 남기기.</strong></p>
+      <div class="analogy">
+        <div class="h">🎯 비유 — 오디션 1차 서류 전형</div>
+        <p>8개 항목을 <strong>전부</strong> 만족해야 서류 통과입니다. 하나라도 걸리면 AI 면접(2차)까지 못 갑니다. 기계가 자동으로, 감정 없이 처리합니다.</p>
+      </div>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th style="width:2.5rem">조건</th><th>실제 규칙</th><th>쉬운 뜻</th></tr></thead>
+        <tbody>
+          <tr><td class="num">C1</td><td>현재가 &gt; 150일선 &gt; 200일선</td><td>주가가 중·장기 평균선 위에 있다</td></tr>
+          <tr><td class="num">C2</td><td>150일선 &gt; 200일선</td><td>중기선이 장기선 위 (상승 배열)</td></tr>
+          <tr><td class="num">C3</td><td>200일선(오늘) &gt; 200일선(22일 전)</td><td>장기 추세가 <strong>실제로 오르는 중</strong></td></tr>
+          <tr><td class="num">C4</td><td>50일선 &gt; 150일선 &gt; 200일선</td><td>단·중·장기가 <strong>완전 정배열</strong></td></tr>
+          <tr><td class="num">C5</td><td>현재가 &gt; 50일선</td><td>단기 추세도 위</td></tr>
+          <tr><td class="num">C6</td><td>현재가 ≥ 52주 최저 × <span class="num">1.25</span></td><td>바닥에서 <strong>최소 25% 위</strong> (바닥 탈출)</td></tr>
+          <tr><td class="num">C7</td><td>현재가 ≥ 52주 최고 × <span class="num">0.75</span></td><td>최고점 <strong>25% 이내</strong> (신고가 근처)</td></tr>
+          <tr><td class="num">C8</td><td>RS Rating ≥ <span class="num">70</span></td><td>시장 <strong>상위 30%</strong>의 강도</td></tr>
+        </tbody>
+      </table></div>
+      <div class="box good"><span class="tag"><span class="dot g"></span>합격 = minervini_pass</span><p>C1~C8을 <strong>전부 참(TRUE)</strong>이면 <code>minervini_pass = TRUE</code>. 이 종목만 AI 분석(2차 관문)으로 넘어갑니다. 나머지는 여기서 조용히 탈락합니다.</p></div>
+      <div class="analogy"><div class="h">🔗 나중에 다시 나옵니다</div><p>이 <code>minervini_pass</code>는 한 번 통과로 끝이 아닙니다. <strong>평일마다 다시 검사</strong>해서, 어떤 종목이 이 8조건에서 떨어지면 명단에서 강등(disqualify)시킵니다. (→ <a href="#s7">7장</a>)</p></div>
+    </section>
+
+    <!-- 03 LLM classification -->
+    <section id="s3">
+      <span class="sec-num">03 — 2차 관문</span>
+      <h2>주말 AI 분류 — 3개의 등급</h2>
+      <p>1차를 통과한 종목을, <strong>AI(Claude)가 주간 차트를 직접 보고</strong> 세 등급 중 하나로 분류합니다 (<code>analyze_chart</code>). 여기서 pivot(목표 돌파가격)·베이스 패턴·위험 신호도 함께 뽑습니다.</p>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>등급</th><th>뜻</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill g">entry</span></td><td>지금 바로/곧(~5거래일 내) 사도 되는 매수 시점. 깨끗한 베이스 + 본격 상승 국면(Stage 2) + <strong>시장 방향도 우호적</strong>일 때만.</td></tr>
+          <tr><td><span class="pill w">watch</span></td><td>추세 템플릿은 통과했지만 <strong>아직 매수 시점이 아님.</strong> "왜 아직 아닌지"를 <strong>이유 태그</strong>로 함께 기록. (→ <a href="#s4">4장</a>)</td></tr>
+          <tr><td><span class="pill b">ignore</span></td><td>후보에서 제외.</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="box warn"><span class="tag"><span class="dot w"></span>중요 — ignore는 "나쁜 종목"이 아니다</span>
+        <p><code>ignore</code>는 아무 때나 붙지 않습니다. <strong>딱 3가지 경우</strong>에만 붙습니다:</p>
+        <ul style="margin:.5rem 0 0">
+          <li><strong>climax(과열 정점)</strong> — 너무 급하게 수직 상승해 정점 신호가 뜬 경우</li>
+          <li><strong>topping(천장 분산)</strong> — 기관 매도가 쌓여 천장을 만드는 경우</li>
+          <li><strong>reverse-split 왜곡</strong> — 액면병합 등으로 차트가 일시 왜곡된 경우</li>
+        </ul>
+        <p style="margin-top:.5rem">즉 <strong>"베이스가 아직 없다", "시장이 나쁘다"는 ignore가 아니라 watch</strong>입니다. 셋업이 <em>구조적으로 망가진</em> 종목만 ignore로 버립니다. 좋은 종목을 시장 탓에 버리면 나중에 시장이 좋아졌을 때 놓치기 때문입니다.</p>
+      </div>
+      <div class="analogy"><div class="h">🗂️ 비유 — 제외(ignore) vs 대기(watch)</div><p><strong>watch</strong>는 "실력은 되는데 오늘 컨디션·상황이 아니라 벤치에 앉힘"이고, <strong>ignore</strong>는 "부상(구조 손상)이라 명단에서 뺌"입니다. 벤치 선수는 언제든 다시 뛸 수 있습니다.</p><p>오닐도 같은 이유로 <strong>"워치리스트는 조정장(나쁜 시장) 동안 만들어라"</strong>고 했습니다 &mdash; 나쁜 시장에서 분류를 멈추면, 시장이 회복 신호를 낸 <strong>바로 그 순간에 살 준비가 된 목록이 없습니다.</strong> 주도주는 나쁜 시장에서 바닥을 다지며 만들어지기 때문입니다.</p></div>
+
+      <h3>시장 상황은 어떻게 반영되나 — "강제 규칙"과 "권고 규칙"의 구분</h3>
+      <p>주말 분류 AI의 규칙 문서(§3.5)에는 시장 국면에 대한 규칙이 <strong>두 강도</strong>로 나뉘어 있습니다. 이 구분이 중요한 이유는 "같은 날 어떤 종목은 entry, 어떤 종목은 시장 탓 watch"가 가능한지를 결정하기 때문입니다:</p>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>시장 상태</th><th>규칙 강도</th><th>내용</th></tr></thead>
+        <tbody>
+          <tr><td>하락장(downtrend)·조정(correction)</td><td class="no"><strong>강제(hard)</strong></td><td>최대 등급 = watch. entry 판단이 나와도 <strong>강제로 watch로 강등</strong> + unfavorable_market_context 플래그</td></tr>
+          <tr><td>상승 시도(rally_attempt, 확인일 없음)</td><td class="no"><strong>강제(hard)</strong></td><td>최대 등급 = watch (위와 동일)</td></tr>
+          <tr><td>확정 상승장인데 분배일(기관 매도일)이 최근 25일 중 <strong>5일 이상</strong></td><td class="yes"><strong>권고(soft)</strong></td><td>"확신도를 0.15 낮추고 entry보다 watch를 <strong>선호하라(prefer)</strong>" — 금지가 아니라 권고</td></tr>
+          <tr><td>확정 상승장 + 분배일 ≤3</td><td>—</td><td>제한 없음 (entry 가능)</td></tr>
+        </tbody>
+      </table></div>
+      <div class="box"><span class="tag" style="color:var(--accent)"><span class="dot a"></span>그래서 — 같은 날 KOSPI 종목끼리도 entry와 "시장 탓 watch"가 공존할 수 있나?</span>
+        <p><strong>가능합니다. 경로가 두 개 있습니다.</strong> ① <strong>권고 규칙 구간</strong>: KOSPI가 확정 상승장인데 분배일이 5일 이상 쌓인 날이라면, 규칙이 "watch를 선호하라"일 뿐 금지가 아니므로 — AI가 아주 깨끗한 셋업 하나에는 entry를 주고, 조금 애매한 종목에는 watch + unfavorable_market_context를 붙이는 일이 <em>규칙 위반 없이</em> 일어날 수 있습니다. ② <strong>시장이 다른 경우</strong>: 시장 국면은 KOSPI와 KOSDAQ이 <strong>각각 따로</strong> 계산되므로, KOSPI가 상승장이고 KOSDAQ이 조정이면 KOSPI 종목의 entry와 KOSDAQ 종목의 "시장 탓 watch"가 같은 날 공존합니다. 반대로 <strong>강제 규칙 구간</strong>(하락장·조정·미확인 랠리)에서는 — AI가 규칙을 지키는 한 — 그 시장 소속 종목의 entry는 구조적으로 나올 수 없습니다. (단 규칙의 집행자가 LLM이므로 100% 기계적 보장은 아니고, 별도 검증에서 준수가 확인된 상태입니다.)</p>
+      </div>
+
+      <details style="margin:1rem 0;border:1px solid #D8DFDD;border-radius:10px;background:#F7FAF9;padding:.6rem 1rem;">
+        <summary style="cursor:pointer;font-weight:700;color:var(--accent);">📄 실제 규칙 문서 발췌 — 주말 분류 AI(analyze_chart_v3.md)에게 주어지는 지시문 (클릭해서 펼치기)</summary>
+        <p style="font-size:.9rem;margin:.7rem 0 .3rem"><strong>① 세 등급의 공식 정의</strong> (원문 그대로, 영어 지시문):</p>
+        <pre style="overflow-x:auto;background:#0f172a;color:#e2e8f0;padding:.8rem 1rem;border-radius:8px;font-size:.74rem;line-height:1.65;white-space:pre-wrap;">- **entry**: Stock is at or near a proper buy point with a clean base, in a Stage 2
+  advance, with market direction confirmed favorable. A swing trade entry is
+  appropriate now or imminently (within ~5 trading days). ...
+- **watch**: Stock passes the trend template but is not at a buy point. Causes include:
+  base forming but not complete; stock extended beyond entry zone; market direction
+  unfavorable forcing demotion from `entry`; marginal trend template traits ...
+- **ignore**: Reserved for a stock that, despite passing the trend template, is in a
+  blow-off (climax, §6.1), topping/distribution (Stage 3→4, §6.2), or whose price
+  series is unreadable from a recent reverse split ... These are the ONLY three
+  ignore conditions. A forming/absent base, looseness, late-stage, or extension
+  is `watch`, not ignore.</pre>
+        <p style="font-size:.9rem;margin:.3rem 0 .8rem"><em>해설: entry의 정의 자체에 "시장 방향이 우호적으로 확인됐을 때"가 포함되어 있습니다. 그리고 ignore를 딱 3가지로 제한하는 문장 — 이것이 3장에서 설명한 "ignore는 구조 손상만" 규칙의 원문입니다.</em></p>
+        <p style="font-size:.9rem;margin:.7rem 0 .3rem"><strong>② §3.5 시장 방향 규칙</strong> (강제 2줄 + 권고 1줄):</p>
+        <pre style="overflow-x:auto;background:#0f172a;color:#e2e8f0;padding:.8rem 1rem;border-radius:8px;font-size:.74rem;line-height:1.65;white-space:pre-wrap;">- If `current_status == "downtrend"` or `"correction"`: maximum classification is
+  `watch`. Force any `entry` decision down to `watch` and add
+  `unfavorable_market_context` to `risk_flags`.
+- If `current_status == "rally_attempt"` without a follow-through day: maximum
+  classification is `watch`. Add `unfavorable_market_context`.
+- If `market_context.distribution_day_count_last_25_sessions &gt;= 5`: lower confidence
+  by 0.15 and prefer `watch` over `entry`. Add `unfavorable_market_context`.
+- If `current_status == "confirmed_uptrend"` with ≤ 3 distribution days: proceed
+  normally with full classification range.
+
+This rule overrides individual stock setup quality. A perfect base in a downtrend
+is `watch`, not `entry`.</pre>
+        <p style="font-size:.9rem;margin:.3rem 0 .8rem"><em>해설: 앞의 두 줄은 "Force ... down"·"maximum classification" — 강제 규칙입니다. 셋째 줄만 "prefer" — 권고 규칙. 마지막 문장("하락장의 완벽한 베이스는 watch다")이 이 시스템 보수성의 뿌리입니다.</em></p>
+        <p style="font-size:.9rem;margin:.7rem 0 .3rem"><strong>③ 위험 플래그가 등급에 미치는 영향의 3계층</strong> (발췌):</p>
+        <pre style="overflow-x:auto;background:#0f172a;color:#e2e8f0;padding:.8rem 1rem;border-radius:8px;font-size:.74rem;line-height:1.65;white-space:pre-wrap;">FORCE-IGNORE (verdict = ignore):  climax(§6.1) / topping(§6.2) / reverse-split 왜곡
+DEMOTE-TO-WATCH (등급 상한 = watch): late_stage_base(4th+), wide_and_loose,
+  volume_contraction_on_advance, unfavorable_market_context ...
+INFORMATIONAL (기록만, 단독으로는 등급 불변): extended_from_ma, faulty_pivot, ...
+
+COMBINATION RULE: ignore requires a FORCE-IGNORE condition. Any number of
+DEMOTE/INFORMATIONAL flags together cap the verdict at watch — they NEVER
+compound into ignore.</pre>
+        <p style="font-size:.9rem;margin:.3rem 0 .3rem"><em>해설: 위험 신호가 아무리 여러 개 겹쳐도 "강제 ignore 3종"이 아니면 최악이 watch라는 뜻입니다. "감점 여러 개 = 퇴출"이 아니라 "감점은 벤치(watch)까지만, 퇴출은 부상(구조 손상)만" — 과거 대박 종목을 ignore로 도배했던 결함을 고치며 들어간 규칙입니다.</em></p>
+      </details>
+    </section>
+
+    <!-- 04 watch reasons -->
+    <section id="s4">
+      <span class="sec-num">04 — ★ 핵심</span>
+      <h2>watch의 5가지 "이유 태그" (watch_reason)</h2>
+      <p>여기가 이 페이지의 심장입니다. AI가 어떤 종목을 <code>watch</code>로 분류하면, <strong>"왜 지금 매수가 아닌가"</strong>를 반드시 <strong>딱 하나의 이유 태그</strong>로 기록합니다. 이 태그가 나중에 매수 여부를 기계적으로 좌우합니다(5장).</p>
+      <p>먼저 "pivot"을 알아야 합니다.</p>
+      <div class="analogy"><div class="h">🚪 pivot = "출발 신호선"</div><p><strong>pivot</strong>은 주가가 이 가격을 <strong>거래량 동반해 뚫으면 상승이 시작된다</strong>고 보는 목표선입니다. 육상 출발선 같은 것. 그런데 이 출발선이 <strong>아직 안 그어졌을 수도</strong>, 이미 <strong>한참 지나쳤을 수도</strong> 있습니다. 5개 태그는 대부분 "출발선(pivot)과 지금 주가의 관계"로 갈립니다.</p></div>
+
+      <h3>pivot이 확정된 종목의 "가격 밴드"</h3>
+      <p>pivot이 정해진 종목은, <strong>현재가가 그 pivot의 어디쯤 있느냐</strong>로 태그가 갈립니다:</p>
+      <div class="band">
+        <div class="lvl ex"><div class="px">현재가 &gt; pivot × 1.05</div><div class="de"><strong>extended</strong> — 이미 출발선을 5% 넘게 지나쳐 버림 = <strong>추격 구간</strong> (지금 사면 늦음)</div></div>
+        <div class="lvl en"><div class="px">pivot 근처<br>(0.95~1.05)</div><div class="de"><strong>entry</strong> 후보 — 출발선 바로 앞/막 통과. 시장까지 좋으면 즉시 매수 대상</div></div>
+        <div class="lvl vb"><div class="px">현재가 &lt; pivot × 0.95</div><div class="de"><strong>valid_base_awaiting_breakout</strong> — 출발선 아래에서 <strong>정상 대기 중</strong> (베이스는 믿을 만하나 아직 매수일 아님)</div></div>
+      </div>
+
+      <h3>5개 태그 완전 해부</h3>
+      <p>각 태그가 무슨 뜻이고, 언제 붙는지 입니다. 색 테두리는 <span style="color:var(--good);font-weight:700">초록=나중에 매수 가능 경로</span> / <span style="color:var(--bad);font-weight:700">빨강=매수 경로에서 제외</span>입니다(이유는 5장).</p>
+
+      <div class="tagcard blocked">
+        <div class="th"><span class="cd">base_forming</span><span class="kr">"베이스 만드는 중"</span><span class="pill b">매수 경로 제외</span></div>
+        <p><strong>출발선(pivot)이 아직 안 그어졌습니다.</strong> 베이스(바닥 다지기)에는 컵·손잡이 같은 여러 모양이 있는데, 그 <strong>마지막 부품이 아직 안 만들어진</strong> 상태입니다. 예: 컵 모양은 됐는데 마지막 '손잡이(handle)'가 아직 안 생김. 목표가(pivot)의 재료가 미완성이라 출발선을 어디에 그을지 정할 수 없습니다.</p>
+        <div class="row2"><div class="mini"><span class="lab">언제</span>pivot 정의 요소 미완성</div><div class="mini"><span class="lab">왜 대기</span>돌파할 출발선 자체가 없음</div></div>
+      </div>
+
+      <div class="tagcard blocked">
+        <div class="th"><span class="cd">extended</span><span class="kr">"이미 너무 올랐다"</span><span class="pill b">매수 경로 제외</span></div>
+        <p><strong>출발선은 있는데 주가가 이미 5% 넘게 지나쳤습니다</strong>(pivot × 1.05 초과). 지금 사면 추격 매수 &mdash; 오닐·미너비니가 금지하는 행동입니다.</p>
+        <div class="row2"><div class="mini"><span class="lab">언제</span>현재가 &gt; pivot × 1.05</div><div class="mini"><span class="lab">왜 대기</span>추격 매수 = 손실 위험 큼</div></div>
+      </div>
+
+      <div class="tagcard pass">
+        <div class="th"><span class="cd">valid_base_awaiting_breakout</span><span class="kr">"베이스 완성, 돌파 대기"</span><span class="pill g">매수 경로</span></div>
+        <p><strong>출발선(pivot)이 확정됐고, 주가는 그 아래에서 얌전히 대기 중</strong>입니다(pivot × 0.95 미만). 베이스가 믿을 만해서, <strong>돌파만 하면 바로 매수</strong>할 수 있는 "준비된" 상태입니다.</p>
+        <div class="row2"><div class="mini"><span class="lab">언제</span>pivot 확정 + 현재가 &lt; pivot × 0.95</div><div class="mini"><span class="lab">왜 대기</span>아직 돌파(매수일)가 안 옴</div></div>
+      </div>
+
+      <div class="tagcard pass">
+        <div class="th"><span class="cd">unfavorable_market</span><span class="kr">"종목은 완벽, 시장이 나쁨"</span><span class="pill g">매수 경로</span></div>
+        <p><strong>종목 셋업 자체는 entry(즉시 매수)급인데, 시장 방향이 나빠서</strong> watch로 강등된 경우입니다. 시장이 하락장/조정/미확인 반등이거나 분산일이 많을 때. <strong>종목 잘못이 아니라 순전히 시장 탓</strong>입니다.</p>
+        <div class="row2"><div class="mini"><span class="lab">언제</span>셋업은 entry급 + 시장 국면이 불리(하락장·조정 등)</div><div class="mini"><span class="lab">왜 대기</span>시장이 받쳐주지 않음</div></div>
+      </div>
+
+      <div class="tagcard pass">
+        <div class="th"><span class="cd">marginal_tt</span><span class="kr">"추세템플릿이 아슬아슬"</span><span class="pill g">매수 경로</span></div>
+        <p>1차 관문(트렌드 템플릿)은 통과했지만 <strong>여러 조건이 간신히(3% 미만 마진) 통과</strong>한 경우. 조금 더 확인이 필요한 상태입니다.</p>
+        <div class="row2"><div class="mini"><span class="lab">언제</span>TT 조건 3개+ 가 마진 &lt;3%</div><div class="mini"><span class="lab">왜 대기</span>통과가 불안정 — 추가 확인</div></div>
+      </div>
+
+      <div class="box key"><span class="tag"><span class="dot a"></span>태그가 겹치면? — 우선순위 규칙 (D4)</span><p>한 종목이 여러 태그에 해당할 수 있습니다. 그럴 땐 <strong><code>base_forming</code> 또는 <code>extended</code>가 하나라도 해당하면 그것을 우선</strong> 선택합니다. 이 둘이 아닐 때만 나머지 셋(unfavorable_market / marginal_tt / valid_base) 중에서 고릅니다. <strong>"안전 우선"</strong> &mdash; 구조가 미완성이거나 추격 구간이면 무조건 매수를 막는 태그를 답니다.</p></div>
+    </section>
+
+    <!-- 05 mechanical downstream -->
+    <section id="s5">
+      <span class="sec-num">05 — ★★ 가장 중요</span>
+      <h2>태그가 이후 매수를 "기계적으로" 바꾼다</h2>
+      <p>이제 핵심입니다. 4장의 이유 태그는 단순 기록이 아니라, <strong>평일에 이 종목을 살지 말지를 자동으로 결정</strong>합니다. 두 단계에서 작동합니다.</p>
+
+      <h3>1단계 — 결정론 게이트 (trigger_gate · 큰 그림의 3단계, 기계 계산)</h3>
+      <p><strong>이 게이트의 정체부터 정확히:</strong> 별도 코드 파일(<code>trigger_gate.py</code>)에 들어 있는 순수한 계산 함수입니다. AI가 아닙니다. 평일 저녁 매수 확인 작업(<code>evaluate_pivot</code>)이 시작되면 <strong>맨 먼저</strong> 이 함수가 "현재 분류가 entry 또는 watch인 종목 전부"에 대해 한 번씩 실행되고, 여기서 신호가 난 종목만 다음의 AI 확인(2단계)으로 넘어갑니다. 즉 게이트는 evaluate_pivot 작업 <em>안의</em> 첫 부분이지만, 코드 자체는 독립된 파일에 있습니다.</p>
+
+      <p><strong>게이트가 낼 수 있는 신호는 다섯 가지</strong>이고, 이 순서로 검사합니다 (먼저 걸리는 것이 우선):</p>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>순서</th><th>신호</th><th>대상</th><th>조건 (전부 종가 기준)</th><th>다음에 일어나는 일</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td><strong>invalidation</strong> (무효화)</td><td>entry·watch 공통</td><td>종가 &lt; 손절선(설정된 경우) 또는 종가 &lt; 50일선</td><td>"베이스가 깨졌나?" — AI가 abort 여부 판정. 돌파보다 <strong>먼저</strong> 검사(깨진 게 더 급함)</td></tr>
+          <tr><td class="num">2</td><td><strong>breakout</strong> (돌파)</td><td><span class="pill g">entry</span> 전용</td><td>종가 &gt; pivot <strong>그리고</strong> 거래량 ≥ 50일 평균 × 1.0</td><td>AI 매수 확인 (2단계)</td></tr>
+          <tr><td class="num">3</td><td><strong>breakout_from_watch</strong> (watch의 돌파)</td><td><span class="pill w">watch</span> 전용</td><td>fresh cross(어제까지 pivot 이하 → 오늘 종가가 처음 돌파) <strong>그리고</strong> 거래량 ≥ 50일 평균 × 1.0 <strong>그리고</strong> 이유 태그가 허용 3종</td><td>AI 매수 확인 (2단계)</td></tr>
+          <tr><td class="num">4</td><td><strong>promotion</strong> (승격 접근)</td><td><span class="pill w">watch</span> 전용</td><td>종가 ≥ pivot × 0.95 그리고 거래량 ≥ 50일 평균</td><td>AI가 살펴보되 <strong>매수(go_now)는 절대 금지</strong> — pivot 아래 매수 방지</td></tr>
+          <tr><td class="num">5</td><td>None (신호 없음)</td><td>—</td><td>위 어느 것도 아님</td><td>오늘은 아무 일 없음. 내일 다시 검사</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="box key"><span class="tag"><span class="dot a"></span>entry와 watch는 같은 함수, 다른 분기 — 조건 차이 3가지</span>
+        <p>많이 받는 질문: "entry의 게이트와 watch의 게이트는 조건이 다른가?" — <strong>네, 같은 함수 안에서 <code>if classification == "entry" / "watch"</code> 조건문으로 갈라지며, entry 쪽이 세 가지 면에서 느슨합니다:</strong></p>
+        <ul style="margin:.4rem 0">
+          <li><strong>fresh cross 불요</strong> — watch는 "오늘 <em>처음</em> 넘은 날"만 인정하지만, entry는 종가가 pivot 위이기만 하면 <strong>어제도 위였어도</strong> 매일 신호가 납니다. (entry는 "사도 되는 자리"라는 판정을 이미 받았으므로 기회를 반복 제공)</li>
+          <li><strong>이유 태그 조건 없음</strong> — entry에는 watch_reason 자체가 없으니 허용 목록 검사도 없습니다.</li>
+          <li><strong>같은 거래량 기준</strong>(50일 평균 × 1.0)은 공통입니다. 정밀한 거래량 판정(1.4배)은 게이트가 아니라 2단계 AI가 합니다 — 게이트는 "명백한 비후보만 거르는 싸고 느슨한 체"라는 설계 철학 때문입니다.</li>
+        </ul>
+        <p><strong>같은 날 예시</strong> — 종목 E(entry)와 종목 W(watch, 태그 valid_base)가 둘 다 pivot 10,000원, 오늘 종가 10,200원, 거래량 평균 1.1배라고 합시다. <strong>E</strong>: breakout 신호 → AI 확인으로. 내일도 종가가 pivot 위면 <em>또</em> 신호가 나서 또 물어봅니다. <strong>W</strong>: 어제 종가가 9,900원(pivot 아래)이었다면 fresh cross 성립 → breakout_from_watch 신호 → AI 확인으로. 그런데 어제 이미 10,100원이었다면(이미 넘은 상태) fresh cross 불성립 → 오늘은 promotion(승격 접근)만 나오고 매수 질문은 발생하지 않습니다. 이후는 둘 다 동일: AI가 go_now를 주면 5단계(entry_params)에서 매수가·손절가·수량을 계산하고, wait면 내일 다시 게이트부터 반복합니다.</p>
+      </div>
+
+      <p>watch의 breakout_from_watch(순서 3)에는 조건이 하나 더 있었죠 — <strong>이유 태그가 허용 3종이어야</strong> 합니다. 5개 태그 중 어느 것이 대상인지:</p>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>태그</th><th>돌파 감지 대상?</th><th>이유</th></tr></thead>
+        <tbody>
+          <tr><td><code>base_forming</code></td><td class="no">✗ 제외</td><td>돌파할 pivot(출발선)이 아직 없음</td></tr>
+          <tr><td><code>extended</code></td><td class="no">✗ 제외</td><td>이미 지나쳐 추격 구간 — 새 돌파 아님</td></tr>
+          <tr><td><code>valid_base_awaiting_breakout</code></td><td class="yes">✓ 대상</td><td>완성된 베이스의 정당한 돌파 후보</td></tr>
+          <tr><td><code>unfavorable_market</code></td><td class="yes">✓ 대상</td><td>셋업 완성, 시장만 문제 — 돌파 가능</td></tr>
+          <tr><td><code>marginal_tt</code></td><td class="yes">✓ 대상</td><td>셋업 성립, 돌파 가능</td></tr>
+        </tbody>
+      </table></div>
+      <p class="muted" style="font-size:.9rem">즉 <code>base_forming</code>·<code>extended</code> 종목은 아무리 주가가 움직여도 이 관문에서 애초에 걸러집니다(promotion 신호까지는 나올 수 있지만 매수 질문은 발생하지 않음). 이게 4장에서 이 둘을 <span style="color:var(--bad);font-weight:700">빨강(매수 경로 제외)</span>으로 표시한 이유입니다. 이 페이지가 watch 경로를 중심으로 설명하는 이유는 실제 매수 신호의 대부분이 watch 경로에서 나오기 때문입니다(entry 분류 자체가 극히 드묾).</p>
+
+      <details style="margin:1rem 0;border:1px solid #D8DFDD;border-radius:10px;background:#F7FAF9;padding:.6rem 1rem;">
+        <summary style="cursor:pointer;font-weight:700;color:var(--accent);">📄 실제 코드 보기 — trigger_gate.py의 evaluate() 함수 (클릭해서 펼치기)</summary>
+        <pre style="overflow-x:auto;background:#0f172a;color:#e2e8f0;padding:.8rem 1rem;border-radius:8px;font-size:.74rem;line-height:1.65;">
+# kr_pipeline/llm_runner/compute/trigger_gate.py (발췌 — 임계 상수는 값으로 치환)
+
+ALLOWED_WATCH_REASONS = frozenset(
+    {"unfavorable_market", "marginal_tt", "valid_base_awaiting_breakout"}
+)
+
+def evaluate(*, close, pivot_price, volume, avg_volume_50d, stop_loss,
+             sma_50, classification, prev_close=None, watch_reason=None):
+    # ① 하향 경보가 최우선 (베이스 깨짐이 더 급함)
+    if stop_loss is not None and close &lt; stop_loss:
+        return "invalidation"
+    if close &lt; sma_50:
+        return "invalidation"
+
+    # ② entry 전용 경로 — fresh cross 요구 없음
+    if classification == "entry":
+        if close &gt; pivot_price and volume &gt;= avg_volume_50d * 1.0:
+            return "breakout"
+
+    # ③ watch 전용 경로
+    if classification == "watch":
+        fresh_cross = (
+            prev_close is not None
+            and prev_close &lt;= pivot_price     # 어제까지는 pivot 이하였고
+            and close &gt; pivot_price          # 오늘 종가가 처음으로 넘었다
+        )
+        if (watch_reason in ALLOWED_WATCH_REASONS
+                and fresh_cross
+                and volume &gt;= avg_volume_50d * 1.0):
+            return "breakout_from_watch"
+        # 돌파는 아니지만 pivot의 95%까지 접근 → 승격 검토 신호
+        if close &gt;= pivot_price * 0.95 and volume &gt;= avg_volume_50d:
+            return "promotion"
+
+    return None   # 오늘은 아무 신호 없음</pre>
+        <p style="font-size:.9rem;margin:.5rem 0 .3rem"><em>해설: 함수 하나가 종목 한 개의 "오늘"을 판정합니다. 입력은 전부 그날의 숫자(종가·거래량·평균·이동평균·어제 종가)와 저장된 분류 정보(entry/watch, 이유 태그, pivot)뿐 — 그래서 같은 입력이면 언제나 같은 답이 나오는 "결정론"입니다. ①이 맨 위에 있는 것(깨짐 우선), ②에 fresh cross가 없는 것(entry는 매일 재기회), ③의 허용 태그 검사(base_forming·extended 차단)가 본문 설명의 코드 근거입니다. 거래량 배수 1.0과 promotion의 0.95는 임계 상수 파일(thresholds.py)에 정의된 값입니다.</em></p>
+      </details>
+
+      <h3>2단계 — AI 매수 확인 (evaluate_pivot의 LLM 호출 · 큰 그림의 4단계)</h3>
+      <p>1단계 게이트가 신호를 낸 종목만 여기로 옵니다. 이때 <strong>게이트가 낸 신호의 종류(trigger_type)가 AI에게 함께 전달</strong>되고, AI의 규칙 문서는 신호 종류마다 <strong>다른 장(章)의 규칙</strong>을 적용하게 되어 있습니다. 모든 경로에 공통인 <strong>표준 돌파 검증</strong>이 먼저 깔리고(종가 &gt; pivot + 거래량 ≥ 평소의 <strong>1.4배</strong> + 종가가 일중 범위의 상단 1/3 + 봉이 거칠지 않음 + 최근 3일 분배일 없음), 그 위에 경로별 추가 조건이 붙습니다:</p>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>신호(trigger_type) / 태그</th><th>go_now(즉시 매수) 허용 조건</th><th>시장 국면이 나쁘면?</th></tr></thead>
+        <tbody>
+          <tr><td><strong>breakout</strong> (<span class="pill g">entry</span> 종목)</td><td>공통 표준 검증 충족이면 go_now — <strong>시장 국면(current_status) 조건 없음</strong></td><td class="yes">살 수 있음<br>(분배일 조건만 간접 반영)</td></tr>
+          <tr><td><strong>breakout_from_watch</strong> · <code>valid_base_awaiting_breakout</code></td><td>공통 표준 검증만 충족하면 <strong>바로 go_now</strong> (entry와 동등 취급)</td><td class="yes">살 수 있음<br>(시장 무관)</td></tr>
+          <tr><td><strong>breakout_from_watch</strong> · <code>unfavorable_market</code></td><td>표준 검증 + 시장이 <strong>confirmed_uptrend(확정 상승장)로 회복</strong>했을 때만 go_now</td><td class="no">못 삼<br>(wait)</td></tr>
+          <tr><td><strong>breakout_from_watch</strong> · <code>marginal_tt</code></td><td>표준 검증 + 추세템플릿 8조건이 <strong>모두 깨끗해졌을 때</strong>(마진&lt;3% 해소)만 go_now</td><td class="yes">살 수 있음<br>(TT만 봄 — 시장 무관)</td></tr>
+          <tr><td><strong>promotion</strong> / <strong>invalidation</strong></td><td>go_now <strong>발생 자체가 금지</strong> — promotion은 pivot 미만 매수 방지, invalidation은 "깨졌나"만 판정(wait/abort)</td><td>—</td></tr>
+        </tbody>
+      </table></div>
+      <p><strong>entry 경로에 시장 판단이 들어가나?</strong> — 규칙 문서를 확인한 결과: breakout(entry) 장(§3.1)의 go_now 조건에는 <strong>시장 국면(current_status)을 보는 항목이 없습니다.</strong> 시장 관련 항목은 "최근 3일 분배일 없음"(go_now 조건)과 "최근 5일 분배일 3회 이상이면 abort"뿐 — 즉 시장의 <em>단기 매도 압력</em>은 간접 반영되지만, "하락장이면 사지 마라" 같은 국면 차단은 entry 경로에 없습니다. 국면 차단은 오직 unfavorable_market 태그의 watch에만 있습니다.</p>
+      <div class="box bad"><span class="tag"><span class="dot b"></span>여기서 그 "구멍"이 나온다</span>
+        <p>표를 보세요. <strong>같은 하락장</strong>에서:</p>
+        <ul style="margin:.4rem 0">
+          <li><span class="pill g">entry</span> 종목 &rarr; 시장 국면과 무관하게 <span class="yes">go_now 가능</span></li>
+          <li><code>valid_base</code> 종목 &rarr; 시장과 무관하게 <span class="yes">go_now 가능</span></li>
+          <li><code>marginal_tt</code> 종목 &rarr; 추세템플릿만 깨끗하면 역시 <span class="yes">go_now 가능</span></li>
+          <li><code>unfavorable_market</code> 종목 &rarr; 시장이 나쁘니 <span class="no">차단</span></li>
+        </ul>
+        <p>매수 경로 4개 중 <strong>시장 국면을 확인하는 건 unfavorable_market 하나뿐</strong>입니다. 강등된 <strong>"이유"만 다를 뿐 오늘의 시장 리스크는 똑같은데</strong>, 결과가 갈립니다. 이것이 분석 페이지에서 "사유별 구멍(비일관)"이라 부른 문제입니다.</p>
+      </div>
+
+      <details style="margin:1rem 0;border:1px solid #D8DFDD;border-radius:10px;background:#F7FAF9;padding:.6rem 1rem;">
+        <summary style="cursor:pointer;font-weight:700;color:var(--accent);">📄 실제 규칙 문서 발췌 — 매수 확인 AI(evaluate_pivot_trigger_v1.md)에게 주어지는 지시문 (클릭해서 펼치기)</summary>
+        <p style="font-size:.9rem;margin:.7rem 0 .3rem"><strong>① entry의 돌파(§3.1 breakout) — go_now/wait/abort 조건 원문:</strong></p>
+        <pre style="overflow-x:auto;background:#0f172a;color:#e2e8f0;padding:.8rem 1rem;border-radius:8px;font-size:.74rem;line-height:1.65;white-space:pre-wrap;">`go_now` 조건 (모두 충족):
+- close &gt; pivot_price (결정론 게이트 이미 확인. 재확인)
+- volume &gt; avg_volume_50d × 1.4 (책 근거: O'Neil HTMMIS Ch.2)
+- 종가가 일중 range 의 상단 1/3 (no intraday weakness)
+- spread (high − low) wide-and-loose 아님 (최대 평균 range 의 1.5x)
+- 최근 3일 distribution day 없음
+
+`wait` 조건: volume 1.2~1.4× 사이 / 종가가 일중 range 중간 1/3 / spread borderline
+`abort` 조건: base_low 이탈 / sma_50 명확 이탈(+거래량) / 최근 5일 distribution 3+ /
+  돌파 직후 20일선(sma_21) 가드 위반</pre>
+        <p style="font-size:.9rem;margin:.3rem 0 .8rem"><em>해설: 게이트(1.0배)보다 훨씬 높은 거래량 기준(1.4배)이 여기서 적용됩니다 — "게이트는 느슨하게, 정밀 판정은 AI가"라는 분업. 그리고 보다시피 current_status(시장 국면) 항목이 없습니다. 시장은 분배일(distribution day) 수로만 간접 등장합니다.</em></p>
+        <p style="font-size:.9rem;margin:.7rem 0 .3rem"><strong>② watch의 돌파(§3.5 breakout_from_watch) — 태그별 추가 게이트 원문:</strong></p>
+        <pre style="overflow-x:auto;background:#0f172a;color:#e2e8f0;padding:.8rem 1rem;border-radius:8px;font-size:.74rem;line-height:1.65;white-space:pre-wrap;">**공통 표준 돌파 검증 (§3.1 과 동일 — 먼저 적용)**: (위 ①과 같은 5개 항목)
+
+**watch_reason 별 추가 게이트 (go_now 허용 조건):**
+- `valid_base_awaiting_breakout`: 위 공통 표준 검증 충족 시 `go_now`.
+  (base 가 이미 신뢰 가능 — entry 와 동등 취급.)
+- `unfavorable_market`: 강등 사유가 시장이었으므로 **`market_context.current_status
+  == "confirmed_uptrend"` (회복) 일 때만** `go_now`. 여전히 downtrend/correction/
+  미확인 rally_attempt 면 표준 검증을 충족해도 `wait`.
+- `marginal_tt`: **현재 `conditions_met` 8개가 모두 true 이고 경계(마진 &lt;3%)가
+  해소(clean)됐을 때만** `go_now`. 아직 여러 조건이 marginal 이면 `wait`.</pre>
+        <p style="font-size:.9rem;margin:.3rem 0 .8rem"><em>해설: 5장 표의 "태그마다 다른 go_now 조건"의 원문이 바로 이것입니다. "강등된 이유가 해소됐는지"를 그 이유에 맞는 잣대로 재확인하는 구조 — 시장 탓이었으면 시장 회복을, TT 경계 탓이었으면 TT 청산을 요구합니다.</em></p>
+        <p style="font-size:.9rem;margin:.7rem 0 .3rem"><strong>③ promotion(§3.3) — 매수 금지의 원문:</strong></p>
+        <pre style="overflow-x:auto;background:#0f172a;color:#e2e8f0;padding:.8rem 1rem;border-radius:8px;font-size:.74rem;line-height:1.65;white-space:pre-wrap;">이 시점에 close 는 pivot 의 95% 이상 도달했지만 **아직 pivot 미만일 수 있음**
+→ 매수 부적절. ... promotion → go_now → entry_params 직행은 pivot 미만 매수를
+유발하므로 금지. 어떤 강도의 거래량이나 인트라데이 강세에서도 `go_now` 반환 금지.</pre>
+        <p style="font-size:.9rem;margin:.3rem 0 .3rem"><em>해설: "출발선 아래에서는 절대 사지 않는다"는 원칙의 코드화. 출력은 JSON 한 조각(decision / confidence / reasoning ≤200자 / abort_reason)으로 강제되고, 웹 검색·뉴스 등 외부 정보 사용은 금지되어 있습니다("Use ONLY the provided input payload").</em></p>
+      </details>
+    </section>
+
+    <!-- 06 worked example -->
+    <section id="s6">
+      <span class="sec-num">06 — 완결 예시</span>
+      <h2>"같은 하락장, 하나는 사고 하나는 못 산다"를 끝까지 추적</h2>
+      <p>이제 그 문장을 처음부터 끝까지 따라가 봅시다. 하락장인 어느 평일, 두 종목 A·B가 있습니다. 둘 다 지난 토요일 <code>watch</code>로 분류됐고, 오늘 똑같이 pivot을 돌파했습니다.</p>
+      <div class="walk">
+        <p style="margin:0 0 .5rem;font-weight:700">종목 A — 지난주 태그: <code>valid_base_awaiting_breakout</code></p>
+        <div class="step"><span class="s">1</span><div>지난 토요일: 시장은 <strong>좋았고</strong>, A는 베이스 완성 + 주가가 pivot 아래에서 대기 → 태그 <code>valid_base</code></div></div>
+        <div class="step"><span class="s">2</span><div>이번 주 시장이 <strong>하락장으로 꺾임.</strong> 하지만 A의 저장된 태그는 여전히 <code>valid_base</code> (재분류 전)</div></div>
+        <div class="step"><span class="s">3</span><div>오늘 A가 pivot 돌파 → 게이트 통과(✓ 대상) → AI 확인에서 <code>valid_base</code>는 <strong>시장 무관 go_now</strong> → <span class="yes">매수 ✅</span></div></div>
+      </div>
+      <div class="walk" style="border-left-color:var(--bad); background:#FCF6F5">
+        <p style="margin:0 0 .5rem;font-weight:700">종목 B — 지난주 태그: <code>unfavorable_market</code></p>
+        <div class="step"><span class="s">1</span><div>지난 토요일: B의 셋업은 <strong>entry급으로 완벽</strong>했지만 <strong>이미 시장이 나빠서</strong> watch로 강등 → 태그 <code>unfavorable_market</code></div></div>
+        <div class="step"><span class="s">2</span><div>오늘도 시장은 하락장 그대로</div></div>
+        <div class="step"><span class="s">3</span><div>오늘 B가 pivot 돌파 → 게이트 통과(✓ 대상) → AI 확인에서 <code>unfavorable_market</code>은 <strong>시장이 confirmed_uptrend여야만</strong> go_now인데 지금 하락장 → <span class="no">wait, 매수 안 함 ❌</span></div></div>
+      </div>
+      <div class="box key"><span class="tag"><span class="dot a"></span>결론</span><p>A와 B는 <strong>오늘 똑같은 하락장에서 똑같이 돌파</strong>했습니다. 유일한 차이는 <strong>지난주에 왜 watch가 됐는지(태그)</strong>뿐입니다. 그런데 A는 사고 B는 못 삽니다. <strong>"오늘의 시장 리스크"가 아니라 "과거의 강등 이유"가 오늘 매수를 가른</strong> 것 &mdash; 이것이 두 대가 어느 논리로도 설명 안 되는 비일관입니다.</p></div>
+      <div class="xref">👉 이 비일관을 <strong>왜 고쳐야 하는지</strong>, 백테스트의 바닥 대박과 어떤 관련이 있는지는 별도의 <strong>"두 대가 원전 대조 — 최종 진단" 페이지</strong>의 <strong>구조적 결함 ②(사유별 구멍)</strong>에서 다룹니다.</div>
+    </section>
+
+    <!-- 07 weekday flow -->
+    <section id="s7">
+      <span class="sec-num">07 — 평일 흐름</span>
+      <h2>평일에는 매일 이 순서로 돈다</h2>
+      <p>6장 예시에서 종목 A는 <strong>"지난주 태그가 이번 주까지 유지된"</strong> 덕에 하락장에서도 매수됐습니다. 왜 태그가 한 주씩 유지될까요? 답은 평일 파이프라인의 구조에 있습니다 &mdash; 평일 전체 흐름(<code>full-daily</code>)은 코드상 정확히 이 순서입니다:</p>
+      <div class="flow">
+        <div class="fnode det"><div class="lyr">1 · 강등 점검 <span class="ftag d">결정론</span></div><div class="nm">disqualify</div><div class="ds">분류돼 있던 종목이 트렌드 템플릿(C1~C8)에서 <strong>떨어졌으면 명단에서 강등.</strong> AI 안 부름.</div></div>
+        <div class="farr">▼</div>
+        <div class="fnode llm"><div class="lyr">2 · 신규 발굴 <span class="ftag l">LLM</span></div><div class="nm">daily_delta</div><div class="ds">오늘 1차 관문(minervini_pass)을 통과한 종목 중 <strong>최근 7일 안에 분류된 적이 없는 종목만</strong> AI가 분류(주말과 같은 프롬프트). 즉 지난 토요일 주말 분류를 받은 종목은 7일 가드에 걸려 <strong>여기서 제외</strong>되고 — 재분류가 아니라 <strong>명단에 없던 새 얼굴만 추가</strong>하는 단계.</div></div>
+        <div class="farr">▼</div>
+        <div class="fnode llm"><div class="lyr">3 · 매수 확인 <span class="ftag l">결정론 게이트 + LLM</span></div><div class="nm">evaluate_pivot (5b)</div><div class="ds">① 결정론 게이트(trigger_gate)가 <strong>entry·watch 전 종목</strong>을 검사해 신호(돌파·무효화·승격접근)가 난 것만 고르고 → ② AI가 그 종목들만 <strong>go_now / wait / abort</strong> 확정. ← 4·5장이 여기서 작동</div></div>
+        <div class="farr">▼</div>
+        <div class="fnode llm"><div class="lyr">4 · 매수 설계 <span class="ftag l">LLM</span></div><div class="nm">entry_params</div><div class="ds"><strong>go_now가 나온 종목만</strong> 매수가·손절가·수량·목표가 계산</div></div>
+        <div class="farr">▼</div>
+        <div class="fnode det"><div class="lyr">5 · 성과 기록 <span class="ftag d">결정론</span></div><div class="nm">performance</div><div class="ds">과거 신호들의 이후 수익률을 계산해 기록 (매수 판단에는 관여 없음)</div></div>
+      </div>
+      <p class="muted" style="font-size:.9rem">※ 이 흐름 전체가 운영 화면(Runner)의 <code>llm-full-daily</code> 작업 하나입니다 — cron이 평일 20:00(장 마감 후 데이터 적재 완료 뒤)에 자동 실행하며, 코드상 <code>modes.run_full_daily()</code>가 위 다섯 단계를 이 순서 그대로 호출합니다.</p>
+      <div class="box"><span class="tag" style="color:var(--accent)"><span class="dot a"></span>주말과의 차이</span><p><strong>주말</strong>은 강등 점검 후 <strong>전체 명단을 다시 분류</strong>(analyze_chart)합니다. <strong>평일</strong>은 재분류 대신 <strong>새 종목만 추가</strong>하고, 나머지는 저장된 지난 분류(와 태그)를 그대로 씁니다. &mdash; 그래서 6장의 종목 B처럼 <strong>"지난주 태그가 이번 주까지 유지"</strong>되는 상황이 생깁니다.</p></div>
+    </section>
+
+    <!-- 08 summary -->
+    <section id="s8">
+      <span class="sec-num">08 — 요약</span>
+      <h2>한 장으로 보는 전체 여정</h2>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>단계</th><th>누가</th><th>하는 일</th><th>결과물</th></tr></thead>
+        <tbody>
+          <tr><td>0 재료</td><td><span class="pill bl">기계</span></td><td>가격·이동평균·RS·시장국면 계산</td><td>지표 데이터</td></tr>
+          <tr><td>1 1차 관문</td><td><span class="pill bl">기계</span></td><td>트렌드템플릿 C1~C8 전부 통과?</td><td>minervini_pass</td></tr>
+          <tr><td>2 2차 관문</td><td><span class="pill g">AI</span></td><td>차트 보고 3등급 분류 + 이유 태그</td><td>entry/watch/ignore + watch_reason + pivot</td></tr>
+          <tr><td>3 게이트</td><td><span class="pill bl">기계</span></td><td>watch(태그 3종)가 오늘 돌파?</td><td>돌파 후보</td></tr>
+          <tr><td>4 매수 확인</td><td><span class="pill g">AI</span></td><td>태그별 조건으로 go_now/wait/abort</td><td>매수 결정</td></tr>
+          <tr><td>5 매수 설계</td><td><span class="pill g">AI</span></td><td>매수가·손절·수량·목표 계산</td><td>주문 파라미터</td></tr>
+        </tbody>
+      </table></div>
+      <div class="box good"><span class="tag"><span class="dot g"></span>기억할 한 문장</span><p>종목의 운명은 <strong>2단계에서 붙는 "이유 태그"</strong>에 크게 좌우됩니다. 태그가 <code>base_forming</code>·<code>extended</code>면 매수 경로에서 아예 빠지고, <code>valid_base</code>·<code>unfavorable_market</code>·<code>marginal_tt</code>면 각기 <strong>다른 조건</strong>으로 매수가 열립니다 &mdash; 그 조건 차이가 시스템의 성격과 약점을 만듭니다.</p></div>
+    </section>
+
+    <hr class="soft">
+
+    <!-- Glossary -->
+    <section id="gloss">
+      <span class="sec-num">부록 — 용어집</span>
+      <h2>초보자를 위한 용어 사전</h2>
+      <div class="gloss"><dl>
+        <div class="row"><dt>결정론<span class="en">deterministic</span></dt><dd>같은 입력이면 항상 같은 결과가 나오는 <strong>기계적 규칙</strong>. AI(그때그때 판단)와 대비됨.</dd></div>
+        <div class="row"><dt>트렌드 템플릿<span class="en">trend template</span></dt><dd>미너비니의 <strong>8개 조건(C1~C8)</strong>. "이미 강한 상승 추세인 종목"만 거르는 1차 체.</dd></div>
+        <div class="row"><dt>이동평균선<span class="en">SMA 50/150/200</span></dt><dd>최근 N일 종가의 평균선. 정배열(단기&gt;중기&gt;장기)이면 상승 추세로 봄.</dd></div>
+        <div class="row"><dt>RS Rating<span class="en">relative strength</span></dt><dd>1년 수익률의 <strong>시장 내 백분위(0~99)</strong>. 70이면 상위 30%. C8 조건에 사용.</dd></div>
+        <div class="row"><dt>minervini_pass<span class="en">1차 통과 플래그</span></dt><dd>C1~C8을 <strong>전부</strong> 만족하면 참. 이 종목만 AI 분석으로 넘어감.</dd></div>
+        <div class="row"><dt>pivot<span class="en">피벗 / 출발선</span></dt><dd>주가가 거래량 동반해 이 가격을 뚫으면 상승 시작으로 보는 <strong>목표 돌파가격</strong>.</dd></div>
+        <div class="row"><dt>베이스<span class="en">base</span></dt><dd>주가가 크게 오르기 전 옆으로 다지며 힘을 모으는 구간. 컵·손잡이 등 여러 모양.</dd></div>
+        <div class="row"><dt>watch_reason<span class="en">이유 태그</span></dt><dd>watch로 분류할 때 <strong>"왜 아직 매수가 아닌지"</strong>를 기록하는 5개 중 하나의 태그.</dd></div>
+        <div class="row"><dt>entry / watch / ignore<span class="en">3등급</span></dt><dd>즉시 매수 후보 / 대기(벤치) / 제외. ignore는 climax·topping·reverse-split에만.</dd></div>
+        <div class="row"><dt>climax<span class="en">과열 정점</span></dt><dd>너무 급하게 수직 상승해 나온 <strong>정점 소진</strong> 신호. ignore 사유.</dd></div>
+        <div class="row"><dt>topping<span class="en">천장 분산</span></dt><dd>기관 매도(분산일)가 쌓여 <strong>천장</strong>을 만드는 신호. ignore 사유.</dd></div>
+        <div class="row"><dt>go_now / wait / abort<span class="en">매수 확인 결과</span></dt><dd>평일 AI 확인 결과 — <strong>지금 사라 / 기다려 / 취소</strong>.</dd></div>
+        <div class="row"><dt>confirmed_uptrend<span class="en">확정 상승장</span></dt><dd>시스템이 "사도 되는 상승장"이라 판정한 시장 국면.</dd></div>
+        <div class="row"><dt>disqualify<span class="en">강등</span></dt><dd>분류돼 있던 종목이 트렌드 템플릿에서 떨어지면 명단에서 빼는 것.</dd></div>
+        <div class="row"><dt>5 / 5b<span class="en">단계 별칭</span></dt><dd>내부 명칭 — <strong>5</strong>=주말 분류(analyze_chart), <strong>5b</strong>=평일 매수 확인(evaluate_pivot).</dd></div>
+      </dl></div>
+    </section>
+
+    <p class="foot">
+      시스템 A → Z · 종목 분류·매수 파이프라인 설명<br>
+      기반 코드: <code>minervini.py · analyze_chart_v3.md · trigger_gate.py · evaluate_pivot.py · evaluate_pivot_trigger_v1.md · delta.py · entry_params.py · modes.py</code><br>
+      모든 단계·조건은 실제 코드를 대조해 작성됨.
+    </p>
+
+  </main>
+</div>
+</div>
+
+<script>
+(function(){
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {};
+  links.forEach(function(a){ var id=a.getAttribute('href').slice(1); var el=document.getElementById(id); if(el) map[id]=a; });
+  var sections = Object.keys(map).map(function(id){return document.getElementById(id);});
+  if(!('IntersectionObserver' in window) || !sections.length) return;
+  var current=null;
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){ if(current) current.classList.remove('active'); var a=map[e.target.id]; if(a){a.classList.add('active'); current=a;} }
+    });
+  }, {rootMargin:'-8% 0px -82% 0px', threshold:0});
+  sections.forEach(function(s){obs.observe(s);});
+})();
+</script>

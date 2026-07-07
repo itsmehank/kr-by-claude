@@ -1,0 +1,1336 @@
+<details data-doc-meta style="box-sizing:border-box;margin:0;padding:10px 24px;background:#0f172a;color:#e2e8f0;font-family:'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;font-size:14px;line-height:1.75;border-bottom:3px solid #f59e0b;">
+<summary style="cursor:pointer;font-weight:700;color:#fbbf24;outline:none;">📌 이 문서는 왜 만들어졌나 — 목적 · 연관 문서 · 이력 (클릭해서 펼치기)</summary>
+<div style="max-width:880px;margin:14px auto 8px;">
+<p style="margin:0 0 12px;color:#94a3b8;font-size:13px;">생성: 2026-07-05 15:30 · 최종 업데이트: 2026-07-06 15:43 (KST) · 출처: Claude Code 세션 기록 기반 복원</p>
+<h3 style="margin:0 0 6px;font-size:15px;color:#fbbf24;">이 문서의 목적 (실제 요청 근거)</h3>
+<p><b>최종 확정본</b> — 이 감사를 수행한 worktree(recall-audit 브랜치)는 2026-07-07 main 에
+머지 완료(9b2631c). 정식 보고서는 <code>docs/superpowers/recall-audit-results.md</code>.</p>
+<p>"수익성 백테스트"와 별개 축의 감사: 2025-01~2026-06 18개월 동안 크게 오른 종목(미포착 승자)을 이
+시스템이 얼마나 잡았는지 <b>recall(재현율)</b>을 측정한 작업의 전 과정 이야기. 요청 원문: "이 백테스트의
+처음부터 끝까지 단계별로 어떤 내용을 진행했는지 완전히 상세하게 기술한 html 페이지를 만들어줘. 쉬운 용어와
+가독성 높은 문장으로. 친절한 비유와 용어 해설, 이면에 있는 의도 등 풍부하게. 2회 검토."</p>
+<p>이후 개고 2회: ① "922건이 어떻게 120건이 됐는지 중간 과정이 없다" 등 표본 흐름 보강 ② "성적표 4항목
+(caught/trigger_miss/pivot_miss/cls_miss)이 어떤 과정으로 도출됐는지 설명해달라, '인공물'은 번역어투라
+바꿔달라" 반영. 핵심 결론: coverage 0.8%(120표본), 분류층 결함 0, 병목은 트리거 경로(단, 실전 미호출일
+감사라는 교락 존재).</p>
+<h3 style="margin:16px 0 6px;font-size:15px;color:#fbbf24;">연관 문서</h3>
+<ul style="margin:0;padding-left:20px;"><li style="margin:4px 0;"><a href="./backtest_journey.html" style="color:#7dd3fc;text-decoration:underline;">매매 시스템 검증 대장정 — 9단계 실험, 그리고 세 가지 답</a><span style='color:#94a3b8;'> — 다른 축의 검증 — 저쪽은 '산 것의 수익성', 이쪽은 '놓친 승자의 재현율(recall)'</span></li><li style="margin:4px 0;"><a href="./system-atoz.html" style="color:#7dd3fc;text-decoration:underline;">종목 하나가 시스템을 통과하는 여정, A부터 Z까지</a><span style='color:#94a3b8;'> — 이 감사를 읽다 나온 질문(entry의 평일 절차·시장 규칙)이 저 문서의 07-06 보강으로 이어짐</span></li><li style="margin:4px 0;"><a href="./stock-sim.html" style="color:#7dd3fc;text-decoration:underline;">나는 종목이다 — 2024·2025 실전 심사 시뮬레이터</a><span style='color:#94a3b8;'> — 이 감사가 다룬 단계별 심사 경로를 실데이터 종목으로 체험하는 시뮬레이터</span></li><li style="margin:4px 0;"><a href="./stoploss-backtest-compare.html" style="color:#7dd3fc;text-decoration:underline;">손절 규칙 해석 비교 v1 vs v2 (2025-2026)</a><span style='color:#94a3b8;'> — 이 감사의 모집단(watch/entry+pivot 67종목)에 손절 규칙을 적용한 파생 시뮬레이션</span></li></ul>
+</div>
+</details>
+<title>미포착 승자 감사 — 처음부터 끝까지</title>
+<style>
+  :root{
+    --paper:#FBFBF8; --ink:#232B33; --muted:#5E6873; --line:#E2E2DA;
+    --navy:#33517A; --navy-soft:#EDF1F7;
+    --catch:#2F7D5C; --catch-bg:#EDF5F0;
+    --miss:#A94438; --miss-bg:#F8EFED;
+    --warn:#9A6B24; --warn-bg:#F8F3E9;
+    --glossary-bg:#F5F3EC;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);
+    font-family:"Apple SD Gothic Neo","Pretendard","Noto Sans KR","Malgun Gothic",sans-serif;
+    font-size:17px;line-height:1.85;margin:0;padding:0 20px;
+    -webkit-font-smoothing:antialiased}
+  main{max-width:720px;margin:0 auto;padding:56px 0 120px}
+  h1,h2,h3{line-height:1.35;text-wrap:balance;letter-spacing:-0.02em}
+  h1{font-size:34px;font-weight:800;margin:8px 0 12px}
+  h2{font-size:24px;font-weight:800;margin:0 0 16px}
+  h3{font-size:18.5px;font-weight:700;margin:36px 0 10px;color:var(--navy)}
+  p{margin:0 0 18px}
+  strong{font-weight:700}
+  section.chapter{border-top:1px solid var(--line);margin-top:64px;padding-top:40px}
+  .eyebrow{font-size:13px;font-weight:700;color:var(--navy);letter-spacing:.14em;margin:0 0 6px}
+  .lead{font-size:18.5px;color:var(--muted);margin-bottom:24px}
+  .num{font-family:"Menlo","SF Mono",monospace;font-variant-numeric:tabular-nums}
+
+  /* 콜아웃 3종 */
+  .callout{border-radius:6px;padding:18px 20px 6px;margin:26px 0;font-size:16px;line-height:1.8}
+  .callout .chip{display:inline-block;font-size:12.5px;font-weight:800;letter-spacing:.08em;
+    padding:1px 9px;border-radius:3px;margin-bottom:10px}
+  .analogy{background:var(--navy-soft)}
+  .analogy .chip{background:var(--navy);color:#fff}
+  .glossary{background:var(--glossary-bg)}
+  .glossary .chip{background:#8A7B4E;color:#fff}
+  .why{background:var(--warn-bg)}
+  .why .chip{background:var(--warn);color:#fff}
+  .callout p{margin-bottom:12px}
+  .glossary dt{font-weight:700;margin-top:10px}
+  .glossary dd{margin:2px 0 10px 0;color:#4A5561}
+  .glossary dl{margin:0 0 12px}
+
+  /* 요약 카드 */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:28px 0}
+  .card{border:1px solid var(--line);border-radius:8px;padding:16px 16px 13px;background:#fff}
+  .card .v{font-size:27px;font-weight:800;letter-spacing:-0.02em}
+  .card .k{font-size:13.5px;color:var(--muted);margin-top:3px;line-height:1.5}
+  .card.good .v{color:var(--catch)}
+  .card.bad .v{color:var(--miss)}
+
+  /* 파이프라인(3단 깔때기) */
+  .pipe{display:flex;flex-direction:column;gap:0;margin:28px 0}
+  .pipe .stage{border:1.5px solid var(--navy);border-radius:8px;background:#fff;
+    padding:14px 18px;position:relative}
+  .pipe .stage .t{font-weight:800;font-size:16px}
+  .pipe .stage .d{font-size:14.5px;color:var(--muted);line-height:1.65;margin-top:3px}
+  .pipe .arrow{align-self:center;color:var(--navy);font-size:15px;line-height:1;
+    padding:6px 0;font-weight:700}
+
+  /* 퍼널 바 */
+  .funnel{margin:28px 0}
+  .funnel .row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .funnel .label{flex:0 0 210px;font-size:14.5px;line-height:1.5}
+  .funnel .bar-wrap{flex:1;background:#EFEFE9;border-radius:4px;height:26px;position:relative}
+  .funnel .bar{height:100%;border-radius:4px;min-width:3px}
+  .funnel .val{flex:0 0 120px;font-size:14px;color:var(--muted)}
+  .b-navy{background:var(--navy)} .b-grey{background:#9AA3AC}
+  .b-catch{background:var(--catch)} .b-miss{background:var(--miss)} .b-warn{background:#C9822F}
+
+  /* 표 */
+  .tbl-wrap{overflow-x:auto;margin:24px 0}
+  table{border-collapse:collapse;width:100%;font-size:15px;line-height:1.6}
+  th{font-size:13.5px;letter-spacing:.03em;text-align:left;color:var(--muted);
+    border-bottom:2px solid var(--ink);padding:8px 12px 6px;white-space:nowrap}
+  td{border-bottom:1px solid var(--line);padding:9px 12px;vertical-align:top}
+  td.n{font-family:"Menlo","SF Mono",monospace;font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap}
+
+  /* 타임라인 */
+  .tl{margin:26px 0;border-left:2.5px solid var(--navy);padding-left:22px}
+  .tl .ev{margin-bottom:20px;position:relative}
+  .tl .ev::before{content:"";position:absolute;left:-28.5px;top:8px;width:9px;height:9px;
+    border-radius:50%;background:var(--navy)}
+  .tl .when{font-size:13px;font-weight:700;color:var(--navy);letter-spacing:.05em}
+  .tl .what{font-size:15.5px;line-height:1.7}
+
+  /* 목차 */
+  nav.toc{border:1px solid var(--line);border-radius:8px;background:#fff;padding:20px 24px;margin:32px 0;font-size:15px}
+  nav.toc ol{margin:8px 0 4px;padding-left:22px}
+  nav.toc li{margin-bottom:4px}
+  nav.toc a{color:var(--navy);text-decoration:none}
+  nav.toc a:hover,nav.toc a:focus{text-decoration:underline}
+  a{color:var(--navy)}
+  .tag{display:inline-block;font-size:12.5px;font-weight:700;border-radius:3px;padding:1px 8px;white-space:nowrap}
+  .tag.catch{background:var(--catch-bg);color:var(--catch)}
+  .tag.miss{background:var(--miss-bg);color:var(--miss)}
+  .tag.grey{background:#EFEFE9;color:var(--muted)}
+  .footnote{font-size:14px;color:var(--muted);border-top:1px solid var(--line);margin-top:16px;padding-top:12px}
+
+  /* 계보 트리 */
+  .lin{margin:26px 0;font-size:15px;line-height:1.75}
+  .lin ul{list-style:none;margin:4px 0 4px 10px;padding-left:20px;border-left:2px solid #C9CFD6}
+  .lin>ul{margin-left:0;padding-left:0;border-left:none}
+  .lin li{margin:9px 0;padding-left:4px}
+  .lin .cnt{font-family:"Menlo","SF Mono",monospace;font-variant-numeric:tabular-nums;font-weight:800}
+  .lin .from{display:inline-block;font-size:12.5px;color:var(--navy);background:var(--navy-soft);
+    border-radius:3px;padding:0 7px;margin-right:6px;font-weight:700}
+  .lin .note{color:var(--muted);font-size:13.5px}
+  .lin .term{color:var(--muted)}
+  @media (max-width:560px){ .funnel .label{flex-basis:130px} .funnel .val{flex-basis:80px} }
+</style>
+
+<main>
+  <p class="eyebrow">KR-BY-CLAUDE · 감사 전 과정 해설 · 2026-07-05</p>
+  <h1>미포착 승자 감사 — 처음부터 끝까지</h1>
+  <p class="lead">"크게 오른 종목들을 우리 시스템이 미리 알아봤을까?" 이 한 가지 질문에 답하기 위해
+  나흘(2026년 7월 2일~5일)에 걸쳐 진행한 조사의 전 과정을, 주식이나 프로그래밍을 잘 모르는
+  사람도 따라올 수 있게 처음부터 끝까지 풀어 쓴 기록입니다.</p>
+
+  <div class="cards">
+    <div class="card"><div class="v num">1,436</div><div class="k">발견된 상승 에피소드<br>(18개월 전체)</div></div>
+    <div class="card"><div class="v num">1,009</div><div class="k">AI 재현 분류 횟수<br>(과거 시점 재생)</div></div>
+    <div class="card bad"><div class="v num">1 / 120</div><div class="k">표본 중 실제로<br>"잡았다" 판정 (낮음)</div></div>
+    <div class="card good"><div class="v num">0</div><div class="k">AI 분류 단계의<br>규칙 위반(결함) — 무죄</div></div>
+  </div>
+
+  <nav class="toc" aria-label="목차">
+    <strong>목차</strong>
+    <ol>
+      <li><a href="#ch1">배경 — 이 시스템은 무엇을 하는 물건인가</a></li>
+      <li><a href="#ch2">발단 — 두 가지 불안, 그리고 SK하이닉스 사건</a></li>
+      <li><a href="#ch3">아이디어 — "놓친 물고기 조사"</a></li>
+      <li><a href="#ch4">현실의 벽 — 조회할 기록이 없다</a></li>
+      <li><a href="#ch5">조사를 조사답게 만드는 안전장치들</a></li>
+      <li><a href="#ch6">Phase 0 — 월척 명단 뽑기 (공짜 계산)</a></li>
+      <li><a href="#ch7">2차 잠금 — 조사 규모를 정하는 규칙</a></li>
+      <li><a href="#ch8">Phase 1 — AI에게 과거를 다시 살게 하기</a></li>
+      <li><a href="#ch9">Phase 2 — "지켜봐라"가 매수까지 갔을까</a></li>
+      <li><a href="#ch10">규칙 위반 채점 — 분류층의 무죄 판결</a></li>
+      <li><a href="#ch11">최종 성적표 — 처음 두 질문에 대한 답</a></li>
+      <li><a href="#ch12">반전 주의 — 이 숫자를 그대로 믿으면 안 되는 이유</a></li>
+      <li><a href="#ch13">다음 단계 — 세 가지 가설</a></li>
+      <li><a href="#ch14">이 조사의 한계 (정직한 고백)</a></li>
+      <li><a href="#ch15">부록 — 실행 타임라인과 용어집</a></li>
+    </ol>
+  </nav>
+
+  <!-- ===================== 1 ===================== -->
+  <section class="chapter" id="ch1">
+    <p class="eyebrow">1장</p>
+    <h2>배경 — 이 시스템은 무엇을 하는 물건인가</h2>
+
+    <p>이 조사를 이해하려면 먼저 조사 <em>대상</em>인 시스템부터 알아야 합니다.
+    이 프로젝트는 한국 주식시장(KOSPI·KOSDAQ)의 약 2,500개 종목 전체를 매일 훑어서
+    "지금 살 만한 종목"을 골라내는 자동화 시스템입니다. 투자 방식의 뿌리는
+    마크 미너비니(Mark Minervini)와 윌리엄 오닐(William O'Neil)이라는 두 전설적
+    트레이더의 책입니다. 두 사람의 방식을 아주 거칠게 요약하면 이렇습니다:</p>
+
+    <p><strong>"이미 강하게 오르고 있는 좋은 종목이, 잠시 쉬었다가(=바닥을 다지다가)
+    다시 출발하는 그 순간에만 산다."</strong></p>
+
+    <p>바닥에서 싸게 줍는 방식이 아니라, 달리는 말 중에서도 잠깐 물 마시러 멈춘 말에
+    올라타는 방식입니다. 그래서 시스템은 "싼 종목"이 아니라 "강한 종목"을 찾고,
+    강한 종목 중에서도 "지금이 올라탈 타이밍인가"를 3단계 관문으로 판정합니다.</p>
+
+    <div class="pipe" role="img" aria-label="3단계 관문 다이어그램: 기계 필터, 주말 AI 분류, 평일 트리거">
+      <div class="stage">
+        <div class="t">1단 관문 — 기계 필터 (매일, 자동 계산)</div>
+        <div class="d">전 종목 약 2,500개 → 통과 수백 개.
+        "주가가 이동평균선들 위에 있는가, 52주 신고가 근처인가, 시장 대비 강한가" 같은
+        <strong>숫자로 딱 떨어지는 조건들</strong>(미너비니 트렌드 템플릿)로 거릅니다.
+        사람도 AI도 개입하지 않는 계산기입니다 — 같은 입력이면 언제나 같은 결과.</div>
+      </div>
+      <div class="arrow">▼ 통과한 종목만</div>
+      <div class="stage">
+        <div class="t">2단 관문 — 주말 AI 분류 (매주 토요일)</div>
+        <div class="d">1단을 통과한 종목의 차트를 AI(Claude)가 사람 애널리스트처럼 눈으로 보고
+        세 가지 딱지 중 하나를 붙입니다. <strong>entry</strong>(지금 바로 사도 될 자리) /
+        <strong>watch</strong>(관심 목록에 두고 지켜봐라 — 이때 "이 가격을 넘으면 사라"는
+        기준선인 <strong>피벗 가격</strong>도 함께 정함) / <strong>ignore</strong>(쳐다보지 마라).</div>
+      </div>
+      <div class="arrow">▼ watch 종목이 피벗을 돌파하면</div>
+      <div class="stage">
+        <div class="t">3단 관문 — 평일 트리거 (매일 장 마감 후)</div>
+        <div class="d">watch 종목의 주가가 피벗 가격을 실제로 넘으면 두 겹으로 확인합니다.
+        먼저 <strong>기계 게이트</strong>(거래량이 충분한가, 어제까지는 피벗 아래였다가 오늘 처음
+        넘었는가 같은 계산 조건)가 열려야 하고, 게이트가 열린 경우에만 AI가 최종 확인해서
+        <strong>go_now</strong>(지금 사라) / <strong>wait</strong>(기다려라) / <strong>abort</strong>(포기해라)를
+        판정합니다. go_now가 나와야 비로소 매수 신호입니다. "게이트가 먼저, AI는 그다음"이라는
+        이 순서는 뒤에서(12장) 결정적으로 중요해집니다.</div>
+      </div>
+    </div>
+
+    <p>여기서 꼭 기억해야 할 포인트가 하나 있습니다.
+    <strong>실제 매수가 일어나는 주된 경로는 entry가 아니라
+    "watch → 평일 피벗 돌파 → go_now"입니다.</strong>
+    주말의 entry 딱지는 원래 드물게 설계된 보조 경로예요. 이 사실은 뒤에서
+    조사 결과를 해석할 때 결정적으로 중요해집니다.</p>
+
+    <div class="callout glossary">
+      <span class="chip">용어 한 입</span>
+      <dl>
+        <dt>미너비니 트렌드 템플릿 (TT)</dt>
+        <dd>"이 종목이 건강한 상승 추세에 있는가"를 판정하는 8가지 숫자 조건 묶음.
+        예: 주가가 150일·200일 이동평균선 위, 52주 최저가보다 30% 이상 위, 등.
+        이 조사에서 "1단 관문 통과"는 정확히는 TT를 포함한 4가지 조건
+        (TT 통과 + 상대강도선 7개월 비하락 + 상장 유지 + 당일 거래정지 아님)을 뜻합니다.</dd>
+        <dt>피벗 가격 (pivot)</dt>
+        <dd>"이 선을 넘으면 쉬기가 끝나고 다시 출발한 것으로 본다"는 기준 가격.
+        보통 종목이 쉬는 동안 만든 박스권의 천장 부근에 그어집니다.</dd>
+        <dt>RS (상대강도, Relative Strength)</dt>
+        <dd>이 종목이 시장 평균보다 얼마나 강했는지를 1~99점으로 매긴 점수.
+        90점이면 전체 종목 중 상위 10%로 강했다는 뜻.</dd>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ===================== 2 ===================== -->
+  <section class="chapter" id="ch2">
+    <p class="eyebrow">2장</p>
+    <h2>발단 — 두 가지 불안, 그리고 SK하이닉스 사건</h2>
+
+    <p>시스템은 그럴듯하게 돌아가고 있었습니다. 그런데 사용자(프로젝트 주인)에게는
+    떨쳐지지 않는 불안이 두 가지 있었습니다.</p>
+
+    <p><strong>불안 ① —</strong> "AI 분류가 놓친 종목들이 분명 있을 텐데,
+    그중에 <em>놓치면 안 됐던</em> 종목이 있지 않을까? 있었다면 왜 놓쳤는지 알아야
+    시스템을 고칠 수 있는데, 지금은 그걸 확인할 방법이 없다."</p>
+
+    <p><strong>불안 ② —</strong> "'사라(entry)'는 판정이 너무 드물게 나온다.
+    기준이 필요 이상으로 높은 것 아닐까? 미너비니와 오닐이 신중했다는 건 알지만,
+    우리가 그들의 방식을 제대로 구현했다는 확신이 아직 없는 상태에서 이 과묵함은 걱정스럽다."</p>
+
+    <p>이 불안에는 실제 근거가 있었습니다. 한 달쯤 전, 이 프로젝트에서
+    <strong>SK하이닉스 사건</strong>이라 부를 만한 일이 있었거든요.</p>
+
+    <h3>SK하이닉스 사건 (2026년 6월)</h3>
+
+    <p>SK하이닉스는 조사 기간 1년 동안 주가가 <strong>+1,039%</strong>
+    (207,500원 → 2,363,000원) 오른, 그야말로 "절대 놓치면 안 되는" 슈퍼 종목이었습니다.
+    그런데 이 종목에 대한 시스템의 52주치 분류 기록을 사람이 직접 뜯어보니 —
+    <strong>entry 0번, watch 10번, ignore 37번.</strong> 10배 오른 종목을
+    대부분의 기간 동안 "쳐다보지 마라"로 분류하고 있었던 겁니다.</p>
+
+    <p>원인을 추적해 보니 범인은 <strong>climax_run</strong>이라는 위험 딱지였습니다.
+    climax_run은 "1~3주 만에 25% 이상 폭등하는, 상승의 마지막 불꽃"을 가리키는
+    위험 신호인데(이게 보이면 곧 꺾인다는 뜻이라 피해야 함) —
+    규칙 문서에 적힌 이 정량 정의(25% 폭등)를 실제로 충족한 주는 <strong>11주뿐인데
+    AI는 32주에 이 딱지를 붙이고</strong> 있었습니다. AI가 자기 규칙서보다 훨씬
+    겁쟁이처럼 굴었던 거죠. 이 발견으로 "ignore를 줄 수 있는 사유를 명확히 3가지로
+    제한한다"는 규칙 수정이 이루어졌고, 다른 종목들로 교차 검증까지 해서 확정됐습니다.</p>
+
+    <p>흥미롭게도 같은 조사에서 <strong>잘 작동하는 부분</strong>도 확인됐습니다:
+    드물게나마 watch가 나왔을 때 함께 정해진 피벗 가격 5건은 <em>전부 2~6거래일 안에
+    실제로 돌파</em>됐습니다. "지켜봐라 + 이 선 넘으면"이라는 반쪽은 꽤 정확했다는 뜻이고,
+    이것이 "불안 ②를 검증하려면 entry 빈도가 아니라 <strong>watch→돌파→매수의 전체
+    경로</strong>를 재야 한다"는 이번 조사의 측정 방식으로 이어졌습니다.</p>
+
+    <p>이 사건이 남긴 교훈이 이번 조사의 씨앗입니다:
+    <strong>"크게 오른 종목을 놓고 시스템을 거꾸로 채점해 보면, 안에서 보이지 않던
+    결함이 드러난다."</strong> 다만 그때는 종목 하나를 수작업으로 판 것이었고 —
+    이번 조사는 그것을 <em>18개월의 모든 대박 종목</em>으로 확장하는 체계적 감사입니다.</p>
+  </section>
+
+  <!-- ===================== 3 ===================== -->
+  <section class="chapter" id="ch3">
+    <p class="eyebrow">3장</p>
+    <h2>아이디어 — "놓친 물고기 조사"</h2>
+
+    <p>조사의 핵심 아이디어를 한 문장으로 쓰면 이렇습니다:</p>
+
+    <p><strong>"지난 18개월 동안 크게 오른 종목(월척)들을 전부 뽑아서, 우리 시스템이
+    걔네를 미리 알아봤는지 채점하고, 못 알아봤다면 3단계 관문 중 어디서 놓쳤는지
+    꼬리표를 붙이자."</strong></p>
+
+    <div class="callout analogy">
+      <span class="chip">비유로 이해하기</span>
+      <p>시험 채점에는 두 방향이 있습니다. <strong>"내가 고른 답이 맞았나?"</strong>를 보는 채점과,
+      <strong>"정답이었던 문제 중에 내가 안 고른 게 몇 개나 되나?"</strong>를 보는 채점.
+      전문용어로 앞엣것을 정밀도(precision), 뒤엣것을 재현율(recall)이라고 부르는데
+      용어는 몰라도 됩니다 — "고른 것 채점"과 "놓친 것 채점"이라고 기억하면 충분합니다.</p>
+      <p>이 프로젝트는 몇 주 전에 "고른 것 채점"(수익성 백테스트: 시스템이 만든 매수 신호들이
+      실제로 돈이 됐나?)을 이미 마쳤습니다. 이번 조사는 그 반대편, <strong>"놓친 것 채점"</strong>입니다.
+      둘이 짝으로 있어야 시스템을 어느 방향으로든 균형 있게 평가할 수 있습니다 —
+      한쪽만 보면 "실수만 안 하는 겁쟁이" 또는 "아무거나 사는 만용가" 중 한쪽으로 쏠려도 모르거든요.</p>
+    </div>
+
+    <h3>왜 "어디서 놓쳤는지"까지 물어야 하나</h3>
+
+    <p>단순히 "포착 70% / 미포착 30%" 같은 점수 하나로 끝나면 이 조사는 쓸모가 없습니다.
+    시스템이 3단계 관문이기 때문에, 같은 "놓침"이라도 <strong>어느 관문에서 떨어졌느냐에 따라
+    의미가 완전히 다르기 때문</strong>입니다:</p>
+
+    <div class="tbl-wrap"><table>
+      <tr><th>놓친 지점</th><th>의미</th><th>진단</th></tr>
+      <tr><td>1단 기계 필터에서 탈락</td>
+        <td>애초에 "강한 추세" 조건을 못 채운 종목 (예: 바닥에서 갑자기 테마로 급등한 종목)</td>
+        <td>놓친 게 <strong>잘한 것</strong>일 가능성이 높음 — 미너비니 본인도 안 샀을 종목</td></tr>
+      <tr><td>2단 AI 분류가 ignore</td>
+        <td>기계 필터는 통과시켰는데 AI가 "쳐다보지 마라"</td>
+        <td>SK하이닉스 유형 — <strong>진짜 조사해야 할 결함 후보</strong></td></tr>
+      <tr><td>3단 트리거에서 좌절</td>
+        <td>watch까지는 갔는데 피벗이 안 넘어졌거나, 넘었는데 "기다려"</td>
+        <td>피벗 산정 또는 확인 규칙의 문제 후보 — 또 다른 종류의 진단</td></tr>
+    </table></div>
+
+    <p>그래서 이 조사의 최종 산출물은 점수 한 줄이 아니라, <strong>월척 하나하나에
+    "몇 번 관문에서, 왜"가 적힌 꼬리표를 붙인 표</strong>입니다. 그래야 "어디를 고쳐야
+    하는지"로 이어집니다.</p>
+  </section>
+
+  <!-- ===================== 4 ===================== -->
+  <section class="chapter" id="ch4">
+    <p class="eyebrow">4장</p>
+    <h2>현실의 벽 — 조회할 기록이 없다</h2>
+
+    <p>원래 계획은 단순했습니다: 월척 명단을 뽑고, <em>그 당시 AI가 뭐라고 분류했는지
+    기록을 찾아보면</em> 된다. 그런데 데이터 창고를 열어보니 문제가 있었습니다.</p>
+
+    <p>AI 분류는 정기 실행(cron)이 아니라 <strong>생각날 때마다 수동으로</strong> 돌려왔기
+    때문에, 전체 종목을 대상으로 한 분류 기록이 남아 있는 날이 <strong>딱 5주치</strong>
+    (2026년 5월 말~6월 중순)뿐이었습니다. 그마저 어떤 날은 316종목, 어떤 날은 75종목을
+    분석하는 등 들쭉날쭉했고요. 출석부를 확인하려는데 출석부가 5페이지밖에 없는 상황.
+    "기록 대조" 방식은 원천적으로 불가능했습니다.</p>
+
+    <p>하지만 좋은 소식도 두 가지 있었습니다:</p>
+
+    <p><strong>첫째, 가격과 1단 관문 데이터는 완벽했습니다.</strong> 2016년부터 10년치
+    가격 데이터와 "이 종목이 그날 기계 필터를 통과했었나" 기록이 전 종목에 대해
+    다 있었습니다. 즉 "언제 얼마나 올랐나"와 "1단 관문 통과 여부"는 어느 과거 시점이든
+    공짜로(AI 없이) 알 수 있습니다.</p>
+
+    <p><strong>둘째, "과거로 돌아가서 AI에게 다시 분류시키는" 도구가 이미 있었습니다.</strong>
+    직전의 수익성 백테스트에서 "특정 종목·특정 주에 대해, 그 시점까지의 데이터만 보여주고
+    AI에게 분류시키는" 파이프라인을 만들어 2,300건이나 돌려본 실적이 있었거든요.</p>
+
+    <p>그래서 설계를 뒤집었습니다:</p>
+
+    <p><strong>"기록을 찾아보는" 대신 → "월척을 먼저 뽑고, 그 월척들에 대해서만
+    '그때 봤다면 뭐라고 했을까?'를 지금 재현한다."</strong></p>
+
+    <div class="callout analogy">
+      <span class="chip">비유로 이해하기</span>
+      <p>답안지가 없으니, <strong>"그때 그 문제가 나왔다면 너는 뭐라고 답했을까?"를
+      지금 다시 풀게 하는</strong> 겁니다. 대신 커닝 방지가 생명입니다 — 문제를 다시 풀 때
+      그 시점 <em>이후</em>의 데이터(미래 정보)는 한 글자도 보여주면 안 됩니다.
+      이 커닝 방지가 실제로 지켜졌는지는 8장에서 검증 절차와 함께 다시 나옵니다.</p>
+    </div>
+
+    <p>전체 종목 × 전체 기간을 다 재현하면 AI 호출 비용이 감당 불가이므로,
+    조사는 3단계로 나뉘어 <strong>비싼 AI는 꼭 필요한 곳에만</strong> 쓰도록 설계됐습니다.
+    (Phase 0: 공짜 계산으로 명단 확정 → Phase 1: 명단에 대해서만 AI 재현 →
+    Phase 2: 마무리 확인. 각각 6·8·9장에서 자세히.)</p>
+  </section>
+
+  <!-- ===================== 5 ===================== -->
+  <section class="chapter" id="ch5">
+    <p class="eyebrow">5장</p>
+    <h2>조사를 조사답게 만드는 안전장치들</h2>
+
+    <p>본격적인 실행 전에, 이 조사가 스스로를 속이지 않도록 여러 안전장치를
+    문서로 못 박았습니다. 이 장치들이 없으면 조사 결과 전체가 신뢰를 잃기 때문에,
+    시간을 들여 하나하나 설계했습니다.</p>
+
+    <h3>안전장치 ① — 가장 큰 적: "사후에 보면 다 잡을 수 있었던 것처럼 보인다"</h3>
+
+    <div class="callout analogy">
+      <span class="chip">비유로 이해하기</span>
+      <p>로또 당첨 번호를 발표 <em>후에</em> 보면 "아 이 번호 살 뻔했는데"라는 생각이 듭니다.
+      크게 오른 종목의 차트도 똑같습니다 — 나중에 보면 백이면 백 "여기서 살 수 있었네"라고
+      느껴져요. 이런 착각을 <strong>사후확신 편향</strong>이라고 합니다.</p>
+      <p>이 편향 때문에, 놓친 종목 조사는 방치하면 항상 한 방향의 압력을 만듭니다:
+      <strong>"기준을 느슨하게 풀자."</strong> 그런데 기준을 풀면 대박 종목 몇 개를 더 잡는
+      대신 쓰레기 종목 수십 개가 같이 딸려 들어옵니다. 엄격한 선별이 이 투자법의 심장인데,
+      그걸 갉아먹는 기계가 될 수 있는 거죠.</p>
+    </div>
+
+    <p>해독제로 이 원칙을 문서 맨 앞에 박았습니다:
+    <strong>"이 조사의 발견은 전부 '결론'이 아니라 '가설'이다. 규칙을 실제로 바꾸려면,
+    규칙을 풀었을 때 나쁜 종목이 얼마나 딸려 들어오는지(반대편 비용)를 별도 검증으로
+    측정한 후에만 한다."</strong> 조사 → 가설 → 검증 → 변경. 이 순서를 건너뛰지 않기로
+    시작 전에 약속한 겁니다.</p>
+
+    <h3>안전장치 ② — 채점 기준 선(先)고정: "잠금"</h3>
+
+    <p>채점 기준(월척 선정 기준, 꼬리표 규칙 등)을 <strong>결과를 보기 전에 문서로
+    고정하고, 결과를 본 후에는 바꾸지 않기</strong>로 했습니다. 이걸 이 프로젝트에서는
+    "잠금(사전등록)"이라고 부릅니다.</p>
+
+    <div class="callout why">
+      <span class="chip">왜 이렇게까지?</span>
+      <p>선생님이 채점을 마쳤는데 아끼는 학생이 58점이라, 합격선을 60점에서 55점으로
+      슬쩍 내린다면 — 그 시험은 더 이상 실력 평가가 아닙니다. 결과를 본 후에 기준을 만지면,
+      본인은 조작할 의도가 없어도 "이 기준이 더 합리적인 것 같은데?"라는 그럴듯한 이유를
+      얼마든지 만들어낼 수 있습니다. 그래서 아예 원천 차단: 기준 먼저, 결과는 나중.
+      잠금 이후 규칙을 고칠 일이 생기면(실제로 한 번 생겼습니다 — 6장 끝 참조)
+      변경 내용·사유·시점을 이력 표에 남기도록 했습니다.</p>
+    </div>
+
+    <h3>안전장치 ③ — 공정한 채점을 위한 세 가지 규칙</h3>
+
+    <p><strong>(a) 애초에 못 잡는 물고기에게 벌점 주지 않기.</strong>
+    1단 기계 필터는 추세추종 필터라서, 종목이 <em>이미 상당히 오른 뒤에야</em> 반응하는 게
+    정상입니다(고장이 아니라 설계). 그러면 이런 경우가 생깁니다: 총 +200% 오른 종목인데
+    필터가 처음 반응한 시점이 이미 +180% 지점이었다면? 그 뒤로 완벽하게 해도 남은
+    20%p밖에 못 먹습니다. 이걸 "놓쳤다"고 채점하면 부당한 벌점이죠. 그래서
+    <strong>"필터 첫 통과 시점에 남아 있던 상승분이 20% 미만"인 에피소드는
+    '구조적으로 포착 불가' 칸에 따로 담고, 미포착률 계산에서 제외</strong>하기로 했습니다.</p>
+
+    <p><strong>(b) 못 사는 물고기 제외하기.</strong> 하루 거래대금이 몇 천만 원뿐인
+    초소형주가 +300% 올라도, 이 투자법은 애초에 그런 종목을 사지 않습니다(사고팔 물량
+    자체가 없으니까). 그래서 <strong>최소 거래대금 조건</strong>을 두되, 측정 시점을
+    "시스템이 그 종목을 처음 봤을 때(필터 첫 통과일) 전후 20거래일 평균"으로
+    고정했습니다 — 급등 중에는 거래대금이 수십 배로 튀어서, 상승 중간에 재면
+    모든 종목이 통과해버리거든요.</p>
+
+    <p><strong>(c) 실제 시스템과 똑같은 눈으로 보기.</strong> 주말 AI 분석은 토요일에 돌며
+    금요일(그 주 마지막 거래일) 종가 데이터로 종목을 고릅니다. 그래서 "1단 관문 통과"
+    판정도 <strong>주 마지막 거래일 기준</strong>으로 통일했습니다. 수요일에 잠깐 통과했다가
+    금요일엔 탈락한 종목은 실제 시스템이 본 적이 없으니, "봤어야 했다"고 채점하면 안 되죠.</p>
+
+    <h3>안전장치 ④ — AI의 "미래 지식" 문제에 대한 해석 규칙</h3>
+
+    <p>이번에 쓰는 AI는 2026년 1월까지의 세상 지식을 학습했습니다. 그래서 2025년 차트를
+    보여주면, 데이터를 과거 시점으로 잘라서 줘도 <strong>"어, 이 종목 나중에 대박 나는 거
+    아는데"</strong> 하고 판단이 오염될 위험이 있습니다. 이건 기술적으로 막을 방법이 없습니다.</p>
+
+    <p>처음에는 "오염은 항상 후한 쪽으로만 작용하니, 그래도 '놓쳤다'가 나오면 진짜"라고
+    생각했지만, 검토 과정에서 이 논리에 구멍이 발견됐습니다 — 폭등 <em>후 폭락</em>한
+    종목이라면 AI가 오히려 박하게(ignore 쪽으로) 기울 수도 있거든요. 즉 오염은
+    <strong>양방향 모두 가능</strong>합니다. 그래서 최종 해석 규칙은 이렇게 정했습니다:
+    (1) 개별 판정 하나하나를 해석하지 않고 패턴 수준만 본다,
+    (2) "결함"으로 승격하는 것은 <strong>AI의 심리와 무관하게 기계적으로 채점 가능한 것</strong>
+    — 즉 "규칙서의 정량 정의를 어겼는가"(10장) — 뿐이다. 정의 위반 여부는 AI가 어느 쪽으로
+    오염됐든 변하지 않으니까요.</p>
+  </section>
+
+  <!-- ===================== 6 ===================== -->
+  <section class="chapter" id="ch6">
+    <p class="eyebrow">6장</p>
+    <h2>Phase 0 — 월척 명단 뽑기 (공짜 계산)</h2>
+
+    <p>준비가 끝나고 실행이 시작됐습니다. Phase 0은 AI를 한 번도 부르지 않는
+    순수 계산 단계입니다. 조사 기간은 <strong>2025년 1월 ~ 2026년 6월(18개월)</strong>로
+    확정했습니다 — 지금 시스템과 관련성이 가장 높고, 이미 했던 2021~2024 백테스트와
+    기간이 안 겹쳐 독립적인 증거가 되며, AI의 미래 지식 문제는 어느 과거든 똑같아서
+    더 옛날로 가도 얻는 게 없기 때문입니다.</p>
+
+    <h3>월척의 정의</h3>
+
+    <p>매주 마지막 거래일마다 전 종목의 "직전 13주(약 3개월)·26주(약 6개월) 수익률"을
+    계산하고, 같은 기간 소속 시장(KOSPI 또는 KOSDAQ) 지수 수익률을 뺀
+    <strong>초과 수익</strong>으로 승자를 뽑았습니다. 왜 두 개의 기간이냐면, 이 투자법이
+    노리는 것이 "몇 달에 걸친 중기 추세"라서입니다 — "1년간 많이 오른 종목" 같은 긴 창
+    하나로 뽑으면 이미 잔뜩 오른 뒤라 지금 사면 안 되는 종목까지 "놓쳤다"고 잘못 채점하게
+    됩니다. 왜 고정 개수(상위 30개 등)가 아니라 기준선이냐면, 고정 개수 방식은 시장이
+    죽은 달에도 기어이 30개를 뽑아 노이즈를 조사하게 만들기 때문입니다.
+    추가로 "절대 수익이 마이너스면 제외" 조건도 붙였습니다 — 하락장에서 "시장보다
+    덜 빠진" 종목이 승자로 둔갑하는 걸 막기 위해서요.</p>
+
+    <p>같은 종목이 크게 오르면 여러 주 연속으로 명단에 뽑히므로, 연속 당첨(간격 4주
+    이내)을 <strong>"상승 에피소드" 1건으로 병합</strong>했습니다 — 안 그러면 대박 종목
+    하나가 20번 중복 집계됩니다. 그리고 가격은 전부 <strong>수정 가격(adj)</strong> 기준 —
+    액면병합(10주를 1주로 합쳐 주가가 10배로 보이는 이벤트) 같은 것 때문에 실제로는
+    안 올랐는데 +900% 오른 것처럼 보이는 <em>유령 월척</em>을 막기 위해서입니다.
+    병합·분할 이력이 있는 종목엔 별도 플래그를 달아 상위 수익 종목 몇 개를 눈으로
+    재확인하는 절차도 넣었습니다.</p>
+
+    <h3>결과 — 그리고 예상보다 크게 터진 문제</h3>
+
+    <p>기준 숫자(몇 %를 월척으로 볼지, 거래대금 하한 등)는 아직 정하지 않은 상태였으므로,
+    Phase 0은 한 가지 기준이 아니라 <strong>후보 기준 여러 조합(수익률 임계 12가지 ×
+    거래대금 컷 3가지)의 분포를 전부</strong> 계산했습니다 — 다음 장에서 "어떤 기준이면
+    몇 마리인지"를 보고 규모를 정할 수 있도록요.</p>
+
+    <p>그런데 18개월이 강세장이었던 탓에, 기준을 가장 엄격하게 잡아도 에피소드가
+    <strong>1,000개 안팎</strong> 나왔습니다. 전수 AI 조사는 40시간 이상 — 감당 불가.
+    이 문제의 해법이 다음 장의 "2차 잠금"입니다. 우선 최종 확정된 기준
+    (13주 수익률이 시장보다 +40%p 초과 <em>또는</em> 26주 +50%p 초과, 거래대금 10억 이상 —
+    %p는 "퍼센트포인트", 수익률끼리 뺄셈한 차이를 뜻합니다)으로 뽑힌 프레임은:</p>
+
+    <div class="funnel" role="img" aria-label="프레임 1,436 에피소드의 1차 분류 막대그래프">
+      <div class="row"><div class="label">전체 상승 에피소드</div>
+        <div class="bar-wrap"><div class="bar b-navy" style="width:100%"></div></div>
+        <div class="val num">1,436 (100%)</div></div>
+      <div class="row"><div class="label">1단 필터가 아예 못 봄<br><span style="color:var(--muted);font-size:13px">filter_excluded</span></div>
+        <div class="bar-wrap"><div class="bar b-grey" style="width:32.9%"></div></div>
+        <div class="val num">472 (32.9%)</div></div>
+      <div class="row"><div class="label">봤을 땐 이미 늦음<br><span style="color:var(--muted);font-size:13px">structurally_uncatchable</span></div>
+        <div class="bar-wrap"><div class="bar b-grey" style="width:13.2%"></div></div>
+        <div class="val num">190 (13.2%)</div></div>
+      <div class="row"><div class="label"><strong>AI 조사 대상</strong><br><span style="color:var(--muted);font-size:13px">phase1_candidate</span></div>
+        <div class="bar-wrap"><div class="bar b-navy" style="width:53.9%"></div></div>
+        <div class="val num">774 (53.9%)</div></div>
+    </div>
+
+    <p>읽는 법: 대박 종목의 <strong>3분의 1(472개)은 1단 기계 필터가 아예 통과시킨 적이
+    없는 종목</strong>이었습니다(테마성 급등주 등 — 미너비니식으로는 원래 안 사는 부류일
+    가능성이 높지만, 이 비율 자체가 기록할 가치가 있는 발견입니다). 13%는 필터가
+    반응했을 땐 이미 먹을 게 20%도 안 남은 뒤였고요(5장의 공정 채점 규칙 (a)).
+    남은 <strong>774개가 "시스템이 봤고, 잡을 것도 충분히 남아 있었던" 진짜 조사
+    대상</strong>입니다 — 이들의 잔여 상승분 중앙값은 81%, 즉 필터 통과 후에도 충분히
+    먹을 게 남아 있었습니다. 참고로 조사 창 끝(2026년 6월)에 아직 상승 중이던
+    에피소드 198개에는 "미종결(censored)" 표시를 달아 따로 취급합니다 — 최종 크기를
+    아직 모르는 물고기니까요.</p>
+
+    <p class="footnote">잠금 이력 한 건: Phase 0 구현 직전, 스펙 초안의 "1단 관문 = TT 단일
+    조건"이 실제 코드와 다르다는 것이 발견됐습니다(실제로는 4조건). 실행 전·AI 호출 0회
+    시점의 사실 정정이므로 수정하되, 약속대로 변경 이력 표(스펙 §12)에 기록했습니다.
+    잘못된 관문 정의로 채점하면 "시스템이 본 적 없는 종목을 봤다"고 채점하는 오염이
+    생기기 때문에 필요한 정정이었습니다.</p>
+  </section>
+
+  <!-- ===================== 7 ===================== -->
+  <section class="chapter" id="ch7">
+    <p class="eyebrow">7장</p>
+    <h2>2차 잠금 — 조사 규모를 정하는 규칙</h2>
+
+    <p>774개 전수 조사는 비용이 감당 불가였습니다(AI 호출 약 6,400회, 47시간+).
+    그렇다고 임의로 기준을 조이면 "결과 보고 기준 바꾸기 금지" 규율(5장 안전장치 ②)과
+    충돌하는 것처럼 보입니다. 기준을 정하려면 데이터를 봐야 하는데, 데이터를 본 후에
+    기준을 정하면 반칙 아닌가?</p>
+
+    <div class="callout analogy">
+      <span class="chip">비유로 이해하기</span>
+      <p>여기서 핵심 구분: 반칙의 정의는 "<strong>결론이 담긴 정보</strong>를 보고 기준을
+      바꾸는 것"입니다. 그런데 Phase 0이 만든 것은 "몇 마리가 뽑히는지"(마릿수)뿐이고,
+      "시스템이 잡았는지 놓쳤는지"(결론)는 AI를 돌리기 전까지 <em>세상에 존재하지 않는
+      정보</em>입니다. 응시 인원이 500명인지 확인하고 시험장 크기를 정하는 것은
+      부정행위가 아니라 행정 준비인 것과 같습니다 — 응시 인원을 아는 것과 누가 합격할지
+      아는 것은 전혀 다른 정보니까요.</p>
+    </div>
+
+    <p>그래서 "2단계 잠금" 절차를 만들었습니다: <strong>공짜 계산(Phase 0) 결과의 분포를
+    보고 숫자를 확정하되, AI를 한 번이라도 돌리기 전에 확정하고, 그 후엔 절대 불변.</strong>
+    추가 안전장치로 "총량 파라미터만 조정 가능, 개별 종목 골라내기는 금지"도 못 박았습니다
+    (마릿수 정보만으로 결론을 조작할 수 있는 유일한 통로가 종목 단위 개입이라서요).</p>
+
+    <h3>확정된 값</h3>
+
+    <p>사용자 확정을 거쳐: 결정론으로 판정되는 칸들(필터 배제 472, 포착 불가 190)은
+    AI가 필요 없으니 <strong>전수 집계 유지</strong>. AI가 필요한 774개만
+    <strong>표본 120개</strong>를 뽑기로 했습니다. 뽑는 방식이 중요한데 —
+    "수익률 상위 120개"로 자르면 표본이 극단 급등주(원래 잡기 어려운 부류)로 쏠려서
+    성적이 실제보다 나쁘게 나옵니다. 그래서 774개를 초과수익 순으로 3등분(터사일)한 뒤
+    <strong>상·중·하 그룹에서 40개씩 무작위</strong>로 뽑았습니다(난수 시드도 고정해서
+    누구든 같은 표본을 재현할 수 있게). 한 에피소드당 AI에게 물어볼 주(week)는
+    "필터 첫 통과 주부터 고점 주까지, 최대 12주"로 제한 — 진입 기회는 상승 초기에
+    있으므로 앞에서부터 셉니다. 12주가 넘어 잘린 에피소드에는 "잘림(truncated)" 표시를
+    달아, 나중에 후반부 기회를 못 본 것을 감안해 읽도록 했습니다.</p>
+
+    <p>이렇게 표본이 확정되자 AI 호출량이 소수점 없이 나왔습니다: <strong>1,032회</strong>
+    — 표본 120개 에피소드 각각의 조사 대상 주 수(평균 약 8.6주)를 전부 더한 값입니다.
+    예상 소요와 함께 보고하고, 사용자의 최종 승인을 받은 뒤에야 — 즉 여기까지는 단 한 번의
+    AI 호출도 없이 — Phase 1이 시작됐습니다.</p>
+  </section>
+
+  <!-- ===================== 8 ===================== -->
+  <section class="chapter" id="ch8">
+    <p class="eyebrow">8장</p>
+    <h2>Phase 1 — AI에게 과거를 다시 살게 하기</h2>
+
+    <p>이제 조사의 심장입니다. 표본 120개 에피소드의 각 주마다, "그 주 토요일의 AI"를
+    재현합니다: 그 시점까지의 차트 이미지와 데이터만 담은 분석 패키지를 만들어,
+    실전과 <em>완전히 동일한</em> 규칙 문서(프롬프트)로 AI에게 분류를 시키는 겁니다.
+    결과는 entry / watch(+피벗 가격) / ignore 중 하나.</p>
+
+    <h3>실행 전 3중 점검</h3>
+
+    <p><strong>커닝 방지 검증:</strong> 첫 호출 전에 분석 패키지 하나를 통째로 덤프해서,
+    그 안의 모든 날짜 표기(248개)를 기계적으로 훑었습니다 — 가장 미래의 날짜가 기준일과
+    정확히 같음을 확인(미래 정보 유입 0). <strong>수량 검증:</strong> 실행기가 계산한
+    호출 대상이 승인받은 1,032건과 정확히 일치하는지 대조(불일치 시 실행 자체가 중단되게
+    만듦). <strong>모델 고정:</strong> 어떤 AI 버전이 판정했는지가 나중에 문제되지 않도록,
+    모델을 고정(sonnet)하고 <em>매 호출마다 실제 사용된 모델 이름을 결과 행에 기록</em>하게
+    했습니다.</p>
+
+    <h3>실행 — 순탄하지 않았던 약 43시간</h3>
+
+    <p>실행은 7월 3일 오후에 시작해 7월 5일 아침에 끝났습니다. 그 사이에 있었던 일들:</p>
+
+    <p><strong>중단과 재개가 5번.</strong> 사용자가 컴퓨터를 써야 해서 세운 것이 3번,
+    외부 요인이 2번. 그런데 문제가 없었던 이유는 <strong>멱등(idempotent) 설계</strong>
+    덕분입니다 — 성공한 호출은 즉시 저장되고, 재시작하면 저장된 것을 건너뛰고 안 한 것만
+    이어서 합니다. 저장된 결과에 다시 AI를 태우는 일은 구조적으로 불가능하고(저장소의
+    기본키가 종목+날짜), 건너뛰기 과정 자체는 데이터베이스 조회 한 번이라 비용이 0입니다.</p>
+
+    <p><strong>사용량 한도 정체가 2번.</strong> AI 구독에는 시간당 사용량 한도가 있어서,
+    밤새 돌리다 한도에 걸리면 몇 시간씩 모든 호출이 거절됐습니다. 이때를 위해
+    <strong>워치독(감시견) 스크립트</strong>를 만들어 붙였습니다 — 1분마다 실행기의 생존을
+    확인하고, 죽어 있으면 자동 재기동. 한도가 풀리는 순간 사람 없이 스스로 재개됐습니다.</p>
+
+    <p><strong>마지막 반전: "23건이 영원히 안 끝나는" 미스터리.</strong> 완주 기준을
+    1,032로 잡아뒀는데 1,009에서 멈춰 서 며칠째 안 움직이는 듯 보였습니다. 조사해 보니 —
+    같은 종목의 두 에피소드가 겹치는 주에는 같은 (종목, 주) 조합이 목록에 두 번 들어
+    있었고, 저장소는 그걸 자동으로 한 건으로 합치고 있었습니다. 즉 고유한 조사 대상은
+    1,009건이었고 <strong>이미 100% 완료</strong>된 상태였던 거죠. 데이터에는 아무 문제가
+    없었지만, "완주 판정은 고유 키 기준으로 세라"는 교훈을 남겼습니다.</p>
+
+    <div class="cards">
+      <div class="card"><div class="v num">1,009</div><div class="k">고유 분류 완료<br>(실패 0)</div></div>
+      <div class="card"><div class="v num">178초</div><div class="k">호출당 평균<br>(누적 49.8시간, 4병렬)</div></div>
+      <div class="card"><div class="v num">100%</div><div class="k">단일 모델<br>(claude-sonnet-5)</div></div>
+    </div>
+
+    <h3>결과 분포 — 첫 번째 큰 신호</h3>
+
+    <p>1,009건의 분류 분포는 <strong>watch 922 (91%) / ignore 86 (9%) / entry 1</strong>.
+    여기서 이미 중요한 신호가 하나 보입니다: SK하이닉스 시절처럼 "대박 종목을 ignore로
+    도배하는" 현상이 <strong>사라졌다</strong>는 것. 6월의 규칙 수정(ignore 사유 3가지
+    제한)이 작동하고 있다는 첫 증거입니다. 대신 거의 모든 것이 watch에 모였으니 —
+    승부는 "watch가 실제 매수로 이어졌는가", 즉 3단 관문으로 넘어갑니다.</p>
+  </section>
+
+  <!-- ===================== 9 ===================== -->
+  <section class="chapter" id="ch9">
+    <p class="eyebrow">9장</p>
+    <h2>Phase 2 — "지켜봐라"가 매수까지 갔을까</h2>
+
+    <p>watch는 그 자체로 매수가 아닙니다. 실제 매수는 "watch + 피벗 돌파 + 최종 확인
+    go_now"의 3박자가 맞아야 일어납니다. Phase 2는 그 뒷단을 추적합니다.</p>
+
+    <h3>먼저 단위 정리 — 922건이 어떻게 120개가 되나</h3>
+
+    <p>8장의 1,009건(watch 922 포함)은 <strong>"어떤 종목의 어떤 한 주(週)"에 대한
+    판정 하나하나</strong>를 센 숫자입니다. 반면 지금부터의 성적표는
+    <strong>에피소드 단위</strong> — 즉 "한 종목의 상승 구간 1건" 단위입니다.
+    한 에피소드 안에는 여러 주가 들어 있으므로(평균 8~9주), 120개 에피소드 안에
+    1,009건의 주간 판정이 나눠 담겨 있는 구조입니다. 학생 120명이 각자 8~9문항짜리
+    답안지를 낸 것과 같습니다 — 8장은 <em>문항별 답</em>(1,009개)을 집계한 것이고,
+    Phase 2부터는 <em>학생별 최종 성적</em>(120개)을 매기는 겁니다.</p>
+
+    <p>에피소드 하나의 최종 꼬리표는 그 안의 주간 판정들을 이렇게 종합해 정해집니다:
+    조사한 주 중에 <strong>entry가 하나라도 있으면</strong> 그 시점에 잡은 것(caught) ·
+    <strong>watch가 하나라도 있으면</strong> "피벗이 돌파됐나 → 돌파 순간 사라고 했을까"의
+    뒷단 추적으로 · <strong>전부 ignore였으면</strong> 분류가 놓친 것(classification_miss).
+    그래서 922건의 watch는 사라진 게 아니라, 아래에서 추적되는 117개 에피소드 안에
+    들어 있습니다.</p>
+
+    <div class="callout analogy">
+      <span class="chip">실제 예시 하나로 전체 단위 정리</span>
+      <p>헷갈리기 쉬운 지점이라 실제 종목으로 짚어두면 — <strong>120은 종목 수가
+      아닙니다.</strong> 표본 120 에피소드를 종목으로 세면 <strong>113개 종목</strong>입니다
+      (7개 종목은 18개월 사이 상승 파도를 두 번 만들어 에피소드가 2개씩 뽑혔습니다).
+      마찬가지로 "watch 보유 117개"도 에피소드 117개(종목으로는 110개)이고, 정확한 뜻은
+      "그 에피소드에서 조사한 주들 중 watch를 받은 주가 하나 이상 있었다"입니다.</p>
+      <p>두 에피소드 종목의 실제 예 — <strong>098120</strong>: 첫 번째 파도(2025-08~2026-02,
+      고점 2026-02-20)와, 조정을 거쳐 다시 출발한 두 번째 파도(고점 2026-05-14)가 각각
+      별개 에피소드로 표본에 들어왔습니다. 두 파도는 승자 명단 당첨이 4주 넘게 끊겼기
+      때문에 하나로 병합되지 않고 둘로 나뉜 겁니다.</p>
+      <p>이런 종목 하나의 조사 흐름을 처음부터 끝까지 따라가면:
+      ① Phase 1이 이 종목의 에피소드마다 조사 대상 주(최대 12주)를 정하고 주마다 토요일
+      분석을 재현 → 예컨대 12주 중 11주 watch + 1주 ignore라면 이 종목은 <em>주 단위
+      집계(1,009건)</em>에 watch 11·ignore 1을 보탭니다. ② Phase 2는 이 에피소드에
+      "watch가 있었나?"를 보고(있음) → watch 주가 정한 피벗의 돌파 여부를 확인 →
+      돌파일의 확인 AI 판정으로 <em>에피소드 단위 성적표(120건)</em>에 꼬리표 하나를
+      보탭니다. 1,009와 120은 이렇게 같은 데이터를 <strong>다른 층에서 센 것</strong>입니다.</p>
+    </div>
+
+    <h3>1단계: 피벗이 실제로 돌파됐나 (공짜 계산)</h3>
+
+    <p>에피소드마다, AI가 watch를 주며 적어둔 피벗 가격을 그 후의 실제 주가(장중 고가
+    기준)가 넘었는지 가격 데이터로 확인했습니다. 결과: 120개 중 <strong>81개는 돌파까지
+    갔고</strong>, <strong>36개는 상승 에피소드가 끝날 때까지 그 기준선을 넘지 못했습니다</strong>
+    (pivot_miss). "크게 오른 종목인데 어떻게 기준선을 못 넘지?"라는 의문이 들 수 있는데 —
+    피벗은 특정 박스권의 천장에 그어지는 선이라, 기준선이 실제 주가 흐름보다 높게 그어져
+    있었거나 상승이 "박스 천장을 뚫는" 교과서적 형태가 아니었던 경우입니다. 즉 기준선
+    산정이 빗나간 케이스죠. 나머지는: 2개가 watch조차 없이 전부 ignore(classification_miss),
+    1개는 주말 entry가 나와 그 시점에 이미 "잡은 것"으로 확정(caught).</p>
+
+    <h3>2단계: 돌파 순간의 최종 확인 재현 (소량의 AI)</h3>
+
+    <p>돌파까지 간 81건 중 실제 AI 호출은 77건이었습니다. 4건이 준 이유는 <strong>중복
+    데이터가 있어서가 아니라, "에피소드"라는 단위의 자연스러운 성질</strong> 때문입니다.
+    실제 예로 보면 명확합니다 — <strong>310210</strong>은 상승 파도 2개가 각각 에피소드로
+    표본에 들어왔는데(에피소드 1은 7월부터, 에피소드 2는 8월부터 시작), 두 에피소드의
+    조사 구간이 시간적으로 겹쳐서 <strong>같은 watch 주(2024-09-27)와 같은 돌파일
+    (2024-09-30)을 둘 다 포함</strong>하게 됐습니다. "310210이 2024-09-30에 돌파했을 때
+    확인 AI가 뭐라고 했을까?"라는 질문은 하나뿐이니 AI 호출도 1회만 하고, 그 답(wait)을
+    두 에피소드가 각자의 성적표에 반영한 겁니다. 이런 공유 쌍이 4개(310210·376300·
+    475150·048770) — 그래서 에피소드 기준 81건, 고유 질문 기준 77건. 8장의 "중복 23건
+    미스터리"와 정확히 같은 구조이고, 분류를 이중으로 한 것이 아닙니다.</p>
+
+    <p>이 77건 각각에 대해, 돌파일 시점으로 3단 관문의 최종 확인 AI — 실전 평일 작업이
+    쓰는 바로 그 확인 단계(내부 이름 <span class="num">evaluate_pivot</span>) — 를 재현했습니다 — "직전 주말에 이런 watch 분류가 있었고(Phase 1에서 방금
+    만든 그 분류를 그대로 주입), 오늘 피벗이 돌파됐다. 지금 사라(go_now)인가?"
+    이 재현은 앞서 다른 감사에서 검증된 방식을 그대로 재사용했고, 실전 기록에는 한 줄도
+    쓰지 않고 별도 파일에 저장했습니다.</p>
+
+    <p>결과는 놀라웠습니다: <strong>77건 전부 "기다려라/포기해라" — go_now 0건.</strong></p>
+
+    <p>즉 최종 성적표에서 "잡았다"는 주말 entry 1건뿐이고, 81건은 돌파까지 갔는데 마지막
+    관문이 잡은 <strong>trigger_miss</strong>가 됐습니다. wait 판정의 사유를 기계적으로
+    분류해 보면(한 건에 복수 사유 가능): 봉이 너무 크고 거칠음(wide-and-loose) 28건,
+    종가가 하단/중간 마감 22건, 거래량 부족 19건, 시장 국면 비우호 18건
+    (이 시스템에는 "시장 전체가 하락 국면일 때는 개별 종목이 좋아 보여도 사지 말라"는
+    별도의 시장 안전 규칙이 있어서, 시장 상태도 wait 사유가 됩니다),
+    watch 사유가 돌파 허용 목록에 없음 11건, 종가가 피벗 아래로 되밀림 2건.</p>
+
+    <p><strong>이 사유들은 어디서 나온 걸까요?</strong> 전부 <strong>확인 AI(evaluate_pivot)
+    한 단계</strong>에서 나온 것입니다. 확인 AI의 규칙 문서에는 점검 목록이 정해져
+    있습니다 — ⓐ 표준 검증: 종가가 피벗 위인가 + 거래량이 평소의 1.4배 이상인가 + 종가가
+    그날 가격 범위의 상단 3분의 1에서 마감했는가, ⓑ 그날의 봉이 비정상적으로 크고
+    거친가(wide-and-loose), ⓒ 시장 국면이 우호적인가(§3.5 시장 안전 규칙), ⓓ 이 watch의
+    사유가 돌파 매수가 허용되는 종류인가. AI는 돌파일의 데이터를 이 목록에 대조해
+    go_now/wait/abort를 정하고 <em>어느 항목에 걸렸는지를 판정문에 적는데</em>, 위의
+    분포는 그 판정문 77건을 기계적으로 분류한 것입니다. 그다음 단계인 매수 계획
+    (entry_params — 수량·손절가 산출)은 go_now가 나온 경우에만 실행되는데, go_now가
+    0건이라 이번 감사에서는 한 번도 등장하지 않았습니다.</p>
+
+    <p>…이 "go_now 0"을 어떻게 읽어야 하는지가 이 조사에서 가장 조심스러운 부분입니다.
+    바로 12장에서 다룹니다. 그 전에, 원래 이 조사의 표적이었던 "AI 분류의 결함" 채점부터
+    끝내겠습니다.</p>
+  </section>
+
+  <!-- ===================== 10 ===================== -->
+  <section class="chapter" id="ch10">
+    <p class="eyebrow">10장</p>
+    <h2>규칙 위반 채점 — 분류층의 무죄 판결</h2>
+
+    <p>SK하이닉스 사건이 시스템 개선으로 이어졌던 결정적 이유는 "ignore 37번"이라는
+    발견이 아니라, <strong>"AI가 자기 규칙서의 정의조차 안 지키며 딱지를 남발했다"는
+    행 단위 채점</strong>이었습니다. "규칙대로 판단해서 놓쳤다"(신중함 — 결함이 아닐 수
+    있음)와 "규칙을 어기며 놓쳤다"(명백한 버그)는 하늘과 땅 차이니까요. 그리고 5장에서
+    봤듯, 이 채점은 AI의 미래 지식 오염과 무관한 유일한 판정축이기도 합니다.</p>
+
+    <p>그래서 classification_miss(전부 ignore) 에피소드의 ignore 주마다, 판정 근거 딱지가
+    규칙서의 정량 정의를 실제로 충족했는지 계산했습니다:</p>
+
+    <div class="tbl-wrap"><table>
+      <tr><th>종목·주</th><th>붙은 딱지</th><th>정의 충족 여부 (기계 채점)</th></tr>
+      <tr><td>001740 · 5/29</td><td>climax_run 외</td>
+        <td class="n">1주 +34% · 3주 +68% → 25% 기준 <strong style="color:var(--catch)">충족</strong></td></tr>
+      <tr><td>001740 · 6/5</td><td>climax_run</td>
+        <td class="n">2주 +30% · 3주 +25% → <strong style="color:var(--catch)">충족</strong></td></tr>
+      <tr><td>126640 · 6/12</td><td>climax_run 외</td>
+        <td class="n">1주 +142% · 3주 +166% → <strong style="color:var(--catch)">충족</strong> (명백한 폭등)</td></tr>
+    </table></div>
+
+    <p>결과: <strong>3주 전부 정의 충족. 정의-위반 ignore = 0건.</strong>
+    1주에 +142% 같은 진짜 수직 폭등을 "지금 사면 위험하다"며 피한 것은 규칙 위반이 아니라
+    규칙 그 자체입니다. SK하이닉스 때와 정반대 — <strong>당시의 결함(정의 미충족 climax
+    남발)은 수정 후 재발하지 않았고, AI 분류층에서는 이번 감사에서 고칠 것이 발견되지
+    않았습니다.</strong> 원래 이 조사가 잡으러 나섰던 범인의 무죄가 확정된 셈인데,
+    대신 진범 후보가 예상 밖의 곳(트리거 경로)에서 나온 것이죠.</p>
+  </section>
+
+  <!-- ===================== 11 ===================== -->
+  <section class="chapter" id="ch11">
+    <p class="eyebrow">11장</p>
+    <h2>최종 성적표 — 처음 두 질문에 대한 답</h2>
+
+    <div class="funnel" role="img" aria-label="표본 120 에피소드의 최종 꼬리표 분포">
+      <div class="row"><div class="label"><span class="tag catch">잡았다 caught</span></div>
+        <div class="bar-wrap"><div class="bar b-catch" style="width:0.9%"></div></div>
+        <div class="val num">1 (0.8%)</div></div>
+      <div class="row"><div class="label"><span class="tag miss">확인층이 놓침 trigger_miss</span></div>
+        <div class="bar-wrap"><div class="bar b-miss" style="width:67.5%"></div></div>
+        <div class="val num">81 (67.5%)</div></div>
+      <div class="row"><div class="label"><span class="tag miss">피벗이 빗나감 pivot_miss</span></div>
+        <div class="bar-wrap"><div class="bar b-warn" style="width:30%"></div></div>
+        <div class="val num">36 (30.0%)</div></div>
+      <div class="row"><div class="label"><span class="tag grey">분류가 놓침 cls_miss</span></div>
+        <div class="bar-wrap"><div class="bar b-grey" style="width:1.7%"></div></div>
+        <div class="val num">2 (1.7%)</div></div>
+    </div>
+
+    <h3>각 꼬리표가 나온 과정 (에피소드가 어떤 길을 걸어 그 칸에 도착했나)</h3>
+
+    <p><span class="tag catch">잡았다 caught — 1개</span><br>
+    조사한 주간 분류 중 <strong>entry("지금 바로 사도 될 자리")가 나온</strong> 경우.
+    실제 사례: 004800은 2025-09-19 주의 토요일 분석 재현에서 entry로 분류됐고, 감사
+    규칙(1차 잠금)이 "entry가 나오면 그 시점에 잡은 것으로 본다"라고 정의해 뒀으므로
+    caught로 확정. 참고로 실전에서는 entry 딱지도 즉시 매수가 아니라 평일의 돌파
+    확인(entry는 watch보다 느슨한 게이트 조건)을 거칩니다 — 감사는 entry에 대해서는
+    그 뒷단을 추적하지 않고 잡은 것으로 후하게 인정해 준 것이므로, 이 규칙이 포착률을
+    <em>깎는</em> 방향의 왜곡은 아닙니다.</p>
+
+    <p><span class="tag miss">확인층이 놓침 trigger_miss — 81개</span><br>
+    ① 토요일 분석이 <strong>watch + 피벗 가격</strong>을 줬고 →
+    ② 그 후 실제 주가(장중 고가)가 그 피벗을 <strong>실제로 넘은 날이 있었고</strong> →
+    ③ 그 돌파일에 확인 AI(evaluate_pivot)를 재현해 "지금 사?"라고 물었더니
+    <strong>"거래량이 기준(1.4배)에 미달 / 종가가 약하게 마감 / 봉이 거칠음 / 시장 비우호"
+    등의 사유로 전부 wait 또는 abort</strong>가 나온 경우.
+    돌파라는 기회까지는 갔는데 마지막 확인에서 잡힌 것.</p>
+
+    <p><span class="tag miss">피벗이 빗나감 pivot_miss — 36개</span><br>
+    ① watch + 피벗까지는 나왔지만 →
+    ② 에피소드가 끝날 때까지 주가가 그 피벗 가격에 <strong>한 번도(장중 고가 기준으로도)
+    도달하지 못한</strong> 경우. 돌파 자체가 없었으니 확인 AI에게 물어볼 일도 없이 종결 —
+    "기준선이 실제 주가 흐름과 안 맞게 그어졌다"는 신호.</p>
+
+    <p><span class="tag grey">분류가 놓침 cls_miss — 2개</span><br>
+    조사한 <strong>모든 주의 분류가 ignore</strong> — watch 목록에 오른 적이 없으니
+    피벗도, 돌파 감시도, 확인 AI도 아예 존재하지 않았던 경우. 유일하게 "주말 분류
+    단계에서" 걸러진 부류.</p>
+
+    <p>이 네 칸을 Phase 1의 주 단위 분포(watch 922 / ignore 86 / entry 1)와 연결하면:
+    entry 1건이 caught 1개를 만들었고, 922건의 watch는 <strong>117개(81+36) 에피소드</strong>
+    안에 나뉘어 있으며, ignore만으로 채워진 에피소드가 cls_miss 2개입니다.</p>
+
+    <p>유일한 caught(004800)는 주말 entry로 잡혔고, 그 시점부터 고점까지
+    <strong>+83.6%</strong>가 남아 있었습니다 — 잡았을 때는 제대로 잡는다는 뜻이기도 합니다.
+    수익률 그룹별로 나눠 봐도 포착률은 고르게 낮았습니다(하위 그룹 0/40 · 중위 1/40 ·
+    상위 0/40) — 즉 "극단 급등주만 못 잡는" 게 아니라 전 구간에서 트리거 경로가 막혔다는
+    뜻입니다. 표본의 포착률을 774개 조사 대상 전체로 환산하면 약 6~7개 수준
+    (표본 기반 추정)입니다.</p>
+
+    <h3>질문 ① "AI 분류가 놓친, 놓치면 안 됐던 종목이 있는가?"</h3>
+    <p><strong>분류층에서는 사실상 없습니다.</strong> 120개 중 2개(1.7%)만 분류 단계에서
+    걸러졌고 그마저 전부 정당한 회피(10장). 대박 종목의 91%를 watch에 올려두긴 했으니
+    "알아보는 눈"은 있습니다. 놓침은 그 아래 — <strong>watch를 매수로 전환하는 트리거
+    경로</strong> — 에 몰려 있습니다.</p>
+
+    <h3>질문 ② "기준이 너무 높은 것 아닌가?"</h3>
+    <p><strong>주말 분류 기준은 높지 않습니다.</strong> 실측된 병목은 <strong>3단 관문
+    (트리거 경로) 전체</strong>이며, 정확히는 그 안의 두 겹 모두입니다:
+    (a) 확인 AI를 부를지 말지를 정하는 <strong>기계 게이트</strong>의 통과 조건과,
+    (b) 게이트가 열린 뒤 확인 AI(내부 이름 <span class="num">evaluate_pivot</span>)가
+    적용하는 <strong>표준 검증</strong> — "거래량이 평소의 1.4배 이상 + 종가가 그날
+    가격 범위의 상단 3분의 1에서 마감 + 종가 기준으로 피벗 위" 세 가지를 동시에 요구하는
+    규칙. 참고로 실전에서 이 게이트는 매일 저녁의 자동 작업(운영 화면의 llm-full-daily,
+    평일 20시) 안에서 <strong>"현재 분류가 entry 또는 watch인 종목 전부"</strong>를
+    대상으로 당일 종가·거래량·50일 평균 거래량 등을 넣어 실행되는 계산 단계입니다.
+    다만 — 이걸 "과하게 엄격하다"고 확정하려면 다음 장의 함정을 반드시
+    넘어야 합니다.</p>
+  </section>
+
+  <!-- ===================== 12 ===================== -->
+  <section class="chapter" id="ch12">
+    <p class="eyebrow">12장</p>
+    <h2>반전 주의 — 이 숫자를 그대로 믿으면 안 되는 이유</h2>
+
+    <h3>왜 이 장이 필요한가 — "성적이 나쁘면 두 가지를 의심해야 한다"</h3>
+
+    <p>어떤 시험에서 성적이 아주 나쁘게 나오면 가능성은 둘입니다.
+    <strong>정말 실력이 없거나, 시험 방식이 응시자에게 불공정했거나.</strong>
+    건강검진에 비유하면 — 방금 잠에서 깬 사람을 곧바로 러닝머신에 올려 심박수를 재고
+    "심장이 약하다"고 결론 내리면 안 되는 것과 같습니다. 측정 방식이 피검자의 실제
+    생활 조건과 달랐다면, 나쁜 수치는 심장 탓이 아니라 <em>측정 탓</em>일 수 있으니까요.</p>
+
+    <p>"돌파 81건에 go_now 0건"이라는 성적은 너무 극단적이어서, 결론 내리기 전에
+    "우리 시험 방식이 공정했나"부터 재검해야 했습니다. 그래서 조사 종료 후 보조 진단을
+    돌렸고 — 실제로 <strong>백테스트가 확인 AI에게 질문한 방식과, 실전 시스템이 확인
+    AI를 사용하는 방식 사이에 중요한 차이 3가지</strong>가 확인됐습니다. 이 문서에서는
+    이런 것을 <strong>"측정 왜곡"</strong>이라고 부르겠습니다 — 조사 대상(시스템)의 실제
+    성질이 아니라, <em>조사 방법 때문에 생겨난 가짜 신호</em>라는 뜻입니다. 앞의 건강검진
+    비유로 말하면 "심장이 약해서 나온 수치"가 아니라 "잠 깬 직후에 재서 나온 수치"에
+    해당하는 부분이죠. 차이를 이해하려면 먼저 두 방식의 흐름을 나란히 봐야 합니다.</p>
+
+    <h3>백테스트가 실제로 한 것 (확인 AI 재현의 흐름)</h3>
+
+    <div class="pipe" role="img" aria-label="백테스트의 확인 AI 재현 4단계">
+      <div class="stage"><div class="t">① 피벗 가져오기</div>
+        <div class="d">Phase 1이 만든 watch 분류에서 피벗 가격을 가져옵니다.
+        예: "이 종목, 187,300원 넘으면 사라."</div></div>
+      <div class="arrow">▼</div>
+      <div class="stage"><div class="t">② "돌파일" 찾기 — <strong>장중 고가 기준, 첫 날</strong></div>
+        <div class="d">watch 주 이후의 일별 가격을 훑어, <strong>장중 고가가 피벗을 스친
+        첫 번째 날</strong>을 "돌파일"로 정합니다. 이 정의는 조사 시작 전에 잠근 규칙입니다.
+        장중에 1초라도 넘었으면 종가가 그 아래로 밀려 내려왔어도 그날이 돌파일입니다.</div></div>
+      <div class="arrow">▼</div>
+      <div class="stage"><div class="t">③ 그 하루에 대해서만 확인 AI 호출</div>
+        <div class="d">"직전 주말에 이런 watch 분류가 있었고, 오늘 피벗이 돌파됐다.
+        지금 사라(go_now)인가?" — <strong>딱 이 하루만</strong> 묻습니다.
+        (1회 실행 규율: AI는 물을 때마다 답이 조금씩 달라지므로, 여러 날을 묻거나
+        다시 묻는 것을 금지해 뒀습니다.)</div></div>
+      <div class="arrow">▼</div>
+      <div class="stage"><div class="t">④ 그 답으로 꼬리표 확정</div>
+        <div class="d">go_now → caught / wait·abort → trigger_miss.</div></div>
+    </div>
+
+    <h3>실전 시스템이 실제로 하는 것</h3>
+
+    <div class="pipe" role="img" aria-label="실전 시스템의 매일 반복 흐름">
+      <div class="stage"><div class="t">① 매일 장 마감 후 watch 종목 자동 점검</div>
+        <div class="d">하루로 끝나지 않습니다 — watch 목록에 있는 한 매일 반복.</div></div>
+      <div class="arrow">▼</div>
+      <div class="stage"><div class="t">② 기계 게이트 — <strong>종가 기준</strong>으로 4가지 조건 확인</div>
+        <div class="d"><strong>종가</strong>가 피벗 위 + 어제까지는 피벗 아래였다가 오늘 처음 넘음
+        ("신선한 돌파") + 거래량이 평소 수준 이상 + watch 사유가 돌파 허용 목록에 해당.
+        <strong>이 조건이 전부 맞은 날에만</strong> 다음 단계로.</div></div>
+      <div class="arrow">▼ 게이트가 열린 날에만</div>
+      <div class="stage"><div class="t">③ 확인 AI(evaluate_pivot) 호출 → go_now / wait / abort</div>
+        <div class="d">wait가 나와도 끝이 아닙니다 — 내일 다시 ①부터. 조건이 더 좋아진 날
+        (거래량이 실리고 종가가 강하게 마감한 날) 다시 물을 기회가 옵니다.</div></div>
+    </div>
+
+    <h3>두 흐름의 차이 — 한 눈에</h3>
+
+    <div class="tbl-wrap"><table>
+      <tr><th>항목</th><th>백테스트 (이번 조사)</th><th>실전 시스템</th></tr>
+      <tr><td>돌파 판정 기준</td><td>장중 고가가 스치면 돌파</td><td><strong>종가</strong>가 넘어야 돌파</td></tr>
+      <tr><td>확인 AI에게 묻는 날</td><td>첫 터치일 <strong>딱 하루</strong></td><td>게이트가 열리는 날마다, <strong>몇 번이든</strong></td></tr>
+      <tr><td>묻기 전 관문</td><td>게이트 통과 여부와 <strong>무관하게</strong> 물음</td><td>게이트가 열려야만 물음</td></tr>
+    </table></div>
+
+    <h3>실제 사례 두 건으로 보는 차이</h3>
+
+    <div class="callout analogy">
+      <span class="chip">사례 A — 조사 방식이 만들어낸 wait (종목 003240, 2025-05-19)</span>
+      <p>이날 장중 고가가 피벗(84.9만원)을 살짝 넘었습니다. 백테스트 규칙상 이날이
+      "돌파일"이 되어 확인 AI에게 물었습니다. AI의 답: <em>"종가(84.0만원)가 피벗 아래로
+      마감됐고, 거래량도 평소의 0.8배로 부족 — wait."</em></p>
+      <p>그런데 실전이라면 이날 무슨 일이 있었을까요? <strong>아무 일도 없었습니다.</strong>
+      종가가 피벗 아래니 기계 게이트가 아예 안 열렸고, 확인 AI는 호출되지도 않았을
+      겁니다. 즉 이 wait는 "실전 시스템이 기회를 거절한 기록"이 아니라 <strong>"조사가
+      실전에 없는 질문을 만들어 물었고, AI가 (당연하게도) 아직 아니라고 답한 기록"</strong>입니다.
+      이런 부류가 trigger_miss 숫자를 부풀립니다.</p>
+    </div>
+
+    <div class="callout analogy">
+      <span class="chip">사례 B — 진짜 신호였던 wait (종목 014680, 2025-09-15)</span>
+      <p>이날은 다릅니다. 종가 191,900원으로 피벗(187,300원)을 <strong>종가 기준으로도</strong>
+      넘었고, 신선한 돌파였고, 게이트 조건을 재적용해 봐도 열립니다 — 즉 <strong>실전에서도
+      확인 AI가 실제로 호출됐을 날</strong>입니다. 그런 날의 AI 답: <em>"거래량이 평소의
+      1.15배로 기준(1.4배)에 미달, 종가도 일중 가격 범위의 중간쯤에서 마감 — 확신이
+      부족한 돌파라 wait."</em></p>
+      <p>이건 조사 방식의 왜곡이 아니라 <strong>확인 규칙의 실제 성향을 보여주는 진짜 표본</strong>입니다 —
+      "돌파는 맞는데 교과서적으로 완벽한 돌파가 아니면 안 산다"는 성향이죠. 13장의
+      가설 H1("이 표준이 한국 시장에 과하게 엄격한가?")은 바로 이런 부류에서 나왔습니다.</p>
+    </div>
+
+    <h3>이제 측정 왜곡 세 가지를 정리하면</h3>
+
+    <p><strong>왜곡 ① — 돌파의 정의가 실전과 달랐다 (사례 A의 문제).</strong> 조사는
+    "장중 고가가 스친 첫 날"을 돌파일로 잠갔는데, 실전은 종가 기준입니다. 장중에 잠깐
+    스치고 밀려 내려온 날은 실전 기준으로는 아직 돌파가 아닙니다. wait 사유에 "종가
+    약함"이 22건, "종가가 피벗 아래로 되밀림"이 2건 있는 이유이고 — 그런 날의 wait는
+    결함이 아니라 정상 작동일 가능성이 높습니다.</p>
+
+    <p><strong>왜곡 ② — 실전이라면 그날 질문 자체가 없었다.</strong> 여기서 다루는 대상은
+    <strong>9장에서 확인 AI(evaluate_pivot)에게 물었던 그 77건</strong>입니다(돌파까지 간
+    81개 에피소드에서 겹치는 4건을 제외한 고유 질문 수 — 120개 표본 중 "돌파일이
+    존재했던" 부분집합입니다).</p>
+
+    <p>먼저 헷갈림 하나를 정리해야 합니다: <em>"77건 전부 돌파했다면서 왜 44건은 정식
+    돌파가 아니라는 거지?"</em> — 이유는 <strong>"돌파"라는 단어가 두 가지 다른 잣대로
+    쓰였기 때문</strong>입니다. 감사가 쓴 잣대는 "장중 고가가 피벗을 스쳤는가"(하루 중
+    1초라도 넘으면 돌파)이고, 실전 게이트가 쓰는 잣대는 "<strong>종가</strong>가 피벗 위에서
+    마감했는가 + 거래량·신선함 조건"입니다. 그래서 같은 날이 감사의 눈에는 돌파인데
+    실전 게이트의 눈에는 아직 돌파가 아닐 수 있습니다 — 장중에 잠깐 넘었다가 밀려
+    내려온 날이 바로 그런 날이죠(사례 A).</p>
+
+    <p>이제 77건의 돌파일(감사 잣대) 각각에 실전 게이트(실전 잣대)를 재적용한 결과를
+    보면: "실전에서도 그날 확인 AI가 호출됐을" 경우 — 즉 종가·거래량·신선함·watch 사유
+    조건이 전부 맞아 <strong>정식 돌파 신호</strong>가 났을 경우 — 는 <strong>8건뿐</strong>
+    (사례 B 부류). <strong>44건</strong>은 종가 기준으로는 돌파에 못 미쳤지만 피벗의 95%
+    선까지는 와 있었던 날이라, 게이트가 "정식 돌파"가 아니라 <em>"피벗에 근접했으니 승격
+    후보로 지켜보라"</em>는 약한 예비 신호만 냈을 조건("지금 사?"가 아니라 "관심 등급을
+    올릴까?"라는 다른 질문으로 이어지는 경로). <strong>25건</strong>은 종가가 피벗의 95%
+    선에도 못 미쳤거나 거래량이 평균 미만이어서 <em>게이트 기준으로는 아무 일도 없던
+    날</em>입니다 — 장중에 피벗을 스치긴 했지만(그래서 감사에는 잡혔지만) 종가가 한참
+    아래로 밀려 마감한 날들이 여기 해당합니다.
+    합쳐서 <strong>69건은 실전이라면 그날 "지금 사?"라는 질문이 존재하지 않았습니다.</strong>
+    즉 이 조사의 wait 다수는 "실전이 물었을 질문"이 아니라 "조사가 만들어 물은 질문"에
+    대한 답입니다.</p>
+
+    <p><strong>왜곡 ③ — 실전은 다음 날 다시 묻는다.</strong> 조사는 첫 터치일 하루만
+    평가했지만, 실전은 wait 이후에도 매일 다시 봅니다. 사례 A 같은 종목도 며칠 뒤
+    거래량이 실리며 종가로 강하게 돌파하는 날이 오면 그때 게이트가 열리고 다시 질문이
+    갑니다. 그래서 "에피소드 기간 전체에서 게이트가 열리는 날이 하루라도 있었나"를
+    스캔해 봤더니 — trigger_miss 81건 중 <strong>38건은 다른 날 실전 게이트가 실제로
+    열렸을 것</strong>으로 확인됐습니다(그날들의 확인 AI 판정은 조사가 평가하지 않았으므로
+    미지수 — 잡았을 수도, 또 wait였을 수도). 나머지 <strong>43건은 기간 내내 게이트가
+    한 번도 안 열렸습니다</strong> — 이쪽은 측정 왜곡이 아니라 게이트 조건 자체(거래량
+    기준, 허용된 watch 사유 목록 등)가 만든 실제 차단이며, 가설 H2의 근거입니다.</p>
+
+    <p><strong>덧붙여 — 시장 탓도 상당합니다.</strong> 77건의 돌파일 중 46건은 시장 전체가
+    "상승 확인" 국면이 아니었습니다(상승 시도 중 23, 하락 16, 조정 7). 위에서 말한 시장
+    안전 규칙이 이런 날의 매수를 막는 것은 결함이 아니라 설계 의도입니다 — 이 규칙은
+    직전 수익성 백테스트에서 가치가 입증된 방어선이기도 합니다.</p>
+
+    <div class="callout why">
+      <span class="chip">그럼 이 조사는 헛수고였나?</span>
+      <p>아닙니다. 두 가지가 확실해졌습니다. 첫째, <strong>어디를 파야 하는지.</strong>
+      분류층(주말 AI)이 무죄라는 판결은 측정 왜곡과 무관하게 확정입니다 — 다시 정리하면,
+      대박 종목 120개 중 분류 단계에서 걸러진 것은 단 2개(나머지 118개는 watch 이상으로
+      "알아봤음")였고, 그 2개마저 뜯어보니 규칙서의 정량 정의(1~3주 25%+ 폭등)를 실제로
+      충족한 <em>정당한 회피</em>였습니다(10장). "AI가 대박 종목을 몰라봤다"는 원래
+      혐의는 어느 각도로 봐도 성립하지 않는 거죠. 따라서 파야 할 곳은 그 아래 —
+      게이트 조건(43건의 완전 차단)과 확인 규칙(38건의 미평가 기회)입니다.
+      둘째, <strong>다음 조사를 어떻게 설계해야 하는지</strong> — "실전 게이트가 실제로
+      열린 날"을 기준으로 재감사하면 측정 왜곡 없이 순수한 답이 나옵니다.
+      탐색형 조사의 역할(가설 생성)은 정확히 수행된 겁니다.</p>
+      <p>한 가지 균형추도 잊으면 안 됩니다: 이 엄격한 트리거층은 직전 수익성 백테스트에서
+      <strong>하락장 진입 33건을 전부 차단</strong>(방어 성공률 100%)한 바로 그 층입니다.
+      엄격함은 "포착 비용"과 "방어 가치"를 동시에 갖고 있어서, 완화는 반드시 양쪽을 다
+      측정한 후에만 결정해야 합니다.</p>
+    </div>
+  </section>
+
+  <!-- ===================== 13 ===================== -->
+  <section class="chapter" id="ch13">
+    <p class="eyebrow">13장</p>
+    <h2>다음 단계 — 세 가지 가설</h2>
+
+    <p>탐색형 조사의 최종 산출물은 "수정 사항"이 아니라 <strong>가설 목록</strong>입니다.
+    가설이란 "여기가 문제인 것 같다"는 <em>혐의</em>이지 유죄 판결이 아닙니다 — 5장의
+    약속대로, 각 가설은 별도의 검증 절차(그 검증 자체도 기준을 먼저 잠그고 시작)를
+    통과해야 실제 규칙 변경으로 이어집니다. 왜 이렇게 신중하냐면: 12장에서 봤듯 이번
+    조사의 나쁜 성적에는 측정 왜곡이 섞여 있고, 무엇보다 <strong>승자만 보고
+    규칙을 풀면 패자(같은 조건이었지만 하락한 종목)까지 함께 딸려 들어오기</strong>
+    때문입니다. 세 가설은 각각 3단 관문의 다른 부품을 겨냥합니다:</p>
+
+    <div class="tbl-wrap"><table>
+      <tr><th>가설</th><th>내용</th><th>근거</th><th>검증 방법</th></tr>
+      <tr><td><strong>H1</strong><br>확인 규칙</td>
+        <td>돌파 확인의 표준 검증(거래량 1.4배 + 상단 마감 + 종가 돌파 동시 요구)이
+        한국 대상승주의 실제 돌파일 특성 대비 과하게 엄격할 가능성</td>
+        <td class="n">go_now 0/77<br>(측정 왜곡 섞임)</td>
+        <td>게이트가 실제 열린 날(38건) 기준 재감사 + <strong>패자 대조군</strong>(같은 조건을
+        통과했지만 하락한 종목들) 대조 — 승자만 보고 규칙을 풀면 패자까지 딸려 들어오므로,
+        완화가 부르는 비용을 반드시 함께 측정(5장 안전장치 ①의 실행)</td></tr>
+      <tr><td><strong>H2</strong><br>게이트</td>
+        <td>결정론 게이트의 조건 조합(허용 watch 사유 제한 + "신선한 돌파" 요구 + 거래량
+        기준)이 재돌파 기회를 구조적으로 차단할 가능성</td>
+        <td class="n">43건 게이트<br>완전 무발화</td>
+        <td>게이트 완화 시뮬레이션(공짜 계산) — 추가로 열리는 신호 수와 부실 신호 비율 측정</td></tr>
+      <tr><td><strong>H3</strong><br>피벗</td>
+        <td>초급등 주도주는 표준 베이스 피벗이 완성되기 전에 가격이 떠난다
+        (pivot_miss가 수익률 상위 그룹에 집중: 하위 7 → 상위 17)</td>
+        <td class="n">pivot_miss 36<br>(30%)</td>
+        <td>대안 피벗 방식의 후향 시뮬레이션 — 단, 책(원전) 근거 대조가 선행돼야 함</td></tr>
+    </table></div>
+
+    <p>표의 내용을 풀어서 다시 쓰면:</p>
+
+    <p><strong>H1 — 확인 AI의 합격선이 너무 높은가?</strong> 사례 B(014680)처럼 "돌파는
+    맞는데 거래량이 1.4배가 아니라 1.15배"라서 거절되는 일이 반복된다면, 문제는 개별
+    판정이 아니라 <em>합격선의 위치</em>일 수 있습니다. 검증은 저울의 양쪽을 따로 재는
+    두 부분으로 구성됩니다:</p>
+
+    <p><em>1부 — 이득 측정 (합격선을 낮추면 대박 종목을 얼마나 더 잡나).</em>
+    이번 조사의 go_now 0/77은 측정 왜곡이 섞인 숫자라 그대로 못 씁니다. 그래서 왜곡이
+    없는 부분집합 — "실전 게이트가 실제로 열렸을 날"이 존재한 38건 — 을 골라, 이번엔
+    첫 터치일이 아니라 <strong>그 게이트가 열린 날</strong>을 기준으로 확인 AI를 다시
+    재현합니다(새로운 잠금 문서를 먼저 쓰고 시작). 이러면 "실전과 똑같은 질문"에 대한
+    답이 나오고, 현행 합격선과 완화된 합격선(예: 거래량 1.2배)을 각각 적용했을 때
+    잡는 수가 몇 개에서 몇 개로 늘어나는지가 측정됩니다.</p>
+
+    <p><em>2부 — 비용 측정 (합격선을 낮추면 나쁜 신호가 얼마나 딸려 들어오나).</em>
+    여기서 결정적인 함정이 하나 있습니다: <strong>이번 조사의 표본으로는 이 비용을 절대
+    잴 수 없습니다.</strong> 왜냐하면 이번 표본 120개는 전부 "결과적으로 크게 오른
+    종목"만 모은 집합이라서, 이 안에서는 합격선을 아무리 낮춰도 "낮춘 덕에 산 종목"이
+    모두 승자처럼 보이기 때문입니다 — 마치 로또 당첨자들만 모아놓고 "복권 구매는 남는
+    장사"라고 결론 내리는 것과 같은 착시죠. 그래서 비용 측정에는 <strong>별도의 대조군을
+    새로 만들어야</strong> 합니다: 같은 18개월 동안 watch를 받고 피벗 돌파까지 갔지만
+    <em>그 후 하락하거나 횡보한</em> 종목들. 완화된 합격선이 이 대조군에서 몇 건의
+    "사라"를 만들어내는지 — 그게 완화의 진짜 가격표입니다. 이득(1부)이 비용(2부)을
+    상회할 때만 규칙 변경이 정당화됩니다.</p>
+
+    <p><strong>H2 — 애초에 질문이 도달하지 못하는가?</strong> 43건은 확인 AI가 거절한
+    게 아니라 <em>확인 AI에게 물어보는 단계까지 도달한 적이 없는</em> 케이스입니다.
+    기계 게이트의 조건 — 특히 "watch 사유가 허용 목록에 있어야 함"(베이스가 아직 만들어지는
+    중이라는 사유 등은 목록 밖)과 "어제까지는 피벗 아래였어야 함"(이미 넘은 상태로 며칠
+    지나면 기회 소멸) — 이 재돌파 기회를 구조적으로 차단할 가능성입니다.</p>
+
+    <p>검증은 게이트 조건을 가상으로 완화해 보는 시뮬레이션인데, 여기에도 H1과 똑같은
+    함정이 적용됩니다: <strong>승자 표본 안에서만 돌리면 "게이트가 더 열린다"는 것만
+    확인될 뿐, 열린 문으로 나쁜 신호가 얼마나 들어오는지는 알 수 없습니다.</strong>
+    게다가 이 표본은 수익률 상·중·하 그룹에서 같은 개수(40개씩)를 뽑은 것이라 모집단의
+    실제 비율과도 다릅니다 — 표본 결과를 전체로 환산할 때는 그룹별 가중치를 다시 줘야
+    합니다. 다행히 게이트는 AI가 필요 없는 순수 계산이라, 비용 측정을 승자 표본이 아니라
+    <strong>그 기간의 watch 전체(승자·패자 구분 없이)</strong>에 적용하는 것이 공짜로
+    가능합니다. 그래서 H2의 올바른 설계는 "이득은 승자 표본에서, 비용은 전체 모집단에서"
+    재는 것입니다.</p>
+
+    <p><strong>H3 — 기준선(피벗) 긋는 방식이 초급등주와 안 맞는가?</strong> 먼저
+    pivot_miss의 정확한 뜻부터: watch와 함께 피벗이 그어진 뒤, <strong>에피소드가 끝날
+    때까지 주가가 그 선을 넘는 일이 아예 없었다</strong>는 뜻입니다(장중 고가 기준으로도
+    단 한 번도). "넘긴 넘었는데 5% 이상 벌어져서 추격 금지에 걸렸다" 같은 케이스가
+    아닙니다 — 그런 건 일단 돌파로 잡혀 trigger_miss 쪽으로 갔을 겁니다. "대박 종목인데
+    선을 한 번도 안 넘었다니?"가 이상하게 들릴 수 있는데, 두 가지 경우입니다:
+    (a) 피벗이 박스권 천장 기준으로 실제 주가 흐름보다 높게 그어졌고, 주가는 그 아래에서
+    맴돌다가 에피소드 창이 끝났거나(상승분의 대부분이 watch <em>이전</em>에 이미 난 경우
+    포함), (b) 상승이 "박스 천장을 뚫고 출발"하는 교과서적 형태가 아니라 다른 경로로
+    진행된 경우. 이런 케이스가 수익률 상위 그룹에 몰려 있다는 것(하위 7건 → 상위 17건)은
+    "가장 사나운 종목일수록 교과서적 박스권을 만들지 않는다"는 신호일 수 있습니다.
+    다만 "완성된 박스의 천장에서만 산다"는 것 자체가 이 투자법 원전(책)의 핵심 원칙이라,
+    대안 피벗을 시험하기 전에 <em>그게 책의 철학과 충돌하지 않는지</em>부터 따져야 합니다.</p>
+
+    <p>권고 우선순위: H1과 H2는 같은 검증(트리거 경로 재감사 + 대조군)으로 묶이므로 먼저.
+    H3은 위의 이유로 책-정합성 논거부터 세워야 합니다.</p>
+  </section>
+
+  <!-- ===================== 14 ===================== -->
+  <section class="chapter" id="ch14">
+    <p class="eyebrow">14장</p>
+    <h2>이 조사의 한계 (정직한 고백)</h2>
+
+    <p>좋은 조사일수록 자기 한계를 크게 적습니다 — 한계를 모르는 결과는 인용될 때마다
+    과장되기 때문입니다. 아래 표가 전체 목록이고, 표만으로 이해가 어려운 항목은 표 아래에
+    풀어서 다시 설명했습니다.</p>
+
+    <div class="tbl-wrap"><table>
+      <tr><th>한계</th><th>내용과 대응</th></tr>
+      <tr><td>AI의 미래 지식</td><td>모델이 조사 기간의 결과를 학습으로 알 수 있음(양방향 오염 가능).
+        → 개별 판정 해석 금지, 패턴 수준만. 결함 승격은 기계 채점(10장)만.</td></tr>
+      <tr><td>1회 실행</td><td>AI는 같은 질문에 매번 조금씩 다른 답을 냄. 재실행 비교는 노이즈만 만들어
+        금지(과거 실험으로 확립된 규율). 75/77 같은 숫자는 ±몇 건 흔들릴 수 있다는 전제로 읽기.</td></tr>
+      <tr><td>첫 터치일 감사</td><td>12장의 측정 왜곡 ①②③. 실전 작동 방식(코드에 이미 존재하던
+        원래 기준)대로 재측정하는 것은 정당 — 단 이번 측정의 기록은 보존하고 새 문서로 진행.</td></tr>
+      <tr><td>표본 조사</td><td>포착률은 120/774 표본 기반 추정이지 전수 실측이 아님.</td></tr>
+      <tr><td>미종결·잘림</td><td>조사 창 끝에 진행 중이던 에피소드(censored)와 12주 상한에 잘린
+        에피소드(truncated)는 별도 표기로 구분.</td></tr>
+      <tr><td>상장폐지 누락</td><td>현재 상장 종목만 조사 대상 — 다만 대박 종목이 상폐되는 경우는
+        드물어 영향 작음.</td></tr>
+      <tr><td>"현재" 시스템의 감사</td><td>재현에 쓴 규칙은 현행 최신판 — 답한 질문은 "지금 시스템을
+        과거에 두면 놓치는가"(개선 목적에는 이게 맞는 질문). 확인 AI에게 실전보다 정보가 적게
+        주어진 부분(과거 평가 이력 없음)도 있음.</td></tr>
+    </table></div>
+
+    <h3>전 항목 풀어쓰기</h3>
+
+    <p><strong>① "AI의 미래 지식"이 왜 문제인가.</strong> 이번에 쓴 AI는 2026년 1월까지의
+    뉴스·시장 데이터를 학습한 모델입니다. 우리는 데이터를 과거 시점까지만 잘라서
+    보여줬지만(커닝 방지 검증까지 했지만), AI의 <em>머릿속 기억</em>까지 지울 수는
+    없습니다. "2025년 여름의 SK하이닉스 차트"를 보여주면, 학습 기억 어딘가에서 "이 종목
+    그 뒤에 크게 올랐지"라는 인상이 판단에 스며들 수 있다는 뜻입니다. 문제는 이 오염이
+    후한 쪽(오를 걸 아니까 긍정 평가)일 수도, 박한 쪽(그 뒤의 폭락까지 아니까 부정
+    평가)일 수도 있어서 방향을 특정할 수 없다는 것 — 그래서 개별 판정("이 wait는
+    이상하다")을 해석하는 것을 금지하고, 수십 건 단위의 패턴과 기계 채점만 결론의 근거로
+    삼았습니다.</p>
+
+    <p><strong>② "1회 실행"이 왜 한계인가.</strong> AI는 같은 차트를 두 번 보여주면 두 번
+    다 똑같이 답하지 않습니다(주사위처럼 완전히 무작위는 아니지만, 경계선 케이스에서
+    답이 흔들립니다). 그렇다고 여러 번 물어서 다수결을 하자니 비용이 몇 배로 들고,
+    "몇 번 물을지"를 결과 보고 정하고 싶은 유혹이 생깁니다. 그래서 이 프로젝트는 과거
+    실험을 통해 "1번 실행하고, 그 결과를 패턴 수준에서만 읽는다"는 규율을 세웠습니다.
+    실용적 의미: <em>"wait 75건"은 믿어도 되지만 "정확히 75건"에 의미를 두면 안 됩니다</em>
+    — 다시 돌리면 72건이나 77건이 될 수 있는 숫자입니다.</p>
+
+    <p><strong>③ "첫 터치일 감사"는 무엇이고, 재측정은 어떤 성격인가.</strong>
+    이 조사는 "피벗 돌파"를 <em>장중 고가가 피벗 가격을 스친 첫 날</em>로 정의하고,
+    그 하루에 대해서만 확인 AI를 재현했습니다. 이 정의는 실수가 아니라 조사 시작 전
+    규칙 문서에 그렇게 적고 잠근 것인데, 조사가 끝난 뒤의 보조 진단에서 이 정의가
+    <strong>실전 시스템의 실제 작동 방식과 세 가지로 어긋난다</strong>는 게 드러났습니다
+    (12장의 측정 왜곡 ①②③ — 실전은 종가 기준이고, 게이트가 먼저 열려야 하며, 다음
+    날에도 계속 지켜봅니다).</p>
+
+    <p>여기서 중요한 구분이 하나 있습니다. "결과를 보고 기준을 바꾸지 않는다"는 약속
+    (5장)이 금지하는 것은 <em>판정 기준을 결과에 맞춰 주무르는 것</em> — 예컨대 포착률이
+    낮게 나오자 "포착"의 정의를 느슨하게 고쳐 숫자를 좋게 만드는 것 — 입니다.
+    반면 지금 상황은 다릅니다: <strong>실전 시스템의 작동 방식(종가 기준·게이트 선행·
+    매일 재평가)은 조사 이전부터 코드에 그대로 존재하던 "원래 기준"</strong>이고, 조사의
+    측정 방식이 그것과 어긋나게 설계됐던 것뿐입니다. 측정이 실물과 다르다는 것을 발견하고
+    <em>실물 기준으로 다시 재는 것</em>은 기준 변경이 아니라 측정 교정입니다 — 실제로
+    이 조사 안에서도 같은 성격의 교정(1단 관문 정의를 실제 코드와 일치시킨 것)을 실행 전에
+    한 번 했고, 그것을 문제 삼지 않았던 것과 같은 이치입니다. 따라서 <strong>올바른 정의로
+    재측정하는 것은 전적으로 정당하며 원칙 위반이 아닙니다.</strong></p>
+
+    <p>그럼에도 재측정을 "이번 조사의 수정"이 아니라 "다음 조사"로 두는 이유는 두 가지의
+    실무적인 것입니다: (a) 이미 나온 wait 판정들을 지우고 새 기준의 판정으로 <em>대체</em>
+    해 버리면, 이 문서가 보고한 숫자들과 실제 데이터가 어긋나게 되므로 — "무엇을 어떤
+    기준으로 쟀는지"의 기록을 온전하게 남기려면 측정 단위로 문서를 분리하는 것이 깔끔하고,
+    (b) 재측정에도 AI 호출 비용이 들기 때문에 기준을 먼저 문서로 적어 두고(새 잠금)
+    승인 후 실행하는 기존 절차를 그대로 밟는 것뿐입니다. 즉 "안 고치는" 게 아니라
+    "새 측정으로 제대로 고치되, 이번 측정의 기록은 그대로 보존하는" 것입니다.</p>
+
+    <p><strong>④ "표본 조사"란 무엇이고 어디까지 믿어야 하나.</strong>
+    AI 조사 대상 774개를 전부 조사하지 않고 120개만 뽑아 조사했습니다(비용 때문에 —
+    전수는 40시간 이상). 여론조사가 국민 전체가 아니라 1,000명에게 묻고 전체를 추정하는
+    것과 같은 원리이고, 여론조사에 "±3%p 오차"가 있듯 이 조사의 숫자에도 표본 오차가
+    있습니다. "포착률 0.8%(1/120)"를 774개 전체로 환산한 "약 6~7개"는 정확한 실측이
+    아니라 추정치이며, 실제로 전수 조사를 했다면 3개였을 수도 12개였을 수도 있습니다.
+    또 하나 — 표본을 수익률 상·중·하 그룹에서 40개씩 <em>같은 개수로</em> 뽑았기 때문에
+    (성적이 극단 급등주 쪽으로 쏠리는 걸 막기 위한 선택), 표본의 구성 비율은 모집단과
+    다릅니다. 그래서 전체로 환산할 때는 그룹별로 따로 계산해 합치는 보정을 거쳤습니다.
+    결론이 흔들리느냐가 중요한데: 이 조사의 결론은 "포착률이 정확히 0.8%다"가 아니라
+    "포착이 극히 드물고, 그 원인이 분류층이 아니라 트리거 경로에 있다"는 <em>패턴</em>이고,
+    이 패턴은 표본 오차 범위 안에서 뒤집히지 않습니다(120개 중 119개가 같은 방향을
+    가리키고 있으니까요).</p>
+
+    <p><strong>⑤ "미종결(censored)·잘림(truncated)"이란.</strong>
+    미종결은 조사 기간의 끝(2026년 6월)에 <em>아직 상승 중이던</em> 에피소드입니다 —
+    물고기가 아직 헤엄치는 중이라 최종 크기를 모르니, "얼마나 놓쳤나"의 계산이 확정이
+    아닙니다. 잘림은 조사 비용 상한 때문에 한 에피소드당 최대 12주까지만 AI에게 물었는데,
+    실제로는 조사할 주가 그보다 많아서 <em>뒷부분이 잘린</em> 에피소드입니다 — 13주째
+    이후에 좋은 진입 기회(두 번째 박스권 등)가 있었더라도 조사가 못 봤을 수 있습니다.
+    둘 다 결과 표에 표시를 달아 뒀고, 특히 잘린 에피소드가 나쁜 판정을 받았다면 "뒷부분을
+    못 본 상태의 판정"임을 감안해 읽어야 합니다.</p>
+
+    <p><strong>⑥ "상장폐지 누락"이란.</strong> 조사의 종목 명단은 현재 상장된 종목
+    기준이라, 조사 기간에는 존재했지만 지금은 상장폐지된 종목이 빠져 있습니다.
+    다만 이번 조사의 대상은 "크게 오른 종목"인데, 크게 오른 종목이 그 직후 상장폐지되는
+    일은 드물어서 실제 영향은 작습니다. (반대로 "하락 종목 조사"였다면 이 누락이 치명적
+    이었을 겁니다 — 나쁜 종목일수록 상폐로 명단에서 사라지니까요.)</p>
+
+    <p><strong>⑦ "현재 시스템의 감사"라는 것의 의미.</strong>
+    Phase 1의 재현에 쓴 규칙 문서(프롬프트)는 <em>지금 이 순간의 최신판</em>입니다 —
+    SK하이닉스 사건 이후 수정된 규칙이 반영된 버전이죠. 그래서 이 조사가 답한 질문은
+    정확히는 "2025년 당시의 시스템이 놓쳤는가?"가 아니라 <strong>"지금의 시스템을 타임머신에
+    태워 2025년으로 보내면 놓치는가?"</strong>입니다. 얼핏 이상해 보이지만 목적에는 이게
+    맞는 질문입니다: 우리가 고치려는 것은 과거의 시스템이 아니라 지금부터 쓸 시스템이니,
+    지금 버전의 구멍을 찾아야 하니까요. (실제로 2026년 5~6월 실전 기록과 겹치는 구간이
+    있는데, 실전 기록은 그때그때 다른 버전의 규칙으로 만들어져 이번 재현과 단순 비교할
+    수 없습니다 — 그래서 참고 자료로만 취급했습니다.) 또 하나: 확인 AI에게는 실전에서라면
+    주어졌을 정보 중 하나 — "이 종목을 지난 며칠간 평가했던 이력" — 가 재현에서는 빈
+    상태로 주어졌습니다. 과거 시점에는 그런 이력 기록이 존재하지 않았기 때문인데,
+    정보가 적은 만큼 실전보다 약간 더 조심스러운 판정이 나왔을 가능성이 있습니다.</p>
+  </section>
+
+  <!-- ===================== 15 ===================== -->
+  <section class="chapter" id="ch15">
+    <p class="eyebrow">15장 · 부록</p>
+    <h2>실행 타임라인과 용어집</h2>
+
+    <h3>집단의 계보 — 각 숫자가 어디서 갈라져 나왔나</h3>
+
+    <p>이 조사에 등장한 모든 숫자의 족보입니다. 각 줄의 파란 배지는 "직전 단계의 어느
+    집단에서 나왔는지"를 표시합니다 — 위에서 아래로 따라가면 2,500여 종목이 최종 성적표의
+    네 칸까지 갈라져 내려가는 전체 흐름이 보입니다.</p>
+
+    <div class="lin">
+      <ul>
+        <li><span class="cnt">약 2,500종목</span> — 한국 시장 전체, 18개월(2025-01~2026-06)을 매주 스캔
+          <ul>
+            <li><span class="from">전체에서</span><span class="cnt">1,436</span> 상승 에피소드
+              — 시장 대비 +40%p(13주) 또는 +50%p(26주) 초과 + 거래대금 10억 이상 <span class="note">[Phase 0 · 공짜 계산]</span>
+              <ul>
+                <li><span class="from">1,436 중</span><span class="cnt">472</span> filter_excluded
+                  — 1단 기계 필터를 통과한 주가 없음 <span class="term">→ 여기서 종결 (원래 안 사는 부류일 가능성)</span></li>
+                <li><span class="from">1,436 중</span><span class="cnt">190</span> structurally_uncatchable
+                  — 필터가 봤을 땐 잔여 상승분 20% 미만 <span class="term">→ 여기서 종결 (채점 제외)</span></li>
+                <li><span class="from">1,436 중</span><span class="cnt">774</span> phase1_candidate — AI 조사 대상 풀
+                  <ul>
+                    <li><span class="from">774 중</span><span class="cnt">120</span> 표본
+                      — 수익률 상·중·하 그룹에서 40개씩 무작위 <span class="note">[2차 잠금]</span>
+                      <span class="term">(나머지 654개는 미조사)</span>
+                      <ul>
+                        <li><span class="from">120개의</span><span class="cnt">1,009</span> 주간 분류
+                          (에피소드당 평균 8~9주) → <strong>watch 922 · ignore 86 · entry 1</strong>
+                          <span class="note">[Phase 1 · AI 재현]</span></li>
+                        <li>에피소드 단위로 재집계 <span class="note">[Phase 2]</span>:
+                          <ul>
+                            <li><span class="from">120 중</span><span class="cnt" style="color:var(--catch)">1</span>
+                              <strong>caught</strong> — entry가 나온 에피소드(004800)</li>
+                            <li><span class="from">120 중</span><span class="cnt">2</span>
+                              <strong>classification_miss</strong> — 조사한 모든 주가 ignore
+                              <span class="term">→ 규칙 위반 채점: 3주 전부 정의 충족 = 정당 회피</span></li>
+                            <li><span class="from">120 중</span><span class="cnt">117</span> watch 보유 에피소드
+                              <ul>
+                                <li><span class="from">117 중</span><span class="cnt" style="color:#C9822F">36</span>
+                                  <strong>pivot_miss</strong> — 피벗을 끝내 안 넘음 (돌파 없음 → 확인 단계 미도달)</li>
+                                <li><span class="from">117 중</span><span class="cnt" style="color:var(--miss)">81</span>
+                                  <strong>trigger_miss</strong> — 피벗 돌파(고유 질문 77건) → 확인 AI 전부 wait/abort
+                                  <ul>
+                                    <li><span class="from">77 중</span><span class="cnt">8</span> 그날 실전 게이트도 열렸을 조건 <span class="term">— 진짜 거절 표본 (사례 B 부류)</span></li>
+                                    <li><span class="from">81 중</span><span class="cnt">38</span> 다른 날 실전 게이트가 열렸을 에피소드 <span class="term">— 그날들은 미평가 (측정 왜곡 ③)</span></li>
+                                    <li><span class="from">81 중</span><span class="cnt">43</span> 기간 내 게이트 무발화 <span class="term">— 가설 H2의 근거</span></li>
+                                  </ul>
+                                </li>
+                              </ul>
+                            </li>
+                          </ul>
+                        </li>
+                      </ul>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+
+    <h3>실행 타임라인</h3>
+    <div class="tl">
+      <div class="ev"><div class="when">7/2 (이전 몇 주)</div><div class="what">아이디어 논의 → 설계 검토 2회(공정 채점 3종·비용 폭발 대비·유령 월척 가드 등 보완 10여 건) → 조사 창 18개월·표적 백필 방식 확정</div></div>
+      <div class="ev"><div class="when">7/2</div><div class="what">격리 작업 공간(worktree) 생성 · 조사 규칙 문서 작성 · <strong>1차 잠금</strong> 커밋 (+사용자 리뷰 5건 반영)</div></div>
+      <div class="ev"><div class="when">7/2</div><div class="what">게이트 정의 사실 정정(4조건) — 변경 이력 표에 기록 (AI 호출 0회 시점)</div></div>
+      <div class="ev"><div class="when">7/2</div><div class="what"><strong>Phase 0</strong> 실행 — 12개 기준 조합 × 3개 유동성 컷의 분포 산출.
+        결과(확정 기준 기준): 에피소드 <strong>1,436</strong> = AI 조사 대상 774 + 필터 배제 472 + 구조적 포착 불가 190</div></div>
+      <div class="ev"><div class="when">7/3</div><div class="what"><strong>2차 잠금</strong>(기준 확정 + 터사일 표집 120) → 호출량 1,032건 견적 보고 → 사용자 승인</div></div>
+      <div class="ev"><div class="when">7/3 14:16</div><div class="what"><strong>Phase 1</strong> 시작 — 커닝 방지·수량·모델 3중 점검 통과 후 병렬 4로 실행</div></div>
+      <div class="ev"><div class="when">7/3~7/5</div><div class="what">중단·재개 5회, 사용량 한도 정체 2회 — 워치독 자동 복구. "중복 23건" 미스터리 해명</div></div>
+      <div class="ev"><div class="when">7/5 09:06</div><div class="what">Phase 1 완주 — 고유 1,009건 100%, 실패 0, 단일 모델.
+        결과: <strong>watch 922 / ignore 86 / entry 1</strong> (주 단위)</div></div>
+      <div class="ev"><div class="when">7/5 오후</div><div class="what"><strong>Phase 2</strong> — 돌파 확인(공짜: 120 = 돌파 81 + 미돌파 36 + 전부 ignore 2 + entry 1) + 확인 AI 재현 77건(약 1.5시간) → go_now 0.
+        최종 성적표: <strong>caught 1 / trigger_miss 81 / pivot_miss 36 / cls_miss 2</strong></div></div>
+      <div class="ev"><div class="when">7/5 저녁</div><div class="what">규칙 위반 채점(3주 전부 정의 충족 → 분류층 무죄) · 보조 진단(측정 왜곡 3종: 게이트 8/38/43 분해) · 최종 보고서 커밋</div></div>
+    </div>
+
+    <h3>용어집 (본문 등장 순)</h3>
+    <div class="callout glossary">
+      <span class="chip">용어 모음</span>
+      <dl>
+        <dt>추세추종</dt><dd>"싸게 사서 비싸게 판다"가 아니라 "이미 오르는 것을 사서 더 오르면 판다"는 투자 철학. 미너비니·오닐 방식의 뿌리.</dd>
+        <dt>entry / watch / ignore</dt><dd>주말 AI가 붙이는 세 가지 딱지 — 사라 / 지켜봐라(+피벗 가격) / 쳐다보지 마라.</dd>
+        <dt>go_now / wait / abort</dt><dd>피벗 돌파 순간 확인 AI의 세 가지 판정 — 지금 사라 / 기다려라 / 포기해라.</dd>
+        <dt>climax_run (클라이맥스 런)</dt><dd>1~3주에 25%+ 수직 폭등하는 "상승의 마지막 불꽃". 이게 보이면 곧 꺾인다는 위험 신호라 매수 회피 대상.</dd>
+        <dt>백테스트 / 백필</dt><dd>백테스트 = 과거 데이터로 전략을 검증하는 것. 백필 = 비어 있는 과거 기록을 지금 만들어 채우는 것. 이 조사의 Phase 1이 백필.</dd>
+        <dt>에피소드</dt><dd>한 종목의 연속된 상승 구간(파도) 1건. 매주 승자 명단을 뽑으면
+        크게 오르는 종목은 여러 주 연속으로 당첨되는데, 당첨이 4주 이내 간격으로 이어지는
+        구간을 하나로 묶은 것. 실제 예: 098120은 2025년 8월~2026년 2월의 첫 파도와,
+        조정 후 다시 오른 2026년 봄의 두 번째 파도가 당첨 간격 4주 초과로 끊겨
+        <em>에피소드 2개</em>가 됐음. 이 조사의 채점 단위(120개)가 종목이 아니라 이것 —
+        같은 종목이라도 파도가 다르면 "잡을 기회"가 별개였기 때문.</dd>
+        <dt>잠금 (사전등록)</dt><dd>채점 기준을 결과 확인 전에 문서로 고정하고 이후 불변으로 하는 규율. 결과를 보고 기준을 주무르는 것을 차단.</dd>
+        <dt>터사일 층화 표집</dt><dd>모집단을 3등분(터사일)해 각 그룹에서 같은 수를 무작위로 뽑는 표본 방식. 표본이 한쪽 극단으로 쏠리는 것을 방지.</dd>
+        <dt>멱등 (idempotent)</dt><dd>같은 작업을 몇 번 실행해도 결과가 한 번 실행한 것과 같은 성질. 중단·재개를 안전하게 만드는 설계의 핵심.</dd>
+        <dt>워치독</dt><dd>다른 프로그램의 생존을 주기적으로 확인하고 죽으면 되살리는 감시 프로그램.</dd>
+        <dt>결정론 (deterministic)</dt><dd>같은 입력이면 언제나 정확히 같은 출력이 나오는 계산. AI 판정(매번 조금씩 다름)의 반대말로 이 문서에서 자주 사용.</dd>
+        <dt>%p (퍼센트포인트)</dt><dd>수익률끼리 뺄셈한 차이의 단위. 종목 +50%, 시장 +10%면 초과 수익은 +40%p.</dd>
+        <dt>수정 가격 (adjusted price)</dt><dd>액면분할·병합 같은 이벤트의 착시를 제거하도록 보정한 가격. 수익률 계산은 반드시 이걸로.</dd>
+        <dt>측정 왜곡 (artifact)</dt><dd>조사하려는 대상의 실제 성질이 아니라, 조사 방법 자체가 만들어낸 가짜 신호. 잠 깬 직후에 잰 심박수처럼 "측정 조건" 탓에 나쁘게 나온 수치. 12장의 핵심 개념.</dd>
+        <dt>caught / trigger_miss / pivot_miss / classification_miss</dt><dd>최종 꼬리표 4종 — 잡았다 / 확인층이 놓침 / 피벗이 빗나감 / 분류가 놓침.</dd>
+      </dl>
+    </div>
+
+    <p class="footnote">이 문서는 kr-by-claude 프로젝트의 "미포착 승자 recall 감사"
+    (스펙: 2026-07-02, 보고서: 2026-07-05)를 초보자용으로 풀어 쓴 해설입니다.
+    수치의 1차 출처는 저장소의 <span class="num">docs/superpowers/recall-audit-results.md</span>와
+    <span class="num">data/backtest/recall_*</span> 파일들입니다.</p>
+  </section>
+</main>

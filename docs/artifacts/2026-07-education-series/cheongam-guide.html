@@ -1,0 +1,275 @@
+<details data-doc-meta style="box-sizing:border-box;margin:0;padding:10px 24px;background:#0f172a;color:#e2e8f0;font-family:'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;font-size:14px;line-height:1.75;border-bottom:3px solid #f59e0b;">
+<summary style="cursor:pointer;font-weight:700;color:#fbbf24;outline:none;">📌 이 문서는 왜 만들어졌나 — 목적 · 연관 문서 · 이력 (클릭해서 펼치기)</summary>
+<div style="max-width:880px;margin:14px auto 8px;">
+<p style="margin:0 0 12px;color:#94a3b8;font-size:13px;">생성: 2026-07-05 13:02 · 최종 업데이트: 2026-07-05 13:03 (KST) · 출처: Claude Code 세션 기록 기반 복원</p>
+<h3 style="margin:0 0 6px;font-size:15px;color:#fbbf24;">이 문서의 목적 (실제 요청 근거)</h3>
+<p>외전 v2 개정과 <b>같은 턴</b>에 요청된 곁들이 문서: "새로운 html 페이지도 만들어줘. ① 이 소설에 나오는
+전체 과정을 테이블로 — 각 단계에서 무엇이 진행되고 어떤 평가를 받는지, 다음 단계로 넘어갈 수 있는지
+② 소설의 각 장을 읽으면서 같이 보면 이해가 쉽도록, 소설 속 내용을 반영한 각 단계별 테이블 — 각 인물이
+받은 평가와 그 의미·효력 ③ 토요일 작업과 주중 작업이 순서대로 어떻게 진행되는지 거시적 과정 흐름도."</p>
+<p>즉 소설 「청암문 입문 수업」을 읽을 때 옆에 펴놓고 참조하는 <b>규정집</b>이다. 소설의 서사를 표와
+흐름도로 압축해 실제 시스템 단계와 1:1로 대응시킨다.</p>
+<h3 style="margin:16px 0 6px;font-size:15px;color:#fbbf24;">연관 문서</h3>
+<ul style="margin:0;padding-left:20px;"><li style="margin:4px 0;"><a href="./cheongam-class-v2.html" style="color:#7dd3fc;text-decoration:underline;">청암문 입문 수업 — 반석의 검 외전</a><span style='color:#94a3b8;'> — 이 안내서가 곁들이로 설계된 대상 소설(외전)</span></li><li style="margin:4px 0;"><a href="./class-tree.html" style="color:#7dd3fc;text-decoration:underline;">종목의 전직 도감 — 분류·태그·트리거·주문의 모든 경로</a><span style='color:#94a3b8;'> — 표·흐름도의 원자료(전직 도감)</span></li></ul>
+</div>
+</details>
+<title>청암문 규정 안내서 — 소설 곁들이 표와 흐름도</title>
+<style>
+  :root{
+    --night:#14181E; --panel:#1B212A; --line:#2C3540;
+    --ink:#E7E2D5; --dim:#9AA3AD; --faint:#6B7480;
+    --jade:#7CC5AE; --jade-deep:#4E9B85; --crimson:#D08070; --gold:#C7A468;
+    --sans:'Pretendard','Apple SD Gothic Neo',-apple-system,system-ui,'Malgun Gothic',sans-serif;
+    --mono:'SF Mono',ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{margin:0; background:var(--night); color:var(--ink); font-family:var(--sans); font-size:16.5px; line-height:1.8; word-break:keep-all; overflow-wrap:break-word; -webkit-font-smoothing:antialiased}
+  .col{max-width:46rem; margin:0 auto; padding:0 clamp(18px,5vw,32px)}
+
+  header.hero{background:radial-gradient(ellipse 90% 70% at 50% 110%, rgba(124,197,174,.10), transparent 60%), linear-gradient(180deg,#0E1216 0%,#151A21 100%); border-bottom:1px solid var(--line); text-align:center; padding:clamp(2.6rem,7vw,4.2rem) 0 clamp(2rem,5vw,3rem)}
+  .hero h1{font-size:clamp(1.5rem,4.2vw,2.2rem); font-weight:800; margin:0 0 .5rem; letter-spacing:.02em; color:#fff}
+  .hero .sub{color:var(--dim); font-size:.95rem; margin:0}
+  nav.chap{display:flex; flex-wrap:wrap; gap:.4rem; justify-content:center; margin:1.3rem 0 0}
+  nav.chap a{font-size:.78rem; color:var(--dim); text-decoration:none; border:1px solid var(--line); border-radius:999px; padding:.25rem .75rem}
+  nav.chap a:hover{color:var(--jade); border-color:var(--jade-deep)}
+
+  main{padding:1.5rem 0 5rem}
+  section{margin:clamp(2.4rem,6vw,3.6rem) 0; scroll-margin-top:1.2rem}
+  h2{font-size:clamp(1.2rem,3vw,1.5rem); font-weight:800; margin:0 0 .4rem; color:var(--gold); letter-spacing:.02em}
+  h3{font-size:1.02rem; font-weight:700; margin:1.6rem 0 .4rem; color:var(--ink)}
+  p{margin:.6rem 0}
+  a{color:var(--jade)}
+  .muted{color:var(--dim)}
+  .lead{background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--jade-deep); border-radius:0 10px 10px 0; padding:.75rem 1rem; font-size:.9rem; color:var(--dim); margin:.7rem 0 1.2rem}
+  .lead b{color:var(--ink)}
+
+  .tw{overflow-x:auto; margin:1rem 0; border:1px solid var(--line); border-radius:10px}
+  table{border-collapse:collapse; width:100%; font-size:.84rem; min-width:36rem}
+  th{background:rgba(124,197,174,.08); color:var(--jade); text-align:left; font-weight:700; padding:.5rem .7rem; border-bottom:1px solid #2A3B37; font-size:.74rem; white-space:nowrap}
+  td{padding:.5rem .7rem; border-bottom:1px solid #232E33; vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  b{color:var(--ink)}
+  .g{color:#8FD3BC; font-weight:700} .r{color:#E09A8C; font-weight:700} .y{color:#D9BC7F; font-weight:700}
+  .pill{display:inline-block; font-family:var(--mono); font-size:.66rem; font-weight:700; padding:.05rem .45rem; border-radius:999px; border:1px solid; white-space:nowrap}
+  .pill.g{color:#8FD3BC; border-color:#3A5D52; background:rgba(124,197,174,.1)}
+  .pill.y{color:#D9BC7F; border-color:#5C4F33; background:rgba(199,164,104,.1)}
+  .pill.r{color:#E09A8C; border-color:#5D3A34; background:rgba(208,128,112,.1)}
+
+  /* 흐름도 */
+  .flow{margin:1.2rem 0}
+  .fbox{border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:.8rem 1rem; margin:.5rem 0}
+  .fbox .t{font-weight:800; font-size:.92rem; color:var(--gold); display:flex; align-items:center; gap:.5rem; flex-wrap:wrap}
+  .fbox .t .tag{font-family:var(--mono); font-size:.62rem; color:var(--faint); letter-spacing:.08em; border:1px solid var(--line); border-radius:999px; padding:.05rem .5rem}
+  .fbox .d{font-size:.82rem; color:var(--dim); margin-top:.25rem; line-height:1.65}
+  .fbox.sat{border-color:#5C4F33; box-shadow:0 0 18px rgba(199,164,104,.06)}
+  .fbox.day{border-left:4px solid var(--jade-deep)}
+  .fbox.end{border-left:4px solid var(--crimson)}
+  .farr{text-align:center; color:var(--faint); font-size:1rem; line-height:1; margin:.15rem 0}
+  .floop{border:1px dashed #3A4552; border-radius:14px; padding:.7rem .8rem .4rem; margin:.5rem 0; position:relative}
+  .floop>.lb{position:absolute; top:-.7rem; left:1rem; background:var(--night); padding:0 .5rem; font-family:var(--mono); font-size:.64rem; letter-spacing:.1em; color:var(--jade)}
+  .fsplit{display:grid; gap:.5rem}
+  @media(min-width:640px){.fsplit{grid-template-columns:1fr 1fr 1fr}}
+  .fmini{border:1px solid var(--line); border-radius:9px; padding:.5rem .7rem; font-size:.74rem; color:var(--dim); background:#171D25}
+  .fmini b{display:block; font-size:.78rem; margin-bottom:.15rem}
+
+  footer.end{text-align:center; color:var(--faint); font-size:.78rem; line-height:1.8; border-top:1px solid var(--line); padding:2rem 0 3rem}
+  footer.end a{color:var(--jade)}
+  a:focus-visible{outline:2px solid var(--jade); outline-offset:2px; border-radius:3px}
+</style>
+
+<header class="hero">
+  <div class="col">
+    <h1>청암문 규정 안내서</h1>
+    <p class="sub">소설 「청암문 입문 수업」을 읽으며 곁에 두는 표와 흐름도</p>
+    <nav class="chap">
+      <a href="#s1">① 전체 과정 표</a><a href="#s2">② 장별 인물 표</a><a href="#s3">③ 주간 흐름도</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="col">
+
+  <div class="lead"><b>사용법</b> — 소설을 읽다가 "이 단계가 뭐였지 / 이 사람 지금 어떤 상태지" 싶을 때 이 페이지를 함께 펼쳐 두세요. ①은 규정 전체를 한 장에, ②는 소설의 장(서장~종강)마다 인물들의 평가와 그 효력을, ③은 한 주가 어떻게 돌아가는지를 보여줍니다. 모든 용어는 한글로만 적었습니다.</div>
+
+  <!-- ============ ① 전체 과정 표 ============ -->
+  <section id="s1">
+    <h2>① 전체 과정 표 — 여섯 단계</h2>
+    <div class="lead">무인(종목) 하나가 거치는 여섯 단계입니다. 각 단계에서 <b>무엇을 하고, 무엇이 결정되고, 어떤 조건이어야 다음 단계로 넘어가는지</b>를 한 줄씩 정리했습니다. ⛔는 "여기서 막혀 다음으로 못 감"입니다.</div>
+    <div class="tw"><table>
+      <tr><th>단계</th><th>무엇을 하나</th><th>무엇이 결정되나</th><th>다음 단계로 가는 조건</th></tr>
+      <tr>
+        <td><b>1. 입문 관문</b><br><span class="muted">(여덟 관문, 매일 새벽 재시험)</span></td>
+        <td>몸 상태를 기계가 측정 — 근맥(이동평균) 배열이 위를 향하는지, 바닥에서 25푼 이상 올라왔는지, 꼭대기 25푼 안쪽인지, 강호 서열 70 이상인지 등 여덟 항목</td>
+        <td>통과 / 불통</td>
+        <td><span class="g">통과 →</span> 대심사 명부에 오름<br><span class="r">⛔ 불통 →</span> 입장 불가 (성적이 바뀌면 재도전)<br><span class="r">⛔ 기존 제자가 불통 →</span> 그날로 하산 (즉시 명부 제외)</td>
+      </tr>
+      <tr>
+        <td><b>2. 토요일 대심사</b><br><span class="muted">(장로의 눈)</span></td>
+        <td>두루마리 여섯 재료(신상 · 2년 주간 행보 · 하루 단위 기록 · 관문 성적표 · 하늘 상태 · 그림)로 검형을 분석 — 모양 찾기 → 재기 → 출사선 긋기 → 판정</td>
+        <td>직업(출전 / 대기 / 금족) + <b>목패 1개</b>(대기일 때) + <b>부적 0~여러 장</b> + 출사선 · 검형의 천장과 바닥</td>
+        <td><span class="g">출전, 또는 대기 중 「대기」「난세」「경계」 →</span> 밤 순찰의 돌파 감시 대상<br><span class="y">「미완」 →</span> ⛔ 선이 없어 순찰 자체가 없음 (다음 대심사 대기)<br><span class="y">「과선」 →</span> ⛔ 돌파 감시 제외 (임박·붕괴 감시만)<br><span class="r">⛔ 금족 →</span> 모든 진행 정지 (다음 대심사까지)</td>
+      </tr>
+      <tr>
+        <td><b>3. 밤 순찰</b><br><span class="muted">(묵영 — 기계)</span></td>
+        <td>매일 밤, 그어 둔 숫자(출사선·검형 바닥)에 오늘 값을 대조. 판단은 하지 않고 보고만 함</td>
+        <td>보고 4종 — <span class="r">붕괴 경보</span>(바닥/50일 근맥 아래, 최우선) · <span class="g">돌파</span>(출전패용) · <span class="g">신규 돌파</span>(대기자용 — 오늘 처음 선을 넘었을 때만) · <span class="y">임박 예고</span>(선의 95푼 접근)</td>
+        <td><span class="g">보고 발생 →</span> 그날 밤 감찰전으로<br><span class="muted">보고 없음 →</span> 내일 다시 (아무 일도 없음)</td>
+      </tr>
+      <tr>
+        <td><b>4. 감찰전</b><br><span class="muted">(시험의 방 — 사람의 눈)</span></td>
+        <td>보고 종류별로 다른 시험장에서 심문 — 표준 심문 5가지(선 위 마감 재확인 · 함성 1.4배 · 하루의 위쪽 3분의 1에서 마감 · 검로 폭 정상 · 최근 3일 분산일 없음) + 목패별 추가 문제(대기: 없음 / 난세: 하늘이 태평이어야 / 경계: 관문 전부 여유 있게)</td>
+        <td>판정 3종 — 출전 / 대기 / 파훼</td>
+        <td><span class="g">출전 →</span> 문서의 방으로<br><span class="y">대기 →</span> ⛔ 오늘은 못 감 — 내일 순찰부터 다시<br><span class="r">파훼 →</span> ⛔ 그 출사선 종료 — 토요일 재분류로<br><span class="muted">참고: 붕괴·임박 시험장에는 "출전"이라는 답 자체가 없음</span></td>
+      </tr>
+      <tr>
+        <td><b>5. 문서의 방</b><br><span class="muted">(군사의 장부)</span></td>
+        <td>출정 문서 작성 — 진입 방식 판별 → 매수점·발동가 → 퇴각선 두 가지로 계산 → <b>병력을 부적마다 깎음</b>(하늘 부적이면 절반) → 목표·유효 기간·추격 상한·요구 함성 → 경고문 기록. <b>목패와 오늘의 하늘은 이 방에 안 들어옴</b></td>
+        <td>출정 문서 (매수점 · 발동가 · 퇴각선 · 병력 · 목표 · 유효 일수 · 추격 상한 · 요구 함성 · 경고문)</td>
+        <td><span class="g">문서 완성 →</span> 다음 장이 서는 날 집행</td>
+      </tr>
+      <tr>
+        <td><b>6. 집행과 순환</b></td>
+        <td>문서대로 출정. 그리고 토요일이 오면 — 직업·목패·부적·출사선이 <b>전부 새로 그려짐</b></td>
+        <td>일곱 결말 중 하나 (아래 흐름도 참고)</td>
+        <td>모든 길은 토요일로 돌아옴</td>
+      </tr>
+    </table></div>
+    <p class="muted" style="font-size:.85rem">기억할 것: 여섯 단계 중 1·3은 기계(판단 없음), 2·4·5는 사람의 눈(판단 있음)이 맡습니다. 그리고 태그는 두 종류 — <b>목패</b>(대기 직업에만 정확히 1개, 시험까지만 따라감)와 <b>부적</b>(누구에게나 0~여러 장, 문서의 방까지 따라가 병력을 깎음).</p>
+  </section>
+
+  <!-- ============ ② 장별 인물 표 ============ -->
+  <section id="s2">
+    <h2>② 소설 장별 인물 평가 표</h2>
+    <div class="lead">소설의 각 장을 읽을 때 함께 보는 표입니다. 그 장 시점에 <b>각 인물이 받은 평가, 그 평가의 뜻, 그리고 효력</b>(무엇이 되고 무엇이 막히는지)을 정리했습니다.</div>
+
+    <h3>서장 — 벽보를 붙이는 아이</h3>
+    <div class="tw"><table>
+      <tr><th>인물</th><th>현재 평가</th><th>뜻</th><th>효력</th></tr>
+      <tr><td>유심</td><td><span class="pill y">미완</span></td><td>검형(힘을 모으는 자세)의 손잡이가 미완성 — 출사선을 못 그음</td><td>⛔ 선이 없어 순찰 대상조차 아님. 대심사에서 완성 판정을 받아야 다음이 열림</td></tr>
+      <tr><td>조맹</td><td><span class="pill r">과선</span></td><td>출사선을 5푼 넘게 지나침(추격 구간)</td><td>⛔ 돌파 감시 제외 — 출정 경로 자체가 막힘. 새 선은 대심사만 그어 줌</td></tr>
+      <tr><td>한도경</td><td><span class="pill y">경계</span></td><td>관문 세 개를 여유폭 3푼 미만으로 간신히 통과</td><td>돌파해도 시험에서 "관문 전부 여유 있게"를 추가로 통과해야 출전</td></tr>
+      <tr><td>남궁진</td><td><span class="pill r">난세</span></td><td>실력은 출전감인데 하늘(시장)이 나빠 강등</td><td>돌파해도 하늘이 태평이어야만 출전 — 전작에서 실제로 막힌 바 있음</td></tr>
+      <tr><td>당하연</td><td><span class="pill r">파훼</span></td><td>검형이 깨졌다는 판정 — 바닥부터 재건 중</td><td>그 출사선은 종료. 재건이 완성되어 대심사에서 새로 인정받아야 함</td></tr>
+    </table></div>
+
+    <h3>1일차 — 두루마리의 재료</h3>
+    <div class="tw"><table>
+      <tr><th>인물</th><th>현재 평가</th><th>뜻</th><th>효력</th></tr>
+      <tr><td>진소백</td><td><span class="pill g">대기</span> 신규</td><td>첫 대심사에서 검형 인정 + 출사선 획득, 선 아래 5푼 밖</td><td>이제 밤 순찰의 돌파 감시 대상 — "오늘 처음 선을 넘는 날"이 오면 시험의 방으로</td></tr>
+      <tr><td>모가온 · 은솔</td><td><span class="pill y">미완</span> 신규</td><td>첫 대심사 — 검형 미완성</td><td>⛔ 순찰 대상 아님. 검형을 완성해 다음 대심사를 기다림</td></tr>
+      <tr><td colspan="4" class="muted">유심 · 조맹 · 한도경 · 남궁진 · 당하연 — 서장과 동일</td></tr>
+    </table></div>
+
+    <h3>2일차 — 목패는 하나, 부적은 여러 장</h3>
+    <div class="tw"><table>
+      <tr><th>인물</th><th>현재 평가</th><th>뜻</th><th>효력</th></tr>
+      <tr><td>한도경</td><td><span class="pill y">경계</span> + 🏷️부적 2장</td><td>목패(경계)와 별개로, 부적 "돌파 함성 부족"과 "다진 기간 부족"이 붙어 있음이 공개됨</td><td>부적은 직업을 못 바꾸지만 <b>문서의 방에서 병력을 깎는다</b> — 출전에 성공해도 병력이 줄어듦</td></tr>
+      <tr><td colspan="4" class="muted">나머지 인물 — 1일차와 동일. 이날의 핵심은 규칙: 목패는 정확히 1개(겹치면 미완·과선 우선), 부적은 세 계급(강제 금족 3장 · 강등 4장 · 정보 6장) — 강등·정보 부적은 아무리 쌓여도 금족을 못 만듦</td></tr>
+    </table></div>
+
+    <h3>3일차 — 밤의 순찰</h3>
+    <div class="tw"><table>
+      <tr><th>인물</th><th>현재 평가</th><th>뜻</th><th>효력</th></tr>
+      <tr><td>조맹</td><td><span class="pill r">과선</span></td><td>담을 넘다 제지 — "이미 넘은 건 새로 넘는 게 아니다"</td><td>⛔ 재확인: 과선패는 돌파 보고 대상이 아님. 임박·붕괴 감시만 받음</td></tr>
+      <tr><td>진소백</td><td><span class="pill g">대기</span></td><td>기세가 선을 향해 오르는 중</td><td>선의 95푼에 닿으면 임박 예고, 처음으로 넘으면 신규 돌파 보고</td></tr>
+      <tr><td colspan="4" class="muted">이날의 핵심 규칙: 순찰은 붕괴를 돌파보다 먼저 확인한다 · 임박 예고로는 절대 못 나간다</td></tr>
+    </table></div>
+
+    <h3>4일차 — 감찰전의 네 시험장</h3>
+    <div class="tw"><table>
+      <tr><th>인물</th><th>현재 평가</th><th>뜻</th><th>효력</th></tr>
+      <tr><td>진소백</td><td><span class="pill g">대기</span> → 판정 「대기」</td><td>임박 보고로 시험장에 섰으나, 임박의 방에는 "출전"이라는 답이 없음</td><td>⛔ 선 아래 매수 금지 — 신선한 돌파가 나올 때까지 관찰 지속</td></tr>
+      <tr><td>한도경</td><td><span class="pill y">경계</span> + 🏷️2</td><td>여유폭이 남은 관문이 2개로 줄어듦</td><td>아직 ⛔ — 관문 전부 말끔해지는 날 시험 통과 가능</td></tr>
+      <tr><td>당하연</td><td><span class="pill r">파훼</span> 재건 3주째</td><td>방청석에서 후배들의 시험을 지켜봄</td><td>파훼는 추방이 아니라 재건 명령임을 보여주는 실물</td></tr>
+      <tr><td colspan="4" class="muted">이날의 핵심 규칙: 시험장은 넷(출전패의 돌파 · 대기자의 돌파 · 붕괴 · 임박), 답은 셋(출전 · 대기 · 파훼) — 출전이 나올 수 있는 방은 앞의 둘뿐. 하늘을 묻는 건 난세패 하나뿐</td></tr>
+    </table></div>
+
+    <h3>5일차 — 군사의 장부</h3>
+    <div class="tw"><table>
+      <tr><th>인물</th><th>현재 평가</th><th>뜻</th><th>효력</th></tr>
+      <tr><td>모가온</td><td><span class="pill y">미완</span> ★구멍 발견</td><td>특례("대기자의 돌파로 온 자는 하늘 부적으로 깎지 마라")의 근거가 대기패에겐 성립하지 않음을 지적</td><td>장로회의 안건에 이름이 오름 — 규율 개정 논의의 출발점</td></tr>
+      <tr><td colspan="4" class="muted">이날의 핵심 규칙: 문서의 방은 목패를 안 보고(문 앞에서 버려짐), 오늘의 하늘도 안 봄(창이 없음). 부적만이 이 방까지 따라와 병력을 깎음. 그래서 — 난세에 돌파한 대기패는 차단도 감산도 없이 전량 출정 가능(이것이 "구멍")</td></tr>
+    </table></div>
+
+    <h3>종강 — 일곱 개의 결말</h3>
+    <div class="tw"><table>
+      <tr><th>인물</th><th>현재 평가</th><th>뜻</th><th>효력</th></tr>
+      <tr><td>유심</td><td><span class="pill y">미완</span> → <span class="pill g">대기</span></td><td>손잡이 완성 — 대심사가 출사선을 그어 주고 목패 교체</td><td>이제 순찰의 돌파 감시 대상 — "기다림의 차례"가 시작됨</td></tr>
+      <tr><td>조맹</td><td><span class="pill r">과선</span> → 재분류 예정</td><td>"토요일에 새 선 그으러 간다" — 조르기 대신 재분류를 택함</td><td>대심사가 새 검형과 새 선을 인정하면 출정 경로가 다시 열림</td></tr>
+      <tr><td>남궁진</td><td><span class="pill r">난세</span></td><td>침묵 수련 — 다음 대심사 이틀 전</td><td>하늘이 태평으로 바뀌거나, 대심사가 상황을 새로 판정할 때까지 대기</td></tr>
+      <tr><td>진소백</td><td><span class="pill g">대기</span></td><td>임박 관찰 지속</td><td>신선한 돌파의 밤이 오면 시험의 방으로</td></tr>
+      <tr><td>한도경</td><td><span class="pill y">경계</span> + 🏷️2</td><td>남은 관문 2개</td><td>말끔해지면 시험 통과 가능 — 단 부적 2장의 병력 감산은 남음</td></tr>
+      <tr><td>당하연</td><td><span class="pill r">파훼</span> 재건 중</td><td>장로 평 "서두르지 않음, 좋다"</td><td>재건 완성 시 대심사에서 새 출발</td></tr>
+      <tr><td>모가온 · 은솔</td><td><span class="pill y">미완</span></td><td>검형 다지는 중</td><td>완성되면 유심처럼 목패가 교체됨</td></tr>
+    </table></div>
+  </section>
+
+  <!-- ============ ③ 주간 흐름도 ============ -->
+  <section id="s3">
+    <h2>③ 주간 흐름도 — 한 주가 도는 법</h2>
+    <div class="lead">토요일에 무엇을 하고, 평일에는 어떤 순서로 하루가 돌아가는지의 <b>거시 지도</b>입니다. 위에서 아래로 읽으세요.</div>
+
+    <div class="flow">
+      <div class="fbox sat">
+        <div class="t">🗓️ 토요일 — 대심사의 날 <span class="tag">사람의 눈</span></div>
+        <div class="d">① 강등 점검(관문 성적 무너진 자 하산) → ② <b>문하 전원 재분류</b> — 두루마리 분석으로 직업·목패·부적·출사선을 <b>전부 새로</b> 정함 → ③ 새 명부 확정. <b>한 주의 모든 기준선이 이날 만들어진다.</b></div>
+      </div>
+      <div class="farr">▼</div>
+      <div class="floop">
+        <span class="lb">월요일 ~ 금요일 · 매일 반복</span>
+        <div class="fbox day">
+          <div class="t">🌅 새벽 — 재시험 <span class="tag">기계</span></div>
+          <div class="d">명부 전원을 여덟 관문에 다시 세움. 하나라도 무너지면 <span class="r">⛔ 즉시 하산</span> — 시험의 방도 안 거침</div>
+        </div>
+        <div class="farr">▼</div>
+        <div class="fbox day">
+          <div class="t">☀️ 낮 — 새 얼굴 심사 <span class="tag">사람의 눈</span></div>
+          <div class="d">주중에 새로 관문을 통과한 사람만 따로 심사해 명부에 추가. <b>기존 제자의 목패는 건드리지 않음</b>(재심사는 토요일에만) — "목패는 한 주 동안 유지된다"</div>
+        </div>
+        <div class="farr">▼</div>
+        <div class="fbox day">
+          <div class="t">🌙 밤 — 순찰 <span class="tag">기계</span></div>
+          <div class="d">숫자 대조 → 보고 4종: <span class="r">붕괴 경보(최우선)</span> · <span class="g">돌파(출전패)</span> · <span class="g">신규 돌파(대기·난세·경계)</span> · <span class="y">임박 예고(95푼)</span>. 보고 없으면 오늘은 여기서 끝</div>
+        </div>
+        <div class="farr">▼ 보고가 있을 때만</div>
+        <div class="fbox day">
+          <div class="t">🏛️ 밤 — 감찰전 <span class="tag">사람의 눈</span></div>
+          <div class="d">시험장 4곳에서 심문 → <span class="g">출전</span> / <span class="y">대기(내일 다시)</span> / <span class="r">파훼(선 종료 → 토요일로)</span>. 하늘을 묻는 건 난세패의 시험뿐</div>
+        </div>
+        <div class="farr">▼ 출전 판정만</div>
+        <div class="fbox day">
+          <div class="t">📜 밤 늦게 — 문서의 방 <span class="tag">사람의 눈</span></div>
+          <div class="d">출정 문서 작성(부적마다 병력 감산). 목패와 오늘의 하늘은 안 봄 → <b>다음 장이 서는 날 집행</b></div>
+        </div>
+      </div>
+      <div class="farr">▼</div>
+      <div class="fbox sat">
+        <div class="t">🗓️ 다시 토요일</div>
+        <div class="d">한 주의 결과가 어떻든 — 출정했든, 기다렸든, 막혔든 — 전원이 다시 심사대에 오른다. <b>모든 길은 토요일로 돌아온다.</b></div>
+      </div>
+    </div>
+
+    <h3>이 주에 도달할 수 있는 일곱 결말</h3>
+    <div class="fsplit">
+      <div class="fmini"><b class="g">✅ 출정 문서 확정</b>유일한 "나가는" 결말 — 다음 장날 집행</div>
+      <div class="fmini"><b class="y">⏳ 대기</b>시험에서 조건 미달(치명 아님) — 내일 다시</div>
+      <div class="fmini"><b class="y">👀 임박 관찰</b>선의 95푼 접근 — 넘는 날을 지켜봄</div>
+      <div class="fmini"><b class="r">💔 파훼</b>검형 무효 — 재건 명령, 토요일로</div>
+      <div class="fmini"><b class="r">⛰️ 하산</b>관문 성적 붕괴 — 즉시 명부 제외</div>
+      <div class="fmini"><b class="r">🔒 금족</b>검은 부적 3장 중 하나 — 진행 정지</div>
+      <div class="fmini"><b class="y">🔄 재분류 순환</b>아무 일 없던 모두의 종착지 — 토요일에 새로</div>
+    </div>
+    <p class="muted" style="font-size:.85rem">헷갈림 방지: <b>하산</b>은 자격(관문 성적)의 문제라 기계가 즉결 처리하고, <b>파훼</b>는 검형(값이 구조를 깬 것)의 문제라 시험의 방이 심문 끝에 판정합니다 — 완전히 다른 문입니다.</p>
+  </section>
+
+</div>
+</main>
+
+<footer class="end">
+  <div class="col">
+    소설: <a href="https://claude.ai/code/artifact/10d91686-c093-488a-b7fa-7896f98170d8">청암문 입문 수업</a> · 원본 도감: <a href="https://claude.ai/code/artifact/16acb0d9-86bd-48af-9559-d3b45d8c5281">종목의 전직 도감</a> · 해설: <a href="https://claude.ai/code/artifact/067a5c8e-e57b-45f2-84c1-2c0cbef99609">시스템 A→Z</a>
+  </div>
+</footer>
