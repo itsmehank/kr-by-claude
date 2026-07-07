@@ -322,3 +322,62 @@ def test_to_weekly_index_rows_preserves_decimals():
     }])
     rows = to_weekly_index_rows("2001", weekly)
     assert rows == [("2001", date(2026, 6, 5), 901.23, 905.67, 898.41, 903.89, 1000, 5000, 5)]
+
+
+# ====== P2: 전주 거래정지 주의 adj_* NaN → NULL (P1-5 계열 데이터 정합) ======
+
+def test_to_weekly_rows_full_halt_week_adj_nan_becomes_none():
+    """한 주 전체가 거래정지(일봉 adj_* 전부 NULL)면 주봉 adj_* 는 NULL 이어야 한다.
+
+    기존엔 float(NaN) 이 그대로 통과해 psycopg 가 'NaN'::numeric 으로 적재 —
+    COALESCE(adj_high, high) 가 NaN 을 NULL 로 안 보고 통과시켜 payload JSON
+    오염(invalid JSON) 경로. daily 의 _adj()(ohlcv/transform.py) 와 동일 처리.
+    """
+    import math
+    import pandas as pd
+    from kr_pipeline.weekly.transform import aggregate_to_weekly, to_weekly_rows
+
+    daily = pd.DataFrame([
+        # 월~수 3일 전부 halt: raw 는 0/유지값(NOT NULL), adj_* 는 NULL(NaN)
+        {"date": "2026-06-01", "open": 0, "high": 0, "low": 0, "close": 1000,
+         "adj_close": float("nan"), "adj_high": float("nan"), "adj_low": float("nan"),
+         "adj_open": float("nan"), "adj_volume": float("nan"), "volume": 0, "value": 0},
+        {"date": "2026-06-02", "open": 0, "high": 0, "low": 0, "close": 1000,
+         "adj_close": float("nan"), "adj_high": float("nan"), "adj_low": float("nan"),
+         "adj_open": float("nan"), "adj_volume": float("nan"), "volume": 0, "value": 0},
+        {"date": "2026-06-03", "open": 0, "high": 0, "low": 0, "close": 1000,
+         "adj_close": float("nan"), "adj_high": float("nan"), "adj_low": float("nan"),
+         "adj_open": float("nan"), "adj_volume": float("nan"), "volume": 0, "value": 0},
+    ])
+    weekly = aggregate_to_weekly(daily)
+    assert len(weekly) == 1
+    rows = to_weekly_rows("HALT1", weekly)
+    (_, _, o, h, lo, c, adj_c, adj_h, adj_l, adj_o, adj_v, vol, val, td) = rows[0]
+    # raw 는 그대로 (halt 마커 0/유지값)
+    assert (o, h, lo, c) == (0, 0, 0, 1000) and td == 3
+    # adj_* 는 NaN 이 아니라 None — 'NaN'::numeric 적재 차단
+    for name, v in [("adj_close", adj_c), ("adj_high", adj_h), ("adj_low", adj_l),
+                    ("adj_open", adj_o), ("adj_volume", adj_v)]:
+        assert v is None, f"{name}={v!r} — NaN 이 NULL 로 변환되지 않음"
+        assert not (isinstance(v, float) and math.isnan(v))
+
+
+def test_to_weekly_rows_partial_halt_week_keeps_values():
+    """주 중 일부만 halt 면 pandas 집계(first/last/max/min 의 NaN skip)가
+    유효값을 쓰므로 adj_* 는 값 유지 — 기존 동작 보존."""
+    import pandas as pd
+    from kr_pipeline.weekly.transform import aggregate_to_weekly, to_weekly_rows
+
+    daily = pd.DataFrame([
+        {"date": "2026-06-08", "open": 100, "high": 110, "low": 95, "close": 105,
+         "adj_close": 105.0, "adj_high": 110.0, "adj_low": 95.0,
+         "adj_open": 100.0, "adj_volume": 5000.0, "volume": 5000, "value": 500000},
+        {"date": "2026-06-09", "open": 0, "high": 0, "low": 0, "close": 105,
+         "adj_close": float("nan"), "adj_high": float("nan"), "adj_low": float("nan"),
+         "adj_open": float("nan"), "adj_volume": float("nan"), "volume": 0, "value": 0},
+    ])
+    weekly = aggregate_to_weekly(daily)
+    rows = to_weekly_rows("HALT2", weekly)
+    (_, _, _, _, _, _, adj_c, adj_h, adj_l, adj_o, adj_v, _, _, _) = rows[0]
+    assert adj_c == 105.0 and adj_h == 110.0 and adj_l == 95.0 and adj_o == 100.0
+    assert adj_v == 5000.0
