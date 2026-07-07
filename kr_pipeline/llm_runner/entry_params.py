@@ -10,7 +10,7 @@ from datetime import date, datetime, timezone
 from psycopg import Connection
 
 from kr_pipeline.llm_runner.compute.payload_lite import build_for_6
-from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 from kr_pipeline.llm_runner.slack import notify_signal
 from kr_pipeline.llm_runner.store import insert_entry_params, _normalize_entry_params
 
@@ -94,6 +94,14 @@ def run(
             _process_one(conn, symbol, eval_at, prior_at, dry_run=dry_run, as_of=as_of)
             processed += 1
             conn.commit()
+        except UsageLimitError:
+            # 사용량 제한 — 남은 종목 순회가 전부 헛호출이므로 즉시 중단.
+            # 예외 전파 → run_tracking failed → 재실행 계기 확보. 기처리분은 commit 완료 +
+            # _fetch_go_now_candidates 의 NOT EXISTS 가드가 재실행 시 이어하기.
+            conn.rollback()
+            log.warning("entry_params usage limit at %s — aborting (processed=%d/%d)",
+                        symbol, processed, len(go_now))
+            raise
         except Exception as e:
             log.warning("entry_params %s failed: %s", symbol, e)
             failed.append(symbol)

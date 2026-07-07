@@ -71,6 +71,45 @@ def test_evaluate_pivot_dry_run(db, mocker):
     assert row[0] in {"go_now", "wait", "abort"}
 
 
+def test_evaluate_aborts_on_usage_limit(db, mocker):
+    """사용량 제한 시 남은 종목 순회 없이 즉시 중단 + 예외 전파.
+
+    generic except 에 삼켜지면 (a) 남은 종목 헛호출 + (b) run 이 success 로 기록되어
+    재실행 계기가 사라진다. daily_delta 와 동일하게 UsageLimitError 는 즉시 전파해야 한다.
+    """
+    import pytest
+    import kr_pipeline.llm_runner.evaluate_pivot as ev
+    from kr_pipeline.llm_runner.llm.claude_cli import UsageLimitError
+
+    active = [
+        {
+            "symbol": s, "close": 83.0, "pivot_price": 80.0, "volume": 2_000_000,
+            "avg_volume_50d": 1_000_000, "stop_loss": 70.0, "sma_50": 78.0,
+            "classification": "entry", "prev_close": 79.0, "watch_reason": None,
+            "classified_at": None,
+        }
+        for s in ("UL1", "UL2", "UL3")
+    ]
+    mocker.patch.object(ev, "get_active_with_current", return_value=active)
+    mocker.patch.object(ev, "evaluate_gate", return_value="breakout")
+    mocker.patch.object(ev, "_already_evaluated_symbols", return_value=set())
+    mocker.patch.object(ev, "_aborted_since_classification", return_value=set())
+
+    # 2번째 종목에서 한도 도달: 1번째는 처리되고, 2번째에서 중단, 3번째는 미호출이어야 한다
+    # (중단이 '정확히 그 지점'에서 일어나 앞 종목의 이어하기 전제를 보존하는지 검증).
+    calls = []
+    def fake_process_one(conn, a, trig, *, dry_run, as_of):
+        calls.append(a["symbol"])
+        if len(calls) >= 2:
+            raise UsageLimitError("usage limit reached")
+    mocker.patch.object(ev, "_process_one", side_effect=fake_process_one)
+
+    with pytest.raises(UsageLimitError):
+        ev.run(db, dry_run=False, as_of=date(2026, 5, 20))
+
+    assert calls == ["UL1", "UL2"], f"중단 지점 오류(3번째까지 호출되면 헛호출): {calls}"
+
+
 def test_get_active_with_current_preserves_null_as_none(db):
     """daily_indicators 의 NULL(avg_volume_50d/sma_50/volume)은 0 이 아니라 None 으로
     유지되어야 한다 — 0 강제 시 evaluate_pivot 의 None 가드가 무력화되어

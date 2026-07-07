@@ -11,7 +11,7 @@ from psycopg import Connection
 
 from kr_pipeline.llm_runner.compute.payload_lite import build_for_5b
 from kr_pipeline.llm_runner.compute.trigger_gate import evaluate as evaluate_gate
-from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 from kr_pipeline.llm_runner.load import get_active_with_current
 from kr_pipeline.llm_runner.store import insert_trigger_log
 
@@ -128,6 +128,14 @@ def run(
             _process_one(conn, a, trig, dry_run=dry_run, as_of=as_of)
             evaluated += 1
             conn.commit()
+        except UsageLimitError:
+            # 사용량 제한 — 남은 종목 순회가 전부 헛호출이므로 즉시 중단.
+            # 예외 전파 → run_tracking failed → 재실행 계기 확보. 기평가분은 commit 완료 +
+            # _already_evaluated_symbols 가드가 재실행 시 이어하기.
+            conn.rollback()
+            log.warning("evaluate usage limit at %s — aborting (evaluated=%d/%d)",
+                        a["symbol"], evaluated, len(triggered))
+            raise
         except Exception as e:
             log.warning("evaluate %s failed: %s", a["symbol"], e)
             failed.append(a["symbol"])
