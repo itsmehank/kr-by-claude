@@ -315,6 +315,12 @@ ALTER TABLE weekly_classification
 ALTER TABLE weekly_classification
   ALTER COLUMN classification TYPE VARCHAR(20);
 
+-- 2026-07-07 P1-2 Part A: 분류 가격 sanity SOFT 경고 (예: sanity_pivot_far_from_price).
+-- 데이터 품질 자문 표시 전용 — risk_flags(LLM payload 되먹임)와 의도적으로 분리.
+-- 소비처 없음(쓰기 전용): 게이트/payload/API 어디에도 자동 유출되지 않는다. NULL = 경고 없음.
+ALTER TABLE weekly_classification
+  ADD COLUMN IF NOT EXISTS sanity_warnings JSONB;
+
 -- (5b) 호출 이력 (append-only, 단순 abort 모델 — severity 없음)
 CREATE TABLE IF NOT EXISTS trigger_evaluation_log (
   symbol                  VARCHAR(10) NOT NULL,

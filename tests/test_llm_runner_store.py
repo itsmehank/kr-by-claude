@@ -424,3 +424,186 @@ def test_insert_classification_stores_contraction_in_measurements(db):
     assert m["prior_uptrend_pct"] == 40.0
     assert m["contraction_count"] == 4
     assert m["contraction_depths_pct"] == [25.0, 14.0, 8.0, 4.0]
+
+
+# ====== P1-2 Part A: 분류 가격 sanity 검증 ======
+
+def _cls_result(**over):
+    """유효한 분류 result 기본형 (HARD 통과값)."""
+    r = {
+        "classification": "watch", "pattern": "flat_base", "confidence": 0.6,
+        "reasoning": "t", "risk_flags": [], "pivot_price": 1000.0,
+        "pivot_basis": "high_of_base", "base_high": 1000.0, "base_low": 900.0,
+        "base_depth_pct": 10.0, "base_start_date": None,
+    }
+    r.update(over)
+    return r
+
+
+def _gates_identity(mocker):
+    """게이트를 identity 로 patch — 검증 로직만 단위 테스트."""
+    mocker.patch(
+        "kr_pipeline.llm_runner.store.apply_phase1_gates",
+        side_effect=lambda conn, s, t, r: (r, None),
+    )
+
+
+def test_sanity_warnings_column_exists(db):
+    """P1-2 Part A: weekly_classification.sanity_warnings JSONB 컬럼 존재."""
+    with db.cursor() as cur:
+        cur.execute("""
+            SELECT data_type FROM information_schema.columns
+             WHERE table_name = 'weekly_classification' AND column_name = 'sanity_warnings'
+        """)
+        row = cur.fetchone()
+    assert row is not None, "sanity_warnings 컬럼 없음 — schema.sql ALTER 미적용"
+    assert row[0] == "jsonb"
+
+
+def test_classification_hard_rejects_impossible_prices(db, mocker):
+    """HARD: 구조적으로 불가능한 가격은 ValueError + 행 미생성 (fail-closed).
+
+    오염된 pivot 하나가 평일 트리거 게이트(close>pivot)를 매일 오발화시키므로
+    저장 자체를 거부한다. 미저장 시 다음 사이클 재분류로 자연 복구.
+    """
+    import pytest
+    from kr_pipeline.llm_runner.store import insert_classification
+
+    _gates_identity(mocker)
+    cases = [
+        ({"pivot_price": -100.0}, "pivot_price"),
+        ({"pivot_price": 0}, "pivot_price"),
+        ({"base_high": -1.0}, "base_high"),
+        ({"base_low": 1000.0, "base_high": 900.0}, "base_low"),      # low >= high
+        ({"base_low": 950.0, "pivot_price": 900.0}, "base_low"),      # low > pivot
+        ({"confidence": 1.5}, "confidence"),
+        ({"confidence": -0.1}, "confidence"),
+    ]
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='SANH'")
+    db.commit()
+
+    for over, needle in cases:
+        with pytest.raises(ValueError, match=needle):
+            insert_classification(
+                db, symbol="SANH", classified_at=datetime.now(timezone.utc),
+                market="KOSPI", result=_cls_result(**over),
+                source="weekend", llm_meta={},
+            )
+        db.rollback()
+
+    with db.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM weekly_classification WHERE symbol='SANH'")
+        assert cur.fetchone()[0] == 0, "HARD 위반 분류가 저장됨 (fail-closed 깨짐)"
+
+
+def test_classification_valid_prices_saved_without_warnings(db, mocker):
+    """정상값: 저장되고 sanity_warnings 는 NULL. NULL 가격(ignore)도 HARD 통과."""
+    from kr_pipeline.llm_runner.store import insert_classification
+
+    _gates_identity(mocker)
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol IN ('SANOK','SANNUL')")
+    db.commit()
+
+    insert_classification(
+        db, symbol="SANOK", classified_at=datetime.now(timezone.utc),
+        market="KOSPI", result=_cls_result(), source="weekend", llm_meta={},
+    )
+    insert_classification(
+        db, symbol="SANNUL", classified_at=datetime.now(timezone.utc),
+        market="KOSPI",
+        result=_cls_result(classification="ignore", pivot_price=None, base_high=None,
+                           base_low=None, confidence=None),
+        source="weekend", llm_meta={},
+    )
+    db.commit()
+
+    with db.cursor() as cur:
+        cur.execute("SELECT sanity_warnings FROM weekly_classification WHERE symbol='SANOK'")
+        assert cur.fetchone()[0] is None
+        cur.execute("SELECT sanity_warnings FROM weekly_classification WHERE symbol='SANNUL'")
+        assert cur.fetchone()[0] is None
+
+
+def test_classification_soft_pivot_far_from_price(db, mocker):
+    """SOFT: pivot 이 최근 adj_close 의 밴드(0.3~3.0배) 밖 → 저장 + 경고 마커."""
+    from kr_pipeline.llm_runner.store import insert_classification
+
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('SANFAR','S','KOSPI') ON CONFLICT DO NOTHING")
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='SANFAR'")
+        cur.execute("DELETE FROM daily_indicators WHERE ticker='SANFAR'")
+        cur.execute(
+            "INSERT INTO daily_indicators (ticker, date, adj_close) VALUES ('SANFAR', %s, 1000)",
+            (as_of,),
+        )
+    db.commit()
+
+    # pivot 5000 = 종가의 5배 (밴드 상한 3.0 초과) — 자릿수 오류 의심
+    insert_classification(
+        db, symbol="SANFAR", classified_at=datetime.now(timezone.utc),
+        market="KOSPI",
+        result=_cls_result(pivot_price=5000.0, base_high=5000.0, base_low=4500.0),
+        source="weekend", llm_meta={}, analyzed_for_date=as_of,
+    )
+    db.commit()
+
+    with db.cursor() as cur:
+        cur.execute("SELECT sanity_warnings FROM weekly_classification WHERE symbol='SANFAR'")
+        w = cur.fetchone()[0]
+    assert w is not None and "sanity_pivot_far_from_price" in w
+
+
+def test_classification_soft_clean_pivot_no_warning(db, mocker):
+    """SOFT: pivot 이 종가 근방(밴드 내) → 경고 없음(NULL)."""
+    from kr_pipeline.llm_runner.store import insert_classification
+
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('SANNEAR','S','KOSPI') ON CONFLICT DO NOTHING")
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='SANNEAR'")
+        cur.execute("DELETE FROM daily_indicators WHERE ticker='SANNEAR'")
+        cur.execute(
+            "INSERT INTO daily_indicators (ticker, date, adj_close) VALUES ('SANNEAR', %s, 1000)",
+            (as_of,),
+        )
+    db.commit()
+
+    insert_classification(
+        db, symbol="SANNEAR", classified_at=datetime.now(timezone.utc),
+        market="KOSPI", result=_cls_result(pivot_price=1010.0, base_high=1010.0),
+        source="weekend", llm_meta={}, analyzed_for_date=as_of,
+    )
+    db.commit()
+
+    with db.cursor() as cur:
+        cur.execute("SELECT sanity_warnings FROM weekly_classification WHERE symbol='SANNEAR'")
+        assert cur.fetchone()[0] is None
+
+
+def test_classification_soft_missing_pivot_for_entry(db, mocker):
+    """SOFT: entry 인데 pivot 없음 → 저장 + 경고 (watch 는 pivot NULL 정상이라 비대상)."""
+    from kr_pipeline.llm_runner.store import insert_classification
+
+    _gates_identity(mocker)
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='SANNOPV'")
+    db.commit()
+
+    insert_classification(
+        db, symbol="SANNOPV", classified_at=datetime.now(timezone.utc),
+        market="KOSPI",
+        result=_cls_result(classification="entry", pivot_price=None,
+                           base_high=None, base_low=None),
+        source="weekend", llm_meta={},
+    )
+    db.commit()
+
+    with db.cursor() as cur:
+        cur.execute("SELECT sanity_warnings FROM weekly_classification WHERE symbol='SANNOPV'")
+        w = cur.fetchone()[0]
+    assert w is not None and "sanity_missing_pivot_for_actionable" in w

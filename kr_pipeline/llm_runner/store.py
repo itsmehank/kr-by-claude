@@ -73,6 +73,64 @@ def _watch_reason(result: dict) -> str | None:
     return result.get("watch_reason")
 
 
+# [design judgment] 분류 pivot/종가 sanity 밴드 — book 근거 아님(자릿수·소수점 오류
+# 탐지 휴리스틱)이라 thresholds.py SSOT 비등재. SOFT 전용(저장 차단 안 함).
+_PIVOT_CLOSE_BAND = (0.3, 3.0)
+
+
+def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -> list[str]:
+    """분류 숫자의 부호·대소·범위 sanity (P1-2 Part A).
+
+    HARD(ValueError, fail-closed): present 값이 구조적으로 불가능한 경우만 —
+        pivot/base_high/base_low ≤ 0, base_low ≥ base_high, base_low > pivot,
+        confidence ∉ [0,1]. 오염 pivot 은 평일 트리거 게이트(close>pivot)의
+        상류 입력이라 저장 자체를 거부한다(미저장 시 다음 사이클 재분류로 복구).
+        pivot ≤ base_high 는 검사하지 않음 — pocket pivot(포켓피벗일 종가)은
+        base_high 초과가 정당하다.
+    SOFT(list 반환 → sanity_warnings 컬럼): 단정 불가한 의심값 —
+        entry 인데 pivot 없음(watch 는 base_forming 등 pivot NULL 정상이라 비대상),
+        pivot 이 as_of 최근 adj_close 대비 밴드 밖. as_of None/종가 부재 시 밴드
+        검사만 skip. risk_flags(LLM payload 되먹임)와 분리된 쓰기 전용 컬럼.
+    """
+    pv = result.get("pivot_price")
+    bh = result.get("base_high")
+    bl = result.get("base_low")
+
+    hard: list[str] = []
+    for k, v in (("pivot_price", pv), ("base_high", bh), ("base_low", bl)):
+        if v is not None and v <= 0:
+            hard.append(f"{k}={v} (<=0)")
+    if bl is not None and bh is not None and bl >= bh:
+        hard.append(f"base_low={bl} >= base_high={bh}")
+    if bl is not None and pv is not None and bl > pv:
+        hard.append(f"base_low={bl} > pivot_price={pv}")
+    c = result.get("confidence")
+    if c is not None and not (0 <= c <= 1):
+        hard.append(f"confidence={c} (not in [0,1])")
+    if hard:
+        raise ValueError(f"classification sanity violation ({symbol}): " + "; ".join(hard))
+
+    warns: list[str] = []
+    if result.get("classification") == "entry" and pv is None:
+        warns.append("sanity_missing_pivot_for_actionable")
+    if pv is not None and as_of is not None:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT adj_close FROM daily_indicators "
+                "WHERE ticker = %s AND date <= %s ORDER BY date DESC LIMIT 1",
+                (symbol, as_of),
+            )
+            row = cur.fetchone()
+        close = float(row[0]) if row and row[0] else None
+        if close is not None:
+            ratio = float(pv) / close
+            if not (_PIVOT_CLOSE_BAND[0] <= ratio <= _PIVOT_CLOSE_BAND[1]):
+                warns.append("sanity_pivot_far_from_price")
+    if warns:
+        log.warning("classification sanity warnings %s: %s (pivot=%s)", symbol, warns, pv)
+    return warns
+
+
 def insert_classification(
     conn: Connection,
     *,
@@ -107,6 +165,12 @@ def insert_classification(
         result = _original
         triggered_rules = None
 
+    # P1-2 Part A: 게이트 뒤(=최종 저장값) 가격 sanity. HARD 위반은 ValueError 로
+    # 저장 거부(fail-closed) — 호출자(weekend 워커/daily_delta 루프)가 종목 단위 격리.
+    sanity_warnings = _validate_classification_prices(
+        conn, result, symbol=symbol, as_of=analyzed_for_date,
+    )
+
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -118,12 +182,14 @@ def insert_classification(
                llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model,
                triggered_rules,
                measurements,
-               watch_reason)
+               watch_reason,
+               sanity_warnings)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
                     %s, %s, %s, %s,
+                    %s,
                     %s,
                     %s,
                     %s)
@@ -153,6 +219,7 @@ def insert_classification(
                 json.dumps(triggered_rules) if triggered_rules is not None else None,
                 _measurements_json(result),
                 _watch_reason(result),
+                json.dumps(sanity_warnings) if sanity_warnings else None,
             ),
         )
 
