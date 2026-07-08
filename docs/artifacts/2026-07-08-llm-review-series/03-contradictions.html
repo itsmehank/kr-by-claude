@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>분석 체계 모순 검토 — kr-by-claude 리뷰 시리즈 3/4</title>
+<style>
+  :root {
+    --paper: #f7f3ea;
+    --paper-deep: #efe8d8;
+    --ink: #2b2620;
+    --ink-soft: #5c544a;
+    --accent: #8a3324;
+    --accent-soft: #f3e0da;
+    --teal: #1f5f5b;
+    --teal-soft: #dcebe9;
+    --gold: #a07d2a;
+    --gold-soft: #f2ead2;
+    --line: #d8cfbd;
+    --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    background-image: radial-gradient(circle at 50% 4%, rgba(138,51,36,.05), transparent 40%),
+                      radial-gradient(circle at 8% 90%, rgba(31,95,91,.05), transparent 45%);
+    color: var(--ink);
+    font-family: "Apple SD Gothic Neo", "Noto Sans KR", "Pretendard", sans-serif;
+    line-height: 1.75; font-size: 16.5px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 28px 120px; }
+  header.masthead { padding: 72px 0 40px; border-bottom: 3px double var(--ink); margin-bottom: 8px; }
+  .series-tag {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent); display: inline-block; border: 1px solid var(--accent);
+    padding: 4px 12px; border-radius: 999px; margin-bottom: 24px;
+  }
+  h1 { font-family: "Nanum Myeongjo", serif; font-size: clamp(30px, 5vw, 44px); font-weight: 800; line-height: 1.3; margin-bottom: 18px; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .dek { font-size: 18px; color: var(--ink-soft); max-width: 42em; }
+  .byline { margin-top: 22px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); }
+  nav.toc { margin: 36px 0 56px; padding: 22px 26px; background: var(--paper-deep); border-left: 4px solid var(--ink); }
+  nav.toc strong { display:block; font-size: 13px; letter-spacing:.12em; margin-bottom: 10px; }
+  nav.toc ol { margin-left: 20px; }
+  nav.toc a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--ink-soft); }
+  nav.toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  section { margin-bottom: 72px; }
+  h2 { font-family: "Nanum Myeongjo", serif; font-size: 27px; font-weight: 800; margin-bottom: 6px; display: flex; align-items: baseline; gap: 14px; }
+  h2 .no {
+    font-family: var(--mono); font-size: 15px; color: var(--accent);
+    border: 1.5px solid var(--accent); border-radius: 50%;
+    width: 32px; height: 32px; flex: 0 0 32px;
+    display: inline-flex; align-items: center; justify-content: center; transform: translateY(-2px);
+  }
+  .rule { width: 64px; height: 3px; background: var(--accent); margin: 14px 0 22px; }
+  p { margin-bottom: 16px; max-width: 46em; }
+  ul, ol { margin: 0 0 18px 24px; }
+  li { margin-bottom: 8px; max-width: 44em; }
+  code { font-family: var(--mono); font-size: .85em; background: var(--paper-deep); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); }
+  .callout { margin: 26px 0; padding: 20px 24px; border-radius: 6px; background: var(--accent-soft); border-left: 4px solid var(--accent); }
+  .callout.teal { background: var(--teal-soft); border-left-color: var(--teal); }
+  .callout.gold { background: var(--gold-soft); border-left-color: var(--gold); }
+  .callout .label { font-family: var(--mono); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; display: block; margin-bottom: 8px; }
+  .callout p:last-child { margin-bottom: 0; }
+  .sev { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; padding: 2px 9px; border-radius: 999px; color:#fff; vertical-align: 2px; white-space: nowrap; }
+  .sev.high { background: var(--accent); }
+  .sev.mid  { background: var(--gold); }
+  .sev.low  { background: #7a7263; }
+  .finding {
+    border: 1.5px solid var(--ink); border-radius: 10px; background: #fffdf7;
+    margin: 26px 0; overflow: hidden; box-shadow: 5px 5px 0 rgba(43,38,32,.10);
+  }
+  .finding .head { padding: 15px 22px; background: var(--ink); color: var(--paper); display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  .finding .head h3 { margin: 0; font-size: 16.5px; color: var(--paper); }
+  .finding .body { padding: 20px 22px; }
+  .finding .scenario {
+    margin: 14px 0 6px; padding: 14px 18px; border-radius: 6px;
+    background: var(--paper-deep); border-left: 3px solid var(--gold);
+    font-size: 14.5px;
+  }
+  .finding .scenario .t { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); display:block; margin-bottom: 6px; }
+  .finding .fix { font-size: 14.5px; color: var(--teal); margin-top: 10px; }
+  .finding .fix::before { content: "고치는 방향 — "; font-weight: 700; }
+  .tbl-scroll { overflow-x: auto; margin: 22px 0; border: 1px solid var(--line); border-radius: 8px; background: #fffdf7; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 640px; }
+  th { text-align: left; font-size: 12px; letter-spacing: .08em; padding: 12px 16px; background: var(--paper-deep); border-bottom: 2px solid var(--ink); white-space: nowrap; }
+  td { padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  footer { margin-top: 90px; padding-top: 24px; border-top: 3px double var(--ink); font-family: var(--mono); font-size: 12px; color: var(--ink-soft); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .fade { animation: fadeUp .7s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px);} to { opacity: 1; transform: none;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead fade">
+  <span class="series-tag">kr-by-claude 리뷰 시리즈 · 3 / 4</span>
+  <h1>분석 체계에 <em>모순</em>은 없는가</h1>
+  <p class="dek">규칙이 많아지면 규칙끼리 부딪히기 시작한다. 이 문서는 스크리너·프롬프트·게이트·저장 코드 전체를 라인 단위로 맞대보고, "서로 반대말을 하는 곳"을 찾아낸 감사 보고서다. 확정 모순 8건, 조건부 모순 8건, 그리고 감시망의 구멍 하나를 발견했다 — 동시에, 점검했지만 멀쩡했던 것들도 함께 기록한다.</p>
+  <p class="byline">작성 2026-07-08 밤 · 방법: 적대적 정합성 감사 (코드·프롬프트 실라인 대조 + drift 테스트 실행)</p>
+</header>
+
+<nav class="toc fade">
+  <strong>차례</strong>
+  <ol>
+    <li><a href="#why">모순은 왜 생기나</a></li>
+    <li><a href="#confirmed">확정 모순 8건</a></li>
+    <li><a href="#conditional">조건부 모순 8건</a></li>
+    <li><a href="#coverage">감시망의 구멍 — drift 테스트가 못 보는 곳</a></li>
+    <li><a href="#clean">점검했지만 멀쩡했던 것들</a></li>
+    <li><a href="#priority">수리 우선순위</a></li>
+  </ol>
+</nav>
+
+<section id="why" class="fade">
+  <h2><span class="no">1</span>모순은 왜 생기나</h2>
+  <div class="rule"></div>
+  <p>이 시스템의 규칙은 세 곳에 나뉘어 산다: <strong>① 임계값 정의 파일</strong>(<code>thresholds.py</code> — 단일 출처), <strong>② LLM에게 주는 지시문</strong>(프롬프트 .md 4개 — <em>수동</em> 동기화), <strong>③ 파이썬 코드</strong>(게이트·저장·페이로드). 셋 중 프롬프트만 사람이 손으로 맞춰줘야 해서, 규칙이 바뀔 때마다 어긋날 기회가 생긴다.</p>
+  <p>실제로 이번에 발견된 모순 대부분은 두 종류다:</p>
+  <ul>
+    <li><strong>버전 업의 잔재</strong> — 프롬프트를 v2.0에서 v2.1로 올리면서 옛 문단을 지우지 않아, 한 문서가 옛말과 새말을 동시에 하는 경우.</li>
+    <li><strong>같은 개념의 두 정의</strong> — 예를 들어 "분배일"이나 "불량 핸들"을 프롬프트와 코드가 서로 다른 수식으로 정의한 경우.</li>
+  </ul>
+  <div class="callout">
+    <span class="label">읽는 법</span>
+    <p><strong>확정 모순</strong>은 지금 이 순간에도 성립하는 불일치다. <strong>조건부 모순</strong>은 특정 상황(특정 시장 상태, 특정 패턴)이 와야 충돌이 드러나는 것이다. 각 항목에는 "충돌 시나리오"(무슨 일이 실제로 벌어지나)와 "고치는 방향"을 달았다. 용어가 낯설면 1편(결정론적 분리)의 용어 정리를 참고 — pivot(돌파 기준가), payload(LLM 입력 데이터 묶음), 분배일(거래량 실린 하락일), §번호(프롬프트 파일의 절 번호).</p>
+  </div>
+</section>
+
+<section id="confirmed" class="fade">
+  <h2><span class="no">2</span>확정 모순 8건</h2>
+  <div class="rule"></div>
+
+  <div class="finding">
+    <div class="head"><h3>A — 매수 파라미터 프롬프트가 "존재하지 않는 입력"을 참조한다</h3><span class="sev high">심각도 상</span></div>
+    <div class="body">
+      <p>매수 파라미터 프롬프트(C, <code>calculate_entry_params_v2_0.md</code>)에는 입력 정의 섹션이 <strong>두 개</strong> 있다 — 옛 버전(v2.0)과 새 버전(v2.1). 실제 payload와 일치하는 건 v2.1뿐인데, 옛 섹션을 근거로 한 규칙들이 그대로 살아 있다. 그 결과 다섯 갈래의 문제 — 존재하지 않는 필드를 가리키는 "유령 참조" 3건과, 문서가 스스로 반대말을 하는 상호 모순 2건 — 가 생겼다:</p>
+      <ul>
+        <li>에코 검증 대상 키를 <code>current_metrics.close</code>라고 지시하는데 실제 키는 <code>current_state.close</code>다 (알려진 네이밍 drift — 이번에 재확인).</li>
+        <li>"가장 먼저 실행하라"는 §0.5(pocket pivot 진입 모드 감지)가 <code>prior_analysis.reasoning</code>을 파싱하라는데, <strong>이 필드는 C의 payload에 아예 안 들어간다.</strong> 즉 pocket pivot 분기 전체(손절·비중·거래량 규칙 4개 절 + 경고 코드 2종)가 구조적으로 도달 불가능한 죽은 규칙이다. A 프롬프트가 "reasoning에 pocket_pivot_entry를 명기하라"고 강제하는 이유(하류에서 읽기 위해)도 함께 무효화돼 있다.</li>
+        <li>비중 사이징 티어가 참조하는 <code>prior_analysis.confidence</code>도 payload에 없다 — 사이징 규칙의 핵심 입력이 유령이다.</li>
+        <li>한 문단은 "market_context가 payload에 포함된다", 다른 문단은 "이 단계는 market_context를 받지 않는다"고 말한다. 실제는 후자.</li>
+        <li>"여기 도달하는 분류는 항상 entry"라는 문장은, watch 종목도 breakout_from_watch로 도달한다는 같은 문서의 예외 규정과 정면 충돌한다.</li>
+      </ul>
+      <div class="scenario"><span class="t">충돌 시나리오</span>LLM이 지시대로 없는 필드를 찾다가 스스로 추측으로 메꾸거나(각 실행마다 다르게), pocket pivot 종목이 표준 규칙으로 사이징된다. 규칙이 안 지켜져도 아무 경고가 없다 — 죽은 규칙은 조용히 죽어 있다.</div>
+      <p class="fix">v2.0 입력 섹션 삭제, §0.5가 필요하면 reasoning(또는 전용 플래그)을 payload에 실제로 추가, confidence도 마찬가지. 1편의 결론(C 결정론화)을 실행하면 이 문제 전체가 근본적으로 소멸한다.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>B — "분배일"의 정의가 프롬프트와 코드에서 다르다</h3><span class="sev high">심각도 상</span></div>
+    <div class="body">
+      <p>A 프롬프트는 종목 분배일을 "<strong>0.2% 이상</strong> 하락 + 거래량 1.0배 초과"로 정의하고, "이 플래그 컬럼이 권위 있는 값이니 재계산하지 말라"고 명시한다. 그런데 그 컬럼을 실제로 계산하는 코드는 <strong>0% 컷</strong>(어제보다 조금이라도 내리면 하락)을 쓴다. 즉 −0.1% 하락한 날도 분배일로 집계된다.</p>
+      <p>과거에는 "LLM이 텍스트 정의대로 재계산하니 자연히 −0.2%가 적용된다"는 논리로 정당화됐지만, 프롬프트가 "컬럼이 권위, 재계산 금지"로 바뀐 순간 그 정당화는 무효가 됐다.</p>
+      <div class="scenario"><span class="t">충돌 시나리오</span>분배일 카운트가 책 정의보다 과대 집계 → "분배일 4개 이상이면 watch로 강등" 룰과, topping(고점에서 힘이 빠지며 하락 전환하는 국면 — 강제 ignore 사유 중 하나) 판정 규칙이 실제보다 공격적으로 발화. 핸들 품질 게이트(핸들 안 분배일 1개면 발화)도 같은 과대 플래그를 소비한다.</div>
+      <p class="fix">계산 코드에 −0.2% 컷을 넣거나, 프롬프트 정의를 0% 컷으로 고치거나 — 어느 쪽이든 <strong>한 정의로 통일</strong>. (책 기준은 −0.2% 쪽이다.)</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>C — 리스크 플래그 개수가 세 곳에서 다르다 (14 vs 15)</h3><span class="sev mid">심각도 중</span></div>
+    <div class="body">
+      <p>플래그 목록의 진짜 정답은 코드의 <strong>15종</strong>이다. A 프롬프트의 표도 15종을 나열하는데, 같은 문서의 다른 두 문장은 "14개 값만 쓰라"고 말한다. 더 나쁜 것은 수동 검증용 프롬프트(<code>verify_analysis_v1.md</code>)의 "전수 점검" 목록이 14개뿐이라 <strong><code>topping_distribution</code>을 아예 모른다</strong>는 점 — 분석가가 이 플래그를 빠뜨려도 검증자가 잡을 수 없는 검증 사각이다.</p>
+      <div class="scenario"><span class="t">충돌 시나리오</span>topping 관련 강제-ignore 축이 검증 범위 밖에 놓인다. "전수 점검했다"는 검증 결과가 실제로는 1종을 못 본 결과가 된다.</div>
+      <p class="fix">세 곳 모두 15로 통일하고, verify 프롬프트 목록에 topping_distribution 추가.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>D — pivot_basis: 규칙 표가 시키는 값을 출력 스키마가 금지한다</h3><span class="sev mid">심각도 중</span></div>
+    <div class="body">
+      <p>A 프롬프트 §4.7의 표는 희귀 패턴 4종(high_tight_flag 등)에 대해 <code>top_of_flag</code>, <code>cheat_pivot</code> 같은 pivot_basis 값을 쓰라고 정의하는데, 출력 스키마의 허용 목록에는 4개 값(<code>handle_high / range_high / final_T_high / mid_W_peak</code>)뿐이다. 이 패턴들에서는 <strong>표를 따르면 스키마 위반, 스키마를 따르면 표 위반</strong>이라 둘 다 지킬 수 없다.</p>
+      <div class="scenario"><span class="t">충돌 시나리오</span>희귀 패턴 종목에서 LLM이 실행마다 다른 쪽을 선택 → 저장 값 비일관. (저장은 문자열을 그대로 받아주므로 에러도 안 난다.)</div>
+      <p class="fix">스키마 enum(허용값을 고정해 둔 목록)에 4개 값을 추가하거나, §4.7 표를 스키마의 4값 체계로 재작성.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>E — A는 9개 패턴을 알지만 C는 5개만 받아준다</h3><span class="sev mid">심각도 중</span></div>
+    <div class="body">
+      <p>A는 high_tight_flag, base_on_base, ascending_base 패턴으로도 entry 분류를 낼 수 있다. 이 종목이 돌파해서 C(매수 파라미터)에 도달하면: C의 기본 규칙은 "A의 패턴을 그대로 써라"인데, C의 검증 절은 "패턴은 정확히 5개 중 하나여야 한다"며 이 3개를 안 받아준다. <code>none</code>일 때의 폴백 규정만 있고 이 3개 패턴의 처리 규정은 없다.</p>
+      <div class="scenario"><span class="t">충돌 시나리오</span>희귀 패턴 종목이 go_now(B 단계의 "지금 매수" 판정)까지 갔을 때 C가 규칙 충돌 상태에서 임의로 5개 중 하나로 구겨 넣는다 — 비중 티어가 잘못된 패턴 기준으로 계산될 수 있다.</div>
+      <p class="fix">C의 패턴 목록에 3종을 추가(각자 비중 티어 규정과 함께)하거나, "목록 밖 패턴은 none 취급" 폴백을 명문화.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>F — 주말과 평일의 "후보 자격"이 다르다</h3><span class="sev mid">심각도 중</span></div>
+    <div class="body">
+      <p>주말 배치의 후보 조건은 "스크리너 통과 <strong>그리고</strong> RS line(주가÷지수 — 시장 대비 상대 강도 곡선)이 7개월간 하락 추세가 아닐 것(= 시장에 뒤처지는 laggard 종목 배제) <strong>그리고</strong> 거래정지 아님"이다. 그런데 평일 신규 감지(daily_delta)는 <strong>스크리너 통과만</strong> 본다. 같은 시스템이 "laggard는 후보가 아니다"(토요일)와 "laggard도 후보다"(평일)를 동시에 주장하는 셈이다.</p>
+      <div class="scenario"><span class="t">충돌 시나리오</span>RS line이 7개월째 하락 중인 종목이 월요일에 스크리너를 통과하면 평일 경로로 분류·모니터링 풀에 들어온다 — 토요일이었다면 문 앞에서 걸러졌을 종목이다.</div>
+      <p class="fix">daily_delta의 후보 SQL에 주말과 같은 두 조건을 추가 (한 곳에서 공유 조건으로 정의하면 재발도 방지된다).</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>G — 본문 규칙은 1.5배인데 예시는 1.4배를 보여준다</h3><span class="sev mid">심각도 중하</span></div>
+    <div class="body">
+      <p>C 프롬프트 본문은 표준 패턴의 돌파 거래량 요구치를 1.4배에서 <strong>1.5배로 상향</strong>했다(P0-1 결정). 그런데 문서 끝의 예시 답안 두 개가 여전히 <strong>1.4배</strong>를 보여준다. LLM은 예시(few-shot)를 본문 규칙만큼, 때로는 그 이상으로 따라 하므로, 예시가 규칙 상향을 조용히 되돌리는 편향 경로가 된다.</p>
+      <div class="scenario"><span class="t">충돌 시나리오</span>실행마다 1.4와 1.5 사이에서 흔들리는 출력 — P0-1 상향이 확률적으로 무력화.</div>
+      <p class="fix">예시 2곳의 값을 1.5배로 갱신. (교훈: 임계 변경 체크리스트에 "예시 JSON도 갱신" 항목 추가.)</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>H — 자잘한 개수·참조 drift 3건</h3><span class="sev low">심각도 하</span></div>
+    <div class="body">
+      <ul>
+        <li>C 프롬프트: 경고 코드 화이트리스트를 한 곳은 "15개", 다른 곳은 "16개"라 부른다 — 실제 표는 16개.</li>
+        <li>C 프롬프트: 출력 "17개 필드" 헤더 — 실제 스키마는 18개.</li>
+        <li>B 프롬프트: abort 사유 카탈로그의 실제 위치는 §3.4인데, 두 곳에서 §3.3(실제로는 promotion 절)으로 잘못 가리킨다.</li>
+      </ul>
+      <p class="fix">숫자·참조 일괄 정정. 사소해 보여도 "몇 개 중에서 고르라"는 지시가 흔들리면 LLM 출력도 흔들린다.</p>
+    </div>
+  </div>
+</section>
+
+<section id="conditional" class="fade">
+  <h2><span class="no">3</span>조건부 모순 8건</h2>
+  <div class="rule"></div>
+  <p>특정 상태가 와야 드러나는 충돌들이다. 가장 위험한 I부터.</p>
+
+  <div class="finding">
+    <div class="head"><h3>I — "시장 불리" 강등의 회복 게이트가 강등 사유를 재확인하지 않는다</h3><span class="sev high">심각도 상 (조건부)</span></div>
+    <div class="body">
+      <p>A는 시장이 상승 확인 상태여도 <strong>분배일이 5개 이상이면</strong> "시장 여건 불리"로 watch 강등할 수 있다. 그런데 그 종목이 나중에 돌파했을 때 B의 회복 판정은 <strong>"시장 상태 = 상승 확인"만</strong> 본다 — 분배일 수는 다시 안 센다. 분배일 5개는 상승 확인 상태와 공존 가능하므로(6개부터 상태가 바뀜), <strong>강등 사유가 그대로인 날에도 go_now("지금 매수" 판정)가 통과</strong>할 수 있다. 한 술 더 떠 C는 "go_now로 왔다는 것 자체가 시장 회복의 증거"라며 이 경로의 보수화 조치(비중 절반, 목표 하향 등)를 전부 면제한다.</p>
+      <div class="scenario"><span class="t">충돌 시나리오</span>분배일 5개로 강등된 종목이, 분배일이 여전히 5개인 다음 주에 돌파 → 보수화 없는 풀사이즈 매수 파라미터 발급. 강등이 무의미해지는 순간.</div>
+      <p class="fix">B의 unfavorable_market 회복 조건에 "분배일 수가 강등 임계 아래로 내려왔는가"를 추가.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>J — "불량 핸들"의 두 정의 (프롬프트 절대치 vs 게이트 상대치)</h3><span class="sev mid">심각도 중 (조건부)</span></div>
+    <div class="body">
+      <p>프롬프트는 핸들 불량을 절대 깊이(&gt;12% 등)로 판정하고, 결정론 게이트는 <strong>상대 비율</strong>(핸들 깊이가 컵 깊이의 33% 초과 등)로 재판정한다. 얕은 컵(깊이 15%)에 얕은 핸들(6%)이 달리면 — 프롬프트로는 합격인데 게이트 비율(40%)로는 불합격이라 entry가 watch로 강등된다. 이 미봉합은 <code>thresholds.py</code> 주석에 "reconcile 미완"이라고 스스로 적혀 있는, <strong>알려진 부채</strong>다. 게이트의 "핸들 내 분배일 1개면 발화" 규칙도 프롬프트의 "분배일 하루는 정상" 문구와 결이 다르고, B번 모순(0% 컷 과대 플래그)과 결합하면 발화 확률이 한층 부풀려진다.</p>
+      <p class="fix">두 정의의 관계를 명시적으로 결정(게이트는 보수적 백스톱이므로 의도적 비대칭일 수 있다 — 그렇다면 그 의도를 문서화하고 얕은-컵 케이스의 오발화만 보정).</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>K — 백스톱이 강등한 레코드는 그 자체로 모순 상태가 되어 하류에 흘러간다</h3><span class="sev mid">심각도 중 (조건부)</span></div>
+    <div class="body">
+      <p>결정론 백스톱이 entry를 watch로 강등하면: 근거문(reasoning)은 entry 논리 그대로, 분류는 watch, watch 사유는 (의도적으로) 비움, 근거문에 없는 플래그가 추가돼 있음 — 이 조합은 A 프롬프트 자신의 불가침 룰("근거문과 플래그 정합", "watch면 사유 필수")을 위반하는 상태다. 문제는 이 자기모순 레코드가 <strong>다음 단계 B의 입력으로 그대로 들어간다</strong>는 것.</p>
+      <p class="fix">강등 시 reasoning에 강등 사실을 덧붙이는 후처리 한 줄(예: "[게이트 강등: handle_quality]")로 레코드 내부 정합을 회복.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>L — 기업행위(증자 등) 가격 재조정이 pivot에는 적용되지 않는다</h3><span class="sev mid">심각도 중 (조건부)</span></div>
+    <div class="body">
+      <p>증자·분할 같은 기업행위가 생기면 가격 히스토리는 재정규화되지만, 이미 저장된 분류의 <code>pivot_price</code>·<code>base_low</code>를 함께 환산하는 코드는 없다(전체 검색 0건). 분류 시점과 다음 주말 사이에 기업행위가 끼면, 트리거 게이트가 <strong>서로 다른 조정 기준의 가격끼리</strong> 비교하게 된다.</p>
+      <div class="scenario"><span class="t">충돌 시나리오</span>허위 invalidation(베이스가 무너졌다는 오판 → 그 종목 셋업을 폐기하는 abort 판정에 고착) 또는 허위 breakout(돌파 오판). 노출 창은 주말 재분류까지 최대 1주.</div>
+      <p class="fix">기업행위 drift 처리에 "활성 분류의 가격 레벨 rescale" 단계 추가, 또는 최소한 해당 종목 트리거 평가를 재분류 전까지 보류.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>M~P — 나머지 4건 (심각도 하, 요약표)</h3><span class="sev low">심각도 하 (조건부)</span></div>
+    <div class="body">
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>#</th><th>내용</th><th>고치는 방향</th></tr></thead>
+        <tbody>
+          <tr><td><strong>M</strong></td><td>시장 상태 "rally_attempt"에 FTD(추세 확인일)가 <em>있는</em> 변종이 존재하는데, A의 하드캡 문구는 "FTD 없는 rally_attempt"만 지칭 — 경계가 어긋남.</td><td>하드캡 문구를 상태값 기준으로 재정의.</td></tr>
+          <tr><td><strong>N</strong></td><td>"여유 3% 미만" 마진 룰이 이질 단위를 한 잣대로 잼 — 어떤 조건의 마진은 %가 아니라 포인트차, 어떤 조건은 상시 3% 미만이라 룰이 의도보다 쉽게 발화.</td><td>조건별 마진 단위 정규화 또는 조건별 임계.</td></tr>
+          <tr><td><strong>O</strong></td><td>규정 공백 2건: 분배일 정확히 4개인 시장(5≥불리, ≤3 정상 사이), 거래량 1.2배 미만 돌파(1.4↑ go, 1.2~1.4 wait만 규정).</td><td>경계값 명시 (아마 각각 "정상"과 "wait").</td></tr>
+          <tr><td><strong>P</strong></td><td>watch 출신 돌파는 시장 회복을 요구받는데, entry 출신 돌파의 go_now 조건에는 시장 확인이 아예 없음 — 분류 후 주중에 시장이 꺾여도 막는 규칙이 없다.</td><td>§3.1에도 시장 상태 가드 추가 여부를 정책으로 결정.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<section id="coverage" class="fade">
+  <h2><span class="no">4</span>감시망의 구멍 — drift 테스트가 못 보는 곳</h2>
+  <div class="rule"></div>
+  <p>프롬프트와 임계값 정의의 어긋남을 감시하는 자동 테스트(<code>test_prompt_threshold_drift.py</code>)는 존재하고, 실행하면 통과한다(2 passed). 문제는 <strong>커버리지</strong>다: 이 테스트가 보는 것은 A 프롬프트의 SSOT 블록 안 16개 상수뿐이다.</p>
+  <ul>
+    <li><strong>B·C 프롬프트는 통째로 미감시</strong> — 1.4배, 손절 −7%/−5.5%/−10%, 비중 15/10/7/5% 등 전부 수동 동기.</li>
+    <li><strong>A 프롬프트의 블록 밖 자유텍스트 수치</strong>(분배일 ≥5, 마진 3%, ±5% 밴드 등)도 미감시.</li>
+  </ul>
+  <p>이번에 발견된 G(예시 1.4 vs 본문 1.5)가 정확히 이 사각에서 발생했다. 모순을 하나하나 고치는 것과 별개로, <strong>사각을 줄이는 투자(테스트 확장)</strong>가 재발 방지책이다.</p>
+  <div class="callout gold">
+    <span class="label">좋은 소식</span>
+    <p>이 감시망 확장은 이미 시작돼 있다 — drift 감시를 프롬프트 3개 전체로 넓히는 <strong>PR #5</strong>가 현재 오픈 상태로 리뷰 대기 중이다. 머지되면 이 절의 사각 중 상당 부분이 닫힌다 (예시 JSON까지 커버하는지는 머지 전 확인 권장 — G가 정확히 예시에서 났다).</p>
+  </div>
+</section>
+
+<section id="clean" class="fade">
+  <h2><span class="no">5</span>점검했지만 멀쩡했던 것들</h2>
+  <div class="rule"></div>
+  <p>감사의 절반은 "의심했지만 무죄"를 기록하는 일이다. 원 감사에서 15개 항목을 점검해 정합을 확인했고, 아래에 9갈래로 묶어 기록한다:</p>
+  <ul>
+    <li>SSOT 블록 16개 상수 ↔ A 프롬프트 (테스트 PASS), UI용 생성 파일(thresholds.generated.ts)도 재생성 diff 0.</li>
+    <li>스크리너 조건 배수들(C6 ×1.25, C7 ×0.75, C8 ≥70 등) — 코드·프롬프트 일치.</li>
+    <li>promotion 경계 0.95 ↔ ±5% 밴드 하한 ↔ B의 promotion 규정 — 3자 정합. promotion에서 go_now 금지도 프롬프트+SQL 이중 방어.</li>
+    <li>watch_reason 5종 enum ↔ 트리거 게이트 허용 3종 — 나머지 2종 제외는 의도적 설계(도달 불능 아님).</li>
+    <li>게이트 1.0배(느슨) vs LLM 1.4배(정밀) — 문서화된 의도적 분업, 모순 아님 (2편 카드 2 참조).</li>
+    <li>돌파 거래량 임계 체계(1.4 floor / 1.5 preferred) — 값 자체는 3문서 정합 (G의 예시 문제와 별개).</li>
+    <li>verdict 규율: ignore는 climax(수직 과열 급등의 정점)/topping/reverse-split(액면병합) 3종뿐 — 4곳 모두 일관, 플래그 누적으로 ignore 되는 뒷문 없음.</li>
+    <li>B용 payload는 프롬프트와 키가 정확히 일치 (C payload의 유령 필드 문제는 B에는 없음).</li>
+    <li>2E_tier2 차단, 평일 실행 순서(자격상실→신규→트리거→파라미터), failed_breakout 기록 범위, "8조건 항상 true" 전제 — 모두 정합.</li>
+  </ul>
+  <div class="callout teal">
+    <span class="label">균형 잡힌 결론</span>
+    <p>골격 — 스크리너, 임계 SSOT, 게이트 철학, verdict 규율 — 은 튼튼하다. 모순은 주로 <strong>수동 동기화 구간</strong>(프롬프트 문서 내부, 프롬프트↔payload, 프롬프트↔지표 계산)에 몰려 있다. 이는 1편의 결론(정량 규칙의 결정론화)이 품질 문제이기도 하다는 뜻이다: 규칙이 코드로 내려오면 이런 부류의 모순은 컴파일러와 테스트가 잡는다.</p>
+  </div>
+</section>
+
+<section id="priority" class="fade">
+  <h2><span class="no">6</span>수리 우선순위</h2>
+  <div class="rule"></div>
+  <ol>
+    <li><strong>A (유령 입력) + I (강등 역류)</strong> — 실거래 파라미터에 직결되는 두 건부터. A는 v2.0 섹션 삭제 + payload 필드 결정, I는 회복 게이트에 분배일 재확인 한 줄.</li>
+    <li><strong>B (분배일 정의 통일)</strong> — 강등·강제-ignore 축 전체에 영향을 주는 상류 결함. −0.2% 컷으로 코드 수정이 책 정합.</li>
+    <li><strong>G + H + C + D + E (문서 drift 일괄)</strong> — 전부 프롬프트 텍스트 수정이라 한 PR로 묶어 처리 가능. 처리하면서 4번 절의 drift 테스트 확장(B·C 프롬프트, 예시 JSON 포함)을 같이.</li>
+    <li><strong>F (평일 후보 조건)</strong> — SQL 조건 추가, 작지만 정책 확인 필요(평일에도 laggard 배제가 맞는지 한 번 결정).</li>
+    <li><strong>J·K·L·M~P</strong> — 각각 독립 소규모. L(기업행위 rescale)은 발생 빈도는 낮지만 발생 시 피해가 커서 J·K보다 먼저 볼 가치.</li>
+  </ol>
+  <div class="callout">
+    <span class="label">주의</span>
+    <p>이 중 임계값이나 그 소비처를 건드리는 수리(B, I, J 등)는 프로젝트 규칙대로 <code>threshold-change-checklist.md</code>의 의존성 맵(2축 판정)을 먼저 작성해야 한다 — 모순을 고치다 새 모순을 만드는 것이 이 계열 작업의 고전적 함정이다.</p>
+  </div>
+</section>
+
+<footer>
+  <span>kr-by-claude 리뷰 시리즈 3/4 — 모순 검토</span>
+  <span>이전: 02 효율화 · 다음: 04 비효율 검토</span>
+</footer>
+
+</div>
+</body>
+</html>

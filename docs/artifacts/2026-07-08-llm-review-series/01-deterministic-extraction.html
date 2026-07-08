@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM에서 결정론적으로 뺄 수 있는 것들 — kr-by-claude 리뷰 시리즈 1/4</title>
+<style>
+  :root {
+    --paper: #f7f3ea;
+    --paper-deep: #efe8d8;
+    --ink: #2b2620;
+    --ink-soft: #5c544a;
+    --accent: #8a3324;        /* 옥스블러드 */
+    --accent-soft: #f3e0da;
+    --teal: #1f5f5b;          /* 결정론=코드 색 */
+    --teal-soft: #dcebe9;
+    --gold: #a07d2a;          /* LLM=판단 색 */
+    --gold-soft: #f2ead2;
+    --line: #d8cfbd;
+    --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    background-image: radial-gradient(circle at 15% 8%, rgba(160,125,42,.06), transparent 40%),
+                      radial-gradient(circle at 90% 95%, rgba(31,95,91,.05), transparent 45%);
+    color: var(--ink);
+    font-family: "Apple SD Gothic Neo", "Noto Sans KR", "Pretendard", sans-serif;
+    line-height: 1.75;
+    font-size: 16.5px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 28px 120px; }
+
+  header.masthead {
+    padding: 72px 0 40px;
+    border-bottom: 3px double var(--ink);
+    margin-bottom: 8px;
+  }
+  .series-tag {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--accent);
+    display: inline-block; border: 1px solid var(--accent);
+    padding: 4px 12px; border-radius: 999px; margin-bottom: 24px;
+  }
+  h1 {
+    font-family: "Nanum Myeongjo", "Apple SD Gothic Neo", serif;
+    font-size: clamp(30px, 5vw, 44px);
+    font-weight: 800; line-height: 1.3; letter-spacing: -0.01em;
+    margin-bottom: 18px;
+  }
+  h1 em { font-style: normal; color: var(--accent); }
+  .dek { font-size: 18px; color: var(--ink-soft); max-width: 42em; }
+  .byline { margin-top: 22px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); }
+
+  nav.toc {
+    margin: 36px 0 56px; padding: 22px 26px;
+    background: var(--paper-deep); border-left: 4px solid var(--ink);
+  }
+  nav.toc strong { display:block; font-size: 13px; letter-spacing:.12em; margin-bottom: 10px; }
+  nav.toc ol { margin-left: 20px; }
+  nav.toc a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--ink-soft); }
+  nav.toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+  section { margin-bottom: 72px; }
+  h2 {
+    font-family: "Nanum Myeongjo", serif;
+    font-size: 27px; font-weight: 800; margin-bottom: 6px;
+    display: flex; align-items: baseline; gap: 14px;
+  }
+  h2 .no {
+    font-family: var(--mono); font-size: 15px; color: var(--accent);
+    border: 1.5px solid var(--accent); border-radius: 50%;
+    width: 32px; height: 32px; flex: 0 0 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    transform: translateY(-2px);
+  }
+  h3 { font-size: 19px; margin: 34px 0 10px; }
+  .rule { width: 64px; height: 3px; background: var(--accent); margin: 14px 0 22px; }
+  p { margin-bottom: 16px; max-width: 46em; }
+  ul, ol { margin: 0 0 18px 24px; }
+  li { margin-bottom: 8px; max-width: 44em; }
+  strong { font-weight: 700; }
+  code {
+    font-family: var(--mono); font-size: .85em;
+    background: var(--paper-deep); padding: 2px 6px; border-radius: 4px;
+    border: 1px solid var(--line);
+  }
+
+  .callout {
+    margin: 26px 0; padding: 20px 24px; border-radius: 6px;
+    background: var(--accent-soft); border-left: 4px solid var(--accent);
+  }
+  .callout.teal { background: var(--teal-soft); border-left-color: var(--teal); }
+  .callout.gold { background: var(--gold-soft); border-left-color: var(--gold); }
+  .callout .label {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .14em;
+    text-transform: uppercase; display: block; margin-bottom: 8px;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .badge {
+    display: inline-block; font-family: var(--mono); font-size: 11px;
+    letter-spacing: .06em; padding: 2px 9px; border-radius: 999px;
+    vertical-align: 1px; white-space: nowrap;
+  }
+  .badge.code { background: var(--teal); color: #fff; }
+  .badge.llm  { background: var(--gold); color: #fff; }
+  .badge.mix  { background: linear-gradient(100deg, var(--teal) 48%, var(--gold) 52%); color:#fff; }
+
+  .tbl-scroll { overflow-x: auto; margin: 22px 0; border: 1px solid var(--line); border-radius: 8px; background: #fffdf7; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 640px; }
+  th {
+    text-align: left; font-size: 12px; letter-spacing: .08em;
+    padding: 12px 16px; background: var(--paper-deep);
+    border-bottom: 2px solid var(--ink); white-space: nowrap;
+  }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+
+  .site-card {
+    border: 1.5px solid var(--ink); border-radius: 10px;
+    background: #fffdf7; margin: 30px 0; overflow: hidden;
+    box-shadow: 5px 5px 0 rgba(43,38,32,.10);
+  }
+  .site-card .head {
+    padding: 18px 24px; background: var(--ink); color: var(--paper);
+    display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;
+  }
+  .site-card .head h3 { margin: 0; font-size: 18px; color: var(--paper); }
+  .site-card .head .file { font-family: var(--mono); font-size: 11.5px; opacity: .75; }
+  .site-card .body { padding: 22px 24px; }
+
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch;
+    margin: 20px 0; font-size: 13.5px;
+  }
+  .flow .step {
+    flex: 1 1 150px; padding: 12px 14px; border-radius: 8px;
+    border: 1.5px solid var(--line); background: #fffdf7; position: relative;
+  }
+  .flow .step.det { border-color: var(--teal); background: var(--teal-soft); }
+  .flow .step.llm { border-color: var(--gold); background: var(--gold-soft); }
+  .flow .step .t { font-weight: 700; display: block; margin-bottom: 4px; font-size: 13px; }
+  .flow .step .d { color: var(--ink-soft); font-size: 12.5px; line-height: 1.55; display:block; }
+  .flow .arrow { align-self: center; color: var(--ink-soft); font-size: 18px; }
+
+  .verdict {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 22px 0;
+  }
+  @media (max-width: 640px) { .verdict { grid-template-columns: 1fr; } }
+  .verdict > div { padding: 18px 20px; border-radius: 8px; font-size: 14.5px; }
+  .verdict .yes { background: var(--teal-soft); border: 1.5px solid var(--teal); }
+  .verdict .no  { background: var(--gold-soft); border: 1.5px solid var(--gold); }
+  .verdict .hd { font-weight: 800; margin-bottom: 10px; font-size: 15px; }
+  .verdict ul { margin-left: 18px; margin-bottom: 0; }
+  .verdict li { font-size: 13.5px; margin-bottom: 6px; }
+
+  .rank { counter-reset: rk; margin: 26px 0; }
+  .rank .item {
+    display: flex; gap: 18px; padding: 20px 0; border-bottom: 1px solid var(--line);
+  }
+  .rank .item::before {
+    counter-increment: rk; content: counter(rk);
+    font-family: "Nanum Myeongjo", serif; font-size: 34px; font-weight: 800;
+    color: var(--accent); line-height: 1; flex: 0 0 36px;
+  }
+  .rank .item h4 { font-size: 16.5px; margin-bottom: 6px; }
+  .rank .item p { font-size: 14.5px; color: var(--ink-soft); margin-bottom: 0; }
+
+  footer {
+    margin-top: 90px; padding-top: 24px; border-top: 3px double var(--ink);
+    font-family: var(--mono); font-size: 12px; color: var(--ink-soft);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+  .fade { animation: fadeUp .7s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px);} to { opacity: 1; transform: none;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead fade">
+  <span class="series-tag">kr-by-claude 리뷰 시리즈 · 1 / 4</span>
+  <h1>LLM이 하는 일 중,<br><em>계산기로 옮길 수 있는 것들</em></h1>
+  <p class="dek">이 프로젝트는 세 곳에서 Claude(LLM)를 호출한다. 그런데 LLM에게 시키는 일의 상당 부분은 사실 "정해진 규칙대로 숫자를 비교하는 일"이다. 이런 일은 일반 코드로 빼면 더 싸고, 더 빠르고, 결과가 절대 흔들리지 않는다. 이 문서는 어디를 뺄 수 있고, 어디는 반드시 LLM이어야 하는지를 초보자 눈높이로 정리한다.</p>
+  <p class="byline">작성 2026-07-08 밤 · 코드 기준 origin/main · 자동 생성 후 리뷰 반복 검증</p>
+</header>
+
+<nav class="toc fade">
+  <strong>차례</strong>
+  <ol>
+    <li><a href="#basics">먼저: "결정론적"이 무슨 뜻인가</a></li>
+    <li><a href="#map">이 프로젝트가 LLM을 쓰는 세 곳</a></li>
+    <li><a href="#site-a">사이트 A — 차트 분류 (analyze_chart)</a></li>
+    <li><a href="#site-b">사이트 B — 매수 타이밍 확인 (evaluate_pivot)</a></li>
+    <li><a href="#site-c">사이트 C — 매수 파라미터 계산 (entry_params)</a></li>
+    <li><a href="#priority">무엇부터 빼면 좋은가 — 우선순위</a></li>
+    <li><a href="#caution">뺄 때 반드시 지켜야 할 것</a></li>
+  </ol>
+</nav>
+
+<section id="basics" class="fade">
+  <h2><span class="no">1</span>먼저: "결정론적"이 무슨 뜻인가</h2>
+  <div class="rule"></div>
+  <p><strong>결정론적(deterministic)</strong>이란 "같은 입력을 넣으면 언제나 정확히 같은 출력이 나온다"는 뜻이다. 계산기가 대표적이다. <code>3 &gt; 2</code>는 백 번 물어도 참이다.</p>
+  <p>반면 <strong>LLM은 확률적</strong>이다. 같은 차트를 두 번 보여주면 대체로 비슷하게 답하지만, 가끔 다르게 답한다. 이 프로젝트의 메모에도 "LLM 비결정성 때문에 재실행 비교 금지"라는 규칙이 있을 정도다.</p>
+  <div class="callout">
+    <span class="label">핵심 구분법</span>
+    <p>LLM에게 시키는 일을 한 문장으로 적어보고 이렇게 물어보면 된다 — <strong>"이 일은 숫자와 규칙만으로 답이 정해지는가?"</strong></p>
+    <p>"거래량이 50일 평균의 1.4배를 넘는가?" → 숫자 비교다. 코드로 빼야 한다. <span class="badge code">코드</span><br>
+    "이 차트의 바닥이 완만한 U자인가, 급한 V자인가?" → 모양을 보는 눈이 필요하다. LLM이 맡는다. <span class="badge llm">LLM</span></p>
+  </div>
+  <p>이 문서에서 자주 나오는 용어 네 개만 먼저 짚는다.</p>
+  <ul>
+    <li><strong>pivot(피벗)</strong> — "이 가격을 넘어서면 매수를 고려한다"는 <em>돌파 기준 가격선</em>. 보통 차트 바닥권(베이스)의 고점 근처에 놓인다.</li>
+    <li><strong>payload(페이로드)</strong> — LLM에게 건네주는 <em>입력 데이터 묶음</em>(가격·거래량·지표 등을 담은 JSON).</li>
+    <li><strong>분배일(distribution day)</strong> — 거래량이 실린 하락일. "기관이 물량을 던진 흔적"으로 읽는 신호다.</li>
+    <li><strong>§ 표기</strong> — 아래에서 "§3.1"처럼 쓰는 절 번호는 <em>이 문서가 아니라 각 프롬프트 파일(.md)의 절 번호</em>다. 프롬프트를 열면 해당 규칙을 그대로 찾을 수 있다.</li>
+  </ul>
+  <p>왜 빼는 게 좋은가? 세 가지다.</p>
+  <ul>
+    <li><strong>비용</strong> — LLM 호출은 토큰(= 돈과 시간)을 쓴다. 숫자 비교를 LLM에게 시키는 것은 회계사에게 "1+1을 계산해 달라"고 의뢰하는 것과 같다.</li>
+    <li><strong>정확성</strong> — LLM은 산수를 가끔 틀린다. 실제로 이 프로젝트에는 LLM이 payload의 현재가를 잘못 읽는 사고를 잡으려고 "echo 검증"(LLM이 받은 숫자를 그대로 되뇌게 해서 대조)까지 만들어져 있다. 코드는 애초에 틀리지 않는다.</li>
+    <li><strong>재현성</strong> — 백테스트나 감사를 할 때 결정론 부분은 언제든 똑같이 재실행해 검증할 수 있다. LLM 부분은 그게 안 된다. 결정론 영역이 넓어질수록 검증 가능한 영역이 넓어진다.</li>
+  </ul>
+</section>
+
+<section id="map" class="fade">
+  <h2><span class="no">2</span>이 프로젝트가 LLM을 쓰는 세 곳</h2>
+  <div class="rule"></div>
+  <p>모든 LLM 호출은 <code>kr_pipeline/llm_runner/llm/claude_cli.py</code>의 <code>call_claude()</code> 하나를 거친다. 이 관문을 통해 실제로 쓰이는 프롬프트는 3개다. (4번째 프롬프트 <code>verify_analysis_v1.md</code>도 있지만, 이것은 파이프라인이 호출하지 않고 사람이 수동 검증할 때 쓰라고 ZIP에 동봉되는 문서다.)</p>
+  <div class="flow">
+    <div class="step det"><span class="t">결정론 스크리너</span><span class="d">Minervini 8조건 통과 종목만 추림 (LLM 없음)</span></div>
+    <span class="arrow">→</span>
+    <div class="step llm"><span class="t">A. 차트 분류</span><span class="d">entry / watch / ignore 판정 + 패턴 인식</span></div>
+    <span class="arrow">→</span>
+    <div class="step llm"><span class="t">B. 매수 타이밍</span><span class="d">"오늘 사도 되나?" go_now / wait / abort</span></div>
+    <span class="arrow">→</span>
+    <div class="step llm"><span class="t">C. 매수 파라미터</span><span class="d">진입가·손절가·비중·목표가 산출</span></div>
+  </div>
+  <div class="tbl-scroll"><table>
+    <thead><tr><th>사이트</th><th>프롬프트</th><th>입력에 차트 이미지?</th><th>출력</th><th>결정론화 여지</th></tr></thead>
+    <tbody>
+      <tr><td><strong>A</strong> 차트 분류</td><td><code>analyze_chart_v3.md</code> (577줄)</td><td><strong>있음</strong> (일봉+주봉 PNG 2장)</td><td>분류·패턴·pivot·리스크 플래그·근거문</td><td>부분 <span class="badge mix">혼합</span></td></tr>
+      <tr><td><strong>B</strong> 매수 타이밍</td><td><code>evaluate_pivot_trigger_v1.md</code> (171줄)</td><td>없음 (숫자 JSON만)</td><td>go_now / wait / abort + 근거</td><td>대부분 <span class="badge code">코드</span></td></tr>
+      <tr><td><strong>C</strong> 매수 파라미터</td><td><code>calculate_entry_params_v2_0.md</code> (595줄)</td><td>없음 (숫자 JSON만)</td><td>17개 필드 (진입가·손절·비중…)</td><td>거의 전부 <span class="badge code">코드</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout teal">
+    <span class="label">한눈에 보는 결론</span>
+    <p>차트 <strong>이미지를 보는 일은 A뿐</strong>이다. B와 C는 LLM에게 숫자 JSON만 주고 "규칙대로 판정/계산하라"고 시킨다. 즉 B와 C는 구조적으로 결정론화에 훨씬 가깝고, 특히 C는 프롬프트 자체가 사실상 계산 절차서다.</p>
+  </div>
+</section>
+
+<section id="site-a" class="fade">
+  <h2><span class="no">3</span>사이트 A — 차트 분류 (analyze_chart)</h2>
+  <div class="rule"></div>
+
+  <div class="site-card">
+    <div class="head">
+      <h3>A. analyze_chart_v3 — "이 종목, 살 후보인가?"</h3>
+      <span class="file">weekend.py · daily_delta.py · backfill.py → prompts/analyze_chart_v3.md</span>
+    </div>
+    <div class="body">
+      <p><strong>지금 하는 일:</strong> 결정론 스크리너를 통과한 종목마다 차트 PNG 2장(일봉·주봉)과 숫자 데이터(OHLCV, 지표, 시장 맥락)를 주고 <code>entry</code>(진입 후보) / <code>watch</code>(관찰) / <code>ignore</code>(제외)로 분류하게 한다. 패턴 이름(컵앤핸들, VCP 등), pivot 가격, 리스크 플래그, 한국어 근거문도 함께 받는다.</p>
+      <p><strong>이미 결정론으로 둘러싸여 있다:</strong> 앞단에서 결정론 스크리너가 후보를 거르고, 뒷단에서 <code>handle_quality</code>(핸들 품질을 DB 숫자로 재계산), monotone backstop(LLM 판정을 절대 승격시키지 않는 안전장치), 가격 sanity 검증이 LLM 출력을 다시 검사한다. 즉 "LLM을 못 믿겠으면 코드로 재검산한다"는 패턴이 이미 이 프로젝트의 관례다.</p>
+
+      <div class="verdict">
+        <div class="yes">
+          <div class="hd">코드로 뺄 수 있는 것 <span class="badge code">코드</span></div>
+          <ul>
+            <li><strong>§2 마진 카운트</strong> — "8개 조건 중 3개 이상이 3% 미만 여유면 confidence를 낮춰라". 조건별 마진은 payload의 <code>conditions_detail</code>에 이미 숫자로 들어 있다. 세는 건 코드 몫이다.</li>
+            <li><strong>§3.5 시장 방향 하드룰</strong> — "시장이 하락세면 최대 watch". 시장 상태는 결정론 계산된 <code>market_context</code>로 전달된다. if문이면 끝난다.</li>
+            <li><strong>§4.7 pivot 산술</strong> — "pivot = 핸들 고가 + 0.1" 같은 덧셈. 어느 고가를 쓸지(패턴 판정)는 LLM이 정하더라도, 덧셈은 코드가 하면 된다.</li>
+            <li><strong>§8.5 watch_reason ±5% 밴드</strong> — pivot이 확정된 종목의 현재가가 pivot의 ±5% 안인지 계산해 "돌파 대기(watch) / 진입(entry) / 이미 연장(watch)" 세 구간을 가르는 산술 부분. 단, 그 전제인 "pivot이 정의될 만큼 베이스가 완성됐는가"는 구조 판단이라 LLM에 남는다.</li>
+            <li><strong>§6.1/§6.2 climax·topping 정량 게이트</strong> — "3주에 25% 이상 급등", "10주선 아래 8주" 같은 조건은 주봉 숫자 비교다. <code>handle_quality</code>를 결정론으로 뺀 것과 똑같은 방식으로 뺄 수 있다. 단서: §6.1의 기준점(상승 국면 시작점) 식별과 소진 갭(exhaustion gap) 판정은 판단 요소라, 그 부분만 근사 정의가 필요하다.</li>
+          </ul>
+          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0;">참고 — 프롬프트 첫머리의 "ETF면 무조건 ignore" 규칙은 결정론화 대상이 <em>아니다</em>. ETF·리츠·스팩 등은 이미 유니버스 적재 단계(<code>universe/transform.py</code>)에서 결정론적으로 걸러지므로 ETF가 LLM 앞까지 오는 일 자체가 없다. 프롬프트의 이 규칙은 만약을 위한 방어층이다.</p>
+        </div>
+        <div class="no">
+          <div class="hd">LLM에 남겨야 하는 것 <span class="badge llm">LLM</span></div>
+          <ul>
+            <li><strong>바닥 모양 인식</strong> — 완만한 U자인지 급한 V자인지, 둥근바닥인지. 숫자 몇 개로 환원하기 어려운 시각 판단.</li>
+            <li><strong>VCP 수축의 "조여듦"</strong> — 수축 횟수는 셀 수 있어도, 전체적으로 깔끔하게 조여드는 질감인지는 판단의 영역.</li>
+            <li><strong>핸들 drift 방향, shakeout, wedging</strong> — 미묘한 형태 신호.</li>
+            <li><strong>wide-and-loose 질감</strong> — "차트가 지저분하다"는 종합 인상.</li>
+            <li><strong>한국어 근거문 작성</strong> — 사람이 읽을 설명문 생성은 LLM 고유 영역.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout gold">
+        <span class="label">현실적인 형태</span>
+        <p>A는 "LLM 제거"가 아니라 <strong>역할 축소</strong>가 정답이다: 정량 게이트는 코드가 먼저 계산해 결과를 payload에 넣어주고, LLM은 "모양 인식 + 그 결과의 종합"만 맡는 구조. 이미 <code>handle_quality</code>·<code>failed_breakout</code>이 이 방식으로 옮겨진 선례가 있어서, 같은 길을 따라가면 된다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="site-b" class="fade">
+  <h2><span class="no">4</span>사이트 B — 매수 타이밍 확인 (evaluate_pivot)</h2>
+  <div class="rule"></div>
+
+  <div class="site-card">
+    <div class="head">
+      <h3>B. evaluate_pivot_trigger_v1 — "오늘 사도 되는 날인가?"</h3>
+      <span class="file">evaluate_pivot.py → prompts/evaluate_pivot_trigger_v1.md</span>
+    </div>
+    <div class="body">
+      <p><strong>지금 하는 일:</strong> A에서 entry/watch로 분류된 종목이 pivot 가격을 돌파하는 등 조건이 무르익으면, 차트 없이 숫자 JSON만 주고 <code>go_now</code>(지금 매수) / <code>wait</code>(대기) / <code>abort</code>(포기) 중 하나를 판정하게 한다.</p>
+      <p><strong>재미있는 설계:</strong> 이미 <code>trigger_gate.py</code>라는 결정론 게이트가 "거래량 1.0배 이상" 같은 <em>느슨한</em> 1차 필터를 하고, "정밀 판정(1.4배 기준 등)은 LLM에게"라고 일부러 위임해 놓았다. 그런데 그 정밀 판정의 대부분도 사실 숫자 비교다.</p>
+
+      <div class="verdict">
+        <div class="yes">
+          <div class="hd">코드로 뺄 수 있는 것 <span class="badge code">코드</span></div>
+          <ul>
+            <li><strong>go_now 5대 정량 조건(§3.1)</strong> — ① 종가 &gt; pivot, ② 거래량 &gt; 50일 평균 × 1.4, ③ 종가가 당일 범위의 상단 ⅓ (<code>(close−low)/(high−low) ≥ ⅔</code>), ④ 당일 변동폭 ≤ 평균 × 1.5, ⑤ 최근 3일 분배일 없음. 모두 산술이다. 다만 ①~③은 payload 숫자로 바로 되고, ④는 "평균 변동폭"의 기간 정의를 새로 정해야 하며, ⑤는 일자별 50일 평균 거래량이 payload에 없어 payload 확장(또는 DB 조회)이 필요하다 — "그대로 옮기면 끝"은 아니고 운영 정의 몇 개를 박는 작업이 따른다.</li>
+            <li><strong>이동평균선 가드</strong> — sma_21, sma_50 대비 위치 비교. payload에 이미 계산돼 들어 있다.</li>
+            <li><strong>invalidation·promotion의 정량 조건(§3.2, §3.3)</strong> — 가격이 기준선 아래로 얼마나, 며칠간, 같은 셈이다.</li>
+            <li><strong>§3.5 breakout_from_watch의 watch_reason별 게이트</strong> — 예: watch 사유가 "시장 여건 불리"였으면 <code>market_context</code>가 confirmed_uptrend일 때만 go_now, "마진 부족"이었으면 8조건 전부 통과 + 마진 3% 이상 회복일 때만 go_now. §3.1보다도 더 순수한 if문 규칙인데 지금 LLM이 수행 중이다.</li>
+          </ul>
+        </div>
+        <div class="no">
+          <div class="hd">LLM에 남겨야 하는 것 <span class="badge llm">LLM</span></div>
+          <ul>
+            <li><strong>경계 상황의 종합 판단</strong> — "오늘 음봉이 일회성 흔들기(shakeout)인지, 베이스 붕괴의 시작인지"는 규칙 몇 줄로 안 끝난다.</li>
+            <li><strong>abort 사유의 서술</strong> — 8종 카탈로그 중 고르는 것 자체는 규칙화 가능하지만, 애매한 경계의 해석은 판단이다.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout teal">
+        <span class="label">가장 실속 있는 중간 단계</span>
+        <p>정량 조건 5개를 코드로 미리 계산해서 <strong>"조건 체크 결과표"를 payload에 넣어주는 것</strong>만으로도 효과가 크다. LLM은 산수를 다시 할 필요 없이 "체크는 다 통과했는데 미심쩍은 정황이 있는가?"만 보면 된다. 정량 조건이 하나라도 명확히 미달이면 LLM을 부르지 않고 코드가 바로 wait 처리할 수도 있다 — 호출 수 자체가 줄어든다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="site-c" class="fade">
+  <h2><span class="no">5</span>사이트 C — 매수 파라미터 계산 (entry_params)</h2>
+  <div class="rule"></div>
+
+  <div class="site-card">
+    <div class="head">
+      <h3>C. calculate_entry_params_v2_0 — "얼마에 사고, 어디서 손절하고, 얼마나 살까?"</h3>
+      <span class="file">entry_params.py → prompts/calculate_entry_params_v2_0.md</span>
+    </div>
+    <div class="body">
+      <p><strong>지금 하는 일:</strong> B에서 go_now가 나온 종목에 대해, 숫자 JSON을 주고 진입 트리거가·손절가·포지션 비중·목표수익·유효기간 등 17개 필드를 산출하게 한다.</p>
+      <p><strong>솔직한 진단:</strong> 이 프롬프트(595줄)는 읽어보면 <em>계산 절차서</em>다. 몇 가지만 보자.</p>
+      <ul>
+        <li>트리거가 = <code>round(pivot × 1.001, 2)</code> — 그냥 곱셈이다.</li>
+        <li>손절 = "고정 −7%(특정 플래그면 −5.5%)와 논리적 손절((base_low×0.995−pivot)/pivot) 중 덜 깊은 쪽, 그리고 −10%~−5% 사이로 자르기" — max와 clamp다.</li>
+        <li>비중 = 패턴별 기본값(15/10/7/5%) × 리스크 플래그 배수(×0.7, ×0.5) 후 3~25%로 자르기 — 곱셈표다.</li>
+        <li>목표수익 = 기본 20%, VCP면 25%, 특정 조건이면 15%, 15~50%로 자르기 — 조회표다.</li>
+      </ul>
+      <p>게다가 프롬프트 끝에는 §11 "계산 체크리스트"가 있는데, 이것은 사실상 <strong>이 계산의 의사코드(pseudocode)</strong>다. 출력이 오면 코드가 echo 검증(현재가 오독 탐지)과 HARD/SOFT sanity 검증을 돌리는데 — 주의할 점은 이 검증이 <strong>범위·정합성 검사일 뿐 산식 재계산이 아니라는 것</strong>이다. "손절가가 진입가보다 높으면 거부" 같은 구조적 불가능과 책 권장 범위 이탈만 잡지, 티어 선택이나 배수 적용이 맞았는지는 아무도 재검산하지 않는다. 즉 지금 구조에서는 LLM이 곱셈표를 잘못 적용해도 범위 안이기만 하면 그대로 저장된다. 결정론 함수로 바꾸면 이 빈틈 자체가 사라진다.</p>
+
+      <div class="verdict">
+        <div class="yes">
+          <div class="hd">코드로 뺄 수 있는 것 <span class="badge code">코드</span></div>
+          <ul>
+            <li><strong>17필드 거의 전부.</strong> 입력(pivot, base_low, close, sma50, 플래그들)이 모두 숫자이고 규칙이 모두 명시돼 있으므로, 프롬프트 §11 체크리스트를 그대로 Python 함수로 옮기면 된다.</li>
+            <li>부수 효과: LLM 호출 1회 제거, echo 검증·sanity 검증 같은 방어 장치도 상당 부분 불필요해짐(코드는 오독하지 않으므로), 백테스트에서 완전 재현 가능.</li>
+          </ul>
+        </div>
+        <div class="no">
+          <div class="hd">LLM에 남겨야 하는 것 <span class="badge llm">LLM</span></div>
+          <ul>
+            <li><strong>많지 않지만, 0은 아니다.</strong> ① <em>3c_cheat 판정</em> — A는 컵앤핸들까지만 식별하고, "컵 하단~중단 ⅓에 쉼표(pause) 구간이 있는가"를 보고 cheat 진입으로 세분하는 일은 프롬프트가 명시적으로 C의 몫으로 규정한다. ② <em>pattern이 none일 때의 폴백</em> — "최근 5주 횡보 구간 고가에 pivot을 놓아라"는 규칙은 "횡보 구간"의 식별이 필요하다. ③ <em>VCP 마지막 수축폭 기준의 추격 한도</em> — 필요한 수축폭 데이터가 현재 payload에 전달되지 않는다.</li>
+            <li>따라서 "통째 대체"를 하려면 이 세 분기를 <strong>결정론 근사로 재정의하거나 보수적 기본값으로 포기</strong>하는 결정이 선행돼야 한다. 세 경우 모두 발생 빈도가 낮고 보수적 폴백이 자연스러워, 대체 자체를 막을 정도는 아니다.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout">
+        <span class="label">가장 확실한 1순위</span>
+        <p>C는 "LLM 축소"가 아니라 <strong>통째로 결정론 함수로 대체</strong>가 가능한 사이트다. 위험도 가장 낮다 — 이미 존재하는 검증 코드(echo·sanity)가 정답 범위를 정의하고 있고, 과거 LLM 출력 로그와 새 함수 출력을 나란히 비교(백필 패턴 판정)하면 이행 검증도 결정론적으로 끝난다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="priority" class="fade">
+  <h2><span class="no">6</span>무엇부터 빼면 좋은가 — 우선순위</h2>
+  <div class="rule"></div>
+  <div class="rank">
+    <div class="item">
+      <div>
+        <h4>사이트 C 전체를 결정론 함수로 대체 <span class="badge code">효과 大 · 위험 小</span></h4>
+        <p>프롬프트가 이미 알고리즘이고, 검증 코드가 정답 범위를 알고 있다. LLM 호출 하나가 통째로 사라지고, 산수 오적용 리스크가 0이 된다. 선행 결정 3건(3c_cheat·none 폴백·VCP 추격한도의 결정론 근사)을 먼저 확정할 것. 이행 검증: 과거 go_now 건들에 대해 새 함수를 돌려 저장된 LLM 출력과 필드별 비교.</p>
+      </div>
+    </div>
+    <div class="item">
+      <div>
+        <h4>사이트 B의 정량 게이트 전부를 코드 선계산으로 <span class="badge mix">효과 中 · 위험 小</span></h4>
+        <p>거래량 1.4배, 상단 ⅓ 마감, 변동폭, 분배일 카운트, 이평선 가드, watch_reason별 게이트(§3.5)를 코드가 먼저 계산해 결과표로 전달. 명백 미달 건은 LLM 호출 없이 wait 처리 → 호출 수 감소. LLM은 경계 상황의 종합 판단만 담당.</p>
+      </div>
+    </div>
+    <div class="item">
+      <div>
+        <h4>사이트 A의 정량 게이트를 순차적으로 이관 <span class="badge mix">효과 中 · 위험 中</span></h4>
+        <p>§2 마진 카운트 → §3.5 시장 하드룰 → §8.5 watch_reason 밴드(산술 부분) → §6.1/6.2 climax·topping 게이트 순. <code>handle_quality</code> 이관 때 쓴 "코드로 재계산 + monotone backstop" 패턴을 재사용.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="caution" class="fade">
+  <h2><span class="no">7</span>뺄 때 반드시 지켜야 할 것</h2>
+  <div class="rule"></div>
+  <ul>
+    <li><strong>임계값의 단일 출처(SSOT)를 지켜라.</strong> 책에서 온 임계값은 <code>kr_pipeline/common/thresholds.py</code>가 유일한 정의다. 결정론화하면서 숫자를 코드에 하드코딩하지 말고 반드시 thresholds.py를 import 해야 한다. 프롬프트 문구와 thresholds.py의 정합은 <code>test_prompt_threshold_drift.py</code>가 감시하고 있는데, 규칙을 프롬프트에서 <em>빼면</em> 이 테스트와 프로젝트의 임계 변경 체크리스트(의존성 맵)도 함께 갱신해야 한다.</li>
+    <li><strong>LLM 축소는 곧 프롬프트 변경이다.</strong> 프롬프트에서 규칙을 덜어낼 때, 남은 규칙들이 그 규칙을 참조하고 있지 않은지(예: confidence 감점 규칙이 마진 카운트를 전제) 의존성을 점검해야 한다.</li>
+    <li><strong>비교 검증은 "패턴 판정"으로.</strong> LLM은 비결정적이므로 "결정론 함수 결과 = LLM 재실행 결과" 식의 1:1 비교는 성립하지 않는다. 과거 <em>저장된</em> LLM 출력 로그와 비교하고, 차이는 건별로 어느 쪽이 규칙에 충실한지 판정하는 방식이어야 한다.</li>
+    <li><strong>단계적으로, 한 번에 하나씩.</strong> C 전체 → B 정량 → A 부분 순으로, 각 단계마다 백테스트 재현으로 확인하고 넘어가는 것이 안전하다.</li>
+  </ul>
+  <div class="callout teal">
+    <span class="label">마지막 요약</span>
+    <p>이 프로젝트의 LLM은 "눈"(차트 모양 인식)과 "계산기"(숫자 규칙 실행)를 겸직하고 있다. 계산기 일은 코드에게 돌려주자. <strong>C는 통째로, B는 정량 조건을, A는 정량 게이트를.</strong> 그러면 LLM은 진짜 잘하는 일 — 모양을 보고, 경계를 판단하고, 사람에게 설명하는 일 — 에만 집중하게 된다.</p>
+  </div>
+</section>
+
+<footer>
+  <span>kr-by-claude 리뷰 시리즈 1/4 — LLM 결정론적 분리</span>
+  <span>다음: 02 LLM 효율화 방안</span>
+</footer>
+
+</div>
+</body>
+</html>

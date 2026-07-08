@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>분석 체계 비효율 검토 — kr-by-claude 리뷰 시리즈 4/4</title>
+<style>
+  :root {
+    --paper: #f7f3ea;
+    --paper-deep: #efe8d8;
+    --ink: #2b2620;
+    --ink-soft: #5c544a;
+    --accent: #8a3324;
+    --accent-soft: #f3e0da;
+    --teal: #1f5f5b;
+    --teal-soft: #dcebe9;
+    --gold: #a07d2a;
+    --gold-soft: #f2ead2;
+    --line: #d8cfbd;
+    --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    background-image: radial-gradient(circle at 20% 5%, rgba(31,95,91,.06), transparent 40%),
+                      radial-gradient(circle at 92% 88%, rgba(138,51,36,.05), transparent 45%);
+    color: var(--ink);
+    font-family: "Apple SD Gothic Neo", "Noto Sans KR", "Pretendard", sans-serif;
+    line-height: 1.75; font-size: 16.5px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 28px 120px; }
+  header.masthead { padding: 72px 0 40px; border-bottom: 3px double var(--ink); margin-bottom: 8px; }
+  .series-tag {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent); display: inline-block; border: 1px solid var(--accent);
+    padding: 4px 12px; border-radius: 999px; margin-bottom: 24px;
+  }
+  h1 { font-family: "Nanum Myeongjo", serif; font-size: clamp(30px, 5vw, 44px); font-weight: 800; line-height: 1.3; margin-bottom: 18px; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .dek { font-size: 18px; color: var(--ink-soft); max-width: 42em; }
+  .byline { margin-top: 22px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); }
+  nav.toc { margin: 36px 0 56px; padding: 22px 26px; background: var(--paper-deep); border-left: 4px solid var(--ink); }
+  nav.toc strong { display:block; font-size: 13px; letter-spacing:.12em; margin-bottom: 10px; }
+  nav.toc ol { margin-left: 20px; }
+  nav.toc a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--ink-soft); }
+  nav.toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  section { margin-bottom: 72px; }
+  h2 { font-family: "Nanum Myeongjo", serif; font-size: 27px; font-weight: 800; margin-bottom: 6px; display: flex; align-items: baseline; gap: 14px; }
+  h2 .no {
+    font-family: var(--mono); font-size: 15px; color: var(--accent);
+    border: 1.5px solid var(--accent); border-radius: 50%;
+    width: 32px; height: 32px; flex: 0 0 32px;
+    display: inline-flex; align-items: center; justify-content: center; transform: translateY(-2px);
+  }
+  .rule { width: 64px; height: 3px; background: var(--accent); margin: 14px 0 22px; }
+  p { margin-bottom: 16px; max-width: 46em; }
+  ul, ol { margin: 0 0 18px 24px; }
+  li { margin-bottom: 8px; max-width: 44em; }
+  code { font-family: var(--mono); font-size: .85em; background: var(--paper-deep); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); }
+  .callout { margin: 26px 0; padding: 20px 24px; border-radius: 6px; background: var(--accent-soft); border-left: 4px solid var(--accent); }
+  .callout.teal { background: var(--teal-soft); border-left-color: var(--teal); }
+  .callout.gold { background: var(--gold-soft); border-left-color: var(--gold); }
+  .callout .label { font-family: var(--mono); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; display: block; margin-bottom: 8px; }
+  .callout p:last-child { margin-bottom: 0; }
+  .badge { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; padding: 2px 9px; border-radius: 999px; color:#fff; vertical-align: 2px; white-space: nowrap; }
+  .badge.sure { background: var(--accent); }
+  .badge.cond { background: var(--gold); }
+  .badge.minor{ background: #7a7263; }
+  .badge.pr   { background: var(--teal); }
+  .finding {
+    border: 1.5px solid var(--ink); border-radius: 10px; background: #fffdf7;
+    margin: 26px 0; overflow: hidden; box-shadow: 5px 5px 0 rgba(43,38,32,.10);
+  }
+  .finding .head { padding: 15px 22px; background: var(--ink); color: var(--paper); display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  .finding .head h3 { margin: 0; font-size: 16.5px; color: var(--paper); }
+  .finding .body { padding: 20px 22px; }
+  .finding .fix { font-size: 14.5px; color: var(--teal); margin-top: 10px; }
+  .finding .fix::before { content: "고치는 방향 — "; font-weight: 700; }
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 26px 0; }
+  .stat { background: #fffdf7; border: 1.5px solid var(--ink); border-radius: 10px; padding: 18px 20px; box-shadow: 4px 4px 0 rgba(43,38,32,.10); }
+  .stat .v { font-family: "Nanum Myeongjo", serif; font-size: 28px; font-weight: 800; color: var(--accent); line-height: 1.15; }
+  .stat .k { font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; line-height: 1.5; }
+  .tbl-scroll { overflow-x: auto; margin: 22px 0; border: 1px solid var(--line); border-radius: 8px; background: #fffdf7; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 640px; }
+  th { text-align: left; font-size: 12px; letter-spacing: .08em; padding: 12px 16px; background: var(--paper-deep); border-bottom: 2px solid var(--ink); white-space: nowrap; }
+  td { padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  footer { margin-top: 90px; padding-top: 24px; border-top: 3px double var(--ink); font-family: var(--mono); font-size: 12px; color: var(--ink-soft); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .fade { animation: fadeUp .7s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px);} to { opacity: 1; transform: none;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead fade">
+  <span class="series-tag">kr-by-claude 리뷰 시리즈 · 4 / 4</span>
+  <h1>어디서 <em>새고</em> 있는가<br>— 비효율 검토</h1>
+  <p class="dek">이번 편은 LLM 밖의 이야기다. 매일 도는 데이터 파이프라인, cron 스케줄, 디스크, 그리고 사람 손이 반복하는 일 — 여기서 낭비되는 컴퓨트·시간·저장공간을 찾아냈다. 반가운 사실 하나: 가장 큰 발견 3건은 이미 오픈 PR로 수리 대기 중이었다.</p>
+  <p class="byline">작성 2026-07-08 밤 · 방법: 코드 정독 + 설치된 crontab 실물 + 디스크 실측 (모순·LLM 토큰 최적화는 2·3편에서 기감사, 여기선 제외)</p>
+</header>
+
+<nav class="toc fade">
+  <strong>차례</strong>
+  <ol>
+    <li><a href="#big">큰 그림: 네 갈래의 낭비</a></li>
+    <li><a href="#compute">파이프라인 컴퓨트 — 반복 낭비</a></li>
+    <li><a href="#schedule">스케줄 구조 — 헛돌거나, 시간 갭에 기대거나</a></li>
+    <li><a href="#dead">죽은 무게 — 스토리지와 잔존물</a></li>
+    <li><a href="#toil">사람 손 — 반복 수작업</a></li>
+    <li><a href="#clean">효율적이라고 확인한 것들</a></li>
+    <li><a href="#priority">우선순위 요약</a></li>
+  </ol>
+</nav>
+
+<section id="big" class="fade">
+  <h2><span class="no">1</span>큰 그림: 네 갈래의 낭비</h2>
+  <div class="rule"></div>
+  <p>이 시스템은 매일 저녁 ~2,550개 전 종목의 시세를 갱신하고 지표를 계산한 뒤, 소수 후보만 LLM으로 보낸다. 낭비는 주로 "전 종목을 상대하는 앞단"에서 발생한다. 크게 네 갈래다:</p>
+  <div class="stat-row">
+    <div class="stat"><div class="v">~7,600회</div><div class="k">하루에 나가는 외부 API 호출 (KRX ~5,100 + DART ~2,500) — 대부분 "변한 게 없다"는 답을 받으러 간다</div></div>
+    <div class="stat"><div class="v">~21만 행</div><div class="k">하루에 다시 쓰는 DB 행 버전 — 실제 신규는 ~2,550행, 나머지 ~99%는 기존 행 재기록(대부분 같은 값으로 추정 — 미측정)</div></div>
+    <div class="stat"><div class="v">106MB</div><div class="k">무한 증가 중인 freeze 보관함 (1,236개) — 청소 코드는 완성돼 있는데 실행 주체가 없었다</div></div>
+    <div class="stat"><div class="v">연 ~12일</div><div class="k">휴장일에도 헛도는 전체 파이프라인 (거래일 게이트 부재)</div></div>
+  </div>
+  <div class="callout teal">
+    <span class="label">먼저 알아둘 것 — 이미 수리가 시작된 항목들</span>
+    <p>이 감사의 상위 발견 중 3건은 <strong>이미 오픈 PR로 리뷰 대기 중</strong>이다: DART 호출 일괄화(<strong>PR #13</strong>), freeze 청소 스케줄 편입(<strong>PR #11</strong>), 테스트 baseline 0화(<strong>PR #12</strong>). 리포 잔존물의 .gitignore 정리도 <strong>PR #4</strong>로 나와 있다. 아래에서는 해당 항목에 PR 배지를 달아 표시한다 — <strong>이들의 최우선 액션은 "새 작업"이 아니라 "리뷰하고 머지"</strong>다.</p>
+  </div>
+</section>
+
+<section id="compute" class="fade">
+  <h2><span class="no">2</span>파이프라인 컴퓨트 — 반복 낭비</h2>
+  <div class="rule"></div>
+
+  <div class="finding">
+    <div class="head"><h3>C1 — 같은 KOSPI 지수를 종목마다 다시 읽는다</h3><span><span class="badge sure">확실</span></span></div>
+    <div class="body">
+      <p>일봉 지표 계산은 종목별 루프인데, 모든 종목에 공통인 <strong>KOSPI 지수 시계열을 루프 안에서</strong> 매번 DB에서 다시 읽는다(<code>indicators/modes.py:141</code>). 하루에 같은 쿼리 ~2,550회, 중복 전송 ~74만 행. 주봉 체인도 같은 패턴이다.</p>
+      <p class="fix">루프 진입 전에 한 번 읽어 인자로 전달. 몇 줄짜리 수정으로 하루 DB 왕복 2,550회가 사라진다.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>C2 — 30일치를 매일 4중으로 다시 쓰는 지표 테이블</h3><span><span class="badge cond">조건부</span></span></div>
+    <div class="body">
+      <p>일봉 지표 증분은 안전마진으로 <strong>최근 30일 창</strong>을 다시 계산하는데, 그 창의 ~5.3만 행에 매일 upsert(있으면 갱신·없으면 삽입) + RS UPDATE + 스크리너 UPDATE + 주봉 게이트 UPDATE의 <strong>4중 쓰기</strong>가 들어간다. 값이 어제와 같아도 무조건 재기록되는 구조라 하루 행 버전 ~21만 개가 생긴다(PostgreSQL은 UPDATE 때 행을 새로 쓰고 옛 행을 남기므로, 같은 값이어도 쓰기 비용이 든다). 그중 어느 비율이 실제 "같은 값 재기록"인지는 <strong>미측정</strong>이다 — RS 등급처럼 과거 날짜 값이 정당하게 매일 바뀌는 컬럼도 있다. DB는 자동 청소(VACUUM)로 버티지만 I/O는 매일 지불한다.</p>
+      <p><strong>트레이드오프</strong>: 30일 창은 늦은 데이터 정정을 흡수하는 보험이다. 다만 가격 정정은 이미 별도의 drift 경로가 전 기간 재적재로 처리하므로, 이 보험은 상당 부분 중복이다.</p>
+      <p class="fix">창을 5일 안팎으로 줄이거나, UPDATE에 "값이 실제로 달라졌을 때만" 가드(<code>IS DISTINCT FROM</code>)를 넣기. 안전마진 축소는 검토 후 결정.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>C3 — 시세 수신: 전 종목 × 2회 호출로 매일 30일치 재수신</h3><span><span class="badge cond">조건부</span></span></div>
+    <div class="body">
+      <p>매일 저녁 종목당 원시가+수정가 <strong>2회씩 ~5,100번의 KRX 호출</strong>로 각 30일치를 다시 받는다(신규는 사실상 1일치). pykrx에는 "날짜 하나로 전 종목 시세"를 받는 API도 있어서, 원시가 경로는 30일×2시장 ≈ <strong>60호출로 대체 가능</strong>하다. 수정가는 종목 단위 API뿐이라 부분 개선만 가능.</p>
+      <p class="fix">원시가만 날짜 단위 조회로 전환하는 부분 개선 검토. 수정가 갱신은 drift 경로 의존도를 높이는 설계 검토와 함께.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>C4 — 공시 수집: 종목별 2,500회 호출 → 기간 일괄 조회</h3><span><span class="badge sure">확실</span> <span class="badge pr">PR #13 대기</span></span></div>
+    <div class="body">
+      <p>매 평일 아침 활성 종목 각각에 DART 공시를 물어봐서 <strong>~2,500회 호출</strong>이 나가는데, 대부분 "조회 결과 없음" 응답이다. DART는 회사를 지정하지 않으면 기간 전체 공시를 한 번에(페이지당 100건) 주므로, 일일 증분은 <strong>1~수 회 호출</strong>이면 끝난다(5년 백필도 21청크) — 호출 ~99% 절감.</p>
+      <p class="fix">이미 PR #13(기간 일괄 조회 + 역매핑)이 나와 있다. 리뷰 후 머지.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>C5 — 토요일 전체 스윕과 자잘한 중복들</h3><span><span class="badge cond">조건부</span> <span class="badge minor">사소</span></span></div>
+    <div class="body">
+      <ul>
+        <li><strong>토요일 전체 스윕</strong> — 전 종목 수정가 재확인(sleep만 ~4분, 전체 수십 분). 평일 공시 기반 경로가 같은 기간을 커버하므로, 스윕이 잡는 것은 "공시가 놓친 경우"뿐. 안전망 가치는 있으니 주기 완화(격주/월간)나, 평일 경로가 못 보는 종목만 골라 도는 차집합 스윕으로.</li>
+        <li><strong>sanity 풀스캔</strong> — 적재 후 검증 COUNT 쿼리에 날짜 조건이 없어 매일 ~130만 행 테이블을 통째로 스캔. 이번 적재 범위로 WHERE 한정하면 끝(수정 극소).</li>
+        <li><strong>market_context</strong> — 매 저녁 30일×2지수를 date 루프로 재계산(실제 신규 2행). 신규 날짜만 처리로 전환 가능.</li>
+        <li><strong>평일 드리프트 이중 수신</strong> — 감지 단계에서 받은 수정가를 버리고 적재 단계에서 다시 받는다.</li>
+        <li><strong>빌더 이중 계산</strong> — LLM payload를 만들 때 minervini 상세·기업행위 블록을 두 번 계산.</li>
+        <li><strong>끝이 막힌 컬럼</strong> — 일봉 거래대금(value)은 주봉 value 집계에만 소비되는데, 정작 그 주봉 value를 읽는 곳이 없다(지수의 value는 LLM용 CSV로 소비되므로 예외). 사슬의 끝이 막혀 있는 셈. (stocks.listed_at 전체 NULL은 기지·보류.)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="schedule" class="fade">
+  <h2><span class="no">3</span>스케줄 구조 — 헛돌거나, 시간 갭에 기대거나</h2>
+  <div class="rule"></div>
+
+  <div class="finding">
+    <div class="head"><h3>S1 — 휴장일에도 전체 체인이 돈다</h3><span><span class="badge sure">확실</span></span></div>
+    <div class="body">
+      <p>daily 체인(cron 평일 18:30)에 "오늘이 거래일인가" 확인이 없다. 설·추석·임시휴장 등 <strong>연 ~12일</strong>, KRX 호출 5,100번을 포함한 전체 체인(시세→지표→시장맥락→LLM 러너)이 아무 의미 없이 돈다. 거래일 판정 함수는 이미 코드에 있고 주봉 체인에서만 쓰인다.</p>
+      <p class="fix">체인 진입부에 거래일 가드 한 줄 (기존 <code>expected_latest_trading_day</code> 재사용).</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>S2 — 시간-갭 직렬화와 이중 실행</h3><span><span class="badge cond">조건부</span> <span class="badge minor">사소</span></span></div>
+    <div class="body">
+      <ul>
+        <li><strong>고정 시각 의존</strong> — 토요일 데이터 체인(03:00, 전체 스윕 포함 20~40분 추정)과 주말 LLM(03:20) 사이가 <strong>고정 20분 갭</strong>이다. 데이터가 늦게 끝나면 LLM이 덜 된 주봉을 읽고, 일찍 끝나면 시간을 버린다. 평일 18:30→19:30→20:00도 같은 구조.</li>
+        <li><strong>performance 이중 실행</strong> — 평일 20:00 통합 실행에 이미 포함된 성과 백필이 23:00에 또 돈다(주말 23:00은 신규 가격이 없어 아무 일도 안 하고 끝난다). 실비용은 미미하나 구조 정리 대상.</li>
+      </ul>
+      <p class="fix">후속 잡을 시각이 아니라 <strong>선행 잡 완료에 체이닝</strong>(데이터 체인 꼬리에 편입 or 성공 후 kick). performance는 한 곳만 남기기.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>S3 — dry-run 리허설이 freeze까지 저장한다</h3><span><span class="badge cond">조건부</span></span></div>
+    <div class="body">
+      <p>LLM 러너는 아직 실전 대기(dry-run) 상태인데, dry-run이어도 차트 렌더 + 인라인 빌드 + <strong>freeze ZIP 디스크 저장</strong>까지 전부 실행한다. 리허설로서 렌더·빌드는 가치가 있지만, <strong>재현할 분류가 없는 dry-run freeze</strong>는 보존 가치가 낮은 순수 낭비다 — 아래 D1의 106MB 중 상당수가 이것이다.</p>
+      <p class="fix">dry-run일 때 freeze 저장 skip (플래그 하나).</p>
+    </div>
+  </div>
+</section>
+
+<section id="dead" class="fade">
+  <h2><span class="no">4</span>죽은 무게 — 스토리지와 잔존물</h2>
+  <div class="rule"></div>
+
+  <div class="finding">
+    <div class="head"><h3>D1 — freeze 보관함 106MB, 무한 증가 중</h3><span><span class="badge sure">확실</span> <span class="badge pr">PR #11 대기</span></span></div>
+    <div class="body">
+      <p><code>data/freezes</code>가 1,236개·106MB로 증가 중(5월 165 → 6월 1,020개). 90일 보존·활성 보호 로직을 갖춘 청소 코드는 <strong>완성돼 있는데, 어떤 cron에도 등록돼 있지 않았다</strong>. 실행 주체 없는 청소부.</p>
+      <p class="fix">PR #11(스케줄 편입)이 이미 나와 있다. 리뷰 후 머지. S3(dry-run freeze skip)과 함께면 증가 속도 자체도 줄어든다.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>D2 — 리포와 스크립트의 잔존물</h3><span><span class="badge minor">사소</span> <span class="badge pr">PR #4 일부</span></span></div>
+    <div class="body">
+      <ul>
+        <li>워킹트리 방치물: 백테스트 산출물 디렉토리 6.8MB(평가 번들·리콜 CSV 등), expert-inquiry 자료, 속도 리포트, 주말 분류 CSV — 커밋/이동/삭제 결정 필요 (.gitignore 정리는 PR #4).</li>
+        <li>일회성 검증 스크립트 6종(특정 시점 리플레이·재측정) — 아카이브 이동 대상.</li>
+        <li><code>scripts/cron.example</code>이 현행 crontab과 다른 옛 구성을 안내 — 삭제하고 코드가 생성하는 목록을 정본으로.</li>
+        <li>run_tracking 테이블은 보존 정책 없음(하루 ~8행이라 당장 무해).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="toil" class="fade">
+  <h2><span class="no">5</span>사람 손 — 반복 수작업</h2>
+  <div class="rule"></div>
+
+  <div class="finding">
+    <div class="head"><h3>T1 — "테스트 실패 ~25개는 원래 그래요"를 매번 사람이 센다</h3><span><span class="badge sure">확실</span> <span class="badge pr">PR #12 대기</span></span></div>
+    <div class="body">
+      <p>테스트 스위트에 격리 문제로 인한 baseline 실패가 ~25개 있어서, 모든 작업 세션이 "이번 실패 수가 늘었나?"를 눈으로 판독해왔다. 회귀 신호의 신호 대 잡음비를 갉아먹는 대표적 toil. 원인 진단(스키마 누수 + 죽은 테스트)은 이미 끝나 있었고, <strong>PR #12가 baseline을 0으로 만든다</strong>(그 과정에서 가짜 초록 2건도 발견됨).</p>
+      <p class="fix">PR #12 리뷰 후 머지 — 머지 후부터는 "실패 = 회귀"라는 단순 규칙이 성립한다.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><h3>T2 — 손으로 맞추는 동기화 2종</h3><span><span class="badge cond">조건부</span></span></div>
+    <div class="body">
+      <ul>
+        <li><strong>schema.sql 이중 수동 적용</strong> — 스키마 변경 시 운영·테스트 두 DB에 각각 <code>psql -f</code>를 사람이 실행. 빠뜨리면 INSERT/테스트가 깨진다. 기동 시 버전 체크 또는 make 타겟 한 개로 해소 가능.</li>
+        <li><strong>임계값 3원 동기화</strong> — 임계 변경 시 UI 생성 스크립트 재실행과 프롬프트 문구 갱신이 수동. 전자는 pre-commit 훅으로 자동화 가능, 후자는 drift 테스트 확장(PR #5)이 감시망을 넓혀준다.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="clean" class="fade">
+  <h2><span class="no">6</span>효율적이라고 확인한 것들</h2>
+  <div class="rule"></div>
+  <p>이번에도 "의심했지만 무죄" 목록을 남긴다 — 다음 감사가 같은 곳을 다시 파지 않도록.</p>
+  <ul>
+    <li><strong>RS 등급 벌크 UPDATE</strong> — 행별 UPDATE가 아니라 임시 테이블 + JOIN 방식, 주석에 성능 근거까지 남아 있다.</li>
+    <li><strong>LLM 러너의 조회 배치화</strong> — 활성 종목 현재가/전일가를 각 1쿼리로. N+1(목록 1번 + 항목마다 1번씩 총 N+1번 조회하는 안티패턴) 없음.</li>
+    <li><strong>헛 호출 방지 설계의 일관성</strong> — 이어하기, 멱등 가드(같은 작업을 두 번 실행해도 결과가 한 번과 동일하도록 하는 장치), 7일 중복 방지, 사용량 한도 즉시 중단이 전 경로에 있다 (2편 §3과 일치).</li>
+    <li><strong>부분 인덱스가 핫 쿼리와 정확히 정합</strong> — 후보 선별 쿼리 조건과 인덱스 조건이 일치.</li>
+    <li><strong>pykrx 타임아웃 주입</strong> — 외부 API 무한 대기 사고의 재발 차단.</li>
+    <li><strong>freeze의 단일 빌드 재사용</strong> — LLM 입력과 감사 아티팩트를 한 번의 빌드로 만들어 이중 렌더가 없다.</li>
+  </ul>
+</section>
+
+<section id="priority" class="fade">
+  <h2><span class="no">7</span>우선순위 요약</h2>
+  <div class="rule"></div>
+  <div class="tbl-scroll"><table>
+    <thead><tr><th>순위</th><th>항목</th><th>절감</th><th>노력</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>C4 DART 기간 일괄 조회</td><td>외부 호출 ~99%↓ (2,500→1~수 회/일)</td><td>—</td><td><strong>PR #13 머지</strong></td></tr>
+      <tr><td>2</td><td>D1 freeze 청소 스케줄 등록</td><td>스토리지 무한증가 정지</td><td>—</td><td><strong>PR #11 머지</strong> (+S3 skip 후속)</td></tr>
+      <tr><td>3</td><td>T1 테스트 baseline 0화</td><td>세션마다의 판독 toil 제거</td><td>—</td><td><strong>PR #12 머지</strong></td></tr>
+      <tr><td>4</td><td>C1 지수 로드 루프 밖으로</td><td>DB 왕복 2,550회 + 중복 74만 행/일</td><td>극소</td><td>신규</td></tr>
+      <tr><td>5</td><td>S1 휴장일 가드</td><td>연 ~12일치 전체 체인 (KRX 5,100호출/일 포함)</td><td>소</td><td>신규</td></tr>
+      <tr><td>6</td><td>C5 sanity 풀스캔 WHERE 한정</td><td>매일 130만 행 스캔 제거</td><td>극소</td><td>신규</td></tr>
+      <tr><td>7</td><td>C2 지표 쓰기 증폭 완화</td><td>행 버전 ~21만→~3만/일</td><td>중</td><td>안전마진 검토 필요</td></tr>
+      <tr><td>8</td><td>C3·C5(스윕 외 잔여 포함)·S2·S3·T2·D2</td><td>각각 소규모</td><td>소~중</td><td>여유 있을 때</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout teal">
+    <span class="label">시리즈 전체를 한 문장으로</span>
+    <p>이 시스템의 뼈대(스크리너, SSOT, 게이트, 검증 문화)는 견실하다. 남은 일은 <strong>LLM에게서 계산기 일을 회수하고(1편), 호출과 데이터를 다이어트하고(2편), 수동 동기화 구간의 모순을 닫고(3편), 전 종목 앞단의 반복 낭비를 걷어내는 것(4편)</strong> — 그리고 그 절반은 이미 오픈 PR로 문 앞에 와 있다.</p>
+  </div>
+</section>
+
+<footer>
+  <span>kr-by-claude 리뷰 시리즈 4/4 — 비효율 검토</span>
+  <span>이전: 03 모순 검토 · 시리즈 끝</span>
+</footer>
+
+</div>
+</body>
+</html>

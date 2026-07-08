@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>kr-by-claude 리뷰 시리즈 — 2026-07-08 밤샘 감사 4편</title>
+<style>
+  :root {
+    --paper: #f7f3ea;
+    --paper-deep: #efe8d8;
+    --ink: #2b2620;
+    --ink-soft: #5c544a;
+    --accent: #8a3324;
+    --accent-soft: #f3e0da;
+    --teal: #1f5f5b;
+    --teal-soft: #dcebe9;
+    --gold: #a07d2a;
+    --gold-soft: #f2ead2;
+    --line: #d8cfbd;
+    --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Apple SD Gothic Neo", "Noto Sans KR", "Pretendard", sans-serif;
+    line-height: 1.75; font-size: 16.5px;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── 상단 탭 바 ─────────────────────────────── */
+  .topbar {
+    flex: 0 0 auto;
+    background: var(--ink); color: var(--paper);
+    border-bottom: 3px solid var(--accent);
+    padding: 0 18px;
+    display: flex; align-items: stretch; gap: 4px;
+    overflow-x: auto; white-space: nowrap;
+  }
+  .topbar .brand {
+    font-family: "Nanum Myeongjo", serif; font-weight: 800; font-size: 15px;
+    display: flex; align-items: center; padding: 14px 16px 14px 4px;
+    letter-spacing: .02em; flex: 0 0 auto;
+  }
+  .topbar .brand small { font-family: var(--mono); font-weight: 400; font-size: 10.5px; opacity: .65; margin-left: 10px; letter-spacing: .1em; }
+  .tabs { display: flex; align-items: stretch; gap: 2px; margin-left: auto; }
+  .tab-btn {
+    appearance: none; border: none; background: transparent; color: var(--paper);
+    font-family: inherit; font-size: 13.5px; cursor: pointer;
+    padding: 0 16px; opacity: .65;
+    border-bottom: 3px solid transparent; margin-bottom: -3px;
+    transition: opacity .15s;
+  }
+  .tab-btn:hover { opacity: 1; }
+  .tab-btn.active { opacity: 1; border-bottom-color: var(--paper); font-weight: 700; }
+  .tab-btn .n { font-family: var(--mono); font-size: 10.5px; color: var(--gold-soft); margin-right: 6px; }
+
+  /* ── 패널 ───────────────────────────────────── */
+  .panel { flex: 1 1 auto; display: none; min-height: 0; }
+  .panel.active { display: block; }
+  .panel iframe { width: 100%; height: 100%; border: none; display: block; background: var(--paper); }
+  #panel-cover { overflow-y: auto; }
+
+  /* ── 표지 (에디토리얼) ──────────────────────── */
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 28px 100px; }
+  header.masthead { padding: 64px 0 36px; border-bottom: 3px double var(--ink); margin-bottom: 40px; }
+  .series-tag {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent); display: inline-block; border: 1px solid var(--accent);
+    padding: 4px 12px; border-radius: 999px; margin-bottom: 22px;
+  }
+  h1 { font-family: "Nanum Myeongjo", serif; font-size: clamp(30px, 5vw, 46px); font-weight: 800; line-height: 1.3; margin-bottom: 18px; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .dek { font-size: 18px; color: var(--ink-soft); max-width: 44em; }
+  .byline { margin-top: 20px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); }
+  section { margin-bottom: 60px; }
+  h2 { font-family: "Nanum Myeongjo", serif; font-size: 25px; font-weight: 800; margin-bottom: 6px; }
+  .rule { width: 64px; height: 3px; background: var(--accent); margin: 12px 0 22px; }
+  p { margin-bottom: 16px; max-width: 47em; }
+  ul, ol { margin: 0 0 18px 24px; }
+  li { margin-bottom: 9px; max-width: 45em; }
+  code { font-family: var(--mono); font-size: .85em; background: var(--paper-deep); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); }
+  .callout { margin: 24px 0; padding: 20px 24px; border-radius: 6px; background: var(--accent-soft); border-left: 4px solid var(--accent); }
+  .callout.teal { background: var(--teal-soft); border-left-color: var(--teal); }
+  .callout .label { font-family: var(--mono); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; display: block; margin-bottom: 8px; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin: 26px 0; }
+  .stat { background: #fffdf7; border: 1.5px solid var(--ink); border-radius: 10px; padding: 16px 18px; box-shadow: 4px 4px 0 rgba(43,38,32,.10); }
+  .stat .v { font-family: "Nanum Myeongjo", serif; font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1.15; }
+  .stat .k { font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; line-height: 1.5; }
+
+  .doc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 26px 0; }
+  @media (max-width: 720px) { .doc-grid { grid-template-columns: 1fr; } }
+  .doc-card {
+    text-align: left; cursor: pointer; appearance: none; font-family: inherit; font-size: inherit; color: inherit;
+    background: #fffdf7; border: 1.5px solid var(--ink); border-radius: 10px;
+    padding: 20px 22px; box-shadow: 5px 5px 0 rgba(43,38,32,.10);
+    transition: transform .12s, box-shadow .12s;
+  }
+  .doc-card:hover { transform: translate(-2px,-2px); box-shadow: 7px 7px 0 rgba(43,38,32,.14); }
+  .doc-card .num { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; color: var(--accent); display: block; margin-bottom: 8px; }
+  .doc-card h3 { font-family: "Nanum Myeongjo", serif; font-size: 18px; font-weight: 800; margin-bottom: 8px; line-height: 1.4; }
+  .doc-card p { font-size: 13.5px; color: var(--ink-soft); margin-bottom: 10px; line-height: 1.65; }
+  .doc-card .takeaway { font-size: 13px; color: var(--teal); font-weight: 700; }
+  .doc-card .takeaway::before { content: "핵심 한 줄 — "; color: var(--teal); }
+
+  .tbl-scroll { overflow-x: auto; margin: 22px 0; border: 1px solid var(--line); border-radius: 8px; background: #fffdf7; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 560px; }
+  th { text-align: left; font-size: 12px; letter-spacing: .08em; padding: 12px 16px; background: var(--paper-deep); border-bottom: 2px solid var(--ink); white-space: nowrap; }
+  td { padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+
+  footer { margin-top: 80px; padding-top: 22px; border-top: 3px double var(--ink); font-family: var(--mono); font-size: 12px; color: var(--ink-soft); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .fade { animation: fadeUp .7s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px);} to { opacity: 1; transform: none;} }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">kr-by-claude 리뷰 시리즈<small>2026-07-08</small></div>
+  <nav class="tabs" role="tablist">
+    <button class="tab-btn active" data-tab="cover" role="tab">표지</button>
+    <button class="tab-btn" data-tab="d1" role="tab"><span class="n">01</span>결정론 분리</button>
+    <button class="tab-btn" data-tab="d2" role="tab"><span class="n">02</span>효율화</button>
+    <button class="tab-btn" data-tab="d3" role="tab"><span class="n">03</span>모순 검토</button>
+    <button class="tab-btn" data-tab="d4" role="tab"><span class="n">04</span>비효율 검토</button>
+  </nav>
+</div>
+
+<!-- ── 표지 ─────────────────────────────────────── -->
+<div class="panel active" id="panel-cover" role="tabpanel">
+<div class="wrap">
+
+<header class="masthead fade">
+  <span class="series-tag">시스템 감사 리포트 · 4편 합본</span>
+  <h1>이 분석 체계는 <em>믿을 만한가,</em><br>그리고 <em>아낄 곳</em>은 어디인가</h1>
+  <p class="dek">주식 스크리너 + AI 차트 분석 파이프라인(kr-by-claude)을 하룻밤 동안 네 가지 관점에서 자동 점검한 결과물이다. 각 편은 초안 작성 후 실제 코드와 한 줄 한 줄 대조하는 검증 리뷰를 2라운드씩 통과했다. 위 탭에서 각 편을 열어볼 수 있고, 이 표지는 왜 이 점검을 했는지·무엇이 나왔는지를 요약한다.</p>
+  <p class="byline">2026-07-08 밤샘 자동 작업 · 코드 기준 origin/main · PR #15</p>
+</header>
+
+<section class="fade">
+  <h2>왜 이 점검을 했나 — 세 가지 질문</h2>
+  <div class="rule"></div>
+  <p>이 시스템은 "정해진 규칙대로 계산하는 <strong>코드</strong>"와 "차트를 보고 판단하는 <strong>AI(LLM)</strong>"가 역할을 나눠 맡는다. 코드는 공짜에 가깝고 같은 입력엔 언제나 같은 답을 주지만, AI는 호출마다 돈과 시간이 들고 가끔 계산을 틀리며 같은 질문에 다른 답을 줄 수도 있다. 시스템이 커지면서 자연스럽게 세 가지 질문이 쌓였다:</p>
+  <ul>
+    <li><strong>역할 분담이 맞나?</strong> — AI에게 시키는 일 중에 사실 계산기(코드)가 해도 되는 일이 섞여 있지 않은가. → <strong>01편</strong>이 답하고, 그 연장선에서 <strong>02편</strong>이 "AI를 쓰되 더 싸고 빠르게 쓰는 법"을 다룬다.</li>
+    <li><strong>규칙끼리 어긋난 곳은 없나?</strong> — 규칙이 세 곳(임계값 정의 파일, AI 지시문, 파이썬 코드)에 나뉘어 살고 그중 AI 지시문은 사람이 손으로 맞춰야 한다. → <strong>03편</strong>.</li>
+    <li><strong>매일 도는 파이프라인이 낭비 없이 도나?</strong> — 2,500여 종목 전체를 상대하는 앞단은 헛돈이 새기 쉽다. → <strong>04편</strong>.</li>
+  </ul>
+  <div class="callout">
+    <span class="label">작업 방식</span>
+    <p>각 편은 ① 코드베이스 전수 조사 → ② 초보자 눈높이로 초안 작성 → ③ 별도 검증자가 <strong>실제 코드 라인과 대조</strong>하며 오류·과장·용어 걸림돌을 지적 → ④ 반영 후 재검증, 을 지적이 사라질 때까지(각 2라운드) 반복해 만들었다. 이 과정에서 초안의 오류도 실제로 여럿 잡혔다 — 예: "ETF를 미리 거르면 절감된다"는 주장은 검증에서 기각됐다(이미 상류에서 걸러지고 있었다).</p>
+  </div>
+</section>
+
+<section class="fade">
+  <h2>각 편 안내 — 카드를 누르면 해당 탭이 열린다</h2>
+  <div class="rule"></div>
+  <div class="doc-grid">
+    <button class="doc-card" data-open="d1">
+      <span class="num">01 · DETERMINISTIC</span>
+      <h3>LLM이 하는 일 중, 계산기로 옮길 수 있는 것들</h3>
+      <p>AI를 쓰는 곳은 세 군데다: (A) 차트를 보고 종목 분류, (B) "오늘 사도 되나" 판정, (C) 매수가·손절가·비중 계산. 각각에서 "숫자와 규칙만으로 답이 정해지는 일"과 "차트 모양을 보는 눈이 필요한 일"을 가른다.</p>
+      <span class="takeaway">C는 지시문 자체가 계산 절차서라 통째로 코드화 가능, B는 정량 조건 선계산, A만 시각 판단으로서 AI가 필수.</span>
+    </button>
+    <button class="doc-card" data-open="d2">
+      <span class="num">02 · EFFICIENCY</span>
+      <h3>LLM을 더 싸고 더 빠르게 쓰는 방법</h3>
+      <p>호출 1건의 실측 비용 구조(총 ~10.7만 토큰, 130~224초)를 분해하고, 개선 카드 12장을 효과·위험·검증 방법과 함께 제시한다. 이미 끝난 최적화(토큰 −77~83%)와 남은 것을 구분한다.</p>
+      <span class="takeaway">느린 진짜 원인은 답변 길이가 아니라 AI의 내부 사고(thinking) — 진단 런 기준 종목당 234초 중 ~160초. 이 예산 조절이 미개척 최대 레버.</span>
+    </button>
+    <button class="doc-card" data-open="d3">
+      <span class="num">03 · CONTRADICTIONS</span>
+      <h3>분석 체계에 모순은 없는가</h3>
+      <p>스크리너·지시문·게이트·저장 코드를 라인 단위로 맞대본 적대적 감사. 확정 모순 8건 + 조건부 8건, 그리고 자동 감시 테스트가 못 보는 사각을 찾았다. 점검 후 무죄였던 15개 항목도 기록.</p>
+      <span class="takeaway">최위험 2건: 매수 파라미터 지시문이 전달되지 않는 입력을 참조(일부 규칙 작동 불능), "시장 나쁨" 강등이 사유 재확인 없이 매수 신호로 역류 가능.</span>
+    </button>
+    <button class="doc-card" data-open="d4">
+      <span class="num">04 · INEFFICIENCIES</span>
+      <h3>어디서 새고 있는가 — 비효율 검토</h3>
+      <p>LLM 밖의 낭비: 하루 ~7,600번의 외부 API 호출 대부분이 "변한 것 없음" 응답을 받으러 가고, 휴장일에도 전체 체인이 돌며, 청소 코드가 스케줄에 빠져 보관함이 무한 증가 중이었다.</p>
+      <span class="takeaway">상위 발견 3건은 이미 열린 PR #11·#12·#13이 고치는 중 — 최우선 액션은 새 작업이 아니라 그 PR들의 머지.</span>
+    </button>
+  </div>
+</section>
+
+<section class="fade">
+  <h2>전체 개괄 — 숫자로 보는 결과</h2>
+  <div class="rule"></div>
+  <div class="stat-row">
+    <div class="stat"><div class="v">3곳</div><div class="k">LLM 사용 지점 (분류 A · 타이밍 B · 파라미터 C) — 그중 1곳(C)은 통째 코드화 가능 판정</div></div>
+    <div class="stat"><div class="v">12장</div><div class="k">효율화 개선 카드 (권장 2 · 실험 필요 8 · 재검토 1 · 상식 1)</div></div>
+    <div class="stat"><div class="v">8 + 8건</div><div class="k">확정 모순 + 조건부 모순 (무죄 확인 15항목 별도 기록)</div></div>
+    <div class="stat"><div class="v">3건</div><div class="k">비효율 상위 발견 중 이미 오픈 PR로 수리 대기 중인 것 (#11 #12 #13)</div></div>
+  </div>
+  <p>네 편을 관통하는 결론은 하나로 모인다: <strong>이 시스템의 뼈대는 견실하다.</strong> 결정론 스크리너, 임계값 단일 출처(SSOT), 보수적 게이트, "의심되면 코드로 재검증"하는 문화는 감사에서 반복적으로 무죄가 확인됐다. 문제는 뼈대가 아니라 <strong>수동 동기화 구간</strong> — 사람이 손으로 맞추는 AI 지시문 안팎 — 에 몰려 있고, 이는 곧 01편의 처방(정량 규칙을 코드로 내리기)이 비용 문제인 동시에 품질 문제라는 뜻이다. 규칙이 코드로 내려오면 이런 부류의 어긋남은 테스트가 잡는다.</p>
+  <div class="tbl-scroll"><table>
+    <thead><tr><th>우선순위</th><th>할 일</th><th>출처</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>오픈 PR 머지: #13(DART 호출 99%↓) · #11(보관함 청소 스케줄) · #12(테스트 기준선 0화) · #5(감시 테스트 확장)</td><td>04편 · 03편</td></tr>
+      <tr><td>2</td><td>모순 최위험 수리 — C 지시문의 유령 입력 정리, "시장 나쁨" 회복 게이트에 분배일 재확인 추가, 분배일 정의 통일(코드 0% 컷 → 책 기준 −0.2%)</td><td>03편</td></tr>
+      <tr><td>3</td><td>C(매수 파라미터)의 결정론 함수 대체 — 선행 결정 3건 확정 후 진행</td><td>01편</td></tr>
+      <tr><td>4</td><td>thinking 예산 실험 + 페이로드 중복 제거 실험 (판정 불변 검사 통과 조건)</td><td>02편</td></tr>
+      <tr><td>5</td><td>파이프라인 소규모 수리 — 지수 루프 재조회 제거, 휴장일 가드, sanity 스캔 범위 한정</td><td>04편</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout teal">
+    <span class="label">읽는 순서</span>
+    <p>01 → 02 → 03 → 04 순서로 쓰였지만, 각 편 서두에 필요한 용어(pivot, payload, 분배일 등)를 다시 정의해 두어 아무 편이나 먼저 읽어도 된다. 문서 속 제안은 제안일 뿐 아직 실행되지 않았다 — 특히 임계값을 건드리는 수리는 프로젝트 규칙(의존성 맵 작성)이 선행돼야 한다.</p>
+  </div>
+</section>
+
+<footer>
+  <span>kr-by-claude 리뷰 시리즈 · 4편 합본 표지</span>
+  <span>원본: docs/artifacts/2026-07-08-llm-review-series/ · PR #15</span>
+</footer>
+
+</div>
+</div>
+
+<!-- ── 본문 4편 (iframe, 첫 진입 시 로드) ───────── -->
+<div class="panel" id="panel-d1" role="tabpanel"><iframe data-src="01-deterministic-extraction.html" title="01 결정론 분리"></iframe></div>
+<div class="panel" id="panel-d2" role="tabpanel"><iframe data-src="02-llm-efficiency.html" title="02 효율화"></iframe></div>
+<div class="panel" id="panel-d3" role="tabpanel"><iframe data-src="03-contradictions.html" title="03 모순 검토"></iframe></div>
+<div class="panel" id="panel-d4" role="tabpanel"><iframe data-src="04-inefficiencies.html" title="04 비효율 검토"></iframe></div>
+
+<script>
+(function () {
+  var buttons = document.querySelectorAll('.tab-btn');
+  function activate(key) {
+    buttons.forEach(function (b) {
+      var on = b.dataset.tab === key;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    document.querySelectorAll('.panel').forEach(function (p) {
+      p.classList.toggle('active', p.id === 'panel-' + key);
+    });
+    var panel = document.getElementById('panel-' + key);
+    var frame = panel && panel.querySelector('iframe[data-src]');
+    if (frame && !frame.src) frame.src = frame.dataset.src; // 첫 진입 시에만 로드
+    // 표지를 처음 열 때는 URL을 건드리지 않는다 (#cover 오염 방지)
+    if (history.replaceState && (key !== 'cover' || location.hash)) {
+      history.replaceState(null, '', '#' + key);
+    }
+  }
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () { activate(b.dataset.tab); });
+  });
+  document.querySelectorAll('.doc-card[data-open]').forEach(function (c) {
+    c.addEventListener('click', function () { activate(c.dataset.open); });
+  });
+  function fromHash() {
+    var key = location.hash ? location.hash.slice(1) : 'cover';
+    if (!document.getElementById('panel-' + key)) key = 'cover';
+    activate(key);
+  }
+  window.addEventListener('hashchange', fromHash);
+  fromHash();
+})();
+</script>
+
+</body>
+</html>
