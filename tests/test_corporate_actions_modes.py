@@ -32,3 +32,26 @@ def test_refresh_mapping_mode():
     # 우리 정의: refresh-mapping 일 때 (None, None) 반환
     start, end = compute_date_range(Mode.REFRESH_MAPPING)
     assert start is None and end is None
+
+
+def test_date_chunks_splits_long_range():
+    """일괄 조회의 페이지 폭주 방지 — 긴 기간을 90일 청크로 분할, 빈틈·중복 없음."""
+    from kr_pipeline.corporate_actions.modes import _date_chunks
+
+    chunks = list(_date_chunks(date(2024, 1, 1), date(2024, 12, 31), days=90))
+    assert chunks[0][0] == date(2024, 1, 1)
+    assert chunks[-1][1] == date(2024, 12, 31)
+    # 연속성: 다음 청크 시작 = 직전 청크 끝 + 1일
+    for (s1, e1), (s2, _e2) in zip(chunks, chunks[1:]):
+        assert (e1 - s1).days <= 89
+        assert s2 == e1 + timedelta(days=1)
+    # 366일(윤년) / 90 → 5청크
+    assert len(chunks) == 5
+
+
+def test_date_chunks_short_range_single_chunk():
+    """7일 창 → 청크 1개 (incremental 은 호출 1회)."""
+    from kr_pipeline.corporate_actions.modes import _date_chunks
+
+    chunks = list(_date_chunks(date(2026, 5, 10), date(2026, 5, 17), days=90))
+    assert chunks == [(date(2026, 5, 10), date(2026, 5, 17))]

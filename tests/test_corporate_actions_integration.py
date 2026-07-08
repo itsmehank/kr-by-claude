@@ -35,18 +35,27 @@ def _seed(conn):
 
 
 def test_backfill_with_mocked_disclosures(test_db_url):
-    """공시 mock 응답 → corporate_actions 행 생성 검증."""
+    """공시 mock 응답 → corporate_actions 행 생성 검증 (일괄 조회 + 역매핑).
+
+    bulk 계약: fetch 는 corp_code=None 으로 호출되고, 응답에 섞인
+    - 매핑된 회사(11111111→CATEST1)는 적재
+    - 우리 universe 밖 회사(99999999)는 무시
+    """
     with connect(test_db_url) as conn:
         _cleanup(conn)
         _seed(conn)
 
-        # Mock 응답: CATEST1 = 액면분할 1건, CATEST2 = 공시 없음
-        def mock_fetch(api_key, corp_code, start_date, end_date, pblntf_ty="A"):
-            if corp_code == "11111111":
-                return [{
-                    "corp_code": corp_code, "report_nm": "주식분할결정",
-                    "rcept_no": "20240312000123", "rcept_dt": "20240312",
-                }]
+        calls = []
+
+        def mock_fetch(api_key, corp_code, start_date, end_date, pblntf_ty="B"):
+            calls.append(corp_code)
+            if len(calls) == 1:  # 첫 청크에만 공시 존재 (다른 청크는 빈 응답)
+                return [
+                    {"corp_code": "11111111", "report_nm": "주식분할결정",
+                     "rcept_no": "20240312000123", "rcept_dt": "20240312"},
+                    {"corp_code": "99999999", "report_nm": "주식분할결정",
+                     "rcept_no": "20240312000999", "rcept_dt": "20240312"},
+                ]
             return []
 
         try:
@@ -55,6 +64,7 @@ def test_backfill_with_mocked_disclosures(test_db_url):
 
             assert stats.rows_affected == 1
             assert stats.failures == []
+            assert calls and all(c is None for c in calls), f"bulk 호출이어야: {calls}"
 
             with conn.cursor() as cur:
                 cur.execute("SELECT ticker, event_type, dart_rcept_no FROM corporate_actions ORDER BY ticker")
@@ -70,13 +80,11 @@ def test_idempotent_incremental(test_db_url):
         _cleanup(conn)
         _seed(conn)
 
-        def mock_fetch(api_key, corp_code, start_date, end_date, pblntf_ty="A"):
-            if corp_code == "11111111":
-                return [{
-                    "corp_code": corp_code, "report_nm": "주식병합결정",
-                    "rcept_no": "20240315000456", "rcept_dt": "20240315",
-                }]
-            return []
+        def mock_fetch(api_key, corp_code, start_date, end_date, pblntf_ty="B"):
+            return [{
+                "corp_code": "11111111", "report_nm": "주식병합결정",
+                "rcept_no": "20240315000456", "rcept_dt": "20240315",
+            }]
 
         try:
             with patch("kr_pipeline.corporate_actions.modes.fetch_disclosures", side_effect=mock_fetch):
@@ -92,5 +100,31 @@ def test_idempotent_incremental(test_db_url):
 
             assert first == 1
             assert second == 1
+        finally:
+            _cleanup(conn)
+
+
+def test_incremental_fetches_once_not_per_ticker(test_db_url):
+    """7일 incremental 은 종목 수와 무관하게 fetch 1회 — N+1 제거의 핵심 계약.
+
+    (예전: 활성 매핑 종목 ~2,500개 × 회사별 DART 호출. 지금: 기간 일괄 1회.)
+    """
+    with connect(test_db_url) as conn:
+        _cleanup(conn)
+        _seed(conn)  # 매핑 종목 2개
+
+        calls = []
+
+        def mock_fetch(api_key, corp_code, start_date, end_date, pblntf_ty="B"):
+            calls.append((corp_code, start_date, end_date))
+            return []
+
+        try:
+            with patch("kr_pipeline.corporate_actions.modes.fetch_disclosures", side_effect=mock_fetch):
+                stats = run(conn, Mode.INCREMENTAL, api_key="MOCK", window_days=7)
+
+            assert stats.failures == []
+            assert len(calls) == 1, f"7일 창은 청크 1개 = 호출 1회여야: {len(calls)}회"
+            assert calls[0][0] is None
         finally:
             _cleanup(conn)

@@ -86,3 +86,26 @@ def test_fetch_disclosures_explicit_pblntf_ty_honored():
         fetch_disclosures("KEY", "00126380", date(2024, 1, 1), date(2024, 1, 31), pblntf_ty="C")
     args, _ = mock_get.call_args
     assert args[1]["pblntf_ty"] == "C"
+
+
+def test_fetch_disclosures_bulk_omits_corp_code():
+    """corp_code=None → 요청 파라미터에서 corp_code 자체를 생략 (전 회사 일괄 조회).
+
+    N+1 제거의 토대: 종목별 호출 대신 기간 전체 공시를 한 번에 받아 로컬에서 역매핑.
+    """
+    response = _mock_response({
+        "status": "000", "message": "정상",
+        "total_count": 1, "total_page": 1, "page_no": 1,
+        "list": [
+            {"corp_code": "00126380", "report_nm": "주식분할결정",
+             "rcept_no": "20240312000123", "rcept_dt": "20240312"},
+        ],
+    })
+    with patch(
+        "kr_pipeline.corporate_actions.dart_client._http_get", return_value=response
+    ) as mock_get:
+        result = fetch_disclosures("KEY", None, date(2024, 3, 1), date(2024, 3, 31))
+    args, _ = mock_get.call_args
+    params = args[1]
+    assert "corp_code" not in params
+    assert len(result) == 1
