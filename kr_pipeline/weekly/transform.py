@@ -74,7 +74,16 @@ def drop_incomplete_weeks(weekly: pd.DataFrame, today: date) -> pd.DataFrame:
 
 
 def to_weekly_rows(ticker: str, weekly: pd.DataFrame) -> list[tuple]:
-    """weekly_prices.executemany 용 tuple 리스트."""
+    """weekly_prices.executemany 용 tuple 리스트.
+
+    adj_* 는 NaN→None 변환 (daily 의 ohlcv/transform._adj 와 동일 처리).
+    한 주 전체 halt(일봉 adj_* 전부 NULL)면 집계가 NaN — 무변환 시 psycopg 가
+    'NaN'::numeric 으로 적재해 COALESCE(adj_*, raw) 를 통과, payload JSON 오염.
+    raw OHLCV 는 NOT NULL(halt 마커 0/유지값)이라 그대로.
+    """
+    def _adj(v):
+        return None if pd.isna(v) else float(v)
+
     return [
         (
             ticker,
@@ -83,11 +92,11 @@ def to_weekly_rows(ticker: str, weekly: pd.DataFrame) -> list[tuple]:
             int(r["high"]),
             int(r["low"]),
             int(r["close"]),
-            float(r["adj_close"]),
-            float(r["adj_high"]),
-            float(r["adj_low"]),
-            float(r["adj_open"]),
-            float(r["adj_volume"]),
+            _adj(r["adj_close"]),
+            _adj(r["adj_high"]),
+            _adj(r["adj_low"]),
+            _adj(r["adj_open"]),
+            _adj(r["adj_volume"]),
             int(r["volume"]),
             int(r["value"]),
             int(r["trading_days"]),
