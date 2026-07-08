@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM 효율화 방안 — kr-by-claude 리뷰 시리즈 2/4</title>
+<style>
+  :root {
+    --paper: #f7f3ea;
+    --paper-deep: #efe8d8;
+    --ink: #2b2620;
+    --ink-soft: #5c544a;
+    --accent: #8a3324;
+    --accent-soft: #f3e0da;
+    --teal: #1f5f5b;
+    --teal-soft: #dcebe9;
+    --gold: #a07d2a;
+    --gold-soft: #f2ead2;
+    --line: #d8cfbd;
+    --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    background-image: radial-gradient(circle at 85% 6%, rgba(160,125,42,.06), transparent 40%),
+                      radial-gradient(circle at 10% 95%, rgba(31,95,91,.05), transparent 45%);
+    color: var(--ink);
+    font-family: "Apple SD Gothic Neo", "Noto Sans KR", "Pretendard", sans-serif;
+    line-height: 1.75;
+    font-size: 16.5px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 28px 120px; }
+  header.masthead { padding: 72px 0 40px; border-bottom: 3px double var(--ink); margin-bottom: 8px; }
+  .series-tag {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--accent);
+    display: inline-block; border: 1px solid var(--accent);
+    padding: 4px 12px; border-radius: 999px; margin-bottom: 24px;
+  }
+  h1 {
+    font-family: "Nanum Myeongjo", "Apple SD Gothic Neo", serif;
+    font-size: clamp(30px, 5vw, 44px);
+    font-weight: 800; line-height: 1.3; margin-bottom: 18px;
+  }
+  h1 em { font-style: normal; color: var(--accent); }
+  .dek { font-size: 18px; color: var(--ink-soft); max-width: 42em; }
+  .byline { margin-top: 22px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); }
+  nav.toc { margin: 36px 0 56px; padding: 22px 26px; background: var(--paper-deep); border-left: 4px solid var(--ink); }
+  nav.toc strong { display:block; font-size: 13px; letter-spacing:.12em; margin-bottom: 10px; }
+  nav.toc ol { margin-left: 20px; }
+  nav.toc a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--ink-soft); }
+  nav.toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  section { margin-bottom: 72px; }
+  h2 {
+    font-family: "Nanum Myeongjo", serif; font-size: 27px; font-weight: 800;
+    margin-bottom: 6px; display: flex; align-items: baseline; gap: 14px;
+  }
+  h2 .no {
+    font-family: var(--mono); font-size: 15px; color: var(--accent);
+    border: 1.5px solid var(--accent); border-radius: 50%;
+    width: 32px; height: 32px; flex: 0 0 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    transform: translateY(-2px);
+  }
+  h3 { font-size: 19px; margin: 34px 0 10px; }
+  .rule { width: 64px; height: 3px; background: var(--accent); margin: 14px 0 22px; }
+  p { margin-bottom: 16px; max-width: 46em; }
+  ul, ol { margin: 0 0 18px 24px; }
+  li { margin-bottom: 8px; max-width: 44em; }
+  code { font-family: var(--mono); font-size: .85em; background: var(--paper-deep); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); }
+  .callout { margin: 26px 0; padding: 20px 24px; border-radius: 6px; background: var(--accent-soft); border-left: 4px solid var(--accent); }
+  .callout.teal { background: var(--teal-soft); border-left-color: var(--teal); }
+  .callout.gold { background: var(--gold-soft); border-left-color: var(--gold); }
+  .callout .label { font-family: var(--mono); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; display: block; margin-bottom: 8px; }
+  .callout p:last-child { margin-bottom: 0; }
+  .badge { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; padding: 2px 9px; border-radius: 999px; vertical-align: 1px; white-space: nowrap; }
+  .badge.done { background: var(--teal); color: #fff; }
+  .badge.todo { background: var(--accent); color: #fff; }
+  .badge.exp  { background: var(--gold); color: #fff; }
+  .tbl-scroll { overflow-x: auto; margin: 22px 0; border: 1px solid var(--line); border-radius: 8px; background: #fffdf7; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 640px; }
+  th { text-align: left; font-size: 12px; letter-spacing: .08em; padding: 12px 16px; background: var(--paper-deep); border-bottom: 2px solid var(--ink); white-space: nowrap; }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 26px 0; }
+  .stat {
+    background: #fffdf7; border: 1.5px solid var(--ink); border-radius: 10px;
+    padding: 18px 20px; box-shadow: 4px 4px 0 rgba(43,38,32,.10);
+  }
+  .stat .v { font-family: "Nanum Myeongjo", serif; font-size: 28px; font-weight: 800; color: var(--accent); line-height: 1.15; }
+  .stat .k { font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; line-height: 1.5; }
+  .idea {
+    border: 1.5px solid var(--ink); border-radius: 10px; background: #fffdf7;
+    margin: 26px 0; overflow: hidden; box-shadow: 5px 5px 0 rgba(43,38,32,.10);
+  }
+  .idea .head { padding: 15px 22px; background: var(--ink); color: var(--paper); display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  .idea .head h3 { margin: 0; font-size: 16.5px; color: var(--paper); }
+  .idea .body { padding: 20px 22px; }
+  .idea .meta { font-family: var(--mono); font-size: 11px; opacity: .8; }
+  .rank { counter-reset: rk; margin: 26px 0; }
+  .rank .item { display: flex; gap: 18px; padding: 20px 0; border-bottom: 1px solid var(--line); }
+  .rank .item::before {
+    counter-increment: rk; content: counter(rk);
+    font-family: "Nanum Myeongjo", serif; font-size: 34px; font-weight: 800;
+    color: var(--accent); line-height: 1; flex: 0 0 36px;
+  }
+  .rank .item h4 { font-size: 16.5px; margin-bottom: 6px; }
+  .rank .item p { font-size: 14.5px; color: var(--ink-soft); margin-bottom: 0; }
+  footer { margin-top: 90px; padding-top: 24px; border-top: 3px double var(--ink); font-family: var(--mono); font-size: 12px; color: var(--ink-soft); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .fade { animation: fadeUp .7s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px);} to { opacity: 1; transform: none;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead fade">
+  <span class="series-tag">kr-by-claude 리뷰 시리즈 · 2 / 4</span>
+  <h1>LLM을 <em>더 싸고 더 빠르게</em><br>쓰는 방법</h1>
+  <p class="dek">LLM 호출 비용과 속도는 결국 "몇 번 부르는가 × 한 번에 얼마나 주고받는가"로 정해진다. 이 프로젝트는 이미 큰 최적화를 한 차례 끝냈다(토큰 −77~83%). 이 문서는 지금 상태를 숫자로 보여주고, 남은 개선 카드를 효과·위험과 함께 초보자 눈높이로 정리한다.</p>
+  <p class="byline">작성 2026-07-08 밤 · 실측 근거: achart_v3_speed_report.md(45런) + freeze 아티팩트 + DB 기록 컬럼</p>
+</header>
+
+<nav class="toc fade">
+  <strong>차례</strong>
+  <ol>
+    <li><a href="#basics">기초: 토큰이 왜 돈이고 왜 속도인가</a></li>
+    <li><a href="#now">지금 얼마나 쓰고 있나 — 실측</a></li>
+    <li><a href="#done">이미 해놓은 최적화 (건드리지 말 것)</a></li>
+    <li><a href="#calls">개선 축 ① 호출 횟수 줄이기</a></li>
+    <li><a href="#input">개선 축 ② 한 번에 보내는 양 줄이기</a></li>
+    <li><a href="#speed">개선 축 ③ 더 빨리 끝내기</a></li>
+    <li><a href="#priority">권장 우선순위와 검증 방법</a></li>
+  </ol>
+</nav>
+
+<section id="basics" class="fade">
+  <h2><span class="no">1</span>기초: 토큰이 왜 돈이고 왜 속도인가</h2>
+  <div class="rule"></div>
+  <p><strong>토큰(token)</strong>은 LLM이 글을 세는 단위다. 대략 영어 단어 하나가 1~2토큰, 숫자가 빽빽한 JSON은 글자 수의 ¼~⅓ 정도가 토큰이 된다. LLM 요금은 "들어간 토큰(입력) + 나온 토큰(출력)"에 비례하고, <strong>응답 속도는 특히 출력 토큰 수에 크게 좌우</strong>된다 — LLM은 출력을 한 토큰씩 생성하기 때문이다. 입력이 아무리 커도 읽는 건 비교적 빠르지만, 긴 답을 쓰게 하면 그만큼 오래 걸린다.</p>
+  <p>알아둘 개념이 하나 더 있다. <strong>프롬프트 캐시(prompt cache)</strong>: 같은 앞부분(예: 매번 똑같은 577줄짜리 지시문)을 반복해서 보내면, LLM 서버가 그 부분을 기억해뒀다가 재사용한다. 캐시에서 읽는 토큰은 정가의 약 1/10 가격이다. 이 프로젝트가 쓰는 <code>claude</code> CLI는 이걸 자동으로 해준다.</p>
+  <div class="callout">
+    <span class="label">효율의 3축</span>
+    <p>결국 손댈 곳은 세 군데뿐이다. <strong>① 호출 횟수</strong>(안 불러도 되는 건 안 부르기), <strong>② 호출당 주고받는 양</strong>(입력 다이어트, 출력 상한), <strong>③ 시간 구조</strong>(병렬로 돌리기, 빠른 모델 쓰기). 아래 개선 카드는 전부 이 3축으로 분류된다.</p>
+  </div>
+</section>
+
+<section id="now" class="fade">
+  <h2><span class="no">2</span>지금 얼마나 쓰고 있나 — 실측</h2>
+  <div class="rule"></div>
+  <p>비용의 압도적 대부분은 <strong>사이트 A(차트 분류)</strong>에서 나온다. B(매수 타이밍)는 짧은 지시문에 작은 JSON만 보내는 경량 호출이고, C(매수 파라미터)는 지시문이 A의 75% 크기라 짧지는 않지만 <strong>호출 자체가 드물어서</strong>(B가 "지금 매수"로 판정한 날만) 총비용 비중이 작다.</p>
+  <div class="stat-row">
+    <div class="stat"><div class="v">~10.7만</div><div class="k">사이트 A 호출 1건당 총 처리 토큰 (캐시 생성 7.6만 + 캐시 읽기 1.6만 + 신규 입력 0.8만 + 출력 0.7만)</div></div>
+    <div class="stat"><div class="v">130~224초</div><div class="k">사이트 A 종목 1개 분석 소요 시간 (런 그룹별 중앙값 밴드, 개별 런은 97~251초)</div></div>
+    <div class="stat"><div class="v">~2.6만</div><div class="k">A 인라인 페이로드(숫자 데이터+CSV) 텍스트 토큰 추정 — 지시문(~1.3만)보다 데이터가 더 크다</div></div>
+    <div class="stat"><div class="v">~3천</div><div class="k">차트 PNG 2장(1400×900px)의 이미지 토큰</div></div>
+  </div>
+  <p>구성을 뜯어보면 이렇다. 사이트 A 호출 한 번에 들어가는 것:</p>
+  <ul>
+    <li><strong>지시문</strong> — <code>analyze_chart_v3.md</code> 577줄 (~1.2만~1.5만 토큰). 매번 동일 → 캐시가 흡수.</li>
+    <li><strong>숫자 데이터</strong> — payload.json(60일 일봉 + 104주 주봉 + 지표 20컬럼 60일치 + 시장 맥락) + daily/weekly CSV + 시장지수 CSV 2개. 합쳐서 텍스트 ~10.4만 글자 ≈ 2.6만 토큰. <strong>종목마다 다르므로 캐시 불가.</strong></li>
+    <li><strong>차트 이미지 2장</strong> — 일봉·주봉 PNG, 합계 ~3천 토큰.</li>
+    <li><strong>출력</strong> — 분류·패턴·측정치·한국어 근거문(1500자 제한). 현행 설정 실측 약 7,200~16,900 토큰. 중요한 사실: 이 중 눈에 보이는 답(JSON+근거문)은 2~4천 토큰 정도고, <strong>대부분은 모델이 답하기 전에 하는 내부 사고(thinking)</strong>다 — 인라인 전환 전 진단 런 기준으로 종목당 234초 중 ~160초가 thinking이었다.</li>
+  </ul>
+  <div class="callout teal">
+    <span class="label">좋은 소식: 측정 인프라가 이미 있다</span>
+    <p>모든 프로덕션 호출은 실제 사용 모델·입력/출력 토큰·소요 시간을 DB 컬럼(<code>llm_model</code>, <code>llm_input_tokens</code>, <code>llm_output_tokens</code>, <code>llm_call_duration_s</code>)에 기록한다. 즉 "지난달 실제로 얼마 썼나"는 SQL 한 방이면 나온다. 어떤 최적화든 <strong>이 실측 기록으로 전/후를 비교</strong>하면 된다.</p>
+  </div>
+</section>
+
+<section id="done" class="fade">
+  <h2><span class="no">3</span>이미 해놓은 최적화 (건드리지 말 것)</h2>
+  <div class="rule"></div>
+  <p>"개선하자"가 "이미 있는 걸 다시 만들자"가 되지 않도록, 현재 갖춰진 장치를 먼저 인정하고 가자.</p>
+  <div class="tbl-scroll"><table>
+    <thead><tr><th>장치</th><th>무엇을 아끼나</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td><strong>인라인 방식 전환</strong> <span class="badge done">완료</span></td><td>대화 턴 8~12회 → 1회, 토큰 −77~83%</td><td>과거엔 ZIP을 주고 LLM이 파일을 하나씩 열어봤다. 지금은 본문에 데이터를 인라인으로 붙여 한 번에 준다. 45런 실측으로 판정 불변(45/45) 확인 후 채택.</td></tr>
+      <tr><td><strong>결정론 선(先)게이트</strong> <span class="badge done">완료</span></td><td>호출 수</td><td>스크리너 통과분만 A 호출, 돌파 후보 선별기(trigger_gate)를 통과한 종목만 B 호출, B가 "지금 매수"로 판정한 건(go_now)만 C 호출.</td></tr>
+      <tr><td><strong>중복 호출 방지</strong> <span class="badge done">완료</span></td><td>호출 수</td><td>주말 재실행 시 기적재분 skip, 평일 7일 내 기분류 skip, abort 재발화 skip.</td></tr>
+      <tr><td><strong>사용량 한도 즉시 중단</strong> <span class="badge done">완료</span></td><td>헛 호출</td><td>5시간 사용량 한도에 걸리면 재시도 없이 배치 전체를 멈춘다.</td></tr>
+      <tr><td><strong>출력 길이 상한</strong> <span class="badge done">완료</span></td><td>출력 토큰·속도</td><td>근거문 A는 1500자, B는 200자 제한. C는 경고 개수 ≤6.</td></tr>
+      <tr><td><strong>주말 병렬 4워커</strong> <span class="badge done">완료</span></td><td>벽시계 시간</td><td><code>WEEKEND_CONCURRENCY</code> 기본 4, 스레드풀.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="calls" class="fade">
+  <h2><span class="no">4</span>개선 축 ① 호출 횟수 줄이기</h2>
+  <div class="rule"></div>
+
+  <div class="idea">
+    <div class="head"><h3>카드 1 — 사이트 C를 결정론 함수로 대체</h3><span class="meta">효과 大 · 위험 小 <span class="badge todo">권장</span></span></div>
+    <div class="body"><p>시리즈 1편의 결론과 동일하다. C는 계산 절차서를 LLM이 실행하는 구조라, 결정론 함수로 바꾸면 <strong>go_now 1건당 LLM 호출 1회가 통째로 사라진다</strong>. 토큰 절감이자 속도 개선(수십 초 → 수 밀리초)이며 품질도 오히려 오른다.</p></div>
+  </div>
+
+  <div class="idea">
+    <div class="head"><h3>카드 2 — 사이트 B에 "명백 케이스" 사전 판정</h3><span class="meta">효과 中 · 위험 中 <span class="badge exp">실험 필요</span></span></div>
+    <div class="body"><p>go_now의 정량 조건(거래량 1.4배 등)을 코드가 먼저 계산해서, <strong>명백히 미달인 날은 LLM을 부르지 않고 wait 처리</strong>하는 아이디어다. 단, 알아야 할 배경이 있다: 현재의 결정론 게이트가 거래량 하한을 1.4가 아니라 1.0배로 잡은 것은 실수가 아니라 <strong>의도된 설계</strong>다 — "정밀 임계와 예외 판단은 LLM 몫"이라고 주석에 명시돼 있고, 게이트를 책 기준(1.4×)에 딱 맞추면 pocket pivot처럼 거래량이 기준에 못 미쳐도 정당한 예외인 돌파를 기계적으로 죽이게 된다.</p>
+    <p>따라서 이 카드는 "1.4× 미달이면 자르기"가 아니라, <strong>예외 패턴까지 명시적으로 통과시키는 조건 설계 + 과거 데이터로 false negative(잘못 걸러진 정당한 돌파) 0건 확인</strong>을 통과해야만 도입할 수 있다. 절감량(트리거는 걸렸지만 조건이 한참 모자랐던 날의 비율)도 DB 기록으로 먼저 세어보고 결정.</p></div>
+  </div>
+
+  <div class="idea">
+    <div class="head"><h3>카드 3 — 주말 분류의 "변화 없음" 스킵 검토</h3><span class="meta">효과 大 가능성 · 위험 中 <span class="badge exp">실험 필요</span></span></div>
+    <div class="body"><p>주말 배치는 스크리너 통과 종목을 매주 전부 재분류한다. 그런데 지난주와 차트가 거의 안 변한 종목(예: 주간 변동 미미, 거래량 평이, 베이스 진행 중)은 지난주 분류가 그대로 유효할 가능성이 높다. <strong>"주간 변화량이 임계 이하면 지난주 분류를 이월"</strong>하는 결정론 룰을 만들면 주말 호출 수를 크게 줄일 수 있다.</p>
+    <p>단, 위험이 있다: 베이스는 "조용히 성숙"하기 때문에 가격 변화가 작아도 분류가 바뀌어야 할 때가 있다(예: 핸들 완성). 그래서 이월 규칙은 보수적으로 — 이월은 최대 N주까지, watch→entry 승격은 이월 불가 등 — 설계하고, 과거 데이터로 "이월했더라면 틀렸을 주"가 몇 %인지 백테스트한 뒤 도입해야 한다.</p></div>
+  </div>
+</section>
+
+<section id="input" class="fade">
+  <h2><span class="no">5</span>개선 축 ② 한 번에 보내는 양 줄이기</h2>
+  <div class="rule"></div>
+  <p>사이트 A의 입력 ~2.6만 토큰(캐시 불가능한, 종목마다 다른 부분)이 표적이다. 여기서 아끼는 토큰은 매 호출 온전히 아껴진다.</p>
+
+  <div class="idea">
+    <div class="head"><h3>카드 4 — 페이로드 중복 제거 확대</h3><span class="meta">효과 中 · 위험 中 <span class="badge exp">실험 필요</span></span></div>
+    <div class="body"><p>현재 인라인 페이로드에는 <strong>같은 정보가 두 번 들어가는 곳</strong>이 있다: payload.json 안에 일봉 60일·주봉 104주가 JSON으로 들어 있는데, 별도로 daily.csv(60일)·weekly.csv(104주)도 붙는다. 설계 당시 "CSV를 빼면 late_stage_base(베이스가 이미 여러 차례 반복된 늦은 단계라는 위험 플래그) 판정이 나빠질 우려"로 보존을 택했다(market_context.json만 중복 제거됨). 이제 45런 검증 방법론이 확립됐으니, <strong>CSV 제거 vs 보존을 같은 방식(판정 불변 검사)으로 실험</strong>해볼 가치가 있다. 성공하면 입력의 상당 부분이 사라진다.</p></div>
+  </div>
+
+  <div class="idea">
+    <div class="head"><h3>카드 5 — 지표 테이블 다이어트</h3><span class="meta">효과 中 · 위험 中 <span class="badge exp">실험 필요</span></span></div>
+    <div class="body"><p><code>indicators_recent_60d</code>는 지표 20컬럼 × 60일이다. LLM이 실제로 참조하는 컬럼(프롬프트가 언급하는 SMA, RS line, pocket pivot, 분배일 플래그 등)만 남기고 나머지를 빼거나, 숫자의 소수 자릿수를 줄이는 것만으로도 토큰이 준다. 프롬프트가 요구하지 않는 컬럼부터 빼는 것이 안전하다.</p></div>
+  </div>
+
+  <div class="idea">
+    <div class="head"><h3>카드 6 — 이미지 해상도 실험</h3><span class="meta">효과 小 · 위험 中 <span class="badge exp">실험 필요</span></span></div>
+    <div class="body"><p>차트 PNG 2장은 ~3천 토큰으로, 입력 전체에서 비중이 작다. 1400×900을 낮추면 절감은 소소한데 <strong>시각 판단(핸들·수축 인식) 품질이 떨어질 위험</strong>은 실재한다. 우선순위 낮음 — 다른 카드를 다 쓴 뒤에나 고려.</p></div>
+  </div>
+
+  <div class="idea">
+    <div class="head"><h3>카드 7 — 진짜 속도 레버: thinking 예산 조절 실험</h3><span class="meta">효과 大 가능성 · 위험 中 <span class="badge exp">실험 필요</span></span></div>
+    <div class="body"><p>출력 실측이 약 7,200~16,900 토큰인데, §2에서 봤듯 이 대부분은 눈에 보이는 답이 아니라 <strong>모델의 내부 사고(thinking)</strong>다. 속도 실측(인라인 전환 전 진단 런 기준)에서도 종목당 234초 중 ~160초가 thinking 구간이었고 런별 편차(50~160초)의 주 원인도 이것이었다. 즉 measurements나 근거문을 다이어트해봤자 속도는 거의 안 잡힌다 — <strong>출력과 시간의 주범은 thinking이고, 조절 레버는 thinking(effort) 예산</strong>이다.</p>
+    <p>이것은 기존 속도 리포트가 "본 측정에서는 제외"라고 명시하고 남겨둔 미개척 영역이다. thinking을 줄이면 시각 판단 품질이 떨어질 위험이 실재하므로, 반드시 판정 불변 검사(45/45 방식)를 통과해야 채택한다. 통과한다면 이 카드 하나가 시간·출력 토큰 모두에서 가장 큰 효과를 낼 수 있다.</p></div>
+  </div>
+</section>
+
+<section id="speed" class="fade">
+  <h2><span class="no">6</span>개선 축 ③ 더 빨리 끝내기</h2>
+  <div class="rule"></div>
+
+  <div class="idea">
+    <div class="head"><h3>카드 8 — 평일 경로도 병렬화</h3><span class="meta">효과 中 · 위험 小 <span class="badge todo">권장</span></span></div>
+    <div class="body"><p>주말 배치는 4워커 병렬인데, <strong>평일 경로(daily_delta·evaluate_pivot·entry_params)는 전부 순차 for 루프</strong>다. 주말용으로 이미 만들어진 병렬 실행기(<code>parallel.py</code> — 재시도·중단 처리 포함)를 평일 경로에 재사용하면, 코드 추가 거의 없이 평일 벽시계 시간이 워커 수만큼 줄어든다. 평일 종목 수가 적은 날은 효과가 작지만, 몰리는 날의 지연을 없애준다.</p></div>
+  </div>
+
+  <div class="idea">
+    <div class="head"><h3>카드 9 — 워커 수 상향 실험</h3><span class="meta">효과 中 · 위험 中 <span class="badge exp">실험 필요</span></span></div>
+    <div class="body"><p><code>WEEKEND_CONCURRENCY=4</code>는 보수적 기본값이다. 6~8로 올리면 주말 배치가 그만큼 빨라질 수 있지만, 두 가지를 관찰해야 한다: ① 동시 호출이 늘면 5시간 사용량 한도에 더 빨리 도달한다(총량은 같지만 소진 속도가 빨라짐), ② 호출당 지연이 늘어나는지(<code>llm_call_duration_s</code>로 확인). 한 단계씩 올리며 실측.</p></div>
+  </div>
+
+  <div class="idea">
+    <div class="head"><h3>카드 10 — 사이트 B에 더 작고 빠른 모델</h3><span class="meta">효과 中 · 위험 中 <span class="badge exp">실험 필요</span></span></div>
+    <div class="body"><p>모델은 <code>KR_CLAUDE_MODEL</code> 환경변수로 핀돼 있어 오프라인 실험은 쉽다. 다만 이 변수는 프로세스 전역이고 평일 실행은 A/B/C를 한 프로세스에서 순차 호출하므로, <strong>B만 다른 모델을 실제 적용하려면 호출 함수에 모델 파라미터를 추가하는 소규모 코드 변경</strong>이 따른다. A(차트 시각 판단)는 상위 모델이 필요하지만, <strong>B는 숫자 JSON을 규칙 대조하는 경량 판정</strong>이라 더 작고 빠른 모델로도 충분할 수 있다. 검증 방법은 이미 확립돼 있다: 과거 저장된 판정과의 일치율 비교(analyze_chart의 Sonnet 전환 때 20건 신뢰성 + 일치율 검증을 했던 것과 같은 절차). 단, 카드 2(명백 케이스 사전 판정)와 카드 1(C 결정론화)을 먼저 하면 B에 남는 건 경계 판단뿐이라, 그때는 오히려 상위 모델 유지가 맞을 수도 있다 — 순서를 지켜서 판단.</p></div>
+  </div>
+
+  <div class="idea">
+    <div class="head"><h3>카드 11 — 캐시 온기 유지 (알아두면 좋은 상식 수준)</h3><span class="meta">효과 小 · 위험 無</span></div>
+    <div class="body"><p>프롬프트 캐시는 기본 설정 기준 <strong>약 5분</strong>이 지나면 식는다. 배치가 연속으로 돌면 두 번째 호출부터 지시문(1.2만+ 토큰)을 캐시에서 싸게 읽는다. 다행히 현재 구조에서는 손실이 잘 안 난다 — 평일 경로도 호출이 연달아(back-to-back) 이어지는 순차 루프라 보통 5분 안에 다음 호출이 나가고, 세 단계는 각자 다른 지시문을 쓰므로 단계 사이의 캐시 공유는 애초에 시스템 프롬프트 정도다. 실제 손실은 <strong>후보가 아주 적어 호출 간격이 벌어지는 날</strong> 정도에 국한된다. 별도 작업이 필요한 카드가 아니라, 배치 구조를 바꿀 때 "실행 밀도가 캐시 온기"라는 사실만 기억하면 되는 항목.</p></div>
+  </div>
+
+  <div class="idea">
+    <div class="head"><h3>카드 12 — 에이전트 부팅 다이어트 (실측 완료·보류 중인 옵션)</h3><span class="meta">효과 小~中 · 위험 小 <span class="badge exp">재검토</span></span></div>
+    <div class="body"><p>A 호출 1건의 캐시 생성 ~7.6만 토큰에는 지시문·데이터 외에 <strong>claude CLI가 에이전트를 띄우면서 얹는 시스템 오버헤드</strong>(툴 정의, 세션 장치 등)가 포함된다. 과거 속도 리포트는 이걸 줄인 변형(안전모드·세션 저장 생략 등, "AB 변형")까지 실측해뒀다: <strong>현행 방식 대비 토큰 −27%(10.7만→7.9만), 비용 −9%, 종목별 중앙값 합 −3%</strong>. 품질(판정)은 동일했고 "당장은 보류 가능"으로 남겨졌다. 참고로 그중 일부(도구를 Read 하나로 제한)는 이미 프로덕션에 적용돼 있다. 시간 단축 효과는 미미하고(이상치 포함 전체 벽시계는 오히려 밀린 런도 있었다) <strong>본질은 토큰·비용 절감 카드</strong>다 — 카드 1~8을 소화한 뒤에도 비용이 아까우면, 새로 실험할 것 없이 이미 측정이 끝난 이 옵션을 꺼내 쓰면 된다.</p></div>
+  </div>
+</section>
+
+<section id="priority" class="fade">
+  <h2><span class="no">7</span>권장 우선순위와 검증 방법</h2>
+  <div class="rule"></div>
+  <div class="rank">
+    <div class="item"><div>
+      <h4>측정 대시보드부터 (반나절)</h4>
+      <p>DB에 이미 쌓인 <code>llm_*</code> 컬럼으로 "사이트별 호출 수 × 평균 토큰 × 평균 시간" 현황표를 만든다. 모든 카드의 효과는 이 표의 전/후 비교로 판정한다. 측정 없는 최적화는 하지 않는다.</p>
+    </div></div>
+    <div class="item"><div>
+      <h4>확실한 것 먼저: 카드 1 (C 결정론화) + 카드 8 (평일 병렬화)</h4>
+      <p>둘 다 품질 하락 위험이 사실상 없고 효과가 구조적이다. 카드 1은 시리즈 1편의 이행 계획을 그대로 따른다.</p>
+    </div></div>
+    <div class="item"><div>
+      <h4>호출 수 공략: 카드 2 → 카드 3</h4>
+      <p>둘 다 과거 데이터로 절감량과 부작용(false negative)을 먼저 세어보고 결정한다. 카드 3(변화 없음 이월)은 효과가 가장 클 수 있지만 백테스트 검증이 선행돼야 한다.</p>
+    </div></div>
+    <div class="item"><div>
+      <h4>콜당 다이어트 실험: 카드 4 → 카드 5 → 카드 7, 필요하면 카드 9·10·12</h4>
+      <p>입력·출력을 건드리는 카드(4·5·6·7)는 "판정 불변 검사"(같은 종목 세트에서 전/후 분류 일치 확인 — speed report의 45/45 방식)를 통과해야 채택. 카드 10(B 모델 교체)은 B의 판정 일치율 비교로 검증. 카드 9(워커 수)는 판정과 무관하니 지연·한도 소진 속도만 관찰. 카드 6(이미지 축소)은 마지막까지 아껴두고, 카드 12는 이미 실측이 끝나 있어 필요할 때 꺼내 쓰면 된다.</p>
+    </div></div>
+  </div>
+  <div class="callout teal">
+    <span class="label">한 줄 요약</span>
+    <p>이 프로젝트의 효율화는 "프롬프트를 짧게 쓰자" 수준의 이야기가 아니라 이미 한 차례 정밀 최적화를 거친 시스템의 2라운드다. 남은 큰 덩어리는 <strong>① 안 불러도 되는 호출을 없애는 것(카드 1·2·3), ② 캐시가 못 흡수하는 종목별 데이터를 다이어트하는 것(카드 4·5), ③ 순차 구간을 병렬화하는 것(카드 8), ④ 시간과 출력의 실제 주범인 thinking 예산을 실험하는 것(카드 7)</strong>이다. 그리고 무엇을 하든, 45런 판정-불변 검증과 DB 실측 비교라는 이 프로젝트의 기존 검증 문화를 그대로 따르면 된다.</p>
+  </div>
+</section>
+
+<footer>
+  <span>kr-by-claude 리뷰 시리즈 2/4 — LLM 효율화</span>
+  <span>이전: 01 결정론적 분리 · 다음: 03 모순 검토</span>
+</footer>
+
+</div>
+</body>
+</html>
