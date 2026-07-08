@@ -296,6 +296,10 @@ def run(
                             rows_to_upsert.append(result)
                     except Exception as e:
                         failures.append((f"{index_code}@{target_date}", str(e)))
+                        # DB 예외의 aborted 트랜잭션이 잔여 날짜로 연쇄되지 않게
+                        # (weekly/indicators 종목 루프와 동일 패턴). rows_to_upsert 는
+                        # 파이썬 객체라 rollback 에 유실되지 않는다.
+                        conn.rollback()
 
                 if rows_to_upsert:
                     rows_total += upsert_market_context(conn, rows_to_upsert)
