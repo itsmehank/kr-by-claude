@@ -35,8 +35,10 @@ def _seed_daily(conn):
             for d in days_w1 + days_w2:
                 cur.execute(
                     """
-                    INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
-                    VALUES (%s, %s, 100, 110, 90, 105, 105.0, 1000, 105000)
+                    INSERT INTO daily_prices (ticker, date, open, high, low, close,
+                                              adj_close, adj_high, adj_low, adj_open, adj_volume,
+                                              volume, value)
+                    VALUES (%s, %s, 100, 110, 90, 105, 105.0, 110.0, 90.0, 100.0, 1000, 1000, 105000)
                     """,
                     (ticker, d),
                 )
@@ -58,7 +60,7 @@ def test_backfill_end_to_end(test_db_url):
         _seed_daily(conn)
 
         try:
-            stats = run(conn, Mode.BACKFILL, limit_tickers=2)
+            stats = run(conn, Mode.BACKFILL, only_tickers=["WEEKTEST1", "WEEKTEST2"])
 
             assert stats.rows_affected >= 4
 
@@ -85,8 +87,8 @@ def test_incremental_overwrites_existing(test_db_url):
         _seed_daily(conn)
 
         try:
-            run(conn, Mode.BACKFILL, limit_tickers=2)
-            run(conn, Mode.INCREMENTAL, window_weeks=4, limit_tickers=2)
+            run(conn, Mode.BACKFILL, only_tickers=["WEEKTEST1", "WEEKTEST2"])
+            run(conn, Mode.INCREMENTAL, window_weeks=4, only_tickers=["WEEKTEST1", "WEEKTEST2"])
 
             with conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) FROM weekly_prices WHERE ticker LIKE 'WEEKTEST%'")
@@ -104,14 +106,16 @@ def test_partial_failure_isolates(test_db_url):
             cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('WEEKTEST2', 'T2', 'KOSPI') ON CONFLICT DO NOTHING")
             for d in [date(2026, 4, 28), date(2026, 4, 29), date(2026, 5, 2)]:
                 cur.execute(
-                    """INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
-                       VALUES ('WEEKTEST1', %s, 100, 110, 90, 105, 105.0, 1000, 105000)""",
+                    """INSERT INTO daily_prices (ticker, date, open, high, low, close,
+                                                 adj_close, adj_high, adj_low, adj_open, adj_volume,
+                                                 volume, value)
+                       VALUES ('WEEKTEST1', %s, 100, 110, 90, 105, 105.0, 110.0, 90.0, 100.0, 1000, 1000, 105000)""",
                     (d,),
                 )
         conn.commit()
 
         try:
-            stats = run(conn, Mode.BACKFILL, limit_tickers=2)
+            stats = run(conn, Mode.BACKFILL, only_tickers=["WEEKTEST1", "WEEKTEST2"])
 
             with conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) FROM weekly_prices WHERE ticker = 'WEEKTEST1'")
@@ -168,8 +172,9 @@ def test_process_ticker_heals_partial_week_orphan(db):
     with db.cursor() as cur:
         cur.execute("SELECT week_end_date, trading_days FROM weekly_prices WHERE ticker=%s ORDER BY week_end_date", (t,))
         rows = cur.fetchall()
-        # cleanup
+        # cleanup — stocks 도 삭제 (남기면 limit_tickers 쓰는 후속 테스트가 HEAL1 을 집어감)
         cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
         cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        cur.execute("DELETE FROM stocks WHERE ticker=%s", (t,))
     db.commit()
     assert rows == [(date(2026, 6, 5), 5)], f"화요일 고아가 남음: {rows}"

@@ -14,7 +14,8 @@ def test_upsert_inserts_new_stocks(db):
     assert affected == 2
 
     with db.cursor() as cur:
-        cur.execute("SELECT ticker, name, sector FROM stocks ORDER BY ticker")
+        # 스코프드 SELECT — 다른 테스트가 commit 하고 남긴 종목에 영향받지 않게
+        cur.execute("SELECT ticker, name, sector FROM stocks WHERE ticker IN ('005930','000660') ORDER BY ticker")
         rows = cur.fetchall()
     assert rows == [
         ("000660", "SK하이닉스", "전기·전자"),
@@ -53,7 +54,8 @@ def test_upsert_normalizes_nan_sector_to_null(db):
     ])
     upsert_stocks(db, df)
     with db.cursor() as cur:
-        cur.execute("SELECT ticker, sector FROM stocks ORDER BY ticker")
+        # 스코프드 SELECT — 잔존 종목 무관
+        cur.execute("SELECT ticker, sector FROM stocks WHERE ticker IN ('005930','000660') ORDER BY ticker")
         rows = cur.fetchall()
     assert rows == [("000660", None), ("005930", None)]
 

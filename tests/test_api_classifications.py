@@ -124,7 +124,15 @@ def test_unknown_sort_returns_400(client):
 
 
 def test_analyzed_for_date_in_response(client, db):
-    """analyzed_for_date 가 채워진 행은 응답에 그 값으로 전달됨."""
+    """analyzed_for_date 가 채워진 행은 응답에 그 값으로 전달됨.
+
+    고정 날짜('2026-05-15')는 시간이 지나면 lookback 창(COALESCE(analyzed_for_date,
+    ...) >= CURRENT_DATE - N) 밖으로 밀려 테스트가 부패한다 — 상대 날짜로 시드.
+    """
+    from datetime import date, timedelta
+
+    afd = (date.today() - timedelta(days=2)).isoformat()
+
     def override():
         yield db
     app.dependency_overrides[get_conn] = override
@@ -140,14 +148,15 @@ def test_analyzed_for_date_in_response(client, db):
                 """INSERT INTO weekly_classification
                      (symbol, classified_at, analyzed_for_date, market,
                       classification, source, created_at)
-                   VALUES ('CLSTESTAFD', NOW() - INTERVAL '1 day', '2026-05-15',
-                           'KOSPI', 'watch', 'weekend', NOW())"""
+                   VALUES ('CLSTESTAFD', NOW() - INTERVAL '1 day', %s,
+                           'KOSPI', 'watch', 'weekend', NOW())""",
+                (afd,),
             )
         db.commit()
 
         r = client.get("/api/classifications?lookback_days=30")
         row = next(r_ for r_ in r.json() if r_["symbol"] == "CLSTESTAFD")
-        assert row["analyzed_for_date"] == "2026-05-15"
+        assert row["analyzed_for_date"] == afd
     finally:
         app.dependency_overrides.pop(get_conn, None)
 

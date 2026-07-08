@@ -77,8 +77,9 @@ def test_run_isolates_exception_in_one_ticker(db, monkeypatch):
         for t in ("EXCTEST1", "EXCTEST2"):
             for d in [date(2026, 5, 4), date(2026, 5, 5), date(2026, 5, 6), date(2026, 5, 7), date(2026, 5, 8)]:
                 cur.execute(
-                    "INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value) "
-                    "VALUES (%s, %s, 100, 110, 90, 105, 105.0, 1000, 105000)",
+                    "INSERT INTO daily_prices (ticker, date, open, high, low, close, "
+                    "adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value) "
+                    "VALUES (%s, %s, 100, 110, 90, 105, 105.0, 110.0, 90.0, 100.0, 1000, 1000, 105000)",
                     (t, d),
                 )
     db.commit()
@@ -96,7 +97,7 @@ def test_run_isolates_exception_in_one_ticker(db, monkeypatch):
 
         monkeypatch.setattr(modes, "_process_ticker", faulty_process_ticker)
 
-        stats = modes.run(db, modes.Mode.BACKFILL, limit_tickers=2)
+        stats = modes.run(db, modes.Mode.BACKFILL, only_tickers=["EXCTEST1", "EXCTEST2"])
 
         # EXCTEST2 should have been retried (1st pass + retry pass = 2 calls)
         excttest2_calls = [t for t in call_log if t == "EXCTEST2"]
@@ -138,8 +139,9 @@ def test_run_retry_succeeds_on_second_attempt(db, monkeypatch):
         from datetime import date
         for d in [date(2026, 5, 4), date(2026, 5, 5), date(2026, 5, 6), date(2026, 5, 7), date(2026, 5, 8)]:
             cur.execute(
-                "INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value) "
-                "VALUES ('RETRYTEST1', %s, 100, 110, 90, 105, 105.0, 1000, 105000)",
+                "INSERT INTO daily_prices (ticker, date, open, high, low, close, "
+                "adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value) "
+                "VALUES ('RETRYTEST1', %s, 100, 110, 90, 105, 105.0, 110.0, 90.0, 100.0, 1000, 1000, 105000)",
                 (d,),
             )
     db.commit()
@@ -156,7 +158,7 @@ def test_run_retry_succeeds_on_second_attempt(db, monkeypatch):
 
         monkeypatch.setattr(modes, "_process_ticker", flaky_process_ticker)
 
-        stats = modes.run(db, modes.Mode.BACKFILL, limit_tickers=1)
+        stats = modes.run(db, modes.Mode.BACKFILL, only_tickers=["RETRYTEST1"])
 
         assert attempt_count["n"] == 2  # 1차 실패 + 재시도 성공
         assert stats.failures == []  # 재시도 성공으로 failures 비어있음

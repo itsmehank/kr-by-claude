@@ -68,7 +68,7 @@ def test_daily_backfill_end_to_end(test_db_url):
         _seed_300_days_data(conn)
 
         try:
-            stats = run_daily(conn, Mode.BACKFILL, limit_tickers=2)
+            stats = run_daily(conn, Mode.BACKFILL, only_tickers=["INDTEST1", "INDTEST2"])
 
             assert stats.rows_affected > 0
 
@@ -127,12 +127,12 @@ def test_idempotent_backfill_twice(test_db_url):
         _seed_300_days_data(conn)
 
         try:
-            run_daily(conn, Mode.BACKFILL, limit_tickers=2)
+            run_daily(conn, Mode.BACKFILL, only_tickers=["INDTEST1", "INDTEST2"])
             with conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) FROM daily_indicators WHERE ticker LIKE 'INDTEST%'")
                 first_count = cur.fetchone()[0]
 
-            run_daily(conn, Mode.BACKFILL, limit_tickers=2)
+            run_daily(conn, Mode.BACKFILL, only_tickers=["INDTEST1", "INDTEST2"])
             with conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) FROM daily_indicators WHERE ticker LIKE 'INDTEST%'")
                 second_count = cur.fetchone()[0]

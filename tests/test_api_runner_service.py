@@ -87,6 +87,9 @@ def test_check_can_run_pipeline_with_mode_prefix(db):
     from api.services.runner_service import check_can_run_pipeline
 
     with db.cursor() as cur:
+        # 다른 테스트가 commit 하고 남긴 indicators run 이 duplicate 판정을 오염시키지
+        # 않게 트랜잭션 안에서 제거 (무-commit — 픽스처 rollback 으로 원복)
+        cur.execute("DELETE FROM pipeline_runs WHERE pipeline = 'indicators'")
         cur.execute(
             """INSERT INTO pipeline_runs (pipeline, mode, status, started_at, finished_at)
                VALUES ('indicators', 'daily-incremental', 'success', %s, %s)""",
