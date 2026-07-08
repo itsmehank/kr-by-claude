@@ -344,32 +344,52 @@
 </div>
 </div>
 
-<div class="card sev1">
+<div class="card sev1 done">
+<span class="done-badge">처리완료 · 2026-07-08</span>
 <h3>4. market_context가 구조적으로 T-1(주말은 T-2) stale</h3>
 <p><code>market_context/modes.py:98-103</code>이 INCREMENTAL의 load_end를 어제로 고정하는데, crontab 실측상 ohlcv 체인(18:30)은 당일봉을 적재하고 market_context(19:30)만 어제까지 계산 → 20:00 LLM이 어제 status를, <strong>토 03:20 주말 분류는 목요일 기준 시장 status</strong>를 소비합니다. FTD/분배일 급변이 1~2세션 늦게 반영되는, LLM 판단 품질에 직접 닿는 유일한 신선도 이슈입니다.</p>
+<div class="resolved">
+<span class="rlabel">처리 내역</span>
+<p>INCREMENTAL의 load_end를 <code>yesterday</code> → <code>today</code>로 변경(<code>modes.py:103-107</code>, 당일 행 미존재 시 자연 skip으로 안전). 짝 작업으로 폴백 관측성도 추가 — market_context_builder가 요청일 대신 과거 행을 쓰면 <code>as_of_date</code> 필드 + fallback warning 로그로 드러남(<code>761a000</code>). 20:00 LLM과 토 03:20 주말 분류가 당일 status를 소비합니다. origin/main 머지 완료.</p>
+</div>
 </div>
 
-<div class="card sev1">
+<div class="card sev1 done">
+<span class="done-badge">처리완료 · 2026-07-07/08 (A/B/C)</span>
 <h3>5. "빈 결과 침묵 통과" 3형제 — 계정(accounting) 로직 추가</h3>
 <ul>
 <li><strong>universe</strong>: 한 시장 fetch가 빈 리스트면 그 시장 전 종목(~1,700개)이 일괄 delisted 처리될 수 있음 — <code>universe/store.py:36</code>의 가드는 "완전히 빈 경우"만 방어. 시장별 최소 종목 수 + delist 비율 상한 fail-closed 필요.</li>
 <li><strong>ohlcv</strong>: 빈 응답이 <code>modes.py:160-161</code>에서 성공도 실패도 아닌 상태로 소멸(failures=0) — 과거 607종목 누락 사고의 구조 원인이 그대로. empty_tickers를 run warnings로 승격.</li>
 <li><strong>drift</strong>: 재조회가 throttle로 비면 drift 아님 판정(<code>drift.py:70</code>) + 토요일 전종목 스윕이 sleep 없이 직렬 호출이라 스스로 throttle 유발.</li>
 </ul>
+<div class="resolved">
+<span class="rlabel">처리 내역 (P1-5 A/B/C — 전부 origin/main)</span>
+<p><strong>A universe(<code>d449187</code>)</strong>: 시장별 최소 종목 수 + 오폐지 비율 상한(2%)의 2중 fail-closed 가드. <strong>B ohlcv(<code>5f97ae4</code>)</strong>: 빈 응답 종목을 <code>empty_fetch</code>로 세서 run warnings로 승격 — "성공도 실패도 아닌 소멸" 차단. <strong>C drift(<code>2b2eb12</code>)</strong>: "검증 못 함"을 "이상 없음"과 분리 집계 + 전종목 스윕에 페이싱(sleep) 삽입. 자동 재fetch는 아니므로 경고 발생 시 수동 검증 절차는 유지.</p>
+</div>
 </div>
 
-<div class="card sev1">
+<div class="card sev1 done">
+<span class="done-badge">처리완료 · 2026-07-08 (①②③)</span>
 <h3>6. 리포 위생 즉효 3건</h3>
 <ul>
 <li><code>.gitignore</code>에 <code>data/freezes/</code>(106MB, 런타임 산출물)와 <code>.claude/</code>(223MB, worktree) 부재 — 확인 완료, 실수 커밋 시 리포가 329MB 불어남.</li>
 <li><strong>테스트 격리 수리</strong>: 오늘 실측 실패 24개(792개 중, 37.5초 완주)의 근본 원인이 진단됐습니다 — (A) 죽은 컬럼 <code>expires_at</code> 참조 낡은 테스트 5개(<code>test_llm_store_load.py:37,47,79</code>, <code>test_schema_llm_runner.py:16</code> — 코드/스키마에 grep 0건), (B) commit+finally 수동청소 패턴의 영구 누수(kr_test stocks에 잔존 가짜 종목 137행 실측, 31→24 표류의 기전). conftest에 세션 시작 시 <code>DROP SCHEMA public CASCADE</code> 초기화 + 낡은 테스트 5개 갱신이면 <strong>baseline 0이 달성 가능한 스위트</strong>입니다.</li>
 <li><strong>미커밋 Library(자료실) 작업</strong>: 웹 4파일 + <code>web/public/library</code> 심링크 + 타깃인 <code>docs/artifacts/</code>(7.1MB)를 함께 커밋해야 fresh clone에서 동작. 단 <code>library.ts:245</code>의 recall-audit-story가 "진행 중 스냅샷"이라 최종본 교체 후 커밋.</li>
 </ul>
+<div class="resolved">
+<span class="rlabel">처리 내역</span>
+<p><strong>① .gitignore</strong>: <code>data/freezes/</code>·<code>.claude/</code> 등재 — PR #4 머지. <strong>② 테스트 격리</strong>: conftest가 세션 시작 시 <code>DROP SCHEMA public CASCADE</code> 리셋(+dbname에 'test' 없으면 거부하는 production 오지정 가드) + 낡은 테스트 5개 갱신 + 잔존물이 가려온 가짜-초록 2건 재작성 — PR #12 머지, <strong>full suite 0 failed가 새 기준</strong>(머지 직전 840 passed 실측). <strong>③ Library</strong>: 4종 세트 커밋 완료(<code>6affcc0</code>).</p>
+</div>
 </div>
 
-<div class="card sev1">
+<div class="card sev1 done">
+<span class="done-badge">처리완료 · 2026-07-08</span>
 <h3>7. 프롬프트↔thresholds drift 테스트가 1/3만 커버</h3>
 <p>drift 테스트는 <code>analyze_chart_v3.md</code>의 SSOT 블록만 검증합니다. <code>evaluate_pivot_trigger_v1.md</code>(1.4×, 95% 등)와 <code>calculate_entry_params_v2_0.md</code>(1.005 버퍼, weight/target clamp)는 전부 raw 리터럴이고, 심지어 <code>store.py:383-386</code>이 같은 수치를 사설 상수로 3중 복제(SSOT 미등재) — 프롬프트 갱신 시 sanity 검증과 어긋나 정상 출력이 오탐됩니다. 두 프롬프트에 SSOT 블록 도입 + 사설 상수 4개 thresholds.py 승격. (CLAUDE.md의 threshold-change-checklist 대상 작업.)</p>
+<div class="resolved">
+<span class="rlabel">처리 내역</span>
+<p>PR #5 머지 — 사설 상수 4종을 <code>ENTRY_*</code>로 SSOT 승격(값 변경 0, store.py는 import), 두 프롬프트에 SSOT-THRESHOLDS 블록 도입, drift 테스트 3프롬프트 파라미터라이즈(음수 리터럴 파싱 결함도 수정 — −10.0 감시가 원래 불가능했음). 프롬프트 본문·블록·SSOT 3자 일치 및 export 재생성 diff 0을 머지 리뷰에서 실측. 체크리스트 적용 이력 기재(동작 중립 — 맵 생략 전례).</p>
+</div>
 </div>
 
 <h2><span class="sev s2">P2</span>중요하지만 급하지 않음</h2>
@@ -379,24 +399,24 @@
 <tbody>
 <tr><td>CI 도입</td><td><code>.github/</code> 없음. 스위트 37.5초 + postgres service container면 fresh DB라 로컬보다 안정적. P1-6 선행 후 워크플로 1개면 충분</td></tr>
 <tr><td>ROADMAP/README stale</td><td>ROADMAP §4가 2026-05-29 기준, backtest 서브시스템(19모듈)·수익성/recall 결론 전부 부재. living-doc 원칙 자기 위반</td></tr>
-<tr><td>dry-run freeze 무한 축적</td><td>dry-run cron이 매주 ~150종목 ZIP 저장 + <code>freeze_cleanup.py</code>가 cron/spec 미등록이라 retention 90일이 한 번도 실행 안 됨</td></tr>
+<tr><td>dry-run freeze 무한 축적 <strong>✓ 부분(2026-07-08)</strong></td><td>dry-run cron이 매주 ~150종목 ZIP 저장 + <code>freeze_cleanup.py</code>가 cron/spec 미등록이라 retention 90일이 한 번도 실행 안 됨 <em>→ 처리: PR #11이 pipeline_specs 등재(cron 라인은 --apply, UI 기본은 dry-run) + run_tracking. 실제 가동은 crontab 재설치 시. "dry-run은 freeze 저장 끄기"는 의도적 미채택 — 경로 검증용 보존이 설계 의도(해설서 5.8절).</em></td></tr>
 <tr><td>모델 별칭 핀 <code>sonnet</code></td><td>Anthropic이 별칭을 옮기면 3개 프롬프트 모델이 동시에 스왑됨. 5b/6 프롬프트는 Sonnet 5 미검증인데 자동 활성화 리스크. 구체 ID 핀 권장</td></tr>
-<tr><td>cron real 전환 메커니즘</td><td><code>pipeline_specs.py</code>의 modes[0]이 dry-run이라 <code>register()</code> 기본 호출로는 영원히 dry-run — 실가동용 전환 경로 자체가 없음</td></tr>
+<tr><td>cron real 전환 메커니즘 <strong>△ 경로 생김(07-08)</strong></td><td><code>pipeline_specs.py</code>의 modes[0]이 dry-run이라 <code>register()</code> 기본 호출로는 영원히 dry-run — 실가동용 전환 경로 자체가 없음 <em>→ 처리: PR #11이 <code>cron_mode</code> 키 신설로 파이프라인별 전환 경로 확보(freeze-cleanup이 첫 사용). LLM 2종의 real 전환 자체는 운영 결정으로 잔여.</em></td></tr>
 <tr><td>daily_delta 직렬</td><td>종목당 2~4분 — 회복장에서 신규 후보 수십 개면 1~2시간. <code>run_parallel_batch</code> 재사용 가능하게 이미 설계돼 있음</td></tr>
-<tr><td>weekly NaN 잠복</td><td><code>weekly/transform.py:83-93</code> NaN→<code>'NaN'::numeric</code> 경로(daily의 <code>_adj()</code> 부재). 현재 production 0건이지만 발화 시 payload JSON 오염</td></tr>
-<tr><td>market_context per-date rollback 누락</td><td><code>modes.py:289-294</code> — DB 예외 1건이 잔여 날짜 전부 연쇄 실패</td></tr>
-<tr><td>corporate_actions N+1</td><td>매 평일 ~2,500 종목 × DART 개별 조회 → corp_code 생략 일괄 조회로 수십 분→수 분</td></tr>
+<tr><td>weekly NaN 잠복 <strong>✓ PR #6</strong></td><td><code>weekly/transform.py:83-93</code> NaN→<code>'NaN'::numeric</code> 경로(daily의 <code>_adj()</code> 부재). 현재 production 0건이지만 발화 시 payload JSON 오염</td></tr>
+<tr><td>market_context per-date rollback 누락 <strong>✓ PR #8</strong></td><td><code>modes.py:289-294</code> — DB 예외 1건이 잔여 날짜 전부 연쇄 실패</td></tr>
+<tr><td>corporate_actions N+1 <strong>✓ PR #13</strong></td><td>매 평일 ~2,500 종목 × DART 개별 조회 → corp_code 생략 일괄 조회로 수십 분→수 분</td></tr>
 <tr><td>stop_variant 명세-구현 불일치</td><td>docstring "pivot 가격에 매수" vs 구현 <code>entry_price=b.close</code>(:151) — 확인 완료. 결과 문서·재현 경로도 부재(가장 최근 실험부터 규율이 느슨해진 신호)</td></tr>
-<tr><td>수익성 문서 LLM 사후지식 누출 한계 미기재</td><td>recall spec에는 명시된 "모델 컷오프(2026-01) &gt; 창(2021-24)" 오염 가능성이 수익성 결과 §8에 0건</td></tr>
+<tr><td>수익성 문서 LLM 사후지식 누출 한계 미기재 <strong>✓ PR #10</strong></td><td>recall spec에는 명시된 "모델 컷오프(2026-01) &gt; 창(2021-24)" 오염 가능성이 수익성 결과 §8에 0건</td></tr>
 <tr><td>무인증 부수효과 엔드포인트</td><td><code>POST /runner/run</code>·<code>/cron/register</code>가 무인증(CORS는 브라우저만 제한). <code>VITE_API_TARGET</code> 도입으로 원격 시나리오가 열려 바인드/토큰 정책 명시 필요</td></tr>
-<tr><td>UI 노출 잔여 ⑥⑧</td><td><code>market_base_missing</code>·<code>abort_skipped</code>가 웹 grep 0건 — PipelinePage.tsx:383-397 한 곳 수정으로 둘 다 해결</td></tr>
-<tr><td>Decimal 0→None</td><td><code>api/routers/indicators.py:178,209-210</code> — signals.py에서 이미 고친 버그 클래스의 잔존 2곳</td></tr>
+<tr><td>UI 노출 잔여 ⑥⑧ <strong>✓ PR #9</strong></td><td><code>market_base_missing</code>·<code>abort_skipped</code>가 웹 grep 0건 — PipelinePage.tsx:383-397 한 곳 수정으로 둘 다 해결</td></tr>
+<tr><td>Decimal 0→None <strong>✓ PR #7</strong></td><td><code>api/routers/indicators.py:178,209-210</code> — signals.py에서 이미 고친 버그 클래스의 잔존 2곳</td></tr>
 </tbody>
 </table>
 </div>
 
 <h2><span class="sev s3">P3</span>낮은 우선순위 (선별)</h2>
-<p>CLAUDE.md baseline 문구 갱신(격리 수리 후 "0" 기준으로), <code>achart_v3_speed_report.md</code> 루트→docs/ 이동, sonnet5 SEALED 번들은 블라인드 평가 완주 후 커밋, rs_line <code>raw=False</code> 성능(backfill 한정), Phase B/C/D의 <code>limit_tickers</code> 무시(production 오염 가능한 테스트 footgun), 지수코드 하드코딩 산재, deprecated 별칭·죽은 코드 정리, pandas FutureWarning(<code>transform.py:54</code>), batch.zip 동기 처리, runs <code>/summary</code> N+1.</p>
+<p>CLAUDE.md baseline 문구 갱신(격리 수리 후 "0" 기준으로) <strong>✓ PR #12에서 완료</strong>, <code>achart_v3_speed_report.md</code> 루트→docs/ 이동, sonnet5 SEALED 번들은 블라인드 평가 완주 후 커밋, rs_line <code>raw=False</code> 성능(backfill 한정), Phase B/C/D의 <code>limit_tickers</code> 무시(production 오염 가능한 테스트 footgun), 지수코드 하드코딩 산재, deprecated 별칭·죽은 코드 정리, pandas FutureWarning(<code>transform.py:54</code>), batch.zip 동기 처리, runs <code>/summary</code> N+1.</p>
 
 <h2>전략적 다음 작업 (버그가 아닌 로드맵 — 문서들이 스스로 지목)</h2>
 <ol>
@@ -575,7 +595,8 @@ KRX 주가 수집 ─→ 지표 계산 ─→ 결정론 스크리너 ─→ [주
 </div>
 </div>
 
-<div class="card sev1">
+<div class="card sev1 done">
+<span class="done-badge">처리완료 · 2026-07-08</span>
 <h3>P1-4. AI가 참고하는 "시장 전체 상태"가 항상 하루(주말엔 이틀) 늦다</h3>
 <p><b>배경</b>: 개별 종목 판단과 별도로, 시스템은 매일 "시장 전체가 상승장인가 하락장인가"(market_context)를 계산합니다. AI는 이 시장 상태를 참고해서 판단합니다 — 같은 차트라도 상승장에서는 매수, 하락장에서는 보류가 맞을 수 있으니까요.</p>
 <div class="block why"><span class="blabel">무엇이 문제인가요?</span>
@@ -583,9 +604,14 @@ KRX 주가 수집 ─→ 지표 계산 ─→ 결정론 스크리너 ─→ [주
 <div class="block logic"><span class="blabel">실제 코드와의 연결</span>
 <p>원인: <code>kr_pipeline/market_context/modes.py:98-103</code> — 증분 모드의 계산 종료일을 <code>yesterday</code>로 반환. 시각 증거: crontab에 주가 체인 18:30 / market_context 19:30 / AI 평일 20:00 / AI 주말 토 03:20. AI가 시장 상태를 읽는 곳: <code>market_context_builder.py</code>의 "기준일 이하 중 최신" 조회 — 오늘 행이 없으니 자연히 어제 행이 잡힙니다.</p></div>
 <div class="block fix"><span class="blabel">어떻게 고치나요</span><p>계산 종료일을 <code>yesterday</code>에서 <code>today</code>로 바꾸면 됩니다. 주가 체인(18:30)이 이미 당일 지수 데이터를 넣어 두므로 재료는 준비돼 있고, 혹시 당일 데이터가 없는 날이면 지금처럼 자연스럽게 건너뜁니다(안전).</p></div>
+<div class="resolved">
+<span class="rlabel">처리 내역</span>
+<p>제안 그대로 계산 종료일을 "오늘"로 바꿨습니다. 덤으로 관측 장치도 붙었습니다: AI가 어떤 날짜의 시장 상태를 읽었는지 결과에 기록(<code>as_of_date</code>)되고, 당일 데이터가 없어 과거 것을 쓴 날은 경고 로그가 남습니다. 이제 평일 20:00 AI와 토요일 새벽 분류 모두 당일 시장 상태를 봅니다. main 반영 완료.</p>
+</div>
 </div>
 
-<div class="card sev1">
+<div class="card sev1 done">
+<span class="done-badge">처리완료 · 2026-07-07/08 (세 갈래 모두)</span>
 <h3>P1-5. "빈 응답"이 정상 취급되는 3곳 — 침묵 실패의 뿌리</h3>
 <p><b>배경</b>: 외부 서버(KRX)는 과부하일 때 에러 대신 <em>빈 데이터</em>를 돌려주기도 합니다(요청 제한, throttling). 에러는 코드가 잡아서 재시도하지만, "정상적으로 도착한 빈 것"은 검사 로직이 따로 없으면 그냥 통과합니다.</p>
 <div class="block why"><span class="blabel">무엇이 문제인가요? — 같은 뿌리의 세 갈래</span>
@@ -597,9 +623,14 @@ KRX 주가 수집 ─→ 지표 계산 ─→ 결정론 스크리너 ─→ [주
 <div class="block logic"><span class="blabel">실제 코드와의 연결</span>
 <p>universe: <code>kr_pipeline/universe/store.py:36</code>(빈 집합 가드가 전부-빈 경우만 방어). ohlcv: <code>kr_pipeline/ohlcv/modes.py:160-161</code>(<code>if raw.empty: continue</code> — 집계 없이 소멸). drift: <code>kr_pipeline/pipeline/drift.py:70</code>(겹침 없으면 "드리프트 아님") + <code>:121-133</code>(무-sleep 직렬 호출).</p></div>
 <div class="block fix"><span class="blabel">어떻게 고치나요</span><p>공통 원칙은 하나: <strong>"빈 결과 = 검증이 필요한 신호"로 취급하고 세기(counting)</strong>. universe에는 시장별 최소 종목 수(코스피≥700, 코스닥≥1,300)와 "폐지 처리 대상이 활성 종목의 2%를 넘으면 중단" 가드. ohlcv에는 빈 응답 종목 수를 실행 보고서에 경고로 승격 + 1% 초과 시 알림. drift에는 "검증 못 한 종목" 카운트 분리 + 호출 사이 대기 시간 삽입.</p></div>
+<div class="resolved">
+<span class="rlabel">처리 내역</span>
+<p>세 갈래 전부 제안대로 반영돼 main에 들어갔습니다: universe 2중 가드(시장별 최소 수 + 오폐지 2% 상한), ohlcv 빈 응답 카운트의 경고 승격(empty_fetch), drift "검증 못 함" 분리 집계 + 호출 간 대기. 빈 응답을 자동으로 다시 받아오는 것까지는 아니므로, 경고가 뜨면 데이터 시작일을 수동 확인하는 절차는 그대로 유효합니다.</p>
+</div>
 </div>
 
-<div class="card sev1">
+<div class="card sev1 done">
+<span class="done-badge">처리완료 · 2026-07-08 (①②③)</span>
 <h3>P1-6. 저장소 위생 3건 — 작은 수고로 큰 효과</h3>
 <div class="block why"><span class="blabel">① 대용량 산출물이 git 제외 목록에 없다</span>
 <p>시스템이 돌 때마다 만들어지는 보관용 압축파일 폴더(<code>data/freezes/</code>, 106MB)와 도구 작업 폴더(<code>.claude/</code>, 223MB)가 <code>.gitignore</code>(제외 목록)에 등록돼 있지 않습니다. 실수로 커밋 한 번이면 저장소가 329MB 무거워지고, 되돌리기도 번거롭습니다. 제외 목록에 두 줄 추가하면 끝나는 일입니다.</p></div>
@@ -610,9 +641,14 @@ KRX 주가 수집 ─→ 지표 계산 ─→ 결정론 스크리너 ─→ [주
 <div class="block logic"><span class="blabel">실제 코드와의 연결</span>
 <p>② 낡은 테스트: <code>tests/test_llm_store_load.py:37,47,79</code>, <code>tests/test_schema_llm_runner.py:16</code>(코드·스키마 전체에서 <code>expires_at</code> 참조 0건 확인). 누수 기전: <code>tests/conftest.py</code>의 스키마 적용이 "테이블 없으면 만들기"라 기존 쓰레기를 못 지움. ③ 관련 파일: <code>web/src/pages/LibraryPage.tsx</code>, <code>web/src/data/library.ts</code>(:245에 교체 예정 표시), <code>web/public/library</code>(심링크), <code>docs/artifacts/</code>(7.1MB).</p></div>
 <div class="block fix"><span class="blabel">어떻게 고치나요</span><p>①은 .gitignore 두 줄. ②는 테스트 시작 시 테스트 DB를 통째로 초기화(<code>DROP SCHEMA</code> 후 재생성)하고 낡은 테스트 5개를 갱신 — 그러면 "실패 0개"가 정상 상태가 되어, 이후로는 실패 1개만 떠도 즉시 회귀임을 알 수 있습니다. ③은 recall 문서 교체 후 4종 세트 커밋.</p></div>
+<div class="resolved">
+<span class="rlabel">처리 내역</span>
+<p>① 제외 목록 두 줄 추가 완료. ② 테스트 DB 초기화 + 낡은 테스트 갱신 완료 — 이제 <strong>테스트 840개 전부 통과가 기본 상태</strong>이고, 실패가 하나라도 뜨면 그 작업의 회귀입니다. 실수로 운영 DB를 지정해도 초기화가 거부되는 안전장치를 넣었고, 청소 과정에서 "잔존 쓰레기 덕에 우연히 통과해 온 가짜 테스트 2건"까지 찾아 고쳤습니다. ③ 자료실 4종 세트 커밋 완료.</p>
+</div>
 </div>
 
-<div class="card sev1">
+<div class="card sev1 done">
+<span class="done-badge">처리완료 · 2026-07-08</span>
 <h3>P1-7. 기준 숫자의 "복사본 어긋남"을 감시하는 테스트가 1/3만 커버한다</h3>
 <p><b>배경</b>: AI에게 주는 지시문(프롬프트)은 그냥 텍스트 파일이라, 그 안의 숫자("거래량 1.4배 이상")는 코드의 SSOT 파일에서 자동으로 가져올 수 없고 사람이 손으로 맞춰야 합니다. 그래서 "프롬프트 속 숫자와 SSOT 숫자가 어긋나면 테스트가 실패"하게 만든 감시 테스트(drift test)가 있습니다.</p>
 <div class="block why"><span class="blabel">무엇이 문제인가요?</span>
@@ -620,6 +656,10 @@ KRX 주가 수집 ─→ 지표 계산 ─→ 결정론 스크리너 ─→ [주
 <div class="block logic"><span class="blabel">실제 코드와의 연결</span>
 <p>감시가 있는 곳: <code>tests/test_prompt_threshold_drift.py</code> ↔ <code>prompts/analyze_chart_v3.md</code>의 SSOT 표식 블록(16개 상수, 양방향 검증 — 이 부분은 잘 만들어져 있음). 감시가 없는 곳: <code>prompts/evaluate_pivot_trigger_v1.md</code>(:32,:75,:122 등), <code>prompts/calculate_entry_params_v2_0.md</code>(:162,:265,:288 등). 3중 복제: <code>kr_pipeline/llm_runner/store.py:383-386</code>의 사설 상수 4개(SSOT 미등재).</p></div>
 <div class="block fix"><span class="blabel">어떻게 고치나요</span><p>나머지 두 프롬프트에도 SSOT 표식 블록을 넣고 감시 테스트를 프롬프트별로 확장 + 사설 상수 4개를 SSOT 파일(thresholds.py)로 승격해 가져다 쓰기. 참고로 이 작업은 프로젝트 규칙(CLAUDE.md)상 "임계값 변경 체크리스트"를 작성해야 하는 대상입니다 — 임계값이 얽힌 곳을 표로 그려 상호작용 사고를 막는 절차입니다.</p></div>
+<div class="resolved">
+<span class="rlabel">처리 내역</span>
+<p>제안 그대로 완료 — 숫자 값은 하나도 안 바꾸고 구조만 단일화했습니다. 이제 3개 프롬프트 전부 감시 대상이고, 검증 코드의 사설 복사본은 SSOT를 가져다 쓰므로 "한 곳만 고쳐서 어긋나는" 통로가 닫혔습니다. 부수 발견: 감시 테스트의 숫자 읽기가 음수를 못 읽는 결함이 있어서 손절 하한(−10) 감시가 애초에 불가능했는데, 이것도 함께 고쳤습니다. 체크리스트 이력 기재 완료.</p>
+</div>
 </div>
 
 <h2>5. P2 — 중요하지만 당장 급하지는 않은 14가지</h2>
@@ -631,46 +671,54 @@ KRX 주가 수집 ─→ 지표 계산 ─→ 결정론 스크리너 ─→ [주
 <div class="card sev2"><h3>② 프로젝트 로드맵 문서가 5주째 낡아 있음</h3>
 <p>ROADMAP 문서의 "현재 상태" 절이 5월 29일에 멈춰 있습니다. 그 후에 만들어진 가장 큰 자산 — 백테스트 서브시스템(모듈 19개)과 그 결론들(수익성 검증, 놓친 승자 감사) — 이 문서에는 존재 자체가 없습니다. 문서 스스로 "새 영역이 생기면 갱신한다"는 원칙을 적어 두고 어겼습니다. 새 작업자(또는 미래의 자신)가 전체 그림을 문서로 파악할 수 없는 상태입니다.</p></div>
 
-<div class="card sev2"><h3>③ 모의 실행이 보관용 파일을 무한히 쌓는 중</h3>
-<p>AI 분석을 할 때마다 "나중에 재현할 수 있게" 입력 자료를 압축해 보관(freeze)하는데, 모의 실행(dry-run)에서도 저장합니다. 지금 크론이 모의 실행이므로 매주 ~150종목분의 압축파일이 <em>실제 분석도 아닌데</em> 쌓입니다(보관 폴더 전체는 이미 106MB — 압축파일 1,212개). 90일 지난 파일을 지우는 청소 프로그램은 만들어져 있지만 <strong>예약(cron)에 등록된 적이 없어서 한 번도 돈 적이 없습니다</strong>. 청소기를 예약에 등록하고, 모의 실행은 보관을 끄는 게 맞습니다.</p></div>
+<div class="card sev2 done"><span class="done-badge">부분 처리 · 2026-07-08</span><h3>③ 모의 실행이 보관용 파일을 무한히 쌓는 중</h3>
+<p>AI 분석을 할 때마다 "나중에 재현할 수 있게" 입력 자료를 압축해 보관(freeze)하는데, 모의 실행(dry-run)에서도 저장합니다. 지금 크론이 모의 실행이므로 매주 ~150종목분의 압축파일이 <em>실제 분석도 아닌데</em> 쌓입니다(보관 폴더 전체는 이미 106MB — 압축파일 1,212개). 90일 지난 파일을 지우는 청소 프로그램은 만들어져 있지만 <strong>예약(cron)에 등록된 적이 없어서 한 번도 돈 적이 없습니다</strong>. 청소기를 예약에 등록하고, 모의 실행은 보관을 끄는 게 맞습니다.</p>
+<div class="resolved"><span class="rlabel">처리 내역</span><p>청소기 등록 절반은 완료(PR #11): 스케줄표에 정식 등재됐고, 웹 화면 실행 버튼(기본은 미리보기)과 cron 라인(실제 삭제)이 생겼습니다. 단 예약표(crontab) 자체를 다시 설치해야 실제로 돌기 시작합니다 — 운영 결정으로 남김. "모의 실행은 보관 끄기"는 채택하지 않았습니다: dry-run에서도 보관을 남기는 것이 경로 검증용이라는 설계 의도가 확인됐기 때문입니다.</p></div></div>
 
 <div class="card sev2"><h3>④ AI 모델을 별명으로 지정 — 예고 없는 모델 교체 위험</h3>
 <p>사용할 AI 모델을 <code>sonnet</code>이라는 <em>별명</em>으로 지정해 놓았습니다. 별명은 제조사(Anthropic)가 신모델을 내면 자동으로 최신 모델을 가리키게 됩니다. 편리해 보이지만, 3개 프롬프트가 검증도 안 된 새 모델로 <em>어느 날 소리 없이 동시에</em> 바뀔 수 있다는 뜻입니다. 실제로 신모델 검증은 3개 프롬프트 중 1개(차트 분류)만 완료된 상태입니다. 구체적인 모델 ID로 고정하고, 모델 교체를 의도적인 절차로 만들어야 합니다.</p></div>
 
-<div class="card sev2"><h3>⑤ "실전 모드로 켜는 스위치"가 아예 없음</h3>
-<p>크론 등록 코드가 항상 각 파이프라인의 <em>첫 번째 모드</em>를 쓰는데, AI 파이프라인들의 첫 번째 모드가 dry-run으로 정의돼 있습니다. 즉 표준 등록 절차로는 <strong>영원히 모의 실행</strong>입니다. 실전 전환은 운영 결정이 필요한 일이지만, 결정했을 때 누를 스위치 자체는 미리 만들어 둬야 합니다.</p></div>
+<div class="card sev2 done"><span class="done-badge">부분 처리 · 2026-07-08 (스위치는 생김)</span><h3>⑤ "실전 모드로 켜는 스위치"가 아예 없음</h3>
+<p>크론 등록 코드가 항상 각 파이프라인의 <em>첫 번째 모드</em>를 쓰는데, AI 파이프라인들의 첫 번째 모드가 dry-run으로 정의돼 있습니다. 즉 표준 등록 절차로는 <strong>영원히 모의 실행</strong>입니다. 실전 전환은 운영 결정이 필요한 일이지만, 결정했을 때 누를 스위치 자체는 미리 만들어 둬야 합니다.</p>
+<div class="resolved"><span class="rlabel">처리 내역</span><p>스위치가 생겼습니다(PR #11의 <code>cron_mode</code> 키): 파이프라인 명세에 "cron은 이 모드로 돌아라"를 지정할 수 있어서, 화면 기본은 안전한 모드로 두면서 cron만 실전 모드로 등록하는 게 가능해졌습니다(freeze 청소기가 첫 사용). AI 파이프라인 2종을 실전으로 켜는 것 자체는 여전히 운영 결정으로 남아 있습니다.</p></div></div>
 
 <div class="card sev2"><h3>⑥ 평일 신규 종목 분석이 한 번에 한 종목씩(직렬)</h3>
 <p>주말 분석은 4종목씩 동시에 처리하는 병렬 장치가 이미 있는데, 평일 신규 후보 분석은 한 종목씩 차례로 합니다. 종목당 2~4분이 걸려서, 시장이 좋아져 신규 후보가 수십 개 쏟아지는 날엔 평일 배치가 1~2시간으로 늘어납니다. 주말용 병렬 장치를 재사용할 수 있게 함수 모양도 이미 맞춰져 있어서 수정이 쉽습니다.</p></div>
 
-<div class="card sev2"><h3>⑦ 주봉 집계에 숨어 있는 NaN 오염 경로</h3>
-<p>일봉을 주봉으로 합칠 때, 한 주 내내 거래정지였던 종목이 있으면 계산 결과가 NaN(숫자 아님)이 되는데, 일봉 쪽에는 이를 NULL(빈 값)로 바꾸는 처리가 있고 주봉 쪽에는 없습니다. NaN이 DB에 들어가면 나중에 AI에게 주는 JSON 자료가 형식 오류로 깨질 수 있습니다. 현재 DB를 조회해 보니 실제 발생 건은 0건 — 아직 안 터진 지뢰라서 P2이고, 일봉과 같은 변환 한 줄이면 제거됩니다.</p></div>
+<div class="card sev2 done"><span class="done-badge">처리완료 · 2026-07-08</span><h3>⑦ 주봉 집계에 숨어 있는 NaN 오염 경로</h3>
+<p>일봉을 주봉으로 합칠 때, 한 주 내내 거래정지였던 종목이 있으면 계산 결과가 NaN(숫자 아님)이 되는데, 일봉 쪽에는 이를 NULL(빈 값)로 바꾸는 처리가 있고 주봉 쪽에는 없습니다. NaN이 DB에 들어가면 나중에 AI에게 주는 JSON 자료가 형식 오류로 깨질 수 있습니다. 현재 DB를 조회해 보니 실제 발생 건은 0건 — 아직 안 터진 지뢰라서 P2이고, 일봉과 같은 변환 한 줄이면 제거됩니다.</p>
+<div class="resolved"><span class="rlabel">처리 내역</span><p>일봉과 동일한 NaN→NULL 변환을 주봉 변환에 적용했습니다(PR #6). "한 주 전체 거래정지"와 "일부만 정지"(기존 동작 보존) 두 시나리오를 테스트로 고정. 지뢰 제거 완료.</p></div></div>
 
-<div class="card sev2"><h3>⑧ 시장 상태 계산에서 오류 하나가 연쇄 실패를 부름</h3>
-<p>날짜별로 계산하다 하루가 DB 오류로 실패하면, 그 오류를 정리(rollback)하지 않고 다음 날짜로 넘어갑니다. DB는 "오류가 정리되지 않은 상태"에서 새 작업을 거부하므로, 그날 이후의 모든 날짜가 도미노처럼 함께 실패합니다. rollback 한 줄이면 하루 실패로 격리됩니다. (다른 모듈들은 이미 이렇게 처리하고 있어서, 그 패턴을 복사하면 됩니다.)</p></div>
+<div class="card sev2 done"><span class="done-badge">처리완료 · 2026-07-08</span><h3>⑧ 시장 상태 계산에서 오류 하나가 연쇄 실패를 부름</h3>
+<p>날짜별로 계산하다 하루가 DB 오류로 실패하면, 그 오류를 정리(rollback)하지 않고 다음 날짜로 넘어갑니다. DB는 "오류가 정리되지 않은 상태"에서 새 작업을 거부하므로, 그날 이후의 모든 날짜가 도미노처럼 함께 실패합니다. rollback 한 줄이면 하루 실패로 격리됩니다. (다른 모듈들은 이미 이렇게 처리하고 있어서, 그 패턴을 복사하면 됩니다.)</p>
+<div class="resolved"><span class="rlabel">처리 내역</span><p>제안 그대로 rollback 한 줄 추가(PR #8). 앞서 성공한 날짜들의 결과는 계산이 끝난 뒤 한 번에 저장되는 구조라 rollback으로 유실되지 않음을 확인했고, 테스트는 진짜 DB 오류(<code>SELECT 1/0</code>)로 연쇄를 재현해 "1건 실패 시 나머지 정상"을 고정했습니다.</p></div></div>
 
-<div class="card sev2"><h3>⑨ 공시 수집이 종목마다 따로 요청 (2,500회)</h3>
-<p>매 평일 아침 기업행위 공시를 종목별로 1회씩, 약 2,500번 요청합니다. 공시 API(DART)는 종목을 지정하지 않으면 기간 내 전체 공시를 한 번에(몇 페이지로) 주는 기능이 있어서, 요청 횟수를 수천 회에서 몇 회로 줄일 수 있습니다. 실행 시간이 수십 분에서 수 분으로 줄고, 요청 실패 확률도 줄어듭니다.</p></div>
+<div class="card sev2 done"><span class="done-badge">처리완료 · 2026-07-08</span><h3>⑨ 공시 수집이 종목마다 따로 요청 (2,500회)</h3>
+<p>매 평일 아침 기업행위 공시를 종목별로 1회씩, 약 2,500번 요청합니다. 공시 API(DART)는 종목을 지정하지 않으면 기간 내 전체 공시를 한 번에(몇 페이지로) 주는 기능이 있어서, 요청 횟수를 수천 회에서 몇 회로 줄일 수 있습니다. 실행 시간이 수십 분에서 수 분으로 줄고, 요청 실패 확률도 줄어듭니다.</p>
+<div class="resolved"><span class="rlabel">처리 내역</span><p>제안 그대로 기간 일괄 조회로 전환(PR #13): 매일 아침 수집이 <strong>종목 수와 무관하게 요청 1회</strong>가 됐고, 받은 공시를 우리 종목에 되짚어 연결(역매핑)합니다. 과거 5년 백필도 90일 단위로 잘라 21회면 끝납니다. 같은 공시를 다시 받아도 중복 저장이 없는 기존 안전장치는 그대로.</p></div></div>
 
 <div class="card sev2"><h3>⑩ 최근 실험(손절 변형)의 설명서와 실제 코드가 다름</h3>
 <p>실험 설명에는 "pivot 가격에 매수"라고 적혀 있는데 코드는 <em>돌파일 종가</em>(보통 pivot보다 높음)에 매수하도록 짜여 있습니다. 매수가가 다르면 손절 기준과 수익률이 전부 달라지므로, 이 실험의 수치는 설명서와 다른 조건의 결과입니다. 결과 정리 문서도 없고 일부 결과 파일은 재현 방법이 남아 있지 않습니다. 그동안 백테스트마다 지켜 온 규율(사전등록·문서화·재현 경로)이 <strong>가장 최근 실험에서 처음 느슨해진 신호</strong>라서 짚었습니다.</p></div>
 
-<div class="card sev2"><h3>⑪ 수익성 검증 문서에 "AI가 미래를 알고 있었을 가능성" 미기재</h3>
-<p>2021~2024년 데이터로 백테스트했는데, 사용한 AI의 학습 데이터는 2026년 1월까지입니다. 즉 AI는 "그 종목이 그 후 올랐다"를 학습으로 <em>이미 알고 있었을 가능성</em>이 있습니다(사후지식 누출). 다른 실험 문서에는 이 한계가 명시돼 있는데 수익성 결과 문서에만 빠져 있습니다. 결과 해석을 왜곡할 수 있는 한계이므로 문서의 한계 절에 추가해야 합니다. (기계 계산으로만 판정되는 부분은 이 문제와 무관하다는 점도 함께 적으면 좋습니다.)</p></div>
+<div class="card sev2 done"><span class="done-badge">처리완료 · 2026-07-08</span><h3>⑪ 수익성 검증 문서에 "AI가 미래를 알고 있었을 가능성" 미기재</h3>
+<p>2021~2024년 데이터로 백테스트했는데, 사용한 AI의 학습 데이터는 2026년 1월까지입니다. 즉 AI는 "그 종목이 그 후 올랐다"를 학습으로 <em>이미 알고 있었을 가능성</em>이 있습니다(사후지식 누출). 다른 실험 문서에는 이 한계가 명시돼 있는데 수익성 결과 문서에만 빠져 있습니다. 결과 해석을 왜곡할 수 있는 한계이므로 문서의 한계 절에 추가해야 합니다. (기계 계산으로만 판정되는 부분은 이 문제와 무관하다는 점도 함께 적으면 좋습니다.)</p>
+<div class="resolved"><span class="rlabel">처리 내역</span><p>한계 절에 항목 7로 추가(PR #10). 단, 괄호 속 제안("기계 계산 부분은 무관")은 머지 리뷰에서 <strong>사실이 아닌 것으로 판명</strong>돼 반대로 적었습니다 — 방어층 판정도 AI가 실행한 재생이라 누출에서 자유롭지 않고, 누출이 방어 성적을 실제보다 좋아 보이게 했을 가능성까지 명시했습니다.</p></div></div>
 
 <div class="card sev2"><h3>⑫ 파이프라인을 실행시키는 웹 API에 인증이 없음</h3>
 <p>웹 화면의 "실행" 버튼이 호출하는 API(파이프라인 실행, 크론 등록/해제)는 아무나 요청을 보내면 동작합니다. 지금은 서버가 본인 컴퓨터 안(localhost)에서만 열려 있어 실질 위험은 낮지만, 최근 "API 주소를 환경변수로 바꿔 원격 서버를 바라볼 수 있게" 하는 변경이 들어와서, 원격 배포 시나리오가 열리면 이야기가 달라집니다. "localhost 전용" 정책을 명문화하거나 간단한 토큰 인증을 붙여야 합니다.</p></div>
 
-<div class="card sev2"><h3>⑬ 백엔드는 계산해 주는데 화면에 안 보이는 정보 2가지</h3>
-<p>"시장 기준 데이터 누락 목록"과 "abort 후 자동 복귀로 건너뛴 종목 수"는 백엔드가 이미 계산해서 실행 기록에 담아 주는데, 웹 화면이 이를 보여주지 않습니다(하나는 아예 숨김, 하나는 "[object Object]"라는 깨진 표기로 노출). 화면 코드 한 곳(PipelinePage)만 고치면 둘 다 해결됩니다.</p></div>
+<div class="card sev2 done"><span class="done-badge">처리완료 · 2026-07-08</span><h3>⑬ 백엔드는 계산해 주는데 화면에 안 보이는 정보 2가지</h3>
+<p>"시장 기준 데이터 누락 목록"과 "abort 후 자동 복귀로 건너뛴 종목 수"는 백엔드가 이미 계산해서 실행 기록에 담아 주는데, 웹 화면이 이를 보여주지 않습니다(하나는 아예 숨김, 하나는 "[object Object]"라는 깨진 표기로 노출). 화면 코드 한 곳(PipelinePage)만 고치면 둘 다 해결됩니다.</p>
+<div class="resolved"><span class="rlabel">처리 내역</span><p>한글 라벨 3종 추가 + 목록/객체 값을 사람이 읽을 형태("N건 (앞 5개 …)")로 바꿔주는 변환 함수 신설(PR #9). 라벨 이름이 백엔드 필드명과 글자까지 일치함을 확인했고 타입 검사 통과.</p></div></div>
 
-<div class="card sev2"><h3>⑭ "0"을 "없음"으로 바꿔치기하는 자잘한 버그 2곳</h3>
-<p>거래량 비율이 정확히 0인 날(무거래일)을 "데이터 없음"으로 잘못 표시하는 코드 패턴이 API 두 곳에 남아 있습니다. 같은 버그가 다른 파일에서는 이미 발견·수정됐고 수정 주석까지 있는데, 이 두 곳에만 옛 패턴이 남았습니다.</p></div>
+<div class="card sev2 done"><span class="done-badge">처리완료 · 2026-07-08</span><h3>⑭ "0"을 "없음"으로 바꿔치기하는 자잘한 버그 2곳</h3>
+<p>거래량 비율이 정확히 0인 날(무거래일)을 "데이터 없음"으로 잘못 표시하는 코드 패턴이 API 두 곳에 남아 있습니다. 같은 버그가 다른 파일에서는 이미 발견·수정됐고 수정 주석까지 있는데, 이 두 곳에만 옛 패턴이 남았습니다.</p>
+<div class="resolved"><span class="rlabel">처리 내역</span><p>두 곳 모두 선례와 같은 패턴(<code>is not None</code>)으로 교체(PR #7). API 전체를 훑어 숫자형 같은-버그 지점이 이 2곳뿐임을 확인했습니다(나머지는 날짜형이라 함정 없음). 무거래일(비율 0)이 이제 "0"으로 정직하게 표시됩니다.</p></div></div>
 
 <h2>6. P3 — 여유 있을 때 정리할 것들</h2>
 <div class="card sev3">
 <ul>
-<li><strong>CLAUDE.md의 테스트 기준 문구 갱신</strong> — P1-6② 수리 후에는 "약 25개 실패가 기본"이 아니라 "0개가 기본"으로.</li>
+<li><strong>CLAUDE.md의 테스트 기준 문구 갱신</strong> — P1-6② 수리 후에는 "약 25개 실패가 기본"이 아니라 "0개가 기본"으로. <strong>✓ 처리완료(PR #12에 포함, 2026-07-08)</strong></li>
 <li><strong>보고서 파일 위치 정리</strong> — 속도 실험 보고서(<code>achart_v3_speed_report.md</code>)가 저장소 맨 위(루트)에 놓여 있어 docs/ 관례 위치로 이동.</li>
 <li><strong>sonnet5 평가 자료의 커밋 시점</strong> — 블라인드 평가(정답을 가린 채 채점)용 자료는 평가를 마친 뒤에 정답 파일과 함께 커밋해야 "가림"의 의미가 지켜짐.</li>
 <li><strong>RS 지표 계산 속도</strong> — 계산 옵션 하나(<code>raw=False</code>)가 수십 배 느린 방식이라, 과거 전체 재계산 때만 체감되는 병목. 옵션 변경으로 개선 가능.</li>
@@ -719,7 +767,7 @@ KRX 주가 수집 ─→ 지표 계산 ─→ 결정론 스크리너 ─→ [주
 </main>
 
 <footer class="note">
-<p>이 문서는 2026-07-07 기준 코드·문서·크론탭·테스트 실행 실측을 근거로 작성됐습니다. 원본 탭의 <code>file:line</code> 표기는 저장소 루트 기준 경로입니다.</p>
+<p>이 문서는 2026-07-07 기준 코드·문서·크론탭·테스트 실행 실측을 근거로 작성됐습니다. 처리완료 마킹은 2026-07-08 리뷰·머지분(PR #4~#13)까지 반영. 원본 탭의 <code>file:line</code> 표기는 저장소 루트 기준 경로입니다.</p>
 </footer>
 
 <script>
