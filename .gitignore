@@ -34,3 +34,9 @@ dist/
 web/node_modules/
 web/dist/
 .superpowers/
+
+# Runtime artifacts (LLM 분석 입력 freeze ZIP — api/services/freeze_store.py 가 생성)
+data/freezes/
+
+# Claude Code 로컬 (worktrees, settings.local.json)
+.claude/
