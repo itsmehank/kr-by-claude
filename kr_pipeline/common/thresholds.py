@@ -83,6 +83,30 @@ BREAKOUT_VOL_PREFERRED: Final[float] = 1.5
 TLOND p.134 — 'standard breakout = 50% above average or more'.
 2026-05-22 (P0-1): 디폴트를 1.4× → 1.5× 로 상향, 1.4× 는 허용 하한."""
 
+# ===== Entry Params 검증 임계 (kr_pipeline/llm_runner/store.py sanity ↔
+# prompts/calculate_entry_params_v2_0.md §1.3/§2/§3/§4) =====
+# 2026-07-08 (P1-7): store.py 사설 상수를 SSOT 승격 — 프롬프트·검증코드가 같은
+# 수치를 3중 복제하던 것을 단일화(값 변경 0, 동작 중립). 프롬프트는 SSOT 블록으로
+# 수동 동기화(tests/test_prompt_threshold_drift.py 가 감시).
+
+ENTRY_STOP_PCT_FROM_PIVOT_FLOOR: Final[float] = -10.0
+"""손절 % (pivot 기준) 하한. 책: O'Neil 7-8% = 절대 상한, 프롬프트 §2 는
+wide handle 케이스 흡수용 floor 를 -10 으로 클램프. store sanity SOFT 경계."""
+
+ENTRY_TARGET_PCT_MIN: Final[float] = 15.0
+ENTRY_TARGET_PCT_MAX: Final[float] = 50.0
+"""기대 목표수익 % 클램프 (프롬프트 §4). 책: O'Neil 20-25% 표준 익절 ±
+패턴별 가감 — 시스템 채택 범위 [15, 50]. store sanity SOFT 경계."""
+
+ENTRY_WEIGHT_PCT_MIN: Final[float] = 3.0
+ENTRY_WEIGHT_PCT_MAX: Final[float] = 25.0
+"""제안 비중 % 최종 클램프 (프롬프트 §3). 책: O'Neil 집중 포트폴리오
+(최대 1/4) 상한 25, 하한 3 은 시스템 채택. store sanity SOFT 경계."""
+
+ENTRY_TRIGGER_BUFFER_MAX: Final[float] = 1.005
+"""trigger_price 상한 = pivot × 이 값 (프롬프트 §1.3). IBD 운용 관행
+(pivot +0.1% 산출, +0.5% 초과 = 추격) — store sanity SOFT 경계."""
+
 # ===== Distribution Day - 종목 레벨 (kr_pipeline/indicators/compute/volume.py) =====
 
 STOCK_DISTRIBUTION_VOL_MULT: Final[float] = 1.0
