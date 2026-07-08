@@ -16,7 +16,7 @@ def test_pipeline_specs_has_all_modules():
         "universe", "ohlcv", "weekly", "corporate-actions",
         "indicators-daily", "indicators-weekly", "market-context",
         "llm-full-daily", "llm-weekend", "llm-performance",
-        "llm-backfill",
+        "llm-backfill", "freeze-cleanup",
         "data-daily", "data-weekly",
     }
     assert required.issubset(ids), f"missing: {required - ids}"
@@ -271,3 +271,39 @@ def test_corporate_actions_scheduled_weekday_daily():
     ca = get_spec("corporate-actions")
     assert ca["default_cron"] == "0 8 * * 1-5"
     assert ca["schedule_label"] == "평일 매일"
+
+
+def test_freeze_cleanup_spec_registered():
+    """freeze retention 이 스케줄 체계에 등재 — UI 기본(modes[0])은 dry-run."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+
+    s = get_spec("freeze-cleanup")
+    assert s is not None
+    assert s["module"] == "kr_pipeline.llm_runner.freeze_cleanup"
+    assert s["pipeline_db_name"] == "freeze_cleanup"
+    assert s["group"] == "llm"
+    # RunDialog 는 modes[0] 을 기본 선택 — 파괴적 모드가 기본이면 안 됨
+    assert s["modes"][0]["id"] == "dry-run"
+    assert s["modes"][0]["is_heavy"] is False
+    assert "--apply" not in s["modes"][0]["args"]
+    apply_mode = next(m for m in s["modes"] if m["id"] == "apply")
+    assert apply_mode["is_heavy"] is True
+    assert "--apply" in apply_mode["args"]
+
+
+def test_freeze_cleanup_cron_line_uses_apply():
+    """cron 라인은 --apply 여야 retention 이 실제 실행된다 (cron_mode 키)."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_default_cron_lines
+
+    lines = [ln for ln in get_default_cron_lines() if "freeze_cleanup" in ln]
+    assert len(lines) == 1
+    assert "--apply" in lines[0]
+    assert lines[0].startswith("40 4 * * 6")
+
+
+def test_cron_mode_absent_falls_back_to_first_mode():
+    """cron_mode 없는 기존 spec 은 modes[0] args 그대로 (llm-full-daily = dry-run 유지)."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_default_cron_lines
+
+    line = next(ln for ln in get_default_cron_lines() if "--mode=full-daily" in ln)
+    assert "--dry-run" in line

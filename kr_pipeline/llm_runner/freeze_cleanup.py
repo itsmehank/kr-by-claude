@@ -126,6 +126,24 @@ def cleanup(
     return CleanupResult(candidates=candidates, deleted=deleted, bytes_freed=bytes_freed)
 
 
+def run_cli(conn: Connection, *, apply: bool, retention_days: int) -> CleanupResult:
+    """CLI 진입점 — pipeline_runs 에 run 기록 후 cleanup 실행.
+
+    pipeline_specs 등재(pipeline_db_name='freeze_cleanup') 계약: UI 실행 가시화
+    (wait_for_run_registration)·중복 방지(check_can_run_pipeline)가 이 행에 의존.
+    """
+    from kr_pipeline.db.runs import run_tracking
+
+    mode = "apply" if apply else "dry-run"
+    with run_tracking(
+        conn, pipeline="freeze_cleanup", mode=mode, params={"days": retention_days}
+    ) as state:
+        result = cleanup(conn, dry_run=not apply, retention_days=retention_days)
+        state["rows_affected"] = result.deleted
+        state["total_count"] = result.candidates
+    return result
+
+
 if __name__ == "__main__":
     import argparse
     from dotenv import load_dotenv
@@ -141,5 +159,5 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
     with connect() as conn:
-        result = cleanup(conn, dry_run=not args.apply, retention_days=args.days)
+        result = run_cli(conn, apply=args.apply, retention_days=args.days)
     print(f"candidates={result.candidates} deleted={result.deleted} bytes_freed={result.bytes_freed}")

@@ -105,18 +105,19 @@ def test_diff_managed_block_shows_changes():
 
 def test_default_cron_lines_contains_three_modes():
     """default cron 라인에 LLM 3종 (full-daily, weekend, performance) + 통합 체인 2종 포함 확인.
-    P1a 이후 예약 spec 8개: universe, corporate-actions, data-daily, data-weekly,
-    market-context, llm-full-daily, llm-weekend, llm-performance.
+    예약 spec 9개: universe, corporate-actions, data-daily, data-weekly,
+    market-context, llm-full-daily, llm-weekend, llm-performance, freeze-cleanup.
     (기존 ohlcv/weekly/indicators-daily/indicators-weekly 는 비예약(cron="")으로 제외, llm-backfill 도 제외.)
     """
     from kr_pipeline.llm_runner.cron_manager import DEFAULT_CRON_LINES
 
-    assert len(DEFAULT_CRON_LINES) == 8
+    assert len(DEFAULT_CRON_LINES) == 9
     assert any("full-daily" in line for line in DEFAULT_CRON_LINES)
     assert any("weekend" in line for line in DEFAULT_CRON_LINES)
     assert any("performance" in line for line in DEFAULT_CRON_LINES)
     assert any("--chain=daily" in line for line in DEFAULT_CRON_LINES)
     assert any("--chain=weekly" in line for line in DEFAULT_CRON_LINES)
+    assert any("freeze_cleanup" in line for line in DEFAULT_CRON_LINES)
 
 
 def test_register_and_unregister_flow(monkeypatch, tmp_path):
