@@ -158,13 +158,13 @@ Strict JSON only. No commentary, no markdown:
 - `decision`: "go_now" | "wait" | "abort"
 - `confidence`: 0.0~1.0
 - `reasoning`: ≤200자 한국어
-- `abort_reason`: abort 시 §3.3 카탈로그 키워드, 그 외 null
+- `abort_reason`: abort 시 §3.4 카탈로그 키워드, 그 외 null
 
 ## 5. Constraints
 
 - abort 는 신중히. 단일 약세일은 wait 으로 (베이스 여전히 valid 가능).
 - pivot/base/pattern 재산출 금지.
-- 새 키워드 만들지 말 것 (§3.3 카탈로그 외).
+- 새 키워드 만들지 말 것 (§3.4 카탈로그 외).
 - reasoning ≤200자 한국어.
 - Use ONLY the provided input payload. Do NOT use web search, external lookups, news, or earnings calendars — no information beyond the provided inputs, and no future information.
 
