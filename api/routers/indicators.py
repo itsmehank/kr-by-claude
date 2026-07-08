@@ -175,7 +175,8 @@ def get_minervini_passed(date_: date | None = None, min_rs: int = 70, limit: int
         rows = cur.fetchall()
     return [MinerviniPassedOut(
         ticker=r[0], name=r[1], sector=r[2], rs_rating=r[3], adj_close=float(r[4]),
-        volume_ratio_50d=float(r[5]) if r[5] else None,
+        # Decimal('0') 을 None 으로 오변환 금지 (signals.py 선례) — 0 = 무거래일, None = 데이터 없음
+        volume_ratio_50d=float(r[5]) if r[5] is not None else None,
         pocket_pivot_flag=r[6],
     ) for r in rows]
 
@@ -206,7 +207,8 @@ def get_by_sector(
         rows = cur.fetchall()
     return [SectorStockOut(
         ticker=r[0], name=r[1], sector=r[2], market=r[3], rs_rating=r[4], adj_close=float(r[5]),
-        volume_ratio_50d=float(r[6]) if r[6] else None,
+        # Decimal('0') 을 None 으로 오변환 금지 (signals.py 선례)
+        volume_ratio_50d=float(r[6]) if r[6] is not None else None,
         pocket_pivot_flag=r[7],
         minervini_pass=bool(r[8]) if r[8] is not None else False,
     ) for r in rows]
