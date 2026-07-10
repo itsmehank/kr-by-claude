@@ -98,7 +98,7 @@ Read `market_context.current_status`. This is non-negotiable per O'Neil (*HMMS* 
 
 - If `current_status == "downtrend"` or `"correction"`: maximum classification is `watch`. Force any `entry` decision down to `watch` and add `unfavorable_market_context` to `risk_flags`.
 - If `current_status == "rally_attempt"` without a follow-through day: maximum classification is `watch`. Add `unfavorable_market_context`.
-- If `market_context.distribution_day_count_last_25_sessions >= 5`: lower confidence by 0.15 and prefer `watch` over `entry`. Add `unfavorable_market_context`. (this 5 is co-anchored with evaluate_pivot_trigger_v1 §3.5 recovery gate `< 5` — change both together; guarded by tests/test_prompt_trigger_gates.py)
+- If `market_context.distribution_day_count_last_25_sessions >= 5`: lower confidence by 0.15 and prefer `watch` over `entry`. Add `unfavorable_market_context`. <!-- co-anchored with evaluate_pivot_trigger_v1 §3.5 recovery gate — change both together; guarded by tests/test_prompt_trigger_gates.py -->
 - If `current_status == "confirmed_uptrend"` with ≤ 3 distribution days: proceed normally with full classification range.
 
 This rule overrides individual stock setup quality. A perfect base in a downtrend is `watch`, not `entry`.
