@@ -199,7 +199,7 @@ def build_for_6(
         cur.execute(
             """
             SELECT classified_at, classification, pattern, pivot_price, pivot_basis,
-                   base_high, base_low, base_depth_pct, risk_flags
+                   base_high, base_low, base_depth_pct, risk_flags, confidence, reasoning
               FROM weekly_classification
              WHERE symbol = %s
                AND classification IN ('entry', 'watch')
@@ -244,6 +244,19 @@ def build_for_6(
         )
         state = cur.fetchone()
 
+        # (#18) §0.5/§1.2 pocket pivot 감지 입력 — 최근 10 거래일 지표.
+        # look-ahead 상한은 current_state 와 동일하게 evaluation 날짜.
+        cur.execute(
+            """
+            SELECT date, adj_close, volume, avg_volume_50d, pocket_pivot_flag
+              FROM daily_indicators
+             WHERE ticker = %s AND date <= %s
+             ORDER BY date DESC LIMIT 10
+            """,
+            (symbol, evaluation_at.date()),
+        )
+        recent_rows = list(reversed(cur.fetchall()))
+
     return {
         "symbol": symbol,
         "name": name,
@@ -260,7 +273,19 @@ def build_for_6(
             "base_low": float(prior[6]) if prior[6] else None,
             "base_depth_pct": float(prior[7]) if prior[7] else None,
             "risk_flags": prior[8],
+            "confidence": float(prior[9]) if prior[9] is not None else None,
+            "reasoning": prior[10],
         },
+        "recent_daily_indicators": [
+            {
+                "date": r[0].isoformat(),
+                "close": float(r[1]) if r[1] is not None else None,
+                "volume": int(r[2]) if r[2] is not None else None,
+                "avg_volume_50d": float(r[3]) if r[3] is not None else None,
+                "pocket_pivot_flag": bool(r[4]) if r[4] is not None else None,
+            }
+            for r in recent_rows
+        ],
         "trigger_evaluation": {
             "evaluated_at": trig[0].isoformat(),
             "decision": trig[1],
