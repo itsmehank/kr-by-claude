@@ -257,3 +257,78 @@ def test_recompute_ticker_daily_does_not_leak_phase_b_cache(db):
             cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
             cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
         db.commit()
+
+
+def test_distribution_day_requires_02pct_drop():
+    """(#20) 종목 분배일 하락 컷 — prompt §6 정의(≥0.2% 하락)와 정합.
+
+    -0.1% 하락(0%~-0.2% 사이)은 거래량이 충분해도 분배일이 아니어야 한다.
+    -0.2% 정확 경계는 포함(≤), -0.5% 는 기존과 동일 True.
+    """
+    import pandas as pd
+    from kr_pipeline.indicators.compute.volume import distribution_day
+
+    ret_pct = pd.Series([None, -0.1, -0.2, -0.5, 0.3])
+    vol = pd.Series([1100.0] * 5)
+    avg = pd.Series([1000.0] * 5)
+    flags = distribution_day(ret_pct, vol, avg)
+    assert flags.tolist() == [False, False, True, True, False], (
+        f"got {flags.tolist()} — -0.1% 하락일이 분배일로 과대 집계되면 안 됨 (03편 확정모순 B)"
+    )
+
+
+def test_process_ticker_daily_distribution_cut_02pct(db):
+    """(#20) 파이프라인 경로 — -0.1% 하락 + 1.1× 거래량은 flag=False 여야 한다."""
+    from datetime import date, timedelta
+    from kr_pipeline.indicators.modes import _process_ticker_daily
+
+    t = "DISTCUT"
+    start = date(2010, 6, 7)  # 기존 DISTSSOT 와 다른 격리 구간 (월요일)
+    days = []
+    d = start
+    while len(days) < 61:
+        if d.weekday() < 5:
+            days.append(d)
+        d += timedelta(days=1)
+
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'T','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
+        cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        for i, day in enumerate(days):
+            if i < 60:
+                close, vol = 100.0, 1000
+            else:
+                close, vol = 99.9, 1100  # -0.1% 하락 (0%~-0.2% 사이) + ratio 1.1
+            cur.execute(
+                """INSERT INTO daily_prices (ticker, date, open, high, low, close,
+                       adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,1)""",
+                (t, day, close, close, close, close, close, close, close, close, float(vol), vol),
+            )
+            cur.execute(
+                """INSERT INTO index_daily (index_code, date, open, high, low, close)
+                   VALUES ('1001', %s, 2000, 2000, 2000, 2000)
+                   ON CONFLICT (index_code, date) DO NOTHING""",
+                (day,),
+            )
+    db.commit()
+
+    try:
+        _process_ticker_daily(db, t, "KOSPI", days[0], days[-1], days[0])
+        db.commit()
+        with db.cursor() as cur:
+            cur.execute(
+                "SELECT distribution_day_flag FROM daily_indicators WHERE ticker=%s AND date=%s",
+                (t, days[-1]),
+            )
+            flag = cur.fetchone()[0]
+        assert flag is False, (
+            "-0.1% 하락일이 분배일로 플래깅됨 — prompt §6 정의(≥0.2% 하락)와 불일치 (#20)"
+        )
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
+            cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+            cur.execute("DELETE FROM stocks WHERE ticker=%s", (t,))
+        db.commit()
