@@ -133,23 +133,25 @@ def test_up_down_volume_ratio_zero_division():
 
 # distribution day
 def test_distribution_day_basic():
-    """is_down_day AND adj_volume > avg * 1.25"""
-    is_down_day = pd.Series([False, True, True, False])
+    """(daily_return_pct <= -0.2) AND adj_volume > avg * 1.25
+
+    (#20) 하락 판정이 is_down_day(0% 컷) → 일간수익률 ≤ -0.2% 로 교정됨."""
+    daily_return_pct = pd.Series([0.5, -0.5, -0.5, 0.3])
     adj_volume = pd.Series([1000.0, 1300.0, 1100.0, 1500.0])
     avg_volume_50 = pd.Series([1000.0] * 4)
-    result = distribution_day(is_down_day, adj_volume, avg_volume_50, threshold=1.25)
-    assert result.iloc[0] == False   # not down day
-    assert result.iloc[1] == True    # down + 1300 > 1250
-    assert result.iloc[2] == False   # down + 1100 not > 1250
-    assert result.iloc[3] == False   # not down
+    result = distribution_day(daily_return_pct, adj_volume, avg_volume_50, threshold=1.25)
+    assert result.iloc[0] == False   # up day
+    assert result.iloc[1] == True    # down -0.5% + 1300 > 1250
+    assert result.iloc[2] == False   # down but 1100 not > 1250
+    assert result.iloc[3] == False   # up day
 
 
 def test_distribution_day_threshold_1_25x():
     """경계 case: vol == 1.25x → False (> not >=)"""
-    is_down_day = pd.Series([True, True])
+    daily_return_pct = pd.Series([-0.5, -0.5])
     adj_volume = pd.Series([1250.0, 1250.001])
     avg_volume_50 = pd.Series([1000.0, 1000.0])
-    result = distribution_day(is_down_day, adj_volume, avg_volume_50, threshold=1.25)
+    result = distribution_day(daily_return_pct, adj_volume, avg_volume_50, threshold=1.25)
     assert result.iloc[0] == False    # exactly 1.25x → not >
     assert result.iloc[1] == True     # slightly above
 
