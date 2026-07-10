@@ -19,7 +19,7 @@ v2.0 aligns this prompt with `analyze_chart_v3.md`. Changes versus v1.1:
 
 1. **Entry mode discrimination** — v3 introduced **pocket pivot entries** (Morales/Kacher) as an alternative route to `entry` alongside standard pivot breakouts. v2.0 detects this from `prior_analysis.reasoning` and applies different pivot/stop/volume logic. New output field `entry_mode`.
 2. **`unfavorable_market_context` flag handling** — v3's 13th risk flag (market in correction/downtrend or ≥5 distribution days) is now mapped to size/target/window conservatism in §7.
-3. **Expanded inputs** — payload now includes `market_context`, `conditions_detail` (margin per condition), SMA-10, volume_ma_50, pocket_pivot_flag, distribution_day_flag, RS Rating time series, 104-week weekly OHLCV, and optional chart images.
+3. **Expanded inputs** — payload includes `prior_analysis.confidence`/`reasoning`, `trigger_evaluation`, `current_state`, `current_metrics_extended`, and `recent_daily_indicators` (last ~10 sessions with `pocket_pivot_flag`). No chart images or OHLCV series are attached at this stage.
 4. **Pocket-pivot volume signature** — new value `pocket_pivot_signature` for `breakout_volume_requirement` when `entry_mode == "pocket_pivot"`.
 5. **New known_warning codes** — `size_reduced_due_to_unfavorable_market`, `entry_mode_pocket_pivot`, `stop_at_50day_ma_for_pocket_pivot`.
 
@@ -73,41 +73,25 @@ These are the principles you compute against. Quote them in `notes` when a param
 
 ## Inputs
 
-**가격 데이터 규약:** 제공되는 모든 가격(OHLCV·차트·지표·current_metrics)은 수정주가(split-adjusted) 기준입니다. 분할/액면병합은 이미 반영되어 있으므로 가격 단차로 오인하지 마세요.
+**가격 데이터 규약:** 제공되는 모든 가격(지표·current_state·recent_daily_indicators)은 수정주가(split-adjusted) 기준입니다. 분할/액면병합은 이미 반영되어 있으므로 가격 단차로 오인하지 마세요.
 
 You receive a JSON payload containing:
 
-- **Identifier**: `symbol`, `market`, `date`
-- **`prior_analysis`**: the analyze_chart_v3 output — `classification` (always `entry` reaching this prompt), `confidence`, `pattern`, `reasoning`, `risk_flags`
-- **Chart and indicator data the prior analysis saw**:
-  - Recent daily OHLCV (~60 trading days)
-  - Recent weekly OHLCV (**~104 weeks**, v3 expanded)
-  - Indicator series including SMA-10, SMA-50, SMA-150, SMA-200, RS Line, RS Rating series, volume_ma_50, volume_ratio, pocket_pivot_flag, distribution_day_flag
-  - Current price metrics — `current_metrics.close` is the **`current_price`** you must echo
-  - **`market_context`** (v3): current_status, distribution_day_count_last_25_sessions, last_follow_through_day, pct_stocks_above_200d_ma
-  - **`conditions_detail`** (v3): margin per Minervini condition
-  - **`price_data_notes`**: corporate action history, raw price anomalies
-- **Optional chart images** (v3): if `daily_chart` and/or `weekly_chart` PNG images are attached, you may use them to visually locate the final tight contraction, handle low, or pocket pivot day. Visual inspection is informational only; the structured OHLCV remains authoritative for parameter computation.
+- **Identifier**: `symbol`, `name`, `market`, `sector`, `signal_date`
+- **`prior_analysis`** (from weekly_classification): `classified_at`, `classification` (`entry` or `watch`), `pattern`, `pivot_price`, `pivot_basis`, `base_high`, `base_low`, `base_depth_pct`, `risk_flags`, `confidence`, `reasoning`
+- **`trigger_evaluation`** (from trigger_evaluation_log): `evaluated_at`, `decision` (always "go_now"), `confidence`, `reasoning`, `trigger_type` (`breakout` | `breakout_from_watch`)
+- **`current_state`**: `close`, `volume`, `avg_volume_50d`, `intraday_high`, `intraday_low`, `intraday_open` — `current_state.close` is the **`current_price`** you must echo
+- **`current_metrics_extended`**: `rs_rating`, `minervini_pass`, `w52_high`, `w52_low`, `pct_from_52w_high`
+- **`recent_daily_indicators`**: last ~10 sessions, ascending — each `{date, close, volume, avg_volume_50d, pocket_pivot_flag}` (§0.5/§1.2 pocket pivot detection input)
+
+No chart images, OHLCV series, market_context, or conditions_detail are attached at this stage.
 
 You may use the data to:
-- Locate the **final tight contraction / handle / range** for pivot placement
-- Locate the **final contraction low / handle low / pocket pivot day low** for the logical stop
-- Compute base depth (high − low of the base) for target sanity check
-- Read the breakout-day or pocket-pivot-day volume vs. its 50-day average — populate `observed_breakout_volume_ratio` accordingly
+- Detect the pocket-pivot day from `recent_daily_indicators` (`pocket_pivot_flag`) for §0.5/§1.2
+- Derive pivot/stop/target from `prior_analysis` base geometry (`pivot_price`, `base_high`, `base_low`, `base_depth_pct`)
+- Read today's volume vs. 50-day average from `current_state` — populate `observed_breakout_volume_ratio`
 
 You may NOT re-run pattern recognition, trend-template logic, stage analysis, or market direction analysis.
-
-## 2. Inputs (v2.1)
-
-- `prior_analysis` (from weekly_classification):
-  - `classified_at`, `classification`, `pattern`
-  - `pivot_price`, `pivot_basis`
-  - `base_high`, `base_low`, `base_depth_pct`
-  - `risk_flags`
-- `trigger_evaluation` (from trigger_evaluation_log):
-  - `evaluated_at`, `decision` (always "go_now"), `confidence`, `reasoning`, `trigger_type`
-- `current_state`: `close`, `volume`, `avg_volume_50d`, `intraday_high/low/open`
-- `current_metrics_extended`: `rs_rating`, `minervini_pass`, `w52_high`, `w52_low`, `pct_from_52w_high`
 
 ## 0.5. Entry mode detection (v2.0 NEW — must run first)
 
@@ -156,7 +140,7 @@ When refining, add `known_warnings: ["pattern_refined_to_3c_cheat"]` and explain
 
 `pattern_basis = prior_analysis.pattern` (underlying base — flat_base, cup_with_handle, vcp, or double_bottom). The 3c_cheat refinement is NOT allowed for pocket pivot entries.
 
-**Pivot location**: Identify the pocket pivot trigger day from `daily_ohlcv` where `pocket_pivot_flag == true` within the past ~5 trading days. The pivot location is the **close of the pocket pivot day**.
+**Pivot location**: Identify the pocket pivot trigger day from `recent_daily_indicators` where `pocket_pivot_flag == true` within the past ~5 trading days. The pivot location is the **close of the pocket pivot day**.
 
 - If multiple pocket pivot days exist in the past 5 sessions, use the most recent one.
 - If no pocket pivot day is flagged in past 5 sessions but `prior_analysis.reasoning` claims one: this is a data inconsistency. Fall back to standard branch, add `other_warnings: ["pocket_pivot claimed in reasoning but no flag in recent indicators — using standard pivot_breakout logic"]`.
@@ -531,7 +515,7 @@ Round decimal price fields to 2 decimal places. `_pct` fields to 1 decimal. `obs
    - If pivot_breakout: pivot_price ← raw pattern-derived (§1.1 table)
    - If pocket_pivot: pivot_price ← close of pocket pivot day (§1.2)
    - trigger_price ← round(pivot_price * 1.001, 2)
-   - current_price ← echo current_metrics.close
+   - current_price ← echo current_state.close
 
 2. STOP (dual, entry-mode-aware)
    - If pivot_breakout:
