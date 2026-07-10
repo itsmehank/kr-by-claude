@@ -89,6 +89,12 @@ def up_down_volume_ratio(
     return up_vol / down_vol.where(down_vol > 0)
 
 
+# 부동소수 경계 허용 오차 (% 포인트). 수정계수 곱해진 adj 가격의 정확 -0.2%
+# 하락이 -0.19999999999998908 등으로 표현돼 경계 탈락하는 것 방지 (실측: 정확
+# 경계 케이스의 ~25% miss, eps=1e-9 로 0 + 얕은 하락(-0.1999%) 오포함 없음).
+_PCT_EPS = 1e-9
+
+
 def distribution_day(
     daily_return_pct: pd.Series,
     adj_volume: pd.Series,
@@ -105,8 +111,12 @@ def distribution_day(
     authoritative 로 선언하므로 컷 불일치가 §6 카운트를 직접 왜곡했었다.
     up_down_volume_ratio 의 is_down(0% 컷) 은 A/D 의미론 (전체 하락일)
     대로 의도적으로 별개.
+
+    알려진 잔여 비정합: halt(NaN) 직후 첫 거래일의 return 은 NaN → flag False
+    (fill_method=None, 기존 is_down 과 동일 거동 보존). §6 텍스트에는 halt
+    예외가 없으므로 재개일 갭다운 분배는 미탐지 — 별도 후속 판단 대상.
     """
     return (
-        (daily_return_pct <= down_pct)
+        (daily_return_pct <= down_pct + _PCT_EPS)
         & (adj_volume > (avg_volume_series * threshold))
     ).fillna(False)

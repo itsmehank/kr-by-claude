@@ -30,7 +30,7 @@
 
 **1단계 (파생 신호)**: 하락 컷 → `dist_flag` (daily_indicators.distribution_day_flag) — −0.2%~0% 구간 하락일이 flag 에서 제외됨.
 
-**2단계 (소비 룰)** — `grep -rn "distribution_day_flag"`: ① A §6 종목 분배 카운트(≥4 → watch 강등 + §6.2 T-D 게이트 공급) ② chart_render 분배일 마킹 ③ daily.csv/web UI 표시 ④ payload indicators_recent_60d.
+**2단계 (소비 룰)** — `grep -rn "distribution_day_flag"`: ① A §6 종목 분배 카운트(≥4 → watch 강등 + §6.2 T-D 게이트 공급) ② chart_render 분배일 마킹 ③ daily.csv/web UI 표시 ④ payload indicators_recent_60d ⑤ **(리뷰에서 발견된 최초 누락) `kr_pipeline/llm_runner/compute/handle_quality.py` — handle 구간 flag ≥1 이면 `distribution_in_handle` 발화하는 결정론 게이트. 단일 flag 로 fire 하므로 컷 완화에 경계 민감 — B-수치 관측 대상에 포함.**
 
 **3단계 (룰 내부 고정 상수) — 2축 판정**:
 
@@ -41,7 +41,7 @@
 | up_down_volume_ratio 의 is_down (0% 컷) | 불가 | **없음 — 의도적 미변경** (A/D ratio 는 전체 하락일 대상이라는 별개 의미론) | EXTENDS (O'Neil A/D simplification) | 코드 주석으로 차등 명문화 (본 계획 Task 2) |
 | 시장레벨 DISTRIBUTION_PCT_BASE(−0.2)×σ ratio | 부분 | 미미 — 별도 계산기(market_context)·코드 경로 분리. 단 "시장=σ보정 / 종목=미보정(prompt §6 그대로)" 차등이 생김 | PRESERVES (같은 원전) | 모니터링 + thresholds docstring 에 차등 명문화; 종목 σ보정 도입 여부는 발동률 데이터 후 재검토 |
 
-**소비 경계 (1줄)**: `dist_flag → daily_indicators.distribution_day_flag → payload/차트/CSV/web → analyze_chart_v3 §6 카운트(≥4 강등)·§6.2 T-D 게이트` (LLM 레이어 단일 경로 + 표시 계층).
+**소비 경계 (1줄)**: `dist_flag → daily_indicators.distribution_day_flag → payload/차트/CSV/web + handle_quality(distribution_in_handle 결정론 게이트) → analyze_chart_v3 §6 카운트(≥4 강등)·§6.2 T-D 게이트` (LLM 레이어 + 결정론 게이트 1곳 + 표시 계층 — "단일 경로" 아님, 리뷰 정정).
 
 **게이트 자가 점검**: 맵 ✓ / 3단계 상수 4행 ✓ / 축1·축2 전 칸 ✓ / 축2 있음 행 후속 = B-수치 예약 ✓ / 소비 경계 1줄 ✓.
 
