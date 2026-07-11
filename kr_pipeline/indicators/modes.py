@@ -168,9 +168,13 @@ def _process_ticker_daily(
     pp_flag = pocket_pivot(is_up, adj_volume, sma_50, adj_close)  # lookback=SSOT PP_DOWN_VOL_LOOKBACK_DAYS
     vdu_flag = volume_dry_up(adj_volume, avg_vol_50)  # threshold=SSOT VOLUME_DRY_UP_MULT
     ud_ratio_50 = up_down_volume_ratio(adj_volume, is_up, is_down, window=50)
-    # threshold 미지정 — SSOT(STOCK_DISTRIBUTION_VOL_MULT=1.0) default 사용.
+    # threshold/down_pct 미지정 — SSOT default 사용 (VOL_MULT=1.0, PCT_DOWN=-0.2).
     # 과거 threshold=1.25 리터럴이 2026-05-22 SSOT 1.0 정렬(P0-2)을 무력화했었음.
-    dist_flag = distribution_day(is_down, adj_volume, avg_vol_50)
+    # (#20) 하락 컷은 §6 정의 정합 — is_down(0% 컷, A/D 용)과 의도적으로 별개.
+    # fill_method=None: halt(NaN) 직후일 return 을 NaN 으로 전파 — 기존 is_down
+    # 의 halt 거동(비교 False)과 동일 + pandas pad deprecation 회피.
+    ret_pct = adj_close.pct_change(fill_method=None) * 100.0
+    dist_flag = distribution_day(ret_pct, adj_volume, avg_vol_50)
 
     # 52w
     w52h, w52l = w52_high_low(df["adj_high"], df["adj_low"], window=252, min_periods=240)  # 거래정지 ≤12일 허용 (min_periods=설계판단, book 근거 아님)

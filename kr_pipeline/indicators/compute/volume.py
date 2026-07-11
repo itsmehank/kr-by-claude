@@ -8,6 +8,7 @@ import pandas as pd
 
 from kr_pipeline.common.thresholds import (
     PP_DOWN_VOL_LOOKBACK_DAYS,
+    STOCK_DISTRIBUTION_PCT_DOWN,
     STOCK_DISTRIBUTION_VOL_MULT,
     VOLUME_DRY_UP_MULT,
 )
@@ -88,17 +89,34 @@ def up_down_volume_ratio(
     return up_vol / down_vol.where(down_vol > 0)
 
 
+# 부동소수 경계 허용 오차 (% 포인트). 수정계수 곱해진 adj 가격의 정확 -0.2%
+# 하락이 -0.19999999999998908 등으로 표현돼 경계 탈락하는 것 방지 (실측: 정확
+# 경계 케이스의 ~25% miss, eps=1e-9 로 0 + 얕은 하락(-0.1999%) 오포함 없음).
+_PCT_EPS = 1e-9
+
+
 def distribution_day(
-    is_down_day: pd.Series,
+    daily_return_pct: pd.Series,
     adj_volume: pd.Series,
     avg_volume_series: pd.Series,
     threshold: float = STOCK_DISTRIBUTION_VOL_MULT,
+    down_pct: float = STOCK_DISTRIBUTION_PCT_DOWN,
 ) -> pd.Series:
-    """is_down_day AND adj_volume > avg_volume * threshold.
+    """(daily_return_pct <= down_pct) AND adj_volume > avg_volume * threshold.
 
-    2026-05-22 (P0-2): threshold default 1.25 → 1.0 정렬. prompt §6 의
-    정의 (close down ≥0.2% on volume > 1.0× of 50-day average) 와 일치.
-    is_down_day (현재 0% 컷) vs prompt 의 -0.2% 컷 차이는 별도 fix 대상이
-    아니며, LLM 이 §6 텍스트대로 OHLCV 재계산할 때 자연스럽게 -0.2% 적용.
+    2026-05-22 (P0-2): threshold default 1.25 → 1.0 정렬.
+    2026-07-10 (#20): 하락 판정을 is_down_day(0% 컷) → 일간수익률 ≤ −0.2%
+    (STOCK_DISTRIBUTION_PCT_DOWN) 로 교정 — prompt §6 정의 (close down ≥0.2%
+    on volume > 1.0× of 50-day average) 와 정합. §6 이 flag 컬럼을
+    authoritative 로 선언하므로 컷 불일치가 §6 카운트를 직접 왜곡했었다.
+    up_down_volume_ratio 의 is_down(0% 컷) 은 A/D 의미론 (전체 하락일)
+    대로 의도적으로 별개.
+
+    알려진 잔여 비정합: halt(NaN) 직후 첫 거래일의 return 은 NaN → flag False
+    (fill_method=None, 기존 is_down 과 동일 거동 보존). §6 텍스트에는 halt
+    예외가 없으므로 재개일 갭다운 분배는 미탐지 — 별도 후속 판단 대상.
     """
-    return (is_down_day & (adj_volume > (avg_volume_series * threshold))).fillna(False)
+    return (
+        (daily_return_pct <= down_pct + _PCT_EPS)
+        & (adj_volume > (avg_volume_series * threshold))
+    ).fillna(False)

@@ -28,6 +28,7 @@ If `market == "ETF"` or the instrument is a fund vehicle (sector is null with a 
 - HANDLE_LEGIT_MIN_DAYS = 5
 - MEASUREMENT_TOLERANCE_PCT = 5.0
 - STOCK_DISTRIBUTION_COUNT_25D = 4
+- STOCK_DISTRIBUTION_PCT_DOWN = -0.2
 - CLIMAX_GAIN_PCT = 25.0
 - CLIMAX_GAIN_WINDOW_WEEKS = 3
 - CLIMAX_MATURITY_WEEKS = 18
@@ -327,7 +328,7 @@ not literal in the source texts.
 
 Separate from the market-level distribution count in `market_context`, evaluate the stock's own distribution pattern over the past 25 sessions:
 
-- A stock distribution day = close down ≥ 0.2% on volume > 1.0× of 50-day average.
+- A stock distribution day = close down ≥ 0.2% (daily return ≤ STOCK_DISTRIBUTION_PCT_DOWN = -0.2%) on volume > 1.0× of 50-day average.
 - **Use the `distribution_day_flag` series in `indicators_recent_60d` as the authoritative per-day signal for this count; the textual definition above describes how that flag is computed.** (Same convention as `pocket_pivot_flag` in §4.5 — column is authoritative.)
 - If `STOCK_DISTRIBUTION_COUNT_25D`+ (=4) distribution days within the past 25 sessions on the stock itself: institutions are selling even in Stage 2. Add `volume_contraction_on_advance` if volume is also drying up on up-days, or demote to `watch`. (This is demote-to-watch per §5.1 — NOT ignore. The same count gates §6.2 T-D for the topping force-ignore, which additionally requires G0 = below the 10-week line.)
 - A single distribution day is normal; clusters are warnings.
