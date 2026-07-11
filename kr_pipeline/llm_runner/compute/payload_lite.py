@@ -244,14 +244,22 @@ def build_for_6(
         )
         state = cur.fetchone()
 
-        # (#18) §0.5/§1.2 pocket pivot 감지 입력 — 최근 10 거래일 지표.
+        # (#18) §0.5/§1.2 pocket pivot 감지 + §2.3 stop 입력 — 최근 10 거래일 지표.
         # look-ahead 상한은 current_state 와 동일하게 evaluation 날짜.
+        # sma_50·low: §2.3 pocket pivot stop 계산 입력 (#26 리뷰 — bare-name 유령 해소).
+        # volume IS NOT NULL: 거래정지일 배제 (#26 리뷰) — halt 행은 volume NULL +
+        # 동결가 carry 라 창을 잠식·오도 (5b 의 0-바 배제와 동일 규약; daily_indicators
+        # 에는 raw 0-바 컬럼이 없어 volume NULL 이 halt 마커).
         cur.execute(
             """
-            SELECT date, adj_close, volume, avg_volume_50d, pocket_pivot_flag
-              FROM daily_indicators
-             WHERE ticker = %s AND date <= %s
-             ORDER BY date DESC LIMIT 10
+            SELECT i.date, i.adj_close, i.volume, i.avg_volume_50d, i.pocket_pivot_flag,
+                   i.sma_50, COALESCE(p.adj_low, p.low)
+              FROM daily_indicators i
+              LEFT JOIN daily_prices p
+                ON p.ticker = i.ticker AND p.date = i.date
+             WHERE i.ticker = %s AND i.date <= %s
+               AND i.volume IS NOT NULL
+             ORDER BY i.date DESC LIMIT 10
             """,
             (symbol, evaluation_at.date()),
         )
@@ -283,6 +291,8 @@ def build_for_6(
                 "volume": int(r[2]) if r[2] is not None else None,
                 "avg_volume_50d": float(r[3]) if r[3] is not None else None,
                 "pocket_pivot_flag": bool(r[4]) if r[4] is not None else None,
+                "sma_50": float(r[5]) if r[5] is not None else None,
+                "low": float(r[6]) if r[6] is not None else None,
             }
             for r in recent_rows
         ],

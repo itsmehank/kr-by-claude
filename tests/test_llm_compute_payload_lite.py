@@ -123,6 +123,7 @@ def test_build_6_ghost_fields_now_real(db):
         )
         # 12 거래일 + 미래 1일(999 — 혼입 감시). 마지막 정상일만 pocket_pivot_flag=TRUE.
         days = [today - timedelta(days=i) for i in range(16, -1, -1) if (today - timedelta(days=i)).weekday() < 5]
+        halt_day = days[-2]  # (#26 리뷰) 거래정지일 — volume NULL, 동결가 carry
         for d in days:
             cur.execute(
                 """INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
@@ -131,9 +132,9 @@ def test_build_6_ghost_fields_now_real(db):
             )
             cur.execute(
                 """INSERT INTO daily_indicators
-                   (ticker, date, adj_close, volume, avg_volume_50d, pocket_pivot_flag)
-                   VALUES (%s, %s, 100, 1000000, 950000, %s) ON CONFLICT DO NOTHING""",
-                (t, d, d == today),
+                   (ticker, date, adj_close, volume, avg_volume_50d, pocket_pivot_flag, sma_50)
+                   VALUES (%s, %s, 100, %s, 950000, %s, 91.5) ON CONFLICT DO NOTHING""",
+                (t, d, None if d == halt_day else 1000000, d == today),
             )
         future = today + timedelta(days=1)
         cur.execute(
@@ -174,6 +175,11 @@ def test_build_6_ghost_fields_now_real(db):
     assert rdi[-1]["close"] == 100.0
     assert rdi[-1]["volume"] == 1000000
     assert rdi[-1]["avg_volume_50d"] == 950000.0
+    # (#26 리뷰 수리) §2.3 stop 입력 — sma_50·pocket-pivot 날 low 실전달
+    assert rdi[-1]["sma_50"] == 91.5
+    assert rdi[-1]["low"] == 95.0  # COALESCE(adj_low, low) — 픽스처 raw low
+    # (#26 리뷰 수리) halt(volume NULL) 세션은 창에서 배제 — 동결가 carry 행 미노출
+    assert halt_day.isoformat() not in [r["date"] for r in rdi]
 
 
 def test_payload_lite_prior_by_analyzed_for_date(db):

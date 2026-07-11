@@ -79,7 +79,16 @@ def test_prompt_dotted_refs_exist_in_payload(db):
     assert not ghosts, f"프롬프트가 payload 에 없는 필드를 참조: {sorted(set(ghosts))}"
 
 
-def test_prompt_no_stale_daily_ohlcv_key(db):
-    """§1.2 의 낡은 컨테이너 명칭 daily_ohlcv 금지 — 실제 키는 recent_daily_indicators."""
+# bare substring 매칭 — backtick 식 내부(`x = current_sma50 * 0.995`)의 유령도 잡는다
+BANNED_TOKENS = {
+    "daily_ohlcv",            # 낡은 컨테이너 명칭 — 실제 키는 recent_daily_indicators
+    "current_sma50",          # (#26 리뷰) bare-name 유령 — recent_daily_indicators.sma_50 로 대체
+    "pocket_pivot_day_low",   # (#26 리뷰) bare-name 유령 — recent_daily_indicators.low 로 대체
+}
+
+
+def test_prompt_no_banned_stale_tokens(db):
+    """payload 에 존재하지 않는 낡은/유령 식별자 금지 (dotted 가드의 bare-name 사각 보완)."""
     text = PROMPT.read_text(encoding="utf-8")
-    assert "`daily_ohlcv`" not in text
+    found = sorted(tok for tok in BANNED_TOKENS if tok in text)
+    assert not found, f"금지 토큰 잔존: {found}"

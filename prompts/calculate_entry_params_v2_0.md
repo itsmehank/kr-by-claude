@@ -82,7 +82,7 @@ You receive a JSON payload containing:
 - **`trigger_evaluation`** (from trigger_evaluation_log): `evaluated_at`, `decision` (always "go_now"), `confidence`, `reasoning`, `trigger_type` (`breakout` | `breakout_from_watch`)
 - **`current_state`**: `close`, `volume`, `avg_volume_50d`, `intraday_high`, `intraday_low`, `intraday_open` — `current_state.close` is the **`current_price`** you must echo
 - **`current_metrics_extended`**: `rs_rating`, `minervini_pass`, `w52_high`, `w52_low`, `pct_from_52w_high`
-- **`recent_daily_indicators`**: last ~10 sessions, ascending — each `{date, close, volume, avg_volume_50d, pocket_pivot_flag}` (§0.5/§1.2 pocket pivot detection input)
+- **`recent_daily_indicators`**: last ~10 sessions (halt/suspension sessions excluded), ascending — each `{date, close, volume, avg_volume_50d, pocket_pivot_flag, sma_50, low}` (§0.5/§1.2 pocket pivot detection + §2.3 stop inputs)
 
 No chart images, OHLCV series, market_context, or conditions_detail are attached at this stage.
 
@@ -193,14 +193,16 @@ Final selection:
 
 ### 2.3 Pocket pivot branch stop logic (v2.0 NEW)
 
-Per Morales/Kacher, pocket pivot stops use:
+Per Morales/Kacher, pocket pivot stops use. Inputs: `sma_50` = the latest session's
+`recent_daily_indicators.sma_50`; `pp_day_low` = the `recent_daily_indicators.low` of the
+pocket-pivot day identified in §1.2.
 1. **`sma50_pct`** — distance from pivot_price down to SMA-50 (with buffer):
-   - `sma50_buffered = current_sma50 * 0.995`
+   - `sma50_buffered = sma_50 * 0.995`
    - `sma50_pct = (sma50_buffered − pivot_price) / pivot_price × 100`
    - If pivot_price is below SMA-50, this entry is invalid per book — fall through to logical_pct.
 2. **`logical_pct`** — pocket pivot day's low:
-   - `pocket_pivot_day_low_buffered = pocket_pivot_day_low * 0.995`
-   - `logical_pct = (pocket_pivot_day_low_buffered − pivot_price) / pivot_price × 100`
+   - `pp_day_low_buffered = pp_day_low * 0.995`
+   - `logical_pct = (pp_day_low_buffered − pivot_price) / pivot_price × 100`
 3. **`absolute_pct`** — default `−5.5` (tighter than breakout default because pocket pivots are earlier entries with less confirmation). Tighten to `−4.5` if `wide_and_loose` or `unfavorable_market_context`.
 
 Final selection:
@@ -336,7 +338,10 @@ Output `breakout_volume_requirement = "pocket_pivot_signature"`.
 
 No auto-volume-warning is emitted in pocket pivot mode (the threshold concept doesn't directly apply). However, if `low_volume_breakout` is in `risk_flags`, the size multiplier still applies.
 
-If the pocket pivot day's volume does NOT exceed the highest down-volume day in past 10 sessions: this is an invalid pocket pivot. Add `other_warnings: ["pocket_pivot_signature_volume_invalid — pocket pivot day did not exceed prior 10-day down-volume max"]`.
+Do NOT re-verify this volume signature from raw data — `pocket_pivot_flag == true` is set by
+deterministic code only when this exact signature held (same prior-10-day down-volume rule);
+the flag column is authoritative (same convention as analyze_chart_v3 §6). The payload window
+(~10 sessions) is intentionally sized for flag *detection*, not signature recomputation.
 
 ## 7. Risk-flag → parameter conservatism mapping (consolidated, v2.0)
 
@@ -524,7 +529,7 @@ Round decimal price fields to 2 decimal places. `_pct` fields to 1 decimal. `obs
        stop_loss_pct_from_pivot ← max(absolute_pct, logical_pct); clamp [−10.0, −5.0]
    - If pocket_pivot:
        sma50_pct ← (sma50 * 0.995 − pivot)/pivot × 100
-       logical_pct ← (pocket_pivot_day_low * 0.995 − pivot)/pivot × 100
+       logical_pct ← (pp_day_low * 0.995 − pivot)/pivot × 100   # pp_day_low = recent_daily_indicators.low of PP day
        absolute_pct ← −5.5 (or −4.5 if wide_and_loose / unfavorable_market_context)
        stop_loss_pct_from_pivot ← max(sma50_pct, logical_pct, absolute_pct); clamp [−8.0, −4.0]
        if sma50_pct was binding: emit "stop_at_50day_ma_for_pocket_pivot"
