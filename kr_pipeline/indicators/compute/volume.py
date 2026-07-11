@@ -112,9 +112,11 @@ def distribution_day(
     up_down_volume_ratio 의 is_down(0% 컷) 은 A/D 의미론 (전체 하락일)
     대로 의도적으로 별개.
 
-    알려진 잔여 비정합: halt(NaN) 직후 첫 거래일의 return 은 NaN → flag False
-    (fill_method=None, 기존 is_down 과 동일 거동 보존). §6 텍스트에는 halt
-    예외가 없으므로 재개일 갭다운 분배는 미탐지 — 별도 후속 판단 대상.
+    halt 처리 (2026-07-11 #30 검증으로 정정): 정지일 adj_close 는 carry 로
+    보존되므로(transform.nullify_halt_adj — production 실측 NULL 0건) 해제일
+    return 은 carry 대비로 정상 계산되어 갭다운 분배가 탐지된다(최근 2년
+    해제일 분배 후보 64건 전부 flag=True 실측). fill_method=None 의 NaN 전파는
+    시계열에 NaN 이 실존할 때만 작동 — production adj_close 에는 해당 없음.
     """
     return (
         (daily_return_pct <= down_pct + _PCT_EPS)
