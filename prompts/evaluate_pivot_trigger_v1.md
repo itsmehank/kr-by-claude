@@ -136,9 +136,12 @@ pivot fresh 돌파가 발생한 경우. 기존엔 promotion 으로만 잡혀 토
 - `valid_base_awaiting_breakout`: 위 공통 표준 검증 충족 시 `go_now`.
   (base 가 이미 신뢰 가능 — entry 와 동등 취급.)
 - `unfavorable_market`: 강등 사유가 시장이었으므로 **`market_context.current_status ==
-  "confirmed_uptrend"` (회복) 일 때만** `go_now`. 여전히 downtrend/correction/미확인
-  rally_attempt 면 표준 검증을 충족해도 `wait` (시장이 아직 안 받쳐줌). ⚠ `watch_reason`
-  값 자체를 회복 근거로 쓰지 말 것 — 반드시 입력 `market_context`(현재 값)로 판단.
+  "confirmed_uptrend"` (회복) 이고 `market_context.distribution_day_count_last_25_sessions < 5`
+  (강등 임계 미만으로 해소 — analyze_chart_v3 §3.5 의 ≥5 강등과 co-anchored) 일 때만** `go_now`.
+  여전히 downtrend/correction/미확인 rally_attempt 면, 또는 분배일이 아직 5개 이상이면
+  표준 검증을 충족해도 `wait` (강등 사유가 해소되지 않음 — status 라벨은 분배일 5개와
+  공존 가능하므로 라벨만으로 회복 판정 금지). ⚠ `watch_reason` 값 자체를 회복 근거로
+  쓰지 말 것 — 반드시 입력 `market_context`(현재 값)로 판단.
 - `marginal_tt`: 강등 사유가 marginal Trend Template 이었으므로 **현재 `conditions_met` 8개가
   모두 true 이고 `conditions_detail` 상 경계(마진 <3%)가 해소(clean)됐을 때만** `go_now`.
   아직 여러 조건이 marginal 이면 `wait`.
