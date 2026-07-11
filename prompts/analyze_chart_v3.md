@@ -28,6 +28,7 @@ If `market == "ETF"` or the instrument is a fund vehicle (sector is null with a 
 - HANDLE_LEGIT_MIN_DAYS = 5
 - MEASUREMENT_TOLERANCE_PCT = 5.0
 - STOCK_DISTRIBUTION_COUNT_25D = 4
+- STOCK_DISTRIBUTION_PCT_DOWN = -0.2
 - CLIMAX_GAIN_PCT = 25.0
 - CLIMAX_GAIN_WINDOW_WEEKS = 3
 - CLIMAX_MATURITY_WEEKS = 18
@@ -98,7 +99,7 @@ Read `market_context.current_status`. This is non-negotiable per O'Neil (*HMMS* 
 
 - If `current_status == "downtrend"` or `"correction"`: maximum classification is `watch`. Force any `entry` decision down to `watch` and add `unfavorable_market_context` to `risk_flags`.
 - If `current_status == "rally_attempt"` without a follow-through day: maximum classification is `watch`. Add `unfavorable_market_context`.
-- If `market_context.distribution_day_count_last_25_sessions >= 5`: lower confidence by 0.15 and prefer `watch` over `entry`. Add `unfavorable_market_context`.
+- If `market_context.distribution_day_count_last_25_sessions >= 5`: lower confidence by 0.15 and prefer `watch` over `entry`. Add `unfavorable_market_context`. <!-- co-anchored with evaluate_pivot_trigger_v1 §3.5 recovery gate — change both together; guarded by tests/test_prompt_trigger_gates.py -->
 - If `current_status == "confirmed_uptrend"` with ≤ 3 distribution days: proceed normally with full classification range.
 
 This rule overrides individual stock setup quality. A perfect base in a downtrend is `watch`, not `entry`.
@@ -327,7 +328,7 @@ not literal in the source texts.
 
 Separate from the market-level distribution count in `market_context`, evaluate the stock's own distribution pattern over the past 25 sessions:
 
-- A stock distribution day = close down ≥ 0.2% on volume > 1.0× of 50-day average.
+- A stock distribution day = close down ≥ 0.2% (daily return ≤ STOCK_DISTRIBUTION_PCT_DOWN = -0.2%) on volume > 1.0× of 50-day average.
 - **Use the `distribution_day_flag` series in `indicators_recent_60d` as the authoritative per-day signal for this count; the textual definition above describes how that flag is computed.** (Same convention as `pocket_pivot_flag` in §4.5 — column is authoritative.)
 - If `STOCK_DISTRIBUTION_COUNT_25D`+ (=4) distribution days within the past 25 sessions on the stock itself: institutions are selling even in Stage 2. Add `volume_contraction_on_advance` if volume is also drying up on up-days, or demote to `watch`. (This is demote-to-watch per §5.1 — NOT ignore. The same count gates §6.2 T-D for the topping force-ignore, which additionally requires G0 = below the 10-week line.)
 - A single distribution day is normal; clusters are warnings.

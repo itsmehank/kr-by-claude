@@ -23,6 +23,7 @@ export const ENTRY_WEIGHT_PCT_MIN: number = 3.0;
 export const ENTRY_WEIGHT_PCT_MAX: number = 25.0;
 export const ENTRY_TRIGGER_BUFFER_MAX: number = 1.005;
 export const STOCK_DISTRIBUTION_VOL_MULT: number = 1.0;
+export const STOCK_DISTRIBUTION_PCT_DOWN: number = -0.2;
 export const VOLUME_DRY_UP_MULT: number = 0.5;
 export const NASDAQ_REFERENCE_SIGMA: number = 1.0;
 export const FTD_PCT_BASE: number = 1.4;

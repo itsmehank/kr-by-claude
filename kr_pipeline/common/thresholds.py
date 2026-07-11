@@ -115,6 +115,15 @@ STOCK_DISTRIBUTION_VOL_MULT: Final[float] = 1.0
 on volume > 1.0× of 50-day average) 와 일치. 책 표준 (O'Neil HMMS Ch.9:
 '전일 거래량 초과') 의 IBD 실무 근사."""
 
+STOCK_DISTRIBUTION_PCT_DOWN: Final[float] = -0.2
+"""종목 레벨 distribution day 의 하락 컷 (% 일간 수익률, 이하 ≤).
+책: O'Neil HMMS Ch.9 — 시장 레벨 DISTRIBUTION_PCT_BASE 와 같은 원전.
+2026-07-10 (#20): 기존 is_down_day(0% 컷) 사용이 prompt §6 정의 (close down
+≥0.2%) 와 불일치해 −0.2%~0% 하락일을 과대 집계 → 정의 정합 복원.
+시장 레벨과 달리 σ 보정 미적용 (prompt §6 정의 그대로) — 보정 도입 여부는
+발동률 데이터 누적 후 재검토 (B-수치). up/down volume ratio 의 is_down(0% 컷)
+은 의도적으로 별개 (A/D 는 전체 하락일 대상)."""
+
 # ===== Volume Dry-up (kr_pipeline/indicators/compute/volume.py) =====
 
 VOLUME_DRY_UP_MULT: Final[float] = 0.5
