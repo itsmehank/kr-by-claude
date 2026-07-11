@@ -106,6 +106,82 @@ def test_build_6_payload_includes_trigger_eval(db):
     assert "current_metrics_extended" in payload
 
 
+def test_build_6_ghost_fields_now_real(db):
+    """(6) #18 수리 — prior_analysis.confidence/reasoning + recent_daily_indicators.
+
+    C 프롬프트 §0.5(reasoning 파싱)·사이징 보수화(confidence)·§1.2(pocket_pivot_flag
+    최근 5일 탐색)가 소비하는 필드가 payload 에 실존해야 한다. 미래일 미혼입 포함.
+    """
+    from datetime import date, timedelta, datetime
+    from kr_pipeline.llm_runner.compute.payload_lite import build_for_6
+
+    today = date(2026, 5, 20)
+    t = "PL6GH"
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stocks (ticker, name, market) VALUES (%s, 'P', 'KOSPI') ON CONFLICT DO NOTHING", (t,)
+        )
+        # 12 거래일 + 미래 1일(999 — 혼입 감시). 마지막 정상일만 pocket_pivot_flag=TRUE.
+        days = [today - timedelta(days=i) for i in range(16, -1, -1) if (today - timedelta(days=i)).weekday() < 5]
+        halt_day = days[-2]  # (#26 리뷰) 거래정지일 — volume NULL, 동결가 carry
+        for d in days:
+            cur.execute(
+                """INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
+                   VALUES (%s, %s, 100, 105, 95, 100, 100, 1000000, 1) ON CONFLICT DO NOTHING""",
+                (t, d),
+            )
+            cur.execute(
+                """INSERT INTO daily_indicators
+                   (ticker, date, adj_close, volume, avg_volume_50d, pocket_pivot_flag, sma_50)
+                   VALUES (%s, %s, 100, %s, 950000, %s, 91.5) ON CONFLICT DO NOTHING""",
+                (t, d, None if d == halt_day else 1000000, d == today),
+            )
+        future = today + timedelta(days=1)
+        cur.execute(
+            """INSERT INTO daily_indicators (ticker, date, adj_close, volume, avg_volume_50d, pocket_pivot_flag)
+               VALUES (%s, %s, 999, 1, 1, TRUE) ON CONFLICT DO NOTHING""",
+            (t, future),
+        )
+        prior_at = today - timedelta(days=3)
+        cur.execute(
+            """INSERT INTO weekly_classification
+               (symbol, classified_at, market, classification, pattern, pivot_price,
+                pivot_basis, base_high, base_low, base_depth_pct, source, confidence, reasoning)
+               VALUES (%s, %s, 'KOSPI', 'entry', 'vcp', 105.0, 'final_T_high',
+                       105.0, 95.0, 9.5, 'weekend', 0.65, 'pocket_pivot_entry candidate — tight vcp')""",
+            (t, prior_at),
+        )
+        eval_at = datetime(today.year, today.month, today.day, 16, 32)
+        cur.execute(
+            """INSERT INTO trigger_evaluation_log
+               (symbol, evaluated_at, trigger_type, close, volume, pivot_price,
+                decision, confidence, reasoning, prior_classification_at)
+               VALUES (%s, %s, 'breakout', 106, 1500000, 105, 'go_now', 0.85, 'ok', %s)""",
+            (t, eval_at, prior_at),
+        )
+    db.commit()
+
+    payload = build_for_6(db, t, evaluation_at=eval_at)
+    pa = payload["prior_analysis"]
+    assert pa["confidence"] == 0.65
+    assert "pocket_pivot_entry" in pa["reasoning"]
+
+    rdi = payload["recent_daily_indicators"]
+    assert 0 < len(rdi) <= 10
+    assert [r["date"] for r in rdi] == sorted(r["date"] for r in rdi)  # 오름차순
+    assert rdi[-1]["date"] == today.isoformat()  # 미래일(999) 미혼입
+    assert rdi[-1]["pocket_pivot_flag"] is True
+    assert rdi[-2]["pocket_pivot_flag"] is False
+    assert rdi[-1]["close"] == 100.0
+    assert rdi[-1]["volume"] == 1000000
+    assert rdi[-1]["avg_volume_50d"] == 950000.0
+    # (#26 리뷰 수리) §2.3 stop 입력 — sma_50·pocket-pivot 날 low 실전달
+    assert rdi[-1]["sma_50"] == 91.5
+    assert rdi[-1]["low"] == 95.0  # COALESCE(adj_low, low) — 픽스처 raw low
+    # (#26 리뷰 수리) halt(volume NULL) 세션은 창에서 배제 — 동결가 carry 행 미노출
+    assert halt_day.isoformat() not in [r["date"] for r in rdi]
+
+
 def test_payload_lite_prior_by_analyzed_for_date(db):
     """build_for_5b 가 analyzed_for_date 최신 행을 prior 로 선택하는지 프로덕션 경로로 검증.
 
