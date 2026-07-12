@@ -129,9 +129,14 @@ def compute_gates(
         )
 
     if conditions_detail:
-        tt_all_passed = all(
-            bool(c.get("passed")) for c in conditions_detail.values()
-        )
+        passes = [c.get("passed") for c in conditions_detail.values()]
+        # False 하나면 확정 False, 아니면 None(미산출) 하나라도 있으면 미확정.
+        if any(p is False for p in passes):
+            tt_all_passed = False
+        elif any(p is None for p in passes):
+            tt_all_passed = None
+        else:
+            tt_all_passed = True
         # margin None(미산출) = marginal 계수 (보수) — A §2 강등 기준의 정확한 역
         tt_marginal_count = sum(
             1
@@ -139,9 +144,13 @@ def compute_gates(
             if c.get("margin_pct") is None
             or c["margin_pct"] < TT_MARGIN_MARGINAL_PCT
         )
-        tt_recovery_ok = (
-            tt_all_passed and tt_marginal_count < TT_MARGINAL_DEMOTION_COUNT
-        )
+        if tt_all_passed is None:
+            tt_recovery_ok = None
+        else:
+            tt_recovery_ok = (
+                tt_all_passed
+                and tt_marginal_count < TT_MARGINAL_DEMOTION_COUNT
+            )
     else:
         tt_all_passed = None
         tt_marginal_count = None

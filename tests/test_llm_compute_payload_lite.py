@@ -54,6 +54,15 @@ def test_build_5b_payload_minimal_fields(db):
     assert all(r["distribution_day_flag"] is False for r in rows[:-1])
     assert "current_metrics" in payload
     assert "recent_evaluation_history" in payload
+    # (#22) 정량 게이트 선계산 — 프롬프트가 authoritative 로 소비.
+    gates = payload["computed_gates"]
+    assert gates["no_dist_3d"] is False  # 최신일 분배일 TRUE 시드
+    assert gates["dist_days_last_3"] == 1
+    assert gates["price_above_pivot"] is False  # close 100 < pivot 105
+    assert gates["low_below_base_low"] is False  # low 95 == base_low 95 (미만 아님)
+    # market_context/conditions_detail 시드 없음 → 회복 게이트 null 전파
+    assert gates["market_recovery_ok"] is None
+    assert gates["tt_recovery_ok"] is None
 
 
 def test_build_6_payload_includes_trigger_eval(db):

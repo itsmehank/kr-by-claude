@@ -252,6 +252,25 @@ def test_tt_null_when_detail_empty():
     assert g["tt_recovery_ok"] is None
 
 
+def test_tt_null_when_passed_unknown():
+    """지표 미산출(passed=None)이면 미확정 — False 로 단정하지 않는다."""
+    detail = _tt(passed=8)
+    detail["c3"]["passed"] = None
+    g = _gates(conditions_detail=detail)
+    assert g["tt_all_passed"] is None
+    assert g["tt_recovery_ok"] is None
+
+
+def test_tt_false_wins_over_unknown():
+    """False 가 하나라도 있으면 미산출 조건과 무관하게 확정 False."""
+    detail = _tt(passed=8)
+    detail["c3"]["passed"] = None
+    detail["c5"]["passed"] = False
+    g = _gates(conditions_detail=detail)
+    assert g["tt_all_passed"] is False
+    assert g["tt_recovery_ok"] is False
+
+
 # ---- null 전파 ----
 
 def test_null_propagation_when_metrics_missing():
