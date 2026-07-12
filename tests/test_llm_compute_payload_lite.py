@@ -46,6 +46,9 @@ def test_build_5b_payload_minimal_fields(db):
     assert payload["prior_analysis"]["pivot_price"] == 105.0
     assert "recent_daily_ohlcv_20d" in payload
     assert len(payload["recent_daily_ohlcv_20d"]) <= 20
+    # (#31) 종목 분배일 flag 전달 — B 게이트("최근 3일 분배일 없음" 등)의 판정 재료.
+    # 시드가 daily_indicators.distribution_day_flag 를 안 넣으므로 None(키는 실존).
+    assert all("distribution_day_flag" in r for r in payload["recent_daily_ohlcv_20d"])
     assert "current_metrics" in payload
     assert "recent_evaluation_history" in payload
 

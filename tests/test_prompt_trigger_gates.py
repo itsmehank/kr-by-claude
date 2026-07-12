@@ -76,3 +76,12 @@ def test_sibling_gates_do_not_duplicate_threshold_literal():
         assert not re.search(r"분배일\s*\d+\s*개", block), (
             f"{name} 분기에 prose 임계 사본('분배일 N개') — 게이트 참조로 대체할 것"
         )
+
+
+def test_b_prompt_declares_distribution_flag_authoritative():
+    """(#31) B 는 종목 분배일을 payload 의 distribution_day_flag 로 판정해야 한다 —
+    flag 언급 + 재계산 금지 취지가 없으면 LLM 이 자체 기준(0% 컷 등)으로 재계산(이중 정의)."""
+    text = B_PROMPT.read_text(encoding="utf-8")
+    assert re.search(r"distribution_day_flag.{0,200}(재계산|직접 세)", text, re.S), (
+        "B 프롬프트에 분배일 flag authoritative 선언(재계산 금지) 부재 — #31 이중 정의 재개방"
+    )

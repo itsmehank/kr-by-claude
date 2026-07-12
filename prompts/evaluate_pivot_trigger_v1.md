@@ -23,7 +23,7 @@
 - `symbol`, `name`, `market`, `evaluation_date`
 - `trigger_type`: "breakout" | "breakout_from_watch" | "invalidation" | "promotion"
 - `prior_analysis`: 주말 (5) 결과 (`classified_at`, **`days_since_classification`** (분류 후 경과일), `classification`, `pattern`, `pivot_price`, `pivot_basis`, `base_high`, `base_low`, `base_depth_pct`, `risk_flags`, `reasoning`, **`watch_reason`** (watch 분류 사유 — `trigger_type == "breakout_from_watch"` 일 때 §3.5 분기 결정에 사용; 그 외 무관))
-- `recent_daily_ohlcv_20d`: 최근 20영업일 OHLCV 리스트
+- `recent_daily_ohlcv_20d`: 최근 20영업일 OHLCV 리스트 — 각 행에 **`distribution_day_flag`**(종목 분배일, 결정론 산출) 포함
 - `current_metrics`: `close`, `volume`, `avg_volume_50d`, `volume_ratio`, `sma_50`, **`sma_21`** (≈ 20-day line, Minervini *Think & Trade Like a Champion* Ch.1 의 "20-day line" 가드용)
 - `market_context`: **현재(평가일 as-of)** 시장 상태 — `current_status`(confirmed_uptrend / rally_attempt / downtrend / correction), `distribution_day_count_last_25_sessions` 등. (§3.5 `unfavorable_market` 분기 + flag 보유 형제 분기(marginal_tt/valid_base) 재확인 입력. 분류시점 아님 — *오늘* 시장.)
 - `conditions_met` / `conditions_detail`: **현재** Minervini Trend Template 8조건 boolean + 조건별 통과 마진. (§3.5 `marginal_tt` 분기 입력.)
@@ -31,6 +31,10 @@
 - `recent_evaluation_history`: 최근 7일 (5b) 이력 (있을 때만)
 
 ## 3. Decision Logic
+
+**분배일 판정 규약**: 종목 distribution day 여부는 각 행의 `distribution_day_flag` 가
+**authoritative** — OHLCV 로 직접 재계산하지 말 것(analyze_chart_v3 §6 의 column-is-authoritative
+관례와 동일. flag 정의 = SSOT 컷, LLM 자체 기준 사용 금지).
 
 ### 3.1 trigger_type = "breakout"
 
