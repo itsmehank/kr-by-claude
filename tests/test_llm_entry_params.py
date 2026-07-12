@@ -100,7 +100,9 @@ def test_fetch_go_now_candidates_filters_decisions(db):
             )
     db.commit()
     try:
-        got = sorted(s for s, _, _ in ep._fetch_go_now_candidates(db, as_of))
+        # 같은 as_of 를 쓰는 다른 테스트 픽스처(payload_lite 의 go_now 행)와 격리 —
+        # 본 테스트의 검증 대상은 EPQ* 4행의 필터링 결과다.
+        got = sorted(s for s, _, _ in ep._fetch_go_now_candidates(db, as_of) if s.startswith("EPQ"))
         assert got == ["EPQ1", "EPQ4"]
     finally:
         with db.cursor() as cur:
