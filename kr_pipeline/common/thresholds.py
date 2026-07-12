@@ -107,6 +107,51 @@ ENTRY_TRIGGER_BUFFER_MAX: Final[float] = 1.005
 """trigger_price 상한 = pivot × 이 값 (프롬프트 §1.3). IBD 운용 관행
 (pivot +0.1% 산출, +0.5% 초과 = 추격) — store sanity SOFT 경계."""
 
+# ===== (5b) B 게이트 선계산 (kr_pipeline/llm_runner/compute/gate_precompute.py) =====
+# 2026-07-13 (#22): B 프롬프트 전용 판단값을 코드 소비로 승격(값 변화 0 — 동작 중립)
+# + A 강등 ↔ B 회복 co-anchor 상수 신설. 의존성 맵:
+# docs/superpowers/plans/2026-07-13-issue-22-b-gate-precompute.md
+
+BREAKOUT_VOL_WAIT_FLOOR: Final[float] = 1.2
+"""B wait 밴드 하한 (50일 평균 배수). 1.2~BREAKOUT_VOL_FLOOR(1.4) 구간 = wait 후보.
+시스템 설계 — 기존 evaluate_pivot_trigger_v1 §3.1 wait 문구의 SSOT 승격."""
+
+SPREAD_WIDE_LOOSE_MULT: Final[float] = 1.5
+"""일중 spread(high−low) 의 wide-and-loose 판정 배수 (직전 평균 range 대비).
+개념: O'Neil wide-and-loose. 배수 1.5×는 시스템 설계 (기존 프롬프트 문구 승격).
+평균 창은 SPREAD_AVG_WINDOW_DAYS — 기존 프롬프트는 창 미정의(LLM 재량)였음."""
+
+SPREAD_AVG_WINDOW_DAYS: Final[int] = 19
+"""spread 평균 range 계산 창 (오늘 제외 직전 거래행 수 — 5b payload 20d 리스트 기준)."""
+
+SPREAD_AVG_MIN_ROWS: Final[int] = 5
+"""spread 평균 range 최소 표본 행 수. 미만이면 null(미산출)."""
+
+SMA50_BREACH_RATIO: Final[float] = 0.98
+"""B abort 의 sma_50 명확 이탈 비율 (close < sma_50 × 0.98).
+시스템 설계 — 기존 프롬프트 문구 승격."""
+
+STOCK_DIST_CLEAN_WINDOW_DAYS: Final[int] = 3
+"""B go_now 의 무분배 요구 창 (최근 거래행 수). 기존 '최근 3일 distribution day 없음' 승격."""
+
+STOCK_DIST_ABORT_WINDOW_DAYS: Final[int] = 5
+STOCK_DIST_ABORT_COUNT_5D: Final[int] = 3
+"""B abort 의 분배 누적 판정 (최근 5거래행 내 3+ 분배일). 기존 프롬프트 문구 승격."""
+
+MARKET_DIST_DEMOTION_COUNT_25S: Final[int] = 5
+"""시장 분배일(25세션) 강등/회복 co-anchor. A §3.5 강등: count >= N → entry 대신 watch
+(unfavorable_market_context). B §3.5 회복: count < N 일 때만 market_recovery_ok.
+책: O'Neil HMMS Ch.9 — '5~6 distribution days' 가 랠리를 꺾는다.
+⚠ 양쪽이 같은 N 이어야 역류가 닫힌다(#19) — 코드는 이 상수, A 텍스트는 drift 가드."""
+
+TT_MARGIN_MARGINAL_PCT: Final[float] = 3.0
+"""Trend Template 조건의 marginal 판정 마진 % (A §2: margin < 3% = marginal pass)."""
+
+TT_MARGINAL_DEMOTION_COUNT: Final[int] = 3
+"""marginal 조건 개수 임계. A §2: 3개 이상 marginal → confidence 상한 + watch 선호
+(watch_reason=marginal_tt). B tt_recovery_ok: 8조건 all pass AND marginal < 3개 (정확한 역).
+시스템 설계 (marginal 개념은 Minervini 해설 유래, 3%/3개 수치는 시스템)."""
+
 # ===== Distribution Day - 종목 레벨 (kr_pipeline/indicators/compute/volume.py) =====
 
 STOCK_DISTRIBUTION_VOL_MULT: Final[float] = 1.0
