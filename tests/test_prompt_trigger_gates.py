@@ -30,7 +30,9 @@ def test_unfavorable_market_recovery_rechecks_distribution_count():
 def test_recovery_threshold_matches_demotion_threshold():
     """B 회복 임계(< N)와 A 강등 임계(>= N)는 같은 N 이어야 역류가 정확히 닫힌다."""
     a_text = A_PROMPT.read_text(encoding="utf-8")
-    a_m = re.search(r"distribution_day_count_last_25_sessions`?\s*>=\s*(\d+)", a_text)
+    a_35 = re.search(r"### 3\.5\..*?(?=\n### )", a_text, re.S)
+    assert a_35, "A 프롬프트에 §3.5 섹션이 없음"
+    a_m = re.search(r"distribution_day_count_last_25_sessions`?\s*>=\s*(\d+)", a_35.group(0))
     assert a_m, "A §3.5 강등 임계(>= N)를 찾지 못함"
     b_m = re.search(r"distribution_day_count_last_25_sessions`?\s*<\s*(\d+)", _b_unfavorable_block())
     assert b_m, "B 회복 임계(< N)를 찾지 못함"
@@ -38,3 +40,35 @@ def test_recovery_threshold_matches_demotion_threshold():
         f"임계 드리프트: A 강등 >= {a_m.group(1)} vs B 회복 < {b_m.group(1)} — "
         "한쪽만 변경 시 역류 구간이 다시 열림"
     )
+
+
+def _b_sibling_blocks() -> dict:
+    """§3.5 형제 분기(valid_base·marginal_tt) bullet 추출."""
+    text = B_PROMPT.read_text(encoding="utf-8")
+    out = {}
+    for name in ("valid_base_awaiting_breakout", "marginal_tt"):
+        m = re.search(r"- `%s`:(.*?)(?=\n- `|\n\n\*\*공통\*\*)" % name, text, re.S)
+        assert m, f"B §3.5 에 {name} 게이트 bullet 이 없음"
+        out[name] = m.group(1)
+    return out
+
+
+def test_sibling_gates_recheck_market_when_flagged():
+    """(#29) 형제 분기 — unfavorable_market_context flag 존재 시 시장 재확인 요구.
+
+    사유(watch_reason)가 marginal_tt/valid_base 로 기록됐어도 flag 가 있으면
+    unfavorable_market 게이트와 동일한 재확인을 거쳐야 역류 옆문이 닫힌다.
+    """
+    for name, block in _b_sibling_blocks().items():
+        assert "unfavorable_market_context" in block, (
+            f"{name} 분기가 flag 조건부 시장 재확인을 요구하지 않음 — #29 옆문 재개방"
+        )
+
+
+def test_sibling_gates_do_not_duplicate_threshold_literal():
+    """(#29) 형제 분기는 임계 숫자를 재복제하지 않고 게이트를 참조해야 한다 —
+    사본 증가 시 임계 변경이 한쪽만 반영되는 드리프트 통로가 생긴다."""
+    for name, block in _b_sibling_blocks().items():
+        assert not re.search(r"distribution_day_count_last_25_sessions`?\s*[<>=]+\s*\d", block), (
+            f"{name} 분기에 임계 리터럴 사본 — unfavorable_market 게이트 참조로 대체할 것"
+        )
