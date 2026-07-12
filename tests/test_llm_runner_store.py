@@ -607,3 +607,122 @@ def test_classification_soft_missing_pivot_for_entry(db, mocker):
         cur.execute("SELECT sanity_warnings FROM weekly_classification WHERE symbol='SANNOPV'")
         w = cur.fetchone()[0]
     assert w is not None and "sanity_missing_pivot_for_actionable" in w
+
+
+# ====== (#23) §8.5 밴드 정합 · §4.7 pivot 산술 사후검증 (SOFT) ======
+
+def _seed_close(db, symbol, close, as_of):
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stocks (ticker, name, market) VALUES (%s,'S','KOSPI') ON CONFLICT DO NOTHING",
+            (symbol,),
+        )
+        cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (symbol,))
+        cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (symbol,))
+        cur.execute(
+            "INSERT INTO daily_indicators (ticker, date, adj_close) VALUES (%s, %s, %s)",
+            (symbol, as_of, close),
+        )
+    db.commit()
+
+
+def _insert_and_get_warnings(db, symbol, result, as_of):
+    from kr_pipeline.llm_runner.store import insert_classification
+
+    insert_classification(
+        db, symbol=symbol, classified_at=datetime.now(timezone.utc),
+        market="KOSPI", result=result, source="weekend", llm_meta={},
+        analyzed_for_date=as_of,
+    )
+    db.commit()
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT sanity_warnings FROM weekly_classification WHERE symbol=%s",
+            (symbol,),
+        )
+        return cur.fetchone()[0]
+
+
+def test_band_entry_outside_warns(db, mocker):
+    """§8.5: entry 인데 close/pivot 이 [0.95, 1.05] 밖 → sanity_band_mismatch_entry."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANB1", 900, as_of)  # ratio 0.9 < 0.95
+    w = _insert_and_get_warnings(
+        db, "SANB1",
+        _cls_result(classification="entry", pivot_price=1000.1, base_high=1000.0),
+        as_of,
+    )
+    assert w is not None and "sanity_band_mismatch_entry" in w
+
+
+def test_band_valid_base_requires_below_band(db, mocker):
+    """§8.5: valid_base_awaiting_breakout 인데 close 가 pivot×0.95 이상 → 경고."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANB2", 1000, as_of)  # ratio ~1.0
+    r = _cls_result(pivot_price=1000.1, base_high=1000.0)
+    r["watch_reason"] = "valid_base_awaiting_breakout"
+    w = _insert_and_get_warnings(db, "SANB2", r, as_of)
+    assert w is not None and "sanity_band_mismatch_valid_base" in w
+
+
+def test_band_extended_requires_above_band(db, mocker):
+    """§8.5: extended 인데 close 가 pivot×1.05 이하 → 경고. 초과면 무경고."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANB3", 1000, as_of)
+    r = _cls_result(pivot_price=1000.1, base_high=1000.0)
+    r["watch_reason"] = "extended"
+    w = _insert_and_get_warnings(db, "SANB3", r, as_of)
+    assert w is not None and "sanity_band_mismatch_extended" in w
+
+    _seed_close(db, "SANB4", 1100, as_of)  # ratio ~1.1 > 1.05 — 정합
+    r2 = _cls_result(pivot_price=1000.1, base_high=1000.0)
+    r2["watch_reason"] = "extended"
+    w2 = _insert_and_get_warnings(db, "SANB4", r2, as_of)
+    assert w2 is None or not any("sanity_band" in x for x in w2)
+
+
+def test_band_entry_inside_no_warning(db, mocker):
+    """§8.5: entry 이고 밴드 내(0.95~1.05) → 밴드 경고 없음."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANB5", 990, as_of)  # ratio ~0.99
+    w = _insert_and_get_warnings(
+        db, "SANB5",
+        _cls_result(classification="entry", pivot_price=1000.1, base_high=1000.0),
+        as_of,
+    )
+    assert w is None or not any("sanity_band" in x for x in w)
+
+
+def test_pivot_above_base_high_warns_for_table_basis(db, mocker):
+    """§4.7: 표 기반 basis(handle_high 등)는 anchor ≤ base_high — 초과 pivot 경고.
+    (pocket pivot 예외는 basis 가 표 밖이라 비대상 — HARD 미검사 사유 보존)"""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANP1", 1050, as_of)
+    r = _cls_result(pivot_price=1100.1, base_high=1000.0, pivot_basis="handle_high")
+    w = _insert_and_get_warnings(db, "SANP1", r, as_of)
+    assert w is not None and "sanity_pivot_above_base_high" in w
+
+
+def test_pivot_offset_rule_warns_on_wrong_fraction(db, mocker):
+    """§4.7: +0.1 규칙 패턴에서 정수 앵커인데 pivot 소수부 ≠ 0.1 → 경고."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANP2", 990, as_of)
+    r = _cls_result(pivot_price=1000.5, base_high=1000.0, pivot_basis="range_high")
+    w = _insert_and_get_warnings(db, "SANP2", r, as_of)
+    assert w is not None and "sanity_pivot_offset_rule" in w
+
+
+def test_pivot_offset_rule_clean(db, mocker):
+    """§4.7: pivot = 정수 앵커 + 0.1 → 경고 없음. 비-표 basis 도 비대상."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANP3", 990, as_of)
+    r = _cls_result(pivot_price=1000.1, base_high=1000.0, pivot_basis="range_high")
+    w = _insert_and_get_warnings(db, "SANP3", r, as_of)
+    assert w is None or not any("sanity_pivot_" in x for x in w)

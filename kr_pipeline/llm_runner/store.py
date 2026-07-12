@@ -15,6 +15,9 @@ from kr_pipeline.common.thresholds import (
     ENTRY_WEIGHT_PCT_MIN,
     ENTRY_WEIGHT_PCT_MAX,
     ENTRY_TRIGGER_BUFFER_MAX,
+    GATE_PROMOTION_PRICE_RATIO,
+    PIVOT_EXTENDED_BAND_MULT,
+    PIVOT_PRICE_OFFSET,
 )
 from kr_pipeline.llm_runner.gates import apply_phase1_gates
 from kr_pipeline.llm_runner.risk_flags import RISK_FLAGS_TAXONOMY
@@ -85,6 +88,13 @@ def _watch_reason(result: dict) -> str | None:
 # 탐지 휴리스틱)이라 thresholds.py SSOT 비등재. SOFT 전용(저장 차단 안 함).
 _PIVOT_CLOSE_BAND = (0.3, 3.0)
 
+# (#23) §4.7 표 기반 pivot_basis — anchor 가 base 내부 고점이라 pivot ≤ base_high+0.1
+# 이 성립하고 +0.1 오프셋 규칙이 적용되는 집합. pocket pivot 등 표 밖 basis 는
+# base_high 초과가 정당하므로 비대상 (HARD 미검사 사유와 동일 — docstring 참조).
+_PIVOT_TABLE_BASES = frozenset(
+    {"handle_high", "range_high", "final_T_high", "mid_W_peak"}
+)
+
 
 def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -> list[str]:
     """분류 숫자의 부호·대소·범위 sanity (P1-2 Part A).
@@ -134,6 +144,33 @@ def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -
             ratio = float(pv) / close
             if not (_PIVOT_CLOSE_BAND[0] <= ratio <= _PIVOT_CLOSE_BAND[1]):
                 warns.append("sanity_pivot_far_from_price")
+            # (#23) §8.5 밴드 정합 — LLM 이 적용한 entry/valid_base/extended 경계가
+            # 실제 close/pivot 위치와 맞는지 사후검증 (LLM 산술 실수 탐지, SOFT).
+            pos = close / float(pv)
+            band_lo = GATE_PROMOTION_PRICE_RATIO
+            band_hi = PIVOT_EXTENDED_BAND_MULT
+            wr = result.get("watch_reason")
+            if result.get("classification") == "entry" and not (
+                band_lo <= pos <= band_hi
+            ):
+                warns.append("sanity_band_mismatch_entry")
+            elif wr == "valid_base_awaiting_breakout" and pos >= band_lo:
+                warns.append("sanity_band_mismatch_valid_base")
+            elif wr == "extended" and pos <= band_hi:
+                warns.append("sanity_band_mismatch_extended")
+
+    # (#23) §4.7 pivot 산술 사후검증 — 표 기반 basis 한정 (SOFT).
+    if pv is not None and result.get("pivot_basis") in _PIVOT_TABLE_BASES:
+        offset = PIVOT_PRICE_OFFSET
+        if bh is not None and float(pv) > float(bh) + offset + 1e-6:
+            warns.append("sanity_pivot_above_base_high")
+        # +0.1 오프셋 규칙: 정수 앵커 문맥(base_high 가 정수)에서만 검사 —
+        # 수정주가로 앵커가 소수가 되면 base_high 도 소수라 자연 skip.
+        if bh is not None and abs(float(bh) - round(float(bh))) < 1e-6:
+            frac = float(pv) - int(float(pv))
+            if abs(frac - offset) > 1e-3:
+                warns.append("sanity_pivot_offset_rule")
+
     if warns:
         log.warning("classification sanity warnings %s: %s (pivot=%s)", symbol, warns, pv)
     return warns
