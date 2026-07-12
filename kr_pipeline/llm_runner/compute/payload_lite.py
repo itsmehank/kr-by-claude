@@ -84,6 +84,8 @@ def build_for_5b(
         )
         ohlcv_rows = list(reversed(cur.fetchall()))
 
+        # current_metrics 는 무배제 최신(halt 직후엔 20d 리스트 말미와 날짜가 다를 수
+        # 있음 — as-of 의미가 달라 20d 쿼리와 통합 금지, #35 리뷰).
         cur.execute(
             """
             SELECT adj_close, volume, avg_volume_50d, sma_50, sma_21

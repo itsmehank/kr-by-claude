@@ -34,7 +34,8 @@
 
 **분배일 판정 규약**: 종목 distribution day 여부는 각 행의 `distribution_day_flag` 가
 **authoritative** — OHLCV 로 직접 재계산하지 말 것(analyze_chart_v3 §6 의 column-is-authoritative
-관례와 동일. flag 정의 = SSOT 컷, LLM 자체 기준 사용 금지).
+관례와 동일. flag 는 결정론 코드 산출값 — LLM 자체 기준 사용 금지). flag 가 `null`(지표 미산출)인
+행은 분배일로 세지 않는다(결정론 경로의 null=False 관례와 동일 — handle_quality 의 COALESCE).
 
 ### 3.1 trigger_type = "breakout"
 

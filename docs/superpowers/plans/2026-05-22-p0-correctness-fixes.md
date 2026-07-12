@@ -52,7 +52,7 @@ P0 action 5 개를 책 critical 순서 + 의존성에 따라 5 task 로:
 - Modify: `kr_pipeline/indicators/compute/volume.py:91-103` (docstring 갱신)
 - Modify: `web/src/data/thresholds.generated.ts` (자동 재생성)
 
-거래량 임계만 변경. *하락 임계* (현재 `is_down`, 0%) → -0.2% 변경은 함수 시그니처를 바꿔야 하므로 별도 결정. 이 task 는 **거래량만** 정렬 (1.25× → 1.0×). 하락 임계 정렬은 P0-3 의 prompt 텍스트로 흡수 (LLM 이 §6 정의대로 OHLCV 에서 재계산하면 -0.2% 적용됨). **[superseded by #20/#31 — 이후 §6 이 flag 컬럼을 authoritative 로 선언(재계산 경로 폐기)했고, 컷은 코드(STOCK_DISTRIBUTION_PCT_DOWN)가 적용, 5b 도 #31 로 flag 전달. 이 문장의 '재계산 흡수' 논리는 사문.]** 코드 flag 의 거래량 기준 (1.0×) 이 prompt §6 (1.0×) 와 일치하면 두 경로가 같은 빈도로 distribution 을 잡는다.
+거래량 임계만 변경. *하락 임계* (현재 `is_down`, 0%) → -0.2% 변경은 함수 시그니처를 바꿔야 하므로 별도 결정. 이 task 는 **거래량만** 정렬 (1.25× → 1.0×). 하락 임계 정렬은 P0-3 의 prompt 텍스트로 흡수 (LLM 이 §6 정의대로 OHLCV 에서 재계산하면 -0.2% 적용됨). **[superseded by #20/#31 — 이후 §6 이 flag 컬럼을 authoritative 로 선언(재계산 경로 폐기)했고, 컷은 코드(STOCK_DISTRIBUTION_PCT_DOWN)가 적용, 5b 도 #31 로 flag 전달. 이 문장의 '재계산 흡수' 논리와 다음 문장의 '두 경로 빈도 일치' 전제까지 사문 — 현재는 단일 경로(flag).]** ~~코드 flag 의 거래량 기준 (1.0×) 이 prompt §6 (1.0×) 와 일치하면 두 경로가 같은 빈도로 distribution 을 잡는다.~~
 
 - [ ] **Step 1: Update SSOT value + docstring**
 
