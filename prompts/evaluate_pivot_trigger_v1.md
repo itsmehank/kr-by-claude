@@ -31,7 +31,7 @@
 
 - `symbol`, `name`, `market`, `evaluation_date`
 - `trigger_type`: "breakout" | "breakout_from_watch" | "invalidation" | "promotion"
-- `prior_analysis`: 주말 (5) 결과 (`classified_at`, **`days_since_classification`** (분류 후 경과일), `classification`, `pattern`, `pivot_price`, `pivot_basis`, `base_high`, `base_low`, `base_depth_pct`, `risk_flags`, `reasoning`, **`watch_reason`** (watch 분류 사유 — `trigger_type == "breakout_from_watch"` 일 때 §3.5 분기 결정에 사용; 그 외 무관))
+- `prior_analysis`: 주말 (5) 결과 (`classified_at`, **`days_since_classification`** (분류 후 경과일), `classification`, `pattern`, `pivot_price`, `pivot_basis`, `base_high`, `base_low`, `base_depth_pct`, `risk_flags`, `reasoning`, **`watch_reason`** (watch 분류 사유 — reasoning 서술 참고용. §3.5 회복 게이트는 사유-독립(#22)이라 판정에는 미사용))
 - `recent_daily_ohlcv_20d`: 최근 20영업일 OHLCV 리스트 — 각 행에 **`distribution_day_flag`**(종목 분배일, 결정론 산출) 포함
 - `current_metrics`: `close`, `volume`, `avg_volume_50d`, `volume_ratio`, `sma_50`, **`sma_21`** (≈ 20-day line, Minervini *Think & Trade Like a Champion* Ch.1 의 "20-day line" 가드용)
 - `market_context`: **현재(평가일 as-of)** 시장 상태 — `current_status`(confirmed_uptrend / rally_attempt / downtrend / correction), `distribution_day_count_last_25_sessions` 등. (§3.5 회복 게이트의 원천 입력 — 판정 자체는 `computed_gates.market_recovery_ok`. 분류시점 아님 — *오늘* 시장.)
