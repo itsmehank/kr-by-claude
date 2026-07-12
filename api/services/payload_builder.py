@@ -5,6 +5,74 @@ from psycopg import Connection
 from api.services.market_context_builder import build_market_context
 from api.services.corporate_actions_builder import build_corporate_actions
 from api.services.minervini_detail_builder import build_minervini_detail
+from kr_pipeline.common.thresholds import (
+    MARKET_DIST_DEMOTION_COUNT_25S,
+    MARKET_DIST_NORMAL_MAX_25S,
+    TT_MARGIN_MARGINAL_PCT,
+    TT_MARGINAL_DEMOTION_COUNT,
+)
+
+
+def _conditions_summary(conditions_detail: dict) -> dict:
+    """(#23) A §2 marginal 카운트 선계산 — 프롬프트는 이 값을 재계수 없이 소비.
+
+    marginal = 'PASS 하면서 margin < TT_MARGIN_MARGINAL_PCT%' 인 조건만 (A §2 정의.
+    margin 미산출(None)·탈락 조건 미계수 — #37 리뷰의 tt_recovery 와 동일 의미론).
+    passed 가 None(지표 미산출)인 조건이 하나라도 있으면 카운트 미확정(null) —
+    0 으로 단정 시 미산출이 clean 으로 위장된다.
+    """
+    passes = [c.get("passed") for c in conditions_detail.values()]
+    if any(p is None for p in passes):
+        return {
+            "marginal_count": None,
+            "marginal_conditions": None,
+            "demotion_trigger": None,
+        }
+    marginal = sorted(
+        k
+        for k, c in conditions_detail.items()
+        if c.get("passed") is True
+        and c.get("margin_pct") is not None
+        and c["margin_pct"] < TT_MARGIN_MARGINAL_PCT
+    )
+    return {
+        "marginal_count": len(marginal),
+        "marginal_conditions": marginal,
+        "demotion_trigger": len(marginal) >= TT_MARGINAL_DEMOTION_COUNT,
+    }
+
+
+def _market_direction_gate(market_context: dict) -> dict:
+    """(#23) A §3.5 시장 하드룰의 판정 입력 선계산 (규칙 텍스트는 프롬프트 유지).
+
+    - force_watch: status 가 downtrend/correction/rally_attempt (entry → watch 강등)
+    - confidence_penalty: 시장 분배일 >= MARKET_DIST_DEMOTION_COUNT_25S
+    - normal_range: confirmed_uptrend 이고 분배일 <= MARKET_DIST_NORMAL_MAX_25S
+    - confirmed_uptrend 인데 분배일 4 인 구간은 프롬프트가 원래 미규정 — 갭 보존
+      (셋 다 False). 입력 None → 해당 boolean null.
+    """
+    status = market_context.get("current_status")
+    dist = market_context.get("distribution_day_count_last_25_sessions")
+    force_watch = (
+        status in ("downtrend", "correction", "rally_attempt")
+        if status is not None
+        else None
+    )
+    confidence_penalty = (
+        dist >= MARKET_DIST_DEMOTION_COUNT_25S if dist is not None else None
+    )
+    normal_range = (
+        status == "confirmed_uptrend" and dist <= MARKET_DIST_NORMAL_MAX_25S
+        if status is not None and dist is not None
+        else None
+    )
+    return {
+        "status": status,
+        "dist_count": dist,
+        "force_watch": force_watch,
+        "confidence_penalty": confidence_penalty,
+        "normal_range": normal_range,
+    }
 
 
 def build_payload(conn: Connection, ticker: str, on_date: date | None = None) -> dict:
@@ -45,6 +113,9 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
         "date": on_date.isoformat(),
         "conditions_met": conditions_met,
         "conditions_detail": minervini,
+        # (#23) §2/§3.5 정량 판정 입력 선계산 — 프롬프트 재계수 금지 규약의 대상
+        "conditions_summary": _conditions_summary(minervini),
+        "market_direction_gate": _market_direction_gate(market_context),
         "rs_rating": rs_rating,
         "current_metrics": current,
         "daily_ohlcv_recent_60d": daily_ohlcv,
