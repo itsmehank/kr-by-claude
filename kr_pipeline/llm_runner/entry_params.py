@@ -1,6 +1,8 @@
-"""평일 (6) calculate_entry_params.
+"""평일 (6) entry params — 결정론 산출 (#21: LLM 은퇴).
 
-오늘 (5b) 결과 중 decision == 'go_now' 종목만 처리.
+오늘 (5b) 결과 중 decision == 'go_now' 종목만 처리. 산출은
+compute/entry_params_calc.calculate_entry_params (순수 함수) — echo 검증은
+오독이 불가능해져 제거, UsageLimitError 도 LLM 미호출로 소멸.
 """
 from __future__ import annotations
 
@@ -9,19 +11,16 @@ from datetime import date, datetime, timezone
 
 from psycopg import Connection
 
+from kr_pipeline.llm_runner.compute.entry_params_calc import (
+    CALC_VERSION,
+    calculate_entry_params,
+)
 from kr_pipeline.llm_runner.compute.payload_lite import build_for_6
-from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 from kr_pipeline.llm_runner.slack import notify_signal
 from kr_pipeline.llm_runner.store import insert_entry_params, _normalize_entry_params
 
 
 log = logging.getLogger("kr_pipeline.llm_runner.entry_params")
-
-# [design judgment] current_price echo 허용 오차 — book 근거 아닌 휴리스틱이라
-# thresholds.py 비등재. 상대 0.1%(오독 포착) 또는 절대 1원(수정주가 소수부의
-# 정수 반올림 흡수 — 예: close 100.49 를 100 으로 echo) 중 큰 쪽.
-_ECHO_REL_TOL = 0.001
-_ECHO_ABS_TOL = 1.0
 
 
 def _fetch_go_now_candidates(conn, as_of: date, force: bool = False) -> list:
@@ -100,14 +99,6 @@ def run(
             _process_one(conn, symbol, eval_at, prior_at, dry_run=dry_run, as_of=as_of)
             processed += 1
             conn.commit()
-        except UsageLimitError:
-            # 사용량 제한 — 남은 종목 순회가 전부 헛호출이므로 즉시 중단.
-            # 예외 전파 → run_tracking failed → 재실행 계기 확보. 기처리분은 commit 완료 +
-            # _fetch_go_now_candidates 의 NOT EXISTS 가드가 재실행 시 이어하기.
-            conn.rollback()
-            log.warning("entry_params usage limit at %s — aborting (processed=%d/%d)",
-                        symbol, processed, len(go_now))
-            raise
         except Exception as e:
             log.warning("entry_params %s failed: %s", symbol, e)
             failed.append(symbol)
@@ -119,35 +110,13 @@ def run(
 def _process_one(conn, symbol, eval_at, prior_at, *, dry_run, as_of):
     started = datetime.now(timezone.utc)
     payload = build_for_6(conn, symbol, evaluation_at=eval_at)
-    llm_io: dict = {}
-    result = call_claude(
-        prompt_file="calculate_entry_params_v2_0.md",
-        attachments=[],
-        payload_inline=payload,
-        dry_run=dry_run,
-        meta_out=llm_io,
-    )
+    result = calculate_entry_params(payload)  # 결정론 — 같은 payload = 같은 출력
     finished = datetime.now(timezone.utc)
 
     if dry_run:
-        _normalize_entry_params(result)  # §9 정합 검증(드리프트 시 ValueError) — insert 는 skip
+        _normalize_entry_params(dict(result))  # §9 정합 검증 — insert 는 skip
         log.info("dry-run: validated entry plan for %s (skipping DB insert)", symbol)
         return
-
-    # P1-2 Part B: current_price 는 프롬프트가 payload current_state.close 를 그대로
-    # 되받아 적도록(echo) 지시한 값 — 정답을 아는 값이라 밴드가 아닌 거의-정확 일치.
-    # 불일치 = LLM 이 payload 숫자를 오독했다는 신호로, 같은 payload 에서 계산된
-    # stop/target 도 신뢰 불가 → fail-closed(저장·알림 거부). 종목 단위 격리는
-    # run() 루프 except 가, 같은 날 재실행 시 재시도는 NOT EXISTS 가드가 담당.
-    expected_close = (payload.get("current_state") or {}).get("close")
-    echoed = result.get("current_price")
-    if expected_close is not None and echoed is not None:
-        tol = max(abs(float(expected_close)) * _ECHO_REL_TOL, _ECHO_ABS_TOL)
-        if abs(float(echoed) - float(expected_close)) > tol:
-            raise ValueError(
-                f"current_price echo mismatch ({symbol}): LLM={echoed} "
-                f"vs payload close={expected_close} (tol={tol:.4f}) — payload 오독 의심"
-            )
 
     # 알림용 값은 insert 전에 캡처 — _normalize 가 §9 키를 리네임할 수 있음
     _ntf_entry = float(result["trigger_price"])
@@ -161,9 +130,9 @@ def _process_one(conn, symbol, eval_at, prior_at, *, dry_run, as_of):
         trigger_evaluation_at=eval_at,
         prior_classification_at=prior_at,
         llm_meta={"duration_s": (finished - started).total_seconds(),
-                  "input_tokens": llm_io.get("input_tokens"),
-                  "output_tokens": llm_io.get("output_tokens"),
-                  "model": llm_io.get("model")},
+                  "input_tokens": None,
+                  "output_tokens": None,
+                  "model": CALC_VERSION},
         analyzed_for_date=as_of,
     )
 

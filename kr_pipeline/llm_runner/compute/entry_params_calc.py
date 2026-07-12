@@ -23,6 +23,8 @@ from kr_pipeline.common.thresholds import (
     ENTRY_WEIGHT_PCT_MIN,
 )
 
+CALC_VERSION = "deterministic:entry_params_calc/v1"  # entry_params.llm_model 컬럼 표기
+
 _STANDARD_PATTERNS = {"flat_base", "cup_with_handle", "double_bottom"}
 _PP_BASE_PATTERNS = {"flat_base", "cup_with_handle", "vcp", "double_bottom"}
 
