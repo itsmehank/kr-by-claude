@@ -107,6 +107,44 @@ ENTRY_TRIGGER_BUFFER_MAX: Final[float] = 1.005
 """trigger_price 상한 = pivot × 이 값 (프롬프트 §1.3). IBD 운용 관행
 (pivot +0.1% 산출, +0.5% 초과 = 추격) — store sanity SOFT 경계."""
 
+# ===== (A) analyze_chart 정량 선계산·사후검증 (#23 — api/services/payload_builder.py,
+# kr_pipeline/llm_runner/store.py) =====
+# 앞 3종은 PR #37(#22)과 문자 단위 동일 중복 — 어느 쪽이 나중에 머지되든 충돌 해소가
+# 자명하도록 정의문 일치. 의존성 맵:
+# docs/superpowers/plans/2026-07-13-issue-23-a-quant-precompute.md
+
+MARKET_DIST_DEMOTION_COUNT_25S: Final[int] = 5
+"""시장 분배일(25세션) 강등/회복 co-anchor. A §3.5 강등: count >= N → entry 대신 watch
+(unfavorable_market_context). B §3.5 회복: count < N 일 때만 market_recovery_ok.
+책: O'Neil HMMS Ch.9 — '5~6 distribution days' 가 랠리를 꺾는다.
+⚠ 양쪽이 같은 N 이어야 역류가 닫힌다(#19) — 코드는 이 상수, A 텍스트는 drift 가드."""
+
+TT_MARGIN_MARGINAL_PCT: Final[float] = 3.0
+"""Trend Template 조건의 marginal 판정 마진 % (A §2: margin < 3% = marginal pass)."""
+
+TT_MARGINAL_DEMOTION_COUNT: Final[int] = 3
+"""marginal 조건 개수 임계. A §2: 3개 이상 marginal → confidence 상한 + watch 선호
+(watch_reason=marginal_tt). B tt_recovery_ok: 8조건 all pass AND marginal < 3개 (정확한 역).
+marginal 계수는 A §2 정의 그대로 'PASS 하면서 margin < 3%' 인 조건만 — margin 미산출(None)·
+탈락 조건은 미계수 (#37 리뷰: None 계수 시 데이터 결함이 회복을 영구 차단해 역이 깨짐).
+시스템 설계 (marginal 개념은 Minervini 해설 유래, 3%/3개 수치는 시스템)."""
+
+MARKET_DIST_NORMAL_MAX_25S: Final[int] = 3
+"""A §3.5 '정상 진행' 상한 — confirmed_uptrend 이고 시장 분배일 <= N 이면 전 범위 분류 허용.
+기존 프롬프트 텍스트('with ≤ 3 distribution days')의 승격 — 값 변화 0. 시스템 채택
+(책은 5~6 강등만 명시). 4 개 구간(강등 임계 미만·정상 상한 초과)은 프롬프트가 원래
+미규정 — 갭 보존(동작 중립)."""
+
+PIVOT_EXTENDED_BAND_MULT: Final[float] = 1.05
+"""A §8.5 entry/extended 경계 (pivot 대비 상단 밴드). current > pivot × 1.05 = extended.
+O'Neil/Minervini 'pivot +5% 이내 매수' 추격 한계의 대칭 적용 (design judgment — §8.5 명시).
+하단 0.95 는 GATE_PROMOTION_PRICE_RATIO 재사용 (§8.5 'promotion 임계와 정합')."""
+
+PIVOT_PRICE_OFFSET: Final[float] = 0.1
+"""A §4.7 pivot 산출 오프셋 — pivot = 기준 고점 + 0.1 (flat_base/cup_with_handle/vcp/
+double_bottom). 시스템 관례 (책의 '10 cents above' 관행의 KRW 적용). store 사후검증
+(sanity_pivot_offset_rule)의 기준."""
+
 # ===== Distribution Day - 종목 레벨 (kr_pipeline/indicators/compute/volume.py) =====
 
 STOCK_DISTRIBUTION_VOL_MULT: Final[float] = 1.0
