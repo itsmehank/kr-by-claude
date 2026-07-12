@@ -716,3 +716,57 @@ def test_continuity_ignores_prior_ignore_rows(db, mocker):
     _insert_cls(db, "CONT5", at=t2, pivot=1000.1, base_start="2026-03-01",
                 afd=date(2026, 6, 13))
     assert _continuity_of(db, "CONT5", t2) is None  # entry/watch 직전 없음 → NULL
+
+
+def test_continuity_broken_by_intervening_ignore(db, mocker):
+    """watch → ignore → entry: 직전 최신 행이 ignore 면 활성 기준선 단절 → NULL —
+    오래된 watch 를 건너뛰어 잡으면 재확립 베이스가 재판독으로 오계수 (#39 리뷰)."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT6")
+    t = [datetime(2026, 6, i, 3, 0, tzinfo=timezone.utc) for i in (6, 13, 20)]
+    _insert_cls(db, "CONT6", at=t[0], pivot=1000.1, base_start="2026-03-01",
+                afd=date(2026, 6, 6))
+    _insert_cls(db, "CONT6", at=t[1], pivot=None, base_start=None,
+                classification="ignore", afd=date(2026, 6, 13))
+    _insert_cls(db, "CONT6", at=t[2], pivot=1100.1, base_start="2026-03-01",
+                classification="entry", afd=date(2026, 6, 20))
+    assert _continuity_of(db, "CONT6", t[2]) is None
+
+
+def test_continuity_no_lookahead_on_past_rerun(db, mocker):
+    """--date 과거 재실행: 미래 주의 분류를 '직전'으로 참조하면 안 된다 (#39 리뷰)."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT7")
+    t_future = datetime(2026, 6, 20, 3, 0, tzinfo=timezone.utc)
+    t_past = datetime(2026, 6, 21, 3, 0, tzinfo=timezone.utc)  # 실행시각은 나중이나
+    _insert_cls(db, "CONT7", at=t_future, pivot=1100.1, base_start="2026-03-01",
+                afd=date(2026, 6, 20))
+    _insert_cls(db, "CONT7", at=t_past, pivot=1000.1, base_start="2026-03-01",
+                afd=date(2026, 6, 6))  # 과거 주 백필
+    assert _continuity_of(db, "CONT7", t_past) is None  # 미래 행 참조 금지
+
+
+def test_continuity_nan_pivot_does_not_break_insert(db, mocker):
+    """NaN pivot: jsonb 는 NaN 토큰을 거부 — 관측이 본 INSERT 를 막으면 안 된다 (#39 리뷰)."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT8")
+    t1 = datetime(2026, 6, 6, 3, 0, tzinfo=timezone.utc)
+    t2 = datetime(2026, 6, 13, 3, 0, tzinfo=timezone.utc)
+    _insert_cls(db, "CONT8", at=t1, pivot=1000.1, base_start="2026-03-01",
+                afd=date(2026, 6, 6))
+    _insert_cls(db, "CONT8", at=t2, pivot=float("nan"), base_start="2026-03-01",
+                afd=date(2026, 6, 13))  # 예외 없이 저장돼야 함
+    with db.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM weekly_classification WHERE symbol='CONT8'")
+        assert cur.fetchone()[0] == 2
+    c2 = _continuity_of(db, "CONT8", t2)
+    assert c2 is not None and c2["pivot_change_pct"] is None  # 비유한값 가드
+
+
+def test_to_date_or_none_handles_datetime():
+    """datetime 은 date 의 서브클래스 — 순서 버그로 미변환 통과하면 .days 연산이 깨진다."""
+    from kr_pipeline.llm_runner.store import _to_date_or_none
+    dt = datetime(2026, 6, 6, 3, 0, tzinfo=timezone.utc)
+    assert _to_date_or_none(dt) == date(2026, 6, 6)
+    assert _to_date_or_none("2026-06-06") == date(2026, 6, 6)
+    assert _to_date_or_none(None) is None

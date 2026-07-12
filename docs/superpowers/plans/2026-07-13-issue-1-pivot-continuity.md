@@ -7,7 +7,7 @@
 **결정(브리프 재검토 후 채택):** D1=A(연속성 로그 — 임계 게이트 B/베이스 ID E 는 이 관측 데이터 누적 후 재검토), D2=②(docs/pivot-reanalysis-tradeoff.md + weekend/daily_delta 주석에 링크), D3=①(#1 먼저, #3 은 다음 순번).
 
 ### 세부 결정
-- 비교 대상 = 같은 종목의 직전 entry/watch 분류 1건(하위 소비자 get_active_monitoring 과 동일 모집단·정렬).
+- 비교 대상 = 같은 종목의 (이 행 유효일 이전) 직전 최신 분류 1건 — entry/watch 일 때만 기록, ignore 개재 시 기준선 단절로 NULL (get_active_monitoring 동치 의미론. #39 리뷰 반영: 상한 없는 조회는 --date 재실행 look-ahead, entry/watch 선필터는 재확립 베이스 오계수).
 - base_continuity 분류: `same`(base_start_date 동일) / `near`(±10일 이내 — 이슈의 실측 그룹핑 재사용) / `different` / `unknown`(어느 쪽이든 base_start_date 결측). 직전 분류 없으면 컬럼 NULL.
 - 10일은 관측 분류용 휴리스틱(판정 무영향, 책 임계 아님) → store 사설 상수 `_BASE_NEAR_DAYS`, thresholds.py 비등재 (D1-A 의 "임계값 변경 없음 — checklist 비대상" 유지).
 - 기록 필드: prev_classified_at, prev_pivot_price, pivot_change_pct, base_start_delta_days, base_continuity, pattern_changed, prev_pattern. same-base & pivot 변경 시 log.warning (운영 관측 신호).

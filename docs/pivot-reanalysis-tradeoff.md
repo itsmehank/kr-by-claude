@@ -22,14 +22,19 @@
 
 ## 관측 로그 (`pivot_continuity`)
 
-`insert_classification` 이 INSERT 직전에 같은 종목의 **직전 entry/watch 분류**
-(하위 소비자 `get_active_monitoring` 과 동일 모집단·정렬)를 조회해 기록한다:
+`insert_classification` 이 INSERT 직전에 같은 종목의 **직전 최신 분류 1건**(이 행의
+유효일 기준 상한 — `--date` 과거 재실행에서 미래 행 참조 금지)을 조회해, 그것이
+entry/watch 일 때만 비교 기록한다 — 직전 최신 행이 ignore 면 활성 기준선이 단절된
+것이므로 기록하지 않는다(`get_active_monitoring` 의 "최신 행이 entry/watch 일 때만
+활성"과 동치 의미론. 오래된 entry/watch 를 건너뛰어 잡으면 재확립 베이스가 주간
+재판독으로 오계수된다):
 
 - `base_continuity`: `same`(base_start_date 동일) / `near`(±10일) / `different` / `unknown`(결측)
 - `pivot_change_pct`, `prev_pivot_price`, `prev_classified_at`, `base_start_delta_days`,
   `prev_pattern`, `pattern_changed`
-- 직전 entry/watch 분류가 없으면 컬럼 NULL.
-- same-base + pivot 변경 시 `log.warning("[pivot-continuity] …")` — 운영 관측 신호.
+- 직전 활성 분류가 없으면 컬럼 NULL. 관측 헬퍼는 fail-soft — 어떤 실패도 본
+  INSERT(LLM 비용 지출분)를 막지 않는다.
+- same-base + pivot 변경 시(행이 실제 저장된 경우에만) `log.warning("[pivot-continuity] …")`.
 
 ★규율 정합: 이 로그는 "재실행 1:1 비교"(금지)가 아니라 **서로 다른 주(as_of)의 정상
 분류 간** 연속성 기록이다 — recall 감사 규율(LLM 비결정성 → 재실행 비교 금지, 패턴
