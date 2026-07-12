@@ -66,6 +66,8 @@ export const PROMPT_EXPLANATIONS: Record<string, PromptExplanation> = {
   },
 
   calculate_entry_params_v2_0: {
+    // RETIRED (#21): 결정론 함수 kr_pipeline/llm_runner/compute/entry_params_calc.py 로 대체.
+    // 아래 프롬프트 본문은 아카이브 표시용.
     filename: "calculate_entry_params_v2_0.md",
     role:
       "go_now 결정을 받은 *진짜 매수 시그널* 종목에 대해 매수 계획 18 필드를 계산합니다 — '얼마에 사고, 얼마에 손절하고, 얼마까지 목표로 잡을지'.",

@@ -160,7 +160,7 @@ const STAGES: PipelineStage[] = [
     deterministicDetail:
       "SELECT FROM trigger_evaluation_log WHERE evaluated_at::date = today AND decision='go_now' AND trigger_type='breakout'. 이 조건이 'watch staging' 이 매수로 새지 않게 막는 안전장치.",
     llmSummary:
-      "calculate_entry_params_v2_0.md prompt — 18 필드를 책 룰 (O'Neil 7-8% 손절, Minervini 1-3% 거래당 위험, 5% chase 제한 등) 에 맞춰 계산. [[entry_mode]] 가 [[pivot_breakout]] 인지 [[pocket_pivot]] 인지에 따라 손절·사이징 룰이 다릅니다.",
+      "결정론 함수 entry_params_calc (#21 — 구 calculate_entry_params_v2_0.md 프롬프트를 코드로 대체) — 17 필드를 책 룰 (O'Neil 7-8% 손절, Minervini 1-3% 거래당 위험, 5% chase 제한 등) 에 맞춰 계산. [[entry_mode]] 가 [[pivot_breakout]] 인지 [[pocket_pivot]] 인지에 따라 손절·사이징 룰이 다릅니다.",
     llmShowsLists: {
       eighteenFields: true,
     },

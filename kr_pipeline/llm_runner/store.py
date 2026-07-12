@@ -455,8 +455,8 @@ def _normalize_entry_params(result: dict) -> dict:
 
 
 # D-3 sanity 의 책 근거 범위는 SSOT(thresholds.py ENTRY_* — P1-7 승격) 가 정의.
-# 프롬프트(calculate_entry_params_v2_0.md §1.3/§2/§3/§4)와의 동기화는
-# tests/test_prompt_threshold_drift.py 가 감시.
+# #21 이후 생산측(entry_params_calc.py)도 같은 SSOT 를 import — 생산·검증 단일 정의.
+# (구 프롬프트 calculate_entry_params_v2_0.md 는 RETIRED — 웹 표시용 아카이브만.)
 
 
 def _validate_entry_params_sanity(n: dict) -> dict:
