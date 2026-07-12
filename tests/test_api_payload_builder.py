@@ -44,8 +44,9 @@ def test_build_payload_basic_structure(db):
     # (#23) 정량 선계산 — §2 마진 카운트·§3.5 시장 하드룰 입력
     assert "conditions_summary" in payload
     assert "market_direction_gate" in payload
-    # 시드: 8조건 전부 pass, margin 은 detail 빌더 산출값 — 카운트가 int 로 산출됨
-    assert isinstance(payload["conditions_summary"]["marginal_count"], int)
+    # 시드: 8조건 pass 이나 c3 margin 은 sma_200 이력 1행뿐이라 미산출(None)
+    # → 카운트 미확정(null) 의미론 (#38 리뷰) — 확정 int 로 위장하지 않음
+    assert payload["conditions_summary"]["marginal_count"] is None
 
 
 # --- (#23) §2 marginal 카운트 선계산 (순수 함수) ---
@@ -63,16 +64,25 @@ def _detail(margins=None, passed=None):
 
 
 def test_conditions_summary_counts_marginal_pass_only():
-    """marginal = PASS ∧ margin<3% 만 계수 — None margin·탈락 조건 미계수 (A §2 정의)."""
+    """marginal = PASS ∧ margin<3% 만 계수 — 탈락 조건(음수 margin 포함) 미계수."""
     from api.services.payload_builder import _conditions_summary
     detail = _detail(
-        margins={"c1": 1.2, "c2": 2.9, "c3": None, "c4": -4.0},
+        margins={"c1": 1.2, "c2": 2.9, "c4": -4.0},
         passed={"c4": False},
     )
     s = _conditions_summary(detail)
     assert s["marginal_count"] == 2
     assert sorted(s["marginal_conditions"]) == ["c1", "c2"]
     assert s["demotion_trigger"] is False
+
+
+def test_conditions_summary_null_when_pass_margin_missing():
+    """PASS 인데 margin 미산출(None) → 카운트 미확정(null) — 확정 숫자로 내보내면
+    재계수 금지 규약이 LLM 의 결측 감지를 제거 (#38 리뷰)."""
+    from api.services.payload_builder import _conditions_summary
+    s = _conditions_summary(_detail(margins={"c1": 1.2, "c3": None}))
+    assert s["marginal_count"] is None
+    assert s["demotion_trigger"] is None
 
 
 def test_conditions_summary_demotion_at_three():
@@ -102,6 +112,30 @@ def test_market_direction_gate_force_watch_states():
         assert g["normal_range"] is False
 
 
+def test_market_direction_gate_rally_attempt_with_ftd_not_forced():
+    """§3.5 둘째 룰의 'without a follow-through day' 한정어 보존 — rally_attempt 인데
+    FTD 가 존재하면 강제 강등 비대상 (#38 리뷰: 무조건 강등 시 동작 변화)."""
+    from api.services.payload_builder import _market_direction_gate
+    g = _market_direction_gate(
+        {"current_status": "rally_attempt",
+         "distribution_day_count_last_25_sessions": 6,
+         "last_follow_through_day": "2026-07-08"}
+    )
+    assert g["force_watch"] is False
+    assert g["confidence_penalty"] is True  # dist>=5 감점은 별도 룰로 여전히 적용
+
+
+def test_market_direction_gate_unknown_status_is_null():
+    """미지의 status 값 → 통과(False)로 단정하지 않고 null (보수: null=entry 금지)."""
+    from api.services.payload_builder import _market_direction_gate
+    g = _market_direction_gate(
+        {"current_status": "sideways_chop",
+         "distribution_day_count_last_25_sessions": 1}
+    )
+    assert g["force_watch"] is None
+    assert g["normal_range"] is None
+
+
 def test_market_direction_gate_confirmed_uptrend_bands():
     from api.services.payload_builder import _market_direction_gate
 
@@ -112,6 +146,7 @@ def test_market_direction_gate_confirmed_uptrend_bands():
         )
 
     assert g(2) == {"status": "confirmed_uptrend", "dist_count": 2,
+                    "last_follow_through_day": None,
                     "force_watch": False, "confidence_penalty": False,
                     "normal_range": True}
     # dist 4: 프롬프트가 원래 미규정인 구간 — 갭 보존 (전부 False)

@@ -65,14 +65,14 @@
 ## Tasks
 
 ### Task 1: thresholds 상수 + export
-- [ ] 상수 6종 추가(중복 3종은 #37 과 문자 단위 동일 정의), export 재실행, drift/threshold 테스트, commit.
+- [ ] 상수 6종 추가(중복 3종은 #37 과 문자 단위 동일 정의; A SSOT 블록·drift 목록은 기존 GATE_PROMOTION_PRICE_RATIO 등재 포함 +7), export 재실행, drift/threshold 테스트, commit.
 
 ### Task 2: payload_builder 선계산 (TDD)
 - [ ] 테스트: `conditions_summary` (marginal_count = passed∧margin<3% 계수, None margin 미계수, 8키 전제) / `market_direction_gate` (force_watch: downtrend·correction·rally_attempt, confidence_penalty: dist≥5, normal: confirmed_uptrend∧dist≤3, dist 4 갭 보존, None 입력 → null) — FAIL 확인.
 - [ ] 구현: 순수 헬퍼 `_conditions_summary(minervini)`, `_market_direction_gate(market_context)` + build_payload 에 필드 추가. PASS, commit.
 
 ### Task 3: store 사후검증 (TDD)
-- [ ] 테스트: §8.5 밴드 3분기 불일치 경고(`sanity_band_mismatch:<watch_reason|entry>`), §4.7 경고 2종, 정상 케이스 무경고, pivot/close 결측 시 skip — FAIL 확인.
+- [ ] 테스트: §8.5 밴드 불일치 경고 3종(`sanity_band_mismatch_entry` / `_valid_base` / `_extended`), §4.7 경고 2종(`sanity_pivot_above_base_high` / `sanity_pivot_offset_rule`), 정상 케이스 무경고, pivot/close 결측 시 skip — FAIL 확인.
 - [ ] 구현: `_validate_classification_prices` 확장. PASS, commit.
 
 ### Task 4: 프롬프트 + 가드 (단일 커밋)

@@ -527,62 +527,30 @@ def test_classification_valid_prices_saved_without_warnings(db, mocker):
 
 
 def test_classification_soft_pivot_far_from_price(db, mocker):
-    """SOFT: pivot 이 최근 adj_close 의 밴드(0.3~3.0배) 밖 → 저장 + 경고 마커."""
-    from kr_pipeline.llm_runner.store import insert_classification
-
+    """SOFT: pivot 이 최근 종가의 밴드(0.3~3.0배) 밖 → 저장 + 경고 마커."""
     _gates_identity(mocker)
     as_of = date(2026, 6, 26)
-    with db.cursor() as cur:
-        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('SANFAR','S','KOSPI') ON CONFLICT DO NOTHING")
-        cur.execute("DELETE FROM weekly_classification WHERE symbol='SANFAR'")
-        cur.execute("DELETE FROM daily_indicators WHERE ticker='SANFAR'")
-        cur.execute(
-            "INSERT INTO daily_indicators (ticker, date, adj_close) VALUES ('SANFAR', %s, 1000)",
-            (as_of,),
-        )
-    db.commit()
-
+    _seed_close(db, "SANFAR", 1000, as_of)
     # pivot 5000 = 종가의 5배 (밴드 상한 3.0 초과) — 자릿수 오류 의심
-    insert_classification(
-        db, symbol="SANFAR", classified_at=datetime.now(timezone.utc),
-        market="KOSPI",
-        result=_cls_result(pivot_price=5000.0, base_high=5000.0, base_low=4500.0),
-        source="weekend", llm_meta={}, analyzed_for_date=as_of,
+    w = _insert_and_get_warnings(
+        db, "SANFAR",
+        _cls_result(pivot_price=5000.0, base_high=5000.0, base_low=4500.0),
+        as_of,
     )
-    db.commit()
-
-    with db.cursor() as cur:
-        cur.execute("SELECT sanity_warnings FROM weekly_classification WHERE symbol='SANFAR'")
-        w = cur.fetchone()[0]
     assert w is not None and "sanity_pivot_far_from_price" in w
 
 
 def test_classification_soft_clean_pivot_no_warning(db, mocker):
     """SOFT: pivot 이 종가 근방(밴드 내) → 경고 없음(NULL)."""
-    from kr_pipeline.llm_runner.store import insert_classification
-
     _gates_identity(mocker)
     as_of = date(2026, 6, 26)
-    with db.cursor() as cur:
-        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('SANNEAR','S','KOSPI') ON CONFLICT DO NOTHING")
-        cur.execute("DELETE FROM weekly_classification WHERE symbol='SANNEAR'")
-        cur.execute("DELETE FROM daily_indicators WHERE ticker='SANNEAR'")
-        cur.execute(
-            "INSERT INTO daily_indicators (ticker, date, adj_close) VALUES ('SANNEAR', %s, 1000)",
-            (as_of,),
-        )
-    db.commit()
-
-    insert_classification(
-        db, symbol="SANNEAR", classified_at=datetime.now(timezone.utc),
-        market="KOSPI", result=_cls_result(pivot_price=1010.0, base_high=1010.0),
-        source="weekend", llm_meta={}, analyzed_for_date=as_of,
+    _seed_close(db, "SANNEAR", 1000, as_of)
+    w = _insert_and_get_warnings(
+        db, "SANNEAR",
+        _cls_result(pivot_price=1010.0, base_high=1010.0),
+        as_of,
     )
-    db.commit()
-
-    with db.cursor() as cur:
-        cur.execute("SELECT sanity_warnings FROM weekly_classification WHERE symbol='SANNEAR'")
-        assert cur.fetchone()[0] is None
+    assert w is None
 
 
 def test_classification_soft_missing_pivot_for_entry(db, mocker):
@@ -612,16 +580,19 @@ def test_classification_soft_missing_pivot_for_entry(db, mocker):
 # ====== (#23) §8.5 밴드 정합 · §4.7 pivot 산술 사후검증 (SOFT) ======
 
 def _seed_close(db, symbol, close, as_of):
+    """sanity 비교 종가 시드 — store 는 daily_prices(payload 와 동일 권위 소스)를 읽는다."""
     with db.cursor() as cur:
         cur.execute(
             "INSERT INTO stocks (ticker, name, market) VALUES (%s,'S','KOSPI') ON CONFLICT DO NOTHING",
             (symbol,),
         )
         cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (symbol,))
-        cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (symbol,))
+        cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (symbol,))
         cur.execute(
-            "INSERT INTO daily_indicators (ticker, date, adj_close) VALUES (%s, %s, %s)",
-            (symbol, as_of, close),
+            """INSERT INTO daily_prices
+               (ticker, date, open, high, low, close, adj_close, volume, value)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, 1000, 1000)""",
+            (symbol, as_of, close, close, close, close, close),
         )
     db.commit()
 
@@ -643,17 +614,44 @@ def _insert_and_get_warnings(db, symbol, result, as_of):
         return cur.fetchone()[0]
 
 
-def test_band_entry_outside_warns(db, mocker):
-    """§8.5: entry 인데 close/pivot 이 [0.95, 1.05] 밖 → sanity_band_mismatch_entry."""
+def test_band_entry_above_band_warns(db, mocker):
+    """§8.5: entry 인데 close > pivot×1.05 (추격 한계 초과 = extended 였어야) → 경고."""
     _gates_identity(mocker)
     as_of = date(2026, 6, 26)
-    _seed_close(db, "SANB1", 900, as_of)  # ratio 0.9 < 0.95
+    _seed_close(db, "SANB1", 1100, as_of)  # pos 1.1 > 1.05
     w = _insert_and_get_warnings(
         db, "SANB1",
         _cls_result(classification="entry", pivot_price=1000.1, base_high=1000.0),
         as_of,
     )
     assert w is not None and "sanity_band_mismatch_entry" in w
+
+
+def test_band_entry_below_band_not_warned_pocket_pivot(db, mocker):
+    """§8.5: entry 하단(pos<0.95)은 §4.5 pocket pivot(base 내부 진입)이 정당 —
+    구분 불가라 미경고 (#38 리뷰: 상단 위반만 검사)."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANB6", 900, as_of)  # pos 0.9
+    w = _insert_and_get_warnings(
+        db, "SANB6",
+        _cls_result(classification="entry", pivot_price=1000.1, base_high=1000.0),
+        as_of,
+    )
+    assert w is None or not any("sanity_band" in x for x in w)
+
+
+def test_band_ignores_stray_watch_reason_on_non_watch(db, mocker):
+    """비-watch 의 잔류 watch_reason 은 저장 정규화(_watch_reason)처럼 무시 —
+    오경고 금지 (#38 리뷰)."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANB7", 1000, as_of)  # pos ~1.0 (extended 라면 경고 위치)
+    r = _cls_result(classification="ignore", pivot_price=1000.1, base_high=1000.0,
+                    confidence=0.9)
+    r["watch_reason"] = "extended"
+    w = _insert_and_get_warnings(db, "SANB7", r, as_of)
+    assert w is None or not any("sanity_band" in x for x in w)
 
 
 def test_band_valid_base_requires_below_band(db, mocker):
@@ -726,3 +724,15 @@ def test_pivot_offset_rule_clean(db, mocker):
     r = _cls_result(pivot_price=1000.1, base_high=1000.0, pivot_basis="range_high")
     w = _insert_and_get_warnings(db, "SANP3", r, as_of)
     assert w is None or not any("sanity_pivot_" in x for x in w)
+
+
+def test_pivot_offset_rule_skips_non_range_high_basis(db, mocker):
+    """§4.7 오프셋 검사는 앵커 값을 아는 range_high(== base_high)만 — handle_high 등은
+    앵커가 base_high 와 다른 가격이라 정수성 프록시가 성립 안 함 (#38 리뷰)."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANP4", 990, as_of)
+    # 앵커(handle_high)=999.4 가 소수인 정당한 pivot 999.5 — base_high 는 정수 1000
+    r = _cls_result(pivot_price=999.5, base_high=1000.0, pivot_basis="handle_high")
+    w = _insert_and_get_warnings(db, "SANP4", r, as_of)
+    assert w is None or "sanity_pivot_offset_rule" not in w

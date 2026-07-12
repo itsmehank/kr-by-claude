@@ -132,9 +132,12 @@ def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -
     if result.get("classification") == "entry" and pv is None:
         warns.append("sanity_missing_pivot_for_actionable")
     if pv is not None and as_of is not None:
+        # (#38 리뷰) 비교 종가는 LLM payload 의 current_metrics.close 와 같은 소스
+        # (daily_prices 권위, payload_builder._build_current_metrics 와 동일 형태) —
+        # daily_indicators 가 지연 적재된 날 어제 종가와 비교하는 오경고 방지.
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT adj_close FROM daily_indicators "
+                "SELECT COALESCE(adj_close, close) FROM daily_prices "
                 "WHERE ticker = %s AND date <= %s ORDER BY date DESC LIMIT 1",
                 (symbol, as_of),
             )
@@ -149,10 +152,12 @@ def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -
             pos = close / float(pv)
             band_lo = GATE_PROMOTION_PRICE_RATIO
             band_hi = PIVOT_EXTENDED_BAND_MULT
-            wr = result.get("watch_reason")
-            if result.get("classification") == "entry" and not (
-                band_lo <= pos <= band_hi
-            ):
+            # watch_reason 은 저장 정규화(_watch_reason)와 동일하게 watch 에만 유효 —
+            # 비-watch 의 잔류 watch_reason 으로 오경고 금지 (#38 리뷰).
+            wr = _watch_reason(result)
+            if result.get("classification") == "entry" and pos > band_hi:
+                # 상단 위반만 검사 — 하단(pos < 0.95) entry 는 §4.5 pocket pivot
+                # (base 내부 저위치 진입)이 정당해 구분 불가, 오경고 방지 (#38 리뷰).
                 warns.append("sanity_band_mismatch_entry")
             elif wr == "valid_base_awaiting_breakout" and pos >= band_lo:
                 warns.append("sanity_band_mismatch_valid_base")
@@ -164,9 +169,14 @@ def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -
         offset = PIVOT_PRICE_OFFSET
         if bh is not None and float(pv) > float(bh) + offset + 1e-6:
             warns.append("sanity_pivot_above_base_high")
-        # +0.1 오프셋 규칙: 정수 앵커 문맥(base_high 가 정수)에서만 검사 —
-        # 수정주가로 앵커가 소수가 되면 base_high 도 소수라 자연 skip.
-        if bh is not None and abs(float(bh) - round(float(bh))) < 1e-6:
+        # +0.1 오프셋 규칙: 앵커 값을 아는 basis(range_high == base_high, 같은 값)
+        # 에서만, 정수 앵커 문맥에 한해 검사 — handle_high 등은 앵커가 base_high 와
+        # 다른 가격이라 base_high 정수성이 프록시가 못 된다 (#38 리뷰).
+        if (
+            result.get("pivot_basis") == "range_high"
+            and bh is not None
+            and abs(float(bh) - round(float(bh))) < 1e-6
+        ):
             frac = float(pv) - int(float(pv))
             if abs(frac - offset) > 1e-3:
                 warns.append("sanity_pivot_offset_rule")

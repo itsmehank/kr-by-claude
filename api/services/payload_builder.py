@@ -16,18 +16,22 @@ from kr_pipeline.common.thresholds import (
 def _conditions_summary(conditions_detail: dict) -> dict:
     """(#23) A §2 marginal 카운트 선계산 — 프롬프트는 이 값을 재계수 없이 소비.
 
-    marginal = 'PASS 하면서 margin < TT_MARGIN_MARGINAL_PCT%' 인 조건만 (A §2 정의.
-    margin 미산출(None)·탈락 조건 미계수 — #37 리뷰의 tt_recovery 와 동일 의미론).
-    passed 가 None(지표 미산출)인 조건이 하나라도 있으면 카운트 미확정(null) —
-    0 으로 단정 시 미산출이 clean 으로 위장된다.
+    marginal = 'PASS 하면서 margin < TT_MARGIN_MARGINAL_PCT%' 인 조건 (A §2 정의).
+    미확정(null): passed 가 None(지표 미산출)이거나, PASS 인데 margin 이 None
+    (마진 미산출 — 예: sma_200 이력 23행 미만의 c3)인 조건이 하나라도 있으면
+    카운트 전체를 미확정으로 — 확정 숫자로 내보내면 재계수 금지 규약이 LLM 의
+    결측 감지 능력을 제거한다(#38 리뷰). null 이면 프롬프트 예외 조항에 따라
+    LLM 이 conditions_detail 을 직접 검토(기존 경로 보존).
     """
-    passes = [c.get("passed") for c in conditions_detail.values()]
-    if any(p is None for p in passes):
-        return {
-            "marginal_count": None,
-            "marginal_conditions": None,
-            "demotion_trigger": None,
-        }
+    for c in conditions_detail.values():
+        if c.get("passed") is None or (
+            c.get("passed") is True and c.get("margin_pct") is None
+        ):
+            return {
+                "marginal_count": None,
+                "marginal_conditions": None,
+                "demotion_trigger": None,
+            }
     marginal = sorted(
         k
         for k, c in conditions_detail.items()
@@ -42,33 +46,47 @@ def _conditions_summary(conditions_detail: dict) -> dict:
     }
 
 
+_KNOWN_MARKET_STATUSES = frozenset(
+    {"confirmed_uptrend", "rally_attempt", "downtrend", "correction"}
+)
+
+
 def _market_direction_gate(market_context: dict) -> dict:
     """(#23) A §3.5 시장 하드룰의 판정 입력 선계산 (규칙 텍스트는 프롬프트 유지).
 
-    - force_watch: status 가 downtrend/correction/rally_attempt (entry → watch 강등)
+    §3.5 하드룰 4개를 그대로 인코딩:
+    - force_watch: downtrend/correction (무조건) 또는 rally_attempt **인데 FTD 부재**
+      — 프롬프트 둘째 룰의 'without a follow-through day' 한정어 보존(#38 리뷰:
+      rally_attempt + FTD 존재 조합은 강등 비대상 — 무조건 강등 시 동작 변화).
     - confidence_penalty: 시장 분배일 >= MARKET_DIST_DEMOTION_COUNT_25S
     - normal_range: confirmed_uptrend 이고 분배일 <= MARKET_DIST_NORMAL_MAX_25S
-    - confirmed_uptrend 인데 분배일 4 인 구간은 프롬프트가 원래 미규정 — 갭 보존
-      (셋 다 False). 입력 None → 해당 boolean null.
+    - confirmed_uptrend 인데 분배일 4 인 구간은 프롬프트가 원래 미규정 — 갭 보존.
+    입력 None 또는 미지의 status 값 → 해당 boolean null (미지 상태를 통과로
+    단정하지 않음 — 프롬프트 null 규약이 entry 금지로 보수 처리).
     """
     status = market_context.get("current_status")
     dist = market_context.get("distribution_day_count_last_25_sessions")
-    force_watch = (
-        status in ("downtrend", "correction", "rally_attempt")
-        if status is not None
-        else None
-    )
+    last_ftd = market_context.get("last_follow_through_day")
+
+    if status is None or status not in _KNOWN_MARKET_STATUSES:
+        force_watch = None
+        normal_range = None
+    else:
+        force_watch = status in ("downtrend", "correction") or (
+            status == "rally_attempt" and last_ftd is None
+        )
+        normal_range = (
+            status == "confirmed_uptrend" and dist <= MARKET_DIST_NORMAL_MAX_25S
+            if dist is not None
+            else None
+        )
     confidence_penalty = (
         dist >= MARKET_DIST_DEMOTION_COUNT_25S if dist is not None else None
-    )
-    normal_range = (
-        status == "confirmed_uptrend" and dist <= MARKET_DIST_NORMAL_MAX_25S
-        if status is not None and dist is not None
-        else None
     )
     return {
         "status": status,
         "dist_count": dist,
+        "last_follow_through_day": last_ftd,
         "force_watch": force_watch,
         "confidence_penalty": confidence_penalty,
         "normal_range": normal_range,

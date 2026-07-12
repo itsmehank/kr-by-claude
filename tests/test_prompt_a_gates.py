@@ -49,7 +49,14 @@ def test_a_35_normal_max_matches_ssot():
 
 
 def test_a_47_offset_matches_ssot():
-    """§4.7 표의 +0.1 오프셋 ↔ SSOT PIVOT_PRICE_OFFSET (store 오프셋 경고와 co-anchor)."""
-    m = re.search(r"range_high \+ (\d+\.\d+)", _a_text())
-    assert m, "§4.7 pivot 오프셋 리터럴(range_high + 0.1)을 찾지 못함"
-    assert float(m.group(1)) == thresholds.PIVOT_PRICE_OFFSET
+    """§4.7 표의 +0.1 오프셋 ↔ SSOT PIVOT_PRICE_OFFSET — store 사후검증이 4개
+    basis 에 균일 적용되므로 4행 전부 가드 (#38 리뷰: 1행만 가드 시 3행이 무방비)."""
+    text = _a_text()
+    rows = re.findall(
+        r"(range_high|handle_high|final_T_high|mid_W_peak) \+ (\d+\.\d+)", text
+    )
+    assert len(rows) >= 4, f"§4.7 오프셋 행이 4개 미만: {rows}"
+    for basis, val in rows:
+        assert float(val) == thresholds.PIVOT_PRICE_OFFSET, (
+            f"§4.7 {basis} 오프셋 {val} ≠ SSOT {thresholds.PIVOT_PRICE_OFFSET}"
+        )
