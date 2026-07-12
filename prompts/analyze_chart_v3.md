@@ -37,6 +37,9 @@ If `market == "ETF"` or the instrument is a fund vehicle (sector is null with a 
 - CLIMAX_UP_DAYS_WINDOW_MIN = 7
 - CLIMAX_UP_DAYS_WINDOW_MAX = 15
 - TOPPING_BELOW_10W_WEEKS = 8
+- MARKET_DIST_DEMOTION_COUNT_25S = 5
+- TT_MARGIN_MARGINAL_PCT = 3.0
+- TT_MARGINAL_DEMOTION_COUNT = 3
 <!-- /SSOT-THRESHOLDS -->
 
 ## Definitions
