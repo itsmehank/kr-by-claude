@@ -24,10 +24,10 @@ def test_build_5b_payload_minimal_fields(db):
             )
             cur.execute(
                 """INSERT INTO daily_indicators
-                   (ticker, date, adj_close, volume, sma_50, avg_volume_50d)
-                   VALUES ('PL5B', %s, 100, 1000000, 95, 950000)
+                   (ticker, date, adj_close, volume, sma_50, avg_volume_50d, distribution_day_flag)
+                   VALUES ('PL5B', %s, 100, 1000000, 95, 950000, %s)
                    ON CONFLICT DO NOTHING""",
-                (d,),
+                (d, d == today),
             )
         cur.execute(
             """INSERT INTO weekly_classification
@@ -46,6 +46,12 @@ def test_build_5b_payload_minimal_fields(db):
     assert payload["prior_analysis"]["pivot_price"] == 105.0
     assert "recent_daily_ohlcv_20d" in payload
     assert len(payload["recent_daily_ohlcv_20d"]) <= 20
+    # (#31) 종목 분배일 flag 전달 — B 게이트("최근 3일 분배일 없음" 등)의 판정 재료.
+    # 값 전파 검증(JOIN ON·컬럼 위치·bool 변환): 시드 = 최신일만 TRUE.
+    rows = payload["recent_daily_ohlcv_20d"]
+    assert all("distribution_day_flag" in r for r in rows)
+    assert rows[-1]["distribution_day_flag"] is True
+    assert all(r["distribution_day_flag"] is False for r in rows[:-1])
     assert "current_metrics" in payload
     assert "recent_evaluation_history" in payload
 

@@ -63,22 +63,29 @@ def build_for_5b(
 
         cur.execute(
             """
-            SELECT date,
-                   COALESCE(adj_open, open),
-                   COALESCE(adj_high, high),
-                   COALESCE(adj_low, low),
-                   COALESCE(adj_close, close),
-                   COALESCE(adj_volume, volume)
-              FROM daily_prices
-             WHERE ticker = %s AND date <= %s
+            SELECT p.date,
+                   COALESCE(p.adj_open, p.open),
+                   COALESCE(p.adj_high, p.high),
+                   COALESCE(p.adj_low, p.low),
+                   COALESCE(p.adj_close, p.close),
+                   COALESCE(p.adj_volume, p.volume),
+                   i.distribution_day_flag
+              FROM daily_prices p
+              -- (#31) 종목 분배일 flag — B 게이트 판정의 authoritative 입력
+              -- (LLM 자체 재계산 금지). 0-바 제외가 선행이라 halt 행 flag 미노출.
+              LEFT JOIN daily_indicators i
+                ON i.ticker = p.ticker AND i.date = p.date
+             WHERE p.ticker = %s AND p.date <= %s
                -- 거래정지/무거래일 제외 (0-바 LLM 노출 방지)
-               AND NOT (open = 0 AND high = 0 AND low = 0 AND volume = 0)
-             ORDER BY date DESC LIMIT 20
+               AND NOT (p.open = 0 AND p.high = 0 AND p.low = 0 AND p.volume = 0)
+             ORDER BY p.date DESC LIMIT 20
             """,
             (symbol, as_of),
         )
         ohlcv_rows = list(reversed(cur.fetchall()))
 
+        # current_metrics 는 무배제 최신(halt 직후엔 20d 리스트 말미와 날짜가 다를 수
+        # 있음 — as-of 의미가 달라 20d 쿼리와 통합 금지, #35 리뷰).
         cur.execute(
             """
             SELECT adj_close, volume, avg_volume_50d, sma_50, sma_21
@@ -148,6 +155,7 @@ def build_for_5b(
                 "low": float(r[3]),
                 "close": float(r[4]),
                 "volume": int(round(float(r[5]))),
+                "distribution_day_flag": bool(r[6]) if r[6] is not None else None,
             }
             for r in ohlcv_rows
         ],

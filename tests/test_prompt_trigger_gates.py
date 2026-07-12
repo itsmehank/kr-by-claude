@@ -1,4 +1,4 @@
-"""B §3.5 unfavorable_market 회복 게이트 — 분배일 재확인 가드 (#19).
+"""B 프롬프트 게이트 규약 가드 (#19 회복 재확인 · #29 형제 분기 · #31 flag authoritative).
 
 역류(03편 조건부모순 I) 재발 방지: 회복 판정이 status 라벨만 보지 않고
 강등 원인(분배일 누적)을 재확인하는지, 그 임계가 A 의 강등 임계와 동치인지 강제.
@@ -76,3 +76,13 @@ def test_sibling_gates_do_not_duplicate_threshold_literal():
         assert not re.search(r"분배일\s*\d+\s*개", block), (
             f"{name} 분기에 prose 임계 사본('분배일 N개') — 게이트 참조로 대체할 것"
         )
+
+
+def test_b_prompt_declares_distribution_flag_authoritative():
+    """(#31) B 는 종목 분배일을 payload 의 distribution_day_flag 로 판정해야 한다 —
+    flag 언급 + 재계산 금지 취지가 없으면 LLM 이 자체 기준(0% 컷 등)으로 재계산(이중 정의)."""
+    text = B_PROMPT.read_text(encoding="utf-8")
+    assert re.search(r"distribution_day_flag.{0,300}재계산하지\s*말", text, re.S), (
+        "B 프롬프트에 분배일 flag authoritative 선언('재계산하지 말 것' 금지 취지 포함) 부재 — "
+        "근접 언급만으로는 규약을 정반대로 뒤집어도 통과하므로 금지 토큰 필수 (#31)"
+    )

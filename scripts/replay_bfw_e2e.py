@@ -29,9 +29,11 @@ def _ohlcv_20d(*, close, high, low, vol):
     bars = [{
         "date": f"2026-05-{i+1:02d}", "open": 75000, "high": 76500,
         "low": 74000, "close": 75500, "volume": 1_000_000,
+        "distribution_day_flag": False,  # (#31) 규약상 필수 입력 — 미포함 시 판정 불가 교락
     } for i in range(19)]
     bars.append({"date": "2026-05-20", "open": 80800, "high": high,
-                 "low": low, "close": close, "volume": vol})
+                 "low": low, "close": close, "volume": vol,
+                 "distribution_day_flag": False})
     return bars
 
 
