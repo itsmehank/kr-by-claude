@@ -1,0 +1,10 @@
+{
+  "verdict": "watch",
+  "confidence": 0.68,
+  "pattern": "cup_with_handle",
+  "risk_flags": [
+    "extended_from_ma",
+    "unfavorable_market_context"
+  ],
+  "reasoning": "**시장 컨텍스트**\nKOSDAQ는 rally_attempt 상태이고 follow-through day(FTD)가 아직 없음. 25일 분배일 3개, 200d MA 위 종목 79.8%로 폭은 양호하나 FTD 부재가 결정적. O'Neil \"M\": FTD 없는 rally_attempt에서는 신규 진입 보류 → 종목 셋업이 좋아도 최대 watch(§3.5 하드룰). 진입에 불리.\n\n**Base 구조**\n2020년 COVID 급락(저점 6,750) 후 회복하며 9~12월 컵형 base(고점 18,700/저점 15,300, depth 18% — 33% 이내 안정)를 형성. 직전 상승 ~35%(>30% 충족). RS Line은 상승하나 52주 신고가 미갱신·RS rating 77로 리더십은 중간 수준. (2019년 급등은 COVID로 리셋된 별개 과거 climax(history).)\n\n**진입 시그널**\n1/4 종가 19,750으로 pivot 18,800 돌파(거래량 1.9×, O'Neil 1.5× 기준 충족) 확인됨. 그러나 이후 9~10거래일 연속 상승 +38% 급등으로 현재가 21,450은 SMA-50(16,768) 대비 +27.9% extended. 매수 적기 아님(돌파 후 추격 구간).\n\n**핵심 위험**\nextended_from_ma — 50일선 +27.9%, 추격 시 손절폭 과대·되돌림 위험. unfavorable_market_context — FTD 없는 rally_attempt. 12월 base에 분배일 4개 군집이 있었으나 돌파는 강한 거래량 동반으로 해소. E1(base #1/#2 돌파 직후 급등)에 해당해 climax가 아닌 leadership으로 판단(§6.1).\n\n**결론**\nwatch(extended) — 초기 base 돌파 직후의 정상적 leadership 급등이라 ignore(climax) 아님(E1). 단 진입 구간을 크게 초과·시장 FTD 부재로 진입 보류. SMA-50 부근 눌림+시장 FTD 확인 시 entry 승격, 10주선 붕괴+분배 가속 시 재평가."
+}

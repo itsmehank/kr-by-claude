@@ -1,0 +1,10 @@
+{
+  "verdict": "watch",
+  "confidence": 0.68,
+  "pattern": "none",
+  "risk_flags": [
+    "unfavorable_market_context",
+    "extended_from_ma"
+  ],
+  "reasoning": "**시장 컨텍스트**\nKOSPI는 `downtrend`이며 최근 25일 분배일 6개(≥5 경고 수준)로 기관 매도가 누적. follow-through day는 2022-08-11(15일 전)로 아직 미성숙하고, 200일선 위 종목 비율 26%로 시장 폭이 약함. §3.5 하드룰에 따라 entry는 강제로 watch 강등 — 종목 셋업과 무관하게 시장이 진입에 불리.\n\n**Base 구조**\n2021~2022 약 16개월간 37k~62k의 넓고 느슨한 횡보 후, 6월 고점 61,932 → 7월 41,611로 -33% 급락하고 곧바로 V자 급반등. 둥근 바닥 없는 직하강-급반등 형태라 cup 계열 불성립(rejected_gate=gate2), pattern=none. RS Line은 가격 신고가와 함께 52주 신고가 갱신(RS 97) — leadership은 확인됨.\n\n**진입 시그널**\n7/29 합병공시 갭(거래량 50일평균 14배)을 기점으로 신고가 행진. 현재가 79,862는 SMA50(57,151) 대비 +39.7% 과확장으로, 정상 base 돌파 매수점이 아니라 이미 추격 구간. 신규 진입 시그널 미확인.\n\n**핵심 위험**\n- unfavorable_market_context: KOSPI downtrend + 분배일 6 — §3.5 capped-at-watch.\n- extended_from_ma: SMA50 대비 +39.7%(15% 기준 크게 초과) — 지금 매수 시 손절폭 과대.\n- 합병 catalyst 기반 단기 급등이나, 장기 base 돌파 3주 내 급등은 §6.1 E1상 climax가 아닌 주도주(leadership)로 판정 — climax_run 미발동, ignore 대상 아님.\n\n**결론**\nwatch(extended) — TT 통과 주도주이나 시장 약세 + 과확장으로 진입 부적합. 눌림 후 신규 base 형성 시 재평가. 시장 confirmed_uptrend 전환 + 적정 조정 시 entry 검토."
+}

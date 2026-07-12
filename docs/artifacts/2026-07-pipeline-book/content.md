@@ -1212,7 +1212,15 @@ payload 를 잘못 읽었다"고 판단해 결과 저장과 알림을 전부 거
 
 ## 부록 A. cron 시간표 원본
 
+crontab 맨 위에는 PATH 헤더가 반드시 있어야 한다 — cron 의 기본 PATH 에는
+homebrew 경로가 없어 `uv` 를 못 찾는다 (2026-07-07~10 일일 파이프라인 정지
+사고의 원인. PATH 줄은 관리 블록(BEGIN/END) 밖이라 크론 재등록 —
+cron_manager.register(), web 의 POST /api/cron/register — 이 블록만 교체해도
+지워지지 않는다).
+
 ```
+PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+
 0 4 1 * *    universe                                  (매월 1일 04:00)
 0 8 * * 1-5  corporate_actions --mode=incremental      (평일 08:00)
 30 18 * * 1-5 pipeline --chain=daily                   (평일 18:30)

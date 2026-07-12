@@ -1,0 +1,10 @@
+{
+  "verdict": "ignore",
+  "confidence": 0.6,
+  "pattern": "none",
+  "risk_flags": [
+    "topping_distribution",
+    "unfavorable_market_context"
+  ],
+  "reasoning": "**시장 컨텍스트**\nKOSPI correction 국면. 최근25일 분배일 6개, 마지막 follow-through day 8/31(59일 경과), 200일선 상회 종목 42.1%. 시장 자체가 조정 — 종목 진입에 명백히 불리(unfavorable_market_context).\n\n**Base 구조**\n패턴 none. 9/16~17 대량거래(주봉 2.4M·일봉 1.3M, 갭상승) 단일주 +23% 급등으로 52주 신고가 58,700 형성 = climax 형태(history). 이후 둥근 base 없이 분배 하락, 주봉 종가 50,900이 10주선(51,160) 첫 이탈. RS Line은 9월 고점 18.3→16.7로 하락 — 가격 고점 부근에서 RS 약화(negative divergence). cup 계열 base 아님(not_cup_family).\n\n**진입 시그널**\n돌파 미확인. 최근 거래량은 50일 평균의 0.25배로 극히 위축, pocket pivot 없음. 매수 시그널 전무.\n\n**핵심 위험**\ntopping_distribution — §6.2 게이트 충족: 주봉 종가 10주선 하회(G0) + 최근25일 분배일 5개(≥4, T-D). climax 직후 분배 군집(9/23~28)으로 Stage 3 천장 신호(O'Neil HMMS p.268-269). unfavorable_market_context — 시장 조정으로 진입 환경 자체 불리.\n\n**결론**\nignore — climax(history) 후 분배 천장 진행 중. §6.2 force-ignore로 평일 돌파 모니터링에서 제외. 향후 10주선 재탈환 + 수주간 견조한 재base 형성 시 재평가 가능하나, 현재는 분배가 우세한 천장 국면."
+}

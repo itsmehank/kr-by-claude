@@ -1,0 +1,10 @@
+{
+  "verdict": "ignore",
+  "confidence": 0.82,
+  "pattern": "none",
+  "risk_flags": [
+    "climax_run",
+    "unfavorable_market_context"
+  ],
+  "reasoning": "**시장 컨텍스트**\nKOSDAQ `confirmed_uptrend` 이나 최근 25세션 분배일 5일(≥5 경고선), FTD 가 65일 전(2021-10-26, 노후화), 200일선 위 종목 비율 32.3%(빈약). 표면상 상승확인이나 분배 누적으로 신규 진입에는 비우호적.\n\n**Base 구조**\n적법한 매수 base 부재. 2021년 11~12월 9,290→18,050원 수직 급등(약 +94%)으로 cup/handle·VCP·flat 어느 구조도 형성되지 않음(cup 계열 1차 라우팅 미진입 → `not_cup_family`). 직전 선행 상승은 30% 초과(전제 충족)이나 현재는 base 가 아니라 가속 국면. RS Line 은 52주 신고가 지속(leadership 강함)이나 가격이 이미 극단 확장.\n\n**진입 시그널**\n정상 돌파 매수점 없음. pocket_pivot 플래그가 급등 구간에 다발했으나 이는 base 내부 조용한 신호가 아니라 climax 가속의 일부 — 진입 근거로 쓸 수 없음(§4.5 base ≥6주·조용한 횡보 요건 불충족).\n\n**핵심 위험**\nclimax_run — §6.1 게이트 충족: anchor(2021-07 1차 base 돌파) 후 18주+ 성숙, 최적 3주 롤링 수익 +57%(9,290→14,550, ≥25% 임계이자 전체 advance 중 최급경사=P2), 최대 주간 거래량 5.4M주(11/19, T2)·최대 주간 스프레드(T1). SMA-200(8,680) 대비 +108% 보조조건. 3차+ 후기 base 발 가속이라 E1 면제. unfavorable_market_context — 분배 5일.\n\n**결론**\nignore — 성숙 상승의 종말 가속(blow-off top, §6.1 FORCE-IGNORE). 주간종가가 10주선 위라 §6.2 topping 게이트는 비발화. 평일 돌파 모니터링에서 제외. 향후 고점 대비 >15% 조정 또는 4주+ 경과 시 post-climax 소화로 재평가(watch) 가능."
+}

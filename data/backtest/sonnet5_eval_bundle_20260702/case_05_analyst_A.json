@@ -1,0 +1,10 @@
+{
+  "verdict": "ignore",
+  "confidence": null,
+  "pattern": null,
+  "risk_flags": [
+    "climax_run",
+    "unfavorable_market_context"
+  ],
+  "reasoning": "**시장 컨텍스트**\n현재 KOSDAQ 시장은 rally_attempt(상승 시도) 단계로 follow-through day가 아직 확인되지 않았습니다. 최근 25거래일 distribution day는 3회로 양호하나, FTD 부재는 O'Neil 기준 신규 매수에 불리한 신호입니다(§3.5). 종목 자체의 강한 상승에도 시장 방향성이 완전히 확인되지 않아 우호적이지 않습니다.\n\n**Base 구조**\n2020년 3월 코로나 저점(6,750원) 이후 상승 후, 9~12월 약 3개월간 15,750~18,700원 구간에서 3~4번째 bas"
+}

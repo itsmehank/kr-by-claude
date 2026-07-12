@@ -1,0 +1,11 @@
+{
+  "verdict": "ignore",
+  "confidence": null,
+  "pattern": null,
+  "risk_flags": [
+    "climax_run",
+    "extended_from_ma",
+    "unfavorable_market_context"
+  ],
+  "reasoning": "**시장 컨텍스트**\nKOSPI는 현재 downtrend 국면(2022-08-26 기준), 최근 25거래일 중 distribution day 6회로 매도 압력 지속. 마지막 follow-through day는 8/11로 15일 경과, 200일선 상회 종목 비율도 26%에 불과해 시장 폭이 매우 약함. 결론: 신규 진입에 명백히 불리한 환경(§3.5 하드룰 — 진입 상한 watch), 여기선 개별 셋업 자체에도 ignore 사유가 별도로 존재.\n\n**Base 구조**\n7월 말 회사합병 공시(7/29, 8/2)를 기점으로 단 3주 만에"
+}

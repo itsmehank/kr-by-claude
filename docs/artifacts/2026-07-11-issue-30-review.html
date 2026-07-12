@@ -1,0 +1,308 @@
+<title>이슈 #30 검토 — 분배일 재계산 ops</title>
+<style>
+:root {
+  --bg: #F6F7F6; --panel: #FFFFFF; --ink: #212B27; --muted: #5B6862;
+  --line: #DFE5E1; --accent: #0E7A5F; --accent-ink: #0B5E4A; --accent-soft: #E3F0EA;
+  --warn: #A66A1E; --warn-soft: #F6EDDD; --crit: #B03A2E; --crit-soft: #F5E4E1;
+  --code-bg: #EEF2EF; --shadow: 0 1px 3px rgba(30,43,38,.07);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131817; --panel: #1B2220; --ink: #DCE5E0; --muted: #93A19A;
+    --line: #2A3430; --accent: #46B08D; --accent-ink: #5FC4A2; --accent-soft: #1E2F29;
+    --warn: #D19A4C; --warn-soft: #2E2619; --crit: #D96C5F; --crit-soft: #33201D;
+    --code-bg: #232C29; --shadow: 0 1px 3px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131817; --panel: #1B2220; --ink: #DCE5E0; --muted: #93A19A;
+  --line: #2A3430; --accent: #46B08D; --accent-ink: #5FC4A2; --accent-soft: #1E2F29;
+  --warn: #D19A4C; --warn-soft: #2E2619; --crit: #D96C5F; --crit-soft: #33201D;
+  --code-bg: #232C29; --shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+:root[data-theme="light"] {
+  --bg: #F6F7F6; --panel: #FFFFFF; --ink: #212B27; --muted: #5B6862;
+  --line: #DFE5E1; --accent: #0E7A5F; --accent-ink: #0B5E4A; --accent-soft: #E3F0EA;
+  --warn: #A66A1E; --warn-soft: #F6EDDD; --crit: #B03A2E; --crit-soft: #F5E4E1;
+  --code-bg: #EEF2EF; --shadow: 0 1px 3px rgba(30,43,38,.07);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font-family: Pretendard, "Pretendard Variable", "Apple SD Gothic Neo", -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+  font-size: 16px; line-height: 1.75; -webkit-font-smoothing: antialiased; }
+code { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: .86em;
+  background: var(--code-bg); border-radius: 4px; padding: .1em .35em; word-break: break-all; }
+pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 16px; overflow-x: auto; font-size: 13.5px; line-height: 1.5; }
+pre code { background: none; padding: 0; }
+.wrap { max-width: 880px; margin: 0 auto; padding: 0 24px 96px; }
+header.doc { padding: 44px 0 18px; border-bottom: 1px solid var(--line); }
+.eyebrow { font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700; margin-bottom: 10px; }
+h1.title { font-size: 28px; line-height: 1.35; margin: 0 0 10px; font-weight: 800; text-wrap: balance; }
+.meta { color: var(--muted); font-size: 14px; }
+.tabbar { position: sticky; top: 0; z-index: 20; background: var(--bg);
+  display: flex; gap: 8px; padding: 14px 0 0; border-bottom: 1px solid var(--line); }
+.tabbar button { appearance: none; border: 1px solid var(--line); border-bottom: none;
+  background: var(--panel); color: var(--muted); font: inherit; font-weight: 700; font-size: 15px;
+  padding: 10px 22px; border-radius: 10px 10px 0 0; cursor: pointer; }
+.tabbar button[aria-selected="true"] { color: var(--accent-ink); border-color: var(--accent);
+  box-shadow: inset 0 -3px 0 var(--accent); }
+.tabbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tabpane { display: none; }
+.tabpane.active { display: block; }
+section.blk { margin-top: 44px; }
+h2 { font-size: 21px; margin: 0 0 6px; font-weight: 800; text-wrap: balance; }
+h3 { font-size: 16.5px; margin: 26px 0 6px; font-weight: 700; }
+p { margin: 12px 0; }
+ul, ol { margin: 12px 0; padding-left: 24px; }
+li { margin: 6px 0; }
+.chip { display: inline-block; font-size: 12.5px; font-weight: 700; line-height: 1;
+  padding: 5px 10px; border-radius: 999px; vertical-align: 2px; margin-left: 8px; }
+.chip.ok { background: var(--accent-soft); color: var(--accent-ink); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.crit { background: var(--crit-soft); color: var(--crit); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 18px 22px; margin: 16px 0; box-shadow: var(--shadow); }
+.card.note { border-left: 4px solid var(--accent); }
+.card.caution { border-left: 4px solid var(--warn); }
+.card.danger { border-left: 4px solid var(--crit); }
+.card .label { font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+  font-weight: 800; color: var(--accent-ink); margin-bottom: 6px; }
+.card.caution .label { color: var(--warn); }
+.card.danger .label { color: var(--crit); }
+.summary { background: var(--accent-soft); border: 1px solid var(--accent);
+  border-radius: 12px; padding: 14px 20px; margin: 14px 0 20px; }
+.summary .label { display: block; font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--accent-ink); font-weight: 800; margin-bottom: 4px; }
+.tablewrap { overflow-x: auto; margin: 16px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; background: var(--panel); }
+th, td { border: 1px solid var(--line); padding: 9px 12px; text-align: left; vertical-align: top; }
+th { background: var(--code-bg); font-weight: 700; white-space: nowrap; }
+.divider { border: none; border-top: 1px solid var(--line); margin: 40px 0; }
+strong { font-weight: 700; }
+@media (prefers-reduced-motion: no-preference) {
+  .tabpane.active { animation: fadein .18s ease; }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+}
+</style>
+
+<div class="wrap">
+  <header class="doc">
+    <div class="eyebrow">kr-by-claude · 이슈 검토 · 2026-07-11</div>
+    <h1 class="title">이슈 #30 — 분배일 flag 재계산 ops (+ 검토 중 발견된 선행 사안)</h1>
+    <div class="meta">
+      PR #28 머지 후속 수동 절차 4건의 추적 이슈(검토 결과 3건 유효·1건은 전제 오류로 해소) · 최신 main(027bf54)·실DB 재검증 ·
+      검토 중 <strong>일일 파이프라인 정지(크론 PATH 결함)</strong> 신규 발견
+    </div>
+  </header>
+
+  <nav class="tabbar" role="tablist" aria-label="탭 선택">
+    <button id="tabbtn-body" role="tab" aria-selected="true" aria-controls="tab-body">이슈 정리 (초보자)</button>
+    <button id="tabbtn-decide" role="tab" aria-selected="false" aria-controls="tab-decide">결정해야 할 사항</button>
+  </nav>
+
+  <!-- ================= 탭 1: 이슈 정리 ================= -->
+  <main id="tab-body" class="tabpane active" role="tabpanel">
+
+    <section class="blk">
+      <h2>0. 이 문서가 다루는 것</h2>
+      <div class="summary"><span class="label">핵심 요약</span>
+      어제 머지한 PR #28은 "분배일 세는 기준"을 고쳤는데, <strong>새 기준은 앞으로 계산되는 날에만 적용</strong>됩니다.
+      과거 데이터는 옛 기준으로 계산된 채 DB에 남아 있어서, 한 번 전체 재계산을 돌려야 수리가 완성됩니다.
+      이슈 #30은 그 재계산과 딸린 확인 작업 4가지를 잊지 않기 위한 추적표입니다(PR #28이 <code>Closes #20</code>이라 머지 순간 원래 이슈가 자동으로 닫혀서, 남는 수동 절차가 잊히는 것을 막으려고 만든 이슈 — 출처: PR #28 코드리뷰).
+      그리고 이번 재검토 중 <strong>더 급한 문제</strong>를 발견했습니다 — 매일 저녁 자동으로 도는
+      데이터 수집이 7월 7일부터 멈춰 있습니다.</div>
+
+      <div class="tablewrap"><table>
+        <tr><th>용어</th><th>뜻</th></tr>
+        <tr><td>분배일 (distribution day)</td><td>주가가 0.2% 이상 하락하면서 거래량은 평소(50일 평균)보다 많은 날 = 기관이 판 흔적. 25일 안에 4개 이상 쌓이면 그 종목을 "관찰(watch)"로 낮추는 근거가 됨.</td></tr>
+        <tr><td>flag (distribution_day_flag)</td><td>"이날이 분배일이다"라는 표시. 매일 밤 코드가 계산해 DB의 <code>daily_indicators</code> 테이블에 저장. 분석 LLM은 이 표시를 정답으로 사용.</td></tr>
+        <tr><td>재계산 (full recompute)</td><td>과거 전체 기간의 지표를 새 코드로 다시 계산해 DB를 덮어쓰는 것. 계산은 결정론적(같은 입력 → 항상 같은 결과)이라 몇 번 돌려도 안전.</td></tr>
+        <tr><td>B-수치</td><td>이 프로젝트 규칙 용어 — "임계값을 바꿨으면 바꾼 효과를 수치로 기록해 두고 나중에 재검토하라"는 의무. 어기고 방치했다가 사고 난 전례(P2-1a)가 있어 규칙이 됨.</td></tr>
+        <tr><td>handle_quality</td><td>차트 패턴의 "손잡이(handle)" 구간 품질을 코드로 검사하는 결정론 게이트. 손잡이 구간에 분배일이 1개라도 있으면 <code>distribution_in_handle</code> 경고를 냄.</td></tr>
+        <tr><td>halt (거래정지)</td><td>거래가 정지된 날. 시가·고가·저가·거래량은 비어 있고(NULL), <strong>종가는 직전 값으로 채워져(carry) 보존됨</strong> — 이 보존 덕분에 해제일의 등락률 계산이 가능(§5의 핵심 사실).</td></tr>
+      </table></div>
+    </section>
+
+    <hr class="divider">
+
+    <section class="blk">
+      <h2>1. 최신 상태 재검증 결과 <span class="chip ok">이슈 유효</span> <span class="chip crit">+ 선행 사안 발견</span></h2>
+      <div class="summary"><span class="label">핵심 요약</span>
+      이슈의 4개 항목은 오늘 기준 전부 유효합니다(재계산 아직 안 됨 — 옛 기준 과대 집계분 3,038건 그대로).
+      추가로, 매일 18:30에 도는 데이터 수집 크론이 <strong>7월 7일부터 전부 실패</strong> 중임을 발견했습니다.
+      원인은 코드가 아니라 크론 설정 한 줄(PATH) 문제로 확인됐고, 고치기 쉽습니다.</div>
+
+      <h3>이슈 전제 재확인 (실DB 측정, 2026-07-11)</h3>
+      <ul>
+        <li>최근 1년 flag 78,762건 중 <strong>옛 기준(0% 컷)으로만 성립하는 과대 집계분 3,038건(3.9%)이 그대로 남아 있음</strong> → 재계산 미실행 확정.</li>
+        <li>PR #28 머지 이후 새 코드로 계산된 날이 아직 하루도 없음(아래 파이프라인 정지 때문) — 즉 현재 DB의 flag는 100% 옛 기준.</li>
+      </ul>
+
+      <div class="card danger">
+        <div class="label">신규 발견 — 일일 파이프라인 정지 (이슈 #30보다 선행)</div>
+        <p style="margin:6px 0 0">
+        DB의 최신 데이터: 가격·지표 <strong>2026-07-06</strong>, 시장 맥락(market_context) <strong>2026-06-29</strong>.
+        오늘이 07-11이므로 <strong>거래일 4일치(07-07~07-10)가 통째로 비어 있습니다.</strong> (시장 맥락은 크론 정지 이전부터 이미 뒤처져 있었을 가능성이 있어, 따라잡기 실행 때 함께 원인 확인이 필요합니다.)<br><br>
+        원인(확정): 크론 로그에 <code>uv: command not found</code> 70회 — 크론탭에 PATH 설정이 없어서,
+        크론이 실행될 때 <code>uv</code>(파이썬 실행 도구, 실제 위치 <code>/opt/homebrew/bin/uv</code>)를
+        찾지 못해 모든 작업이 시작 즉시 실패합니다. 마지막 성공 로그는 07-06 저녁이고,
+        07-08 아침에 크론탭을 정리·재설치한 이력이 있어 그때 PATH 줄이 빠진 것으로 추정됩니다(추정 —
+        재설치 전 크론탭 원본이 없어 단정 불가, 다만 현재 크론탭에 PATH가 없다는 사실 자체는 확정).<br><br>
+        영향: 분배일 flag만이 아니라 <strong>가격 수집·전체 지표·시장 상태 판정이 모두 멈춘 상태</strong>입니다.
+        이걸 먼저 고치지 않으면 #30의 재계산을 해도 "오늘까지"가 아니라 "7월 6일까지"만 정합해집니다.</p>
+      </div>
+    </section>
+
+    <hr class="divider">
+
+    <section class="blk">
+      <h2>2. 항목① — 과거 데이터 재계산</h2>
+      <div class="summary"><span class="label">핵심 요약</span>
+      매일 밤 자동 계산은 최근 30일 창만 다시 계산합니다. 그래서 새 기준은 저절로 과거까지 소급되지 않고,
+      전체 기간 재계산을 한 번 돌려야 과거 flag가 새 기준으로 통일됩니다. 안 하면 "옛 기준 과거 + 새 기준 최근"이
+      섞인 데이터를 분석이 정답으로 쓰게 됩니다.</div>
+      <p><strong>왜 문제인가 — 실제 흐름</strong>: 주말 분류 LLM은 종목마다 최근 60일치 지표 표를 받고,
+      그중 25일 창의 분배일 개수로 "기관 매도 누적" 판정을 합니다(4개 이상이면 강등).
+      재계산 전에는 이 60일 표의 앞부분이 옛 기준 flag입니다. 예를 들어 진짜 분배일 2개 + 옛 기준에서만
+      성립하는 가짜 2개 = 4개로 집계되면, 새 기준으로는 강등감이 아닌 종목이 강등됩니다.
+      60일이 지나면 최근 창은 자연히 새 기준으로 채워지지만, <strong>백테스트나 과거 조회는 영구히 오염된 채</strong> 남습니다.</p>
+      <p><strong>실행 방법</strong> (검증된 진입점):</p>
+      <pre><code>uv run python -m kr_pipeline.indicators --target=daily --mode=full-refresh   # 필수 — 분배일 flag는 일봉
+uv run python -m kr_pipeline.indicators --target=weekly --mode=full-refresh  # 선택 — 이번 변경과 무관, 함께 돌리면 더 오래 걸림</code></pre>
+      <p>결정론 계산이라 여러 번 돌려도 같은 결과(안전)이고, 실패해도 다시 돌리면 됩니다.
+      전 종목·전 기간이라 수십 분 단위가 걸릴 수 있습니다(과거 전체 재계산 전례 있음).</p>
+    </section>
+
+    <section class="blk">
+      <h2>3. 항목② — B-수치 기록 (변경 효과 계량)</h2>
+      <div class="summary"><span class="label">핵심 요약</span>
+      기준을 바꿨으면 "얼마나 달라졌는지"를 숫자로 남기는 게 이 프로젝트의 규칙입니다.
+      머지 전에 미리 재둔 기준선이 있으므로(과대 집계분 3.9%), 재계산 후 같은 측정을 반복해 전/후를 기록하면 됩니다.</div>
+      <p>기록할 것: ① 재계산 전후 flag 총수(기준선: 최근 1년 78,762건 중 3,038건 감소 예상)
+      ② §6 강등 경계(25일 내 4개 이상)에 걸리는 종목 수의 변화. 이 수치는 나중에 "종목 분배일에도
+      시장처럼 변동성 보정(σ 보정)을 넣을지" 재검토할 때의 근거 데이터가 됩니다.</p>
+    </section>
+
+    <section class="blk">
+      <h2>4. 항목③ — handle_quality 발동률 확인</h2>
+      <div class="summary"><span class="label">핵심 요약</span>
+      분배일 flag를 쓰는 곳이 LLM 분석 말고 하나 더 있습니다 — 손잡이 품질 검사 코드입니다.
+      이 검사는 flag 단 1개로 경고가 켜져서 기준 변화에 민감하므로, 재계산 전후 발동률 비교에 포함해야 합니다.</div>
+      <p><strong>맥락</strong>: 이 소비처는 원래 의존성 점검표에서 빠져 있다가 PR #28 코드리뷰에서 발견돼
+      점검표에 추가된 곳입니다(그래서 이슈에 별도 항목으로 올라감). 손잡이 구간은 수개월을 걸치기 때문에,
+      재계산 전에는 같은 손잡이가 "옛 기준 행 + 새 기준 행"을 섞어 보게 되어 검사 결과가 시점에 따라
+      달라질 수 있습니다 — 재계산이 끝나야 이 검사도 일관됩니다.</p>
+    </section>
+
+    <section class="blk">
+      <h2>5. 항목④ — 거래정지 해제일 미탐지? <span class="chip ok">검토 결과: 전제가 틀림 — 해소</span></h2>
+      <div class="summary"><span class="label">핵심 요약</span>
+      이슈는 "정지 해제 첫날의 하락은 분배일로 못 잡는다"고 걱정했는데, <strong>이번 검토에서 실데이터로 확인한 결과
+      정상적으로 잡히고 있었습니다.</strong> 걱정의 근거였던 "전일 종가가 비어 있다(NaN)"는 가정이 사실과 달랐기
+      때문입니다 — 이 시스템은 정지일에도 종가를 직전 값으로 채워서(carry) 보관합니다. 따라서 이 항목은
+      결정할 것이 없어졌고, 대신 <strong>잘못된 가정을 적어 둔 코드 주석 한 곳을 정정</strong>해야 합니다.</div>
+      <p><strong>왜 걱정했었나</strong>: PR #28 리뷰에서 "정지일 데이터는 NaN이니, 해제 첫날의 등락률 계산도
+      NaN이 되어 그날 폭락+대량 거래(전형적 기관 매도)가 flag에서 빠진다"는 지적이 나왔고, 저도 그 가정 위에
+      코드 주석("재개일 갭다운 분배는 미탐지")을 남겼습니다.</p>
+      <p><strong>실데이터 확인 (2026-07-11, 확정)</strong>: 정지일 행 112,524건의 종가는 <strong>전부 채워져
+      있음</strong>(NaN 0건 — 정지일에 무효화되는 건 시가·고가·저가·거래량이고 종가는 의도적으로 보존).
+      최근 2년 "정지 해제 첫날" 454건 중 0.2% 이상 하락 242건, 거래량 조건까지 충족 64건 — <strong>그 64건이
+      전부 현재 flag=True로 잡혀 있습니다.</strong> 즉 해제일 탐지는 원래도 되고 있었고, 새 컷(−0.2%)에서도
+      동일하게 됩니다.</p>
+      <p><strong>남는 조치</strong>: <code>volume.py</code> docstring의 "알려진 잔여 비정합: halt 직후 첫 거래일
+      return은 NaN → flag False" 문구가 사실과 다르므로 삭제/정정 필요(코드 동작 변경 없음, 주석만).
+      낡은 주석을 방치하면 나중에 이 주석을 근거로 잘못된 판단을 하는 — 정확히 이번에 겪은 류의 — 사고가
+      재발합니다. 이슈 #30 본문의 항목④에도 정정 코멘트를 남깁니다.</p>
+    </section>
+
+    <hr class="divider">
+
+    <section class="blk">
+      <h2>6. 제안 실행 절차 (순서 중요)</h2>
+      <div class="summary"><span class="label">핵심 요약</span>
+      ① 크론 PATH 수리(선행 — 안 하면 내일부터 또 안 돎) → ② 밀린 4거래일 데이터 따라잡기(수동 1회 실행)
+      → ③ 전체 재계산 → ④ 전후 수치 측정·기록 → ⑤ 사실과 다른 주석 정정. 전부 로컬 작업이고
+      되돌릴 수 없는 단계는 없습니다.</div>
+      <ol>
+        <li><strong>크론 수리</strong>: 크론탭 맨 위에 <code>PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</code> 1줄 추가.</li>
+        <li><strong>따라잡기</strong>: <code>--chain=daily</code>·market_context 수동 1회 실행(증분 창이 30일이라 4일 공백은 한 번에 메워짐). 주말이므로 오늘 실행분으로 금요일(07-10)까지 채워짐.</li>
+        <li><strong>재계산</strong>: 위 §2의 full-refresh 2건 실행.</li>
+        <li><strong>기록</strong>: §3·§4 수치를 이슈 #30 코멘트 + 점검표 이력에 남김.</li>
+        <li><strong>주석 정정</strong>: 항목④ 검토로 사실과 다르게 판명된 docstring 문구 정정(초소형 커밋).</li>
+      </ol>
+    </section>
+  </main>
+
+  <!-- ================= 탭 2: 결정 사항 ================= -->
+  <main id="tab-decide" class="tabpane" role="tabpanel">
+
+    <section class="blk">
+      <h2>결정해야 할 사항 — 3건 (+1건은 검토 중 해소됨)</h2>
+      <div class="summary"><span class="label">핵심 요약</span>
+      D0(크론 수리)·D1(전체 재계산)·D3(주석 정정)은 전부 "실행 승인"이고, D2(수치 기록 위치)는 관례 확인
+      수준입니다. 원래 설계 선택이었던 "정지 해제일 정책"은 검토 결과 전제가 틀린 것으로 판명되어 결정할 필요가
+      없어졌습니다(탭1 §5). 모두 되돌릴 수 있는 작업입니다.</div>
+
+      <h3>D0. 크론 PATH 수리를 승인할까요? <span class="chip crit">선행 — 가장 급함</span></h3>
+      <div class="card note">
+        <p style="margin:6px 0 0"><strong>무엇을</strong>: 크론탭 맨 위에 PATH 한 줄을 추가해 <code>uv</code>를 찾을 수 있게 함.
+        이걸 안 하면 매일 저녁 데이터 수집이 계속 실패합니다(이미 4거래일 결손).<br>
+        <strong>선택지</strong>: (a) <strong>PATH 헤더 1줄 추가 — 권장</strong> (모든 작업에 일괄 적용, 단순)
+        (b) 각 크론 라인의 <code>uv</code>를 절대경로 <code>/opt/homebrew/bin/uv</code>로 교체 (크론 라인마다 수정).<br>
+        <strong>참고 관례</strong>: 이 리포에서 크론탭 반영은 "수동 + 운영 해설서 부록 갱신 동반"이 관례였습니다.
+        승인 주시면 제가 크론탭 수정과 해설서 갱신까지 함께 진행합니다.</p>
+      </div>
+
+      <h3>D1. 전체 재계산(full-refresh) 실행을 승인할까요? <span class="chip warn">이슈 #30 본체</span></h3>
+      <div class="card note">
+        <p style="margin:6px 0 0"><strong>무엇을</strong>: 일봉·주봉 지표를 전 종목·전 기간 새 코드로 재계산(위 §2 명령).
+        production DB를 덮어쓰지만 결정론 계산이라 안전하고 재실행 가능합니다. 소요는 수십 분 단위 예상.<br>
+        <strong>순서 조건</strong>: D0·따라잡기(밀린 4일 적재) 후에 실행해야 "오늘까지" 정합해집니다.<br>
+        <strong>안 하면</strong>: 백테스트·과거 조회가 옛 기준 flag를 영구히 보게 되고, 최근 60일 창도
+        약 60거래일(10월 초경)까지는 신구 기준이 섞인 채 LLM에 들어갑니다.</p>
+      </div>
+
+      <h3>D2. 전후 수치(B-수치)는 어디에 기록할까요? <span class="chip ok">관례 확인</span></h3>
+      <div class="card note">
+        <p style="margin:6px 0 0"><strong>권장</strong>: 이슈 #30 코멘트에 상세 수치 + 점검표(checklist) 적용 이력에 1줄 요약 —
+        상세는 이슈에, 규범 문서에는 요약만 남기는 기존 관례와 일치합니다. 특별히 다른 위치를 원하시면 알려주세요.</p>
+      </div>
+
+      <h3>D3. 사실과 다른 코드 주석 정정을 승인할까요? <span class="chip ok">해소된 항목의 뒷정리</span></h3>
+      <div class="card note">
+        <p style="margin:6px 0 0"><strong>배경</strong>: 원래 이 자리는 "정지 해제일 미탐지를 유지할지"라는 설계
+        선택이었는데, 검토 결과 미탐지 자체가 사실이 아님이 확인됐습니다(해제일 분배 후보 64건 전부 정상 탐지 중 —
+        탭1 §5). 결정은 소멸했고, 남은 것은 그 잘못된 가정이 적힌 <code>volume.py</code> docstring 문구의
+        정정(코드 동작 무변경, 주석만)과 이슈 #30 본문 정정 코멘트입니다. 초소형 커밋 1건 — 승인만 해주시면
+        D0·D1 실행 때 함께 처리합니다.</p>
+      </div>
+
+      <div class="card">
+        <div class="label">정리 — 권장 조합</div>
+        <p style="margin:6px 0 0"><strong>D0(a) 승인 → D1 승인 → D2 권장대로 → D3 승인</strong>.
+        이 조합이면 한 세션에서 ①크론 수리 ②밀린 데이터 따라잡기 ③전체 재계산 ④전후 수치 기록
+        ⑤주석 정정까지 끝나고, 이슈 #30을 닫을 수 있습니다.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  var tabs = [
+    { btn: document.getElementById('tabbtn-body'), pane: document.getElementById('tab-body') },
+    { btn: document.getElementById('tabbtn-decide'), pane: document.getElementById('tab-decide') }
+  ];
+  function select(idx) {
+    tabs.forEach(function (t, i) {
+      var on = i === idx;
+      t.btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.pane.classList.toggle('active', on);
+    });
+    window.scrollTo({ top: 0 });
+  }
+  tabs.forEach(function (t, i) { t.btn.addEventListener('click', function () { select(i); }); });
+})();
+</script>
