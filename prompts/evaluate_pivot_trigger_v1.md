@@ -25,7 +25,7 @@
 - `prior_analysis`: 주말 (5) 결과 (`classified_at`, **`days_since_classification`** (분류 후 경과일), `classification`, `pattern`, `pivot_price`, `pivot_basis`, `base_high`, `base_low`, `base_depth_pct`, `risk_flags`, `reasoning`, **`watch_reason`** (watch 분류 사유 — `trigger_type == "breakout_from_watch"` 일 때 §3.5 분기 결정에 사용; 그 외 무관))
 - `recent_daily_ohlcv_20d`: 최근 20영업일 OHLCV 리스트
 - `current_metrics`: `close`, `volume`, `avg_volume_50d`, `volume_ratio`, `sma_50`, **`sma_21`** (≈ 20-day line, Minervini *Think & Trade Like a Champion* Ch.1 의 "20-day line" 가드용)
-- `market_context`: **현재(평가일 as-of)** 시장 상태 — `current_status`(confirmed_uptrend / rally_attempt / downtrend / correction), `distribution_day_count_last_25_sessions` 등. (§3.5 `unfavorable_market` 분기 입력. 분류시점 아님 — *오늘* 시장.)
+- `market_context`: **현재(평가일 as-of)** 시장 상태 — `current_status`(confirmed_uptrend / rally_attempt / downtrend / correction), `distribution_day_count_last_25_sessions` 등. (§3.5 `unfavorable_market` 분기 + flag 보유 형제 분기(marginal_tt/valid_base) 재확인 입력. 분류시점 아님 — *오늘* 시장.)
 - `conditions_met` / `conditions_detail`: **현재** Minervini Trend Template 8조건 boolean + 조건별 통과 마진. (§3.5 `marginal_tt` 분기 입력.)
 - `rs_rating`: **현재** RS Rating.
 - `recent_evaluation_history`: 최근 7일 (5b) 이력 (있을 때만)
@@ -136,20 +136,20 @@ pivot fresh 돌파가 발생한 경우. 기존엔 promotion 으로만 잡혀 토
 - `valid_base_awaiting_breakout`: 위 공통 표준 검증 충족 시 `go_now`.
   (base 가 이미 신뢰 가능 — entry 와 동등 취급.)
   **단, `prior_analysis.risk_flags` 에 `unfavorable_market_context` 가 있으면** 위 조건에 더해
-  아래 `unfavorable_market` 게이트와 동일한 시장 재확인(현재 `market_context` 로 회복+분배일
+  `unfavorable_market` 게이트와 동일한 시장 재확인(현재 `market_context` 로 회복+분배일
   해소 판정)도 충족해야 `go_now` — 사유로 기록되지 않았어도 flag 는 분류 시점 시장 불안의 기록이다.
 - `unfavorable_market`: 강등 사유가 시장이었으므로 **`market_context.current_status ==
   "confirmed_uptrend"` (회복) 이고 `market_context.distribution_day_count_last_25_sessions < 5`
   (강등 임계 미만으로 해소 — analyze_chart_v3 §3.5 의 ≥5 강등과 co-anchored) 일 때만** `go_now`.
-  여전히 downtrend/correction/미확인 rally_attempt 면, 또는 분배일이 아직 강등 임계(위 `< 5` 의 5)
-  미해소면 표준 검증을 충족해도 `wait` (강등 사유가 해소되지 않음 — status 라벨은 강등 임계 수준의
-  분배일과 공존 가능하므로 라벨만으로 회복 판정 금지). ⚠ `watch_reason` 값 자체를 회복 근거로
+  여전히 downtrend/correction/미확인 rally_attempt 면, 또는 분배일이 아직 강등 임계 미만으로
+  해소되지 않았으면 표준 검증을 충족해도 `wait` (강등 사유가 해소되지 않음 — status 라벨은 강등
+  임계 수준의 분배일과 공존 가능하므로 라벨만으로 회복 판정 금지). ⚠ `watch_reason` 값 자체를 회복 근거로
   쓰지 말 것 — 반드시 입력 `market_context`(현재 값)로 판단.
 - `marginal_tt`: 강등 사유가 marginal Trend Template 이었으므로 **현재 `conditions_met` 8개가
   모두 true 이고 `conditions_detail` 상 경계(마진 <3%)가 해소(clean)됐을 때만** `go_now`.
   아직 여러 조건이 marginal 이면 `wait`.
   **단, `prior_analysis.risk_flags` 에 `unfavorable_market_context` 가 있으면** 위 조건에 더해
-  위 `unfavorable_market` 게이트와 동일한 시장 재확인(현재 `market_context` 로 회복+분배일
+  `unfavorable_market` 게이트와 동일한 시장 재확인(현재 `market_context` 로 회복+분배일
   해소 판정)도 충족해야 `go_now` — 사유로 기록되지 않았어도 flag 는 분류 시점 시장 불안의 기록이다.
 
 **공통**: 위 표준 검증 미충족 → `wait` (거래량 1.2~1.4× / 중간 1/3 마감 등) 또는 `abort`

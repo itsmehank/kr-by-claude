@@ -60,8 +60,9 @@ def test_sibling_gates_recheck_market_when_flagged():
     unfavorable_market 게이트와 동일한 재확인을 거쳐야 역류 옆문이 닫힌다.
     """
     for name, block in _b_sibling_blocks().items():
-        assert "unfavorable_market_context" in block, (
-            f"{name} 분기가 flag 조건부 시장 재확인을 요구하지 않음 — #29 옆문 재개방"
+        assert re.search(r"unfavorable_market_context.*?충족해야", block, re.S), (
+            f"{name} 분기가 flag 조건부 시장 재확인을 '요구'하지 않음(문자열 존재만으론 부족 — "
+            "방향성 토큰 '충족해야' 동반 필수) — #29 옆문 재개방"
         )
 
 
@@ -69,6 +70,9 @@ def test_sibling_gates_do_not_duplicate_threshold_literal():
     """(#29) 형제 분기는 임계 숫자를 재복제하지 않고 게이트를 참조해야 한다 —
     사본 증가 시 임계 변경이 한쪽만 반영되는 드리프트 통로가 생긴다."""
     for name, block in _b_sibling_blocks().items():
-        assert not re.search(r"distribution_day_count_last_25_sessions`?\s*[<>=]+\s*\d", block), (
+        assert not re.search(r"distribution_day_count_last_25_sessions`?\s*[<>=≥≤]+\s*\d", block), (
             f"{name} 분기에 임계 리터럴 사본 — unfavorable_market 게이트 참조로 대체할 것"
+        )
+        assert not re.search(r"분배일\s*\d+\s*개", block), (
+            f"{name} 분기에 prose 임계 사본('분배일 N개') — 게이트 참조로 대체할 것"
         )
