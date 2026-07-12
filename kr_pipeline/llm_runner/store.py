@@ -85,6 +85,91 @@ def _watch_reason(result: dict) -> str | None:
 # 탐지 휴리스틱)이라 thresholds.py SSOT 비등재. SOFT 전용(저장 차단 안 함).
 _PIVOT_CLOSE_BAND = (0.3, 3.0)
 
+# (#1) base_start_date '근접' 관측 분류 폭 (일). 판정 무영향 — 관측 라벨링 전용이라
+# thresholds.py SSOT 비등재 (이슈 #1 실측의 그룹핑 기준 재사용).
+_BASE_NEAR_DAYS = 10
+
+
+def _to_date_or_none(v):
+    if v is None or isinstance(v, date):
+        return v
+    if isinstance(v, datetime):
+        return v.date()
+    try:
+        return date.fromisoformat(str(v))
+    except ValueError:
+        return None
+
+
+def _pivot_continuity(conn, *, symbol: str, result: dict) -> str | None:
+    """(#1) 직전 entry/watch 분류 대비 pivot/base 연속성 관측 기록 (JSON 문자열).
+
+    같은 베이스(base_start_date 동일)로 재확인됐는데 pivot 만 재판독되는 현상
+    (이슈 #1, 실측 최대 ±22%)을 하위 로직·사람이 인지할 수 있게 기록만 한다 —
+    분류·판정 동작 무영향(쓰기 전용). 직전 entry/watch 분류가 없으면 None(컬럼 NULL).
+    비교 모집단·정렬은 하위 소비자(load.get_active_monitoring / payload_lite prior)와
+    동일: entry/watch 만, analyzed_for_date 우선 최신 1건.
+    ★재실행 1:1 비교 금지 규율 비저촉 — 재실행이 아니라 서로 다른 주(as_of)의
+    정상 분류 간 관측 (docs/pivot-reanalysis-tradeoff.md).
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT classified_at, pivot_price, base_start_date, pattern
+              FROM weekly_classification
+             WHERE symbol = %s AND classification IN ('entry', 'watch')
+             ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC,
+                      classified_at DESC
+             LIMIT 1
+            """,
+            (symbol,),
+        )
+        prev = cur.fetchone()
+    if prev is None:
+        return None
+    prev_at, prev_pv, prev_bsd, prev_pattern = prev
+
+    new_bsd = _to_date_or_none(result.get("base_start_date"))
+    prev_bsd = _to_date_or_none(prev_bsd)
+    if prev_bsd is not None and new_bsd is not None:
+        delta_days = abs((new_bsd - prev_bsd).days)
+        if delta_days == 0:
+            continuity = "same"
+        elif delta_days <= _BASE_NEAR_DAYS:
+            continuity = "near"
+        else:
+            continuity = "different"
+    else:
+        delta_days = None
+        continuity = "unknown"
+
+    new_pv = result.get("pivot_price")
+    change_pct = (
+        round((float(new_pv) - float(prev_pv)) / float(prev_pv) * 100, 4)
+        if new_pv is not None and prev_pv is not None and float(prev_pv) != 0
+        else None
+    )
+    new_pattern = result.get("pattern")
+    info = {
+        "prev_classified_at": prev_at.isoformat(),
+        "prev_pivot_price": float(prev_pv) if prev_pv is not None else None,
+        "pivot_change_pct": change_pct,
+        "base_start_delta_days": delta_days,
+        "base_continuity": continuity,
+        "prev_pattern": prev_pattern,
+        "pattern_changed": (
+            new_pattern != prev_pattern
+            if new_pattern is not None and prev_pattern is not None
+            else None
+        ),
+    }
+    if continuity == "same" and change_pct not in (None, 0.0):
+        log.warning(
+            "[pivot-continuity] same-base pivot reread %s: %s -> %s (%+.2f%%)",
+            symbol, prev_pv, new_pv, change_pct,
+        )
+    return json.dumps(info)
+
 
 def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -> list[str]:
     """분류 숫자의 부호·대소·범위 sanity (P1-2 Part A).
@@ -179,6 +264,9 @@ def insert_classification(
         conn, result, symbol=symbol, as_of=analyzed_for_date,
     )
 
+    # (#1) pivot 재판독 연속성 관측 — INSERT 전에 직전 분류를 조회해야 하므로 이 위치.
+    pivot_continuity = _pivot_continuity(conn, symbol=symbol, result=result)
+
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -191,12 +279,14 @@ def insert_classification(
                triggered_rules,
                measurements,
                watch_reason,
-               sanity_warnings)
+               sanity_warnings,
+               pivot_continuity)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
                     %s, %s, %s, %s,
+                    %s,
                     %s,
                     %s,
                     %s,
@@ -228,6 +318,7 @@ def insert_classification(
                 _measurements_json(result),
                 _watch_reason(result),
                 json.dumps(sanity_warnings) if sanity_warnings else None,
+                pivot_continuity,
             ),
         )
 

@@ -607,3 +607,112 @@ def test_classification_soft_missing_pivot_for_entry(db, mocker):
         cur.execute("SELECT sanity_warnings FROM weekly_classification WHERE symbol='SANNOPV'")
         w = cur.fetchone()[0]
     assert w is not None and "sanity_missing_pivot_for_actionable" in w
+
+
+# ====== (#1) pivot 재판독 연속성 관측 (pivot_continuity JSONB) ======
+
+def _insert_cls(db, symbol, *, at, pivot, base_start, pattern="flat_base",
+                afd=None, classification="watch"):
+    from kr_pipeline.llm_runner.store import insert_classification
+    insert_classification(
+        db, symbol=symbol, classified_at=at, market="KOSPI",
+        result=_cls_result(classification=classification, pivot_price=pivot,
+                           base_high=pivot, base_low=pivot * 0.9 if pivot else None,
+                           base_start_date=base_start, pattern=pattern),
+        source="weekend", llm_meta={}, analyzed_for_date=afd,
+    )
+    db.commit()
+
+
+def _continuity_of(db, symbol, at):
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT pivot_continuity FROM weekly_classification "
+            "WHERE symbol=%s AND classified_at=%s", (symbol, at),
+        )
+        return cur.fetchone()[0]
+
+
+def _clean_symbol(db, symbol):
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'S','KOSPI') ON CONFLICT DO NOTHING", (symbol,))
+        cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (symbol,))
+    db.commit()
+
+
+def test_continuity_same_base_pivot_changed(db, mocker):
+    """base_start_date 동일 + pivot 변경 → base_continuity=same, 변화율 기록 (#1 핵심 사례)."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT1")
+    t1 = datetime(2026, 5, 23, 3, 0, tzinfo=timezone.utc)
+    t2 = datetime(2026, 5, 30, 3, 0, tzinfo=timezone.utc)
+    _insert_cls(db, "CONT1", at=t1, pivot=895000.1, base_start="2026-03-07",
+                afd=date(2026, 5, 23))
+    _insert_cls(db, "CONT1", at=t2, pivot=874000.1, base_start="2026-03-07",
+                afd=date(2026, 5, 30))
+    c1 = _continuity_of(db, "CONT1", t1)
+    c2 = _continuity_of(db, "CONT1", t2)
+    assert c1 is None  # 직전 분류 없음 → NULL
+    assert c2["base_continuity"] == "same"
+    assert c2["base_start_delta_days"] == 0
+    assert c2["prev_pivot_price"] == 895000.1
+    assert abs(c2["pivot_change_pct"] - (-2.3464)) < 0.01
+    assert c2["pattern_changed"] is False
+
+
+def test_continuity_near_and_different(db, mocker):
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT2")
+    t = [datetime(2026, 6, i, 3, 0, tzinfo=timezone.utc) for i in (6, 13, 20)]
+    _insert_cls(db, "CONT2", at=t[0], pivot=1000.1, base_start="2026-03-01",
+                afd=date(2026, 6, 6))
+    _insert_cls(db, "CONT2", at=t[1], pivot=1000.1, base_start="2026-03-06",
+                afd=date(2026, 6, 13))  # +5일 → near
+    _insert_cls(db, "CONT2", at=t[2], pivot=1000.1, base_start="2026-04-20",
+                afd=date(2026, 6, 20))  # +45일 → different
+    assert _continuity_of(db, "CONT2", t[1])["base_continuity"] == "near"
+    assert _continuity_of(db, "CONT2", t[1])["base_start_delta_days"] == 5
+    assert _continuity_of(db, "CONT2", t[2])["base_continuity"] == "different"
+
+
+def test_continuity_unknown_when_base_start_missing(db, mocker):
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT3")
+    t1 = datetime(2026, 6, 6, 3, 0, tzinfo=timezone.utc)
+    t2 = datetime(2026, 6, 13, 3, 0, tzinfo=timezone.utc)
+    _insert_cls(db, "CONT3", at=t1, pivot=1000.1, base_start=None,
+                afd=date(2026, 6, 6))
+    _insert_cls(db, "CONT3", at=t2, pivot=1100.1, base_start="2026-03-01",
+                afd=date(2026, 6, 13))
+    c2 = _continuity_of(db, "CONT3", t2)
+    assert c2["base_continuity"] == "unknown"
+    assert c2["pivot_change_pct"] is not None  # pivot 비교는 가능하면 기록
+
+
+def test_continuity_pattern_change_recorded(db, mocker):
+    """원익IPS 사례: base_start 동일 + pattern 변경 (flat_base→cup_with_handle)."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT4")
+    t1 = datetime(2026, 9, 12, 3, 0, tzinfo=timezone.utc)
+    t2 = datetime(2026, 9, 19, 3, 0, tzinfo=timezone.utc)
+    _insert_cls(db, "CONT4", at=t1, pivot=42750.1, base_start="2026-08-14",
+                pattern="flat_base", afd=date(2026, 9, 12))
+    _insert_cls(db, "CONT4", at=t2, pivot=45450.1, base_start="2026-08-14",
+                pattern="cup_with_handle", afd=date(2026, 9, 19))
+    c2 = _continuity_of(db, "CONT4", t2)
+    assert c2["base_continuity"] == "same"
+    assert c2["pattern_changed"] is True
+    assert c2["prev_pattern"] == "flat_base"
+
+
+def test_continuity_ignores_prior_ignore_rows(db, mocker):
+    """직전 비교 대상은 entry/watch 만 — ignore 행은 매수 기준선 모집단이 아님."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT5")
+    t1 = datetime(2026, 6, 6, 3, 0, tzinfo=timezone.utc)
+    t2 = datetime(2026, 6, 13, 3, 0, tzinfo=timezone.utc)
+    _insert_cls(db, "CONT5", at=t1, pivot=None, base_start=None,
+                classification="ignore", afd=date(2026, 6, 6))
+    _insert_cls(db, "CONT5", at=t2, pivot=1000.1, base_start="2026-03-01",
+                afd=date(2026, 6, 13))
+    assert _continuity_of(db, "CONT5", t2) is None  # entry/watch 직전 없음 → NULL
