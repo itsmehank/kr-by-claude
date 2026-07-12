@@ -131,12 +131,19 @@ SMA50_BREACH_RATIO: Final[float] = 0.98
 """B abort 의 sma_50 명확 이탈 비율 (close < sma_50 × 0.98).
 시스템 설계 — 기존 프롬프트 문구 승격."""
 
-STOCK_DIST_CLEAN_WINDOW_DAYS: Final[int] = 3
-"""B go_now 의 무분배 요구 창 (최근 거래행 수). 기존 '최근 3일 distribution day 없음' 승격."""
+STOCK_DISTRIBUTION_CLEAN_WINDOW_DAYS: Final[int] = 3
+"""B go_now 의 무분배 요구 창 (최근 거래행 수). 기존 '최근 3일 distribution day 없음' 승격.
+행 수 미달(관측 불가) 시 게이트 null — 관측 없는 통과 금지 (#37 리뷰)."""
 
-STOCK_DIST_ABORT_WINDOW_DAYS: Final[int] = 5
-STOCK_DIST_ABORT_COUNT_5D: Final[int] = 3
+STOCK_DISTRIBUTION_ABORT_WINDOW_DAYS: Final[int] = 5
+STOCK_DISTRIBUTION_ABORT_COUNT: Final[int] = 3
 """B abort 의 분배 누적 판정 (최근 5거래행 내 3+ 분배일). 기존 프롬프트 문구 승격."""
+
+STOCK_DISTRIBUTION_CLEAN_WINDOW_CAL_CAP: Final[int] = 7
+STOCK_DISTRIBUTION_ABORT_WINDOW_CAL_CAP: Final[int] = 11
+"""분배일 창의 캘린더 상한 (마지막 거래행 기준 일수). 20d 리스트는 halt 행이 제외돼
+'최근 N 거래행'이 halt 를 넘어 주 단위 과거로 늘어질 수 있음(#37 리뷰) — 상한 밖 행은
+stale 로 미계수. 3거래일≤주말+휴일 2일=7, 5거래일≤7+휴일 여유=11 (시스템 설계, B-수치)."""
 
 MARKET_DIST_DEMOTION_COUNT_25S: Final[int] = 5
 """시장 분배일(25세션) 강등/회복 co-anchor. A §3.5 강등: count >= N → entry 대신 watch
@@ -150,6 +157,8 @@ TT_MARGIN_MARGINAL_PCT: Final[float] = 3.0
 TT_MARGINAL_DEMOTION_COUNT: Final[int] = 3
 """marginal 조건 개수 임계. A §2: 3개 이상 marginal → confidence 상한 + watch 선호
 (watch_reason=marginal_tt). B tt_recovery_ok: 8조건 all pass AND marginal < 3개 (정확한 역).
+marginal 계수는 A §2 정의 그대로 'PASS 하면서 margin < 3%' 인 조건만 — margin 미산출(None)·
+탈락 조건은 미계수 (#37 리뷰: None 계수 시 데이터 결함이 회복을 영구 차단해 역이 깨짐).
 시스템 설계 (marginal 개념은 Minervini 해설 유래, 3%/3개 수치는 시스템)."""
 
 # ===== Distribution Day - 종목 레벨 (kr_pipeline/indicators/compute/volume.py) =====

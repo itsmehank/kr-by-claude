@@ -44,6 +44,7 @@
 | STOCK_DIST_ABORT_COUNT_5D=3 / WINDOW 5d / CLEAN 3d | 불가(카운트·일수) | 미미 — 기존 문구(최근 5일 3+/최근 3일 무) 승격, 값 변화 0. 단 null flag=미계수 규약이 코드로 고정됨(기존 프롬프트 규약과 동일) | EXTENDS(분배 개념은 O'Neil, 창·카운트는 시스템) | 모니터링(동작 중립 승격) |
 | MARKET_DIST_DEMOTION_COUNT_25S=5 | 불가(카운트) | 있음 — A 강등(≥5)·B 회복(<5) co-anchor 를 SSOT 단일값으로 강제(기존 텍스트 2사본) | PRESERVES(O'Neil HMMS Ch.9 5-6 distribution days) | 임계와 함께 보정(양쪽이 SSOT 참조 — drift 통로 제거) |
 | TT_MARGIN_MARGINAL_PCT=3.0, TT_MARGINAL_DEMOTION_COUNT=3 | 부분(마진 %) | 있음 — B 회복 게이트(tt_recovery_ok)가 A §2 강등 기준과 동일 임계를 코드 소비(기존 B 텍스트는 "경계 해소" 모호 — 3개 미만으로 확정) | EXTENDS(marginal 개념은 Minervini §2 해설, 3%/3개는 시스템) | B-수치(회복 게이트 발동률 데이터 누적 후 재검토) |
+| STOCK_DISTRIBUTION_{CLEAN,ABORT}_WINDOW_CAL_CAP=7/11 (리뷰 반영 신설) | 불가(캘린더 일수) | 있음 — halt 공백을 넘는 stale 분배일을 미계수(기존: LLM 이 날짜 보고 재량 할인) | EXTENDS(시스템 설계 — 3거래일≤주말+휴일 2=7, 5거래일≤11) | B-수치(연휴 장기화 등으로 정상 행이 잘리는 빈도 관찰 후 재조정) |
 | (기존) BREAKOUT_VOL_FLOOR=1.4 | — | 소비처 추가(gate_precompute) — 값 변화 0 | PRESERVES | 변경 없음 |
 | (기존) STOCK_DISTRIBUTION_* (flag 산출) | — | 영향 없음 — flag 산출 로직 불변, 소비 방식만 코드로 이동 | PRESERVES | 변경 없음 |
 

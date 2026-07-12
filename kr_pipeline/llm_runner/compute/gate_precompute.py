@@ -16,6 +16,8 @@ sma 게이트는 current_metrics — halt 직후 두 소스의 날짜가 다를 
 """
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 from kr_pipeline.common.thresholds import (
     BREAKOUT_VOL_FLOOR,
     BREAKOUT_VOL_WAIT_FLOOR,
@@ -24,9 +26,11 @@ from kr_pipeline.common.thresholds import (
     SPREAD_AVG_MIN_ROWS,
     SPREAD_AVG_WINDOW_DAYS,
     SPREAD_WIDE_LOOSE_MULT,
-    STOCK_DIST_ABORT_COUNT_5D,
-    STOCK_DIST_ABORT_WINDOW_DAYS,
-    STOCK_DIST_CLEAN_WINDOW_DAYS,
+    STOCK_DISTRIBUTION_ABORT_COUNT,
+    STOCK_DISTRIBUTION_ABORT_WINDOW_CAL_CAP,
+    STOCK_DISTRIBUTION_ABORT_WINDOW_DAYS,
+    STOCK_DISTRIBUTION_CLEAN_WINDOW_CAL_CAP,
+    STOCK_DISTRIBUTION_CLEAN_WINDOW_DAYS,
     TT_MARGIN_MARGINAL_PCT,
     TT_MARGINAL_DEMOTION_COUNT,
 )
@@ -35,11 +39,23 @@ _UPPER_THIRD = 2.0 / 3.0  # "상단/중단 1/3" 정의값 (임계 아님 — 밴
 _LOWER_THIRD = 1.0 / 3.0
 
 
-def _dist_count(rows: list[dict], window: int) -> int | None:
-    if not rows:
+def _dist_count(rows: list[dict], window: int, cal_cap_days: int) -> int | None:
+    """최근 window 거래행의 분배일 수.
+
+    - 행 수 < window → None (관측 창 미달 — 관측 없는 통과 금지, #37 리뷰).
+    - 마지막 행 기준 cal_cap_days 캘린더보다 오래된 행은 stale 로 미계수
+      (20d 리스트는 halt 행 제외라 '최근 N 거래행'이 halt 를 넘어 주 단위
+      과거로 늘어질 수 있음 — #37 리뷰).
+    """
+    if len(rows) < window:
         return None
+    last_date = date.fromisoformat(rows[-1]["date"])
+    cutoff = last_date - timedelta(days=cal_cap_days)
     return sum(
-        1 for r in rows[-window:] if r.get("distribution_day_flag") is True
+        1
+        for r in rows[-window:]
+        if r.get("distribution_day_flag") is True
+        and date.fromisoformat(r["date"]) >= cutoff
     )
 
 
@@ -96,6 +112,13 @@ def compute_gates(
             close_range_pos = (last["close"] - last["low"]) / rng
             close_upper_third = close_range_pos >= _UPPER_THIRD
             close_middle_third = _LOWER_THIRD <= close_range_pos < _UPPER_THIRD
+        else:
+            # range 0 = 단일가 잠금 봉 (상한가/하한가 lock, high==low==close).
+            # 종가가 정의상 range 의 100% — 상단 마감으로 확정 (null 아님).
+            # null 처리 시 상한가 돌파(최강 신호)가 go_now 금지로 오차단 (#37 리뷰).
+            close_range_pos = 1.0
+            close_upper_third = True
+            close_middle_third = False
 
     spread_ratio = None
     spread_wide_loose = None
@@ -108,12 +131,25 @@ def compute_gates(
                 spread_wide_loose = spread_ratio > SPREAD_WIDE_LOOSE_MULT
 
     # --- 분배일 창 (20d 리스트 소스, flag None=미계수) ---
-    dist_3 = _dist_count(ohlcv_20d, STOCK_DIST_CLEAN_WINDOW_DAYS)
-    dist_5 = _dist_count(ohlcv_20d, STOCK_DIST_ABORT_WINDOW_DAYS)
+    dist_3 = _dist_count(
+        ohlcv_20d,
+        STOCK_DISTRIBUTION_CLEAN_WINDOW_DAYS,
+        STOCK_DISTRIBUTION_CLEAN_WINDOW_CAL_CAP,
+    )
+    dist_5 = _dist_count(
+        ohlcv_20d,
+        STOCK_DISTRIBUTION_ABORT_WINDOW_DAYS,
+        STOCK_DISTRIBUTION_ABORT_WINDOW_CAL_CAP,
+    )
 
     low_below_base_low = (
         last["low"] < base_low
         if last is not None and base_low is not None
+        else None
+    )
+    close_below_base_low = (
+        close < base_low
+        if close is not None and base_low is not None
         else None
     )
 
@@ -137,12 +173,15 @@ def compute_gates(
             tt_all_passed = None
         else:
             tt_all_passed = True
-        # margin None(미산출) = marginal 계수 (보수) — A §2 강등 기준의 정확한 역
+        # A §2 정의의 정확한 역: 'PASS 하면서 margin < 3%' 인 조건만 marginal.
+        # margin None(미산출)·탈락 조건은 미계수 — None 계수 시 데이터 결함이
+        # 회복을 영구 차단해 A 강등 기준과 어긋난다 (#37 리뷰).
         tt_marginal_count = sum(
             1
             for c in conditions_detail.values()
-            if c.get("margin_pct") is None
-            or c["margin_pct"] < TT_MARGIN_MARGINAL_PCT
+            if c.get("passed") is True
+            and c.get("margin_pct") is not None
+            and c["margin_pct"] < TT_MARGIN_MARGINAL_PCT
         )
         if tt_all_passed is None:
             tt_recovery_ok = None
@@ -174,9 +213,12 @@ def compute_gates(
         "no_dist_3d": (dist_3 == 0) if dist_3 is not None else None,
         "dist_days_last_5": dist_5,
         "dist_3plus_5d": (
-            dist_5 >= STOCK_DIST_ABORT_COUNT_5D if dist_5 is not None else None
+            dist_5 >= STOCK_DISTRIBUTION_ABORT_COUNT
+            if dist_5 is not None
+            else None
         ),
         "low_below_base_low": low_below_base_low,
+        "close_below_base_low": close_below_base_low,
         "close_below_sma50_breach": close_below_sma50_breach,
         "close_below_sma21": close_below_sma21,
         "market_dist_count": mkt_dist,

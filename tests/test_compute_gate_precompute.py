@@ -123,12 +123,15 @@ def test_close_range_position_middle_third():
     assert g["close_middle_third"] is True
 
 
-def test_close_range_position_null_when_flat_bar():
+def test_close_range_position_flat_bar_is_upper():
+    """range 0 = 단일가 잠금 봉(상한가 lock) — 종가가 정의상 range 100% → 상단 확정.
+    null 처리 시 상한가 돌파(최강 신호)가 go_now 금지로 오차단 (#37 리뷰)."""
     rows = _rows()
     rows[-1]["high"] = rows[-1]["low"] = rows[-1]["close"] = 100.0
     g = _gates(ohlcv_20d=rows)
-    assert g["close_range_pos"] is None
-    assert g["close_upper_third"] is None
+    assert g["close_range_pos"] == 1.0
+    assert g["close_upper_third"] is True
+    assert g["close_middle_third"] is False
 
 
 # ---- spread ----
@@ -180,6 +183,35 @@ def test_dist_null_flag_not_counted():
     assert g["no_dist_3d"] is True
 
 
+def test_dist_null_when_rows_below_window():
+    """행 수 < 창 → 관측 불가 = null (관측 없는 통과 금지, #37 리뷰)."""
+    g = _gates(ohlcv_20d=_rows(n=2))
+    assert g["dist_days_last_3"] is None
+    assert g["no_dist_3d"] is None
+    assert g["dist_days_last_5"] is None
+    assert g["dist_3plus_5d"] is None
+
+
+def test_dist_stale_rows_beyond_cal_cap_not_counted():
+    """halt 로 창이 캘린더 상한(clean 7d/abort 11d)을 넘어 늘어진 stale 행은 미계수.
+
+    구성: 5월 15행 + 6월 초 4행(전부 분배일) + [6주 halt 공백] + 재개일 07-20 1행.
+    row 기준 최근 3/5행에는 6월 분배일들이 들어오지만 캘린더 상한 밖 → 0 계수.
+    """
+    rows = [
+        _row(f"2026-05-{i+1:02d}", 100, 102, 98, 101, 1000) for i in range(15)
+    ]
+    rows += [
+        _row(f"2026-06-{d:02d}", 100, 102, 98, 99, 1000, flag=True)
+        for d in (5, 6, 7, 8)
+    ]
+    rows.append(_row("2026-07-20", 100, 102, 98, 101, 1000))
+    g = _gates(ohlcv_20d=rows)
+    assert g["dist_days_last_3"] == 0
+    assert g["dist_days_last_5"] == 0
+    assert g["dist_3plus_5d"] is False
+
+
 # ---- abort inputs ----
 
 def test_low_below_base_low():
@@ -187,6 +219,16 @@ def test_low_below_base_low():
     rows[-1]["low"] = 99.0
     assert _gates(ohlcv_20d=rows)["low_below_base_low"] is True
     assert _gates()["low_below_base_low"] is False
+
+
+def test_close_below_base_low():
+    """§3.2 abort 의 종가 기준 base_low 이탈 — low 기준과 별도 필드 (#37 리뷰)."""
+    g = _gates(current_metrics=_metrics(close=99.0))
+    assert g["close_below_base_low"] is True
+    assert _gates()["close_below_base_low"] is False
+    assert _gates(prior_analysis={"pivot_price": 120.0, "base_low": None})[
+        "close_below_base_low"
+    ] is None
 
 
 def test_sma_breaches():
@@ -240,9 +282,22 @@ def test_tt_recovery_blocked_when_condition_failed():
     assert g["tt_recovery_ok"] is False
 
 
-def test_tt_none_margin_counts_as_marginal():
+def test_tt_none_margin_not_counted():
+    """margin 미산출(None)은 marginal 미계수 — A §2 는 'PASS 하면서 <3%' 만 세므로
+    None 계수 시 데이터 결함이 회복을 영구 차단해 정확한 역이 깨진다 (#37 리뷰)."""
     g = _gates(conditions_detail=_tt(passed=8, marginal=2, none_margin=1))
-    assert g["tt_marginal_count"] == 3
+    assert g["tt_marginal_count"] == 2
+    assert g["tt_recovery_ok"] is True
+
+
+def test_tt_failed_condition_margin_not_counted():
+    """탈락 조건의 (음수) margin 은 marginal 미계수 — marginal 은 'PASS' 전제."""
+    detail = _tt(passed=8, marginal=2)
+    detail["c8"]["passed"] = False
+    detail["c8"]["margin_pct"] = -5.0
+    g = _gates(conditions_detail=detail)
+    assert g["tt_marginal_count"] == 2
+    assert g["tt_all_passed"] is False
     assert g["tt_recovery_ok"] is False
 
 
