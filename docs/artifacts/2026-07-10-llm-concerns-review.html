@@ -1,0 +1,777 @@
+<title>LLM 분류 파이프라인 — 세 가지 고민 검토</title>
+<style>
+:root {
+  --bg: #F6F7F6; --panel: #FFFFFF; --ink: #212B27; --muted: #5B6862;
+  --line: #DFE5E1; --accent: #0E7A5F; --accent-ink: #0B5E4A; --accent-soft: #E3F0EA;
+  --warn: #A66A1E; --warn-soft: #F6EDDD; --crit: #B03A2E; --crit-soft: #F5E4E1;
+  --code-bg: #EEF2EF; --shadow: 0 1px 3px rgba(30,43,38,.07);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131817; --panel: #1B2220; --ink: #DCE5E0; --muted: #93A19A;
+    --line: #2A3430; --accent: #46B08D; --accent-ink: #5FC4A2; --accent-soft: #1E2F29;
+    --warn: #D19A4C; --warn-soft: #2E2619; --crit: #D96C5F; --crit-soft: #33201D;
+    --code-bg: #232C29; --shadow: 0 1px 3px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131817; --panel: #1B2220; --ink: #DCE5E0; --muted: #93A19A;
+  --line: #2A3430; --accent: #46B08D; --accent-ink: #5FC4A2; --accent-soft: #1E2F29;
+  --warn: #D19A4C; --warn-soft: #2E2619; --crit: #D96C5F; --crit-soft: #33201D;
+  --code-bg: #232C29; --shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+:root[data-theme="light"] {
+  --bg: #F6F7F6; --panel: #FFFFFF; --ink: #212B27; --muted: #5B6862;
+  --line: #DFE5E1; --accent: #0E7A5F; --accent-ink: #0B5E4A; --accent-soft: #E3F0EA;
+  --warn: #A66A1E; --warn-soft: #F6EDDD; --crit: #B03A2E; --crit-soft: #F5E4E1;
+  --code-bg: #EEF2EF; --shadow: 0 1px 3px rgba(30,43,38,.07);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: Pretendard, "Pretendard Variable", "Apple SD Gothic Neo", -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+  font-size: 16px; line-height: 1.75; -webkit-font-smoothing: antialiased;
+}
+code, .mono {
+  font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-size: .86em; background: var(--code-bg); border-radius: 4px; padding: .1em .35em;
+  word-break: break-all;
+}
+.wrap { max-width: 880px; margin: 0 auto; padding: 0 24px 96px; }
+header.doc { padding: 48px 0 20px; border-bottom: 1px solid var(--line); }
+.eyebrow {
+  font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700; margin-bottom: 10px;
+}
+h1.title { font-size: 30px; line-height: 1.35; margin: 0 0 10px; font-weight: 800; text-wrap: balance; }
+.meta { color: var(--muted); font-size: 14px; }
+.tabbar {
+  position: sticky; top: 0; z-index: 20; background: var(--bg);
+  display: flex; gap: 8px; padding: 14px 0 0; border-bottom: 1px solid var(--line);
+}
+.tabbar button {
+  appearance: none; border: 1px solid var(--line); border-bottom: none;
+  background: var(--panel); color: var(--muted); font: inherit; font-weight: 700; font-size: 15px;
+  padding: 10px 22px; border-radius: 10px 10px 0 0; cursor: pointer;
+}
+.tabbar button[aria-selected="true"] {
+  color: var(--accent-ink); border-color: var(--accent);
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+.tabbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tabpane { display: none; }
+.tabpane.active { display: block; }
+section.blk { margin-top: 44px; }
+h2 { font-size: 22px; margin: 0 0 6px; font-weight: 800; text-wrap: balance; }
+h3 { font-size: 17px; margin: 30px 0 6px; font-weight: 700; }
+p { margin: 12px 0; }
+ul, ol { margin: 12px 0; padding-left: 24px; }
+li { margin: 6px 0; }
+.chip {
+  display: inline-block; font-size: 12.5px; font-weight: 700; line-height: 1;
+  padding: 5px 10px; border-radius: 999px; vertical-align: 2px; margin-left: 8px;
+}
+.chip.ok { background: var(--accent-soft); color: var(--accent-ink); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.crit { background: var(--crit-soft); color: var(--crit); }
+.chip.fact { background: var(--accent-soft); color: var(--accent-ink); }
+.chip.guess { background: var(--warn-soft); color: var(--warn); }
+.card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 18px 22px; margin: 16px 0; box-shadow: var(--shadow);
+}
+.card.note { border-left: 4px solid var(--accent); }
+.card.caution { border-left: 4px solid var(--warn); }
+.card.scenario { border-left: 4px solid var(--accent); }
+.card .label {
+  font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+  font-weight: 800; color: var(--accent-ink); margin-bottom: 6px;
+}
+.card.caution .label { color: var(--warn); }
+.oneline {
+  background: var(--accent-soft); border: 1px solid var(--accent);
+  border-radius: 12px; padding: 14px 20px; margin: 14px 0; font-weight: 600;
+}
+.oneline .label {
+  display: block; font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--accent-ink); font-weight: 800; margin-bottom: 4px;
+}
+.tablewrap { overflow-x: auto; margin: 16px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; background: var(--panel); }
+th, td { border: 1px solid var(--line); padding: 9px 12px; text-align: left; vertical-align: top; }
+th { background: var(--code-bg); font-weight: 700; white-space: nowrap; }
+td.num { font-variant-numeric: tabular-nums; }
+.qa { margin: 26px 0; }
+.qa .q {
+  font-weight: 800; font-size: 16.5px; color: var(--accent-ink);
+  margin-bottom: 6px;
+}
+.divider { border: none; border-top: 1px solid var(--line); margin: 40px 0; }
+.toc { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 22px; margin: 20px 0; }
+.toc .label { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 800; color: var(--muted); margin-bottom: 8px; }
+.toc ol { margin: 0; }
+.kbd-note { color: var(--muted); font-size: 13.5px; }
+.flow {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0;
+  font-size: 14px; font-weight: 600;
+}
+.flow .step { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; }
+.flow .arr { color: var(--muted); }
+strong { font-weight: 700; }
+@media (prefers-reduced-motion: no-preference) {
+  .tabpane.active { animation: fadein .18s ease; }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+}
+</style>
+
+<div class="wrap">
+  <header class="doc">
+    <div class="eyebrow">kr-by-claude · 검토 문서 · 2026-07-10</div>
+    <h1 class="title">LLM 분류 파이프라인 — 세 가지 고민에 대한 객관 검토</h1>
+    <div class="meta">
+      대상: ① 결정론 선계산 분리 ② 분류 프롬프트 5대 우려 ③ cowork + web claude 활용 계획 ·
+      전 주장 리포 실파일 재검증 완료(payload_builder·analyze_chart_v3·리뷰 시리즈 4편·freeze store·memory)
+    </div>
+  </header>
+
+  <nav class="tabbar" role="tablist" aria-label="문서 버전 선택">
+    <button id="tabbtn-orig" role="tab" aria-selected="true" aria-controls="tab-orig">원본 검토</button>
+    <button id="tabbtn-easy" role="tab" aria-selected="false" aria-controls="tab-easy">초보자 설명</button>
+  </nav>
+
+  <!-- ============================================================ -->
+  <!-- 탭 1: 원본 검토                                                -->
+  <!-- ============================================================ -->
+  <main id="tab-orig" class="tabpane active" role="tabpanel" aria-labelledby="tabbtn-orig">
+
+    <section class="blk">
+      <div class="card note">
+        <div class="label">재검증 노트 (2026-07-10)</div>
+        <p style="margin:6px 0 0">이 문서의 사실 주장은 기억이 아니라 리포 실파일로 재검증했다.
+        <code>payload_builder.py</code>의 선계산 항목, <code>analyze_chart_v3.md</code>의 §2/§3.5/§4.7/±5% 밴드/§6.1 원문,
+        <code>claude_cli.py</code>의 호출·재시도 로직, 리뷰 시리즈 01~03편의 결론, freeze store 경로, 블라인드 번들 존재,
+        로드맵 F7 항목까지 전부 원문 대조 일치. 재검증에서 고친 것 2건:
+        ① 인라인 최적화의 토큰 절감치를 "약 80%"에서 02편 실측 표기인 <strong>−77%대</strong>로 정정,
+        ② "결정론 이관 → 소요시간 단축" 기대를 <strong>미측정 추정</strong>으로 완화
+        (02편은 thinking 축소 시 시각 판단 품질 하락 위험을 경고하며 판정 불변 검사 통과를 요구한다).</p>
+      </div>
+      <p><strong>총평</strong> — 세 고민 모두 허공의 걱정이 아니라 실제 구조와 맞닿아 있다.
+      다만 일부는 이미 리포 안에서 답이 나와 있는 상태다.</p>
+    </section>
+
+    <hr class="divider">
+
+    <section class="blk">
+      <h2>(1) "결정론적 계산을 앞단으로 빼면 LLM 응답 질이 올라갈 것" — 타당한가
+        <span class="chip ok">타당 · 절반은 이미 완료</span></h2>
+
+      <p><strong>타당하다. 다만 절반은 이미 되어 있고, 이 고민 자체가 이미 문서화되어 있다.</strong></p>
+
+      <p>먼저 사실관계: 이 고민은 2026-07-08 밤샘 리뷰 시리즈 1편
+      (<code>docs/artifacts/2026-07-08-llm-review-series/01-deterministic-extraction.html</code>)에서
+      이미 같은 문제의식으로 전수 분석이 끝나 있다. 그리고 현재 파이프라인은 생각보다 훨씬 많이
+      선계산을 하고 있다. <code>payload_builder.py</code>가 Minervini 8조건 통과 여부 + 조건별
+      margin_pct, RS rating, 52주 고저 거리, pocket pivot flag, distribution day flag,
+      RS line 6주/13주 추세까지 전부 코드로 계산해서 넘기고, LLM은 이 값을 소비만 한다.
+      즉 "LLM이 너무 많은 걸 계산한다"는 전제는 부분적으로만 맞다.</p>
+
+      <p>그래서 실제로 남아 있는 이관 대상은 <code>prompts/analyze_chart_v3.md</code> 안의
+      특정 섹션들로 좁혀진다:</p>
+      <ul>
+        <li><strong>아직 프롬프트가 계산하는 결정론 영역</strong>: §2 마진 카운트("8조건 중 3개 이상이
+        3% 미만 마진이면 confidence 상한 0.6"), §3.5 시장 방향 하드룰(if문 수준), §4.7 pivot
+        산술(<code>handle_high + 0.1</code>), §8.5 pivot 대비 ±5% 밴드 판정(entry/valid_base/extended 경계),
+        §6.1/§6.2 climax·topping의 정량 게이트("3주 윈도 25% 급등" 등 주봉 숫자 비교).</li>
+        <li><strong>LLM이 반드시 해야 하는 영역</strong>: 컵 바닥의 U자/V자 곡률, VCP 수축의
+        "조여듦" 질감, 핸들 drift/shakeout, wide-and-loose 종합 인상, 한국어 근거문 —
+        주말 분류(A)는 차트 이미지를 보는 유일한 사이트라서 완전 대체는 불가능하다.</li>
+      </ul>
+
+      <p><strong>정확도 향상 기대는 근거가 있다.</strong> Sonnet 5 검증에서 확인된 불일치가 정확히
+      climax/topping <em>경계</em> 판정이었는데, §6.1/§6.2는 상당 부분 정량 게이트라 이 부분을
+      코드로 빼면 경계 오판이 줄어들 여지가 실제로 있다. 시간·사용량 측면은: 02편 실측상 종목당
+      ~180초의 주범이 모델 thinking(234초 중 ~160초)이므로 판단 부담을 덜면 같이 줄 여지가 있으나,
+      이는 <strong>미측정 추정</strong>이다 — 02편은 thinking을 줄이면 시각 판단 품질이 떨어질 위험이
+      실재한다고 경고하며, 판정 불변 검사(45/45 방식) 통과를 전제 조건으로 둔다.</p>
+
+      <div class="card caution">
+        <div class="label">단, 두 가지 조건</div>
+        <ol style="margin:6px 0 0">
+          <li><strong>이관은 반드시 "값 전달 + 프롬프트의 해당 계산 지시 삭제 + drift 테스트 확장"을
+          한 세트로.</strong> 값만 넘기고 프롬프트에 옛 계산 지시를 남기면 정확히 지금 C 프롬프트에서
+          발견된 유령입력(존재하지 않는 payload 필드 참조 3건) 같은 사문·모순이 생긴다. 이미
+          handle_quality, failed_breakout이 이 방식으로 이관된 선례
+          (<code>kr_pipeline/llm_runner/compute/</code>)가 있으니 그 패턴을 따르면 된다.</li>
+          <li><strong>순서는 리뷰 1편의 우선순위를 따르는 게 맞다</strong>: C(entry params)는 프롬프트
+          자체가 계산 절차서라 통째 결정론 대체(효과 大·위험 小)가 1순위, B(pivot trigger) 정량
+          게이트가 2순위, 주말 분류 A는 정량 섹션의 순차 부분 이관이 3순위다. 고민의 출발점이
+          주말 분류였지만, 투입 대비 효과는 C가 가장 크다.</li>
+        </ol>
+      </div>
+
+      <p>마지막으로 온도 조절 하나: 백테스트에서 분류층 방어는 0/1,075로 결함이 없었다.
+      즉 "LLM이 잘못 판단하고 있을 것"이라는 걱정의 크기보다 실제 관측된 결함은 작다.
+      이 작업은 "망가진 걸 고치는 수리"가 아니라 <strong>"경계 판정의 분산을 줄이는 개선"</strong>으로
+      접근하고, 효과는 이관 전후 패턴 비교로 측정하는 게 맞다(LLM 비결정성 때문에 단발 재실행
+      비교는 무효 — 기존 백필 검증에서 확립된 원칙).</p>
+    </section>
+
+    <hr class="divider">
+
+    <section class="blk">
+      <h2>(2) 프롬프트에 대한 다섯 가지 우려</h2>
+
+      <div class="qa">
+        <div class="q">a. web claude project에 같은 파일·프롬프트를 주면 같은 결과가 나올까?
+          <span class="chip crit">기준 자체를 교체해야 함</span></div>
+        <p><strong>안 나온다. 그리고 "같은 결과"는 애초에 잘못된 기준이다.</strong> 세 가지 이유다.
+        첫째, LLM 비결정성 — 같은 시스템에서 같은 입력을 두 번 돌려도 결과가 다를 수 있다는 건
+        이 프로젝트의 백필 검증에서 이미 확립된 사실이다. 둘째, web claude project는 입력 자체가
+        다르다. 그 프로젝트에는 미너비니·오닐 책 PDF가 컨텍스트로 들어가 있어서, 프롬프트에 증류된
+        임계값 대신 책 원문을 직접 참조해 판단할 수 있다 — 이건 "같은 시스템의 재현"이 아니라
+        "다른 시스템"이다. 셋째, 시스템 프롬프트·도구 환경도 CLI와 web이 다르다.
+        올바른 기준은 <strong>일치율과 불일치의 패턴</strong>이다. Sonnet 5 검증이 정확히 이 방법
+        (층화표본 20건, 75% 일치 = 15/20, 불일치 5건 전부 watch↔ignore 인접 1단계로
+        climax/topping 경계에 집중)을 썼고, 그 방법론을 재사용하면 된다.</p>
+      </div>
+
+      <div class="qa">
+        <div class="q">b. 프롬프트는 제대로 작성되어 있는가?
+          <span class="chip warn">견고하나 결함 목록 존재</span></div>
+        <p><strong>"대체로 견고하나 알려진 결함이 목록화되어 있는 상태"가 정답이다.</strong>
+        막연히 걱정할 단계는 지났다. 03편 모순 감사가 확정 모순 8건을 이미 찾아놨고, 상위 결함은
+        (i) C 프롬프트 유령입력 3건(도달 불가능한 pocket pivot 분기 포함 —
+        <code>prior_analysis.reasoning</code>·<code>prior_analysis.confidence</code>는 payload에 없고,
+        echo 검증 키는 <code>current_metrics.close</code>가 아니라 실제로는
+        <code>current_state.close</code>), (ii) dist≥5 강등 역류(A가 분배일 5개로 watch 강등한 종목을
+        B가 분배일 재확인 없이 go_now 통과 → C가 보수화까지 면제), (iii) 분배일 정의 불일치
+        (프롬프트 −0.2% vs 코드 0% 컷, 과대 집계)다. 이 중 유령입력 2건은 미수리 백로그로 남아 있다.
+        그러니 이 우려에 대한 행동은 "프롬프트가 괜찮은지 새로 걱정하기"가 아니라
+        <strong>이미 나온 수리 백로그를 소진하는 것</strong>이다.</p>
+      </div>
+
+      <div class="qa">
+        <div class="q">c. Claude Code가 프롬프트를 제대로 수행하고 있는가?
+          <span class="chip ok">규칙 단위로 측정 가능 · 측정 범위 내 준수율 높음</span></div>
+        <p><strong>규칙 단위로 측정 가능하고, 측정된 범위에서는 준수율이 높다.</strong> 이미 검증
+        장치가 여럿 있다: sanity_warnings 컬럼, current_price echo 검증, entry_params sanity 체크,
+        그리고 freeze store(<code>data/freezes/</code>)에 실제 전송된 입력 전체
+        (<code>inline_input.md</code> + 차트 PNG 2장)가 zip으로 보존되어 사후 감사가 가능하다.
+        백테스트에서 분류 1,075건·확인감사 33건 모두 방어 규칙 위반 0건이었다. 반대 방향의 발견도
+        있다 — 유령입력 때문에 LLM이 <em>수행할 수 없는</em> 죽은 규칙이 존재한다는 것.
+        즉 "전반적으로 따르는가"라는 총론 질문보다 "어느 규칙이 죽어 있는가"라는 각론 감사가
+        유효하고, 그건 이미 진행 중이다.</p>
+      </div>
+
+      <div class="qa">
+        <div class="q">d. 한 번에 너무 많은가? 단계를 나눠야 하는가?
+          <span class="chip crit">분할 비권장 — 시스템 자체가 반례 보유</span></div>
+        <p><strong>나누지 않는 걸 권한다. 이 시스템이 그 반례를 이미 갖고 있다.</strong> 파이프라인은
+        이미 A(분류)→B(트리거)→C(파라미터) 3단계 LLM 체인인데, 03편의 최상위 모순 두 건
+        (유령입력, dist≥5 역류)이 정확히 <em>호출과 호출 사이의 컨텍스트 단절</em>에서 발생했다.
+        A 안에서 또 쪼개면 같은 부류의 봉합 결함 표면이 늘어난다. 게다가 입력 쪽은 이미 최적화가
+        끝났고(ZIP 탐색 8~12턴 → 인라인 1턴, 토큰 −77%대), 소요 시간의 주범은 프롬프트 길이가
+        아니라 thinking이다. 부담을 줄이는 올바른 지렛대는 분할이 아니라 (1)의 결정론 이관으로
+        프롬프트에서 판단 항목 자체를 제거하는 것이다.</p>
+      </div>
+
+      <div class="qa">
+        <div class="q">e. 실제 미너비니·오닐 방식을 그대로 구현한 것인가?
+          <span class="chip ok">앵커 구조로 검증 가능 · 갱신 검토 시점 도래</span></div>
+        <p><strong>"앵커가 박힌 곳은 검증 가능, 그 외는 명시적 휴리스틱"이 현재 상태다.</strong>
+        <code>thresholds.py</code>는 상수마다 책 원전 주석(예: <code>C6_W52LOW_MULT=1.25</code> —
+        TLSMW p.79의 1.30 vs TTLC Ch.6의 1.25를 비교해 최신작 채택)을 달고
+        <code>[book-anchor]</code>(변경금지)/<code>[heuristic]</code>(튜닝가능)을 구분한다.
+        그리고 외부 책-충실성 검토는 이미 한 번 수행됐다 — 2026-06-02 웹 Claude project 검토에서
+        partial_agree, "cup-without-handle 패턴 부재"라는 taxonomy 갭이 발견되어 로드맵 F7 백로그에
+        올라가 있다. 즉 우려는 정당하지만 미지의 영역이 아니라, "그때 이후 프롬프트가 많이
+        바뀌었으니(v3, Gate0~3 트리 등) 현재 버전으로 충실성 검토를 갱신할 때가 됐는가"라는
+        구체적 질문으로 바꿀 수 있다. 답은 '그렇다'이고, 이게 (3)의 두 번째 계획과 자연스럽게
+        연결된다.</p>
+      </div>
+    </section>
+
+    <hr class="divider">
+
+    <section class="blk">
+      <h2>(3) cowork + web claude project 활용 계획에 대한 의견</h2>
+
+      <h3>계획 1 — 일부 종목을 web claude에 동일 투입 → 결과 비교
+        <span class="chip warn">취지 좋음 · 설계 3곳 수정 필요</span></h3>
+      <ol>
+        <li><strong>노이즈 바닥부터 측정해야 한다.</strong> LLM은 자기 자신과도 100% 일치하지
+        않으므로, "우리 파이프라인 vs web claude" 일치율만 재면 그 차이가 시스템 차이인지
+        비결정성인지 구분할 수 없다. 같은 freeze 입력을 파이프라인에서 2회 돌린 자기 일치율을
+        먼저 재고, 교차 일치율을 그 바닥과 비교해야 한다.</li>
+        <li><strong>모델은 같은 것(sonnet 핀)을 써야 한다.</strong> 질문이 "우리 CLI 파이프라인이
+        web과 다르게 동작하는가"라면 모델을 고정하고 환경만 바꿔야 한다. Fable 5를 쓰면
+        "환경 차이"와 "모델 차이"가 교락되어 어느 쪽 결론도 못 낸다. "더 좋은 모델이면 나아지는가"는
+        별도 실험(제3의 팔)로 분리할 것 — 한 번에 한 변수다.</li>
+        <li><strong>web claude <em>project</em>가 아니라 깨끗한 web 대화에서 해야 공정 비교다.</strong>
+        프로젝트에는 책 PDF가 들어 있어 입력이 다른 시스템이 된다(2a 참조). 책 PDF의 영향 자체를
+        보고 싶다면 그걸 세 번째 조건으로 명시적으로 두면 된다.</li>
+      </ol>
+      <p>실행 측면에서는 유리한 조건이 이미 갖춰져 있다. freeze store에 종목별
+      <code>inline_input.md</code> + PNG 2장이 그대로 보존되어 있어 cowork 브라우저 자동화로
+      재투입이 가능하고, 표본은 verdict(entry/watch/ignore)별 층화 추출을 권한다. 다만 그 전에
+      하나 — <strong>Sonnet 5 검증 때 만들어둔 블라인드 번들 v2
+      (<code>data/backtest/sonnet5_eval_bundle_20260702/</code>, 매핑 SEALED)가 미평가 상태로 남아
+      있다.</strong> 이 실험이 답하려는 질문의 상당 부분(판정 일치율, 불일치 패턴)을 그 번들 평가가
+      더 싸게 답할 수 있으니, 새 실험 전에 그것부터 소진하는 걸 권한다.</p>
+
+      <h3>계획 2 — cowork가 시스템 파악 → web claude project에 피드백 요청 → 개선안 문서화 (코드 수정 없음)
+        <span class="chip ok">타당 · 저위험 · 범위 집중 권장</span></h3>
+      <p>내부 감사(리뷰 시리즈 4편, 2라운드 검증)가 이미 모순·비효율을 훑었기 때문에, web claude에
+      일반적인 "문제 찾아줘"를 던지면 내부 감사와 중복된 지적을 받을 확률이 높다. web claude
+      project의 <strong>비교우위는 책 PDF를 갖고 있다는 것 하나</strong>다 — 내부 리뷰가 판정할 수
+      없는 유일한 영역이 책-충실성(2e)이므로, 피드백 요청을 여기에 집중시킬 것: 현재 v3 프롬프트
+      전문 + freeze 실물 샘플 몇 건을 주고 "책 원문 대비 임계·패턴 정의·게이트 로직의 충실성"을
+      묻는 것. 2026-06-02 검토의 갱신판이 되는 셈이고, F7 백로그(cup-without-handle)의 후속 확인도
+      겸할 수 있다.</p>
+      <div class="card caution">
+        <div class="label">주의점</div>
+        <p style="margin:6px 0 0">web claude가 임계값 변경을 제안하면 그대로 반영하지 말고,
+        CLAUDE.md가 요구하는 threshold-change-checklist(의존성 맵 2축 판정)를 반드시 거쳐야 한다.
+        프롬프트 임계 텍스트 변경이 정확히 그 트리거 조건이고, dist≥5 역류 같은 모순이 바로
+        "임계 하나 바꿀 때 소비처를 안 본" 데서 나온 부류다. "코드 수정은 하지 않고 문서화만"이라는
+        방침은 좋다 — 그 문서에 체크리스트 통과 여부 칸을 미리 만들어 둘 것.</p>
+      </div>
+    </section>
+
+    <hr class="divider">
+
+    <section class="blk">
+      <h2>답변 자체의 2차 검토에서 고친 부분</h2>
+      <p>초안을 한 번 훑고 다음을 수정했다.</p>
+      <ul>
+        <li><strong>(1)</strong> 초안은 "타당하니 진행하라"에 가까웠는데, payload_builder가 이미
+        8조건 마진·RS·distribution flag까지 선계산해 넘긴다는 사실을 확인하고 "남은 이관 대상은
+        프롬프트 §단위로 한정된다"로 구체화했다. 또 백테스트 분류층 0/1,075 결과를 근거로
+        "수리가 아니라 분산 감소 개선"으로 기대 수준을 조정했다.</li>
+        <li><strong>(2d)</strong> 초안은 일반론("분할은 비용 증가")이었는데, 이 시스템 자체의
+        A→B→C 체인에서 발생한 모순 2건이 분할의 실증 반례라는 점으로 근거를 교체했다.</li>
+        <li><strong>(3)</strong> 초안에 없던 두 가지를 추가했다: 자기 일치율(노이즈 바닥) 선측정 —
+        이것 없이는 비교 실험 전체가 해석 불능이라 가장 중요한 보완이고, 미평가 블라인드 번들 v2의
+        존재 — 새 실험보다 싼 대체재가 이미 있다는 사실이다. 또 "web claude project 그대로 사용"이
+        책 PDF 때문에 공정 비교가 아니라는 점을 계획 1의 결함으로 승격했다.</li>
+        <li><strong>(재검증, 2026-07-10 추가)</strong> 토큰 절감치 "약 80%" → 02편 실측 표기
+        "−77%대"로 정정. "결정론 이관 → 시간 단축" 기대를 미측정 추정으로 완화하고 02편의
+        판정 불변 검사 전제를 병기.</li>
+      </ul>
+    </section>
+
+    <hr class="divider">
+
+    <section class="blk">
+      <h2>요약</h2>
+      <p><strong>(1)</strong>은 타당하며 실행 우선순위는 C→B→A 순서로 이미 문서화되어 있고,
+      <strong>(2)</strong>는 다섯 우려 모두 정당하나 a는 기준을 "동일성→일치율"로 바꿔야 하며
+      b·c·e는 이미 부분 답이 존재하고, <strong>(3)</strong>은 계획 2(책-충실성 집중 피드백)가
+      계획 1보다 투입 대비 가치가 높다. 계획 1을 하려면 자기 일치율 측정과 모델 고정이
+      선행 조건이다.</p>
+    </section>
+  </main>
+
+  <!-- ============================================================ -->
+  <!-- 탭 2: 초보자 설명                                              -->
+  <!-- ============================================================ -->
+  <main id="tab-easy" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-easy">
+
+    <section class="blk">
+      <div class="toc">
+        <div class="label">읽는 순서</div>
+        <ul style="list-style:none; padding-left:4px">
+          <li>0. 배경 — 이 시스템이 뭘 하는 시스템인가</li>
+          <li>1. 용어 정리 표</li>
+          <li>2. 고민 (1) — "계산은 코드가, 해석은 LLM이" 하자는 아이디어</li>
+          <li>3. 고민 (2) — 프롬프트에 대한 다섯 가지 걱정 a~e</li>
+          <li>4. 고민 (3) — web claude와 비교·피드백 실험 계획</li>
+          <li>5. 이 답변 자체는 어떻게 검증됐나</li>
+          <li>6. 세 줄 요약</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="blk">
+      <h2>0. 배경 — 이 시스템이 뭘 하는 시스템인가</h2>
+      <p>이 검토를 이해하려면 시스템이 매주 뭘 하는지부터 알아야 한다.</p>
+      <p>이 프로젝트는 한국 주식(KOSPI/KOSDAQ) 중에서 "지금 사볼 만한 종목"을 골라내는
+      파이프라인이다. 두 단계로 나뉜다.</p>
+      <ol>
+        <li><strong>스크리너(코드)</strong>: 전체 2,500여 종목을 숫자 조건(주가가 이동평균선 위에
+        있는가, 52주 저가 대비 25% 이상 올랐는가 등 8가지)으로 걸러서 후보를 추린다. 이건 전부
+        Python 코드가 계산한다 — 같은 입력이면 항상 같은 결과가 나온다.</li>
+        <li><strong>LLM 분류(토요일 주말 작업)</strong>: 걸러진 후보 각각에 대해 차트 이미지 2장
+        (일봉/주봉)과 데이터 파일을 Claude에게 주고 "이 차트가 매수할 만한 모양인가?"를 묻는다.
+        Claude는 종목마다 <code>entry</code>(진입 후보) / <code>watch</code>(관찰) /
+        <code>ignore</code>(무시) 중 하나로 판정하고 이유를 쓴다. 종목당 약 180초가 걸린다.</li>
+      </ol>
+      <p>여기서 LLM(Large Language Model, Claude 같은 대형 언어 모델)에게 판단을 시키는 이유는
+      단 하나다 — <strong>차트의 "모양"은 숫자 조건만으로 판정하기 어렵기 때문</strong>이다.
+      예를 들어 "컵 모양으로 완만하게 내려갔다가 올라왔는가"는 사람이 눈으로 보고 판단하는
+      영역이라서, 차트 이미지를 볼 수 있는 LLM에게 맡긴다.</p>
+      <p>그리고 LLM 이후에도 두 단계가 더 있다. 전체 흐름은 이렇다:</p>
+      <div class="flow">
+        <span class="step">A. 주말 분류<br><span class="kbd-note">"차트 모양 좋은가?"</span></span>
+        <span class="arr">→</span>
+        <span class="step">B. 매수 타이밍<br><span class="kbd-note">"오늘 돌파했는가?"</span></span>
+        <span class="arr">→</span>
+        <span class="step">C. 매수 파라미터<br><span class="kbd-note">"얼마에 얼마나 사는가?"</span></span>
+      </div>
+      <p>A, B, C 각각이 별도의 LLM 호출이고, 각각 별도의 프롬프트(LLM에게 주는 지시문)를 쓴다.
+      이 구조가 뒤에 나오는 고민 (2)d의 답과 직결되니 기억해 두면 좋다.</p>
+      <p>마지막 배경 하나: 사용자가 걱정하는 이 프롬프트는 <strong>web claude의 project</strong>
+      (claude.ai 웹에서 만드는 작업 공간으로, 미너비니와 오닐이 쓴 투자 책 PDF들이 업로드되어
+      있다)의 도움을 받아 작성됐다. 미너비니(Mark Minervini)와 오닐(William O'Neil)은 이 시스템이
+      따르는 투자 전략의 원저자들이다.</p>
+    </section>
+
+    <section class="blk">
+      <h2>1. 용어 정리 표</h2>
+      <p>아래 표만 알면 나머지 설명이 전부 읽힌다. 모르는 용어가 나오면 여기로 돌아오면 된다.</p>
+      <div class="tablewrap">
+        <table>
+          <tr><th>용어</th><th>뜻</th></tr>
+          <tr><td>프롬프트 (prompt)</td><td>LLM에게 주는 지시문. 이 시스템에서는 <code>prompts/analyze_chart_v3.md</code> 같은 577줄짜리 markdown 파일이다. "§2", "§4.7"은 이 파일 안의 절 번호.</td></tr>
+          <tr><td>결정론적 (deterministic)</td><td>같은 입력이면 항상 같은 출력이 나오는 성질. 코드의 계산이 그렇다. 반대로 LLM은 같은 입력에도 매번 조금씩 다른 답을 낼 수 있다(= 비결정성).</td></tr>
+          <tr><td>payload</td><td>LLM에게 프롬프트와 함께 넘기는 데이터 묶음(JSON). 종가, 이동평균, 8조건 통과 여부 같은 숫자들이 들어 있다. <code>payload_builder.py</code>가 만든다.</td></tr>
+          <tr><td>Minervini 8조건</td><td>"주가가 150일 이동평균 위" 같은 8가지 숫자 조건. 스크리너 통과 기준. margin(마진)은 각 조건을 얼마나 여유 있게 통과했는지의 %값.</td></tr>
+          <tr><td>pivot</td><td>매수 기준가. 차트 패턴에서 "이 가격을 넘으면 돌파"로 보는 지점. 예: 손잡이 최고가 + 0.1원.</td></tr>
+          <tr><td>climax run / topping</td><td>급등 막바지 신호 / 고점에서 무너지는 신호. 이게 보이면 좋아 보이는 차트라도 <code>ignore</code>로 강등된다.</td></tr>
+          <tr><td>분배일 (distribution day)</td><td>지수가 하락하면서 거래량은 늘어난 날 = 기관이 파는 날. 최근 25일에 5개 이상 쌓이면 시장이 위험하다는 신호로 취급.</td></tr>
+          <tr><td>freeze store</td><td>LLM에게 실제로 보낸 입력 전체(텍스트+차트 이미지 2장)를 zip으로 보관하는 저장소(<code>data/freezes/</code>). 나중에 "그때 뭘 보고 판단했나"를 재현·감사할 수 있다.</td></tr>
+          <tr><td>백테스트 (backtest)</td><td>과거 데이터(예: 2021~2024년)에 시스템을 돌려 "그때 이 규칙대로 했으면 어땠을까"를 측정하는 것.</td></tr>
+          <tr><td>SSOT (Single Source of Truth)</td><td>같은 값을 한 곳에서만 정의한다는 원칙. 이 시스템은 책에서 온 숫자들을 <code>thresholds.py</code> 한 파일에 모아 두고, 코드·UI·프롬프트가 그걸 따른다.</td></tr>
+          <tr><td>drift 테스트</td><td>프롬프트 안의 숫자와 <code>thresholds.py</code>의 숫자가 어긋나지 않았는지 자동으로 대조하는 테스트. 어긋남 = drift(표류).</td></tr>
+          <tr><td>일치율 / 층화 추출</td><td>일치율: 두 시스템의 판정이 같은 비율. 층화 추출: 표본을 뽑을 때 entry/watch/ignore 그룹별로 골고루 뽑는 방법.</td></tr>
+          <tr><td>교락 (confounding)</td><td>두 가지 원인을 동시에 바꿔서 어느 쪽 때문인지 알 수 없게 되는 것. 실험 설계에서 피해야 할 함정.</td></tr>
+          <tr><td>유령입력</td><td>프롬프트가 "payload의 X 필드를 봐라"라고 지시하는데 실제 payload에 X가 없는 상태. LLM은 없는 걸 볼 수 없으니 그 규칙은 영원히 실행되지 않는 죽은 규칙이 된다.</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <hr class="divider">
+
+    <section class="blk">
+      <h2>2. 고민 (1) — "계산은 코드가, 해석은 LLM이" 하자는 아이디어</h2>
+
+      <div class="oneline"><span class="label">한 줄 결론</span>
+      방향은 맞다 <span class="chip fact">확정</span>. 그런데 이미 절반은 그렇게 되어 있고,
+      나머지 절반도 "어디를 옮기면 되는지" 목록까지 문서로 나와 있다. 남은 건 실행 순서다.</div>
+
+      <h3>이 고민이 무슨 뜻인가</h3>
+      <p>지금 프롬프트는 LLM에게 두 종류의 일을 시킨다. 하나는 <strong>계산</strong>
+      ("8개 조건 중 몇 개가 3% 미만의 아슬아슬한 차이로 통과했는지 세라"), 다른 하나는
+      <strong>해석</strong>("이 컵 바닥이 완만한 U자인가 뾰족한 V자인가 보라"). 사용자의
+      아이디어는: 계산은 코드가 미리 해서 결과만 넘겨주면, LLM이 계산을 틀릴 일이 없어지고
+      해석에만 집중할 수 있으니 답의 질이 올라가지 않겠느냐는 것이다.</p>
+
+      <div class="card scenario">
+        <div class="label">실제 시나리오 — 계산을 옮기면 뭐가 달라지나</div>
+        <p style="margin:6px 0 0"><strong>지금(Before)</strong>: payload에 조건별 margin 숫자가
+        들어 있다 — <code>c1: 12.4%, c2: 1.1%, c3: 8.0%, c4: 2.7%, c5: 15.2%, c6: 2.9%, c7: 6.3%,
+        c8: 9.8%</code>. 프롬프트 §2는 LLM에게 "이 중 3% 미만이 3개 이상이면 confidence 상한을
+        0.6으로 낮춰라"라고 지시한다. LLM이 직접 세야 한다 — 1.1%, 2.7%, 2.9% 세 개를 골라내는
+        일인데, LLM은 이런 단순 집계에서도 가끔 실수한다.<br>
+        <strong>바꾸면(After)</strong>: 코드가 미리 세서 payload에
+        <code>marginal_count: 3</code> 한 줄을 추가하고, 프롬프트에서는 "세라"는 지시를 지운다.
+        세는 실수가 구조적으로 0이 된다. LLM은 남은 해석 작업만 한다.</p>
+      </div>
+
+      <h3>왜 "절반은 이미 되어 있다"고 하나 <span class="chip fact">확정 — 코드로 확인</span></h3>
+      <p><code>payload_builder.py</code>를 열어 보면, 8조건 통과 여부와 조건별 margin, RS rating
+      (시장 대비 상대강도 점수), 52주 최고가/최저가까지의 거리, pocket pivot flag(특수 매수 신호),
+      distribution day flag, RS line의 6주/13주 상승 추세까지 이미 코드가 전부 계산해서 LLM에게
+      넘기고 있다. 즉 "LLM이 너무 많은 걸 계산한다"는 걱정은 절반만 맞다 — 원자료 계산은 이미
+      코드 몫이고, LLM에게 남아 있는 건 그 값들을 <em>집계·비교하는 2차 계산</em>이다.</p>
+
+      <h3>그럼 아직 프롬프트에 남아 있는 "옮길 수 있는 계산"은 뭔가 <span class="chip fact">확정 — 프롬프트 원문 확인</span></h3>
+      <ul>
+        <li><strong>§2 마진 카운트</strong>: 위 시나리오의 "3% 미만 3개 세기".</li>
+        <li><strong>§3.5 시장 방향 하드룰</strong>: "시장 상태가 downtrend면 entry 금지" 같은
+        if문 수준의 규칙.</li>
+        <li><strong>§4.7 pivot 산술</strong>: "pivot = 손잡이 최고가 + 0.1" 같은 덧셈.</li>
+        <li><strong>±5% 밴드 판정</strong>: 현재가가 pivot의 95%~105% 사이면 entry 구간,
+        아래면 대기, 위면 추격 금지 — 부등호 비교다.</li>
+        <li><strong>§6.1/§6.2 climax·topping의 정량 게이트</strong>: "최근 3주 윈도 안에 25% 이상
+        급등했는가" 같은 주봉 숫자 비교. (단, "상승이 어디서 시작됐는지" 기준점을 잡는 부분은
+        판단 요소가 남는다.)</li>
+      </ul>
+      <p>반대로 <strong>옮길 수 없는 것</strong>: 컵 바닥이 U자인가 V자인가(곡률), VCP라는 패턴에서
+      변동폭이 점점 "조여드는" 느낌이 있는가, 손잡이 구간이 위로 새는가 아래로 다지는가, 전체적으로
+      차트가 "넓고 헐렁한가" — 이런 건 차트 이미지를 눈으로 보는 해석이라 LLM 몫이다. 주말 분류는
+      파이프라인에서 차트 이미지를 보는 유일한 단계라서 LLM을 완전히 없앨 수는 없다.</p>
+
+      <h3>"정확도가 올라갈 것"이라는 기대는 근거가 있나</h3>
+      <p><span class="chip fact">확정</span> 다른 모델(Sonnet 5)로 같은 20종목을 분류해 본 검증에서,
+      기존 결과와 달랐던 5건이 <em>전부</em> climax/topping 경계 판정이었다. 즉 LLM 판정이 가장
+      흔들리는 지점이 §6.1/§6.2인데, 마침 그 절의 상당 부분이 위에서 말한 "옮길 수 있는 숫자
+      비교"다. 그 부분을 코드로 빼면 가장 흔들리던 지점의 분산이 줄어들 여지가 실제로 있다.</p>
+      <p><span class="chip guess">추정</span> "소요 시간(180초)도 줄어들 것"은 아직 측정 안 된
+      추정이다. 실측상 180초의 대부분(234초 측정 런 기준 ~160초)은 모델이 답을 쓰는 시간이 아니라
+      생각하는(thinking) 시간이었다. 판단 항목을 줄이면 thinking도 줄 것 같지만, 내부 리뷰 문서는
+      "thinking을 줄이면 차트를 보는 판단의 질이 떨어질 위험이 실재한다"고 경고한다. 확인 방법:
+      이관 전후로 같은 표본을 돌려 판정이 안 바뀌는지(판정 불변 검사) 확인하면서 시간을 재면 된다.</p>
+
+      <h3>조건 두 가지 — 이걸 안 지키면 오히려 사고가 난다</h3>
+      <div class="card caution">
+        <div class="label">조건 1 — 옮길 때는 반드시 세 가지를 한 세트로</div>
+        <p style="margin:6px 0 0">① 계산된 값을 payload에 추가하고 ② 프롬프트에서 옛 계산 지시를
+        <em>지우고</em> ③ 값이 어긋나면 잡아주는 drift 테스트를 확장한다. 왜냐하면 이 시스템에서
+        실제로 일어난 사고가 있기 때문이다: 값은 안 넘기면서 프롬프트에 지시만 남아 있던 탓에,
+        C 프롬프트에 "payload에 존재하지 않는 필드를 참조하라"는 유령입력이 3건 생겼다. LLM은 없는
+        데이터를 볼 수 없으니 그 규칙들은 조용히 죽어 있었다. 다행히 handle_quality,
+        failed_breakout이라는 두 항목은 이미 "①②③ 한 세트" 방식으로 성공적으로 이관된 선례가 있다
+        — 그 패턴을 그대로 따르면 된다.</p>
+      </div>
+      <div class="card caution">
+        <div class="label">조건 2 — 순서는 C → B → A</div>
+        <p style="margin:6px 0 0">내부 리뷰 1편이 이미 우선순위를 매겨 놨다. C(매수 파라미터
+        계산)는 프롬프트 자체가 사실상 계산 절차서라 <em>통째로</em> 코드로 바꿀 수 있고 효과가
+        가장 크다 — 1순위. B(매수 타이밍)의 숫자 게이트들이 2순위. 사용자가 고민한 A(주말 분류)는
+        위에서 본 §단위 부분 이관만 가능해서 3순위다. 고민의 출발점은 A였지만, 투입 대비 효과는
+        C가 가장 크다.</p>
+      </div>
+
+      <h3>기대 수준 조절</h3>
+      <p><span class="chip fact">확정</span> 과거 데이터로 1,075건을 검사한 백테스트에서 분류 단계의
+      방어 규칙 위반은 0건이었다. 즉 "LLM이 지금 뭔가 크게 틀리고 있다"는 상황이 아니다. 이 작업의
+      성격은 고장 수리가 아니라 <strong>경계 판정의 흔들림(분산)을 줄이는 개선</strong>이다. 효과
+      측정도 주의가 필요하다 — LLM은 같은 입력에도 답이 조금씩 달라지므로(비결정성), "옮기기 전
+      1회 vs 후 1회" 비교는 무효고, 여러 건의 패턴으로 비교해야 한다(이 프로젝트에서 이미 확립된
+      원칙이다).</p>
+    </section>
+
+    <hr class="divider">
+
+    <section class="blk">
+      <h2>3. 고민 (2) — 프롬프트에 대한 다섯 가지 걱정</h2>
+
+      <div class="qa">
+        <div class="q">a. "web claude에 같은 파일을 주면 같은 결과가 나올까?"</div>
+        <div class="oneline"><span class="label">한 줄 결론</span>
+        안 나온다 <span class="chip fact">확정</span>. 그리고 "같은 결과가 나와야 정상"이라는
+        기준 자체가 잘못됐다 — 올바른 기준은 "몇 %나 일치하고, 불일치는 어디에 몰리는가"다.</div>
+        <p>이유는 세 가지다. 첫째, <strong>LLM 비결정성</strong>: 같은 시스템에서 같은 입력을 두 번
+        돌려도 답이 달라질 수 있다. 이 프로젝트에서 실제로 확인된 사실이라, 아예 "재실행해서 1:1
+        비교하는 것 금지"가 내부 규율로 박혀 있다. 둘째, web claude project는 <strong>입력 자체가
+        다르다</strong>: 프로젝트에는 책 PDF가 통째로 들어 있어서, 프롬프트에 요약된 숫자 기준 대신
+        책 원문을 직접 찾아보고 판단할 수 있다. 같은 시스템의 재현이 아니라 아예 다른 시스템이다.
+        셋째, CLI와 web은 시스템 프롬프트(사용자 몰래 깔리는 기본 지시문)와 도구 환경이 다르다.</p>
+        <div class="card scenario">
+          <div class="label">실제 시나리오 — 올바른 비교는 이렇게 생겼다</div>
+          <p style="margin:6px 0 0">Sonnet 5 검증(2026-07-02)이 좋은 본보기다. 20종목을 뽑아
+          기존 결과(Opus 4.8)와 새 모델(Sonnet 5) 판정을 비교했더니 15/20 = 75% 일치. 불일치 5건은
+          전부 watch↔ignore 사이 1단계 차이였고, 원인이 전부 climax/topping 경계 판정이었다.
+          "다르다/같다"가 아니라 "75%, 그리고 불일치는 한 지점에 몰린다"까지 알아내야 쓸모 있는
+          비교다.</p>
+        </div>
+      </div>
+
+      <div class="qa">
+        <div class="q">b. "프롬프트는 제대로 작성되어 있는가?"</div>
+        <div class="oneline"><span class="label">한 줄 결론</span>
+        대체로 견고하지만, 결함이 <em>이미 발견되어 목록으로 정리돼 있다</em>
+        <span class="chip fact">확정</span>. 막연히 걱정할 단계는 지났고, 그 목록을 고칠 단계다.</div>
+        <p>2026-07-08 밤샘 감사에서 프롬프트끼리 서로 모순되는 지점 8건이 확정됐다. 상위 3건만
+        풀어 보면:</p>
+        <ul>
+          <li><strong>유령입력 3건</strong>: C 프롬프트가 payload에 없는
+          <code>prior_analysis.reasoning</code>, <code>prior_analysis.confidence</code>를 참조하고,
+          검증용 키 이름도 실제(<code>current_state.close</code>)와 다르게
+          (<code>current_metrics.close</code>) 적혀 있다. 없는 데이터를 보라는 지시라서 해당 규칙
+          (pocket pivot 분기 등)은 실행된 적이 없다. 이 중 2건은 아직 안 고쳐진 백로그다.</li>
+          <li><strong>분배일 5개 역류</strong>: 아래 (2)d의 시나리오 참조 — 단계 사이의 봉합 결함.</li>
+          <li><strong>분배일 정의 불일치</strong>: 프롬프트는 "지수가 −0.2% 이상 하락한 날"을
+          분배일로 세는데 코드는 "0% 미만이면"으로 세서, 코드가 더 많이 센다(과대 집계).</li>
+        </ul>
+        <p>따라서 이 걱정에 대한 올바른 행동은 "괜찮은지 다시 살펴보기"가 아니라
+        <strong>이미 나와 있는 수리 목록을 소진하는 것</strong>이다.</p>
+      </div>
+
+      <div class="qa">
+        <div class="q">c. "Claude Code가 프롬프트를 제대로 따르고 있는가?"</div>
+        <div class="oneline"><span class="label">한 줄 결론</span>
+        "전반적으로 따르는가"는 답할 수 없는 질문이고, "규칙 하나하나가 지켜지는가"는 측정 가능한
+        질문이다 <span class="chip fact">확정</span>. 측정된 범위에서는 준수율이 높았다.</div>
+        <p>이미 감시 장치가 여럿 붙어 있다: LLM 응답이 이상하면 기록되는 sanity_warnings 컬럼,
+        LLM이 입력받은 현재가를 그대로 되뇌게 해서 데이터를 제대로 읽었는지 확인하는 echo 검증,
+        매수 파라미터가 상식 범위인지 확인하는 entry_params sanity 체크,
+        그리고 freeze store — LLM에게 보낸 입력 전체가 zip으로 남아 있어 "그때 무엇을 보고 이렇게
+        판단했나"를 나중에 열어볼 수 있다. 백테스트에서는 분류 1,075건과 확인감사 33건 모두 방어
+        규칙 위반이 0건이었다.</p>
+        <p>흥미로운 건 반대 방향의 발견이다: 위 (2)b의 유령입력처럼, LLM이 따르고 싶어도
+        <em>따를 수 없는</em> 죽은 규칙이 존재한다. 그러니 유효한 질문은 "LLM이 게으른가?"가 아니라
+        "어느 규칙이 죽어 있는가?"이고, 그 감사는 이미 진행 중이다.</p>
+      </div>
+
+      <div class="qa">
+        <div class="q">d. "한 번에 너무 많이 시키나? 여러 번 호출로 나눠야 하나?"</div>
+        <div class="oneline"><span class="label">한 줄 결론</span>
+        나누지 않는 게 좋다 <span class="chip fact">확정 — 이 시스템 자체가 반례를 갖고 있다</span>.
+        부담을 줄이는 올바른 방법은 분할이 아니라 고민 (1)의 결정론 이관이다.</div>
+        <p>직관적으로는 "일이 많으면 나누는 게 낫다"가 맞아 보인다. 그런데 LLM 호출을 나누면
+        <strong>호출과 호출 사이에 맥락이 끊긴다</strong>는 비용이 생긴다. 이 시스템은 이미
+        A→B→C 3단계로 나뉘어 있고, 감사에서 발견된 가장 심각한 모순 2건이 정확히 그 이음새에서
+        나왔다.</p>
+        <div class="card scenario">
+          <div class="label">실제 시나리오 — 단계 사이에서 정보가 새는 사고 (분배일 5개 역류)</div>
+          <p style="margin:6px 0 0">토요일, A가 어떤 종목을 본다. 차트는 완벽한데 시장에 분배일이
+          5개 쌓여 있다. 규칙대로 entry가 아니라 watch로 낮춘다 — 강등 사유는 "시장 불안".<br>
+          다음 주 화요일, 그 종목이 돌파를 시도한다. B가 "시장이 회복됐나?"를 확인하는데,
+          B의 프롬프트는 시장 상태 라벨(상승 확인)만 보고 <strong>분배일 수를 다시 세지 않는다</strong>.
+          분배일은 여전히 5개인데(6개부터 라벨이 바뀌므로 "상승 확인" 라벨과 공존 가능) B는
+          통과시킨다.<br>
+          이어서 C가 매수 수량을 계산하는데, C의 프롬프트에는 "B를 통과해서 왔다는 것 자체가 시장
+          회복의 증거"라며 보수화(수량 절반 축소)를 <em>면제</em>하는 문구가 있다.<br>
+          결과: A가 "시장 불안"으로 강등했던 종목이, 그 불안이 그대로인 날 아무 보수화 없이
+          풀사이즈 매수 파라미터를 받는다. — 셋 다 자기 프롬프트는 충실히 따랐다. 문제는 단계
+          <em>사이</em>의 봉합이다. A를 더 잘게 쪼개면 이런 이음새가 늘어난다.</p>
+        </div>
+        <p>덧붙여, "너무 많은 데이터"라는 걱정 쪽은 이미 해결됐다: 예전에는 zip 파일을 주고 LLM이
+        8~12턴에 걸쳐 열어 보게 했는데, 지금은 텍스트를 본문에 인라인해서 1턴에 끝난다(토큰
+        −77%대). 그리고 소요 시간의 주범은 프롬프트 길이가 아니라 모델의 thinking이므로, 프롬프트를
+        나눠도 시간이 비례해서 줄지 않는다.</p>
+      </div>
+
+      <div class="qa">
+        <div class="q">e. "이게 진짜 미너비니·오닐 방식 그대로인가?"</div>
+        <div class="oneline"><span class="label">한 줄 결론</span>
+        "책에서 온 숫자"와 "우리가 정한 숫자"가 파일 안에 명시적으로 구분되어 있어 검증 가능한
+        구조다 <span class="chip fact">확정</span>. 외부 책-충실성 검토도 한 번 받았고, 이제 갱신판을
+        받을 시점이다.</div>
+        <p>기준 숫자들을 모아 둔 <code>thresholds.py</code>는 상수마다 출처 주석이 붙어 있다.
+        예를 들어 <code>C6_W52LOW_MULT=1.25</code>(52주 저가의 1.25배 이상이어야 함)에는 "미너비니
+        첫 책 p.79는 1.30, 두 번째 책 Ch.6은 1.25 — 최신작을 채택"이라는 비교 근거까지 적혀 있다.
+        그리고 <code>[book-anchor]</code>(책에서 온 값, 변경 금지)와 <code>[heuristic]</code>
+        (운영상 정한 값, 튜닝 가능) 태그로 구분된다. "책 그대로인가?"를 확인하고 싶으면 book-anchor
+        태그가 붙은 값들만 책과 대조하면 되는 구조다.</p>
+        <p>실제로 2026-06-02에 web claude project(책 PDF를 가진 쪽)에게 검토를 받았고, 결과는
+        부분 동의 + 진짜 갭 1건 발견 — "cup-without-handle(손잡이 없는 컵)"이라는 오닐의 정식
+        패턴이 이 시스템의 패턴 목록에 없어서 표현할 수 없다는 지적이었다. 이건 백로그(F7)로
+        등록되어 있다. 즉 이 걱정은 "미지의 불안"이 아니라 "그때 이후 프롬프트가 v3로 많이
+        바뀌었으니 충실성 검토를 갱신할 때가 됐는가?"라는 구체적 질문이고, 답은 '그렇다'이다.
+        이게 아래 고민 (3)의 두 번째 계획과 연결된다.</p>
+      </div>
+    </section>
+
+    <hr class="divider">
+
+    <section class="blk">
+      <h2>4. 고민 (3) — web claude와의 비교·피드백 실험 계획</h2>
+
+      <h3>계획 1: 일부 종목을 web claude에 똑같이 넣고 결과 비교</h3>
+      <div class="oneline"><span class="label">한 줄 결론</span>
+      취지는 좋지만, 이대로 실행하면 "결과가 다르네?"까지만 알고 <em>왜</em> 다른지는 알 수 없는
+      실험이 된다. 세 군데를 고쳐야 결론이 나오는 실험이 된다.</div>
+
+      <p><strong>수정 1 — 노이즈 바닥부터 잰다.</strong> LLM은 자기 자신과도 100% 일치하지 않는다.
+      그래서 비교 실험에는 기준선이 필요하다.</p>
+      <div class="card scenario">
+        <div class="label">실제 시나리오 — 노이즈 바닥이 왜 필요한가</div>
+        <p style="margin:6px 0 0">같은 freeze 입력 20건을 우리 파이프라인에서 2번씩 돌렸더니
+        자기 자신과 85% 일치했다고 하자(= 노이즈 바닥 15%). 이제 web claude와 비교했더니 75%
+        일치가 나왔다. 그러면 "시스템 차이"로 설명해야 할 몫은 25%p 전체가 아니라 노이즈 바닥을
+        뺀 약 10%p뿐이다. 이 기준선 없이 75%만 보면 "많이 다르네!"라고 과잉 해석하게 된다.</p>
+      </div>
+
+      <p><strong>수정 2 — 모델은 같은 것(sonnet)으로 고정한다.</strong> 사용자가 고민한 "web에서
+      같은 모델을 쓸까, 최신 모델(Fable 5)을 쓸까"의 답이다. 지금 질문은 "우리 CLI 파이프라인이
+      web과 다르게 동작하는가"이므로, 바꾸는 변수는 <em>환경 하나</em>여야 한다. 모델까지 바꾸면
+      결과 차이가 환경 탓인지 모델 탓인지 구분 불가능해진다(교락). "더 좋은 모델이면 나아지는가"가
+      궁금하면 그건 세 번째 실험 조건으로 따로 두면 된다 — 한 번에 한 변수.</p>
+
+      <p><strong>수정 3 — 책 PDF가 있는 project가 아니라 깨끗한 새 web 대화에서 한다.</strong>
+      project에는 책 PDF가 들어 있어서 판단 재료 자체가 다르다(고민 2a 참조). 공정 비교가 안 된다.
+      책 PDF의 영향 자체가 궁금하면 그것도 별도 조건으로 명시해서 두면 된다.</p>
+
+      <p>실행 여건은 이미 좋다: freeze store에 종목별 <code>inline_input.md</code> + 차트 PNG 2장이
+      그대로 보존되어 있어 브라우저 자동화로 재투입할 수 있고, 표본은 entry/watch/ignore별로 골고루
+      뽑으면 된다(층화 추출). 그리고 <strong>더 싼 지름길이 하나 있다</strong>: Sonnet 5 검증 때
+      만들어 둔 블라인드 평가 번들 v2(<code>data/backtest/sonnet5_eval_bundle_20260702/</code>,
+      정답 매핑은 봉인됨)가 아직 평가되지 않은 채 남아 있다. 이 실험이 답하려는 질문(판정 일치율,
+      불일치 패턴)의 상당 부분을 그 번들 평가가 새 실험 없이 답해 준다. 새 실험 전에 그것부터
+      소진하는 걸 권한다.</p>
+
+      <h3>계획 2: cowork가 시스템을 파악해서 web claude project와 대화하며 개선안만 문서화</h3>
+      <div class="oneline"><span class="label">한 줄 결론</span>
+      타당하고 위험도 낮다. 단, "아무 문제나 찾아줘"가 아니라 <strong>책-충실성 하나로 범위를
+      좁히면</strong> 투입 대비 가치가 확 올라간다.</div>
+      <p>이유: 일반적인 결함 찾기는 내부 감사(리뷰 시리즈 4편, 각 2라운드 검증)가 이미 훑어서,
+      web claude에게 넓게 물으면 중복 지적을 받을 확률이 높다. web claude project가 내부 감사보다
+      잘할 수 있는 일은 딱 하나 — <strong>책 PDF를 갖고 있다</strong>는 것이다. 내부 리뷰는 책
+      원문이 없어서 "이 숫자가 책에 충실한가"를 판정할 수 없다. 그러니 피드백 요청을 여기에
+      집중한다: 현재 v3 프롬프트 전문 + freeze 실물 샘플 몇 건을 주고 "책 원문 대비 임계값·패턴
+      정의·게이트 로직이 충실한가"를 묻는 것. 2026-06-02 검토의 갱신판이 되고, 그때 발견된
+      cup-without-handle 갭(F7)의 후속 확인도 겸한다.</p>
+      <div class="card caution">
+        <div class="label">주의점 — 제안을 받아 적기 전에 거쳐야 할 관문</div>
+        <p style="margin:6px 0 0">web claude가 "이 숫자를 바꾸라"고 제안하면 그대로 반영하지 말 것.
+        이 프로젝트 규칙(CLAUDE.md)상 임계값 변경은 threshold-change-checklist라는 의존성 점검표를
+        반드시 거쳐야 한다. 이유는 위 (2)d 시나리오가 보여준다 — 숫자 하나를 바꿀 때 그 숫자를
+        소비하는 다른 규칙을 안 보면 단계 사이에서 사고가 난다. "코드 수정 없이 문서화만 한다"는
+        방침은 좋고, 그 문서에 "체크리스트 통과 여부" 칸을 미리 만들어 두면 나중에 반영할 때
+        안전하다.</p>
+      </div>
+    </section>
+
+    <hr class="divider">
+
+    <section class="blk">
+      <h2>5. 이 답변 자체는 어떻게 검증됐나</h2>
+      <p>이 검토 답변도 두 번 손질을 거쳤다. 원본 탭의 "답변 자체의 2차 검토에서 고친 부분"
+      섹션이 그 기록인데, 요지는 이렇다:</p>
+      <ul>
+        <li>처음 초안은 "고민 (1) 타당하니 진행하라"에 가까웠는데, 코드를 직접 확인해 보니
+        선계산이 이미 상당 부분 되어 있어서 "남은 이관 대상은 프롬프트의 특정 절들뿐"으로
+        구체화됐다. 백테스트 0/1,075 결과를 근거로 기대 수준도 "수리"에서 "분산 감소"로 낮췄다.</li>
+        <li>(2)d의 근거를 일반론("분할은 비용이 든다")에서 이 시스템의 실제 사고 사례(A→B→C
+        이음새 모순 2건)로 교체했다.</li>
+        <li>(3)에 자기 일치율(노이즈 바닥) 선측정과 미평가 블라인드 번들 v2의 존재를 추가했다 —
+        이 둘이 없으면 비교 실험이 해석 불능이거나 불필요하게 비싸진다.</li>
+        <li>마지막으로 문서화 전에 모든 사실 주장을 기억이 아니라 리포의 실제 파일
+        (payload_builder.py, 프롬프트 원문, 리뷰 문서, freeze store 경로 등)로 재검증했고,
+        이 과정에서 2건을 정정했다: 토큰 절감치 "약 80%" → 실측 표기 "−77%대",
+        그리고 "결정론 이관으로 시간도 줄 것"이라는 문장을 확정이 아닌 추정으로 강등.</li>
+      </ul>
+    </section>
+
+    <hr class="divider">
+
+    <section class="blk">
+      <h2>6. 세 줄 요약</h2>
+      <div class="card note">
+        <ol style="margin:6px 0 0">
+          <li><strong>고민 (1)</strong>: 방향이 맞고, 이미 절반은 되어 있으며, 실행 순서(C→B→A)까지
+          내부 문서에 나와 있다 — 옮길 때는 "값 추가 + 지시 삭제 + drift 테스트"를 한 세트로.</li>
+          <li><strong>고민 (2)</strong>: 다섯 걱정 모두 정당하지만, a는 "같은 결과"가 아니라
+          "일치율과 불일치 패턴"으로 기준을 바꿔야 하고, b·c·e는 이미 부분 답(결함 목록·감시 장치·
+          book-anchor 구조)이 리포 안에 있다. d의 분할은 비권장 — 단계 이음새 사고가 실증됐다.</li>
+          <li><strong>고민 (3)</strong>: 계획 2(책-충실성 집중 피드백)가 계획 1(비교 실험)보다 투입
+          대비 가치가 높다. 계획 1을 하려면 자기 일치율 측정 + 모델 고정(sonnet) + 깨끗한 web
+          대화가 선행 조건이고, 그 전에 미평가 블라인드 번들 v2부터 소진하는 게 싸다.</li>
+        </ol>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  var tabs = [
+    { btn: document.getElementById('tabbtn-orig'), pane: document.getElementById('tab-orig') },
+    { btn: document.getElementById('tabbtn-easy'), pane: document.getElementById('tab-easy') }
+  ];
+  function select(idx) {
+    tabs.forEach(function (t, i) {
+      var on = i === idx;
+      t.btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.pane.classList.toggle('active', on);
+    });
+    window.scrollTo({ top: 0 });
+  }
+  tabs.forEach(function (t, i) {
+    t.btn.addEventListener('click', function () { select(i); });
+  });
+})();
+</script>

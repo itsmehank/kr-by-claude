@@ -1,0 +1,51 @@
+{
+  "seed": 20260702,
+  "version": "v2",
+  "cases": [
+    {
+      "case_id": "case_01",
+      "symbol": "004020",
+      "as_of": "2021-02-13",
+      "analyst_A": "sonnet",
+      "analyst_B": "opus",
+      "opus_verdict": "ignore",
+      "sonnet_verdict": "watch"
+    },
+    {
+      "case_id": "case_02",
+      "symbol": "012450",
+      "as_of": "2022-08-27",
+      "analyst_A": "sonnet",
+      "analyst_B": "opus",
+      "opus_verdict": "watch",
+      "sonnet_verdict": "ignore"
+    },
+    {
+      "case_id": "case_03",
+      "symbol": "060980",
+      "as_of": "2021-10-30",
+      "analyst_A": "sonnet",
+      "analyst_B": "opus",
+      "opus_verdict": "ignore",
+      "sonnet_verdict": "watch"
+    },
+    {
+      "case_id": "case_04",
+      "symbol": "078350",
+      "as_of": "2022-01-01",
+      "analyst_A": "opus",
+      "analyst_B": "sonnet",
+      "opus_verdict": "ignore",
+      "sonnet_verdict": "watch"
+    },
+    {
+      "case_id": "case_05",
+      "symbol": "079960",
+      "as_of": "2021-01-09",
+      "analyst_A": "sonnet",
+      "analyst_B": "opus",
+      "opus_verdict": "watch",
+      "sonnet_verdict": "ignore"
+    }
+  ]
+}

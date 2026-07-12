@@ -1,0 +1,10 @@
+{
+  "verdict": "ignore",
+  "confidence": 0.72,
+  "pattern": "none",
+  "risk_flags": [
+    "topping_distribution",
+    "unfavorable_market_context"
+  ],
+  "reasoning": "**시장 컨텍스트**\nKOSPI는 rally_attempt(상승 시도)이나 follow-through day 미발생, 최근 25세션 distribution day 6개(≥5)로 기관 매도 누적. 200d MA 상회 82.9%는 양호하나 추세 미확인. O'Neil 'M' 기준상 신규 진입에 명백히 불리.\n\n**Base 구조**\n정상 base 아님. 10-11주 만에 ~24,000→49,550(1/8) 약 +106% 수직 급등 후 고점 형성. 직전 상승 충분(>100%), 고점 대비 현재 ~17% 하락(22% 되돌림). cup 계열 기하 아님(둥근 바닥 없는 climax 정점, cup_shape=V) → rejected_gate=not_cup_family. RS Line은 52w high 미갱신 + 89→78로 하락(leadership 약화·음의 다이버전스).\n\n**진입 시그널**\n돌파/포켓피벗 미확인. 최근 5세션 pocket_pivot 전무, 거래량 비율 0.50로 위축. 매수 시그널 부재.\n\n**핵심 위험**\ntopping_distribution(§6.2 force-ignore): G0 충족(주봉 종가 40,950 < 10주선 41,345, 3주 연속 하회) + T-A 충족(1/29주 -13.2%로 상승 개시 이래 최대 주간 하락). 1월 초 climax 성격 급등(history) 직후 분배. unfavorable_market_context: rally_attempt+dist 6.\n\n**결론**\nignore — climax 후 Stage 3 topping 진입(최대 하락주 + 10주선 하회 + RS 악화). O'Neil HMMS p.268-269 정합. 돌파 모니터링 제외. 향후 깊은 조정 후 신규 base를 다시 다지면 그때 재평가."
+}

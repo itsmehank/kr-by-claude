@@ -1,0 +1,81 @@
+{
+  "generated_utc": "2026-07-02T10:19:19.009887+00:00",
+  "n_cases": 5,
+  "blinding": "analyst_A/analyst_B masked; per-case random assignment (seed=20260702)",
+  "input_note": "원본 이미지 미보존 — 동일 데이터·동일 기준일에서 결정론 재생성. 두 모델이 실제 본 이미지와 바이트 동일 보장 불가(시각적 내용은 동일 데이터 기반).",
+  "cases": [
+    {
+      "case_id": "case_01",
+      "symbol": "004020",
+      "as_of": "2021-02-13",
+      "files": [
+        "case_01_meta.json",
+        "case_01_daily.csv",
+        "case_01_weekly.csv",
+        "case_01_chart_daily.png",
+        "case_01_chart_weekly.png",
+        "case_01_analyst_A.json",
+        "case_01_analyst_B.json"
+      ]
+    },
+    {
+      "case_id": "case_02",
+      "symbol": "012450",
+      "as_of": "2022-08-27",
+      "files": [
+        "case_02_meta.json",
+        "case_02_daily.csv",
+        "case_02_weekly.csv",
+        "case_02_chart_daily.png",
+        "case_02_chart_weekly.png",
+        "case_02_analyst_A.json",
+        "case_02_analyst_B.json"
+      ]
+    },
+    {
+      "case_id": "case_03",
+      "symbol": "060980",
+      "as_of": "2021-10-30",
+      "files": [
+        "case_03_meta.json",
+        "case_03_daily.csv",
+        "case_03_weekly.csv",
+        "case_03_chart_daily.png",
+        "case_03_chart_weekly.png",
+        "case_03_analyst_A.json",
+        "case_03_analyst_B.json"
+      ]
+    },
+    {
+      "case_id": "case_04",
+      "symbol": "078350",
+      "as_of": "2022-01-01",
+      "files": [
+        "case_04_meta.json",
+        "case_04_daily.csv",
+        "case_04_weekly.csv",
+        "case_04_chart_daily.png",
+        "case_04_chart_weekly.png",
+        "case_04_analyst_A.json",
+        "case_04_analyst_B.json"
+      ]
+    },
+    {
+      "case_id": "case_05",
+      "symbol": "079960",
+      "as_of": "2021-01-09",
+      "files": [
+        "case_05_meta.json",
+        "case_05_daily.csv",
+        "case_05_weekly.csv",
+        "case_05_chart_daily.png",
+        "case_05_chart_weekly.png",
+        "case_05_analyst_A.json",
+        "case_05_analyst_B.json"
+      ]
+    }
+  ],
+  "version": "v2",
+  "regenerated_utc": "2026-07-02T10:25:44.225866+00:00",
+  "analyst_output_note": "각 analyst 출력은 원본 저장본에서 그대로 추출. 한쪽 소스에는 confidence·pattern 필드가 저장돼 있지 않아 null 이며 reasoning 이 요약분(약 300자)으로 저장돼 있음 — 이는 저장 시점 한계이지 모델 응답 자체의 차이가 아님. 필드 완전성(길이·null 여부)으로 소스를 유추하지 말 것."
+}

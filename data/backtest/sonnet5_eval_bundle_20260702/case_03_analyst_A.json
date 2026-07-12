@@ -1,0 +1,10 @@
+{
+  "verdict": "watch",
+  "confidence": null,
+  "pattern": null,
+  "risk_flags": [
+    "unfavorable_market_context",
+    "volume_contraction_on_advance"
+  ],
+  "reasoning": "**시장 컨텍스트**\nKOSPI 시장은 현재 correction(조정) 국면이며, follow-through day는 2021-08-31로 59일 경과, 최근 25거래일 distribution day 6회, 200일선 위 종목 비중 42.1%로 시장 폭도 약함. O'Neil의 \"M\"(시장 방향) 원칙상 이 상태에서는 아무리 좋은 셋업이라도 entry 불가(§3.5), 최대 watch로 제한.\n\n**Base 구조**\n9/16~9/17 주간 거래량 폭증(200만+주, 평시 대비 10배 이상)과 함께 25% 이상 급등한 클라이맥스 랠리("
+}

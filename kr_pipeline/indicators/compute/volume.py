@@ -112,11 +112,15 @@ def distribution_day(
     up_down_volume_ratio 의 is_down(0% 컷) 은 A/D 의미론 (전체 하락일)
     대로 의도적으로 별개.
 
-    halt 처리 (2026-07-11 #30 검증으로 정정): 정지일 adj_close 는 carry 로
-    보존되므로(transform.nullify_halt_adj — production 실측 NULL 0건) 해제일
-    return 은 carry 대비로 정상 계산되어 갭다운 분배가 탐지된다(최근 2년
-    해제일 분배 후보 64건 전부 flag=True 실측). fill_method=None 의 NaN 전파는
-    시계열에 NaN 이 실존할 때만 작동 — production adj_close 에는 해당 없음.
+    halt 처리 (2026-07-11 #30 검증으로 정정): 정지일 종가는 KRX 소스가 직전가
+    carry 로 주고, transform.nullify_halt_adj 는 adj_close 를 NULL 처리 대상에서
+    *제외* 해 그 carry 를 보존한다(carry-fill 을 수행하는 게 아님). 따라서
+    해제일 return 은 carry 대비로 정상 계산되어 갭다운 분배가 탐지된다(2026-07-11
+    실측: adj_close NULL 0건, 최근 2년 해제일 분배 후보 64건 전부 flag=True).
+    단 이 보장은 실측 기반 — daily INSERT 경로만 fillna 구조 보장이고 adj-refresh
+    경로는 소스가 NaN close 를 주면 NULL 적재 가능. adj_close 에 NaN 이 실존하면
+    fill_method=None 전파 → 말미 fillna(False)로 다음 거래일이 조용히 미탐지
+    (§6 무예외 정의와의 편차) — NaN 재출현 시 이 지점부터 의심할 것.
     """
     return (
         (daily_return_pct <= down_pct + _PCT_EPS)

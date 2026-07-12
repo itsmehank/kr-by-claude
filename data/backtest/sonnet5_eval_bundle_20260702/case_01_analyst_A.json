@@ -1,0 +1,9 @@
+{
+  "verdict": "watch",
+  "confidence": null,
+  "pattern": null,
+  "risk_flags": [
+    "unfavorable_market_context"
+  ],
+  "reasoning": "**시장 컨텍스트**\nKOSPI는 rally_attempt(추세전환 시도) 단계로 follow-through day 미확인. 최근 25거래일 distribution day 6회(≥5)로 기관 매도압력 존재. 200일선 상회 비율 82.9%로 시장 저변은 넓으나, FTD 미확인 상태에서는 종목 셋업과 무관하게 신규 진입 보류가 원칙(§3.5) — entry 불가, watch 상한.\n\n**Base 구조**\n2021-01-08 주봉 고점 49,550원 이후 2021-02-01 일중 저점 37,200원까지 -24.9% 조정, cup_wit"
+}

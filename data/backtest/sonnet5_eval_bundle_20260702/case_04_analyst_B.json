@@ -1,0 +1,10 @@
+{
+  "verdict": "watch",
+  "confidence": null,
+  "pattern": null,
+  "risk_flags": [
+    "extended_from_ma",
+    "unfavorable_market_context"
+  ],
+  "reasoning": "**시장 컨텍스트**\nmarket_context는 confirmed_uptrend(추세 확인 상태)이나 마지막 follow-through day가 2021-10-26(65일 경과)로 오래됐고, 최근 25거래일 distribution day가 5회로 §3.5 기준(5회 이상)에 해당해 신규 매수 강도를 낮춰야 하는 구간입니다. 200일선 위 종목 비율도 32.3%로 낮음. → 종목 자체 강세와 무관하게 시장 컨텍스트는 진입에 다소 불리.\n\n**Base 구조**\nTrend Template 8개 조건 모두 통과, 전 조건 마진 11%+ "
+}

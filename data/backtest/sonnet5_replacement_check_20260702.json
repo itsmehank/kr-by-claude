@@ -1,0 +1,310 @@
+{
+  "meta": {
+    "started_utc": "2026-07-02T09:22:37.245259+00:00",
+    "finished_utc": "2026-07-02T09:50:25.051521+00:00",
+    "n": 20,
+    "n_fail": 1,
+    "verdict_A": "PASS",
+    "avg_call_s": 159.0,
+    "retry_disabled": true,
+    "model_pin": "sonnet"
+  },
+  "rows": [
+    {
+      "symbol": "012450",
+      "analyzed_for_date": "2024-06-29",
+      "opus_verdict": "entry",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "entry",
+      "risk_flags": [],
+      "call_duration_s": 178.1,
+      "reasoning_head": "**시장 컨텍스트**\nKOSPI는 confirmed_uptrend(추세 확인 상승장) 상태이며, 최근 25거래일 중 distribution day(분산일, 기관 매도 우세일)는 1회로 매우 적습니다. 마지막 follow-through day는 2024-05-07(52일 경과)이고, 200일선 위 종목 비율은 44.4%로 개선 중입니다. 시장 환경은 진입에 우호적입니다.\n\n**Base 구조**\n2024-04-26 고점(254,153) 이후 5월 중순 저점(197,618)까지 약 22.2% 조정한 뒤 9주간 완만히 회복하는 U자형 cu"
+    },
+    {
+      "symbol": "002220",
+      "analyzed_for_date": "2021-04-17",
+      "opus_verdict": "ignore",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "ignore",
+      "risk_flags": [
+        "climax_run",
+        "extended_from_ma",
+        "unfavorable_market_context"
+      ],
+      "call_duration_s": 97.8,
+      "reasoning_head": "**시장 컨텍스트**\n현재 시장은 rally_attempt(추세전환 시도이나 미확인) 국면이며 최근 25거래일 distribution day 3회, follow-through day는 2020-12-30 이후 107일 경과해 사실상 유효기간이 지남. 200일선 위 종목 비중 87%로 시장 폭은 양호하나 confirmed_uptrend로 확인되지 않아 신규 진입에는 불리.\n\n**Base 구조**\n2021년 1월 FTD 이후 약 +39%(1650→2290) 상승을 배경으로 1~3월 2000~2330 구간에서 U자형 눌림(depth 약 "
+    },
+    {
+      "symbol": "004020",
+      "analyzed_for_date": "2021-02-13",
+      "opus_verdict": "ignore",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "watch",
+      "risk_flags": [
+        "unfavorable_market_context"
+      ],
+      "call_duration_s": 248.2,
+      "reasoning_head": "**시장 컨텍스트**\nKOSPI는 rally_attempt(추세전환 시도) 단계로 follow-through day 미확인. 최근 25거래일 distribution day 6회(≥5)로 기관 매도압력 존재. 200일선 상회 비율 82.9%로 시장 저변은 넓으나, FTD 미확인 상태에서는 종목 셋업과 무관하게 신규 진입 보류가 원칙(§3.5) — entry 불가, watch 상한.\n\n**Base 구조**\n2021-01-08 주봉 고점 49,550원 이후 2021-02-01 일중 저점 37,200원까지 -24.9% 조정, cup_wit"
+    },
+    {
+      "symbol": "017000",
+      "analyzed_for_date": "2021-03-20",
+      "opus_verdict": "ignore",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "ignore",
+      "risk_flags": [
+        "climax_run",
+        "unfavorable_market_context",
+        "extended_from_ma"
+      ],
+      "call_duration_s": 166.9,
+      "reasoning_head": "**시장 컨텍스트**\nKOSDAQ은 현재 correction(조정) 국면이며 최근 25거래일 distribution day가 5회로 O'Neil 경계(4회)를 초과했습니다. Follow-through day 미확인. 200일선 상회 종목 비중은 68.2%로 나쁘지 않으나, 시장 자체가 조정 국면이라 §3.5 규칙상 신규 진입 상한은 watch이며 신규 매수에 불리합니다.\n\n**Base 구조**\n2020-07-17 첫 베이스 이탈(약 3,290원) 이후 8개월간 급등-급락이 반복되며 정상 cup/flat/VCP 베이스가 완성되지 못했"
+    },
+    {
+      "symbol": "032540",
+      "analyzed_for_date": "2022-02-26",
+      "opus_verdict": "ignore",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "ignore",
+      "risk_flags": [
+        "climax_run",
+        "extended_from_ma",
+        "late_stage_base",
+        "unfavorable_market_context"
+      ],
+      "call_duration_s": 139.9,
+      "reasoning_head": "**시장 컨텍스트**\nmarket_context.current_status=downtrend, 최근 25거래일 distribution day 10회(≥5 임계 초과), follow-through day 없음, 200일선 위 종목 비율 18.4%로 극히 낮음. 시장 전체가 약세 국면이라 신규 매수에 매우 불리(§3.5 하드룰).\n\n**Base 구조**\n2021년 8월 저점(2,801)에서 10월 고점(4,935)까지 약 76% 선행상승 후, 2021년11월~2022년1월 고점대비 42% 급락 조정 — 완만한 U자형 없이 급등·급락 반"
+    },
+    {
+      "symbol": "032540",
+      "analyzed_for_date": "2022-04-09",
+      "opus_verdict": "ignore",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "ignore",
+      "risk_flags": [
+        "climax_run",
+        "late_stage_base",
+        "extended_from_ma"
+      ],
+      "call_duration_s": 121.8,
+      "reasoning_head": "**시장 컨텍스트**\nKOSPI/KOSDAQ 은 confirmed_uptrend (2022-03-17 follow-through day, 22거래일 경과), 최근 25거래일 distribution day 3회(5회 미만 기준 충족), 200일선 위 종목 비율 32.1%. 시장 자체는 진입에 우호적이나, 본 종목은 개별 셋업 문제(아래)로 시장 컨디션과 무관하게 배제됩니다.\n\n**Base 구조**\n2021-02-26 첫 Trend Template 통과(anchor) 이후 약 58주간 최소 5개 base를 거치며 상승을 지속한 후기-단"
+    },
+    {
+      "symbol": "060980",
+      "analyzed_for_date": "2021-10-30",
+      "opus_verdict": "ignore",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "watch",
+      "risk_flags": [
+        "unfavorable_market_context",
+        "volume_contraction_on_advance"
+      ],
+      "call_duration_s": 200.7,
+      "reasoning_head": "**시장 컨텍스트**\nKOSPI 시장은 현재 correction(조정) 국면이며, follow-through day는 2021-08-31로 59일 경과, 최근 25거래일 distribution day 6회, 200일선 위 종목 비중 42.1%로 시장 폭도 약함. O'Neil의 \"M\"(시장 방향) 원칙상 이 상태에서는 아무리 좋은 셋업이라도 entry 불가(§3.5), 최대 watch로 제한.\n\n**Base 구조**\n9/16~9/17 주간 거래량 폭증(200만+주, 평시 대비 10배 이상)과 함께 25% 이상 급등한 클라이맥스 랠리("
+    },
+    {
+      "symbol": "078350",
+      "analyzed_for_date": "2022-01-01",
+      "opus_verdict": "ignore",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "watch",
+      "risk_flags": [
+        "extended_from_ma",
+        "unfavorable_market_context"
+      ],
+      "call_duration_s": 219.2,
+      "reasoning_head": "**시장 컨텍스트**\nmarket_context는 confirmed_uptrend(추세 확인 상태)이나 마지막 follow-through day가 2021-10-26(65일 경과)로 오래됐고, 최근 25거래일 distribution day가 5회로 §3.5 기준(5회 이상)에 해당해 신규 매수 강도를 낮춰야 하는 구간입니다. 200일선 위 종목 비율도 32.3%로 낮음. → 종목 자체 강세와 무관하게 시장 컨텍스트는 진입에 다소 불리.\n\n**Base 구조**\nTrend Template 8개 조건 모두 통과, 전 조건 마진 11%+ "
+    },
+    {
+      "symbol": "187270",
+      "analyzed_for_date": "2021-07-24",
+      "opus_verdict": "ignore",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "ignore",
+      "risk_flags": [
+        "climax_run",
+        "unfavorable_market_context"
+      ],
+      "call_duration_s": 128.9,
+      "reasoning_head": "**시장 컨텍스트**\nKOSDAQ은 현재 rally_attempt(추세전환 시도) 단계로 follow-through day 미확인, 최근 25거래일 distribution day 4회, 200일선 위 종목 비중 72.2%입니다. 시장 방향이 불확실해 신규 진입엔 불리하지만(§3.5), 본 종목은 아래 climax 사유로 이미 force-ignore 대상이라 시장 컨텍스트가 verdict을 추가로 좌우하지는 않습니다.\n\n**Base 구조**\n뚜렷한 base 없이 2020년 12월 저점(약 2,600원) 이후 30주 이상 이어진 상승("
+    },
+    {
+      "symbol": "340360",
+      "analyzed_for_date": "2024-02-24",
+      "opus_verdict": "ignore",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "ignore",
+      "risk_flags": [
+        "climax_run",
+        "extended_from_ma",
+        "unfavorable_market_context"
+      ],
+      "call_duration_s": 112.2,
+      "reasoning_head": "**시장 컨텍스트**\nKOSDAQ은 confirmed_uptrend이나 최근 25거래일 distribution day 5회로 §3.5 임계(5)에 도달해 시장 자체도 과열 부담. follow-through 후 77일 경과, 200일선 상회 종목 비중 33.8%로 시장 폭은 약함. 종목 셋업과 별개로 시장 환경도 우호적이지 않음.\n\n**Base 구조**\n2023년 8월 저점(832)→12월 고점(2860) +243.8% 급등 후 2024년 1월 저점(1448)까지 -49.4% 조정, 컵 깊이가 정상장 상한 33%를 크게 초과해 컵-핸"
+    },
+    {
+      "symbol": "012450",
+      "analyzed_for_date": "2022-08-27",
+      "opus_verdict": "watch",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": false,
+      "failure_type": "image_unprocessed_signal",
+      "verdict": "ignore",
+      "risk_flags": [
+        "climax_run",
+        "extended_from_ma",
+        "unfavorable_market_context"
+      ],
+      "call_duration_s": 132.6,
+      "reasoning_head": "**시장 컨텍스트**\nKOSPI는 현재 downtrend 국면(2022-08-26 기준), 최근 25거래일 중 distribution day 6회로 매도 압력 지속. 마지막 follow-through day는 8/11로 15일 경과, 200일선 상회 종목 비율도 26%에 불과해 시장 폭이 매우 약함. 결론: 신규 진입에 명백히 불리한 환경(§3.5 하드룰 — 진입 상한 watch), 여기선 개별 셋업 자체에도 ignore 사유가 별도로 존재.\n\n**Base 구조**\n7월 말 회사합병 공시(7/29, 8/2)를 기점으로 단 3주 만에"
+    },
+    {
+      "symbol": "014470",
+      "analyzed_for_date": "2023-06-10",
+      "opus_verdict": "watch",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "watch",
+      "risk_flags": [
+        "unfavorable_market_context"
+      ],
+      "call_duration_s": 132.2,
+      "reasoning_head": "**시장 컨텍스트**\n현재 KOSDAQ 은 rally_attempt(추세 전환 시도) 단계로 아직 follow-through day 확인이 없습니다(O'Neil \"M\" 원칙 — 시장 방향 미확인 시 진입 보류). 최근 25거래일 distribution day 6회(5회 이상)로 기관 매도 압력도 감지됩니다. 200일선 위 종목 비중 55.9%. 결론: 진입에 불리한 환경 — §3.5 에 따라 최대 watch 로 제한됩니다.\n\n**Base 구조**\n2022년 10월 저점(1420) 이후 두 차례 base 돌파(12월·3월 대량거래)를"
+    },
+    {
+      "symbol": "014470",
+      "analyzed_for_date": "2023-12-16",
+      "opus_verdict": "watch",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "watch",
+      "risk_flags": [],
+      "call_duration_s": 129.3,
+      "reasoning_head": "**시장 컨텍스트**\nKOSPI 시장은 confirmed_uptrend 단계이며 최근 25거래일 distribution day 4회, follow-through day는 2023-12-08(7거래일 전)로 비교적 최근 확인됨. 200일선 위 종목 비율 28%로 다소 낮지만 시장 자체는 진입에 우호적.\n\n**Base 구조**\n2023-11-20~21 이틀간 평균 거래량 대비 14~20배 폭증하며 3주 기준 +60%대 급등(climax 성격 스파이크, history) 후, 현재까지 52주 고가 4,480→종가 3,360으로 약 25% "
+    },
+    {
+      "symbol": "024800",
+      "analyzed_for_date": "2021-05-01",
+      "opus_verdict": "watch",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "watch",
+      "risk_flags": [
+        "unfavorable_market_context",
+        "extended_from_ma"
+      ],
+      "call_duration_s": 206.7,
+      "reasoning_head": "**시장 컨텍스트**\n현재 시장은 rally_attempt(미확인 반등 시도) 상태입니다. 2021-01-20 FTD(추세전환일) 이후 100일이 경과해 그 상승추세가 약화·재차 조정 국면에 접어든 것으로 보입니다. 최근 25거래일 distribution day는 2회로 적고 200일선 상회 종목비율 70.6%는 양호하지만, 'rally_attempt & 미확인' 자체가 O'Neil 원칙(HMMS Ch.9)상 신규 진입을 watch로 제한합니다.\n\n**Base 구조**\n현재 뚜렷한 base가 없습니다. 2020-12-18 첫 베이스"
+    },
+    {
+      "symbol": "032540",
+      "analyzed_for_date": "2022-03-26",
+      "opus_verdict": "watch",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "watch",
+      "risk_flags": [
+        "late_stage_base",
+        "unfavorable_market_context"
+      ],
+      "call_duration_s": 149.0,
+      "reasoning_head": "**시장 컨텍스트**\nKOSDAQ은 rally_attempt 상태(3/17 follow-through 이후 8거래일 경과, confirmed_uptrend 미검증)이며 최근 25세션 distribution 6회(≥5 기준 초과), 200일선 상회 비율 30.6%로 시장 체력이 약합니다. O'Neil의 'M' 원칙(§3.5)상 미확인 rally에서는 진입 최대 등급이 watch로 제한됩니다.\n\n**Base 구조**\n2022-02-04 거래량 폭증(50일평균 30배) 갭상승 후 5175원(3/3)까지 급등, 이후 3주간 4260~502"
+    },
+    {
+      "symbol": "033290",
+      "analyzed_for_date": "2023-11-04",
+      "opus_verdict": "watch",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "watch",
+      "risk_flags": [
+        "unfavorable_market_context"
+      ],
+      "call_duration_s": 139.4,
+      "reasoning_head": "**시장 컨텍스트**\nKOSDAQ 시장은 현재 correction(조정) 국면이며, 최근 25거래일 distribution day가 8회로 과다합니다. 마지막 follow-through day는 2023-07-31로 95거래일 경과해 사실상 무효화됐고, 200일선 위 종목 비율은 19.1%에 불과해 시장 폭도 매우 약합니다. O'Neil의 \"시장이 진짜다(M)\" 원칙상 이런 환경에서는 개별 종목 셋업이 아무리 좋아도 신규 entry는 불가하며 watch로 강등해야 합니다.\n\n**Base 구조**\n로젠은 7월 저점 3,192원에서 1"
+    },
+    {
+      "symbol": "078350",
+      "analyzed_for_date": "2021-11-06",
+      "opus_verdict": "watch",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "watch",
+      "risk_flags": [
+        "unfavorable_market_context",
+        "handle_quality"
+      ],
+      "call_duration_s": 167.4,
+      "reasoning_head": "**시장 컨텍스트**\n현재 시장은 correction(조정) 국면이며, 최근 25거래일 distribution day 7회로 매도 압력 확대. 마지막 follow-through day 는 10/26(10일 경과)로 아직 확실한 확인 단계 아님. 200일선 상회 종목 비율도 30.8%에 그쳐 시장 전반 약세 — O'Neil의 'M'(시장방향) 원칙(§3.5)상 개별 종목 셋업이 우수해도 진입은 보류합니다.\n\n**Base 구조**\n7/30 고점 9,540원→8/20 저점 7,000원, depth -26.6%(Minervini 정상 한도"
+    },
+    {
+      "symbol": "078860",
+      "analyzed_for_date": "2024-08-24",
+      "opus_verdict": "watch",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "watch",
+      "risk_flags": [
+        "unfavorable_market_context"
+      ],
+      "call_duration_s": 173.5,
+      "reasoning_head": "**시장 컨텍스트**\nKOSDAQ 현재 downtrend, 최근 25거래일 distribution day 9회(≥5 기준 초과), follow-through day 없음, 200일선 위 종목 비율 20.3%로 매우 취약. O'Neil HMMS Ch.9 원칙상 시장 방향 불리 시 진입 상한은 watch — 종목 개별 셋업과 무관하게 entry 원천 봉쇄.\n\n**Base 구조**\n6/24~7/29 사이 8,994→22,788(+153%, 6/27·6/28 거래량 평소 12~15배 폭발)로 초강력 breakout leg 발생, 이후 3~"
+    },
+    {
+      "symbol": "079960",
+      "analyzed_for_date": "2021-01-09",
+      "opus_verdict": "watch",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "ignore",
+      "risk_flags": [
+        "climax_run",
+        "unfavorable_market_context"
+      ],
+      "call_duration_s": 175.3,
+      "reasoning_head": "**시장 컨텍스트**\n현재 KOSDAQ 시장은 rally_attempt(상승 시도) 단계로 follow-through day가 아직 확인되지 않았습니다. 최근 25거래일 distribution day는 3회로 양호하나, FTD 부재는 O'Neil 기준 신규 매수에 불리한 신호입니다(§3.5). 종목 자체의 강한 상승에도 시장 방향성이 완전히 확인되지 않아 우호적이지 않습니다.\n\n**Base 구조**\n2020년 3월 코로나 저점(6,750원) 이후 상승 후, 9~12월 약 3개월간 15,750~18,700원 구간에서 3~4번째 bas"
+    },
+    {
+      "symbol": "088390",
+      "analyzed_for_date": "2021-02-06",
+      "opus_verdict": "watch",
+      "resolved_llm_model": "claude-sonnet-5",
+      "success": true,
+      "failure_type": null,
+      "verdict": "watch",
+      "risk_flags": [
+        "unfavorable_market_context"
+      ],
+      "call_duration_s": 161.8,
+      "reasoning_head": "**시장 컨텍스트**\nKOSDAQ은 현재 rally_attempt(반등 시도) 단계로 follow-through day가 아직 확인되지 않았고(days_since_follow_through: null), 최근 25거래일 distribution day가 7회로 기준(5회) 을 초과합니다. O'Neil HMMS Ch.9 원칙상 FTD 없는 반등은 신뢰하기 어려워 개별 종목 셋업과 무관하게 진입은 보류하고 watch로 제한합니다.\n\n**Base 구조**\n2020-12-18 주간 고점 15,000원(직전 10월 저점 6,620원 대비 +1"
+    }
+  ]
+}

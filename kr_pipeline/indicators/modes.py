@@ -172,8 +172,9 @@ def _process_ticker_daily(
     # 과거 threshold=1.25 리터럴이 2026-05-22 SSOT 1.0 정렬(P0-2)을 무력화했었음.
     # (#20) 하락 컷은 §6 정의 정합 — is_down(0% 컷, A/D 용)과 의도적으로 별개.
     # fill_method=None: NaN 실존 시에만 전파(기존 is_down 과 동일 거동) + pad
-    # deprecation 회피. production adj_close 는 halt 에도 carry 보존이라 NaN 없음
-    # — 해제일 갭다운 분배는 정상 탐지됨 (#30 검증, volume.py docstring 참조).
+    # deprecation 회피. adj_close 는 halt 에도 carry 보존(2026-07-11 실측 NULL 0건
+    # — 구조 보장은 daily INSERT 경로뿐) → 해제일 갭다운 분배는 정상 탐지됨
+    # (#30 검증. NaN 재출현 시의 귀결은 volume.py distribution_day docstring 참조).
     ret_pct = adj_close.pct_change(fill_method=None) * 100.0
     dist_flag = distribution_day(ret_pct, adj_volume, avg_vol_50)
 
