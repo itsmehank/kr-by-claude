@@ -93,11 +93,13 @@ def test_missing_pivot_rejected():
 def _pp_payload(**over):
     rdi = [
         {"date": f"2026-05-{d:02d}", "close": 190.0, "low": 188.0,
-         "sma_50": 180.0, "pocket_pivot_flag": False}
+         "sma_50": 180.0, "pocket_pivot_flag": False,
+         "volume": 800_000, "avg_volume_50d": 1_000_000}
         for d in range(11, 20)
     ]
     rdi.append({"date": "2026-05-20", "close": 192.0, "low": 189.5,
-                "sma_50": 185.0, "pocket_pivot_flag": True})
+                "sma_50": 185.0, "pocket_pivot_flag": True,
+                "volume": 2_100_000, "avg_volume_50d": 1_000_000})
     base = _payload(
         prior_analysis={"reasoning": "pocket_pivot_entry within flat base", "confidence": 0.8},
         recent_daily_indicators=rdi,
@@ -119,6 +121,34 @@ def test_pocket_pivot_mode_pivot_is_pp_day_close():
     assert r["max_chase_pct_from_pivot"] == 3.0
     assert -8.0 <= r["stop_loss_pct_from_pivot"] <= -4.0  # pocket clamp
     assert r["suggested_weight_pct"] == 7.0              # pocket 표준 티어(flat_base 무flag)
+    # §6.2: ratio 는 PP '당일' volume/50일평균 — current_state(오늘 1.6x)가 아니라 PP일 2.1x
+    assert r["observed_breakout_volume_ratio"] == 2.1
+
+
+def test_pocket_pivot_wide_and_loose_floors_size_3():
+    # §7 표: wide_and_loose → size base 3.0 floor (pocket pivot)
+    r = calculate_entry_params(_pp_payload(prior_analysis={
+        "reasoning": "pocket_pivot_entry within flat base", "confidence": 0.8,
+        "risk_flags": ["wide_and_loose"]}))
+    assert r["entry_mode"] == "pocket_pivot"
+    assert r["suggested_weight_pct"] == 3.0
+
+
+def test_pp_field_name_mention_does_not_trigger_pp_mode():
+    # §0.5 명세는 "pocket_pivot_entry" / "pocket pivot" — 부정문의 필드명 언급
+    # ("no pocket_pivot_flag ...")이 감지로 오인되면 pivot 이 PP일 close 로 뒤집힌다.
+    r = calculate_entry_params(_pp_payload(prior_analysis={
+        "reasoning": "no pocket_pivot_flag in window; standard breakout", "confidence": 0.8}))
+    assert r["entry_mode"] == "pivot_breakout"
+    assert r["pivot_price"] == 192.50
+
+
+def test_rdi_order_invariance():
+    # build_for_6 은 ascending 을 주지만 순수 함수 계약상 순서 의존이면 재사용 표면에서 조용히 어긋남
+    p = _pp_payload()
+    p_desc = _pp_payload()
+    p_desc["recent_daily_indicators"] = list(reversed(p_desc["recent_daily_indicators"]))
+    assert calculate_entry_params(p) == calculate_entry_params(p_desc)
 
 
 def test_pocket_pivot_claimed_but_no_flag_falls_back_standard():
@@ -196,14 +226,30 @@ def test_confidence_zero_is_not_none():
 # ---------- §7 watch 예외 ----------
 
 def test_breakout_from_watch_ignores_stale_unfavorable():
+    # §7 예외는 size×0.5 / target cap / window=1 / stop 강화 4개만 열거 —
+    # 티어 조건(§3.1 "no risk flags")은 raw flags 로 판정(승격 없음 → 폴백 7.0),
+    # chase=2.0 은 예외 목록에 없으므로 그대로 적용.
     r = calculate_entry_params(_payload(
         prior_analysis={"risk_flags": ["unfavorable_market_context"]},
         trigger_evaluation={"trigger_type": "breakout_from_watch", "decision": "go_now"},
     ))
-    assert r["suggested_weight_pct"] == 10.0             # ×0.5 미적용, 티어도 무flag 취급
-    assert r["expected_target_pct"] == 20.0
-    assert r["entry_window_days"] == 3
+    assert r["suggested_weight_pct"] == 7.0              # ×0.5 미적용, but 티어 승격도 없음
+    assert r["expected_target_pct"] == 20.0              # cap 15 미적용
+    assert r["entry_window_days"] == 3                   # window=1 미적용
+    assert r["max_chase_pct_from_pivot"] == 2.0          # 예외 열거 밖 — 유지
+    assert r["stop_loss_pct_from_pivot"] == -7.0         # stop 강화 미적용
     assert "size_reduced_due_to_unfavorable_market" not in r["known_warnings"]
+
+
+def test_breakout_from_watch_does_not_upgrade_vcp_to_top_tier():
+    # "Never widen parameters because of a flag" — 예외가 완화를 승격으로 확장하면 위반
+    r = calculate_entry_params(_payload(
+        prior_analysis={"pattern": "vcp", "confidence": 0.9,
+                        "risk_flags": ["unfavorable_market_context"]},
+        trigger_evaluation={"trigger_type": "breakout_from_watch", "decision": "go_now"},
+    ))
+    assert r["suggested_weight_pct"] == 7.0              # top-tier 15 승격 금지 → 폴백
+    assert r["expected_target_pct"] == 20.0              # 25 승격 금지
 
 def test_breakout_trigger_applies_unfavorable():
     r = calculate_entry_params(_payload(prior_analysis={"risk_flags": ["unfavorable_market_context"]}))
@@ -235,10 +281,22 @@ def test_climax_run_clamps_minimums_with_other_warning():
     assert r["entry_window_days"] == 1
     assert any("climax_run" in w for w in r["other_warnings"])
 
-def test_warning_budget_le_6():
+def test_volume_zero_emits_below_requirement():
+    # 데이터 결함으로 volume=0 이면 '검증 불능(null)'이 아니라 최악 케이스 0.0x — 경고 필수
+    r = calculate_entry_params(_payload(current_state={"close": 192.3, "volume": 0, "avg_volume_50d": 1_000_000}))
+    assert r["observed_breakout_volume_ratio"] == 0.0
+    assert "breakout_volume_below_requirement" in r["known_warnings"]
+
+
+def test_warnings_never_silently_truncated():
+    # §8.3 ≤6 은 LLM 출력 예산이었음 — 결정론 경로는 의무(auto-emit) 경고를 삭제하지 않는다.
+    # 이 조합은 known 8건: mult 3 + absolute_stop_used + size_floored + extended +
+    # stop_distance + below_requirement. 구 예산 절단이면 하위 2건이 조용히 사라졌다.
     flags = ["late_stage_base", "thin_liquidity_us_only", "unfavorable_market_context", "wide_and_loose"]
     r = calculate_entry_params(_payload(
         prior_analysis={"risk_flags": flags, "confidence": 0.5, "base_low": 150.0},
         current_state={"close": 208.0, "volume": 900_000, "avg_volume_50d": 1_000_000},
     ))
-    assert len(r["known_warnings"]) + len(r["other_warnings"]) <= 6
+    assert len(r["known_warnings"]) == 8
+    assert "extended_from_pivot_already" in r["known_warnings"]
+    assert "stop_distance_from_current_price_exceeds_book_limit" in r["known_warnings"]

@@ -13,6 +13,7 @@ from psycopg import Connection
 
 from kr_pipeline.llm_runner.compute.entry_params_calc import (
     CALC_VERSION,
+    EntryParamsRejected,
     calculate_entry_params,
 )
 from kr_pipeline.llm_runner.compute.payload_lite import build_for_6
@@ -99,6 +100,12 @@ def run(
             _process_one(conn, symbol, eval_at, prior_at, dry_run=dry_run, as_of=as_of)
             processed += 1
             conn.commit()
+        except EntryParamsRejected as e:
+            # 결정론 거부 = 영구 실패(같은 입력이면 매 run 반복) — 일시 실패와 달리
+            # 상류 규율 위반 신호이므로 error 로 승격해 운영자 눈에 띄게 한다.
+            log.error("entry_params %s: 영구 거부(입력 규율 위반, 재시도 무의미) — %s", symbol, e)
+            failed.append(symbol)
+            conn.rollback()
         except Exception as e:
             log.warning("entry_params %s failed: %s", symbol, e)
             failed.append(symbol)

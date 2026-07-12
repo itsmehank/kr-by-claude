@@ -3,9 +3,17 @@
 실DB trigger_evaluation_log 행으로 build_for_6 payload 를 구성해 양쪽을 실행.
 LLM 출력은 전체 저장(재실행 비교 금지 규율 — 생성 시점 보존). 불일치는 자동
 불합격이 아니라 건별 §11 충실성 판정 대상(01편)으로 리포트에만 기록한다.
+
+주의(run1 이후 리뷰 반영):
+- 프롬프트에 RETIRED 배너가 추가됨 — 배너가 LLM 입력에 들어가면 정답 유출/거부 유도로
+  parity 가 무효가 되므로 아래 가드가 실행을 막는다. run1(entry_params_parity_run1.json)
+  은 배너 추가 '이전' 실행이라 유효. 재실행은 pre-banner 사본으로 교체 후에만.
+- run1 의 표본 풀은 decision 무필터(wait 등 포함)였다 — 지금은 production C 입력
+  분포(go_now + breakout 계열)로 필터한다.
 """
 import argparse, json, os, sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 import psycopg
 
@@ -14,11 +22,11 @@ from kr_pipeline.llm_runner.compute.payload_lite import build_for_6
 from kr_pipeline.llm_runner.compute.entry_params_calc import (
     CALC_VERSION, EntryParamsRejected, calculate_entry_params)
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+from kr_pipeline.llm_runner.store import _ENTRY_PARAMS_REQUIRED
 
-FIELDS = ["entry_mode","pivot_price","trigger_price","current_price","stop_loss_price",
-          "stop_loss_pct_from_pivot","stop_loss_pct_from_current_price","suggested_weight_pct",
-          "expected_target_price","expected_target_pct","pattern_basis","entry_window_days",
-          "max_chase_pct_from_pivot","breakout_volume_requirement","observed_breakout_volume_ratio"]
+# 대조 필드 = 저장 계약의 필수 §9 필드(store SSOT) — 하드코딩 사본을 두면 필드
+# 추가 시 조용히 비교에서 빠지는 가짜-통과가 생긴다. notes 는 자유텍스트라 제외.
+FIELDS = [f for f in _ENTRY_PARAMS_REQUIRED if f != "notes"]
 
 
 def main():
@@ -26,12 +34,22 @@ def main():
     ap.add_argument("--limit", type=int, default=15)
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
+    prompt_head = (Path(__file__).resolve().parents[1]
+                   / "prompts" / "calculate_entry_params_v2_0.md").read_text(encoding="utf-8")[:400]
+    if "RETIRED" in prompt_head:
+        sys.exit("중단: 프롬프트에 RETIRED 배너가 있어 LLM 입력이 오염됩니다(정답 유출/거부 유도). "
+                 "pre-banner 사본(git show 4a978e6:prompts/calculate_entry_params_v2_0.md)으로 "
+                 "임시 교체 후 실행하세요. run1 결과는 배너 이전 실행이라 유효.")
     url = os.environ.get("DATABASE_URL", "postgresql://localhost/kr_pipeline")
     cases = []
     with psycopg.connect(url) as conn:
         with conn.cursor() as cur:
+            # production C 입력 분포와 동일 필터(_fetch_go_now_candidates 의 핵심 WHERE)
             cur.execute("""SELECT DISTINCT ON (symbol) symbol, evaluated_at
-                             FROM trigger_evaluation_log ORDER BY symbol, evaluated_at DESC""")
+                             FROM trigger_evaluation_log
+                            WHERE decision = 'go_now'
+                              AND trigger_type IN ('breakout', 'breakout_from_watch')
+                            ORDER BY symbol, evaluated_at DESC""")
             pool = cur.fetchall()[: a.limit]
         for sym, ev in pool:
             rec = {"symbol": sym, "evaluated_at": ev.isoformat()}

@@ -70,7 +70,7 @@ export const PROMPT_EXPLANATIONS: Record<string, PromptExplanation> = {
     // 아래 프롬프트 본문은 아카이브 표시용.
     filename: "calculate_entry_params_v2_0.md",
     role:
-      "go_now 결정을 받은 *진짜 매수 시그널* 종목에 대해 매수 계획 18 필드를 계산합니다 — '얼마에 사고, 얼마에 손절하고, 얼마까지 목표로 잡을지'.",
+      "go_now 결정을 받은 *진짜 매수 시그널* 종목에 대해 매수 계획 18 필드를 계산합니다 — '얼마에 사고, 얼마에 손절하고, 얼마까지 목표로 잡을지'. ⚠️ 이 프롬프트는 #21 로 은퇴 — 지금은 같은 규칙을 결정론 함수 (entry_params_calc.py) 가 AI 호출 없이 계산하며, 아래 설명은 그 규칙의 출처 문서로 보존된 것입니다.",
     input: [
       "오늘의 trigger 평가 결과 (decision='go_now' + trigger_type='breakout')",
       "직전 weekend/daily_delta 의 분석 결과 (pattern, pivot_price, base_high/low, risk_flags 등)",
@@ -91,10 +91,10 @@ export const PROMPT_EXPLANATIONS: Record<string, PromptExplanation> = {
     keyRules: [
       "**O'Neil 7-8% 손절 절대 한계**: stop_loss_pct_from_pivot 의 *최대 하한* 은 -10% (= 손실 한도). 단, pocket_pivot 모드면 -8% 까지만. *Always, without exception* — O'Neil HMMS Ch.10.",
       "**Minervini 1-3% per trade**: suggested_weight_pct 는 포트폴리오의 1-3% *위험* 한도 안에서 산출. 손절 폭이 크면 포지션 작게, 손절 폭이 좁으면 포지션 크게.",
-      "**5% chase 한계**: max_chase_pct_from_pivot ≤ 5% — pivot 위로 5% 넘게 올라간 종목은 추격 매수 금지 (O'Neil HMMS Ch.10).",
+      "**5% chase 한계**: max_chase_pct_from_pivot ≤ 5% — pivot 위로 5% 넘게 올라간 종목은 추격 매수 금지 (O'Neil HMMS Ch.10). 현행 결정론 함수는 VCP 를 일괄 3% 로 더 보수화 (#21 D3a).",
       "**entry_mode 별 다른 룰**: pivot_breakout 은 표준 손절·사이징·거래량 1.4-1.5×. pocket_pivot 은 더 타이트 (손절 -5.5%~-4.5%, 거래량 1.0× 가능).",
       "**책 표준 거래량**: standard pivot_breakout 의 breakout_volume_requirement 디폴트 = ge_1.5x_50day_avg (책 선호치 50%+). 관측값 1.4×~1.5% 면 known_warning emit + 진입 허용.",
-      "**known_warnings 화이트리스트**: 16 종 정의된 경고 코드만 사용. 자유 텍스트 경고는 other_warnings 로.",
+      "**known_warnings 화이트리스트**: 16 종 정의된 경고 코드만 사용. 자유 텍스트 경고는 other_warnings 로. 현행 결정론 함수는 이 중 11 종만 발행 가능 (나머지 4+1 종은 #21 결정으로 발행 지점 소멸).",
     ],
   },
 };
