@@ -40,3 +40,6 @@ data/freezes/
 
 # Claude Code 로컬 (worktrees, settings.local.json)
 .claude/
+
+# 블라인드 평가 정답 매핑 — 봉인 취지상 리포 비추적 (#24 평가 전 열람 금지)
+data/backtest/*_mapping_SEALED.json
