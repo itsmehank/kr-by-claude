@@ -367,7 +367,8 @@ Multipliers cumulative. Apply all matching, then clamp.
 있어도 **그것을 근거로 size×0.5 / target cap / window=1 / stop tightening 을 적용하지 말 것**.
 이유: 이 flag 는 *분류 시점* 시장(당시 강등 사유)을 반영한 것이고, 상류 evaluate_pivot §3.5 는
 `watch_reason == "unfavorable_market"` 신호를 **현재 시장이 confirmed_uptrend 로 회복됐을 때만**
-`go_now` 로 통과시킨다 — 즉 go_now 도달 자체가 시장 회복의 증거다. 시장 방향은 여기서 재평가하지
+`go_now` 로 통과시키며, 형제 분기(marginal_tt/valid_base)도 flag 보유 시 동일한 시장 재확인을
+요구한다(#29) — 즉 어느 경로든 go_now 도달 자체가 시장 회복의 증거다. 시장 방향은 여기서 재평가하지
 않으며(이 단계는 live market_context 미수신), watch_reason 값을 하드코딩 근거로 쓰지도 않는다.
 다른 flag(late_stage_base, narrow_base 등)의 보수화는 그대로 적용. (`breakout` 일반 트리거는
 이 예외 없음 — 기존대로 flag 적용.)
