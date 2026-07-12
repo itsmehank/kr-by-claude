@@ -37,6 +37,17 @@ def test_build_5b_payload_minimal_fields(db):
                        105.0, 'handle_high', 105.0, 95.0, 9.5, 'weekend')""",
             (today - timedelta(days=3),),
         )
+        # (#22) market_recovery_ok 결정론화 — as_of 당일 행을 시드해 다른 테스트가
+        # 남긴 과거 KOSPI 행(most-recent-≤ 조회)에 순서 의존하지 않게 한다.
+        cur.execute(
+            """INSERT INTO market_context_daily
+               (date, index_code, current_status, distribution_day_count_last_25)
+               VALUES (%s, '1001', 'confirmed_uptrend', 2)
+               ON CONFLICT (date, index_code) DO UPDATE
+                  SET current_status = EXCLUDED.current_status,
+                      distribution_day_count_last_25 = EXCLUDED.distribution_day_count_last_25""",
+            (today,),
+        )
     db.commit()
 
     payload = build_for_5b(db, "PL5B", trigger_type="breakout", as_of=today)
@@ -60,8 +71,9 @@ def test_build_5b_payload_minimal_fields(db):
     assert gates["dist_days_last_3"] == 1
     assert gates["price_above_pivot"] is False  # close 100 < pivot 105
     assert gates["low_below_base_low"] is False  # low 95 == base_low 95 (미만 아님)
-    # market_context/conditions_detail 시드 없음 → 회복 게이트 null 전파
-    assert gates["market_recovery_ok"] is None
+    # 시드한 market_context_daily(confirmed_uptrend, dist=2) → 회복 게이트 통과
+    assert gates["market_recovery_ok"] is True
+    # minervini_c* 미시드(passed=None) → tt 게이트는 미확정 null
     assert gates["tt_recovery_ok"] is None
 
 
