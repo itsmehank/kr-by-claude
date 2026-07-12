@@ -107,6 +107,22 @@ ENTRY_TRIGGER_BUFFER_MAX: Final[float] = 1.005
 """trigger_price 상한 = pivot × 이 값 (프롬프트 §1.3). IBD 운용 관행
 (pivot +0.1% 산출, +0.5% 초과 = 추격) — store sanity SOFT 경계."""
 
+# ===== 포지션 관리 — 3층 손절 스택 (kr_pipeline/trade_management/stop_stack.py, #3 이슈4) =====
+# 백테스트 검증 규칙(docs/trading-rules-book-verified.md §2)의 SSOT 승격.
+# 사전등록·의존성 맵: docs/superpowers/specs/2026-07-13-manage-active-trade.md
+
+TRADE_STOP_INITIAL_PCT: Final[float] = 0.08
+"""초기 손절폭 (평균매입가 대비, 1층). 책: O'Neil HMMS '7% to 8% is your absolute
+loss limit' — 상단 8% 채택. 백테스트 stop_variant 시뮬로 검증(2026-07-06)."""
+
+TRADE_BREAKEVEN_TRIGGER_PCT: Final[float] = 0.20
+"""본전 래치 발동점 (평균매입가 대비 상승률, 2층). 종가가 한 번이라도 도달하면
+이후 평균매입가가 손절 바닥(해제 없음). 책: O'Neil 20-25% 표준 익절 구간의 하한."""
+
+TRADE_STOP_MAX_PCT: Final[float] = 0.10
+"""손절폭 절대 상한 (uncle point). 책: O'Neil HMMS / Minervini TLSMW Ch.13 — 10%.
+evaluate_stop 의 initial_stop_pct 인자 검증(fail-closed) — 이 값 초과 손절폭 금지."""
+
 # ===== Distribution Day - 종목 레벨 (kr_pipeline/indicators/compute/volume.py) =====
 
 STOCK_DISTRIBUTION_VOL_MULT: Final[float] = 1.0
