@@ -37,6 +37,13 @@ If `market == "ETF"` or the instrument is a fund vehicle (sector is null with a 
 - CLIMAX_UP_DAYS_WINDOW_MIN = 7
 - CLIMAX_UP_DAYS_WINDOW_MAX = 15
 - TOPPING_BELOW_10W_WEEKS = 8
+- MARKET_DIST_DEMOTION_COUNT_25S = 5
+- MARKET_DIST_NORMAL_MAX_25S = 3
+- TT_MARGIN_MARGINAL_PCT = 3.0
+- TT_MARGINAL_DEMOTION_COUNT = 3
+- GATE_PROMOTION_PRICE_RATIO = 0.95
+- PIVOT_EXTENDED_BAND_MULT = 1.05
+- PIVOT_PRICE_OFFSET = 0.1
 <!-- /SSOT-THRESHOLDS -->
 
 ## Definitions
@@ -52,6 +59,8 @@ If `market == "ETF"` or the instrument is a fund vehicle (sector is null with a 
 You will receive a JSON payload with:
 - **Identifier**: symbol, market, sector, date
 - **Minervini screening results**: `conditions_met` (8 boolean conditions) AND `conditions_detail` (margin of pass for each condition), `rs_rating`
+- **`conditions_summary`** (#23, 결정론 선계산): `marginal_count`(§2 정의의 marginal 조건 수) · `marginal_conditions`(해당 키 목록) · `demotion_trigger`(카운트가 강등 임계 이상). §2 판정의 authoritative 입력 — 값 `null` = 지표 미산출.
+- **`market_direction_gate`** (#23, 결정론 선계산): `status`·`dist_count`(echo) · `force_watch`(downtrend/correction/rally_attempt) · `confidence_penalty`(분배일 누적 임계 이상) · `normal_range`(confirmed_uptrend 이고 분배일 정상 상한 이하). §3.5 하드룰의 authoritative 입력 — 값 `null` = 미산출.
 - **Current price metrics**: close, 52w high/low, distance from extremes, volume averages
 - **Recent daily OHLCV**: past ~60 trading days
 - **Recent weekly OHLCV**: past ~104 weeks for full base-pattern recognition including prior uptrend confirmation
@@ -77,6 +86,7 @@ All 8 `conditions_met` should be true (they always will be — the stock has alr
 
 - **Marginal pass**: a condition passes by < 3% margin (e.g., close is 1% above SMA-150).
 - If **3 or more** conditions pass marginally: maximum confidence is 0.6 and `watch` is preferred over `entry`.
+- **판정 입력 (#23)**: marginal 카운트는 payload `conditions_summary` 가 authoritative — margin 값들로 직접 **재계수하지 말 것** (위 두 문장은 co-anchor 정의로 유지, 계수는 코드 산출값 사용: `marginal_count` / `demotion_trigger`). `marginal_count` 가 `null`(지표 미산출)인 예외 상황에만 `conditions_detail` 로 직접 검토.
 - If **C6** (close ≥ 52w low × 1.25) or **C7** (close ≥ 52w high × 0.75) passes marginally: this is a structural weakness — note in reasoning.
 - If **C3** (SMA-200 22-day rising) passes but the rate of rise is shallow (visually flat on chart): the Stage 2 confirmation is weak — consider `watch`.
 
@@ -101,6 +111,11 @@ Read `market_context.current_status`. This is non-negotiable per O'Neil (*HMMS* 
 - If `current_status == "rally_attempt"` without a follow-through day: maximum classification is `watch`. Add `unfavorable_market_context`.
 - If `market_context.distribution_day_count_last_25_sessions >= 5`: lower confidence by 0.15 and prefer `watch` over `entry`. Add `unfavorable_market_context`. <!-- co-anchored with evaluate_pivot_trigger_v1 §3.5 recovery gate — change both together; guarded by tests/test_prompt_trigger_gates.py -->
 - If `current_status == "confirmed_uptrend"` with ≤ 3 distribution days: proceed normally with full classification range.
+
+**판정 입력 (#23)**: 위 하드룰의 상태 판정은 payload `market_direction_gate` 가 authoritative —
+`force_watch`(첫째·둘째 룰) / `confidence_penalty`(셋째 룰) / `normal_range`(넷째 룰) boolean 을
+그대로 사용하고, status/count 원시값으로 **재계산하지 말 것** (위 룰 문장은 co-anchor 정의로
+유지 — 원시값은 reasoning 서술 참고용). boolean 이 `null`(미산출)이면 보수적으로 entry 금지(watch 상한).
 
 This rule overrides individual stock setup quality. A perfect base in a downtrend is `watch`, not `entry`.
 

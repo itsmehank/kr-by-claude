@@ -39,6 +39,13 @@ PROMPT_SYNCED: dict[str, list[str]] = {
         "CLIMAX_UP_DAYS_WINDOW_MIN",
         "CLIMAX_UP_DAYS_WINDOW_MAX",
         "TOPPING_BELOW_10W_WEEKS",
+        "MARKET_DIST_DEMOTION_COUNT_25S",
+        "MARKET_DIST_NORMAL_MAX_25S",
+        "TT_MARGIN_MARGINAL_PCT",
+        "TT_MARGINAL_DEMOTION_COUNT",
+        "GATE_PROMOTION_PRICE_RATIO",
+        "PIVOT_EXTENDED_BAND_MULT",
+        "PIVOT_PRICE_OFFSET",
     ],
     "evaluate_pivot_trigger_v1.md": [
         "BREAKOUT_VOL_FLOOR",
