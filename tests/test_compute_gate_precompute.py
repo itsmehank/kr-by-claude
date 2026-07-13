@@ -123,15 +123,42 @@ def test_close_range_position_middle_third():
     assert g["close_middle_third"] is True
 
 
-def test_close_range_position_flat_bar_is_upper():
-    """range 0 = 단일가 잠금 봉(상한가 lock) — 종가가 정의상 range 100% → 상단 확정.
-    null 처리 시 상한가 돌파(최강 신호)가 go_now 금지로 오차단 (#37 리뷰)."""
+def test_flat_bar_limit_up_is_upper():
+    """range 0 봉은 전일 종가 대비 방향 확인 — 위 잠금(상한가)만 상단 마감 확정.
+    (null 처리 시 상한가 돌파(최강 신호)가 go_now 금지로 오차단 — #37 리뷰.)"""
     rows = _rows()
-    rows[-1]["high"] = rows[-1]["low"] = rows[-1]["close"] = 100.0
+    lock = rows[-2]["close"] * 1.3
+    rows[-1]["high"] = rows[-1]["low"] = rows[-1]["close"] = lock
     g = _gates(ohlcv_20d=rows)
     assert g["close_range_pos"] == 1.0
     assert g["close_upper_third"] is True
     assert g["close_middle_third"] is False
+
+
+def test_flat_bar_limit_down_is_lower():
+    """하한가 잠금(-30%, high==low==close)은 하단 마감 확정 — 무방향 상단 확정 시
+    최약세 봉이 '일중 약세 없음'으로 위장해 wait/abort 강도를 낮춘다 (#37 재리뷰)."""
+    rows = _rows()
+    lock = rows[-2]["close"] * 0.7
+    rows[-1]["high"] = rows[-1]["low"] = rows[-1]["close"] = lock
+    g = _gates(ohlcv_20d=rows)
+    assert g["close_range_pos"] == 0.0
+    assert g["close_upper_third"] is False
+    assert g["close_middle_third"] is False
+
+
+def test_flat_bar_direction_unknown_is_null():
+    """전일 행 부재 또는 보합 잠금(전일 종가와 동일)은 방향 불명 → null."""
+    single = [_row("2026-07-20", 100, 100, 100, 100, 1000)]
+    g = _gates(ohlcv_20d=single)
+    assert g["close_range_pos"] is None
+    assert g["close_upper_third"] is None
+
+    rows = _rows()
+    rows[-1]["high"] = rows[-1]["low"] = rows[-1]["close"] = rows[-2]["close"]
+    g2 = _gates(ohlcv_20d=rows)
+    assert g2["close_range_pos"] is None
+    assert g2["close_upper_third"] is None
 
 
 # ---- spread ----
@@ -192,8 +219,24 @@ def test_dist_null_when_rows_below_window():
     assert g["dist_3plus_5d"] is None
 
 
+def test_dist_counts_across_normal_long_holiday():
+    """정기 연휴(설/추석 — 최장 10일 휴장)로 창이 달력상 늘어나도 정상 거래일은 계수.
+
+    구 상한(clean 7d)은 연휴만으로 뚫려 연휴 직전 분배일이 조용히 미계수 →
+    no_dist_3d=True 로 go_now 오허용 (#37 재리뷰 — 상한을 연휴 실태로 상향).
+    """
+    rows = [_row(f"2026-01-{d:02d}", 100, 102, 98, 99, 1000) for d in range(5, 21)]
+    rows.append(_row("2026-01-22", 100, 102, 98, 99, 1000, flag=True))
+    rows.append(_row("2026-01-23", 100, 102, 98, 99, 1000, flag=True))
+    rows.append(_row("2026-02-03", 100, 102, 98, 101, 1000))  # 10일 휴장 후 재개일
+    g = _gates(ohlcv_20d=rows)
+    assert g["dist_days_last_3"] == 2   # 1/22·1/23 — 재개일 기준 12일 전이지만 계수
+    assert g["no_dist_3d"] is False
+    assert g["dist_days_last_5"] == 2
+
+
 def test_dist_stale_rows_beyond_cal_cap_not_counted():
-    """halt 로 창이 캘린더 상한(clean 7d/abort 11d)을 넘어 늘어진 stale 행은 미계수.
+    """halt 로 창이 캘린더 상한(clean 14d/abort 20d)을 넘어 늘어진 stale 행은 미계수.
 
     구성: 5월 15행 + 6월 초 4행(전부 분배일) + [6주 halt 공백] + 재개일 07-20 1행.
     row 기준 최근 3/5행에는 6월 분배일들이 들어오지만 캘린더 상한 밖 → 0 계수.
@@ -282,12 +325,24 @@ def test_tt_recovery_blocked_when_condition_failed():
     assert g["tt_recovery_ok"] is False
 
 
-def test_tt_none_margin_not_counted():
-    """margin 미산출(None)은 marginal 미계수 — A §2 는 'PASS 하면서 <3%' 만 세므로
-    None 계수 시 데이터 결함이 회복을 영구 차단해 정확한 역이 깨진다 (#37 리뷰)."""
+def test_tt_pass_with_none_margin_makes_count_null():
+    """PASS 인데 margin 미산출인 조건이 있으면 카운트 미확정(null) → 회복 null(go_now 금지).
+
+    비-marginal 로 세면 실제 marginal 3개가 2개로 집계돼 데이터 결함이 회복을
+    '허용' 쪽으로 왜곡 (#37 재리뷰) — A 측(#38)의 null 규약과 통일(보수 방향)."""
     g = _gates(conditions_detail=_tt(passed=8, marginal=2, none_margin=1))
-    assert g["tt_marginal_count"] == 2
-    assert g["tt_recovery_ok"] is True
+    assert g["tt_marginal_count"] is None
+    assert g["tt_recovery_ok"] is None
+
+
+def test_tt_failed_condition_with_none_margin_still_blocked():
+    """탈락 조건이 있으면 margin 결측과 무관하게 회복 불가 확정(False) — null 로 애매하게 두지 않음."""
+    detail = _tt(passed=7)
+    detail["c3"]["margin_pct"] = None  # c3 은 passed=True
+    g = _gates(conditions_detail=detail)
+    assert g["tt_all_passed"] is False
+    assert g["tt_marginal_count"] is None
+    assert g["tt_recovery_ok"] is False
 
 
 def test_tt_failed_condition_margin_not_counted():

@@ -114,11 +114,18 @@ def compute_gates(
             close_middle_third = _LOWER_THIRD <= close_range_pos < _UPPER_THIRD
         else:
             # range 0 = 단일가 잠금 봉 (상한가/하한가 lock, high==low==close).
-            # 종가가 정의상 range 의 100% — 상단 마감으로 확정 (null 아님).
-            # null 처리 시 상한가 돌파(최강 신호)가 go_now 금지로 오차단 (#37 리뷰).
-            close_range_pos = 1.0
-            close_upper_third = True
-            close_middle_third = False
+            # 전일 종가 대비 방향으로 확정 — 위 잠금(상한가)만 상단 마감(1.0),
+            # 아래 잠금(하한가)은 하단 마감(0.0). 무방향 상단 확정은 하한가(최약세 봉)를
+            # '일중 약세 없음'으로 위장시킨다 (#37 재리뷰). 전일 부재·보합 잠금은 null 유지.
+            prev_close = ohlcv_20d[-2]["close"] if len(ohlcv_20d) >= 2 else None
+            if prev_close is not None and last["close"] > prev_close:
+                close_range_pos = 1.0
+                close_upper_third = True
+                close_middle_third = False
+            elif prev_close is not None and last["close"] < prev_close:
+                close_range_pos = 0.0
+                close_upper_third = False
+                close_middle_third = False
 
     spread_ratio = None
     spread_wide_loose = None
@@ -174,22 +181,30 @@ def compute_gates(
         else:
             tt_all_passed = True
         # A §2 정의의 정확한 역: 'PASS 하면서 margin < 3%' 인 조건만 marginal.
-        # margin None(미산출)·탈락 조건은 미계수 — None 계수 시 데이터 결함이
-        # 회복을 영구 차단해 A 강등 기준과 어긋난다 (#37 리뷰).
-        tt_marginal_count = sum(
-            1
+        # 단 PASS 인데 margin 미산출(None)인 조건이 있으면 카운트 자체가 미확정(null) —
+        # 비-marginal 로 세면 실제 marginal 3개가 2개로 집계돼 데이터 결함이 회복을
+        # '허용' 쪽으로 왜곡한다 (#37 재리뷰). A 측(#38 payload_builder)의 null 규약과
+        # 동일한 보수 방향. 탈락 조건의 margin 은 정의상 무관(카운트 확정 유지).
+        has_unmeasured = any(
+            c.get("passed") is True and c.get("margin_pct") is None
             for c in conditions_detail.values()
-            if c.get("passed") is True
-            and c.get("margin_pct") is not None
-            and c["margin_pct"] < TT_MARGIN_MARGINAL_PCT
         )
-        if tt_all_passed is None:
+        if has_unmeasured:
+            tt_marginal_count = None
+        else:
+            tt_marginal_count = sum(
+                1
+                for c in conditions_detail.values()
+                if c.get("passed") is True
+                and c.get("margin_pct") is not None
+                and c["margin_pct"] < TT_MARGIN_MARGINAL_PCT
+            )
+        if tt_all_passed is False:
+            tt_recovery_ok = False  # 탈락 확정 — margin 결측과 무관하게 회복 불가
+        elif tt_all_passed is None or tt_marginal_count is None:
             tt_recovery_ok = None
         else:
-            tt_recovery_ok = (
-                tt_all_passed
-                and tt_marginal_count < TT_MARGINAL_DEMOTION_COUNT
-            )
+            tt_recovery_ok = tt_marginal_count < TT_MARGINAL_DEMOTION_COUNT
     else:
         tt_all_passed = None
         tt_marginal_count = None

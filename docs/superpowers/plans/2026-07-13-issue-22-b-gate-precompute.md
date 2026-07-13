@@ -23,7 +23,7 @@
 - spread 의 "평균 range" 는 프롬프트에 창 정의가 없었음 → **직전 19행(오늘 제외) (high−low) 평균, 최소 5행** 으로 결정론 정의.
 - volume band 경계: ratio > 1.4 = pass / 1.2 ≤ ratio ≤ 1.4 = wait_band / < 1.2 = below (프롬프트 "1.2~1.4× 사이" 문구와 정합, 경계 1.4 는 wait).
 - null 규약: 입력 결측 → 해당 게이트 null. **go_now 필요 게이트가 null 이면 go_now 금지(보수)** 를 프롬프트에 명시.
-- tt margin null: margin_pct 가 null 인 조건은 marginal 로 계수(보수).
+- tt margin null: **PASS 인데 margin_pct 가 null 인 조건이 있으면 tt_marginal_count 자체를 null(미확정 → go_now 금지)** — #38 A측(payload_builder)의 null 규약과 통일. (정정 2026-07-13: 종전 기록 '계수(보수)'는 출하 코드와 불일치했고, 미계수 방식은 데이터 결함이 회복을 '허용' 쪽으로 왜곡하는 반보수라 리뷰에서 기각 — 사용자 결정으로 null 승격 채택.)
 - 판정 불변 검사(이관 전후 LLM 판정 비교)는 ★재실행 1:1 비교 금지 규율에 따라 본 PR 에서 수행하지 않음 — 실가동 데이터 누적 후 패턴 비교(후속). 본 PR 의 검증은 단위테스트+drift 가드.
 
 ## 임계 의존성 맵 (threshold-change-checklist §b — 2축 판정)
@@ -39,12 +39,13 @@
 | 고정 상수 | 축1 환산? | 축2 영향? | 책 정합 | 판정 → 후속 |
 |---|---|---|---|---|
 | BREAKOUT_VOL_WAIT_FLOOR=1.2 | 가능(배수) | 미미 — 기존 프롬프트 문구(1.2~1.4)의 SSOT 승격, 값 변화 0 | EXTENDS(wait 밴드는 시스템 설계) | 모니터링(값 변화 없음 — 동작 중립 승격) |
-| SPREAD_WIDE_LOOSE_MULT=1.5 | 가능(배수) | 있음 — "평균 range" 창을 20d 로 처음 고정(기존 LLM 재량) | EXTENDS(wide-and-loose 개념은 O'Neil, 1.5×는 시스템) | B-수치(발동률 관찰 후 창·배수 재검토) |
+| SPREAD_WIDE_LOOSE_MULT=1.5 | 가능(배수) | 있음 — "평균 range" 창을 직전 19거래행(오늘 제외, 최소 5행)으로 처음 고정(기존 LLM 재량) | EXTENDS(wide-and-loose 개념은 O'Neil, 1.5×는 시스템) | B-수치(발동률 관찰 후 창·배수 재검토) |
 | SMA50_BREACH_RATIO=0.98 | 가능(비율) | 미미 — 기존 문구(×0.98) 승격, 값 변화 0 | EXTENDS | 모니터링(동작 중립 승격) |
-| STOCK_DIST_ABORT_COUNT_5D=3 / WINDOW 5d / CLEAN 3d | 불가(카운트·일수) | 미미 — 기존 문구(최근 5일 3+/최근 3일 무) 승격, 값 변화 0. 단 null flag=미계수 규약이 코드로 고정됨(기존 프롬프트 규약과 동일) | EXTENDS(분배 개념은 O'Neil, 창·카운트는 시스템) | 모니터링(동작 중립 승격) |
+| STOCK_DISTRIBUTION_ABORT_COUNT=3 / ABORT_WINDOW 5d / CLEAN_WINDOW 3d | 불가(카운트·일수) | 미미 — 기존 문구(최근 5일 3+/최근 3일 무) 승격, 값 변화 0. 단 null flag=미계수 규약이 코드로 고정됨(기존 프롬프트 규약과 동일) | EXTENDS(분배 개념은 O'Neil, 창·카운트는 시스템) | 모니터링(동작 중립 승격) |
 | MARKET_DIST_DEMOTION_COUNT_25S=5 | 불가(카운트) | 있음 — A 강등(≥5)·B 회복(<5) co-anchor 를 SSOT 단일값으로 강제(기존 텍스트 2사본) | PRESERVES(O'Neil HMMS Ch.9 5-6 distribution days) | 임계와 함께 보정(양쪽이 SSOT 참조 — drift 통로 제거) |
 | TT_MARGIN_MARGINAL_PCT=3.0, TT_MARGINAL_DEMOTION_COUNT=3 | 부분(마진 %) | 있음 — B 회복 게이트(tt_recovery_ok)가 A §2 강등 기준과 동일 임계를 코드 소비(기존 B 텍스트는 "경계 해소" 모호 — 3개 미만으로 확정) | EXTENDS(marginal 개념은 Minervini §2 해설, 3%/3개는 시스템) | B-수치(회복 게이트 발동률 데이터 누적 후 재검토) |
-| STOCK_DISTRIBUTION_{CLEAN,ABORT}_WINDOW_CAL_CAP=7/11 (리뷰 반영 신설) | 불가(캘린더 일수) | 있음 — halt 공백을 넘는 stale 분배일을 미계수(기존: LLM 이 날짜 보고 재량 할인) | EXTENDS(시스템 설계 — 3거래일≤주말+휴일 2=7, 5거래일≤11) | B-수치(연휴 장기화 등으로 정상 행이 잘리는 빈도 관찰 후 재조정) |
+| STOCK_DISTRIBUTION_CLEAN_WINDOW_CAL_CAP=14 (리뷰 신설 7 → 재리뷰 상향) | 불가(캘린더 일수) | 있음 — halt 공백을 넘는 stale 분배일을 미계수. **7 은 CLEAN_WINDOW=3 과의 상호작용에서 평범한 설/추석 연휴에도 뚫려 연휴 직전 분배일이 조용히 미계수(go_now 오허용) — 상수별 행 분리 판정으로 발견, 최장 10일 휴장(gap 11일) 기준 3거래행 ≤ 11+3=14 로 상향(사용자 결정 2026-07-13)** | EXTENDS(시스템 설계) | B-수치(정상 행이 잘리는 빈도 관찰) |
+| STOCK_DISTRIBUTION_ABORT_WINDOW_CAL_CAP=20 (리뷰 신설 11 → 재리뷰 상향) | 불가(캘린더 일수) | 있음 — ABORT_WINDOW=5 와의 상호작용 동일: 11 은 연휴에 뚫려 abort 신호(3+ 분배일) 과소계수. 5거래행 ≤ 11+3×3=20 상향(동일 결정) | EXTENDS(시스템 설계) | B-수치(동일) |
 | (기존) BREAKOUT_VOL_FLOOR=1.4 | — | 소비처 추가(gate_precompute) — 값 변화 0 | PRESERVES | 변경 없음 |
 | (기존) STOCK_DISTRIBUTION_* (flag 산출) | — | 영향 없음 — flag 산출 로직 불변, 소비 방식만 코드로 이동 | PRESERVES | 변경 없음 |
 

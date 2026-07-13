@@ -20,9 +20,9 @@
 - SPREAD_AVG_MIN_ROWS = 5
 - SMA50_BREACH_RATIO = 0.98
 - STOCK_DISTRIBUTION_CLEAN_WINDOW_DAYS = 3
-- STOCK_DISTRIBUTION_CLEAN_WINDOW_CAL_CAP = 7
+- STOCK_DISTRIBUTION_CLEAN_WINDOW_CAL_CAP = 14
 - STOCK_DISTRIBUTION_ABORT_WINDOW_DAYS = 5
-- STOCK_DISTRIBUTION_ABORT_WINDOW_CAL_CAP = 11
+- STOCK_DISTRIBUTION_ABORT_WINDOW_CAL_CAP = 20
 - STOCK_DISTRIBUTION_ABORT_COUNT = 3
 - MARKET_DIST_DEMOTION_COUNT_25S = 5
 - TT_MARGIN_MARGINAL_PCT = 3.0
@@ -46,13 +46,14 @@
   - `price_above_pivot` (close > pivot_price)
   - `volume_ratio`, `volume_band` ("pass" > BREAKOUT_VOL_FLOOR / "wait_band" ≥ BREAKOUT_VOL_WAIT_FLOOR / "below")
   - `close_range_pos`, `close_upper_third`, `close_middle_third` (일중 range 내 종가 위치.
-    range 0 인 단일가 잠금 봉(상한가/하한가 lock)은 정의상 상단 마감으로 확정 산출)
+    range 0 인 단일가 잠금 봉(상한가/하한가 lock)은 전일 종가 대비 방향으로 확정 —
+    상한가=상단 마감·하한가=하단 마감·전일 부재/보합 잠금=null)
   - `spread_ratio_vs_avg`, `spread_wide_loose` (직전 SPREAD_AVG_WINDOW_DAYS 거래행 평균 range 대비, > SPREAD_WIDE_LOOSE_MULT = wide)
   - `dist_days_last_3`, `no_dist_3d`, `dist_days_last_5`, `dist_3plus_5d` (종목 분배일 창 카운트 —
-    창·캘린더 상한은 STOCK_DISTRIBUTION_* 상수. halt 로 창이 주 단위 과거로 늘어진 stale 행은 미계수)
+    창·캘린더 상한은 STOCK_DISTRIBUTION_* 상수 — 상한은 정기 연휴(최장 10일 휴장)를 통과하도록 설정. halt 로 상한 밖까지 늘어진 stale 행은 미계수)
   - `low_below_base_low` (저가 기준), `close_below_base_low` (종가 기준), `close_below_sma50_breach` (close < sma_50 × SMA50_BREACH_RATIO), `close_below_sma21`
   - `market_dist_count`, `market_recovery_ok` (시장 회복: confirmed_uptrend **이고** 시장 분배일 < MARKET_DIST_DEMOTION_COUNT_25S)
-  - `tt_all_passed`, `tt_marginal_count`, `tt_recovery_ok` (TT 회복: 8조건 all pass **이고** marginal 조건 < TT_MARGINAL_DEMOTION_COUNT 개. marginal = PASS 이면서 margin < TT_MARGIN_MARGINAL_PCT %)
+  - `tt_all_passed`, `tt_marginal_count`, `tt_recovery_ok` (TT 회복: 8조건 all pass **이고** marginal 조건 < TT_MARGINAL_DEMOTION_COUNT 개. marginal = PASS 이면서 margin < TT_MARGIN_MARGINAL_PCT %. PASS 인데 margin 미산출인 조건이 있으면 카운트 null=미확정)
   - `ohlcv_last_date` (일중값 소스 행 날짜 — halt 직후 current_metrics 와 날짜가 다를 수 있음)
   - 값 `null` = 입력 결측/관측 창 미달로 미산출.
 - `recent_evaluation_history`: 최근 7일 (5b) 이력 (있을 때만)

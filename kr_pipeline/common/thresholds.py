@@ -139,11 +139,14 @@ STOCK_DISTRIBUTION_ABORT_WINDOW_DAYS: Final[int] = 5
 STOCK_DISTRIBUTION_ABORT_COUNT: Final[int] = 3
 """B abort 의 분배 누적 판정 (최근 5거래행 내 3+ 분배일). 기존 프롬프트 문구 승격."""
 
-STOCK_DISTRIBUTION_CLEAN_WINDOW_CAL_CAP: Final[int] = 7
-STOCK_DISTRIBUTION_ABORT_WINDOW_CAL_CAP: Final[int] = 11
+STOCK_DISTRIBUTION_CLEAN_WINDOW_CAL_CAP: Final[int] = 14
+STOCK_DISTRIBUTION_ABORT_WINDOW_CAL_CAP: Final[int] = 20
 """분배일 창의 캘린더 상한 (마지막 거래행 기준 일수). 20d 리스트는 halt 행이 제외돼
 '최근 N 거래행'이 halt 를 넘어 주 단위 과거로 늘어질 수 있음(#37 리뷰) — 상한 밖 행은
-stale 로 미계수. 3거래일≤주말+휴일 2일=7, 5거래일≤7+휴일 여유=11 (시스템 설계, B-수치)."""
+stale 로 미계수. 상한은 한국 정기 연휴 실태 기준(최장 10일 휴장 = 거래일 간 달력 gap
+최대 11일, 2017 추석 실례): 3거래행 ≤ 11+3(주말) = 14, 5거래행 ≤ 11+3×3 = 20 —
+구 값(7/11)은 평범한 설/추석 연휴에도 뚫려 연휴 직전 분배일이 조용히 미계수됐다
+(#37 재리뷰, 사용자 결정 2026-07-13). (시스템 설계, B-수치)."""
 
 MARKET_DIST_DEMOTION_COUNT_25S: Final[int] = 5
 """시장 분배일(25세션) 강등/회복 co-anchor. A §3.5 강등: count >= N → entry 대신 watch
