@@ -60,16 +60,8 @@ PROMPT_SYNCED: dict[str, list[str]] = {
         "TT_MARGIN_MARGINAL_PCT",
         "TT_MARGINAL_DEMOTION_COUNT",
     ],
-    "calculate_entry_params_v2_0.md": [
-        "BREAKOUT_VOL_FLOOR",
-        "BREAKOUT_VOL_PREFERRED",
-        "ENTRY_STOP_PCT_FROM_PIVOT_FLOOR",
-        "ENTRY_TARGET_PCT_MIN",
-        "ENTRY_TARGET_PCT_MAX",
-        "ENTRY_WEIGHT_PCT_MIN",
-        "ENTRY_WEIGHT_PCT_MAX",
-        "ENTRY_TRIGGER_BUFFER_MAX",
-    ],
+    # calculate_entry_params_v2_0.md 는 #21 로 은퇴(결정론 대체) — 값 소비는
+    # entry_params_calc.py 의 SSOT import 로 이동, 수동 동기화 채널 소멸.
 }
 
 BLOCK_RE = re.compile(r"<!-- SSOT-THRESHOLDS -->(.*?)<!-- /SSOT-THRESHOLDS -->", re.S)

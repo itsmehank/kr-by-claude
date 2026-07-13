@@ -70,7 +70,8 @@ PP_DOWN_VOL_LOOKBACK_DAYS: Final[int] = 10
 책: Morales & Kacher TLOND Ch.5 p.133 — 기본 10 일.
 선호: 변동성 큰 종목은 11-15 일 (책 단서, 적응형 미구현)."""
 
-# ===== Breakout Volume — 책 표준 (prompts/calculate_entry_params_v2_0.md §6.1) =====
+# ===== Breakout Volume — 책 표준 (§6.1; 원출처 프롬프트는 #21 로 은퇴 아카이브,
+# 현행 소비처는 kr_pipeline/llm_runner/compute/entry_params_calc.py) =====
 
 BREAKOUT_VOL_FLOOR: Final[float] = 1.4
 """Breakout 거래량 허용 하한 (50일 평균 배수).
@@ -84,7 +85,7 @@ TLOND p.134 — 'standard breakout = 50% above average or more'.
 2026-05-22 (P0-1): 디폴트를 1.4× → 1.5× 로 상향, 1.4× 는 허용 하한."""
 
 # ===== Entry Params 검증 임계 (kr_pipeline/llm_runner/store.py sanity ↔
-# prompts/calculate_entry_params_v2_0.md §1.3/§2/§3/§4) =====
+# compute/entry_params_calc.py 산출 — 구 §1.3/§2/§3/§4, 프롬프트는 #21 은퇴 아카이브) =====
 # 2026-07-08 (P1-7): store.py 사설 상수를 SSOT 승격 — 프롬프트·검증코드가 같은
 # 수치를 3중 복제하던 것을 단일화(값 변경 0, 동작 중립). 프롬프트는 SSOT 블록으로
 # 수동 동기화(tests/test_prompt_threshold_drift.py 가 감시).
@@ -160,8 +161,9 @@ TT_MARGIN_MARGINAL_PCT: Final[float] = 3.0
 TT_MARGINAL_DEMOTION_COUNT: Final[int] = 3
 """marginal 조건 개수 임계. A §2: 3개 이상 marginal → confidence 상한 + watch 선호
 (watch_reason=marginal_tt). B tt_recovery_ok: 8조건 all pass AND marginal < 3개 (정확한 역).
-marginal 계수는 A §2 정의 그대로 'PASS 하면서 margin < 3%' 인 조건만 — margin 미산출(None)·
-탈락 조건은 미계수 (#37 리뷰: None 계수 시 데이터 결함이 회복을 영구 차단해 역이 깨짐).
+marginal 계수는 A §2 정의 그대로 'PASS 하면서 margin < 3%' 인 조건만. 결측 규약(#37 재리뷰,
+#38 A측과 통일): PASS 인데 margin 미산출(None)인 조건이 있으면 카운트 자체를 null(미확정 —
+비-marginal 로 세면 데이터 결함이 회복을 '허용' 쪽으로 왜곡). 탈락 조건의 margin 은 정의상 무관.
 시스템 설계 (marginal 개념은 Minervini 해설 유래, 3%/3개 수치는 시스템)."""
 
 # ===== Distribution Day - 종목 레벨 (kr_pipeline/indicators/compute/volume.py) =====

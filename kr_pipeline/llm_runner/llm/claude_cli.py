@@ -131,6 +131,9 @@ def _mock_evaluate_pivot_trigger() -> dict:
 
 
 def _mock_calculate_entry_params() -> dict:
+    # #21 이후 production 은퇴 경로 — entry_params.py 가 call_claude 를 호출하지 않아
+    # dry-run 에서 도달 불능. 레거시 테스트·parity 개조용으로만 잔존(§9 와 미묘하게
+    # 다른 random mock 이므로 '구 LLM 출력'의 대역으로 쓰지 말 것).
     pivot = round(random.uniform(50000, 100000), 0)
     trigger = round(pivot * 1.001, 2)
     stop = round(pivot * random.uniform(0.93, 0.95), 2)

@@ -152,7 +152,7 @@ const STAGES: PipelineStage[] = [
     order: 3,
     label: "매수 계획 (entry_params) — go_now 종목의 실제 매수 파라미터",
     intro:
-      "evaluate_pivot 에서 [[go_now]] 결정을 받은 *진짜 매수 시그널* 종목에 대해 AI 가 18 개 필드의 매수 계획을 작성합니다.\n\n진입 가격·[[stop loss|손절선]]·목표가·포지션 사이즈·돌파 거래량 요건 등 매수에 필요한 모든 숫자를 한 행으로 정리.\n\n이게 시스템의 *최종 산출물* 입니다 — 사용자는 entry_params 행을 보고 실제 매수 여부를 결정.",
+      "evaluate_pivot 에서 [[go_now]] 결정을 받은 *진짜 매수 시그널* 종목에 대해 결정론 함수가 18 개 필드의 매수 계획을 계산합니다 (#21 — 이 단계는 AI 호출 없음, 같은 입력이면 항상 같은 결과).\n\n진입 가격·[[stop loss|손절선]]·목표가·포지션 사이즈·돌파 거래량 요건 등 매수에 필요한 모든 숫자를 한 행으로 정리.\n\n이게 시스템의 *최종 산출물* 입니다 — 사용자는 entry_params 행을 보고 실제 매수 여부를 결정.",
     inputs: ["trigger_evaluation_log", "daily_indicators", "weekly_classification"],
     outputs: ["entry_params"],
     deterministicSummary:
@@ -160,7 +160,7 @@ const STAGES: PipelineStage[] = [
     deterministicDetail:
       "SELECT FROM trigger_evaluation_log WHERE evaluated_at::date = today AND decision='go_now' AND trigger_type='breakout'. 이 조건이 'watch staging' 이 매수로 새지 않게 막는 안전장치.",
     llmSummary:
-      "calculate_entry_params_v2_0.md prompt — 18 필드를 책 룰 (O'Neil 7-8% 손절, Minervini 1-3% 거래당 위험, 5% chase 제한 등) 에 맞춰 계산. [[entry_mode]] 가 [[pivot_breakout]] 인지 [[pocket_pivot]] 인지에 따라 손절·사이징 룰이 다릅니다.",
+      "결정론 함수 entry_params_calc (#21 — 구 calculate_entry_params_v2_0.md 프롬프트를 코드로 대체) — 17 필드를 책 룰 (O'Neil 7-8% 손절, Minervini 1-3% 거래당 위험, 5% chase 제한 — VCP 는 일괄 3% 등) 에 맞춰 계산. [[entry_mode]] 가 [[pivot_breakout]] 인지 [[pocket_pivot]] 인지에 따라 손절·사이징 룰이 다릅니다.",
     llmShowsLists: {
       eighteenFields: true,
     },
@@ -204,7 +204,7 @@ const DIAGRAM_DATA_FLOW = `graph LR
     B -->|매일 활성 종목 선별<br/>— 최신 분류만| C{"평일 트리거 평가<br/>— 결정론 게이트"}
     C -->|돌파 / 직전 staging<br/>/ base 무효| D["AI 평가"]
     D -->|go_now / wait / abort| E[("트리거 평가 로그<br/>trigger_evaluation_log")]
-    E -->|go_now AND 진짜 돌파<br/>— staging 차단 안전장치| F["매수 계획 작성<br/>— AI 호출"]
+    E -->|go_now AND 진짜 돌파<br/>— staging 차단 안전장치| F["매수 계획 계산<br/>— 결정론 함수 (#21)"]
     F --> G[("매수 계획 테이블<br/>entry_params<br/>18 필드 매수 시그널")]
     G -->|매일 자동| H["성과 추적<br/>1주·2주·4주·8주 후"]
     H --> I[("성과 테이블<br/>signal_performance")]
@@ -482,7 +482,7 @@ function StageCard({ stage }: { stage: PipelineStage }) {
               </ListFold>
             )}
             {stage.llmShowsLists?.eighteenFields && (
-              <ListFold label="AI 가 채우는 매수 계획 18 필드 모두 보기" count={ENTRY_PARAMS_FIELDS.length}>
+              <ListFold label="결정론 함수가 채우는 매수 계획 18 필드 모두 보기" count={ENTRY_PARAMS_FIELDS.length}>
                 <div className="space-y-3">
                   {(Object.keys(FIELD_CATEGORIES) as (keyof typeof FIELD_CATEGORIES)[]).map((cat) => {
                     const fields = ENTRY_PARAMS_FIELDS.filter((f) => f.category === cat);

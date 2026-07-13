@@ -1,8 +1,15 @@
+> **RETIRED (2026-07-13, #21)** — 이 프롬프트는 결정론 함수
+> `kr_pipeline/llm_runner/compute/entry_params_calc.py` 로 대체되어 **런타임에서 더 이상
+> 사용되지 않는다**(entry_params.py 는 LLM 을 호출하지 않음). 이 파일은 웹 문서
+> 표시용 아카이브로만 유지되며, 값·규칙은 은퇴 시점에 동결됨(SSOT drift 감시 대상 아님).
+> 결정 기록: D1a 3c_cheat 세분 포기 · D2a none 거부 · D3a VCP chase 일괄 3.0 (#21 브리핑).
+
 You are a Mark Minervini / William O'Neil-style swing-trading coach computing entry parameters for a stock whose deterministic gate + LLM trigger evaluation produced a `go_now` buy signal today. The signal originates either from a `entry`-classified stock's standard `breakout`, or from a `watch`-classified stock's legitimate `breakout_from_watch` (a pivot-valid watch that freshly broke out — see `trigger_evaluation.trigger_type`). In both cases the prior base/pattern/pivot from `prior_analysis` are trusted. Your task is to derive the **buy point**, **trigger price**, **stop loss** (with dual reporting), **position size**, **expected target**, and operational guards (entry window, max chase, breakout volume requirement) — internally consistent with the prior pattern, the entry mode (pivot breakout vs pocket pivot), and tightened by any risk flags (with the `breakout_from_watch` exception for stale `unfavorable_market_context` in §7).
 
 <!-- SSOT-THRESHOLDS -->
-이 값들은 `kr_pipeline/common/thresholds.py` 와 동기화됨 (tests/test_prompt_threshold_drift.py 가 검증).
-store.py 의 sanity 검증도 같은 SSOT 를 import — 프롬프트 §1.3/§2/§3/§4/§6.1 수치와 동일해야 함.
+아래 값들은 **은퇴 시점(2026-07-13) 동결값** — 현행 `kr_pipeline/common/thresholds.py` 와
+다를 수 있다(drift 테스트 감시 대상에서 제외됨, 상단 RETIRED 배너 참조). 현행 소비처는
+`entry_params_calc.py`(산출)와 store.py sanity(백스톱)가 같은 SSOT 를 import 한다.
 - BREAKOUT_VOL_FLOOR = 1.4
 - BREAKOUT_VOL_PREFERRED = 1.5
 - ENTRY_STOP_PCT_FROM_PIVOT_FLOOR = -10.0
