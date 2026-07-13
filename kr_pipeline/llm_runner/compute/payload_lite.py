@@ -7,6 +7,7 @@ from psycopg import Connection
 
 from api.services.market_context_builder import build_market_context
 from api.services.minervini_detail_builder import build_minervini_detail
+from kr_pipeline.llm_runner.compute.gate_precompute import compute_gates
 
 
 _PRIOR_KEYS = (
@@ -71,8 +72,9 @@ def build_for_5b(
                    COALESCE(p.adj_volume, p.volume),
                    i.distribution_day_flag
               FROM daily_prices p
-              -- (#31) 종목 분배일 flag — B 게이트 판정의 authoritative 입력
-              -- (LLM 자체 재계산 금지). 0-바 제외가 선행이라 halt 행 flag 미노출.
+              -- (#31→#22) 종목 분배일 flag — 게이트 판정은 computed_gates 가
+              -- authoritative(코드 선계산 소비), per-row flag 는 reasoning 참고용.
+              -- 0-바 제외가 선행이라 halt 행 flag 미노출.
               LEFT JOIN daily_indicators i
                 ON i.ticker = p.ticker AND i.date = p.date
              WHERE p.ticker = %s AND p.date <= %s
@@ -123,6 +125,51 @@ def build_for_5b(
         None,
     )
 
+    prior_analysis = {
+        "classified_at": prior[0].isoformat(),
+        "days_since_classification": (as_of - prior[0].date()).days,
+        "classification": prior[1],
+        "pattern": prior[2],
+        "pivot_price": float(prior[3]) if prior[3] else None,
+        "pivot_basis": prior[4],
+        "base_high": float(prior[5]) if prior[5] else None,
+        "base_low": float(prior[6]) if prior[6] else None,
+        "base_depth_pct": float(prior[7]) if prior[7] else None,
+        "risk_flags": prior[8],
+        "reasoning": prior[9],
+        "watch_reason": prior[10],
+    }
+    recent_ohlcv = [
+        {
+            "date": r[0].isoformat(),
+            "open": float(r[1]),
+            "high": float(r[2]),
+            "low": float(r[3]),
+            "close": float(r[4]),
+            "volume": int(round(float(r[5]))),
+            "distribution_day_flag": bool(r[6]) if r[6] is not None else None,
+        }
+        for r in ohlcv_rows
+    ]
+    current_metrics = (
+        {
+            "close": float(cur_row[0]) if cur_row else None,
+            "volume": int(cur_row[1]) if cur_row and cur_row[1] else None,
+            "avg_volume_50d": (
+                float(cur_row[2]) if cur_row and cur_row[2] else None
+            ),
+            "volume_ratio": (
+                float(cur_row[1]) / float(cur_row[2])
+                if cur_row and cur_row[1] and cur_row[2] and cur_row[2] > 0
+                else None
+            ),
+            "sma_50": float(cur_row[3]) if cur_row and cur_row[3] else None,
+            "sma_21": float(cur_row[4]) if cur_row and cur_row[4] else None,
+        }
+        if cur_row
+        else {}
+    )
+
     return {
         "symbol": symbol,
         "name": name,
@@ -133,49 +180,16 @@ def build_for_5b(
         "conditions_met": conditions_met,
         "conditions_detail": minervini,
         "rs_rating": rs_rating,
-        "prior_analysis": {
-            "classified_at": prior[0].isoformat(),
-            "days_since_classification": (as_of - prior[0].date()).days,
-            "classification": prior[1],
-            "pattern": prior[2],
-            "pivot_price": float(prior[3]) if prior[3] else None,
-            "pivot_basis": prior[4],
-            "base_high": float(prior[5]) if prior[5] else None,
-            "base_low": float(prior[6]) if prior[6] else None,
-            "base_depth_pct": float(prior[7]) if prior[7] else None,
-            "risk_flags": prior[8],
-            "reasoning": prior[9],
-            "watch_reason": prior[10],
-        },
-        "recent_daily_ohlcv_20d": [
-            {
-                "date": r[0].isoformat(),
-                "open": float(r[1]),
-                "high": float(r[2]),
-                "low": float(r[3]),
-                "close": float(r[4]),
-                "volume": int(round(float(r[5]))),
-                "distribution_day_flag": bool(r[6]) if r[6] is not None else None,
-            }
-            for r in ohlcv_rows
-        ],
-        "current_metrics": (
-            {
-                "close": float(cur_row[0]) if cur_row else None,
-                "volume": int(cur_row[1]) if cur_row and cur_row[1] else None,
-                "avg_volume_50d": (
-                    float(cur_row[2]) if cur_row and cur_row[2] else None
-                ),
-                "volume_ratio": (
-                    float(cur_row[1]) / float(cur_row[2])
-                    if cur_row and cur_row[1] and cur_row[2] and cur_row[2] > 0
-                    else None
-                ),
-                "sma_50": float(cur_row[3]) if cur_row and cur_row[3] else None,
-                "sma_21": float(cur_row[4]) if cur_row and cur_row[4] else None,
-            }
-            if cur_row
-            else {}
+        "prior_analysis": prior_analysis,
+        "recent_daily_ohlcv_20d": recent_ohlcv,
+        "current_metrics": current_metrics,
+        # (#22) 정량 게이트 결정론 선계산 — 프롬프트 §3 규약상 authoritative.
+        "computed_gates": compute_gates(
+            ohlcv_20d=recent_ohlcv,
+            current_metrics=current_metrics,
+            prior_analysis=prior_analysis,
+            market_context=market_context,
+            conditions_detail=minervini,
         ),
         "recent_evaluation_history": [
             {

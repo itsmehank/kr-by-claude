@@ -11,9 +11,22 @@
 
 <!-- SSOT-THRESHOLDS -->
 이 값들은 `kr_pipeline/common/thresholds.py` 와 동기화됨 (tests/test_prompt_threshold_drift.py 가 검증).
-코드가 소비하는 값만 등재 — wait 밴드(1.2~1.4×)·spread 1.5x·sma_50×0.98 등은 프롬프트 전용 판단값.
+(#22) 정량 게이트는 코드 선계산(`computed_gates`, gate_precompute.py) — 아래 값은 그 계산 기준.
 - BREAKOUT_VOL_FLOOR = 1.4
 - GATE_PROMOTION_PRICE_RATIO = 0.95
+- BREAKOUT_VOL_WAIT_FLOOR = 1.2
+- SPREAD_WIDE_LOOSE_MULT = 1.5
+- SPREAD_AVG_WINDOW_DAYS = 19
+- SPREAD_AVG_MIN_ROWS = 5
+- SMA50_BREACH_RATIO = 0.98
+- STOCK_DISTRIBUTION_CLEAN_WINDOW_DAYS = 3
+- STOCK_DISTRIBUTION_CLEAN_WINDOW_CAL_CAP = 14
+- STOCK_DISTRIBUTION_ABORT_WINDOW_DAYS = 5
+- STOCK_DISTRIBUTION_ABORT_WINDOW_CAL_CAP = 20
+- STOCK_DISTRIBUTION_ABORT_COUNT = 3
+- MARKET_DIST_DEMOTION_COUNT_25S = 5
+- TT_MARGIN_MARGINAL_PCT = 3.0
+- TT_MARGINAL_DEMOTION_COUNT = 3
 <!-- /SSOT-THRESHOLDS -->
 
 ## 2. Inputs (JSON)
@@ -22,54 +35,73 @@
 
 - `symbol`, `name`, `market`, `evaluation_date`
 - `trigger_type`: "breakout" | "breakout_from_watch" | "invalidation" | "promotion"
-- `prior_analysis`: 주말 (5) 결과 (`classified_at`, **`days_since_classification`** (분류 후 경과일), `classification`, `pattern`, `pivot_price`, `pivot_basis`, `base_high`, `base_low`, `base_depth_pct`, `risk_flags`, `reasoning`, **`watch_reason`** (watch 분류 사유 — `trigger_type == "breakout_from_watch"` 일 때 §3.5 분기 결정에 사용; 그 외 무관))
+- `prior_analysis`: 주말 (5) 결과 (`classified_at`, **`days_since_classification`** (분류 후 경과일), `classification`, `pattern`, `pivot_price`, `pivot_basis`, `base_high`, `base_low`, `base_depth_pct`, `risk_flags`, `reasoning`, **`watch_reason`** (watch 분류 사유 — reasoning 서술 참고용. §3.5 회복 게이트는 사유-독립(#22)이라 판정에는 미사용))
 - `recent_daily_ohlcv_20d`: 최근 20영업일 OHLCV 리스트 — 각 행에 **`distribution_day_flag`**(종목 분배일, 결정론 산출) 포함
 - `current_metrics`: `close`, `volume`, `avg_volume_50d`, `volume_ratio`, `sma_50`, **`sma_21`** (≈ 20-day line, Minervini *Think & Trade Like a Champion* Ch.1 의 "20-day line" 가드용)
-- `market_context`: **현재(평가일 as-of)** 시장 상태 — `current_status`(confirmed_uptrend / rally_attempt / downtrend / correction), `distribution_day_count_last_25_sessions` 등. (§3.5 `unfavorable_market` 분기 + flag 보유 형제 분기(marginal_tt/valid_base) 재확인 입력. 분류시점 아님 — *오늘* 시장.)
-- `conditions_met` / `conditions_detail`: **현재** Minervini Trend Template 8조건 boolean + 조건별 통과 마진. (§3.5 `marginal_tt` 분기 입력.)
+- `market_context`: **현재(평가일 as-of)** 시장 상태 — `current_status`(confirmed_uptrend / rally_attempt / downtrend / correction), `distribution_day_count_last_25_sessions` 등. (§3.5 회복 게이트의 원천 입력 — 판정 자체는 `computed_gates.market_recovery_ok`. 분류시점 아님 — *오늘* 시장.)
+- `conditions_met` / `conditions_detail`: **현재** Minervini Trend Template 8조건 boolean + 조건별 통과 마진. (§3.5 회복 게이트의 원천 입력 — 판정 자체는 `computed_gates.tt_recovery_ok`.)
 - `rs_rating`: **현재** RS Rating.
+- `computed_gates`: **(#22) 정량 게이트 결정론 선계산** — §3 게이트 판정 규약의 authoritative 입력.
+  임계 수치는 위 SSOT 블록의 상수가 유일 정의 (여기 산문에 재기재하지 않음 — 숫자 에코 drift 방지).
+  - `price_above_pivot` (close > pivot_price)
+  - `volume_ratio`, `volume_band` ("pass" > BREAKOUT_VOL_FLOOR / "wait_band" ≥ BREAKOUT_VOL_WAIT_FLOOR / "below")
+  - `close_range_pos`, `close_upper_third`, `close_middle_third` (일중 range 내 종가 위치.
+    range 0 인 단일가 잠금 봉(상한가/하한가 lock)은 전일 종가 대비 방향으로 확정 —
+    상한가=상단 마감·하한가=하단 마감·전일 부재/보합 잠금=null)
+  - `spread_ratio_vs_avg`, `spread_wide_loose` (직전 SPREAD_AVG_WINDOW_DAYS 거래행 평균 range 대비, > SPREAD_WIDE_LOOSE_MULT = wide)
+  - `dist_days_last_3`, `no_dist_3d`, `dist_days_last_5`, `dist_3plus_5d` (종목 분배일 창 카운트 —
+    창·캘린더 상한은 STOCK_DISTRIBUTION_* 상수 — 상한은 정기 연휴(최장 10일 휴장)를 통과하도록 설정. halt 로 상한 밖까지 늘어진 stale 행은 미계수)
+  - `low_below_base_low` (저가 기준), `close_below_base_low` (종가 기준), `close_below_sma50_breach` (close < sma_50 × SMA50_BREACH_RATIO), `close_below_sma21`
+  - `market_dist_count`, `market_recovery_ok` (시장 회복: confirmed_uptrend **이고** 시장 분배일 < MARKET_DIST_DEMOTION_COUNT_25S)
+  - `tt_all_passed`, `tt_marginal_count`, `tt_recovery_ok` (TT 회복: 8조건 all pass **이고** marginal 조건 < TT_MARGINAL_DEMOTION_COUNT 개. marginal = PASS 이면서 margin < TT_MARGIN_MARGINAL_PCT %. PASS 인데 margin 미산출인 조건이 있으면 카운트 null=미확정)
+  - `ohlcv_last_date` (일중값 소스 행 날짜 — halt 직후 current_metrics 와 날짜가 다를 수 있음)
+  - 값 `null` = 입력 결측/관측 창 미달로 미산출.
 - `recent_evaluation_history`: 최근 7일 (5b) 이력 (있을 때만)
 
 ## 3. Decision Logic
 
-**분배일 판정 규약**: 종목 distribution day 여부는 각 행의 `distribution_day_flag` 가
-**authoritative** — OHLCV 로 직접 재계산하지 말 것(analyze_chart_v3 §6 의 column-is-authoritative
-관례와 동일. flag 는 결정론 코드 산출값 — LLM 자체 기준 사용 금지). flag 가 `null`(지표 미산출)인
-행은 분배일로 세지 않는다(결정론 경로의 null=False 관례와 동일 — handle_quality 의 COALESCE).
+**게이트 판정 규약 (#22)**: 정량 게이트(가격·거래량·종가 위치·spread·분배일 카운트·이평선
+이격·시장/TT 회복)는 `computed_gates` 가 **authoritative** — OHLCV·지표·flag 로 직접
+재계산하지 말 것(analyze_chart_v3 §6 의 column-is-authoritative 관례와 동일. 결정론 코드
+산출값 — LLM 자체 기준 사용 금지). per-row `distribution_day_flag` 와 원시 OHLCV 는
+reasoning 서술의 참고용(reference-only)이며 게이트 재판정에 사용 금지. `computed_gates`
+값이 `null` 인 게이트는 미산출로 취급 — **go_now 에 필요한 게이트가 null 이면 go_now 금지**
+(wait 로). 결정(go_now/wait/abort)과 비산술 판단(거래량 동반의 의미, squat 회복 여지,
+'돌파 직후' 여부, confidence)은 여전히 LLM 몫이다.
 
 ### 3.1 trigger_type = "breakout"
 
-`go_now` 조건 (모두 충족):
-- close > pivot_price (결정론 게이트 이미 확인. 재확인)
-- volume > avg_volume_50d × 1.4 (책 근거: O'Neil HTMMIS Ch.2 "Volume Percent Change")
-- 종가가 일중 range 의 상단 1/3 (no intraday weakness)
-- spread (high − low) wide-and-loose 아님 (최대 평균 range 의 1.5x)
-- 최근 3일 distribution day 없음
+`go_now` 조건 (모두 충족 — 전부 `computed_gates` 값 그대로 사용):
+- `price_above_pivot == true` (결정론 게이트 이미 확인. 재확인)
+- `volume_band == "pass"` (책 근거: O'Neil HTMMIS Ch.2 "Volume Percent Change")
+- `close_upper_third == true` (no intraday weakness)
+- `spread_wide_loose == false` (wide-and-loose 아님)
+- `no_dist_3d == true` (최근 3일 distribution day 없음)
 
 `wait` 조건:
-- volume 1.2~1.4× 사이 (부족하지만 abort 까지는 아님)
-- 종가가 일중 range 중간 1/3 (weak finish)
-- spread borderline wide
+- `volume_band == "wait_band"` (부족하지만 abort 까지는 아님)
+- `close_middle_third == true` (weak finish)
+- `spread_ratio_vs_avg` 가 wide 임계 부근 경계 (borderline wide — 재량 판단)
 
 `abort` 조건:
-- base_low 이탈 (today's low < base_low)
-- sma_50 명확 이탈 (close < sma_50 × 0.98 + 거래량 동반)
-- 최근 5일 distribution day 3+ 발생
+- `low_below_base_low == true` (base_low 이탈)
+- `close_below_sma50_breach == true` + 거래량 동반 (sma_50 명확 이탈)
+- `dist_3plus_5d == true` (최근 5일 distribution day 3+)
 - **돌파 직후 20일선 가드 위반** (Minervini *TTLC* Ch.1 "WATCH THE 20-DAY LINE
   SOON AFTER A BASE BREAKOUT"): `days_since_classification` 이 작아 "돌파
-  직후 (soon after)" 로 판단되고 (대략 분류 후 4주 이내), `close < sma_21`
-  종가 이탈 + 거래량 동반/추가 위반 (예: 직전 며칠 distribution 누적,
-  spread wide-and-loose 등). **단독 sma_21 이탈은 wait 로** — 책이 "단독으론
+  직후 (soon after)" 로 판단되고 (대략 분류 후 4주 이내), `close_below_sma21
+  == true` + 거래량 동반/추가 위반 (예: `dist_days_last_5` 누적,
+  `spread_wide_loose == true` 등). **단독 sma_21 이탈은 wait 로** — 책이 "단독으론
   의미 없다 (not significant on its own)" 명시.
 
 ### 3.2 trigger_type = "invalidation"
 
 `abort`:
-- close < sma_50 (>2% 이탈) + 거래량 동반
-- close < prior_analysis.base_low
+- `close_below_sma50_breach == true` (>2% 이탈) + 거래량 동반
+- `close_below_base_low == true` (종가가 base_low 이탈)
 - **돌파 직후 20일선 가드 추가 적용** (Minervini *TTLC* Ch.1): invalidation
   트리거는 sma_50 이탈 시점에 발동되지만, `days_since_classification` 이 작아
-  "돌파 직후" 인 종목에서 `close < sma_21` 도 이미 위반 + 거래량 동반 시
+  "돌파 직후" 인 종목에서 `close_below_sma21 == true` 도 이미 위반 + 거래량 동반 시
   abort 신뢰성 증가 (Minervini "성공률 약 절반으로 줄어든다 / cut in about
   half" 표현).
 
@@ -129,36 +161,32 @@ pivot fresh 돌파가 발생한 경우. 기존엔 promotion 으로만 잡혀 토
 정당한 돌파를 놓쳤던 갭을 메운다. **분류는 여전히 변경하지 않는다** (§1 scope) — entry_params
 직행 여부만 결정.
 
-**공통 표준 돌파 검증 (§3.1 과 동일 — 먼저 적용)**:
-- close > pivot_price (게이트 fresh_cross 이미 확인. 재확인)
-- volume > avg_volume_50d × 1.4 (O'Neil HTMMIS Ch.2)
-- 종가가 일중 range 상단 1/3 (no intraday weakness)
-- spread wide-and-loose 아님 (≤ 평균 range 1.5x)
-- 최근 3일 distribution day 없음
+**공통 표준 돌파 검증 (§3.1 의 go_now 조건과 동일 — `computed_gates`, 먼저 적용)**:
+- `price_above_pivot == true` (게이트 fresh_cross 이미 확인. 재확인)
+- `volume_band == "pass"` (O'Neil HTMMIS Ch.2)
+- `close_upper_third == true` (no intraday weakness)
+- `spread_wide_loose == false`
+- `no_dist_3d == true`
 
-**watch_reason 별 추가 게이트 (go_now 허용 조건):**
+**회복 게이트 (사유-독립 — watch_reason 무관, `go_now` 는 항상 둘 다 충족 필수):**
 
-- `valid_base_awaiting_breakout`: 위 공통 표준 검증 충족 시 `go_now`.
-  (base 가 이미 신뢰 가능 — entry 와 동등 취급.)
-  **단, `prior_analysis.risk_flags` 에 `unfavorable_market_context` 가 있으면** 위 조건에 더해
-  `unfavorable_market` 게이트와 동일한 시장 재확인(현재 `market_context` 로 회복+분배일
-  해소 판정)도 충족해야 `go_now` — 사유로 기록되지 않았어도 flag 는 분류 시점 시장 불안의 기록이다.
-- `unfavorable_market`: 강등 사유가 시장이었으므로 **`market_context.current_status ==
-  "confirmed_uptrend"` (회복) 이고 `market_context.distribution_day_count_last_25_sessions < 5`
-  (강등 임계 미만으로 해소 — analyze_chart_v3 §3.5 의 ≥5 강등과 co-anchored) 일 때만** `go_now`.
-  여전히 downtrend/correction/미확인 rally_attempt 면, 또는 분배일이 아직 강등 임계 미만으로
-  해소되지 않았으면 표준 검증을 충족해도 `wait` (강등 사유가 해소되지 않음 — status 라벨은 강등
-  임계 수준의 분배일과 공존 가능하므로 라벨만으로 회복 판정 금지). ⚠ `watch_reason` 값 자체를 회복 근거로
-  쓰지 말 것 — 반드시 입력 `market_context`(현재 값)로 판단.
-- `marginal_tt`: 강등 사유가 marginal Trend Template 이었으므로 **현재 `conditions_met` 8개가
-  모두 true 이고 `conditions_detail` 상 경계(마진 <3%)가 해소(clean)됐을 때만** `go_now`.
-  아직 여러 조건이 marginal 이면 `wait`.
-  **단, `prior_analysis.risk_flags` 에 `unfavorable_market_context` 가 있으면** 위 조건에 더해
-  `unfavorable_market` 게이트와 동일한 시장 재확인(현재 `market_context` 로 회복+분배일
-  해소 판정)도 충족해야 `go_now` — 사유로 기록되지 않았어도 flag 는 분류 시점 시장 불안의 기록이다.
+- `computed_gates.market_recovery_ok == true` — 시장 회복: `confirmed_uptrend` 이고 시장
+  분배일이 강등 임계 미만으로 해소 (analyze_chart_v3 §3.5 의 강등 임계와 co-anchored —
+  SSOT MARKET_DIST_DEMOTION_COUNT_25S. status 라벨은 강등 임계 수준의 분배일과 공존
+  가능하므로 라벨만으로 회복 판정 금지 — 코드가 둘 다 확인한 값).
+- `computed_gates.tt_recovery_ok == true` — Trend Template 회복: 8조건 all pass 이고
+  marginal(<3%) 조건 수가 강등 임계 미만 (analyze_chart_v3 §2 의 marginal_tt 강등 기준과
+  co-anchored — SSOT TT_MARGINAL_DEMOTION_COUNT).
 
-**공통**: 위 표준 검증 미충족 → `wait` (거래량 1.2~1.4× / 중간 1/3 마감 등) 또는 `abort`
-(base_low 이탈 / sma_50 명확 이탈 / distribution 누적 — §3.1 abort 조건과 동일).
+watch_reason 에 어떤 사유가 기록됐든 **둘 다** 요구한다 — 복수 사유가 동시 성립했는데
+하나만 기록된 경우(예: marginal_tt + 시장불안이 `unfavorable_market` 로만 기록)의 재확인
+누락(거울 갭)을 구조적으로 차단 (#22, #29 의 flag 조건부 방식 supersede). `watch_reason`·
+`risk_flags` 는 reasoning 서술 참고용으로만 사용하고 게이트 판정 근거로 쓰지 말 것.
+회복 게이트 미충족(또는 null) → 표준 검증을 충족해도 `wait`.
+
+**공통**: 표준 검증 미충족 → `wait` (`volume_band == "wait_band"` / `close_middle_third` 등)
+또는 `abort` (`low_below_base_low` / `close_below_sma50_breach` + 거래량 동반 /
+`dist_3plus_5d` — §3.1 abort 조건과 동일).
 **돌파 직후 20일선 가드(§3.1)도 동일 적용.**
 
 abort_reason 은 §3.4 카탈로그 사용 (신규 키워드 금지).

@@ -20,6 +20,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from dotenv import load_dotenv
 
+from kr_pipeline.llm_runner.compute.gate_precompute import compute_gates
+
 load_dotenv()
 
 PIVOT = 80000.0
@@ -56,7 +58,7 @@ def _market_ctx(status):
 
 
 def _payload(*, watch_reason, close, vol, high, low, market_status, cond_margin):
-    return {
+    payload = {
         "symbol": "BFW_E2E", "name": "테스트", "market": "KOSPI",
         "evaluation_date": "2026-05-20",
         "trigger_type": "breakout_from_watch",
@@ -78,6 +80,16 @@ def _payload(*, watch_reason, close, vol, high, low, market_status, cond_margin)
                             "sma_50": 76000.0, "sma_21": 78000.0},
         "recent_evaluation_history": [],
     }
+    # (#22) 프롬프트 규약: 게이트 판정은 computed_gates 가 authoritative — 미포함 시
+    # go_now 필요 게이트가 전부 null 취급돼 expect=go_now 케이스가 위양성 회귀로 보인다.
+    payload["computed_gates"] = compute_gates(
+        ohlcv_20d=payload["recent_daily_ohlcv_20d"],
+        current_metrics=payload["current_metrics"],
+        prior_analysis=payload["prior_analysis"],
+        market_context=payload["market_context"],
+        conditions_detail=payload["conditions_detail"],
+    )
+    return payload
 
 
 # 강한 돌파 바 (표준검증 충족): close +3.1%, vol 1.6×, 종가 상단 1/3
