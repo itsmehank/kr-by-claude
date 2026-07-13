@@ -26,9 +26,17 @@ def test_sample_unknown_kind_rejected(db):
 
 
 def test_backfill_guard_rejects_oversized_sample(db, monkeypatch):
-    """라이브 재추첨 등으로 표본이 100 을 넘으면 백필이 시작 전에 거부."""
+    """라이브 재추첨 등으로 표본이 100 을 넘으면 run_backtest_backfill 호출 전에 거부.
+
+    빈 테스트 DB에서는 run_backtest_backfill 자체가 가짜 101종목에 대해서도
+    예외 없이 정상 반환하므로(get_qualifying_tickers가 [] 반환 → 단락), 가드가
+    실수로 호출 뒤로 옮겨져도 SystemExit 여부만 보는 테스트는 여전히 통과한다.
+    run_backtest_backfill을 호출되면 실패하는 스텁으로 바꿔 호출-전 순서를 증명한다.
+    """
     import pytest
     import kr_pipeline.backtest.profitability_cli as cli
     monkeypatch.setattr(cli, "_sample", lambda conn, kind="a": [f"{i:06d}" for i in range(101)])
+    monkeypatch.setattr(cli, "run_backtest_backfill",
+                        lambda *a, **k: pytest.fail("guard did not short-circuit before backfill call"))
     with pytest.raises(SystemExit):
         cli.cmd_backfill(db, dry_run=True, kind="a", start=cli.START, end=cli.END)
