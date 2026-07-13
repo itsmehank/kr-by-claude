@@ -56,7 +56,7 @@ def evaluate_stop(
     - close 는 양수 필수 — halt 센티널(0-바)·결측 봉은 평가 대상이 아니며
       호출자(향후 wiring 러너)가 사전에 걸러야 한다.
     """
-    if not (entry_price > 0):
+    if entry_price is None or not (entry_price > 0):
         raise ValueError(f"entry_price must be positive: {entry_price}")
     if close is None or not (close > 0):
         raise ValueError(
@@ -68,6 +68,8 @@ def evaluate_stop(
             f"TRADE_STOP_MAX_PCT={TRADE_STOP_MAX_PCT}]"
         )
 
+    # DB 유래 truthy(int/str)를 bool 로 정규화 — 반환 스키마 안정 (#40 재리뷰)
+    breakeven_armed = bool(breakeven_armed)
     arming_pct = min(3 * initial_stop_pct, TRADE_BREAKEVEN_TRIGGER_PCT)
     if not breakeven_armed and close >= entry_price * (1 + arming_pct):
         breakeven_armed = True
@@ -80,7 +82,9 @@ def evaluate_stop(
     if sma_50 is not None and float(sma_50) >= entry_price:
         candidates.append(("sma50_trail", float(sma_50)))
 
-    binding, effective_stop = max(candidates, key=lambda x: x[1])
+    # 동률 tie-break 는 준거(portfolio.py 의 (값, 라벨) 튜플 비교 — 사전순 최대)와
+    # 동일: sma50 == entry(장전 상태) 동률에서 라벨 'sma50_trail' (#40 재리뷰 🟡7).
+    binding, effective_stop = max(candidates, key=lambda x: (x[1], x[0]))
     return StopDecision(
         effective_stop=effective_stop,
         binding=binding,

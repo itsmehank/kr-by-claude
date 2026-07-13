@@ -127,3 +127,45 @@ def test_multi_day_walkthrough_matches_sim_semantics():
         assert d.effective_stop == pytest.approx(want_stop), (close, sma)
         assert d.triggered is want_trig, (close, sma)
     assert armed is True
+
+
+# --- (#40 재리뷰) BoB 비래치 고정·동률 라벨·인자 검증 ---
+
+def test_bob_gate_is_daily_not_latched():
+    """BoB 게이트는 그날그날 판정(비래치) — 대장 §2③ '인 날부터' 문구의 래치 해석과
+    달리 준거 구현(portfolio.py)·이식본 모두 매일 재판정. sma50 이 매수가 위로 갔다가
+    아래로 복귀하면 유효 손절선도 함께 내려간다. 이 성질을 고정해 래치화 회귀를 차단
+    (#40 재리뷰 — 두 해석의 매도 시점이 실제로 갈림)."""
+    d1 = evaluate_stop(entry_price=10000.0, close=10500.0, sma_50=10400.0,
+                       breakeven_armed=False)
+    assert d1.effective_stop == 10400.0 and d1.binding == "sma50_trail"
+    # 다음 날 sma50 이 매수가 아래로 복귀 → 게이트 닫힘 → 초기 스톱으로 후퇴
+    d2 = evaluate_stop(entry_price=10000.0, close=9700.0, sma_50=9700.0,
+                       breakeven_armed=d1.breakeven_armed)
+    assert d2.effective_stop == 9200.0 and d2.binding == "initial_stop"
+    assert d2.triggered is False  # 9700 > 9200 — 손절선이 내려온 덕에 미발동
+
+
+def test_tiebreak_sma50_equals_entry_prefers_sma50_label():
+    """동률(장전 상태에서 sma50 == 매수가) 시 binding 라벨은 준거(portfolio.py 의
+    (값, 라벨) 튜플 비교 — 사전순 최대)와 동일하게 'sma50_trail' (#40 재리뷰 🟡7)."""
+    d = evaluate_stop(entry_price=10000.0, close=10500.0, sma_50=10000.0,
+                      breakeven_armed=True)
+    assert d.effective_stop == 10000.0
+    assert d.binding == "sma50_trail"
+
+
+def test_entry_price_none_raises_value_error():
+    """entry_price=None(포지션 행 결측)은 계약된 ValueError — TypeError 로 새면
+    호출측 예외 분기를 벗어난다 (#40 재리뷰 🟡8)."""
+    import pytest
+    with pytest.raises(ValueError, match="entry_price"):
+        evaluate_stop(entry_price=None, close=10000.0, sma_50=None,
+                      breakeven_armed=False)
+
+
+def test_breakeven_armed_truthy_normalized_to_bool():
+    """DB 에서 온 int/str truthy 도 반환 스키마에선 bool 로 정규화 (#40 재리뷰 🟡8)."""
+    d = evaluate_stop(entry_price=10000.0, close=10100.0, sma_50=None,
+                      breakeven_armed=1)
+    assert d.breakeven_armed is True

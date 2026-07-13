@@ -22,10 +22,14 @@
 2. **breakeven**: 종가가 평균매입가 × (1 + **min(3R, 20%)**) 에 **한 번이라도**
    도달(장전)하면 이후 상시 평균매입가가 바닥 (래치 — 해제 없음. R = 초기 손절폭.
    기본 8% 에서는 min(24%, 20%) = 20%). 대장 §2 ② 장전식 그대로.
-3. **sma50_trail**: 50일선이 **평균매입가 이상인 날부터** (Breakeven or Better,
-   대장 §2 ③) 플로어 후보 — max() 가 "더 높을 때만 교체"를 구현.
+3. **sma50_trail**: 50일선이 **평균매입가 이상인 날에는** (Breakeven or Better,
+   대장 §2 ③) 플로어 후보 — **그날그날 판정(비래치)**: 50일선이 매수가 아래로 복귀하면
+   그날은 후보에서 빠져 유효 손절선이 전일보다 내려갈 수 있다. 대장 문구 "인 날부터"의
+   래치 해석은 준거 구현(portfolio.py)과 다름 — 비래치를 테스트로 고정(#40 재리뷰).
+   max() 가 "더 높은 후보 채택"을 구현.
 
-종가 < 유효 손절선 → 매도 신호(triggered). binding = 세 후보 중 최댓값의 라벨.
+종가 < 유효 손절선 → 매도 신호(triggered). binding = 세 후보 중 최댓값의 라벨
+(동률 시 준거와 동일하게 (값, 라벨) 사전순 최대 — sma50_trail 우선, #40 재리뷰).
 
 구현: `kr_pipeline/trade_management/stop_stack.py` — 순수 함수(상태는 호출자가
 `breakeven_armed` bool 로 운반). **준거 = 대장 §2 (v2.1) = portfolio.py 스택 루프**
@@ -39,7 +43,7 @@
 
 - **anchor 는 매수 시점 값으로 고정** — 평균매입가는 체결 사실. 보유 중 주간
   재분류가 갱신하는 새 pivot/base_low 를 손절 계산에 유입 금지
-  (#1 pivot 재판독 ±22% 실측·docs/pivot-reanalysis-tradeoff.md — 매수가 anchor 는
+  (#1 pivot 재판독 실측 −4.9%~+21.9%(비대칭)·docs/pivot-reanalysis-tradeoff.md — 매수가 anchor 는
   재판독과 자연 절연. 시뮬 구현들도 진입 시점 고정 방식).
 - **[D4 체크리스트] `load.py get_active_with_current` 의 `stop_loss = base_low`
   정의를 재사용 금지** — 그것은 워치리스트 재검토 트리거용이며 무클램프 구조적
@@ -80,10 +84,15 @@ positions 테이블 스키마 + 일일 평가 러너(evaluate_stop 호출) + 신
 | 고정 상수 | 축1 환산? | 축2 영향? | 책 정합 | 판정 → 후속 |
 |---|---|---|---|---|
 | TRADE_STOP_INITIAL_PCT=0.08 | 가능(%) | 있음 — 손절 후보 1층 | PRESERVES (O'Neil 7~8% — 상단 채택) | 임계와 함께 보정(변경 시 백테스트 재검증 — stop_variant 시뮬 재사용) |
-| TRADE_BREAKEVEN_TRIGGER_PCT=0.20 | 가능(%) | 있음 — 2층 래치 발동점 | PRESERVES (O'Neil 20-25% 표준 익절 구간의 하한 — TLSMW/HMMS) | 임계와 함께 보정(동일) |
-| TRADE_STOP_MAX_PCT=0.10 | 가능(%) | 있음 — 인자 상한 검증(fail-closed) | PRESERVES (uncle point 10% — HMMS/TLSMW) | 변경 금지 수준의 책 앵커 |
+| TRADE_BREAKEVEN_TRIGGER_PCT=0.20 | 가능(%) | 있음 — 2층 장전식 min(3R,·)의 상한 | PRESERVES (HMMS 'rises close to 20% → never back into loss column' + Minervini 2~3R — 20-25% 익절 구간 규칙과는 별개 앵커, #40 재리뷰 정정) | 임계와 함께 보정(동일) |
+| TRADE_STOP_MAX_PCT=0.10 | 가능(%) | 있음 — 인자 상한 검증(fail-closed) | PRESERVES (uncle point 10% — HMMS/TLSMW) | 임계와 함께 보정(책 앵커가 강해 사실상 고정 — 변경은 HMMS/TLSMW 근거 변동 시에만) |
 
 **소비 경계 (1줄)**: StopDecision → (§5 wiring 후) 매도 신호 러너 → 사용자 노출 — 현재는 소비처 없음(additive 모듈).
+
+⚠ **TRADE_* 변경 시 시뮬 동기화 필수**: 재검증에 쓰는 시뮬(portfolio.py PortfolioConfig,
+stop_variant_sim 자체 상수)은 TRADE_* 를 import 하지 않는다 — 임계만 바꾸면 재검증이
+옛 값으로 수행되는 조용한 불일치. 변경 절차 = ① TRADE_* 수정 → ② 시뮬 상수 동기화
+→ ③ stop_variant 재실행 → ④ 본 스펙 §8 개정 이력 기록 (#40 재리뷰).
 
 ## 7. 보류 결정 기록 (이슈 #3 의 나머지)
 
@@ -93,3 +102,19 @@ positions 테이블 스키마 + 일일 평가 러너(evaluate_stop 호출) + 신
 - **D3 (이슈2 — 사이징 리스크 역산 전환)**: 이슈4 완료 후 별도 사전등록 —
   §3.1~3.3 티어 구조 재설계 수반. 책 기준: 계좌 리스크 1.25%/건 ÷ 손절폭 역산.
 - **D4 (이슈3 — base_low 재사용 금지)**: §3 체크리스트로 본 스펙에 반영 완료.
+
+## 8. 사전등록 동결 규약 (#40 재리뷰 신설)
+
+사전등록의 효력은 "결과를 보기 전에 규칙이 고정됐다"는 사실에서 나온다. 등록 후
+§2 규칙(층 구조·장전식·게이트·경계) 또는 §6 상수를 변경하려면:
+
+1. **변경 사유가 준거(대장 §2 원문·portfolio.py) 또는 책 근거의 정정이어야 한다** —
+   실전/백테스트 결과가 불리해서 바꾸는 변경은 사전등록 위반(금지).
+2. 변경 시 §6 의 시뮬 동기화 절차(위 ⚠)와 checklist 의존성 맵 갱신을 동반한다.
+3. 본 절 아래 **개정 이력**에 날짜·사유·근거를 기록한다.
+
+### 개정 이력
+- 2026-07-13 (등록 당일, #40 리뷰): §2② flat +20% → min(3R, +20%), §2③ BoB 게이트
+  추가 — 준거 오류 정정(대장·portfolio.py 대조로 확인). 결과 관찰에 따른 변경 아님.
+- 2026-07-13 (#40 재리뷰): §2③ 비래치 명시·동률 라벨 규약·±22% 표기 정정·§6 앵커
+  정정·본 §8 신설. 규칙 의미 변경 없음(문서 정밀화).
