@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import math
 from datetime import date, datetime, timedelta, time as dt_time
 import json
 
@@ -89,6 +90,109 @@ def _watch_reason(result: dict) -> str | None:
 # 탐지 휴리스틱)이라 thresholds.py SSOT 비등재. SOFT 전용(저장 차단 안 함).
 _PIVOT_CLOSE_BAND = (0.3, 3.0)
 
+# (#1) base_start_date '근접' 관측 분류 폭 (일). 판정 무영향 — 관측 라벨링 전용이라
+# thresholds.py SSOT 비등재 (이슈 #1 실측의 그룹핑 기준 재사용).
+_BASE_NEAR_DAYS = 10
+
+
+def _to_date_or_none(v):
+    if v is None:
+        return None
+    # datetime 이 date 의 서브클래스라 순서 중요 — datetime 먼저 (#39 리뷰)
+    if isinstance(v, datetime):
+        return v.date()
+    if isinstance(v, date):
+        return v
+    try:
+        return date.fromisoformat(str(v))
+    except ValueError:
+        return None
+
+
+def _finite_or_none(v) -> float | None:
+    """numeric → float, 비유한값(NaN/Inf)은 None — jsonb 는 NaN 토큰을 거부한다(#39 리뷰)."""
+    if v is None:
+        return None
+    f = float(v)
+    return f if math.isfinite(f) else None
+
+
+def _pivot_continuity(
+    conn, *, symbol: str, result: dict, classified_at, analyzed_for_date,
+) -> dict | None:
+    """(#1) 직전 활성(entry/watch) 분류 대비 pivot/base 연속성 관측 (dict, 판정 무영향).
+
+    같은 베이스(base_start_date 동일)로 재확인됐는데 pivot 만 재판독되는 현상
+    (이슈 #1, 실측 최대 ±22%)을 하위 로직·사람이 인지할 수 있게 기록만 한다.
+    모집단 의미론 = get_active_monitoring 과 동치: 이 행 *직전의 최신 분류 1건*
+    (분류 무관)을 보고, 그것이 entry/watch 가 아니면(ignore 개재 = 활성 기준선
+    단절) None — 오래된 entry/watch 를 건너뛰어 잡으면 재확립 베이스가 주간
+    재판독으로 오계수된다(#39 리뷰). 직전 조회는 유효일이 **strictly 이른** 행만 —
+    look-ahead(미래 행 참조) 차단과 동시에 **같은 유효일 행도 제외**(#39 재리뷰:
+    같은 날 재실행의 LLM 비결정성 편차가 same-base 재판독으로 오계수되면 관측
+    분포가 오염되고 재실행 1:1 비교 금지 규율이 데이터에 스며든다). 유효일 폴백
+    캐스팅(classified_at::date)은 소비자 get_active_monitoring 과 동일(#39 재리뷰
+    — UTC 고정 캐스팅은 레거시 행에서 소비자와 하루 어긋날 수 있었음).
+    ★재실행 1:1 비교 금지 규율 비저촉 — 재실행이 아니라 서로 다른 주(as_of)의
+    정상 분류 간 관측 (docs/pivot-reanalysis-tradeoff.md).
+    """
+    effective = analyzed_for_date or classified_at.date()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT classified_at, classification, pivot_price, base_start_date, pattern
+              FROM weekly_classification
+             WHERE symbol = %s
+               AND COALESCE(analyzed_for_date, classified_at::date) < %s
+             ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC,
+                      classified_at DESC
+             LIMIT 1
+            """,
+            (symbol, effective),
+        )
+        prev = cur.fetchone()
+    if prev is None:
+        return None
+    prev_at, prev_cls, prev_pv, prev_bsd, prev_pattern = prev
+    if prev_cls not in ("entry", "watch"):
+        # 직전 최신 행이 ignore 등 → 활성 기준선 단절. 연속성 비교 대상 아님.
+        return None
+
+    new_bsd = _to_date_or_none(result.get("base_start_date"))
+    prev_bsd = _to_date_or_none(prev_bsd)
+    if prev_bsd is not None and new_bsd is not None:
+        delta_days = abs((new_bsd - prev_bsd).days)
+        if delta_days == 0:
+            continuity = "same"
+        elif delta_days <= _BASE_NEAR_DAYS:
+            continuity = "near"
+        else:
+            continuity = "different"
+    else:
+        delta_days = None
+        continuity = "unknown"
+
+    new_pv = _finite_or_none(result.get("pivot_price"))
+    prev_pv = _finite_or_none(prev_pv)
+    change_pct = (
+        round((new_pv - prev_pv) / prev_pv * 100, 4)
+        if new_pv is not None and prev_pv is not None and prev_pv != 0
+        else None
+    )
+    new_pattern = result.get("pattern")
+    return {
+        "prev_classified_at": prev_at.isoformat(),
+        "prev_pivot_price": prev_pv,
+        "pivot_change_pct": change_pct,
+        "base_start_delta_days": delta_days,
+        "base_continuity": continuity,
+        "prev_pattern": prev_pattern,
+        "pattern_changed": (
+            new_pattern != prev_pattern
+            if new_pattern is not None and prev_pattern is not None
+            else None
+        ),
+    }
 # (#23) §4.7 표 기반 pivot_basis — anchor 가 base 내부 고점이라 pivot ≤ base_high+0.1
 # 이 성립하고 +0.1 오프셋 규칙이 적용되는 집합. pocket pivot 등 표 밖 basis 는
 # base_high 초과가 정당하므로 비대상 (HARD 미검사 사유와 동일 — docstring 참조).
@@ -234,6 +338,30 @@ def insert_classification(
         conn, result, symbol=symbol, as_of=analyzed_for_date,
     )
 
+    # (#1) pivot 재판독 연속성 관측 — INSERT 전에 직전 분류를 조회해야 하므로 이 위치.
+    # fail-soft: 관측 전용 헬퍼의 어떤 실패도 본 INSERT(LLM 비용 지출분)를 막으면
+    # 안 된다 — phase1 게이트와 동일 원칙 (#39 리뷰). try/except 는 Python 예외만
+    # 흡수하므로 SAVEPOINT(with conn.transaction())로 서버측 SQL 오류의 트랜잭션
+    # 오염까지 격리 (#39 재리뷰 — 격리 없으면 본 INSERT 가 InFailedSqlTransaction).
+    try:
+        with conn.transaction():
+            continuity_info = _pivot_continuity(
+                conn, symbol=symbol, result=result,
+                classified_at=classified_at, analyzed_for_date=analyzed_for_date,
+            )
+        pivot_continuity = (
+            json.dumps(continuity_info, allow_nan=False)
+            if continuity_info is not None
+            else None
+        )
+    except Exception as e:
+        log.warning(
+            "[pivot-continuity] failed symbol=%s — 관측 생략 (fail-soft): %s",
+            symbol, e,
+        )
+        continuity_info = None
+        pivot_continuity = None
+
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -246,12 +374,14 @@ def insert_classification(
                triggered_rules,
                measurements,
                watch_reason,
-               sanity_warnings)
+               sanity_warnings,
+               pivot_continuity)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
                     %s, %s, %s, %s,
+                    %s,
                     %s,
                     %s,
                     %s,
@@ -283,8 +413,22 @@ def insert_classification(
                 _measurements_json(result),
                 _watch_reason(result),
                 json.dumps(sanity_warnings) if sanity_warnings else None,
+                pivot_continuity,
             ),
         )
+        # (#1) same-base 재판독 경고는 행이 실제 저장된 경우에만 — ON CONFLICT 로
+        # 버려진 행에 대한 유령 경고 방지 (#39 리뷰).
+        if (
+            cur.rowcount == 1
+            and continuity_info is not None
+            and continuity_info["base_continuity"] == "same"
+            and continuity_info["pivot_change_pct"] not in (None, 0.0)
+        ):
+            log.warning(
+                "[pivot-continuity] same-base pivot reread %s: %s -> %s (%+.2f%%)",
+                symbol, continuity_info["prev_pivot_price"],
+                result.get("pivot_price"), continuity_info["pivot_change_pct"],
+            )
 
 
 def insert_backfill_classification(
