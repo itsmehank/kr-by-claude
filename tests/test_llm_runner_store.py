@@ -1004,3 +1004,42 @@ def test_to_date_or_none_handles_datetime():
     assert _to_date_or_none(dt) == date(2026, 6, 6)
     assert _to_date_or_none("2026-06-06") == date(2026, 6, 6)
     assert _to_date_or_none(None) is None
+
+
+# --- (#39 재리뷰) SAVEPOINT 격리 + 같은 유효일 제외 ---
+
+def test_continuity_server_error_does_not_kill_insert(db, mocker):
+    """연속성 조회가 '서버측' SQL 오류를 내도 본 INSERT 는 생존해야 한다.
+
+    try/except 는 Python 예외만 흡수 — SAVEPOINT 격리 없이는 서버 오류가
+    트랜잭션을 aborted 로 만들어 본 INSERT 가 InFailedSqlTransaction 으로
+    실패(LLM 비용 지출분 유실). phase1 게이트와 동일한 with conn.transaction()
+    격리가 필요하다 (#39 재리뷰 — fail-soft 주장의 서버 오류 구멍)."""
+    import kr_pipeline.llm_runner.store as st
+
+    def poison(conn, **kw):
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM no_such_table_pivot_continuity")
+
+    mocker.patch.object(st, "_pivot_continuity", side_effect=poison)
+    _insert_cls(db, "CONTSV1", at=datetime(2026, 7, 11, 3, 0, tzinfo=timezone.utc),
+                pivot=1000.0, base_start=date(2026, 5, 2), afd=date(2026, 7, 11))
+    with db.cursor() as cur:
+        cur.execute("SELECT pivot_continuity FROM weekly_classification WHERE symbol='CONTSV1'")
+        row = cur.fetchone()
+    assert row is not None, "본 INSERT 가 유실됨 — fail-soft 실패"
+    assert row[0] is None
+
+
+def test_continuity_same_effective_date_not_compared(db):
+    """같은 유효일(analyzed_for_date)의 앞선 행은 '직전 분류'가 아니다 — 같은 날
+    재실행의 LLM 비결정성 편차가 same-base 재판독으로 오계수되면 관측 분포(향후
+    임계 게이트 근거)가 오염되고 재실행 1:1 비교 금지 규율이 데이터에 스며든다
+    (#39 재리뷰). 유효일이 strictly 이른 행만 비교 대상."""
+    afd = date(2026, 7, 11)
+    _insert_cls(db, "CONTSD1", at=datetime(2026, 7, 11, 3, 0, tzinfo=timezone.utc),
+                pivot=51800.0, base_start=date(2026, 5, 2), afd=afd)
+    _insert_cls(db, "CONTSD1", at=datetime(2026, 7, 11, 5, 0, tzinfo=timezone.utc),
+                pivot=50900.0, base_start=date(2026, 5, 2), afd=afd)
+    c = _continuity_of(db, "CONTSD1", datetime(2026, 7, 11, 5, 0, tzinfo=timezone.utc))
+    assert c is None, f"같은 유효일 행과 비교됨: {c}"

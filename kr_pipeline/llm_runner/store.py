@@ -127,8 +127,12 @@ def _pivot_continuity(
     모집단 의미론 = get_active_monitoring 과 동치: 이 행 *직전의 최신 분류 1건*
     (분류 무관)을 보고, 그것이 entry/watch 가 아니면(ignore 개재 = 활성 기준선
     단절) None — 오래된 entry/watch 를 건너뛰어 잡으면 재확립 베이스가 주간
-    재판독으로 오계수된다(#39 리뷰). 직전 조회는 이 행의 유효일 기준 상한
-    (look-ahead 차단 — --date 과거 재실행에서 미래 행 참조 금지, #39 리뷰).
+    재판독으로 오계수된다(#39 리뷰). 직전 조회는 유효일이 **strictly 이른** 행만 —
+    look-ahead(미래 행 참조) 차단과 동시에 **같은 유효일 행도 제외**(#39 재리뷰:
+    같은 날 재실행의 LLM 비결정성 편차가 same-base 재판독으로 오계수되면 관측
+    분포가 오염되고 재실행 1:1 비교 금지 규율이 데이터에 스며든다). 유효일 폴백
+    캐스팅(classified_at::date)은 소비자 get_active_monitoring 과 동일(#39 재리뷰
+    — UTC 고정 캐스팅은 레거시 행에서 소비자와 하루 어긋날 수 있었음).
     ★재실행 1:1 비교 금지 규율 비저촉 — 재실행이 아니라 서로 다른 주(as_of)의
     정상 분류 간 관측 (docs/pivot-reanalysis-tradeoff.md).
     """
@@ -139,14 +143,12 @@ def _pivot_continuity(
             SELECT classified_at, classification, pivot_price, base_start_date, pattern
               FROM weekly_classification
              WHERE symbol = %s
-               AND (COALESCE(analyzed_for_date, (classified_at AT TIME ZONE 'UTC')::date) < %s
-                    OR (COALESCE(analyzed_for_date, (classified_at AT TIME ZONE 'UTC')::date) = %s
-                        AND classified_at < %s))
-             ORDER BY COALESCE(analyzed_for_date, (classified_at AT TIME ZONE 'UTC')::date) DESC,
+               AND COALESCE(analyzed_for_date, classified_at::date) < %s
+             ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC,
                       classified_at DESC
              LIMIT 1
             """,
-            (symbol, effective, effective, classified_at),
+            (symbol, effective),
         )
         prev = cur.fetchone()
     if prev is None:
@@ -338,12 +340,15 @@ def insert_classification(
 
     # (#1) pivot 재판독 연속성 관측 — INSERT 전에 직전 분류를 조회해야 하므로 이 위치.
     # fail-soft: 관측 전용 헬퍼의 어떤 실패도 본 INSERT(LLM 비용 지출분)를 막으면
-    # 안 된다 — phase1 게이트와 동일 원칙 (#39 리뷰).
+    # 안 된다 — phase1 게이트와 동일 원칙 (#39 리뷰). try/except 는 Python 예외만
+    # 흡수하므로 SAVEPOINT(with conn.transaction())로 서버측 SQL 오류의 트랜잭션
+    # 오염까지 격리 (#39 재리뷰 — 격리 없으면 본 INSERT 가 InFailedSqlTransaction).
     try:
-        continuity_info = _pivot_continuity(
-            conn, symbol=symbol, result=result,
-            classified_at=classified_at, analyzed_for_date=analyzed_for_date,
-        )
+        with conn.transaction():
+            continuity_info = _pivot_continuity(
+                conn, symbol=symbol, result=result,
+                classified_at=classified_at, analyzed_for_date=analyzed_for_date,
+            )
         pivot_continuity = (
             json.dumps(continuity_info, allow_nan=False)
             if continuity_info is not None
