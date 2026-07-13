@@ -40,3 +40,15 @@ def test_backfill_guard_rejects_oversized_sample(db, monkeypatch):
                         lambda *a, **k: pytest.fail("guard did not short-circuit before backfill call"))
     with pytest.raises(SystemExit):
         cli.cmd_backfill(db, dry_run=True, kind="a", start=cli.START, end=cli.END)
+
+
+def test_analyze_rejects_sample_b(monkeypatch):
+    """analyze --sample=b 는 DB 연결 전에 SystemExit — 표본 A로 조용히 대체되면 안 됨.
+
+    main() 이 connect() 로 실 DB에 붙기 전에 kind 검증을 하므로 DB 없이 통과해야 한다.
+    """
+    import pytest
+    import kr_pipeline.backtest.profitability_cli as cli
+    monkeypatch.setattr(cli.sys, "argv", ["prog", "analyze", "--sample=b"])
+    with pytest.raises(SystemExit):
+        cli.main()

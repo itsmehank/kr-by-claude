@@ -77,6 +77,9 @@ def main() -> int:
     kind = _flag("sample", "a")
     start = date.fromisoformat(_flag("start", str(START)))
     end = date.fromisoformat(_flag("end", str(END)))
+    if cmd == "analyze" and kind != "a":
+        raise SystemExit(
+            "analyze 는 표본 A 전용 — --sample=b 는 아직 미지원(백필 완료 후 별도 분석)")
     with connect() as conn:
         if cmd == "sample":
             return cmd_sample(conn, kind)
