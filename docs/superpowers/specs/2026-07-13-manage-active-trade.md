@@ -19,17 +19,21 @@
 
 1. **initial_stop**: 평균매입가 × (1 − 8%) — 상시. (O'Neil HMMS "7% to 8% is your
    absolute loss limit"; 절대 상한 10% = uncle point, Minervini TLSMW Ch.13)
-2. **breakeven**: 종가가 평균매입가 × (1 + 20%) 에 **한 번이라도** 도달하면 이후
-   상시 평균매입가가 바닥 (래치 — 해제 없음).
-3. **sma50_trail**: 50일 이동평균선이 위 값들보다 높으면 그 값. (max() 가
-   "더 높을 때만 교체"를 구현 — 시뮬과 동일)
+2. **breakeven**: 종가가 평균매입가 × (1 + **min(3R, 20%)**) 에 **한 번이라도**
+   도달(장전)하면 이후 상시 평균매입가가 바닥 (래치 — 해제 없음. R = 초기 손절폭.
+   기본 8% 에서는 min(24%, 20%) = 20%). 대장 §2 ② 장전식 그대로.
+3. **sma50_trail**: 50일선이 **평균매입가 이상인 날부터** (Breakeven or Better,
+   대장 §2 ③) 플로어 후보 — max() 가 "더 높을 때만 교체"를 구현.
 
 종가 < 유효 손절선 → 매도 신호(triggered). binding = 세 후보 중 최댓값의 라벨.
 
 구현: `kr_pipeline/trade_management/stop_stack.py` — 순수 함수(상태는 호출자가
-`breakeven_armed` bool 로 운반), 백테스트 시뮬(stop_variant_sim._run 루프)과 동일
-의미론. SSOT: `TRADE_STOP_INITIAL_PCT=0.08`, `TRADE_BREAKEVEN_TRIGGER_PCT=0.20`,
-`TRADE_STOP_MAX_PCT=0.10`(uncle point — initial_stop_pct 인자 상한 검증).
+`breakeven_armed` bool 로 운반). **준거 = 대장 §2 (v2.1) = portfolio.py 스택 루프**
+(§2③ BoB 게이트 :161, §2② 장전식 :155). `stop_variant_sim.simulate_ticker` 루프는
+구조 참고용 — BoB 게이트·장전식이 단순화된 실험 변형이라 준거가 아님(#40 리뷰에서
+이 차이가 확인돼 대장 기준으로 정정). SSOT: `TRADE_STOP_INITIAL_PCT=0.08`,
+`TRADE_BREAKEVEN_TRIGGER_PCT=0.20`(장전식 상한), `TRADE_STOP_MAX_PCT=0.10`
+(uncle point — initial_stop_pct 인자 (0, 0.10] 강제).
 
 ## 3. 불변 계약 (구현·wiring 공통)
 
@@ -54,10 +58,12 @@ evaluate_stop(*, entry_price, close, sma_50, breakeven_armed,
 #               breakeven_armed(갱신된 래치), triggered(close < effective_stop)
 ```
 
-- 래치 갱신은 당일 종가로 먼저 판정 후 후보에 반영 (시뮬 순서와 동일 — 당일
-  +20% 도달 시 당일부터 본전 바닥).
-- sma_50 None(미산출) → 후보에서 제외 (시뮬과 동일).
-- initial_stop_pct > TRADE_STOP_MAX_PCT → ValueError (uncle point 위반 차단).
+- 래치 갱신은 당일 종가로 먼저 판정 후 후보에 반영 (portfolio.py 순서와 동일 —
+  당일 장전점 도달 시 당일부터 본전 바닥).
+- sma_50 None(미산출) 또는 < 평균매입가(BoB 미충족) → 후보에서 제외.
+- initial_stop_pct ∉ (0, TRADE_STOP_MAX_PCT] → ValueError (uncle point·무의미 값 차단).
+- close ≤ 0/None → ValueError — halt 센티널(0-바)·결측 봉은 평가 대상이 아니며
+  wiring 러너가 사전에 걸러야 한다 (nullify_halt_adj 규약과 정합).
 
 ## 5. Wiring (본 스펙 범위 외 — 실전 전환 결정 후)
 

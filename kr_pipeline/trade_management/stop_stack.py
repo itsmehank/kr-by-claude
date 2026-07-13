@@ -1,8 +1,8 @@
 # kr_pipeline/trade_management/stop_stack.py
 """(#3 이슈4) manage_active_trade 코어 — 3층 손절 스택 결정론 평가.
 
-백테스트 검증 규칙(docs/trading-rules-book-verified.md §2, 시뮬 구현
-kr_pipeline/backtest/stop_variant_sim.py)의 production 이식. 순수 함수 —
+백테스트 검증 규칙(docs/trading-rules-book-verified.md §2 = v2.1, 스택 준거 구현
+kr_pipeline/backtest/portfolio.py)의 production 이식. 순수 함수 —
 포지션 상태(래치)는 호출자가 운반한다. 파이프라인 wiring(포지션 소스·일일
 평가 러너)은 실전 전환 결정 후 별도 착수:
 docs/superpowers/specs/2026-07-13-manage-active-trade.md.
@@ -44,23 +44,32 @@ def evaluate_stop(
 ) -> StopDecision:
     """당일 유효 손절선 산출 — max(initial, [breakeven], [sma50]) (시뮬 의미론 동일).
 
-    - 래치는 당일 종가로 먼저 판정: close >= entry × (1+20%) 도달 시 당일부터
-      본전(entry)이 바닥, 이후 해제 없음.
-    - sma_50 None(미산출) → 후보 제외.
-    - triggered 는 `close < effective_stop` (경계 == 는 미발동 — 시뮬 동일).
-    - initial_stop_pct 는 uncle point(10%) 초과 금지 — fail-closed.
+    - 래치(장전식)는 당일 종가로 먼저 판정: close >= entry × (1 + min(3R, 20%))
+      도달 시 당일부터 본전(entry)이 바닥, 이후 해제 없음 (R = initial_stop_pct —
+      책-검증 대장 §2 ② '장전식 = min(3R, +20%)', portfolio.py v2.1 동일.
+      기본 8% 스톱에서는 min(24%, 20%) = 20% 로 단순 +20% 와 동치).
+    - sma_50 은 **Breakeven or Better**: sma_50 >= entry 인 날부터만 플로어 후보
+      (책-검증 대장 §2 ③, portfolio.py:161 동일 — 미장전 구간에서 본전 미만의
+      sma50 이 스톱을 끌어올리는 것 방지). None(미산출) → 제외.
+    - triggered 는 `close < effective_stop` (경계 == 는 미발동).
+    - initial_stop_pct 는 (0, uncle point 10%] 범위 강제 — fail-closed.
+    - close 는 양수 필수 — halt 센티널(0-바)·결측 봉은 평가 대상이 아니며
+      호출자(향후 wiring 러너)가 사전에 걸러야 한다.
     """
     if not (entry_price > 0):
         raise ValueError(f"entry_price must be positive: {entry_price}")
-    if not (close >= 0):
-        raise ValueError(f"close must be non-negative: {close}")
-    if initial_stop_pct > TRADE_STOP_MAX_PCT:
+    if close is None or not (close > 0):
         raise ValueError(
-            f"initial_stop_pct={initial_stop_pct} exceeds uncle point "
-            f"(TRADE_STOP_MAX_PCT={TRADE_STOP_MAX_PCT})"
+            f"close must be positive (halt/결측 봉은 평가 불가): {close}"
+        )
+    if not (0 < initial_stop_pct <= TRADE_STOP_MAX_PCT):
+        raise ValueError(
+            f"initial_stop_pct={initial_stop_pct} not in (0, uncle point "
+            f"TRADE_STOP_MAX_PCT={TRADE_STOP_MAX_PCT}]"
         )
 
-    if not breakeven_armed and close >= entry_price * (1 + TRADE_BREAKEVEN_TRIGGER_PCT):
+    arming_pct = min(3 * initial_stop_pct, TRADE_BREAKEVEN_TRIGGER_PCT)
+    if not breakeven_armed and close >= entry_price * (1 + arming_pct):
         breakeven_armed = True
 
     candidates: list[tuple[str, float]] = [
@@ -68,7 +77,7 @@ def evaluate_stop(
     ]
     if breakeven_armed:
         candidates.append(("breakeven", entry_price))
-    if sma_50 is not None:
+    if sma_50 is not None and float(sma_50) >= entry_price:
         candidates.append(("sma50_trail", float(sma_50)))
 
     binding, effective_stop = max(candidates, key=lambda x: x[1])

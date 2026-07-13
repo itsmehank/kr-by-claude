@@ -1,9 +1,9 @@
 # tests/test_trade_stop_stack.py
 """(#3 이슈4) 3층 손절 스택 순수 함수 — 백테스트 검증 규칙의 production 이식.
 
-의미론은 kr_pipeline/backtest/stop_variant_sim.py 의 시뮬 루프와 동일해야 한다:
-max(initial, [breakeven if armed], [sma50]) = 유효 손절선, 종가 < 손절선 → 매도 신호.
-래치는 당일 종가로 먼저 판정(당일 +20% 도달 시 당일부터 본전 바닥).
+준거 = docs/trading-rules-book-verified.md §2 (v2.1) = portfolio.py 스택 루프:
+max(initial, [breakeven if armed], [BoB sma50]) = 유효 손절선, 종가 < 손절선 → 매도.
+래치(장전식 min(3R,20%))는 당일 종가로 먼저 판정 — 당일 도달 시 당일부터 본전 바닥.
 """
 import pytest
 
@@ -59,6 +59,26 @@ def test_sma50_missing_excluded():
     assert d.binding == "breakeven"
 
 
+def test_sma50_below_entry_excluded_breakeven_or_better():
+    """§2③ Breakeven or Better: sma50 < 매수가면 플로어 후보 아님 (portfolio.py:161
+    동일) — 미장전 구간에서 본전 미만 sma50 이 스톱을 끌어올리면 안 된다 (#40 리뷰)."""
+    d = evaluate_stop(entry_price=10000, close=9500, sma_50=9600,
+                      breakeven_armed=False)
+    assert d.effective_stop == pytest.approx(9200.0)  # initial 만 — sma 9600 제외
+    assert d.binding == "initial_stop"
+    assert d.triggered is False  # 9500 > 9200
+
+
+def test_arming_formula_min_3r_20pct():
+    """§2② 장전식 = min(3R, +20%): 6% 스톱이면 +18% 에 장전 (#40 리뷰)."""
+    d = evaluate_stop(entry_price=10000, close=11800, sma_50=None,
+                      breakeven_armed=False, initial_stop_pct=0.06)
+    assert d.breakeven_armed is True  # min(18%, 20%) = 18% 도달
+    d2 = evaluate_stop(entry_price=10000, close=11700, sma_50=None,
+                       breakeven_armed=False, initial_stop_pct=0.06)
+    assert d2.breakeven_armed is False
+
+
 def test_uncle_point_guard():
     """initial_stop_pct 는 절대 상한(uncle point 10%) 초과 금지 — fail-closed."""
     with pytest.raises(ValueError, match="uncle"):
@@ -73,10 +93,24 @@ def test_invalid_inputs_rejected():
     with pytest.raises(ValueError):
         evaluate_stop(entry_price=10000, close=-1, sma_50=None,
                       breakeven_armed=False)
+    # halt 센티널(0-바)·결측 봉은 평가 불가 (#40 리뷰)
+    with pytest.raises(ValueError):
+        evaluate_stop(entry_price=10000, close=0, sma_50=None,
+                      breakeven_armed=False)
+    with pytest.raises(ValueError):
+        evaluate_stop(entry_price=10000, close=None, sma_50=None,
+                      breakeven_armed=False)
+    # 손절폭 하한: 0/음수는 스톱이 매수가 이상이 되는 무의미 값 (#40 리뷰)
+    with pytest.raises(ValueError):
+        evaluate_stop(entry_price=10000, close=9000, sma_50=None,
+                      breakeven_armed=False, initial_stop_pct=0.0)
+    with pytest.raises(ValueError):
+        evaluate_stop(entry_price=10000, close=9000, sma_50=None,
+                      breakeven_armed=False, initial_stop_pct=-0.05)
 
 
 def test_multi_day_walkthrough_matches_sim_semantics():
-    """시뮬 시나리오 재현: 진입 → 상승(+20% 래치) → 50일선 추월 → 이탈 매도."""
+    """v2.1 스택 시나리오 재현: 진입 → 상승(장전) → 50일선 추월 → 이탈 매도."""
     entry = 10000.0
     days = [
         # (close, sma50, expect_stop, expect_triggered)
