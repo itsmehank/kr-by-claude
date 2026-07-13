@@ -1,211 +1,110 @@
-from datetime import date, datetime, timezone, timedelta
+"""entry_params 러너 — 결정론 함수 경로 (#21: call_claude → calculate_entry_params).
+
+echo 검증·UsageLimitError 는 LLM 은퇴와 함께 소멸. 거부(EntryParamsRejected)는
+종목 단위 격리(run 루프 except) 를 검증한다.
+"""
+from datetime import date, datetime, timezone
+
+import kr_pipeline.llm_runner.entry_params as ep
 
 
-def test_entry_params_processes_go_now_only(db, mocker):
-    today = date(2026, 5, 20)
-    eval_time = datetime(2026, 5, 20, 16, 32, tzinfo=timezone.utc)
-    prior_at = datetime(2026, 5, 17, 3, 0, tzinfo=timezone.utc)
-
-    with db.cursor() as cur:
-        # run() 은 전 종목의 활성 분류·트리거를 스캔 — 다른 테스트가 commit 하고 남긴
-        # 분류/트리거 잔존행이 처리 순서·mock 소비를 오염시키지 않게 선행 정리
-        cur.execute("TRUNCATE weekly_classification, trigger_evaluation_log, entry_params CASCADE")
-        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('EP1', 'E', 'KOSPI') ON CONFLICT DO NOTHING")
-        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('EP2', 'E', 'KOSPI') ON CONFLICT DO NOTHING")
-        cur.execute(
-            """INSERT INTO weekly_classification
-               (symbol, classified_at, market, classification, pattern, pivot_price, pivot_basis,
-                base_high, base_low, base_depth_pct, source)
-               VALUES
-               ('EP1', %s, 'KOSPI', 'entry', 'cup_with_handle', 80, 'handle_high', 80, 70, 12.5, 'weekend'),
-               ('EP2', %s, 'KOSPI', 'entry', 'flat_base', 60, 'range_high', 60, 55, 8.3, 'weekend')
-               ON CONFLICT (symbol, classified_at) DO NOTHING""",
-            (prior_at, prior_at),
-        )
-        cur.execute(
-            """INSERT INTO trigger_evaluation_log
-               (symbol, evaluated_at, trigger_type, close, volume, pivot_price,
-                decision, prior_classification_at)
-               VALUES
-               ('EP1', %s, 'breakout', 82, 2000000, 80, 'go_now', %s),
-               ('EP2', %s, 'breakout', 61, 1500000, 60, 'wait', %s)
-               ON CONFLICT (symbol, evaluated_at) DO NOTHING""",
-            (eval_time, prior_at, eval_time, prior_at),
-        )
-        # daily_indicators + daily_prices for current_state
-        for sym in ("EP1", "EP2"):
-            cur.execute(
-                """INSERT INTO daily_prices
-                   (ticker, date, open, high, low, close, adj_close, volume, value)
-                   VALUES (%s, %s, 80, 82, 79, 81, 81, 1500000, 121500000)
-                   ON CONFLICT DO NOTHING""",
-                (sym, today),
-            )
-            cur.execute(
-                """INSERT INTO daily_indicators
-                   (ticker, date, adj_close, volume, avg_volume_50d, rs_rating,
-                    minervini_pass, w52_high, w52_low, pct_from_52w_high)
-                   VALUES (%s, %s, 81, 1500000, 1000000, 85, TRUE, 95, 60, 14.7)
-                   ON CONFLICT DO NOTHING""",
-                (sym, today),
-            )
-    db.commit()
-
-    from kr_pipeline.llm_runner.entry_params import run
-
-    with db.cursor() as cur:
-        cur.execute("SELECT COUNT(*) FROM entry_params WHERE symbol='EP1'")
-        before_ep1 = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM entry_params WHERE symbol='EP2'")
-        before_ep2 = cur.fetchone()[0]
-
-    result = run(db, dry_run=True, as_of=today)
-
-    # EP1 만 go_now → 처리 1건. EP2 는 wait → 후보 제외.
-    assert result == {"processed": 1, "failures": 0}
-
-    # dry-run 은 무부작용 — entry_params 에 기록하지 않는다 (_process_one 이 insert 전
-    # return). 과거엔 잔존행 때문에 '기록됨' 단언이 가짜-통과했었다 (스키마 리셋으로 드러남).
-    with db.cursor() as cur:
-        cur.execute("SELECT COUNT(*) FROM entry_params WHERE symbol='EP1'")
-        after_ep1 = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM entry_params WHERE symbol='EP2'")
-        after_ep2 = cur.fetchone()[0]
-
-    assert after_ep1 - before_ep1 == 0
-    assert after_ep2 - before_ep2 == 0
-
-
-def test_entry_aborts_on_usage_limit(db, mocker):
-    """사용량 제한 시 남은 go_now 종목 순회 없이 즉시 중단 + 예외 전파.
-
-    generic except 에 삼켜지면 (a) 남은 종목 헛호출 + (b) run 이 success 로 기록되어
-    재실행 계기가 사라진다. daily_delta 와 동일하게 UsageLimitError 는 즉시 전파해야 한다.
-    """
-    import pytest
-    import kr_pipeline.llm_runner.entry_params as ep
-    from kr_pipeline.llm_runner.llm.claude_cli import UsageLimitError
-
-    now = datetime(2026, 5, 20, 16, 32, tzinfo=timezone.utc)
-    prior = datetime(2026, 5, 17, 3, 0, tzinfo=timezone.utc)
-    go_now = [("UL1", now, prior), ("UL2", now, prior), ("UL3", now, prior)]
-    mocker.patch.object(ep, "_fetch_go_now_candidates", return_value=go_now)
-
-    # 2번째 종목에서 한도 도달: 1번째는 처리되고, 2번째에서 중단, 3번째는 미호출이어야 한다
-    # (중단이 '정확히 그 지점'에서 일어나 앞 종목의 이어하기 전제를 보존하는지 검증).
-    calls = []
-    def fake_process_one(conn, symbol, eval_at, prior_at, *, dry_run, as_of):
-        calls.append(symbol)
-        if len(calls) >= 2:
-            raise UsageLimitError("usage limit reached")
-    mocker.patch.object(ep, "_process_one", side_effect=fake_process_one)
-
-    with pytest.raises(UsageLimitError):
-        ep.run(db, dry_run=False, as_of=date(2026, 5, 20))
-
-    assert calls == ["UL1", "UL2"], f"중단 지점 오류(3번째까지 호출되면 헛호출): {calls}"
-
-
-def test_entry_params_sends_slack_signal_on_insert(db, mocker):
-    """매수 시그널 적재 성공 시 Slack 알림(notify_signal)이 나가야 한다 —
-    함수만 있고 호출이 없어 '시그널이 떠도 아무도 모르는' dead code 였다.
-    dry-run 은 알림 금지."""
-    from datetime import datetime, timezone
-    import kr_pipeline.llm_runner.entry_params as ep
-
-    canned = {
-        "entry_mode": "pivot_breakout", "pivot_price": 100.0, "trigger_price": 100.1,
-        "current_price": 100.0, "stop_loss_price": 95.0,
-        "stop_loss_pct_from_pivot": -5.0, "stop_loss_pct_from_current_price": -5.1,
-        "suggested_weight_pct": 5.0, "expected_target_price": 120.0,
-        "expected_target_pct": 20.0, "pattern_basis": "flat_base",
-        "entry_window_days": 3, "max_chase_pct_from_pivot": 5.0,
-        "breakout_volume_requirement": "ge_1.4x_50day_avg",
-        "observed_breakout_volume_ratio": None,
-        "known_warnings": [], "other_warnings": "", "notes": "t",
-    }
-    mocker.patch.object(ep, "build_for_6", return_value={"symbol": "NTFY1", "name": "알림테스트"})
-    mocker.patch.object(ep, "call_claude", return_value=dict(canned))
-    mocker.patch.object(ep, "insert_entry_params")
-    notify = mocker.patch.object(ep, "notify_signal")
-
-    now = datetime.now(timezone.utc)
-    ep._process_one(db, "NTFY1", now, now, dry_run=False, as_of=now.date())
-    assert notify.call_count == 1
-    kwargs = notify.call_args.kwargs
-    assert kwargs["symbol"] == "NTFY1"
-    assert kwargs["entry_price"] == 100.1   # §9 trigger_price = 실제 진입 트리거가
-    assert kwargs["stop_loss"] == 95.0
-
-    notify.reset_mock()
-    ep._process_one(db, "NTFY1", now, now, dry_run=True, as_of=now.date())
-    assert notify.call_count == 0, "dry-run 에서 알림 발송 금지"
-
-
-# ====== P1-2 Part B: current_price echo 교차검증 ======
-
-def _canned_s9(current_price):
-    """§9 유효 출력 (current_price 만 가변)."""
+def _valid_payload(symbol="EPX1", name="테스트"):
     return {
-        "entry_mode": "pivot_breakout", "pivot_price": 100.0, "trigger_price": 100.1,
-        "current_price": current_price, "stop_loss_price": 95.0,
-        "stop_loss_pct_from_pivot": -5.0, "stop_loss_pct_from_current_price": -5.1,
-        "suggested_weight_pct": 5.0, "expected_target_price": 120.0,
-        "expected_target_pct": 20.0, "pattern_basis": "flat_base",
-        "entry_window_days": 3, "max_chase_pct_from_pivot": 5.0,
-        "breakout_volume_requirement": "ge_1.4x_50day_avg",
-        "observed_breakout_volume_ratio": None,
-        "known_warnings": [], "other_warnings": "", "notes": "t",
+        "symbol": symbol,
+        "name": name,
+        "prior_analysis": {
+            "classification": "entry", "pattern": "flat_base", "pivot_price": 10000.0,
+            "pivot_basis": "range_high", "base_high": 10000.0, "base_low": 9300.0,
+            "base_depth_pct": 9.0, "risk_flags": [], "confidence": 0.8,
+            "reasoning": "clean base",
+        },
+        "trigger_evaluation": {"trigger_type": "breakout", "decision": "go_now"},
+        "current_state": {"close": 10010.0, "volume": 1_600_000, "avg_volume_50d": 1_000_000},
+        "recent_daily_indicators": [],
     }
 
 
-def _echo_mocks(mocker, *, close, current_price):
-    """build_for_6/call_claude/insert/notify 를 mock — echo 검증만 격리."""
-    import kr_pipeline.llm_runner.entry_params as ep
-
-    payload = {"symbol": "ECHO1", "name": "에코"}
-    if close is not None:
-        payload["current_state"] = {"close": close}
-    mocker.patch.object(ep, "build_for_6", return_value=payload)
-    mocker.patch.object(ep, "call_claude", return_value=_canned_s9(current_price))
+def test_process_one_deterministic_insert_and_meta(db, mocker):
+    """함수 경로: LLM 미호출, insert 에 결정론 meta(model 표기·토큰 None) 전달."""
+    mocker.patch.object(ep, "build_for_6", return_value=_valid_payload())
     insert = mocker.patch.object(ep, "insert_entry_params")
     notify = mocker.patch.object(ep, "notify_signal")
-    return ep, insert, notify
 
+    ep._process_one(db, "EPX1", datetime(2026, 5, 20, 16, 32), None,
+                    dry_run=False, as_of=date(2026, 5, 20))
 
-def test_entry_rejects_current_price_echo_mismatch(db, mocker):
-    """current_price 는 payload current_state.close 의 echo — 크게 어긋나면 오독
-    신호이므로 fail-closed: 저장·Slack 알림 모두 거부."""
-    import pytest
-
-    ep, insert, notify = _echo_mocks(mocker, close=1000.0, current_price=1050.0)
-    now = datetime.now(timezone.utc)
-    with pytest.raises(ValueError, match="echo"):
-        ep._process_one(db, "ECHO1", now, now, dry_run=False, as_of=now.date())
-    assert insert.call_count == 0, "오독 계획이 저장됨"
-    assert notify.call_count == 0, "오독 계획이 Slack 발송됨"
-
-
-def test_entry_accepts_exact_echo(db, mocker):
-    ep, insert, notify = _echo_mocks(mocker, close=1000.0, current_price=1000.0)
-    now = datetime.now(timezone.utc)
-    ep._process_one(db, "ECHO1", now, now, dry_run=False, as_of=now.date())
     assert insert.call_count == 1
+    kw = insert.call_args.kwargs
+    assert kw["result"]["entry_mode"] == "pivot_breakout"
+    assert kw["result"]["trigger_price"] == round(10000.0 * 1.001, 2)
+    assert kw["llm_meta"]["model"].startswith("deterministic:")
+    assert kw["llm_meta"]["input_tokens"] is None
     assert notify.call_count == 1
+    assert notify.call_args.kwargs["entry_price"] == kw["result"]["trigger_price"]
 
 
-def test_entry_skips_echo_check_without_close(db, mocker):
-    """payload 에 current_state.close 없으면 비교 불가 — 검사 skip (기존 동작 보존)."""
-    ep, insert, notify = _echo_mocks(mocker, close=None, current_price=100.0)
-    now = datetime.now(timezone.utc)
-    ep._process_one(db, "ECHO1", now, now, dry_run=False, as_of=now.date())
+def test_process_one_dry_run_validates_without_insert(db, mocker):
+    mocker.patch.object(ep, "build_for_6", return_value=_valid_payload())
+    insert = mocker.patch.object(ep, "insert_entry_params")
+    notify = mocker.patch.object(ep, "notify_signal")
+
+    ep._process_one(db, "EPX1", datetime(2026, 5, 20, 16, 32), None,
+                    dry_run=True, as_of=date(2026, 5, 20))
+
+    insert.assert_not_called()
+    notify.assert_not_called()
+
+
+def test_run_isolates_rejected_symbol_and_continues(db, mocker):
+    """D2(a) 거부(pattern=none)는 해당 종목만 failed — 배치는 계속."""
+    bad = _valid_payload("BAD1")
+    bad["prior_analysis"]["pattern"] = "none"
+    bad["prior_analysis"]["pivot_price"] = None
+    good = _valid_payload("GOOD1")
+
+    mocker.patch.object(ep, "_fetch_go_now_candidates", return_value=[
+        ("BAD1", datetime(2026, 5, 20, 16, 32, tzinfo=timezone.utc), None),
+        ("GOOD1", datetime(2026, 5, 20, 16, 33, tzinfo=timezone.utc), None),
+    ])
+    mocker.patch.object(ep, "build_for_6",
+                        side_effect=lambda conn, s, evaluation_at: bad if s == "BAD1" else good)
+    insert = mocker.patch.object(ep, "insert_entry_params")
+    mocker.patch.object(ep, "notify_signal")
+
+    out = ep.run(db, dry_run=False, as_of=date(2026, 5, 20))
+
+    assert out == {"processed": 1, "failures": 1}
     assert insert.call_count == 1
+    assert insert.call_args.kwargs["symbol"] == "GOOD1"
 
 
-def test_entry_accepts_integer_rounding_of_fractional_close(db, mocker):
-    """수정주가 소수부(예: 100.49)를 LLM 이 정수(100)로 echo — 절대 1원 허용이
-    흡수해야 함(상대 0.1% 단독이면 0.49% 로 오거부되는 케이스)."""
-    ep, insert, notify = _echo_mocks(mocker, close=100.49, current_price=100.0)
-    now = datetime.now(timezone.utc)
-    ep._process_one(db, "ECHO1", now, now, dry_run=False, as_of=now.date())
-    assert insert.call_count == 1
+def test_fetch_go_now_candidates_filters_decisions(db):
+    """go_now + breakout 계열만 후보 — wait/promotion 제외 (SQL 경로)."""
+    as_of = date(2026, 5, 20)
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol LIKE 'EPQ%'")
+        rows = [
+            ("EPQ1", "breakout", "go_now"),
+            ("EPQ2", "breakout", "wait"),
+            ("EPQ3", "promotion", "go_now"),   # promotion 은 제외
+            ("EPQ4", "breakout_from_watch", "go_now"),
+        ]
+        for i, (sym, tt, dec) in enumerate(rows):
+            cur.execute(
+                """INSERT INTO trigger_evaluation_log
+                   (symbol, evaluated_at, analyzed_for_date, trigger_type, close, volume,
+                    pivot_price, decision, confidence, reasoning, prior_classification_at)
+                   VALUES (%s, %s, %s, %s, 100, 1, 99, %s, 0.8, 'x', %s)""",
+                (sym, datetime(2026, 5, 20, 16, 30 + i, tzinfo=timezone.utc), as_of, tt, dec,
+                 datetime(2026, 5, 17, 3, 0, tzinfo=timezone.utc)),
+            )
+    db.commit()
+    try:
+        # 같은 as_of 를 쓰는 다른 테스트 픽스처(payload_lite 의 go_now 행)와 격리 —
+        # 본 테스트의 검증 대상은 EPQ* 4행의 필터링 결과다.
+        got = sorted(s for s, _, _ in ep._fetch_go_now_candidates(db, as_of) if s.startswith("EPQ"))
+        assert got == ["EPQ1", "EPQ4"]
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol LIKE 'EPQ%'")
+        db.commit()

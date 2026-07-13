@@ -188,7 +188,13 @@ def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = Non
     weekly_chart_png = render_weekly_chart(conn, ticker, range_weeks=104, on_date=on_date)
 
     prompt_step1 = (PROMPTS_DIR / "analyze_chart_v3.md").read_text(encoding="utf-8")
-    prompt_step2 = (PROMPTS_DIR / "calculate_entry_params_v2_0.md").read_text(encoding="utf-8")
+    # #21: 파일 상단 RETIRED 배너(blockquote)는 아카이브 안내문 — 수동 분석 ZIP 에선
+    # 이 문서가 Step-2 '지시문 본문'이므로 배너를 제거해 LLM 이 "사용되지 않는 지시문"
+    # 이라는 메타 문장에 반응하지 않게 한다(규칙 본문은 은퇴 시점 동결값 그대로).
+    _step2_raw = (PROMPTS_DIR / "calculate_entry_params_v2_0.md").read_text(encoding="utf-8")
+    prompt_step2 = "\n".join(
+        line for line in _step2_raw.splitlines() if not line.startswith("> ")
+    ).lstrip("\n")
     prompt_verify = (PROMPTS_DIR / "verify_analysis_v1.md").read_text(encoding="utf-8")
 
     readme = README_TEMPLATE.format(

@@ -16,7 +16,11 @@ from kr_pipeline.common.thresholds import (
     ENTRY_WEIGHT_PCT_MIN,
     ENTRY_WEIGHT_PCT_MAX,
     ENTRY_TRIGGER_BUFFER_MAX,
+    GATE_PROMOTION_PRICE_RATIO,
+    PIVOT_EXTENDED_BAND_MULT,
+    PIVOT_PRICE_OFFSET,
 )
+from kr_pipeline.common.krx import krx_tick_size
 from kr_pipeline.llm_runner.gates import apply_phase1_gates
 from kr_pipeline.llm_runner.risk_flags import RISK_FLAGS_TAXONOMY
 
@@ -187,6 +191,12 @@ def _pivot_continuity(
             else None
         ),
     }
+# (#23) §4.7 표 기반 pivot_basis — anchor 가 base 내부 고점이라 pivot ≤ base_high+0.1
+# 이 성립하고 +0.1 오프셋 규칙이 적용되는 집합. pocket pivot 등 표 밖 basis 는
+# base_high 초과가 정당하므로 비대상 (HARD 미검사 사유와 동일 — docstring 참조).
+_PIVOT_TABLE_BASES = frozenset(
+    {"handle_high", "range_high", "final_T_high", "mid_W_peak"}
+)
 
 
 def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -> list[str]:
@@ -225,9 +235,12 @@ def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -
     if result.get("classification") == "entry" and pv is None:
         warns.append("sanity_missing_pivot_for_actionable")
     if pv is not None and as_of is not None:
+        # (#38 리뷰) 비교 종가는 LLM payload 의 current_metrics.close 와 같은 소스
+        # (daily_prices 권위, payload_builder._build_current_metrics 와 동일 형태) —
+        # daily_indicators 가 지연 적재된 날 어제 종가와 비교하는 오경고 방지.
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT adj_close FROM daily_indicators "
+                "SELECT COALESCE(adj_close, close) FROM daily_prices "
                 "WHERE ticker = %s AND date <= %s ORDER BY date DESC LIMIT 1",
                 (symbol, as_of),
             )
@@ -237,6 +250,47 @@ def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -
             ratio = float(pv) / close
             if not (_PIVOT_CLOSE_BAND[0] <= ratio <= _PIVOT_CLOSE_BAND[1]):
                 warns.append("sanity_pivot_far_from_price")
+            # (#23) §8.5 밴드 정합 — LLM 이 적용한 entry/valid_base/extended 경계가
+            # 실제 close/pivot 위치와 맞는지 사후검증 (LLM 산술 실수 탐지, SOFT).
+            pos = close / float(pv)
+            band_lo = GATE_PROMOTION_PRICE_RATIO
+            band_hi = PIVOT_EXTENDED_BAND_MULT
+            # watch_reason 은 저장 정규화(_watch_reason)와 동일하게 watch 에만 유효 —
+            # 비-watch 의 잔류 watch_reason 으로 오경고 금지 (#38 리뷰).
+            wr = _watch_reason(result)
+            if result.get("classification") == "entry" and pos > band_hi:
+                # 상단 위반만 검사 — 하단(pos < 0.95) entry 는 §4.5 pocket pivot
+                # (base 내부 저위치 진입)이 정당해 구분 불가, 오경고 방지 (#38 리뷰).
+                warns.append("sanity_band_mismatch_entry")
+            elif wr == "valid_base_awaiting_breakout" and pos >= band_lo:
+                warns.append("sanity_band_mismatch_valid_base")
+            elif wr == "extended" and pos <= band_hi:
+                warns.append("sanity_band_mismatch_extended")
+
+    # (#23) §4.7 pivot 산술 사후검증 — 표 기반 basis 한정 (SOFT).
+    # 허용 집합은 §4.7 리터럴(+0.1)이 아니라 §7 KR 관례가 기준 (#38 재리뷰):
+    # "base high + 1 tick (typically +10 or +100 KRW ... but base_high alone is
+    # acceptable)". KRW 는 정수가라 +0.1 만 정답으로 인정하면 §7 준수 출력 대부분이
+    # 경고를 받아 사후검증이 노이즈로 포화 — 진짜 이상치가 묻힌다.
+    if pv is not None and result.get("pivot_basis") in _PIVOT_TABLE_BASES:
+        if bh is not None:
+            tick = krx_tick_size(float(bh))
+            if float(pv) > float(bh) + tick + 1e-6:
+                warns.append("sanity_pivot_above_base_high")
+        # 오프셋 관례 검사: 앵커 값을 아는 basis(range_high == base_high, 같은 값)
+        # 에서만, 정수 앵커 문맥에 한해 — handle_high 등은 앵커가 base_high 와
+        # 다른 가격이라 base_high 정수성이 프록시가 못 된다 (#38 리뷰).
+        # 허용: {앵커 그대로, 앵커+0.1(§4.7 리터럴), 앵커+1 tick(§7 관례)}.
+        if (
+            result.get("pivot_basis") == "range_high"
+            and bh is not None
+            and abs(float(bh) - round(float(bh))) < 1e-6
+        ):
+            anchor = float(bh)
+            allowed = (anchor, anchor + PIVOT_PRICE_OFFSET, anchor + krx_tick_size(anchor))
+            if not any(abs(float(pv) - a) < 1e-3 for a in allowed):
+                warns.append("sanity_pivot_offset_rule")
+
     if warns:
         log.warning("classification sanity warnings %s: %s (pivot=%s)", symbol, warns, pv)
     return warns
@@ -595,8 +649,8 @@ def _normalize_entry_params(result: dict) -> dict:
 
 
 # D-3 sanity 의 책 근거 범위는 SSOT(thresholds.py ENTRY_* — P1-7 승격) 가 정의.
-# 프롬프트(calculate_entry_params_v2_0.md §1.3/§2/§3/§4)와의 동기화는
-# tests/test_prompt_threshold_drift.py 가 감시.
+# #21 이후 생산측(entry_params_calc.py)도 같은 SSOT 를 import — 생산·검증 단일 정의.
+# (구 프롬프트 calculate_entry_params_v2_0.md 는 RETIRED — 웹 표시용 아카이브만.)
 
 
 def _validate_entry_params_sanity(n: dict) -> dict:
