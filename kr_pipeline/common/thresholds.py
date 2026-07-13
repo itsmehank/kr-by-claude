@@ -187,6 +187,26 @@ PIVOT_PRICE_OFFSET: Final[float] = 0.1
 """A §4.7 pivot 산출 오프셋 — pivot = 기준 고점 + 0.1 (flat_base/cup_with_handle/vcp/
 double_bottom). 시스템 관례 (책의 '10 cents above' 관행의 KRW 적용). store 사후검증
 (sanity_pivot_offset_rule)의 기준."""
+# ===== 포지션 관리 — 3층 손절 스택 (kr_pipeline/trade_management/stop_stack.py, #3 이슈4) =====
+# 백테스트 검증 규칙(docs/trading-rules-book-verified.md §2)의 SSOT 승격.
+# 사전등록·의존성 맵: docs/superpowers/specs/2026-07-13-manage-active-trade.md
+
+TRADE_STOP_INITIAL_PCT: Final[float] = 0.08
+"""초기 손절폭 (평균매입가 대비, 1층). 책: O'Neil HMMS '7% to 8% is your absolute
+loss limit' — 7~8% 범위 중 8 선택은 시스템 결정(대장 §1 D등급: 종가 판정 보상).
+백테스트 stop_variant 시뮬로 검증(2026-07-06)."""
+
+TRADE_BREAKEVEN_TRIGGER_PCT: Final[float] = 0.20
+"""본전 래치 장전식 min(3R, 이 값)의 **상한** (2층. R = 초기 손절폭 — 기본 8% 에선
+min(24%, 20%) = 20% 로 단순 +20% 와 동치이나, 비-8% 스톱에선 발동점이 3R 로 이 값보다
+낮아진다). 종가가 장전점에 한 번 도달하면 이후 평균매입가가 손절 바닥(해제 없음).
+책: O'Neil HMMS 'Any stock that rises close to 20% should never be allowed to drop
+back into the loss column' + Minervini 2~3R 스톱 상향 — ⚠ 'O'Neil 20-25% 익절 구간'
+은 별개 규칙(강세 분할매도)의 근거이므로 이 상수의 변경 판단 앵커가 아니다 (#40 재리뷰)."""
+
+TRADE_STOP_MAX_PCT: Final[float] = 0.10
+"""손절폭 절대 상한 (uncle point). 책: O'Neil HMMS / Minervini TLSMW Ch.13 — 10%.
+evaluate_stop 의 initial_stop_pct 인자 검증(fail-closed) — 이 값 초과 손절폭 금지."""
 
 # ===== Distribution Day - 종목 레벨 (kr_pipeline/indicators/compute/volume.py) =====
 
