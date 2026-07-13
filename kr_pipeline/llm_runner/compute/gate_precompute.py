@@ -31,9 +31,9 @@ from kr_pipeline.common.thresholds import (
     STOCK_DISTRIBUTION_ABORT_WINDOW_DAYS,
     STOCK_DISTRIBUTION_CLEAN_WINDOW_CAL_CAP,
     STOCK_DISTRIBUTION_CLEAN_WINDOW_DAYS,
-    TT_MARGIN_MARGINAL_PCT,
     TT_MARGINAL_DEMOTION_COUNT,
 )
+from kr_pipeline.llm_runner.compute.tt_marginal import tt_marginal_summary
 
 _UPPER_THIRD = 2.0 / 3.0  # "상단/중단 1/3" 정의값 (임계 아님 — 밴드 정의)
 _LOWER_THIRD = 1.0 / 3.0
@@ -172,33 +172,12 @@ def compute_gates(
         )
 
     if conditions_detail:
-        passes = [c.get("passed") for c in conditions_detail.values()]
-        # False 하나면 확정 False, 아니면 None(미산출) 하나라도 있으면 미확정.
-        if any(p is False for p in passes):
-            tt_all_passed = False
-        elif any(p is None for p in passes):
-            tt_all_passed = None
-        else:
-            tt_all_passed = True
-        # A §2 정의의 정확한 역: 'PASS 하면서 margin < 3%' 인 조건만 marginal.
-        # 단 PASS 인데 margin 미산출(None)인 조건이 있으면 카운트 자체가 미확정(null) —
-        # 비-marginal 로 세면 실제 marginal 3개가 2개로 집계돼 데이터 결함이 회복을
-        # '허용' 쪽으로 왜곡한다 (#37 재리뷰). A 측(#38 payload_builder)의 null 규약과
-        # 동일한 보수 방향. 탈락 조건의 margin 은 정의상 무관(카운트 확정 유지).
-        has_unmeasured = any(
-            c.get("passed") is True and c.get("margin_pct") is None
-            for c in conditions_detail.values()
-        )
-        if has_unmeasured:
-            tt_marginal_count = None
-        else:
-            tt_marginal_count = sum(
-                1
-                for c in conditions_detail.values()
-                if c.get("passed") is True
-                and c.get("margin_pct") is not None
-                and c["margin_pct"] < TT_MARGIN_MARGINAL_PCT
-            )
+        # 계수·결측 규약은 tt_marginal_summary 가 단일 정의 — A 측(payload_builder
+        # conditions_summary)과 공용 (#38 재리뷰: 별도 구현이 규약을 갈라 A 강등 ↔
+        # B 회복의 '정확한 역'을 깨뜨렸던 것의 구조적 재발 방지).
+        s = tt_marginal_summary(conditions_detail)
+        tt_all_passed = s["all_passed"]
+        tt_marginal_count = s["marginal_count"]
         if tt_all_passed is False:
             tt_recovery_ok = False  # 탈락 확정 — margin 결측과 무관하게 회복 불가
         elif tt_all_passed is None or tt_marginal_count is None:
