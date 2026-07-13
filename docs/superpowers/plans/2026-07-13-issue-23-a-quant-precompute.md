@@ -22,14 +22,14 @@
 - **SSOT 상수 3종(TT_MARGIN_MARGINAL_PCT, TT_MARGINAL_DEMOTION_COUNT, MARKET_DIST_DEMOTION_COUNT_25S)은 PR #37 과 동일 텍스트로 중복 추가** — 어느 쪽이 나중에 머지되든 충돌이 자명하게 해소되도록 정의문을 문자 단위로 일치시킴. PR 본문에 명시.
 - 가드 테스트는 **새 파일 tests/test_prompt_a_gates.py** — #37 이 재작성한 test_prompt_trigger_gates.py 와의 충돌 회피.
 - §3.5 의 "confirmed_uptrend 인데 dist 4" 구간(하드룰 텍스트가 원래 미규정)은 선계산 boolean 도 동일하게 미규정(force_watch=False, confidence_penalty=False, normal=False) — 기존 프롬프트의 갭을 그대로 보존(동작 변화 0), 갭 자체는 PR에 기록.
-- §8.5 밴드 사후검증은 SOFT 경고 전용(저장 차단 없음) — LLM 산술 실수 탐지 목적. 비교 종가는 기존 sanity 와 동일 소스(daily_indicators adj_close as_of).
+- §8.5 밴드 사후검증은 SOFT 경고 전용(저장 차단 없음) — LLM 산술 실수 탐지 목적. 비교 종가는 daily_prices COALESCE(adj_close, close) — payload 의 current_metrics 와 동일 권위 소스 (정정 2026-07-13: 종전 기록 'daily_indicators adj_close'는 d153396 리뷰 반영 #2 로 변경된 코드와 불일치했음).
 - §4.7 검증 2종: (i) pivot > base_high + 0.1 + ε → 경고(모든 basis 는 base 내부 고점), (ii) +0.1 오프셋 규칙 패턴(flat_base/cup_with_handle/vcp/double_bottom)에서 pivot 소수부 ≉ 0.1 → 경고.
 
 ## 임계 의존성 맵 (2축 판정)
 
 **트리거**: thresholds.py 상수 추가 + A 프롬프트 임계 텍스트 연동.
 
-**1단계 (파생 신호)**: 신규 상수 → `conditions_summary.marginal_count`, `market_direction_gate.*`, store 경고 3종(`sanity_band_mismatch`, `sanity_pivot_above_base_high`, `sanity_pivot_offset_rule`)
+**1단계 (파생 신호)**: 신규 상수 → `conditions_summary.marginal_count`, `market_direction_gate.*`, store 경고 5종(`sanity_band_mismatch_entry`/`_valid_base`/`_extended` 3종 + `sanity_pivot_above_base_high`, `sanity_pivot_offset_rule` 2종)
 
 **2단계 (소비 룰)**: A 프롬프트 §2(confidence 상한·watch 선호), §3.5(강제 강등·감점), §8.5(watch_reason 경계 — store 는 사후검증만); weekly_classification.sanity_warnings (쓰기 전용, 하류 소비 없음 — P1-2 Part A 와 동일).
 
@@ -82,3 +82,35 @@
 
 ### Task 5: 전체 검증 → PR
 - [ ] `uv run pytest tests/` 0 failed → PR 생성(머지 금지, 결정·의존성 맵·#37 중복 상수 명시) → 코드리뷰 → 반영 → 재검증.
+
+
+## 재리뷰 수리 이력 (2026-07-13, 머지 전 — 사용자 결정·외부 설계 검토 반영)
+
+- **§3.5 FTD 한정어**: `last_ftd is None`(기록 존재만 확인) → 경과일 ≤ STATUS_FTD_RECENT_DAYS
+  판정. 근거: status.py 는 FTD 만료 때문에 rally_attempt 를 반환하므로 그 경로에서는 만료
+  기록이 항상 잔존 — 기록 존재만 보면 하드룰이 상시 우회(결함). 경과일 미산출도 보수 강등.
+- **normal_range null 비대칭**: status 가 confirmed_uptrend 가 아니면 dist 결측이어도 False
+  확정(넷째 룰 전제 거짓) — null 승격은 확정 정보 손실 + 조문에 없는 전면 entry 금지 유발.
+- **§4.7 사후검증 허용 집합**: +0.1 단독 → {앵커, 앵커+0.1, 앵커+1 KRX tick} (§7 KR 관례가
+  기준 — KRW 정수가에서 +0.1 만 인정하면 §7 준수 출력 대부분이 경고 = 사후검증 노이즈 포화).
+  신규 소비: kr_pipeline/common/krx.py `krx_tick_size` (2023 개편 단일 체계).
+- **§8.5 entry 밴드 위반 SOFT → 결정론 강등** (외부 설계 검토 채택안 3, 사용자 승인):
+  gates.py 신규 룰 `8_5_extended_band` — entry ∧ close > pivot×PIVOT_EXTENDED_BAND_MULT →
+  watch/`extended`(§8.5 기존 enum, 신규 발명 없음) + conf cap TIER2(0.50, 2E tier2 와 동일).
+  extended 는 ALLOWED_WATCH_REASONS 밖 = 재트리거 비대상(기존 설계 의도 유지 — 다음 주말
+  재분류 복귀). store 의 SOFT 경고는 게이트 fail-soft 경로의 백스톱으로 유지. 매수 시점
+  강제(B extended 게이트)는 #45 후속. 발생률 텔레메트리 = triggered_rules->'8_5_extended_band'.
+- **tt marginal 계수 단일화**: kr_pipeline/llm_runner/compute/tt_marginal.py 신설 — A(본 PR
+  conditions_summary)와 B(#37 gate_precompute)가 같은 함수 소비. 결측 규약(PASS∧margin
+  None → count null)이 두 구현으로 갈라져 A 강등 ↔ B 회복 역류가 재개방됐던 것의 구조적 봉쇄.
+- **프롬프트 규약 2문장**: market_direction_gate 필드 부재 = null 동일 취급(배포 스큐 방어),
+  세 boolean 전부 false = 중립(dist=4 침묵→명시 신호 전이로 인한 표현층 동작 변화 차단).
+
+### 의존성 맵 증보 (상수별 행 — 위 수리로 소비처가 늘어난 상수)
+
+| 고정 상수 | 축1 환산? | 축2 영향? | 판정 → 후속 |
+|---|---|---|---|
+| STATUS_FTD_RECENT_DAYS=90 (기존) | 불가(일수) | 있음 — 소비처 추가(payload_builder force_watch). status.py 판정과 **같은 상수를 공유**해야 '만료=부재' 등가가 유지됨 — 값 변경 시 두 소비처 동시 검토 | 임계와 함께 보정 |
+| PIVOT_EXTENDED_BAND_MULT=1.05 | 가능(배수) | 있음 — 소비처 추가(gates 강등, store SOFT 백스톱, #45 예정 B 게이트). A 강등·B 차단·C chase 가 같은 5% 를 참조해야 층간 정합 | 임계와 함께 보정(3층 co-anchor) |
+| PIVOT_PRICE_OFFSET=0.1 | 불가(원) | 미미 — 단독 정답에서 허용 집합의 한 원소로 강등(§7 tick 관례가 기준). §4.7 리터럴과의 문서 내 이중 관례는 잔존(프롬프트 무변경 = LLM 동작 중립 우선) | 모니터링(발생률 후 §4.7 표 정리 재검토) |
+| (신규 소비) krx_tick_size | — | 있음 — KRX 호가 개편 시 밴드표 갱신 필요(외부 규칙 종속) | 모니터링 |

@@ -736,3 +736,108 @@ def test_pivot_offset_rule_skips_non_range_high_basis(db, mocker):
     r = _cls_result(pivot_price=999.5, base_high=1000.0, pivot_basis="handle_high")
     w = _insert_and_get_warnings(db, "SANP4", r, as_of)
     assert w is None or "sanity_pivot_offset_rule" not in w
+
+
+# --- (#38 재리뷰) §4.7 사후검증을 §7 KR 관례(+1 tick / 고점 그대로)와 정합 ---
+
+def test_pivot_one_tick_above_anchor_clean(db, mocker):
+    """§7: 'base high + 1 tick (typically +10 or +100 KRW)' 준수 출력은 무경고.
+
+    51,700 원대의 KRX 호가 단위는 100원 — pivot=51,800 은 §7 관례 그대로인데
+    구 검사(+0.1 만 정답)는 초과+오프셋 경고 2종을 동시 발화시켰다(경고 포화)."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANT1", 51000, as_of)
+    r = _cls_result(pivot_price=51800.0, base_high=51700.0, pivot_basis="range_high")
+    w = _insert_and_get_warnings(db, "SANT1", r, as_of)
+    assert w is None or not any("sanity_pivot_" in x for x in w)
+
+
+def test_pivot_equal_to_anchor_clean(db, mocker):
+    """§7: 'base_high alone is acceptable' — pivot == 고점 그대로도 무경고."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANT2", 51000, as_of)
+    r = _cls_result(pivot_price=51700.0, base_high=51700.0, pivot_basis="range_high")
+    w = _insert_and_get_warnings(db, "SANT2", r, as_of)
+    assert w is None or not any("sanity_pivot_" in x for x in w)
+
+
+def test_pivot_above_one_tick_still_warns(db, mocker):
+    """+1 tick 을 넘는 초과는 여전히 경고 — 완화는 §7 관례 집합까지만."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANT3", 51000, as_of)
+    r = _cls_result(pivot_price=53000.0, base_high=51700.0, pivot_basis="range_high")
+    w = _insert_and_get_warnings(db, "SANT3", r, as_of)
+    assert w is not None and "sanity_pivot_above_base_high" in w
+
+
+def test_pivot_off_convention_fraction_warns(db, mocker):
+    """관례 집합({고점, 고점+0.1, 고점+1tick}) 밖의 값은 오프셋 경고 유지."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANT4", 51000, as_of)
+    r = _cls_result(pivot_price=51750.0, base_high=51700.0, pivot_basis="range_high")
+    w = _insert_and_get_warnings(db, "SANT4", r, as_of)
+    assert w is not None and "sanity_pivot_offset_rule" in w
+
+
+# --- (#38 재리뷰·외부 검토) §8.5 entry 밴드 위반 → 결정론 강등 (SOFT → 강등 패키지) ---
+
+def _hq_fb_off(mocker):
+    """phase1 의 기존 룰(handle_quality·failed_breakout)만 끔 — 신규 밴드 강등은 실경로."""
+    mocker.patch("kr_pipeline.llm_runner.gates.compute_handle_quality", return_value=None)
+    mocker.patch("kr_pipeline.llm_runner.gates.compute_failed_breakout", return_value=None)
+
+
+def _fetch_stored(db, symbol):
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT classification, watch_reason, confidence, triggered_rules"
+            " FROM weekly_classification WHERE symbol=%s", (symbol,))
+        return cur.fetchone()
+
+
+def test_extended_entry_demoted_to_watch(db, mocker):
+    """entry 인데 close > pivot×1.05 → 코드가 watch/extended 로 강등 + conf cap.
+
+    §8.5 자체 규칙(current > pivot×1.05 → extended)의 결정론 집행 — SOFT 경고만으로는
+    하류 방어(B extended 게이트 부재, #45) 없이 매수 신호까지 통과(외부 검토 채택안 3)."""
+    _hq_fb_off(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANX1", 1100, as_of)  # pos 1.1 > 1.05
+    from kr_pipeline.llm_runner.store import insert_classification
+    insert_classification(
+        db, symbol="SANX1", classified_at=datetime.now(timezone.utc),
+        market="KOSPI",
+        result=_cls_result(classification="entry", pivot_price=1000.0,
+                           base_high=1000.0, confidence=0.9),
+        source="weekend", llm_meta={}, analyzed_for_date=as_of,
+    )
+    db.commit()
+    cls, wr, conf, rules = _fetch_stored(db, "SANX1")
+    assert cls == "watch"
+    assert wr == "extended"                      # §8.5 기존 enum — 신규 발명 없음
+    assert float(conf) == 0.50                   # TIER2_CONF_CAP (extended 계열)
+    assert rules and "8_5_extended_band" in rules
+
+
+def test_entry_within_band_not_demoted(db, mocker):
+    """close ≤ pivot×1.05 인 정상 entry 는 무간섭."""
+    _hq_fb_off(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANX2", 1020, as_of)  # pos 1.02
+    from kr_pipeline.llm_runner.store import insert_classification
+    insert_classification(
+        db, symbol="SANX2", classified_at=datetime.now(timezone.utc),
+        market="KOSPI",
+        result=_cls_result(classification="entry", pivot_price=1000.0,
+                           base_high=1000.0, confidence=0.9),
+        source="weekend", llm_meta={}, analyzed_for_date=as_of,
+    )
+    db.commit()
+    cls, wr, conf, rules = _fetch_stored(db, "SANX2")
+    assert cls == "entry"
+    assert float(conf) == 0.9
+    assert not (rules and "8_5_extended_band" in rules)

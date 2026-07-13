@@ -60,7 +60,7 @@ You will receive a JSON payload with:
 - **Identifier**: symbol, market, sector, date
 - **Minervini screening results**: `conditions_met` (8 boolean conditions) AND `conditions_detail` (margin of pass for each condition), `rs_rating`
 - **`conditions_summary`** (#23, 결정론 선계산): `marginal_count`(§2 정의의 marginal 조건 수) · `marginal_conditions`(해당 키 목록) · `demotion_trigger`(카운트가 강등 임계 이상). §2 판정의 authoritative 입력 — 값 `null` = 지표 미산출.
-- **`market_direction_gate`** (#23, 결정론 선계산): `status`·`dist_count`·`last_follow_through_day`(echo) · `force_watch`(downtrend/correction 무조건, rally_attempt 는 **FTD 부재일 때만** — §3.5 둘째 룰의 한정어 그대로) · `confidence_penalty`(분배일 누적 임계 이상) · `normal_range`(confirmed_uptrend 이고 분배일 정상 상한 이하). §3.5 하드룰의 authoritative 입력 — 값 `null` = 미산출/미지 상태.
+- **`market_direction_gate`** (#23, 결정론 선계산): `status`·`dist_count`·`last_follow_through_day`(echo) · `force_watch`(downtrend/correction 무조건, rally_attempt 는 **최근 FTD 부재일 때만**(경과일 ≤ STATUS_FTD_RECENT_DAYS 판정 — 만료 FTD 는 부재 취급, §3.5 둘째 룰의 한정어 그대로) · `confidence_penalty`(분배일 누적 임계 이상) · `normal_range`(confirmed_uptrend 이고 분배일 정상 상한 이하). §3.5 하드룰의 authoritative 입력 — 값 `null` = 미산출/미지 상태.
 - **Current price metrics**: close, 52w high/low, distance from extremes, volume averages
 - **Recent daily OHLCV**: past ~60 trading days
 - **Recent weekly OHLCV**: past ~104 weeks for full base-pattern recognition including prior uptrend confirmation
@@ -116,6 +116,9 @@ Read `market_context.current_status`. This is non-negotiable per O'Neil (*HMMS* 
 `force_watch`(첫째·둘째 룰) / `confidence_penalty`(셋째 룰) / `normal_range`(넷째 룰) boolean 을
 그대로 사용하고, status/count 원시값으로 **재계산하지 말 것** (위 룰 문장은 co-anchor 정의로
 유지 — 원시값은 reasoning 서술 참고용). boolean 이 `null`(미산출)이면 보수적으로 entry 금지(watch 상한).
+`market_direction_gate` 필드 자체가 payload 에 **없으면 null 과 동일 취급** (부재 ≠ 재계산 허용).
+세 boolean 이 모두 `false` 인 조합(예: confirmed_uptrend 인데 분배일 4)은 어떤 룰도 발화하지 않은
+**중립** — 기존과 동일하게 정상 진행하며, `normal_range=false` 를 강등·감점 근거로 쓰지 말 것.
 
 This rule overrides individual stock setup quality. A perfect base in a downtrend is `watch`, not `entry`.
 

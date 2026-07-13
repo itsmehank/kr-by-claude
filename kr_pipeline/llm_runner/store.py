@@ -19,6 +19,7 @@ from kr_pipeline.common.thresholds import (
     PIVOT_EXTENDED_BAND_MULT,
     PIVOT_PRICE_OFFSET,
 )
+from kr_pipeline.common.krx import krx_tick_size
 from kr_pipeline.llm_runner.gates import apply_phase1_gates
 from kr_pipeline.llm_runner.risk_flags import RISK_FLAGS_TAXONOMY
 
@@ -165,20 +166,27 @@ def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -
                 warns.append("sanity_band_mismatch_extended")
 
     # (#23) §4.7 pivot 산술 사후검증 — 표 기반 basis 한정 (SOFT).
+    # 허용 집합은 §4.7 리터럴(+0.1)이 아니라 §7 KR 관례가 기준 (#38 재리뷰):
+    # "base high + 1 tick (typically +10 or +100 KRW ... but base_high alone is
+    # acceptable)". KRW 는 정수가라 +0.1 만 정답으로 인정하면 §7 준수 출력 대부분이
+    # 경고를 받아 사후검증이 노이즈로 포화 — 진짜 이상치가 묻힌다.
     if pv is not None and result.get("pivot_basis") in _PIVOT_TABLE_BASES:
-        offset = PIVOT_PRICE_OFFSET
-        if bh is not None and float(pv) > float(bh) + offset + 1e-6:
-            warns.append("sanity_pivot_above_base_high")
-        # +0.1 오프셋 규칙: 앵커 값을 아는 basis(range_high == base_high, 같은 값)
-        # 에서만, 정수 앵커 문맥에 한해 검사 — handle_high 등은 앵커가 base_high 와
+        if bh is not None:
+            tick = krx_tick_size(float(bh))
+            if float(pv) > float(bh) + tick + 1e-6:
+                warns.append("sanity_pivot_above_base_high")
+        # 오프셋 관례 검사: 앵커 값을 아는 basis(range_high == base_high, 같은 값)
+        # 에서만, 정수 앵커 문맥에 한해 — handle_high 등은 앵커가 base_high 와
         # 다른 가격이라 base_high 정수성이 프록시가 못 된다 (#38 리뷰).
+        # 허용: {앵커 그대로, 앵커+0.1(§4.7 리터럴), 앵커+1 tick(§7 관례)}.
         if (
             result.get("pivot_basis") == "range_high"
             and bh is not None
             and abs(float(bh) - round(float(bh))) < 1e-6
         ):
-            frac = float(pv) - int(float(pv))
-            if abs(frac - offset) > 1e-3:
+            anchor = float(bh)
+            allowed = (anchor, anchor + PIVOT_PRICE_OFFSET, anchor + krx_tick_size(anchor))
+            if not any(abs(float(pv) - a) < 1e-3 for a in allowed):
                 warns.append("sanity_pivot_offset_rule")
 
     if warns:

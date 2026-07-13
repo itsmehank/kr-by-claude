@@ -112,17 +112,61 @@ def test_market_direction_gate_force_watch_states():
         assert g["normal_range"] is False
 
 
-def test_market_direction_gate_rally_attempt_with_ftd_not_forced():
+def test_market_direction_gate_rally_attempt_with_recent_ftd_not_forced():
     """§3.5 둘째 룰의 'without a follow-through day' 한정어 보존 — rally_attempt 인데
-    FTD 가 존재하면 강제 강등 비대상 (#38 리뷰: 무조건 강등 시 동작 변화)."""
+    **최근**(경과일 ≤ STATUS_FTD_RECENT_DAYS) FTD 가 존재하면 강제 강등 비대상."""
     from api.services.payload_builder import _market_direction_gate
     g = _market_direction_gate(
         {"current_status": "rally_attempt",
          "distribution_day_count_last_25_sessions": 6,
-         "last_follow_through_day": "2026-07-08"}
+         "last_follow_through_day": "2026-07-08",
+         "days_since_follow_through": 5}
     )
     assert g["force_watch"] is False
     assert g["confidence_penalty"] is True  # dist>=5 감점은 별도 룰로 여전히 적용
+
+
+def test_market_direction_gate_rally_attempt_stale_ftd_forced():
+    """만료 FTD(경과일 > 90)는 'without FTD' 취급 — 강등 필수 (#38 재리뷰).
+
+    status.py 는 FTD 만료 때문에 rally_attempt 를 반환하므로 이 경로에서는 만료
+    FTD 기록이 항상 잔존 — 'FTD 기록 존재'만 보면 §3.5 하드룰이 상시 우회된다."""
+    from api.services.payload_builder import _market_direction_gate
+    g = _market_direction_gate(
+        {"current_status": "rally_attempt",
+         "distribution_day_count_last_25_sessions": 2,
+         "last_follow_through_day": "2026-03-01",
+         "days_since_follow_through": 134}
+    )
+    assert g["force_watch"] is True
+
+
+def test_market_direction_gate_rally_attempt_ftd_age_unknown_forced():
+    """FTD 날짜는 있는데 경과일 미산출(None) → 최근임을 확인 불가 = 보수(강등)."""
+    from api.services.payload_builder import _market_direction_gate
+    g = _market_direction_gate(
+        {"current_status": "rally_attempt",
+         "distribution_day_count_last_25_sessions": 2,
+         "last_follow_through_day": "2026-07-08",
+         "days_since_follow_through": None}
+    )
+    assert g["force_watch"] is True
+
+
+def test_market_direction_gate_non_uptrend_normal_range_false_even_without_dist():
+    """status 가 confirmed_uptrend 가 아니면 넷째 룰 전제 자체가 거짓 — 분배일 결측이어도
+    normal_range 는 null 이 아니라 False 확정 (#38 재리뷰: null 승격은 정보 손실이며,
+    rally_attempt+최근 FTD+dist 결측 조합에서 조문에 없는 전면 entry 금지를 유발)."""
+    from api.services.payload_builder import _market_direction_gate
+    g = _market_direction_gate(
+        {"current_status": "rally_attempt",
+         "distribution_day_count_last_25_sessions": None,
+         "last_follow_through_day": "2026-07-08",
+         "days_since_follow_through": 5}
+    )
+    assert g["normal_range"] is False     # 확정 False (null 아님)
+    assert g["force_watch"] is False      # 최근 FTD — 강등 비대상
+    assert g["confidence_penalty"] is None  # dist 결측 — 이건 미확정이 맞음
 
 
 def test_market_direction_gate_unknown_status_is_null():
