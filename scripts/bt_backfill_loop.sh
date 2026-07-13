@@ -3,7 +3,8 @@
 #  - 사용량 한도(UsageLimitError, rc!=0)·서킷브레이커 → TRIP_SLEEP 후 재실행
 #  - 완주(rc=0 · processed 0 · failures 0 · 서킷 미발동) → 자동 종료
 #  - 트립와이어: 테이블 distinct symbol > 214(기존 114 + 표본 B 100) = 표본 오염 → 즉시 중단
-#  - STUCK: processed=0 인데 같은 failures 가 3패스 연속 → 영구 실패 셀, 수동 개입 필요 → 종료
+#  - STUCK: 서킷 미발동 상태에서 processed=0 인데 같은 failures 가 3패스 연속 → 순수 영구
+#    실패 셀, 수동 개입 필요 → 종료 (circuit>0 은 한도 대기일 뿐이므로 STUCK 카운트 제외·재시도)
 #  ⚠️ 전제: cron LLM 은 전부 --dry-run/무LLM 유지. 아래 고아 claude 정리(pkill)가
 #     production call_claude 와 같은 시그니처를 죽이므로, 이 루프가 도는 동안
 #     실전가동(cron dry-run 해제)을 켜면 안 된다.
@@ -17,7 +18,7 @@ LOCK=/tmp/bt_loop_b.pid
 CLAUDE_SIG="claude --print --permission-mode bypassPermissions --tools Read"
 BF_SIG="profitability_cli backfill"
 MAX_SYMBOLS=214
-SAFETY_ROWS=4700          # 기존 2300 + 신규 상한 2400 (러너웨이 방지)
+SAFETY_ROWS=5200          # 기존 2300 + 표본 B 예상 2135 ≈ 4435, 여유 확대(러너웨이 방지)
 TRIP_SLEEP=1800           # 한도/서킷 후 재시도 간격(윈도 리셋 대기)
 OK_SLEEP=60
 MAX_ITER=300
@@ -71,8 +72,9 @@ while true; do
     log "=== COMPLETE — 신규 0·실패 0·트립 없음 ==="; break
   fi
 
-  # STUCK 감지: 새 적재 없이 같은 수의 실패만 반복 = 영구 실패 셀 → 재시도 낭비 중단
-  if [ "$rc" -eq 0 ] && [ "${processed:-1}" -eq 0 ] && [ "${failures:-0}" -gt 0 ] && [ "${failures}" = "$prev_fail" ]; then
+  # STUCK 감지: 서킷 미발동 상태에서 새 적재 없이 같은 수의 실패만 반복 = 순수 영구 실패 셀
+  # (circuit>0 인 패스는 사용량 한도 대기일 뿐이므로 아래 TRIP_SLEEP 경로로 재시도, STUCK 카운트 제외)
+  if [ "$rc" -eq 0 ] && [ "$circuit" -eq 0 ] && [ "${processed:-1}" -eq 0 ] && [ "${failures:-0}" -gt 0 ] && [ "${failures}" = "$prev_fail" ]; then
     stuck=$((stuck+1))
     if [ "$stuck" -ge "$STUCK_LIMIT" ]; then
       log "=== STUCK — failures=$failures 가 ${STUCK_LIMIT}패스 연속 동일, 수동 개입 필요(/tmp/bt_backfill_b.log 의 failed 목록 확인) ==="; exit 1
