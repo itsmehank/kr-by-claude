@@ -5,6 +5,96 @@ from psycopg import Connection
 from api.services.market_context_builder import build_market_context
 from api.services.corporate_actions_builder import build_corporate_actions
 from api.services.minervini_detail_builder import build_minervini_detail
+from kr_pipeline.common.thresholds import (
+    MARKET_DIST_DEMOTION_COUNT_25S,
+    MARKET_DIST_NORMAL_MAX_25S,
+    STATUS_FTD_RECENT_DAYS,
+    TT_MARGINAL_DEMOTION_COUNT,
+)
+from kr_pipeline.llm_runner.compute.tt_marginal import tt_marginal_summary
+
+
+def _conditions_summary(conditions_detail: dict) -> dict:
+    """(#23) A §2 marginal 카운트 선계산 — 프롬프트는 이 값을 재계수 없이 소비.
+
+    marginal = 'PASS 하면서 margin < TT_MARGIN_MARGINAL_PCT%' 인 조건 (A §2 정의).
+    미확정(null): passed 가 None(지표 미산출)이거나, PASS 인데 margin 이 None
+    (마진 미산출 — 예: sma_200 이력 23행 미만의 c3)인 조건이 하나라도 있으면
+    카운트 전체를 미확정으로 — 확정 숫자로 내보내면 재계수 금지 규약이 LLM 의
+    결측 감지 능력을 제거한다(#38 리뷰). null 이면 프롬프트 예외 조항에 따라
+    LLM 이 conditions_detail 을 직접 검토(기존 경로 보존).
+    """
+    s = tt_marginal_summary(conditions_detail)  # 계수·결측 규약의 단일 정의(A·B 공용)
+    if s["marginal_count"] is None:
+        return {
+            "marginal_count": None,
+            "marginal_conditions": None,
+            "demotion_trigger": None,
+        }
+    return {
+        "marginal_count": s["marginal_count"],
+        "marginal_conditions": s["marginal_conditions"],
+        "demotion_trigger": s["marginal_count"] >= TT_MARGINAL_DEMOTION_COUNT,
+    }
+
+
+_KNOWN_MARKET_STATUSES = frozenset(
+    {"confirmed_uptrend", "rally_attempt", "downtrend", "correction"}
+)
+
+
+def _market_direction_gate(market_context: dict) -> dict:
+    """(#23) A §3.5 시장 하드룰의 판정 입력 선계산 (규칙 텍스트는 프롬프트 유지).
+
+    §3.5 하드룰 4개를 그대로 인코딩:
+    - force_watch: downtrend/correction (무조건) 또는 rally_attempt **인데 최근 FTD 부재**
+      — 프롬프트 둘째 룰의 'without a follow-through day' 한정어 보존. '최근' 판정은
+      status.py 와 동일하게 경과일 ≤ STATUS_FTD_RECENT_DAYS (#38 재리뷰: FTD 만료 때문에
+      rally_attempt 로 내려온 경로에서는 만료 FTD 기록이 항상 잔존 — 기록 존재만 보면
+      §3.5 하드룰이 상시 우회된다. 경과일 미산출도 최근 확인 불가 = 보수 강등).
+    - confidence_penalty: 시장 분배일 >= MARKET_DIST_DEMOTION_COUNT_25S
+    - normal_range: confirmed_uptrend 이고 분배일 <= MARKET_DIST_NORMAL_MAX_25S.
+      status 가 confirmed_uptrend 가 아니면 넷째 룰 전제 자체가 거짓 — 분배일 결측이어도
+      null 이 아니라 False 확정 (#38 재리뷰: null 승격은 확정 정보의 손실이며 부분 결손을
+      조문에 없는 전면 entry 금지로 증폭).
+    - confirmed_uptrend 인데 분배일 4 인 구간은 프롬프트가 원래 미규정 — 갭 보존.
+    입력 None 또는 미지의 status 값 → 해당 boolean null (미지 상태를 통과로
+    단정하지 않음 — 프롬프트 null 규약이 entry 금지로 보수 처리).
+    """
+    status = market_context.get("current_status")
+    dist = market_context.get("distribution_day_count_last_25_sessions")
+    last_ftd = market_context.get("last_follow_through_day")
+    ftd_age = market_context.get("days_since_follow_through")
+
+    if status is None or status not in _KNOWN_MARKET_STATUSES:
+        force_watch = None
+        normal_range = None
+    else:
+        ftd_recent = (
+            last_ftd is not None
+            and ftd_age is not None
+            and ftd_age <= STATUS_FTD_RECENT_DAYS
+        )
+        force_watch = status in ("downtrend", "correction") or (
+            status == "rally_attempt" and not ftd_recent
+        )
+        if status != "confirmed_uptrend":
+            normal_range = False  # 전제(confirmed_uptrend) 거짓 — dist 무관 확정
+        elif dist is not None:
+            normal_range = dist <= MARKET_DIST_NORMAL_MAX_25S
+        else:
+            normal_range = None
+    confidence_penalty = (
+        dist >= MARKET_DIST_DEMOTION_COUNT_25S if dist is not None else None
+    )
+    return {
+        "status": status,
+        "dist_count": dist,
+        "last_follow_through_day": last_ftd,
+        "force_watch": force_watch,
+        "confidence_penalty": confidence_penalty,
+        "normal_range": normal_range,
+    }
 
 
 def build_payload(conn: Connection, ticker: str, on_date: date | None = None) -> dict:
@@ -45,6 +135,9 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
         "date": on_date.isoformat(),
         "conditions_met": conditions_met,
         "conditions_detail": minervini,
+        # (#23) §2/§3.5 정량 판정 입력 선계산 — 프롬프트 재계수 금지 규약의 대상
+        "conditions_summary": _conditions_summary(minervini),
+        "market_direction_gate": _market_direction_gate(market_context),
         "rs_rating": rs_rating,
         "current_metrics": current,
         "daily_ohlcv_recent_60d": daily_ohlcv,

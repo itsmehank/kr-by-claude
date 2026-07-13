@@ -527,62 +527,30 @@ def test_classification_valid_prices_saved_without_warnings(db, mocker):
 
 
 def test_classification_soft_pivot_far_from_price(db, mocker):
-    """SOFT: pivot 이 최근 adj_close 의 밴드(0.3~3.0배) 밖 → 저장 + 경고 마커."""
-    from kr_pipeline.llm_runner.store import insert_classification
-
+    """SOFT: pivot 이 최근 종가의 밴드(0.3~3.0배) 밖 → 저장 + 경고 마커."""
     _gates_identity(mocker)
     as_of = date(2026, 6, 26)
-    with db.cursor() as cur:
-        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('SANFAR','S','KOSPI') ON CONFLICT DO NOTHING")
-        cur.execute("DELETE FROM weekly_classification WHERE symbol='SANFAR'")
-        cur.execute("DELETE FROM daily_indicators WHERE ticker='SANFAR'")
-        cur.execute(
-            "INSERT INTO daily_indicators (ticker, date, adj_close) VALUES ('SANFAR', %s, 1000)",
-            (as_of,),
-        )
-    db.commit()
-
+    _seed_close(db, "SANFAR", 1000, as_of)
     # pivot 5000 = 종가의 5배 (밴드 상한 3.0 초과) — 자릿수 오류 의심
-    insert_classification(
-        db, symbol="SANFAR", classified_at=datetime.now(timezone.utc),
-        market="KOSPI",
-        result=_cls_result(pivot_price=5000.0, base_high=5000.0, base_low=4500.0),
-        source="weekend", llm_meta={}, analyzed_for_date=as_of,
+    w = _insert_and_get_warnings(
+        db, "SANFAR",
+        _cls_result(pivot_price=5000.0, base_high=5000.0, base_low=4500.0),
+        as_of,
     )
-    db.commit()
-
-    with db.cursor() as cur:
-        cur.execute("SELECT sanity_warnings FROM weekly_classification WHERE symbol='SANFAR'")
-        w = cur.fetchone()[0]
     assert w is not None and "sanity_pivot_far_from_price" in w
 
 
 def test_classification_soft_clean_pivot_no_warning(db, mocker):
     """SOFT: pivot 이 종가 근방(밴드 내) → 경고 없음(NULL)."""
-    from kr_pipeline.llm_runner.store import insert_classification
-
     _gates_identity(mocker)
     as_of = date(2026, 6, 26)
-    with db.cursor() as cur:
-        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('SANNEAR','S','KOSPI') ON CONFLICT DO NOTHING")
-        cur.execute("DELETE FROM weekly_classification WHERE symbol='SANNEAR'")
-        cur.execute("DELETE FROM daily_indicators WHERE ticker='SANNEAR'")
-        cur.execute(
-            "INSERT INTO daily_indicators (ticker, date, adj_close) VALUES ('SANNEAR', %s, 1000)",
-            (as_of,),
-        )
-    db.commit()
-
-    insert_classification(
-        db, symbol="SANNEAR", classified_at=datetime.now(timezone.utc),
-        market="KOSPI", result=_cls_result(pivot_price=1010.0, base_high=1010.0),
-        source="weekend", llm_meta={}, analyzed_for_date=as_of,
+    _seed_close(db, "SANNEAR", 1000, as_of)
+    w = _insert_and_get_warnings(
+        db, "SANNEAR",
+        _cls_result(pivot_price=1010.0, base_high=1010.0),
+        as_of,
     )
-    db.commit()
-
-    with db.cursor() as cur:
-        cur.execute("SELECT sanity_warnings FROM weekly_classification WHERE symbol='SANNEAR'")
-        assert cur.fetchone()[0] is None
+    assert w is None
 
 
 def test_classification_soft_missing_pivot_for_entry(db, mocker):
@@ -607,3 +575,471 @@ def test_classification_soft_missing_pivot_for_entry(db, mocker):
         cur.execute("SELECT sanity_warnings FROM weekly_classification WHERE symbol='SANNOPV'")
         w = cur.fetchone()[0]
     assert w is not None and "sanity_missing_pivot_for_actionable" in w
+
+
+# ====== (#23) §8.5 밴드 정합 · §4.7 pivot 산술 사후검증 (SOFT) ======
+
+def _seed_close(db, symbol, close, as_of):
+    """sanity 비교 종가 시드 — store 는 daily_prices(payload 와 동일 권위 소스)를 읽는다."""
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stocks (ticker, name, market) VALUES (%s,'S','KOSPI') ON CONFLICT DO NOTHING",
+            (symbol,),
+        )
+        cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (symbol,))
+        cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (symbol,))
+        cur.execute(
+            """INSERT INTO daily_prices
+               (ticker, date, open, high, low, close, adj_close, volume, value)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, 1000, 1000)""",
+            (symbol, as_of, close, close, close, close, close),
+        )
+    db.commit()
+
+
+def _insert_and_get_warnings(db, symbol, result, as_of):
+    from kr_pipeline.llm_runner.store import insert_classification
+
+    insert_classification(
+        db, symbol=symbol, classified_at=datetime.now(timezone.utc),
+        market="KOSPI", result=result, source="weekend", llm_meta={},
+        analyzed_for_date=as_of,
+    )
+    db.commit()
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT sanity_warnings FROM weekly_classification WHERE symbol=%s",
+            (symbol,),
+        )
+        return cur.fetchone()[0]
+
+
+def test_band_entry_above_band_warns(db, mocker):
+    """§8.5: entry 인데 close > pivot×1.05 (추격 한계 초과 = extended 였어야) → 경고."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANB1", 1100, as_of)  # pos 1.1 > 1.05
+    w = _insert_and_get_warnings(
+        db, "SANB1",
+        _cls_result(classification="entry", pivot_price=1000.1, base_high=1000.0),
+        as_of,
+    )
+    assert w is not None and "sanity_band_mismatch_entry" in w
+
+
+def test_band_entry_below_band_not_warned_pocket_pivot(db, mocker):
+    """§8.5: entry 하단(pos<0.95)은 §4.5 pocket pivot(base 내부 진입)이 정당 —
+    구분 불가라 미경고 (#38 리뷰: 상단 위반만 검사)."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANB6", 900, as_of)  # pos 0.9
+    w = _insert_and_get_warnings(
+        db, "SANB6",
+        _cls_result(classification="entry", pivot_price=1000.1, base_high=1000.0),
+        as_of,
+    )
+    assert w is None or not any("sanity_band" in x for x in w)
+
+
+def test_band_ignores_stray_watch_reason_on_non_watch(db, mocker):
+    """비-watch 의 잔류 watch_reason 은 저장 정규화(_watch_reason)처럼 무시 —
+    오경고 금지 (#38 리뷰)."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANB7", 1000, as_of)  # pos ~1.0 (extended 라면 경고 위치)
+    r = _cls_result(classification="ignore", pivot_price=1000.1, base_high=1000.0,
+                    confidence=0.9)
+    r["watch_reason"] = "extended"
+    w = _insert_and_get_warnings(db, "SANB7", r, as_of)
+    assert w is None or not any("sanity_band" in x for x in w)
+
+
+def test_band_valid_base_requires_below_band(db, mocker):
+    """§8.5: valid_base_awaiting_breakout 인데 close 가 pivot×0.95 이상 → 경고."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANB2", 1000, as_of)  # ratio ~1.0
+    r = _cls_result(pivot_price=1000.1, base_high=1000.0)
+    r["watch_reason"] = "valid_base_awaiting_breakout"
+    w = _insert_and_get_warnings(db, "SANB2", r, as_of)
+    assert w is not None and "sanity_band_mismatch_valid_base" in w
+
+
+def test_band_extended_requires_above_band(db, mocker):
+    """§8.5: extended 인데 close 가 pivot×1.05 이하 → 경고. 초과면 무경고."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANB3", 1000, as_of)
+    r = _cls_result(pivot_price=1000.1, base_high=1000.0)
+    r["watch_reason"] = "extended"
+    w = _insert_and_get_warnings(db, "SANB3", r, as_of)
+    assert w is not None and "sanity_band_mismatch_extended" in w
+
+    _seed_close(db, "SANB4", 1100, as_of)  # ratio ~1.1 > 1.05 — 정합
+    r2 = _cls_result(pivot_price=1000.1, base_high=1000.0)
+    r2["watch_reason"] = "extended"
+    w2 = _insert_and_get_warnings(db, "SANB4", r2, as_of)
+    assert w2 is None or not any("sanity_band" in x for x in w2)
+
+
+def test_band_entry_inside_no_warning(db, mocker):
+    """§8.5: entry 이고 밴드 내(0.95~1.05) → 밴드 경고 없음."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANB5", 990, as_of)  # ratio ~0.99
+    w = _insert_and_get_warnings(
+        db, "SANB5",
+        _cls_result(classification="entry", pivot_price=1000.1, base_high=1000.0),
+        as_of,
+    )
+    assert w is None or not any("sanity_band" in x for x in w)
+
+
+def test_pivot_above_base_high_warns_for_table_basis(db, mocker):
+    """§4.7: 표 기반 basis(handle_high 등)는 anchor ≤ base_high — 초과 pivot 경고.
+    (pocket pivot 예외는 basis 가 표 밖이라 비대상 — HARD 미검사 사유 보존)"""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANP1", 1050, as_of)
+    r = _cls_result(pivot_price=1100.1, base_high=1000.0, pivot_basis="handle_high")
+    w = _insert_and_get_warnings(db, "SANP1", r, as_of)
+    assert w is not None and "sanity_pivot_above_base_high" in w
+
+
+def test_pivot_offset_rule_warns_on_wrong_fraction(db, mocker):
+    """§4.7: +0.1 규칙 패턴에서 정수 앵커인데 pivot 소수부 ≠ 0.1 → 경고."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANP2", 990, as_of)
+    r = _cls_result(pivot_price=1000.5, base_high=1000.0, pivot_basis="range_high")
+    w = _insert_and_get_warnings(db, "SANP2", r, as_of)
+    assert w is not None and "sanity_pivot_offset_rule" in w
+
+
+def test_pivot_offset_rule_clean(db, mocker):
+    """§4.7: pivot = 정수 앵커 + 0.1 → 경고 없음. 비-표 basis 도 비대상."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANP3", 990, as_of)
+    r = _cls_result(pivot_price=1000.1, base_high=1000.0, pivot_basis="range_high")
+    w = _insert_and_get_warnings(db, "SANP3", r, as_of)
+    assert w is None or not any("sanity_pivot_" in x for x in w)
+
+
+def test_pivot_offset_rule_skips_non_range_high_basis(db, mocker):
+    """§4.7 오프셋 검사는 앵커 값을 아는 range_high(== base_high)만 — handle_high 등은
+    앵커가 base_high 와 다른 가격이라 정수성 프록시가 성립 안 함 (#38 리뷰)."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANP4", 990, as_of)
+    # 앵커(handle_high)=999.4 가 소수인 정당한 pivot 999.5 — base_high 는 정수 1000
+    r = _cls_result(pivot_price=999.5, base_high=1000.0, pivot_basis="handle_high")
+    w = _insert_and_get_warnings(db, "SANP4", r, as_of)
+    assert w is None or "sanity_pivot_offset_rule" not in w
+
+
+# --- (#38 재리뷰) §4.7 사후검증을 §7 KR 관례(+1 tick / 고점 그대로)와 정합 ---
+
+def test_pivot_one_tick_above_anchor_clean(db, mocker):
+    """§7: 'base high + 1 tick (typically +10 or +100 KRW)' 준수 출력은 무경고.
+
+    51,700 원대의 KRX 호가 단위는 100원 — pivot=51,800 은 §7 관례 그대로인데
+    구 검사(+0.1 만 정답)는 초과+오프셋 경고 2종을 동시 발화시켰다(경고 포화)."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANT1", 51000, as_of)
+    r = _cls_result(pivot_price=51800.0, base_high=51700.0, pivot_basis="range_high")
+    w = _insert_and_get_warnings(db, "SANT1", r, as_of)
+    assert w is None or not any("sanity_pivot_" in x for x in w)
+
+
+def test_pivot_equal_to_anchor_clean(db, mocker):
+    """§7: 'base_high alone is acceptable' — pivot == 고점 그대로도 무경고."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANT2", 51000, as_of)
+    r = _cls_result(pivot_price=51700.0, base_high=51700.0, pivot_basis="range_high")
+    w = _insert_and_get_warnings(db, "SANT2", r, as_of)
+    assert w is None or not any("sanity_pivot_" in x for x in w)
+
+
+def test_pivot_above_one_tick_still_warns(db, mocker):
+    """+1 tick 을 넘는 초과는 여전히 경고 — 완화는 §7 관례 집합까지만."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANT3", 51000, as_of)
+    r = _cls_result(pivot_price=53000.0, base_high=51700.0, pivot_basis="range_high")
+    w = _insert_and_get_warnings(db, "SANT3", r, as_of)
+    assert w is not None and "sanity_pivot_above_base_high" in w
+
+
+def test_pivot_off_convention_fraction_warns(db, mocker):
+    """관례 집합({고점, 고점+0.1, 고점+1tick}) 밖의 값은 오프셋 경고 유지."""
+    _gates_identity(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANT4", 51000, as_of)
+    r = _cls_result(pivot_price=51750.0, base_high=51700.0, pivot_basis="range_high")
+    w = _insert_and_get_warnings(db, "SANT4", r, as_of)
+    assert w is not None and "sanity_pivot_offset_rule" in w
+
+
+# --- (#38 재리뷰·외부 검토) §8.5 entry 밴드 위반 → 결정론 강등 (SOFT → 강등 패키지) ---
+
+def _hq_fb_off(mocker):
+    """phase1 의 기존 룰(handle_quality·failed_breakout)만 끔 — 신규 밴드 강등은 실경로."""
+    mocker.patch("kr_pipeline.llm_runner.gates.compute_handle_quality", return_value=None)
+    mocker.patch("kr_pipeline.llm_runner.gates.compute_failed_breakout", return_value=None)
+
+
+def _fetch_stored(db, symbol):
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT classification, watch_reason, confidence, triggered_rules"
+            " FROM weekly_classification WHERE symbol=%s", (symbol,))
+        return cur.fetchone()
+
+
+def test_extended_entry_demoted_to_watch(db, mocker):
+    """entry 인데 close > pivot×1.05 → 코드가 watch/extended 로 강등 + conf cap.
+
+    §8.5 자체 규칙(current > pivot×1.05 → extended)의 결정론 집행 — SOFT 경고만으로는
+    하류 방어(B extended 게이트 부재, #45) 없이 매수 신호까지 통과(외부 검토 채택안 3)."""
+    _hq_fb_off(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANX1", 1100, as_of)  # pos 1.1 > 1.05
+    from kr_pipeline.llm_runner.store import insert_classification
+    insert_classification(
+        db, symbol="SANX1", classified_at=datetime.now(timezone.utc),
+        market="KOSPI",
+        result=_cls_result(classification="entry", pivot_price=1000.0,
+                           base_high=1000.0, confidence=0.9),
+        source="weekend", llm_meta={}, analyzed_for_date=as_of,
+    )
+    db.commit()
+    cls, wr, conf, rules = _fetch_stored(db, "SANX1")
+    assert cls == "watch"
+    assert wr == "extended"                      # §8.5 기존 enum — 신규 발명 없음
+    assert float(conf) == 0.50                   # TIER2_CONF_CAP (extended 계열)
+    assert rules and "8_5_extended_band" in rules
+
+
+def test_entry_within_band_not_demoted(db, mocker):
+    """close ≤ pivot×1.05 인 정상 entry 는 무간섭."""
+    _hq_fb_off(mocker)
+    as_of = date(2026, 6, 26)
+    _seed_close(db, "SANX2", 1020, as_of)  # pos 1.02
+    from kr_pipeline.llm_runner.store import insert_classification
+    insert_classification(
+        db, symbol="SANX2", classified_at=datetime.now(timezone.utc),
+        market="KOSPI",
+        result=_cls_result(classification="entry", pivot_price=1000.0,
+                           base_high=1000.0, confidence=0.9),
+        source="weekend", llm_meta={}, analyzed_for_date=as_of,
+    )
+    db.commit()
+    cls, wr, conf, rules = _fetch_stored(db, "SANX2")
+    assert cls == "entry"
+    assert float(conf) == 0.9
+    assert not (rules and "8_5_extended_band" in rules)
+
+
+# ====== (#1) pivot 재판독 연속성 관측 (pivot_continuity JSONB) ======
+
+def _insert_cls(db, symbol, *, at, pivot, base_start, pattern="flat_base",
+                afd=None, classification="watch"):
+    from kr_pipeline.llm_runner.store import insert_classification
+    insert_classification(
+        db, symbol=symbol, classified_at=at, market="KOSPI",
+        result=_cls_result(classification=classification, pivot_price=pivot,
+                           base_high=pivot, base_low=pivot * 0.9 if pivot else None,
+                           base_start_date=base_start, pattern=pattern),
+        source="weekend", llm_meta={}, analyzed_for_date=afd,
+    )
+    db.commit()
+
+
+def _continuity_of(db, symbol, at):
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT pivot_continuity FROM weekly_classification "
+            "WHERE symbol=%s AND classified_at=%s", (symbol, at),
+        )
+        return cur.fetchone()[0]
+
+
+def _clean_symbol(db, symbol):
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker,name,market) VALUES (%s,'S','KOSPI') ON CONFLICT DO NOTHING", (symbol,))
+        cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (symbol,))
+    db.commit()
+
+
+def test_continuity_same_base_pivot_changed(db, mocker):
+    """base_start_date 동일 + pivot 변경 → base_continuity=same, 변화율 기록 (#1 핵심 사례)."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT1")
+    t1 = datetime(2026, 5, 23, 3, 0, tzinfo=timezone.utc)
+    t2 = datetime(2026, 5, 30, 3, 0, tzinfo=timezone.utc)
+    _insert_cls(db, "CONT1", at=t1, pivot=895000.1, base_start="2026-03-07",
+                afd=date(2026, 5, 23))
+    _insert_cls(db, "CONT1", at=t2, pivot=874000.1, base_start="2026-03-07",
+                afd=date(2026, 5, 30))
+    c1 = _continuity_of(db, "CONT1", t1)
+    c2 = _continuity_of(db, "CONT1", t2)
+    assert c1 is None  # 직전 분류 없음 → NULL
+    assert c2["base_continuity"] == "same"
+    assert c2["base_start_delta_days"] == 0
+    assert c2["prev_pivot_price"] == 895000.1
+    assert abs(c2["pivot_change_pct"] - (-2.3464)) < 0.01
+    assert c2["pattern_changed"] is False
+
+
+def test_continuity_near_and_different(db, mocker):
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT2")
+    t = [datetime(2026, 6, i, 3, 0, tzinfo=timezone.utc) for i in (6, 13, 20)]
+    _insert_cls(db, "CONT2", at=t[0], pivot=1000.1, base_start="2026-03-01",
+                afd=date(2026, 6, 6))
+    _insert_cls(db, "CONT2", at=t[1], pivot=1000.1, base_start="2026-03-06",
+                afd=date(2026, 6, 13))  # +5일 → near
+    _insert_cls(db, "CONT2", at=t[2], pivot=1000.1, base_start="2026-04-20",
+                afd=date(2026, 6, 20))  # +45일 → different
+    assert _continuity_of(db, "CONT2", t[1])["base_continuity"] == "near"
+    assert _continuity_of(db, "CONT2", t[1])["base_start_delta_days"] == 5
+    assert _continuity_of(db, "CONT2", t[2])["base_continuity"] == "different"
+
+
+def test_continuity_unknown_when_base_start_missing(db, mocker):
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT3")
+    t1 = datetime(2026, 6, 6, 3, 0, tzinfo=timezone.utc)
+    t2 = datetime(2026, 6, 13, 3, 0, tzinfo=timezone.utc)
+    _insert_cls(db, "CONT3", at=t1, pivot=1000.1, base_start=None,
+                afd=date(2026, 6, 6))
+    _insert_cls(db, "CONT3", at=t2, pivot=1100.1, base_start="2026-03-01",
+                afd=date(2026, 6, 13))
+    c2 = _continuity_of(db, "CONT3", t2)
+    assert c2["base_continuity"] == "unknown"
+    assert c2["pivot_change_pct"] is not None  # pivot 비교는 가능하면 기록
+
+
+def test_continuity_pattern_change_recorded(db, mocker):
+    """원익IPS 사례: base_start 동일 + pattern 변경 (flat_base→cup_with_handle)."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT4")
+    t1 = datetime(2026, 9, 12, 3, 0, tzinfo=timezone.utc)
+    t2 = datetime(2026, 9, 19, 3, 0, tzinfo=timezone.utc)
+    _insert_cls(db, "CONT4", at=t1, pivot=42750.1, base_start="2026-08-14",
+                pattern="flat_base", afd=date(2026, 9, 12))
+    _insert_cls(db, "CONT4", at=t2, pivot=45450.1, base_start="2026-08-14",
+                pattern="cup_with_handle", afd=date(2026, 9, 19))
+    c2 = _continuity_of(db, "CONT4", t2)
+    assert c2["base_continuity"] == "same"
+    assert c2["pattern_changed"] is True
+    assert c2["prev_pattern"] == "flat_base"
+
+
+def test_continuity_ignores_prior_ignore_rows(db, mocker):
+    """직전 비교 대상은 entry/watch 만 — ignore 행은 매수 기준선 모집단이 아님."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT5")
+    t1 = datetime(2026, 6, 6, 3, 0, tzinfo=timezone.utc)
+    t2 = datetime(2026, 6, 13, 3, 0, tzinfo=timezone.utc)
+    _insert_cls(db, "CONT5", at=t1, pivot=None, base_start=None,
+                classification="ignore", afd=date(2026, 6, 6))
+    _insert_cls(db, "CONT5", at=t2, pivot=1000.1, base_start="2026-03-01",
+                afd=date(2026, 6, 13))
+    assert _continuity_of(db, "CONT5", t2) is None  # entry/watch 직전 없음 → NULL
+
+
+def test_continuity_broken_by_intervening_ignore(db, mocker):
+    """watch → ignore → entry: 직전 최신 행이 ignore 면 활성 기준선 단절 → NULL —
+    오래된 watch 를 건너뛰어 잡으면 재확립 베이스가 재판독으로 오계수 (#39 리뷰)."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT6")
+    t = [datetime(2026, 6, i, 3, 0, tzinfo=timezone.utc) for i in (6, 13, 20)]
+    _insert_cls(db, "CONT6", at=t[0], pivot=1000.1, base_start="2026-03-01",
+                afd=date(2026, 6, 6))
+    _insert_cls(db, "CONT6", at=t[1], pivot=None, base_start=None,
+                classification="ignore", afd=date(2026, 6, 13))
+    _insert_cls(db, "CONT6", at=t[2], pivot=1100.1, base_start="2026-03-01",
+                classification="entry", afd=date(2026, 6, 20))
+    assert _continuity_of(db, "CONT6", t[2]) is None
+
+
+def test_continuity_no_lookahead_on_past_rerun(db, mocker):
+    """--date 과거 재실행: 미래 주의 분류를 '직전'으로 참조하면 안 된다 (#39 리뷰)."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT7")
+    t_future = datetime(2026, 6, 20, 3, 0, tzinfo=timezone.utc)
+    t_past = datetime(2026, 6, 21, 3, 0, tzinfo=timezone.utc)  # 실행시각은 나중이나
+    _insert_cls(db, "CONT7", at=t_future, pivot=1100.1, base_start="2026-03-01",
+                afd=date(2026, 6, 20))
+    _insert_cls(db, "CONT7", at=t_past, pivot=1000.1, base_start="2026-03-01",
+                afd=date(2026, 6, 6))  # 과거 주 백필
+    assert _continuity_of(db, "CONT7", t_past) is None  # 미래 행 참조 금지
+
+
+def test_continuity_nan_pivot_does_not_break_insert(db, mocker):
+    """NaN pivot: jsonb 는 NaN 토큰을 거부 — 관측이 본 INSERT 를 막으면 안 된다 (#39 리뷰)."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "CONT8")
+    t1 = datetime(2026, 6, 6, 3, 0, tzinfo=timezone.utc)
+    t2 = datetime(2026, 6, 13, 3, 0, tzinfo=timezone.utc)
+    _insert_cls(db, "CONT8", at=t1, pivot=1000.1, base_start="2026-03-01",
+                afd=date(2026, 6, 6))
+    _insert_cls(db, "CONT8", at=t2, pivot=float("nan"), base_start="2026-03-01",
+                afd=date(2026, 6, 13))  # 예외 없이 저장돼야 함
+    with db.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM weekly_classification WHERE symbol='CONT8'")
+        assert cur.fetchone()[0] == 2
+    c2 = _continuity_of(db, "CONT8", t2)
+    assert c2 is not None and c2["pivot_change_pct"] is None  # 비유한값 가드
+
+
+def test_to_date_or_none_handles_datetime():
+    """datetime 은 date 의 서브클래스 — 순서 버그로 미변환 통과하면 .days 연산이 깨진다."""
+    from kr_pipeline.llm_runner.store import _to_date_or_none
+    dt = datetime(2026, 6, 6, 3, 0, tzinfo=timezone.utc)
+    assert _to_date_or_none(dt) == date(2026, 6, 6)
+    assert _to_date_or_none("2026-06-06") == date(2026, 6, 6)
+    assert _to_date_or_none(None) is None
+
+
+# --- (#39 재리뷰) SAVEPOINT 격리 + 같은 유효일 제외 ---
+
+def test_continuity_server_error_does_not_kill_insert(db, mocker):
+    """연속성 조회가 '서버측' SQL 오류를 내도 본 INSERT 는 생존해야 한다.
+
+    try/except 는 Python 예외만 흡수 — SAVEPOINT 격리 없이는 서버 오류가
+    트랜잭션을 aborted 로 만들어 본 INSERT 가 InFailedSqlTransaction 으로
+    실패(LLM 비용 지출분 유실). phase1 게이트와 동일한 with conn.transaction()
+    격리가 필요하다 (#39 재리뷰 — fail-soft 주장의 서버 오류 구멍)."""
+    import kr_pipeline.llm_runner.store as st
+
+    def poison(conn, **kw):
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM no_such_table_pivot_continuity")
+
+    mocker.patch.object(st, "_pivot_continuity", side_effect=poison)
+    _insert_cls(db, "CONTSV1", at=datetime(2026, 7, 11, 3, 0, tzinfo=timezone.utc),
+                pivot=1000.0, base_start=date(2026, 5, 2), afd=date(2026, 7, 11))
+    with db.cursor() as cur:
+        cur.execute("SELECT pivot_continuity FROM weekly_classification WHERE symbol='CONTSV1'")
+        row = cur.fetchone()
+    assert row is not None, "본 INSERT 가 유실됨 — fail-soft 실패"
+    assert row[0] is None
+
+
+def test_continuity_same_effective_date_not_compared(db):
+    """같은 유효일(analyzed_for_date)의 앞선 행은 '직전 분류'가 아니다 — 같은 날
+    재실행의 LLM 비결정성 편차가 same-base 재판독으로 오계수되면 관측 분포(향후
+    임계 게이트 근거)가 오염되고 재실행 1:1 비교 금지 규율이 데이터에 스며든다
+    (#39 재리뷰). 유효일이 strictly 이른 행만 비교 대상."""
+    afd = date(2026, 7, 11)
+    _insert_cls(db, "CONTSD1", at=datetime(2026, 7, 11, 3, 0, tzinfo=timezone.utc),
+                pivot=51800.0, base_start=date(2026, 5, 2), afd=afd)
+    _insert_cls(db, "CONTSD1", at=datetime(2026, 7, 11, 5, 0, tzinfo=timezone.utc),
+                pivot=50900.0, base_start=date(2026, 5, 2), afd=afd)
+    c = _continuity_of(db, "CONTSD1", datetime(2026, 7, 11, 5, 0, tzinfo=timezone.utc))
+    assert c is None, f"같은 유효일 행과 비교됨: {c}"

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import math
 from datetime import date, datetime, timedelta, time as dt_time
 import json
 
@@ -15,7 +16,11 @@ from kr_pipeline.common.thresholds import (
     ENTRY_WEIGHT_PCT_MIN,
     ENTRY_WEIGHT_PCT_MAX,
     ENTRY_TRIGGER_BUFFER_MAX,
+    GATE_PROMOTION_PRICE_RATIO,
+    PIVOT_EXTENDED_BAND_MULT,
+    PIVOT_PRICE_OFFSET,
 )
+from kr_pipeline.common.krx import krx_tick_size
 from kr_pipeline.llm_runner.gates import apply_phase1_gates
 from kr_pipeline.llm_runner.risk_flags import RISK_FLAGS_TAXONOMY
 
@@ -85,6 +90,116 @@ def _watch_reason(result: dict) -> str | None:
 # 탐지 휴리스틱)이라 thresholds.py SSOT 비등재. SOFT 전용(저장 차단 안 함).
 _PIVOT_CLOSE_BAND = (0.3, 3.0)
 
+# (#1) base_start_date '근접' 관측 분류 폭 (일). 판정 무영향 — 관측 라벨링 전용이라
+# thresholds.py SSOT 비등재 (이슈 #1 실측의 그룹핑 기준 재사용).
+_BASE_NEAR_DAYS = 10
+
+
+def _to_date_or_none(v):
+    if v is None:
+        return None
+    # datetime 이 date 의 서브클래스라 순서 중요 — datetime 먼저 (#39 리뷰)
+    if isinstance(v, datetime):
+        return v.date()
+    if isinstance(v, date):
+        return v
+    try:
+        return date.fromisoformat(str(v))
+    except ValueError:
+        return None
+
+
+def _finite_or_none(v) -> float | None:
+    """numeric → float, 비유한값(NaN/Inf)은 None — jsonb 는 NaN 토큰을 거부한다(#39 리뷰)."""
+    if v is None:
+        return None
+    f = float(v)
+    return f if math.isfinite(f) else None
+
+
+def _pivot_continuity(
+    conn, *, symbol: str, result: dict, classified_at, analyzed_for_date,
+) -> dict | None:
+    """(#1) 직전 활성(entry/watch) 분류 대비 pivot/base 연속성 관측 (dict, 판정 무영향).
+
+    같은 베이스(base_start_date 동일)로 재확인됐는데 pivot 만 재판독되는 현상
+    (이슈 #1, 실측 최대 ±22%)을 하위 로직·사람이 인지할 수 있게 기록만 한다.
+    모집단 의미론 = get_active_monitoring 과 동치: 이 행 *직전의 최신 분류 1건*
+    (분류 무관)을 보고, 그것이 entry/watch 가 아니면(ignore 개재 = 활성 기준선
+    단절) None — 오래된 entry/watch 를 건너뛰어 잡으면 재확립 베이스가 주간
+    재판독으로 오계수된다(#39 리뷰). 직전 조회는 유효일이 **strictly 이른** 행만 —
+    look-ahead(미래 행 참조) 차단과 동시에 **같은 유효일 행도 제외**(#39 재리뷰:
+    같은 날 재실행의 LLM 비결정성 편차가 same-base 재판독으로 오계수되면 관측
+    분포가 오염되고 재실행 1:1 비교 금지 규율이 데이터에 스며든다). 유효일 폴백
+    캐스팅(classified_at::date)은 소비자 get_active_monitoring 과 동일(#39 재리뷰
+    — UTC 고정 캐스팅은 레거시 행에서 소비자와 하루 어긋날 수 있었음).
+    ★재실행 1:1 비교 금지 규율 비저촉 — 재실행이 아니라 서로 다른 주(as_of)의
+    정상 분류 간 관측 (docs/pivot-reanalysis-tradeoff.md).
+    """
+    effective = analyzed_for_date or classified_at.date()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT classified_at, classification, pivot_price, base_start_date, pattern
+              FROM weekly_classification
+             WHERE symbol = %s
+               AND COALESCE(analyzed_for_date, classified_at::date) < %s
+             ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC,
+                      classified_at DESC
+             LIMIT 1
+            """,
+            (symbol, effective),
+        )
+        prev = cur.fetchone()
+    if prev is None:
+        return None
+    prev_at, prev_cls, prev_pv, prev_bsd, prev_pattern = prev
+    if prev_cls not in ("entry", "watch"):
+        # 직전 최신 행이 ignore 등 → 활성 기준선 단절. 연속성 비교 대상 아님.
+        return None
+
+    new_bsd = _to_date_or_none(result.get("base_start_date"))
+    prev_bsd = _to_date_or_none(prev_bsd)
+    if prev_bsd is not None and new_bsd is not None:
+        delta_days = abs((new_bsd - prev_bsd).days)
+        if delta_days == 0:
+            continuity = "same"
+        elif delta_days <= _BASE_NEAR_DAYS:
+            continuity = "near"
+        else:
+            continuity = "different"
+    else:
+        delta_days = None
+        continuity = "unknown"
+
+    new_pv = _finite_or_none(result.get("pivot_price"))
+    prev_pv = _finite_or_none(prev_pv)
+    change_pct = (
+        round((new_pv - prev_pv) / prev_pv * 100, 4)
+        if new_pv is not None and prev_pv is not None and prev_pv != 0
+        else None
+    )
+    new_pattern = result.get("pattern")
+    return {
+        "prev_classified_at": prev_at.isoformat(),
+        "prev_pivot_price": prev_pv,
+        "pivot_change_pct": change_pct,
+        "base_start_delta_days": delta_days,
+        "base_continuity": continuity,
+        "prev_pattern": prev_pattern,
+        "pattern_changed": (
+            new_pattern != prev_pattern
+            if new_pattern is not None and prev_pattern is not None
+            else None
+        ),
+    }
+# (#23) §4.7 표 기반 pivot_basis — anchor 가 base 내부 고점이라 pivot ≤ base_high+0.1
+# 이 성립하고 +0.1 오프셋 규칙이 적용되는 집합. pocket pivot 등 표 밖 basis 는
+# base_high 초과가 정당하므로 비대상 (HARD 미검사 사유와 동일 — docstring 참조).
+_PIVOT_TABLE_BASES = frozenset(
+    {"handle_high", "range_high", "final_T_high", "mid_W_peak"}
+)
+
 
 def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -> list[str]:
     """분류 숫자의 부호·대소·범위 sanity (P1-2 Part A).
@@ -122,9 +237,12 @@ def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -
     if result.get("classification") == "entry" and pv is None:
         warns.append("sanity_missing_pivot_for_actionable")
     if pv is not None and as_of is not None:
+        # (#38 리뷰) 비교 종가는 LLM payload 의 current_metrics.close 와 같은 소스
+        # (daily_prices 권위, payload_builder._build_current_metrics 와 동일 형태) —
+        # daily_indicators 가 지연 적재된 날 어제 종가와 비교하는 오경고 방지.
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT adj_close FROM daily_indicators "
+                "SELECT COALESCE(adj_close, close) FROM daily_prices "
                 "WHERE ticker = %s AND date <= %s ORDER BY date DESC LIMIT 1",
                 (symbol, as_of),
             )
@@ -134,6 +252,47 @@ def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -
             ratio = float(pv) / close
             if not (_PIVOT_CLOSE_BAND[0] <= ratio <= _PIVOT_CLOSE_BAND[1]):
                 warns.append("sanity_pivot_far_from_price")
+            # (#23) §8.5 밴드 정합 — LLM 이 적용한 entry/valid_base/extended 경계가
+            # 실제 close/pivot 위치와 맞는지 사후검증 (LLM 산술 실수 탐지, SOFT).
+            pos = close / float(pv)
+            band_lo = GATE_PROMOTION_PRICE_RATIO
+            band_hi = PIVOT_EXTENDED_BAND_MULT
+            # watch_reason 은 저장 정규화(_watch_reason)와 동일하게 watch 에만 유효 —
+            # 비-watch 의 잔류 watch_reason 으로 오경고 금지 (#38 리뷰).
+            wr = _watch_reason(result)
+            if result.get("classification") == "entry" and pos > band_hi:
+                # 상단 위반만 검사 — 하단(pos < 0.95) entry 는 §4.5 pocket pivot
+                # (base 내부 저위치 진입)이 정당해 구분 불가, 오경고 방지 (#38 리뷰).
+                warns.append("sanity_band_mismatch_entry")
+            elif wr == "valid_base_awaiting_breakout" and pos >= band_lo:
+                warns.append("sanity_band_mismatch_valid_base")
+            elif wr == "extended" and pos <= band_hi:
+                warns.append("sanity_band_mismatch_extended")
+
+    # (#23) §4.7 pivot 산술 사후검증 — 표 기반 basis 한정 (SOFT).
+    # 허용 집합은 §4.7 리터럴(+0.1)이 아니라 §7 KR 관례가 기준 (#38 재리뷰):
+    # "base high + 1 tick (typically +10 or +100 KRW ... but base_high alone is
+    # acceptable)". KRW 는 정수가라 +0.1 만 정답으로 인정하면 §7 준수 출력 대부분이
+    # 경고를 받아 사후검증이 노이즈로 포화 — 진짜 이상치가 묻힌다.
+    if pv is not None and result.get("pivot_basis") in _PIVOT_TABLE_BASES:
+        if bh is not None:
+            tick = krx_tick_size(float(bh))
+            if float(pv) > float(bh) + tick + 1e-6:
+                warns.append("sanity_pivot_above_base_high")
+        # 오프셋 관례 검사: 앵커 값을 아는 basis(range_high == base_high, 같은 값)
+        # 에서만, 정수 앵커 문맥에 한해 — handle_high 등은 앵커가 base_high 와
+        # 다른 가격이라 base_high 정수성이 프록시가 못 된다 (#38 리뷰).
+        # 허용: {앵커 그대로, 앵커+0.1(§4.7 리터럴), 앵커+1 tick(§7 관례)}.
+        if (
+            result.get("pivot_basis") == "range_high"
+            and bh is not None
+            and abs(float(bh) - round(float(bh))) < 1e-6
+        ):
+            anchor = float(bh)
+            allowed = (anchor, anchor + PIVOT_PRICE_OFFSET, anchor + krx_tick_size(anchor))
+            if not any(abs(float(pv) - a) < 1e-3 for a in allowed):
+                warns.append("sanity_pivot_offset_rule")
+
     if warns:
         log.warning("classification sanity warnings %s: %s (pivot=%s)", symbol, warns, pv)
     return warns
@@ -179,6 +338,30 @@ def insert_classification(
         conn, result, symbol=symbol, as_of=analyzed_for_date,
     )
 
+    # (#1) pivot 재판독 연속성 관측 — INSERT 전에 직전 분류를 조회해야 하므로 이 위치.
+    # fail-soft: 관측 전용 헬퍼의 어떤 실패도 본 INSERT(LLM 비용 지출분)를 막으면
+    # 안 된다 — phase1 게이트와 동일 원칙 (#39 리뷰). try/except 는 Python 예외만
+    # 흡수하므로 SAVEPOINT(with conn.transaction())로 서버측 SQL 오류의 트랜잭션
+    # 오염까지 격리 (#39 재리뷰 — 격리 없으면 본 INSERT 가 InFailedSqlTransaction).
+    try:
+        with conn.transaction():
+            continuity_info = _pivot_continuity(
+                conn, symbol=symbol, result=result,
+                classified_at=classified_at, analyzed_for_date=analyzed_for_date,
+            )
+        pivot_continuity = (
+            json.dumps(continuity_info, allow_nan=False)
+            if continuity_info is not None
+            else None
+        )
+    except Exception as e:
+        log.warning(
+            "[pivot-continuity] failed symbol=%s — 관측 생략 (fail-soft): %s",
+            symbol, e,
+        )
+        continuity_info = None
+        pivot_continuity = None
+
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -191,12 +374,14 @@ def insert_classification(
                triggered_rules,
                measurements,
                watch_reason,
-               sanity_warnings)
+               sanity_warnings,
+               pivot_continuity)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
                     %s, %s, %s, %s,
+                    %s,
                     %s,
                     %s,
                     %s,
@@ -228,8 +413,22 @@ def insert_classification(
                 _measurements_json(result),
                 _watch_reason(result),
                 json.dumps(sanity_warnings) if sanity_warnings else None,
+                pivot_continuity,
             ),
         )
+        # (#1) same-base 재판독 경고는 행이 실제 저장된 경우에만 — ON CONFLICT 로
+        # 버려진 행에 대한 유령 경고 방지 (#39 리뷰).
+        if (
+            cur.rowcount == 1
+            and continuity_info is not None
+            and continuity_info["base_continuity"] == "same"
+            and continuity_info["pivot_change_pct"] not in (None, 0.0)
+        ):
+            log.warning(
+                "[pivot-continuity] same-base pivot reread %s: %s -> %s (%+.2f%%)",
+                symbol, continuity_info["prev_pivot_price"],
+                result.get("pivot_price"), continuity_info["pivot_change_pct"],
+            )
 
 
 def insert_backfill_classification(
@@ -455,8 +654,8 @@ def _normalize_entry_params(result: dict) -> dict:
 
 
 # D-3 sanity 의 책 근거 범위는 SSOT(thresholds.py ENTRY_* — P1-7 승격) 가 정의.
-# 프롬프트(calculate_entry_params_v2_0.md §1.3/§2/§3/§4)와의 동기화는
-# tests/test_prompt_threshold_drift.py 가 감시.
+# #21 이후 생산측(entry_params_calc.py)도 같은 SSOT 를 import — 생산·검증 단일 정의.
+# (구 프롬프트 calculate_entry_params_v2_0.md 는 RETIRED — 웹 표시용 아카이브만.)
 
 
 def _validate_entry_params_sanity(n: dict) -> dict:

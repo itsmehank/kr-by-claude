@@ -321,6 +321,13 @@ ALTER TABLE weekly_classification
 ALTER TABLE weekly_classification
   ADD COLUMN IF NOT EXISTS sanity_warnings JSONB;
 
+-- 2026-07-13 (#1): pivot 재판독 연속성 관측 — 직전 entry/watch 분류 대비
+-- base_start_date 연속성(same/near/different/unknown)·pivot 변화율·pattern 변경.
+-- 쓰기 전용 관측 컬럼(판정·payload 무영향). NULL = 직전 entry/watch 분류 없음.
+-- 배경: docs/pivot-reanalysis-tradeoff.md (상태 비저장 재분석 트레이드오프).
+ALTER TABLE weekly_classification
+  ADD COLUMN IF NOT EXISTS pivot_continuity JSONB;
+
 -- (5b) 호출 이력 (append-only, 단순 abort 모델 — severity 없음)
 CREATE TABLE IF NOT EXISTS trigger_evaluation_log (
   symbol                  VARCHAR(10) NOT NULL,

@@ -70,7 +70,8 @@ PP_DOWN_VOL_LOOKBACK_DAYS: Final[int] = 10
 책: Morales & Kacher TLOND Ch.5 p.133 — 기본 10 일.
 선호: 변동성 큰 종목은 11-15 일 (책 단서, 적응형 미구현)."""
 
-# ===== Breakout Volume — 책 표준 (prompts/calculate_entry_params_v2_0.md §6.1) =====
+# ===== Breakout Volume — 책 표준 (§6.1; 원출처 프롬프트는 #21 로 은퇴 아카이브,
+# 현행 소비처는 kr_pipeline/llm_runner/compute/entry_params_calc.py) =====
 
 BREAKOUT_VOL_FLOOR: Final[float] = 1.4
 """Breakout 거래량 허용 하한 (50일 평균 배수).
@@ -84,7 +85,7 @@ TLOND p.134 — 'standard breakout = 50% above average or more'.
 2026-05-22 (P0-1): 디폴트를 1.4× → 1.5× 로 상향, 1.4× 는 허용 하한."""
 
 # ===== Entry Params 검증 임계 (kr_pipeline/llm_runner/store.py sanity ↔
-# prompts/calculate_entry_params_v2_0.md §1.3/§2/§3/§4) =====
+# compute/entry_params_calc.py 산출 — 구 §1.3/§2/§3/§4, 프롬프트는 #21 은퇴 아카이브) =====
 # 2026-07-08 (P1-7): store.py 사설 상수를 SSOT 승격 — 프롬프트·검증코드가 같은
 # 수치를 3중 복제하던 것을 단일화(값 변경 0, 동작 중립). 프롬프트는 SSOT 블록으로
 # 수동 동기화(tests/test_prompt_threshold_drift.py 가 감시).
@@ -107,6 +108,85 @@ ENTRY_TRIGGER_BUFFER_MAX: Final[float] = 1.005
 """trigger_price 상한 = pivot × 이 값 (프롬프트 §1.3). IBD 운용 관행
 (pivot +0.1% 산출, +0.5% 초과 = 추격) — store sanity SOFT 경계."""
 
+# ===== (5b) B 게이트 선계산 (kr_pipeline/llm_runner/compute/gate_precompute.py) =====
+# 2026-07-13 (#22): B 프롬프트 전용 판단값을 코드 소비로 승격(값 변화 0 — 동작 중립)
+# + A 강등 ↔ B 회복 co-anchor 상수 신설. 의존성 맵:
+# docs/superpowers/plans/2026-07-13-issue-22-b-gate-precompute.md
+
+BREAKOUT_VOL_WAIT_FLOOR: Final[float] = 1.2
+"""B wait 밴드 하한 (50일 평균 배수). 1.2~BREAKOUT_VOL_FLOOR(1.4) 구간 = wait 후보.
+시스템 설계 — 기존 evaluate_pivot_trigger_v1 §3.1 wait 문구의 SSOT 승격."""
+
+SPREAD_WIDE_LOOSE_MULT: Final[float] = 1.5
+"""일중 spread(high−low) 의 wide-and-loose 판정 배수 (직전 평균 range 대비).
+개념: O'Neil wide-and-loose. 배수 1.5×는 시스템 설계 (기존 프롬프트 문구 승격).
+평균 창은 SPREAD_AVG_WINDOW_DAYS — 기존 프롬프트는 창 미정의(LLM 재량)였음."""
+
+SPREAD_AVG_WINDOW_DAYS: Final[int] = 19
+"""spread 평균 range 계산 창 (오늘 제외 직전 거래행 수 — 5b payload 20d 리스트 기준)."""
+
+SPREAD_AVG_MIN_ROWS: Final[int] = 5
+"""spread 평균 range 최소 표본 행 수. 미만이면 null(미산출)."""
+
+SMA50_BREACH_RATIO: Final[float] = 0.98
+"""B abort 의 sma_50 명확 이탈 비율 (close < sma_50 × 0.98).
+시스템 설계 — 기존 프롬프트 문구 승격."""
+
+STOCK_DISTRIBUTION_CLEAN_WINDOW_DAYS: Final[int] = 3
+"""B go_now 의 무분배 요구 창 (최근 거래행 수). 기존 '최근 3일 distribution day 없음' 승격.
+행 수 미달(관측 불가) 시 게이트 null — 관측 없는 통과 금지 (#37 리뷰)."""
+
+STOCK_DISTRIBUTION_ABORT_WINDOW_DAYS: Final[int] = 5
+STOCK_DISTRIBUTION_ABORT_COUNT: Final[int] = 3
+"""B abort 의 분배 누적 판정 (최근 5거래행 내 3+ 분배일). 기존 프롬프트 문구 승격."""
+
+STOCK_DISTRIBUTION_CLEAN_WINDOW_CAL_CAP: Final[int] = 14
+STOCK_DISTRIBUTION_ABORT_WINDOW_CAL_CAP: Final[int] = 20
+"""분배일 창의 캘린더 상한 (마지막 거래행 기준 일수). 20d 리스트는 halt 행이 제외돼
+'최근 N 거래행'이 halt 를 넘어 주 단위 과거로 늘어질 수 있음(#37 리뷰) — 상한 밖 행은
+stale 로 미계수. 상한은 한국 정기 연휴 실태 기준(최장 10일 휴장 = 거래일 간 달력 gap
+최대 11일, 2017 추석 실례): 3거래행 ≤ 11+3(주말) = 14, 5거래행 ≤ 11+3×3 = 20 —
+구 값(7/11)은 평범한 설/추석 연휴에도 뚫려 연휴 직전 분배일이 조용히 미계수됐다
+(#37 재리뷰, 사용자 결정 2026-07-13). (시스템 설계, B-수치)."""
+
+# ===== (A) analyze_chart 정량 선계산·사후검증 (#23 — api/services/payload_builder.py,
+# kr_pipeline/llm_runner/store.py) =====
+# 아래 co-anchor 3종(MARKET_DIST_DEMOTION_COUNT_25S·TT_*)은 A·B 공용 — #37 머지로
+# 단일 정의화(#38 작성 시점의 의도적 문자 단위 중복이 여기서 합쳐짐). 의존성 맵:
+# docs/superpowers/plans/2026-07-13-issue-23-a-quant-precompute.md
+
+MARKET_DIST_DEMOTION_COUNT_25S: Final[int] = 5
+"""시장 분배일(25세션) 강등/회복 co-anchor. A §3.5 강등: count >= N → entry 대신 watch
+(unfavorable_market_context). B §3.5 회복: count < N 일 때만 market_recovery_ok.
+책: O'Neil HMMS Ch.9 — '5~6 distribution days' 가 랠리를 꺾는다.
+⚠ 양쪽이 같은 N 이어야 역류가 닫힌다(#19) — 코드는 이 상수, A 텍스트는 drift 가드."""
+
+TT_MARGIN_MARGINAL_PCT: Final[float] = 3.0
+"""Trend Template 조건의 marginal 판정 마진 % (A §2: margin < 3% = marginal pass)."""
+
+TT_MARGINAL_DEMOTION_COUNT: Final[int] = 3
+"""marginal 조건 개수 임계. A §2: 3개 이상 marginal → confidence 상한 + watch 선호
+(watch_reason=marginal_tt). B tt_recovery_ok: 8조건 all pass AND marginal < 3개 (정확한 역).
+marginal 계수는 A §2 정의 그대로 'PASS 하면서 margin < 3%' 인 조건만. 결측 규약(#37 재리뷰,
+#38 A측과 통일): PASS 인데 margin 미산출(None)인 조건이 있으면 카운트 자체를 null(미확정 —
+비-marginal 로 세면 데이터 결함이 회복을 '허용' 쪽으로 왜곡). 탈락 조건의 margin 은 정의상 무관.
+시스템 설계 (marginal 개념은 Minervini 해설 유래, 3%/3개 수치는 시스템)."""
+
+MARKET_DIST_NORMAL_MAX_25S: Final[int] = 3
+"""A §3.5 '정상 진행' 상한 — confirmed_uptrend 이고 시장 분배일 <= N 이면 전 범위 분류 허용.
+기존 프롬프트 텍스트('with ≤ 3 distribution days')의 승격 — 값 변화 0. 시스템 채택
+(책은 5~6 강등만 명시). 4 개 구간(강등 임계 미만·정상 상한 초과)은 프롬프트가 원래
+미규정 — 갭 보존(동작 중립)."""
+
+PIVOT_EXTENDED_BAND_MULT: Final[float] = 1.05
+"""A §8.5 entry/extended 경계 (pivot 대비 상단 밴드). current > pivot × 1.05 = extended.
+O'Neil/Minervini 'pivot +5% 이내 매수' 추격 한계의 대칭 적용 (design judgment — §8.5 명시).
+하단 0.95 는 GATE_PROMOTION_PRICE_RATIO 재사용 (§8.5 'promotion 임계와 정합')."""
+
+PIVOT_PRICE_OFFSET: Final[float] = 0.1
+"""A §4.7 pivot 산출 오프셋 — pivot = 기준 고점 + 0.1 (flat_base/cup_with_handle/vcp/
+double_bottom). 시스템 관례 (책의 '10 cents above' 관행의 KRW 적용). store 사후검증
+(sanity_pivot_offset_rule)의 기준."""
 # ===== 포지션 관리 — 3층 손절 스택 (kr_pipeline/trade_management/stop_stack.py, #3 이슈4) =====
 # 백테스트 검증 규칙(docs/trading-rules-book-verified.md §2)의 SSOT 승격.
 # 사전등록·의존성 맵: docs/superpowers/specs/2026-07-13-manage-active-trade.md

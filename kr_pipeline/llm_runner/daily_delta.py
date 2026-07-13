@@ -96,7 +96,8 @@ def _process_one(conn: Connection, symbol: str, *, dry_run: bool, as_of: date) -
 
     started = datetime.now(timezone.utc)
     # 인라인 입력 빌드(ZIP→텍스트 인라인 + 차트 PNG). 신규 분석은 직전 분류 미첨부
-    # (anchoring 방지). on_date=as_of: --date 과거 재실행 look-ahead 방지.
+    # (anchoring 방지 — 트레이드오프·관측 로그: docs/pivot-reanalysis-tradeoff.md, #1).
+    # on_date=as_of: --date 과거 재실행 look-ahead 방지.
     # freeze_bytes = 감사·재현용 ZIP(inline_input.md + 차트 2장).
     inline_text, png_paths, freeze_bytes = build_analysis_inline(conn, symbol, on_date=as_of)
     png_dir = str(Path(png_paths[0]).parent)

@@ -158,7 +158,9 @@ def _process_one(
 
     # 인라인 입력 빌드 (ZIP→텍스트 인라인 + 차트 PNG). dry-run 도 실제 빌드.
     # 신규 분석은 직전 분류를 첨부하지 않음(anchoring 방지) — inline_builder 는
-    # 항상 fresh. on_date=as_of: --date 과거 재실행 look-ahead 방지.
+    # 항상 fresh. 대가 = 같은 베이스도 pivot 이 주 단위 재판독됨(#1) —
+    # 트레이드오프 상세·관측 로그: docs/pivot-reanalysis-tradeoff.md.
+    # on_date=as_of: --date 과거 재실행 look-ahead 방지.
     # freeze_bytes = 감사·재현용 ZIP(inline_input.md + 차트 2장).
     inline_text, png_paths, freeze_bytes = build_analysis_inline(conn, symbol, on_date=as_of)
     png_dir = str(Path(png_paths[0]).parent)
