@@ -13,8 +13,9 @@ promotion 10, 유형 내 균등 간격 — 무작위성 없이 결정론 추출)
       미충족(false 또는 null) → 위반.
   H3  breakout_from_watch 에서 go_now 인데 위 5개 + 회복 게이트 2개
       (market_recovery_ok·tt_recovery_ok) 미충족 → 위반 (§3.5).
-  H4  decision ∉ {go_now, wait, abort} 또는 abort 인데 abort_reason 이 §3.4
-      카탈로그 밖 → 위반.
+  H4  decision ∉ {go_now, wait, abort}, abort 인데 abort_reason 이 §3.4
+      카탈로그 밖, 또는 **비-abort 인데 abort_reason 이 non-null** (§4 출력
+      규약 후반부 — PR #51 리뷰 반영) → 위반.
   S1  (수동 판독) reasoning 이 computed_gates 값과 모순되는 재계산 수치를 주장
       → 리포트에 개별 기록.
 
@@ -26,10 +27,11 @@ from __future__ import annotations
 import json
 import logging
 from collections import Counter
-from datetime import date, datetime, time as dt_time
+from datetime import date
 from pathlib import Path
 
 from kr_pipeline.db.connection import connect
+from kr_pipeline.backtest.trigger_audit import prior_row_for
 from kr_pipeline.llm_runner.compute.payload_lite import build_for_5b
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 
@@ -63,32 +65,6 @@ def _select_sample(records: list[dict]) -> list[dict]:
     return out
 
 
-def _prior_row(conn, symbol: str, sat: date) -> dict:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT classification, pattern, pivot_price, pivot_basis, base_high,
-                   base_low, base_depth_pct, risk_flags, reasoning, watch_reason
-              FROM backtest_classification
-             WHERE symbol = %s AND analyzed_for_date = %s
-            """,
-            (symbol, sat),
-        )
-        r = cur.fetchone()
-    if r is None:
-        raise ValueError(f"backtest row not found: {symbol} {sat}")
-    return {
-        "classified_at": datetime.combine(sat, dt_time.min),
-        "classification": r[0], "pattern": r[1],
-        "pivot_price": float(r[2]) if r[2] is not None else None,
-        "pivot_basis": r[3],
-        "base_high": float(r[4]) if r[4] is not None else None,
-        "base_low": float(r[5]) if r[5] is not None else None,
-        "base_depth_pct": float(r[6]) if r[6] is not None else None,
-        "risk_flags": r[7], "reasoning": r[8], "watch_reason": r[9],
-    }
-
-
 def _violations(trigger: str, gates: dict, result: dict) -> list[str]:
     v: list[str] = []
     decision = result.get("decision")
@@ -96,6 +72,8 @@ def _violations(trigger: str, gates: dict, result: dict) -> list[str]:
         return [f"H4: decision={decision!r}"]
     if decision == "abort" and result.get("abort_reason") not in ABORT_REASONS:
         v.append(f"H4: abort_reason={result.get('abort_reason')!r}")
+    if decision != "abort" and result.get("abort_reason") is not None:
+        v.append(f"H4: {decision} 인데 abort_reason={result.get('abort_reason')!r}")
     if decision != "go_now":
         return v
     if trigger in ("promotion", "invalidation"):
@@ -133,7 +111,7 @@ def main() -> int:
             symbol, sat = rec["symbol"], date.fromisoformat(rec["sat"])
             as_of = date.fromisoformat(rec["as_of"])
             try:
-                prior = _prior_row(conn, symbol, sat)
+                prior = prior_row_for(conn, symbol, sat)
                 payload = build_for_5b(conn, symbol, trigger_type=rec["trigger"],
                                        as_of=as_of, prior_row=prior)
                 llm_io: dict = {}
