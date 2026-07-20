@@ -151,13 +151,21 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
     # (#44 Task 5) climax/topping 게이트 통합 — anchor 전 이력 탐색 + §6.1/§6.2 산술
     weekly_full = _fetch_weekly_full(conn, ticker, on_date)
     anchor = find_anchor(weekly_full)
+    climax = compute_climax_gates(weekly_full, daily_ohlcv[-20:], anchor)
+    topping = compute_topping_gates(weekly_full, _dist_count_25s(indicators_60d), anchor)
     climax_topping_gates = {
-        **compute_climax_gates(weekly_full, daily_ohlcv[-20:], anchor),
-        **compute_topping_gates(weekly_full, _dist_count_25s(indicators_60d), anchor),
+        **climax,
+        **topping,
         "anchor_week": anchor["anchor_week"],
         "left_censored": anchor["left_censored"],
         "no_transition": anchor["no_transition"],
     }
+    # (#44 Task 5 리뷰) climax/topping 각자 quality_flag 키를 내는데 위 병합 순서상
+    # topping 이 climax 값을 조용히 덮어씀(climax 의 None 계약이 topping 의 항상-계산
+    # bool 로 사라짐) — controller 가 두 값을 명시적으로 분리해 노출하고 충돌 키는 제거.
+    climax_topping_gates.pop("quality_flag", None)
+    climax_topping_gates["quality_flag_climax"] = climax["quality_flag"]
+    climax_topping_gates["quality_flag_topping"] = topping["quality_flag"]
     # supporting_ext_sma200_pct: Task 3 는 daily 입력에 sma200 부재로 None 고정 —
     # Task 5 에서 indicators_60d(마지막 행의 sma_200·adj_close) 로 공급하기로 확정
     # (Task 3 report 의 concern 해소). 둘 중 하나라도 미산출이면 None 유지(보수).

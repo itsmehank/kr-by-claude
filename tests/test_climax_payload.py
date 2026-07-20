@@ -108,6 +108,12 @@ def test_build_payload_climax_topping_gates_anchor_consistent(db):
     assert gates["no_transition"] == expected["no_transition"]
     assert gates["baseline"] == "anchored"
 
+    # (#44 Task 5 리뷰) climax/topping 병합 충돌 수리 — bare quality_flag 는
+    # 노출하지 않고 quality_flag_climax/_topping 로만 분리 노출
+    assert "quality_flag" not in gates
+    assert gates["quality_flag_climax"] is False
+    assert gates["quality_flag_topping"] is False
+
     # 기존 키 보존 (additive 확인)
     assert "conditions_summary" in payload
     assert "weekly_ohlcv_recent_104w" in payload
@@ -136,6 +142,31 @@ def test_build_payload_dist_count_partial_missing_yields_none(db):
 
     assert gates["left_censored"] is True
     assert gates["td_dist_ok"] is None
+
+
+def test_build_payload_quality_flag_climax_topping_split(db):
+    """(#44 Task 5 리뷰) left_censored(<50 주) 종목: compute_climax_gates 는
+    quality_flag 포함 전체 키를 None 으로 반환(anchor 계약)하지만
+    compute_topping_gates 의 quality_flag 는 anchor 와 무관하게 항상 계산되는
+    bool — payload_builder 가 이 둘을 quality_flag_climax/_topping 로 분리
+    노출해야 하고, 충돌 원인이던 bare 'quality_flag' 키는 노출하지 않아야 한다."""
+    ticker = "CLPD4"
+    _seed_stock(db, ticker)
+
+    start = date(2018, 1, 5)
+    weekly = _weekly_rows(_drift(40, 1000.0, 980.0), start)  # 40주 < 50 → left_censored
+    _seed_weekly(db, ticker, weekly)
+    on_date = weekly[-1]["week_end"]
+
+    _seed_daily_indicators(db, ticker, on_date, 25, [False] * 25)
+
+    payload = build_payload(db, ticker, on_date=on_date)
+    gates = payload["climax_topping_gates"]
+
+    assert gates["left_censored"] is True
+    assert "quality_flag" not in gates
+    assert gates["quality_flag_climax"] is None
+    assert isinstance(gates["quality_flag_topping"], bool)
 
 
 def test_build_payload_supporting_ext_sma200_pct_from_indicators(db):
