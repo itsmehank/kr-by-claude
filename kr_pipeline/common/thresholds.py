@@ -277,6 +277,17 @@ MARKET_DISTRIBUTION_LOOKBACK_DAYS: Final[int] = 25
 """시장 distribution day 카운트 lookback (세션 수).
 책: O'Neil HMMS Ch.9 — 25 세션."""
 
+MARKET_STALL_CLOSE_RANGE_POS_MAX: Final[float] = 0.5
+"""stalling(churning) 분배일의 일중 마감 위치 상한 — (close-low)/(high-low) ≤ 0.5
+= 하단 절반 마감일 때만 stalling 계수 (이슈 #55).
+책: O'Neil HMMS p.209-210 — churning(거래량 급증 + 가격 정체)도 분배로 계수하되
+일중 range 상단 절반 마감이면 미계수. 0.5 는 책의 '상단 절반' 문구 직역 (book-anchor).
+정체 밴드는 별도 상수 없음 — σ-보정 distribution 임계의 미러 (0 ≤ Δ% ≤ |dist_pct|) 로
+P2-1a ratio 를 자동 상속. 밴드 폭 자체는 책 수치 미명시 → EXTENDS (발동률 누적 후
+B-수치 재검토). 상단 절반 예외는 stalling 판정에만 적용 — classic 하락 분배일은
+range 위치 무관 계수 (IBD 실무 관행, 광의 해석 stakes 는 이슈 #55 리플레이 참고 측정).
+range 0 봉(high==low)은 위치 판정 불가 → stalling 미계수 (fail-safe)."""
+
 # ===== Follow-Through Day (kr_pipeline/market_context/compute/follow_through.py) =====
 
 FTD_RALLY_WINDOW_MIN_DAYS: Final[int] = 3

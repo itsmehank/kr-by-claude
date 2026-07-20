@@ -38,6 +38,31 @@ def test_status_correction_dist_invalidates_ftd():
     assert result == "correction"
 
 
+def test_status_dist_invalidation_threshold_param():
+    """이슈 #55 리플레이 하네스: dist_count_for_ftd_invalidation 파라미터.
+
+    dist_count=5 는 default(6)에선 룰 3 미발동, 파라미터 5 주입 시 발동."""
+    kwargs = dict(
+        close=95.0, sma_50=92.0, sma_200=88.0,
+        pct_off_yearly_high=-5.0,
+        dist_count=5, last_ftd_date=TODAY - timedelta(days=15), today_date=TODAY,
+    )
+    assert determine_status(**kwargs) == "confirmed_uptrend"  # default 6: 룰 3 침묵 → 룰 4
+    assert determine_status(**kwargs, dist_count_for_ftd_invalidation=5) == "correction"
+
+
+def test_status_dist_invalidation_param_rule4_block():
+    """파라미터가 룰 4 에도 적용 — dist=5, FTD 최근이면 confirmed 차단 → fallback 강등."""
+    kwargs = dict(
+        close=100.0, sma_50=95.0, sma_200=90.0,
+        pct_off_yearly_high=-2.0,
+        dist_count=5, last_ftd_date=TODAY - timedelta(days=5), today_date=TODAY,
+    )
+    assert determine_status(**kwargs) == "confirmed_uptrend"  # default 6: dist 5 < 6
+    # 5 주입: 룰 3 은 days_since 5 ≤ 10 이라 침묵, 룰 4 는 dist < 5 실패 → 룰 6 fallback
+    assert determine_status(**kwargs, dist_count_for_ftd_invalidation=5) == "rally_attempt"
+
+
 def test_status_confirmed_uptrend():
     """FTD 90일 내 + close > sma_50 + dist < 6 → confirmed_uptrend."""
     result = determine_status(

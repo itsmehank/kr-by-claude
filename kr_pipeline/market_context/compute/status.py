@@ -35,8 +35,14 @@ def determine_status(
     dist_count: int,
     last_ftd_date: date | None,
     today_date: date,
+    *,
+    dist_count_for_ftd_invalidation: int = STATUS_DIST_COUNT_FOR_FTD_INVALIDATION,
 ) -> str:
-    """4 enum 중 하나 반환."""
+    """4 enum 중 하나 반환.
+
+    dist_count_for_ftd_invalidation: 룰 3(FTD 무효화)·룰 4(confirmed 차단) 공용
+    임계. default = SSOT (동작 중립) — 리플레이 하네스(이슈 #55 6→5 재측정)만 주입.
+    """
     days_since_ftd = (today_date - last_ftd_date).days if last_ftd_date else None
 
     # 1. downtrend
@@ -51,7 +57,7 @@ def determine_status(
         return "correction"
 
     # 3. correction (FTD 무효화)
-    if (dist_count >= DIST_COUNT_THRESHOLD_FOR_FTD_INVALIDATION
+    if (dist_count >= dist_count_for_ftd_invalidation
         and last_ftd_date is not None and days_since_ftd > FTD_INVALIDATION_DAYS):
         return "correction"
 
@@ -59,7 +65,7 @@ def determine_status(
     if (last_ftd_date is not None and days_since_ftd is not None
         and days_since_ftd <= FTD_RECENT_DAYS
         and sma_50 is not None and close > sma_50
-        and dist_count < DIST_COUNT_THRESHOLD_FOR_FTD_INVALIDATION):
+        and dist_count < dist_count_for_ftd_invalidation):
         return "confirmed_uptrend"
 
     # 5. rally_attempt (FTD 없거나 오래된)
