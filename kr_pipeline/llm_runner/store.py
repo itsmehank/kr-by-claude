@@ -325,6 +325,8 @@ def insert_classification(
     """
     _validate_classification(result)
     _original = copy.deepcopy(result)
+    # (#44 Task 7) verdict_original — 게이트 적용 전 LLM 원본 classification.
+    verdict_original = _original.get("classification")
     try:
         # SAVEPOINT 격리: 게이트 내부 SQL 오류가 트랜잭션을 aborted 로 만들면
         # 아래 INSERT 가 InFailedSqlTransaction 으로 실패해 LLM 비용을 쓴 분류가
@@ -382,12 +384,14 @@ def insert_classification(
                measurements,
                watch_reason,
                sanity_warnings,
-               pivot_continuity)
+               pivot_continuity,
+               verdict_original)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
                     %s, %s, %s, %s,
+                    %s,
                     %s,
                     %s,
                     %s,
@@ -421,6 +425,7 @@ def insert_classification(
                 _watch_reason(result),
                 json.dumps(sanity_warnings) if sanity_warnings else None,
                 pivot_continuity,
+                verdict_original,
             ),
         )
         # (#1) same-base 재판독 경고는 행이 실제 저장된 경우에만 — ON CONFLICT 로
@@ -461,6 +466,8 @@ def insert_backfill_classification(
         raise ValueError(f"insert_backfill_classification: unknown table {table!r}")
     _validate_classification(result)
     _original = copy.deepcopy(result)
+    # (#44 Task 7) verdict_original — 게이트 적용 전 LLM 원본 classification.
+    verdict_original = _original.get("classification")
     try:
         gate_at = datetime.combine(analyzed_for_date + timedelta(days=1), dt_time.min)
         # SAVEPOINT 격리 — insert_classification 과 동일 (SQL 오류 fail-soft 실질화)
@@ -485,12 +492,14 @@ def insert_backfill_classification(
                llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model,
                triggered_rules,
                measurements,
-               watch_reason)
+               watch_reason,
+               verdict_original)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
                     %s, %s, %s, %s,
+                    %s,
                     %s,
                     %s,
                     %s)
@@ -520,6 +529,7 @@ def insert_backfill_classification(
                 json.dumps(triggered_rules) if triggered_rules is not None else None,
                 _measurements_json(result),
                 _watch_reason(result),
+                verdict_original,
             ),
         )
 

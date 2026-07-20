@@ -111,4 +111,18 @@ def apply_phase1_gates(
     if fb and fb.get("fired"):
         triggered["2F_failed_breakout"] = fb
 
+    # === (#44 D3 수정안 v1) §6.2 topping shadow backstop — 로그 전용. 활성화는 별도 결정.
+    # 자격: book-mandated 분지(G0+T-B / G0+T-D분배일)만 · 전 입력 non-null ·
+    # topping 데이터 품질 플래그 없음 · 방향 = 노출 축소(would_force=ignore).
+    ct = result.get("climax_topping_gates_echo") or {}
+    if (ct.get("g0_below_10w") is True and ct.get("quality_flag_topping") is not True
+            and (ct.get("tb_ok") is True or ct.get("td_dist_ok") is True)
+            and result.get("classification") != "ignore"):
+        triggered["6_2_topping_shadow"] = {
+            "fired": False, "shadow": True, "would_force": "ignore",
+            "inputs": {k: ct.get(k) for k in ("g0_below_10w", "tb_ok", "td_dist_ok")},
+            "observe": {k: ct.get(k) for k in ("tc_sma40_turndown", "tc_prolonged_ok")},
+            "gate_version": "44-v1",
+        }
+
     return result, (triggered or None)
