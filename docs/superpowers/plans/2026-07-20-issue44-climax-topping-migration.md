@@ -18,7 +18,7 @@
 ## Global Constraints (확정 결정 D1~D6 — 2026-07-20 사용자 확정)
 
 - **D1**: anchor 는 코드가 확정(authoritative). 탐색은 **DB 전 이력**, "가장 최근" Stage 1→2 전환(Stage 4 후 리셋 내장). 코드 anchor 를 payload 에 명시(`anchor_week`)해 LLM base 카운팅과 단일 원점.
-- **D1 부속(검토 복원)**: left-censored 는 **진짜 결측(이력 ≤50주)만** — 게이트 전부 None(null=보수). **전 이력에 전환이 없는 케이스(줄곧 Stage 2)는 별도 플래그 `no_transition`** — 원 규칙(:365-368) 보존: P1 충족 간주 + 극값은 전체 이력 기준 계산(보호 게이트를 침묵시키지 않음).
+- **D1 부속(검토 복원)**: left-censored 는 **진짜 결측(이력 ≤50주)만** — **§6.1 게이트·anchor 의존 필드만 None**(null=보수). §6.2 의 anchor 비의존 게이트(G0/T-B/T-D분배일)는 이력 내 판정 가능하므로 계산한다(판정 가능한 것을 null 화하지 않음 — 라운드 2 N3 확정). **전 이력에 전환이 없는 케이스(줄곧 Stage 2)는 별도 플래그 `no_transition`** — 원 규칙(:365-368) 보존: P1 충족 간주 + 극값은 전체 이력 기준 계산(보호 게이트를 침묵시키지 않음).
 - **D2**: base 카운트는 LLM 잔류. P1 후기 완화(12주)·E1 은 LLM 재량(코드 anchor 기점).
 - **D2-b**: E1 판정 불능 + 전제·트리거 충족 시 **제3안** — verdict=watch, `watch_reason=suspected_climax_stage_indeterminate`. 강제 지점은 **프롬프트 enum**(§8.5 표·출력 스키마·검증 문구 — store 는 pass-through, 검토 실측). trigger_gate.ALLOWED_WATCH_REASONS **비포함** → breakout_from_watch 미발화, promotion 은 go_now 금지 유형 = 하드 블록(entry_params.py:77-80 SQL 강제 실측 확인).
 - **D3**: backstop 수정안 v1 — ①전 입력 결정론 확정+non-null+quality_flag 없음 ②book-mandated 분지만: shadow `would_force` 판정은 G0+T-B / G0+T-D분배일. T-C 는 design-judgment(D5②) — **런타임 shadow 기록에 관측 필드로만 포함**(would_force 판정 비참여; "shadow 로그 전용"의 의미 확정) ③노출 축소 방향만. 활성화 전 shadow 1사이클 + 강제율 상한 사전등록(Task 8 문서에 포함하되 활성화 유예 명시) + 원본 verdict 별도 보존 + gate_version 스탬프. 이 계획은 shadow 까지만.
@@ -169,7 +169,7 @@ def find_anchor(weekly: list[dict]) -> dict:
                 "no_transition": False, "weeks_since": None}
     k = CLIMAX_ANCHOR_TURNUP_WEEKS
     s1 = CLIMAX_ANCHOR_STAGE1_MIN_WEEKS
-    for i in range(n - 1, W, -1):
+    for i in range(n - 1, W - 1, -1):  # i=W(=50) 포함 — n=51 폴스루가 no_transition(P1 간주)으로 새는 회귀 방지(라운드 2 N2)
         s30, s40 = _sma(closes, i, 30), _sma(closes, i, 40)
         s30p, s40p = _sma(closes, i - k, 30), _sma(closes, i - k, 40)
         v_avg = sum(vols[i - W : i]) / W
@@ -294,7 +294,9 @@ def compute_topping_gates(weekly, dist_count_25s, anchor) -> dict
 
 **Interfaces:** Consumes — Task 5 payload. Produces —
 ```python
-build_analysis_inline(...) -> tuple[str, dict]   # (inline_text, climax_topping_gates)
+build_analysis_inline(...) -> tuple[str, list[str], bytes, dict]
+# (inline_text, png_paths, freeze_bytes, climax_topping_gates) — 기존 3-튜플에 4번째
+# 원소 추가(첨부 PNG·freeze ZIP 경로 보존 — 라운드 2 N1). 호출자 3곳 언팩 갱신.
 # 호출자 3곳: result["climax_topping_gates_echo"] = gates  (LLM 출력 파싱 직후 주입 —
 # 결정론 값 경로, LLM 경유 없음 = D3 ① '결정론 확정' 충족)
 # gates.py: triggered_rules["6_2_topping_shadow"] = {shadow: True, would_force: "ignore",
@@ -303,7 +305,7 @@ build_analysis_inline(...) -> tuple[str, dict]   # (inline_text, climax_topping_
 # store: verdict_original 컬럼(4테이블) = 게이트 적용 전 LLM 원본 classification
 ```
 
-- [ ] Step 1: 실패 테스트 — ① inline_builder 반환형(tuple) + 호출자 주입(모의 LLM 로 weekend 1종목 경로), ② G0+T-B 충족·quality_flag 없음·LLM=watch 입력 시 verdict watch 유지 + shadow 기록 + `verdict_original == "watch"` 저장, ③ quality_flag=True 면 shadow 미기록.
+- [ ] Step 1: 실패 테스트 — ① 반환형은 **inline_builder 단위**(4-튜플·gates dict 내용), 주입은 **호출자 함수 단위 모킹**(build_analysis_inline 자체를 모킹해 echo 주입만 검증 — weekend 실경로는 차트 렌더·freeze 비용이 커서 분리, 라운드 2 N5), ② G0+T-B 충족·quality_flag 없음·LLM=watch 입력 시 verdict watch 유지 + shadow 기록 + `verdict_original == "watch"` 저장, ③ quality_flag=True 면 shadow 미기록.
 - [ ] Step 2: FAIL → Step 3: 구현(스니펫 v1 + observe 필드·echo 주입 3곳) + schema.sql 4테이블 `verdict_original TEXT` → Step 4: PASS(conftest 가 schema 재적용 — kr_test 자동) → Step 5: 커밋. PR 본문에 production psql ALTER 4문 명시.
 
 ### Task 8: D4 검증 재생 + 민감도 + 제3안 카운터 (사전등록 선행)
@@ -321,7 +323,7 @@ build_analysis_inline(...) -> tuple[str, dict]   # (inline_text, climax_topping_
   ① §6.1/§6.2 이관부: "`climax_topping_gates.*` 그대로 사용(재계산 금지)" + P2 풀링 규약 명문화 + supporting "≥70% above SMA-200" 은 **프롬프트 잔류 판정값**(코드는 값만 공급) 명시 + temporal scope 문언을 지배 규약으로 개정(4주 절 = 잉여 명시).
   ② 잔류부 유지: 후기 완화(12주)·E1(base 원점=`anchor_week`)·T3 소진 해석·"(history)".
   ③ 제3안 규칙 신설(§6.1): E1 판정 불능 + 전제·트리거 충족 → verdict=watch, watch_reason=`suspected_climax_stage_indeterminate`.
-  ④ **§8.5 watch_reason 표(:454-465)에 6번째 행 + 출력 스키마(:498)·enum 검증 문구(:576)에 값 추가**(검토 상1 — 프롬프트 자기모순 방지) + "ALLOWED_WATCH_REASONS 비포함=재트리거 비대상(extended 와 동급)" 명시.
+  ④ **§8.5 watch_reason 표(:454-465)에 6번째 행 + 출력 스키마(:498)·enum 검증 문구(:577)에 값 추가 + 그 문구의 개수 리터럴 "5개"→"6개" 갱신**(검토 상1·라운드 2 N4 — 값만 넣고 개수 안 고치면 자기모순 재발) + "ALLOWED_WATCH_REASONS 비포함=재트리거 비대상(extended 와 동급)" 명시.
   ⑤ left-censored(:365-368) 개정: "전 이력 기준. 이력 ≤50주 = 진짜 결측(게이트 null=발화 금지) / 전환 부재 = `no_transition`(P1 충족 간주, 극값은 전체 이력)" — 코드와 문언 일치(검토 상3 복원).
   ⑥ SSOT 블록: 신설/승격 상수 6종 + STOCK_DISTRIBUTION_COUNT_25D 공유(§6 demote·T-D) 명시.
 - [ ] Step 2: 프롬프트-코드 키 전수 대조(수동 diff) → Step 3: 커밋.
