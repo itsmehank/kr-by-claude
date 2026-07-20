@@ -27,7 +27,7 @@ If `market == "ETF"` or the instrument is a fund vehicle (sector is null with a 
 - HANDLE_DEPTH_BULL_MAX_PCT = 12.0
 - HANDLE_LEGIT_MIN_DAYS = 5
 - MEASUREMENT_TOLERANCE_PCT = 5.0
-- STOCK_DISTRIBUTION_COUNT_25D = 4
+- STOCK_DISTRIBUTION_COUNT_25D = 4 (§6 demote-to-watch 카운트와 §6.2 T-D `td_dist_ok` 임계가 공유 — 값 하나, 소비처 둘)
 - STOCK_DISTRIBUTION_PCT_DOWN = -0.2
 - CLIMAX_GAIN_PCT = 25.0
 - CLIMAX_GAIN_WINDOW_WEEKS = 3
@@ -36,6 +36,12 @@ If `market == "ETF"` or the instrument is a fund vehicle (sector is null with a 
 - CLIMAX_UP_DAYS_PCT = 70.0
 - CLIMAX_UP_DAYS_WINDOW_MIN = 7
 - CLIMAX_UP_DAYS_WINDOW_MAX = 15
+- CLIMAX_ANCHOR_VOL_AVG_WEEKS = 50
+- CLIMAX_ANCHOR_FLAT_BAND_PCT = 2.0
+- CLIMAX_ANCHOR_TURNUP_WEEKS = 4
+- CLIMAX_ANCHOR_STAGE1_MIN_WEEKS = 4
+- CLIMAX_SCOPE_PAST_HIGH_WEEKS = 2
+- CLIMAX_SCOPE_CORRECTION_PCT = 15.0
 - TOPPING_BELOW_10W_WEEKS = 8
 - MARKET_DIST_DEMOTION_COUNT_25S = 5
 - MARKET_DIST_NORMAL_MAX_25S = 3
@@ -353,69 +359,128 @@ Separate from the market-level distribution count in `market_context`, evaluate 
 
 #### 6.1 climax_run — qualification gate
 
-Anchor — "advance start" (= the base-count anchor used for late_stage; SAME week):
-The Stage 1→2 transition: the most recent week where, after a preceding Stage 1
-(price flat/declining below a flat-or-falling 40-week SMA), price broke out of its
-first base on weekly volume ≥ BREAKOUT_VOL_FLOOR (1.4×) of the 50-WEEK average AND
-both the 30-week (≈SMA-150) and 40-week (≈SMA-200) lines turned up with price above
-them. This one week anchors BOTH base count (= base #1) and the "entire advance"
-baseline for P2/T1–T4. Compute the 30/40-week SMAs from the 104-week weekly closes
-(or approximate with the supplied daily SMA-150/SMA-200); the 50-week volume average
-from weekly_ohlcv_recent_104w.
-If the anchor lies OUTSIDE the 104-week window (no Stage-1 base + MA turn-up visible,
-i.e. >2 years in Stage 2): treat P1 as satisfied, compute P2/T1–T2 extremes over the
-visible window only, and label the baseline "left-censored (advance predates window)".
-Do NOT treat the window's left edge as a fresh move-start.
+**`climax_topping_gates.*` is authoritative for this gate's arithmetic — consume the
+fields below AS-IS, do NOT recompute them from OHLCV** (same column-is-authoritative
+convention as §2/§3.5's `market_direction_gate`/§6's `distribution_day_flag`, above).
+The code searches the stock's FULL DB weekly history
+(wider than the 104-week window in this payload) for `anchor_week` — the most recent
+Stage 1→2 transition (Stage 1 flat/declining 40-week SMA → breakout on volume ≥
+BREAKOUT_VOL_FLOOR of the 50-week average → 30/40-week lines turn up with price above
+them). This one anchor week is the SAME origin used for base-count (= base #1) and for
+the "entire advance" baseline below — base counting for E1/late_stage_base is an LLM
+judgment anchored at `climax_topping_gates.anchor_week`, not a separate re-derivation.
 
-Preconditions (ALL must hold):
-- P1 Maturity: ≥ CLIMAX_MATURITY_WEEKS (18) weeks since the anchor, or ≥
-  CLIMAX_LATE_MATURITY_WEEKS (12) if the current run emerged from a 3rd-or-later base.
-- P2 Acceleration vs the stock's OWN trend: best rolling return over a
-  CLIMAX_GAIN_WINDOW_WEEKS (3)-week window (i.e. max of 1w,2w,3w) ≥ CLIMAX_GAIN_PCT (25%)
-  AND this is the steepest 1–3 week pace of the ENTIRE advance (no earlier rolling
-  3-week window since the anchor exceeded it).
+Baseline window for P2/T1/T2/scope (and §6.2's T-A/T-D) = `anchor_week` **through** the
+current week, **anchor week itself included** — not "the week after the anchor".
 
-Triggers (≥1, measured against the ENTIRE advance since the anchor):
-- T1 Largest weekly high-low spread since the advance began
-- T2 Heaviest weekly volume since the advance began
-- T3 Exhaustion gap on the daily chart
-- T4 ≥ CLIMAX_UP_DAYS_PCT (70%) up days over a CLIMAX_UP_DAYS_WINDOW_MIN–CLIMAX_UP_DAYS_WINDOW_MAX
-  (7–15) day window (e.g. 8 of 10)
-Supporting (strengthens, never sufficient alone): price ≥ 70% above SMA-200.
+**결측 모드 (전 이력 기준 — anchor 탐색은 payload 의 104주보다 넓은 DB 전체 이력에서
+수행됨; 아래 두 모드는 이미 코드가 전 이력을 본 뒤 정리한 결과이므로, 프롬프트 레벨에서
+104주 창의 왼쪽 끝을 새로운 move-start 로 재해석하지 말 것):**
+- `left_censored=True` (이력이 CLIMAX_ANCHOR_VOL_AVG_WEEKS(50)주 이하 — anchor 탐색 자체가
+  불가능한 진짜 결측): §6.1 의 모든 필드가 `null`(`maturity_ok`·`p2_*`·`t1_max_spread_now`·
+  `t2_max_volume_now`·`scope_active`·`quality_flag_climax` 포함) — climax_run 을 발화하지
+  말 것(전제 판정 불능 = 미충족과 동일 취급). §6.2 의 anchor 비의존 게이트(아래 참조)는
+  이 모드에서도 정상 계산된다.
+- `no_transition=True` (이력은 충분하나(>50주) 전 이력에 Stage 1→2 전환 조건을 만족하는
+  주가 전무 — 예: 줄곧 Stage 2 상승): `anchor_week=null` 이지만 게이트 거부가 아니다. P1
+  은 충족 간주로 이미 공급됨(`maturity_ok=True`), P2/T1/T2/scope 극값은 anchor 없이 **전체
+  이력** 기준으로 계산됨(`baseline="no_transition"`).
 
-Exclusion (NARROW — applies ONLY to breakouts from a 1st- or 2nd-stage base):
+Preconditions (ALL must hold — consume the `climax_topping_gates` fields, do not
+recompute):
+- P1 Maturity — `maturity_ok` (echo: `maturity_weeks` = weeks since `anchor_week`).
+  Base threshold CLIMAX_MATURITY_WEEKS (18) weeks. **후기 완화(LLM 재량, 코드 미소비)**:
+  §4 base 카운트(anchor_week 원점)가 현재 상승을 3번째 이상 base 로 판단하면,
+  `maturity_weeks` ≥ CLIMAX_LATE_MATURITY_WEEKS (12) 만으로도 P1 충족으로 override 해도
+  좋다 — `maturity_ok=False` 라도 이 조건이면 P1 을 satisfied 로 간주. (HMMS p.263 "12
+  weeks or more if ... later-stage base".)
+- P2 Acceleration — `p2_accel_ok` (echo: `p2_best_roll_pct`, `p2_is_steepest`). 산술
+  규약(참고 — 재계산 금지): 1~3주 롤링 수익률(**k∈{1,2,3} 풀링** — 최근 1주/2주/3주 수익률
+  중 최댓값) ≥ CLIMAX_GAIN_PCT (25%) AND anchor 이후 전체 상승 중 가장 가파른 1~3주 페이스
+  (**동률 허용** — 코드는 `>=` 로 판정해 동률도 "steepest"로 인정, 책 문언보다 엄격=보수
+  방향).
+
+Triggers (≥1 — `climax_topping_gates` 필드가 authoritative, 이미 ENTIRE advance since
+the anchor 기준으로 계산됨):
+- T1 `t1_max_spread_now` — Largest weekly high-low spread since the advance began
+- T2 `t2_max_volume_now` — Heaviest weekly volume since the advance began
+- T3 `t3_gap_up_today` — daily 마지막 행 open > 직전 행 high 인지 여부의 **사실 플래그만**
+  (daily 20-거래일 창). "소진(exhaustion)"이라는 *해석*은 LLM 몫 — 이 값 자체는 갭업 발생
+  사실만 나타내며 소진 여부 판정은 아니다.
+- T4 `t4_ok` (echo: `t4_up_days_pct_max`) — ≥ CLIMAX_UP_DAYS_PCT (70%) up days over ANY
+  trailing window length in CLIMAX_UP_DAYS_WINDOW_MIN–CLIMAX_UP_DAYS_WINDOW_MAX (7–15)
+  days, window END-POINT fixed at today's session (max over all lengths 7–15, not a
+  single fixed length — 2026-07-21 확정).
+Supporting (strengthens, never sufficient alone): `supporting_ext_sma200_pct` — code
+supplies ONLY the numeric SMA-200 extension % (value, not a verdict). **The "≥70% above
+SMA-200" pass/fail judgment itself remains a prompt-resident call**: treat
+`supporting_ext_sma200_pct >= 70` as the supporting signal.
+
+Exclusion (NARROW — applies ONLY to breakouts from a 1st- or 2nd-stage base; base
+카운트 원점 = `anchor_week`, SAME week as above):
 - E1 If the ≥25% gain occurred within 3 weeks of a valid breakout from base #1 or #2,
   it is LEADERSHIP, not climax — do not emit climax_run. (O'Neil HMMS p.269
   eight-week-hold rule.)
 - E1 does NOT apply to breakouts from 3rd-or-later bases: a sharp surge out of a
   late-stage base is exactly where blow-off tops occur — E1 stays silent and this
   gate decides. (Minervini TLSMW Ch.5 pp.82-83; O'Neil HMMS p.268.)
+- **제3안 — E1 판정 불능 (D2-b)**: base 서수(1st/2nd vs 3rd-or-later, §4 카운트)가 데이터
+  로 확정되지 않아 E1 자체를 판정할 수 없는데, 위 P1/P2 전제와 ≥1 트리거는 충족된 상태라면
+  — climax_run 을 강행 발화하지 말라. 대신 `classification=watch`,
+  `watch_reason=suspected_climax_stage_indeterminate` 로 보고한다(§8.5). climax 확정도
+  리더십(E1) 확정도 아니므로 강제 배제 대신 재분류 대기로 미룬다 — `climax_run` flag 는
+  이 경로에서 emit 하지 않는다.
 
-Temporal scope: climax_run describes THIS WEEK. Emit only while terminal acceleration
-is in progress or ≤2 weeks past its high. Once price has corrected >15% from the
-climax high or 4+ weeks have elapsed, it is post-climax consolidation: do NOT emit.
+Temporal scope: climax_run describes THIS WEEK. `climax_topping_gates.scope_active` is
+authoritative for this determination — do NOT recompute. Governing rule (회색지대 = "≤2주" 절이
+지배): the high week (baseline 구간 종가 최댓값, **동률 시 가장 최근 발생을 채택**) more
+than CLIMAX_SCOPE_PAST_HIGH_WEEKS (2) weeks in the past → `scope_active=False`
+immediately, regardless of price. Within 2 weeks → `scope_active=True` only if the
+correction from that high is ≤ CLIMAX_SCOPE_CORRECTION_PCT (15%). (The former "4+ weeks
+elapsed" branch is retired as surplus under this ≤2-week-dominates rule — do not apply
+it.) `scope_active=False` → post-climax consolidation: do NOT emit climax_run this week.
 Refer to the past event in reasoning as "prior climax (history)" — exempt from
 consistency rule #2 (see §5 rule #2 exception).
 
 #### 6.2 topping_distribution — force-ignore gate (Stage 3→4)
 
+**`climax_topping_gates.*` is authoritative here too — consume, do not recompute.**
+
 GLOBAL PRECONDITION G0: this gate operates ONLY when the weekly close is BELOW the
-10-week SMA. (O'Neil HMMS p.269 Breaking Support; Minervini Stage 4 = price below
-declining MAs.) A leader's deepest correction often occurs mid-advance while still
-ABOVE the 10-week line — that is a shakeout, not a top, and G0 keeps this gate silent
-there.
+10-week SMA — `climax_topping_gates.g0_below_10w`. (O'Neil HMMS p.269 Breaking Support;
+Minervini Stage 4 = price below declining MAs.) A leader's deepest correction often
+occurs mid-advance while still ABOVE the 10-week line — that is a shakeout, not a top,
+and G0 keeps this gate silent there.
 
 Force-ignore (emit topping_distribution) if G0 holds AND ANY ONE of:
-- T-A Largest weekly price DECLINE since the advance began (§6.1 anchor).
-      (Minervini TTLC Ch.9; O'Neil HMMS p.268 #2.)
-- T-B Lived below the 10-week SMA for ≥ TOPPING_BELOW_10W_WEEKS (8) consecutive weeks
-      without a weekly close back above. (O'Neil HMMS p.269.) NOTE: a SINGLE weekly
-      close below the 10-week line is a normal pullback, NOT topping — do not
-      force-ignore on one week.
-- T-C 40-week SMA (≈SMA-200) turns DOWN after a prolonged advance. (HMMS p.269 #4.)
-- T-D Heaviest weekly DOWN-volume since the advance began, OR ≥
-      STOCK_DISTRIBUTION_COUNT_25D (4) stock-distribution days in the last 25 sessions
-      (the §6 count). (The below-10-week condition is already required by G0.)
+- T-A `ta_max_decline_now` — Largest weekly price DECLINE since the advance began
+      (§6.1 anchor, baseline anchor-week-inclusive). (Minervini TTLC Ch.9; O'Neil HMMS
+      p.268 #2.)
+- T-B `tb_ok` (echo: `tb_weeks_below_10w`) — Lived below the 10-week SMA for ≥
+      TOPPING_BELOW_10W_WEEKS (8) consecutive weeks without a weekly close back above.
+      (O'Neil HMMS p.269.) NOTE: a SINGLE weekly close below the 10-week line is a
+      normal pullback, NOT topping — do not force-ignore on one week.
+- T-C `tc_sma40_turndown` — 40-week SMA (≈SMA-200) turns DOWN after a prolonged
+      advance ("prolonged" remains an LLM read of the chart context). (HMMS p.269 #4.)
+- T-D `td_max_down_volume_now` (Heaviest weekly DOWN-volume since the advance began) OR
+      `td_dist_ok` (≥ STOCK_DISTRIBUTION_COUNT_25D (4) stock-distribution days in the
+      last 25 sessions — the §6 count, SAME constant). (The below-10-week condition is
+      already required by G0.)
+
+**anchor 비의존 게이트(항상 계산 — left_censored 여부와 무관)**: `g0_below_10w`,
+`tb_weeks_below_10w`/`tb_ok`, `td_dist_ok`, `tc_sma40_turndown` 는 anchor 탐색 성패와
+무관하게 항상 계산된다. **anchor 의존 게이트**: `ta_max_decline_now`,
+`td_max_down_volume_now` 는 `left_censored=True` 면 `null`(발화 금지); `no_transition=True`
+면 anchor 없이 전체 이력 기준으로 계산된다(baseline 은 §6.1 과 동일하게 anchor 주 포함
+또는 전체 이력).
+
+`quality_flag_climax`/`quality_flag_topping`(입력 주봉에 close≤0/None 결측 존재)은 진단
+echo 값 — **그 효과는 이미 개별 게이트의 `null` 로 반영돼 있으므로**(quality_flag=True 일
+때 §6.1 은 `p2_*`/`t1_max_spread_now`/`t2_max_volume_now`/`scope_active`, §6.2 는
+`g0_below_10w`/`tb_*`/`tc_sma40_turndown` 이 이미 `null`) 이 두 플래그 자체를 별도 조건으로
+재확인할 필요는 없다. `tc_prolonged_ok` 는 payload 에 포함되지만 **결정론 shadow 백스톱
+(gates.py, D3) 전용 관측 필드** — 프롬프트의 T-C 판정("prolonged advance" LLM 판독)에는
+관여하지 않는다.
 
 A force-ignore here overrides any watch-eligible pivot.
 
@@ -458,6 +523,7 @@ LLM 정밀판정으로 넘길지(`breakout_from_watch`) 여부를 가른다.
 | `unfavorable_market` | 종목 셋업은 entry 급이나 §3.5 시장 방향(downtrend/correction/미확인 rally_attempt 또는 dist≥5)이 entry 를 watch 로 강등시킴. |
 | `marginal_tt` | Trend Template 통과가 marginal(§2: 3개 이상 조건이 <3% 마진) — 추가 확인 필요. |
 | `valid_base_awaiting_breakout` | **pivot 정의 요소 완성 → pivot_price 확정** + current 가 pivot **아래** + 돌파 **임박 아님**. base 는 신뢰 가능하나 아직 매수일이 오지 않은 정상 대기 상태. |
+| `suspected_climax_stage_indeterminate` | §6.1 E1 배제 판정에 필요한 base 서수(1st/2nd base vs 3rd-or-later base, §4 카운트)가 데이터로 확정되지 않아 E1 자체를 판정할 수 없는데, §6.1 의 전제(P1·P2)와 트리거(≥1)는 충족된 상태(제3안, D2-b) — climax_run 발화도 리더십(E1) 확정도 불가능해 재분류로 미룬 케이스. `ALLOWED_WATCH_REASONS` 비포함 = `breakout_from_watch` 재트리거 **비대상**(`extended` 와 동급 — 셋업 자체가 아니라 판정 불능이 원인이므로 평일 정밀판정으로 넘기지 않는다). 다음 주말 재분류에서 base 서수가 갱신되면 정상 경로(climax_run 확정 또는 E1 리더십 배제)로 복귀. |
 
 **entry / valid_base_awaiting_breakout / extended 경계 (pivot 대비 가격 밴드)**: pivot 확정 종목에서
 current 의 pivot 대비 위치로 판정한다(±5% 대칭 밴드 — O'Neil/Minervini 5% 추격 한계 근거):
@@ -495,7 +561,7 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
 ```json
 {
   "classification": "entry | watch | ignore",
-  "watch_reason": "base_forming | extended | unfavorable_market | marginal_tt | valid_base_awaiting_breakout | null",
+  "watch_reason": "base_forming | extended | unfavorable_market | marginal_tt | valid_base_awaiting_breakout | suspected_climax_stage_indeterminate | null",
   "pattern": "flat_base | cup_with_handle | vcp | double_bottom | high_tight_flag | 3c_cheat | base_on_base | ascending_base | none",
   "confidence": 0.0,
   "reasoning": "≤1500자 (markdown, 5 sections)",
@@ -573,7 +639,7 @@ For non-VCP patterns (`flat_base`, `cup_with_handle`, etc.), both fields MUST be
   - If pocket pivot entry, mark it explicitly in '진입 시그널'.
   - If 3-C / cheat early entry, mark it explicitly in '진입 시그널' or '결론'.
 - `pattern`: must be exactly one of: `flat_base`, `cup_with_handle`, `vcp`, `double_bottom`, `high_tight_flag`, `3c_cheat`, `base_on_base`, `ascending_base`, `none`.
-- `watch_reason`: `classification == "watch"` 이면 §8.5 의 5개 enum 중 정확히 하나 (null 금지). `classification != "watch"`(entry/ignore) 이면 반드시 `null`. 제외 사유 우선(D4): base_forming/extended 가 해당하면 그것을 선택.
+- `watch_reason`: `classification == "watch"` 이면 §8.5 의 6개 enum 중 정확히 하나 (null 금지). `classification != "watch"`(entry/ignore) 이면 반드시 `null`. 제외 사유 우선(D4): base_forming/extended 가 해당하면 그것을 선택. `suspected_climax_stage_indeterminate` 는 §6.1 제3안(E1 판정 불능) 전용 — `trigger_gate.ALLOWED_WATCH_REASONS` 비포함이라 `breakout_from_watch` 재트리거 대상이 아니다(§8.5 표 참조).
 - `measurements`: **`prior_uptrend_pct` · `cup_depth_pct` · `cup_shape` 는 항상 보고** (어떤 차트든 측정 가능 — 이것이 트리 분기와 `none` 판정의 근거다; null 금지). `handle_*` 필드만 핸들 없음/비-cup 일 때 null. 숫자는 차트/OHLCV 에서 측정해 보고 — *라벨을 먼저 정하지 말고 측정값을 먼저 보고*.
 - `measurements.rejected_gate`: `pattern == "none"` 이면 **어느 Gate 에서 탈락했는지 의무 보고** — `gate0`(선행상승<30%) / `gate1`(depth 초과) / `gate2`(V자) / `not_cup_family`(climax·base 없음 등 cup 계열 1차 라우팅 미진입). cup 패턴이 식별되면(none 아님) `null`. (숫자만 채우고 분기를 안 적으면 "왜 none"이 비감사로 남으므로 필수.)
 - `contraction_count`: integer in `[2, 6]` when `pattern == "vcp"`, else `null`.

@@ -24,7 +24,7 @@ def test_weekend_batch_dry_run_processes_all_qualifying(db, mocker):
             )
     db.commit()
     mocker.patch("kr_pipeline.llm_runner.weekend.build_analysis_inline",
-                 return_value=("inline", ["/tmp/_wkpng/daily_chart.png", "/tmp/_wkpng/weekly_chart.png"], b"fake_freeze"))
+                 return_value=("inline", ["/tmp/_wkpng/daily_chart.png", "/tmp/_wkpng/weekly_chart.png"], b"fake_freeze", {}))
 
     from kr_pipeline.llm_runner.weekend import run
     result = run(db, dry_run=True, as_of=today, concurrency=3)
@@ -160,7 +160,7 @@ def test_weekend_zip_excludes_prior_analysis_and_pins_as_of(db, mocker):
     --date 과거 재실행 시 미래 데이터가 새지 않도록 on_date=as_of 를 고정해야 한다."""
     import kr_pipeline.llm_runner.weekend as wk
     inline_mock = mocker.patch.object(wk, "build_analysis_inline",
-                                      return_value=("inline", ["/tmp/_wkpng/daily_chart.png", "/tmp/_wkpng/weekly_chart.png"], b"fake_freeze"))
+                                      return_value=("inline", ["/tmp/_wkpng/daily_chart.png", "/tmp/_wkpng/weekly_chart.png"], b"fake_freeze", {}))
     mocker.patch.object(wk, "save_freeze")
 
     as_of = date(2025, 6, 10)

@@ -32,7 +32,7 @@ def test_weekend_run_creates_freeze_per_classification(db, tmp_path, monkeypatch
 
     fake_zip = b"PK\x03\x04fake_weekend_zip"
     monkeypatch.setattr("kr_pipeline.llm_runner.weekend.build_analysis_inline",
-                        lambda *a, **k: ("inline", ["/tmp/_frpng/daily_chart.png", "/tmp/_frpng/weekly_chart.png"], fake_zip))
+                        lambda *a, **k: ("inline", ["/tmp/_frpng/daily_chart.png", "/tmp/_frpng/weekly_chart.png"], fake_zip, {}))
     monkeypatch.setattr(
         "kr_pipeline.llm_runner.weekend.call_claude",
         lambda **k: {
@@ -68,7 +68,7 @@ def test_weekend_dry_run_creates_freeze(db, tmp_path, monkeypatch):
 
     fake_zip = b"PK\x03\x04dry_run_zip"
     monkeypatch.setattr("kr_pipeline.llm_runner.weekend.build_analysis_inline",
-                        lambda *a, **k: ("inline", ["/tmp/_frpng/daily_chart.png", "/tmp/_frpng/weekly_chart.png"], fake_zip))
+                        lambda *a, **k: ("inline", ["/tmp/_frpng/daily_chart.png", "/tmp/_frpng/weekly_chart.png"], fake_zip, {}))
     monkeypatch.setattr(
         "kr_pipeline.llm_runner.weekend.call_claude",
         lambda **k: {"classification": "ignore", "confidence": 0.5, "reasoning": "dry"},
@@ -95,7 +95,7 @@ def test_daily_delta_run_creates_freeze(db, tmp_path, monkeypatch):
 
     fake_zip = b"PK\x03\x04fake_delta_zip"
     monkeypatch.setattr("kr_pipeline.llm_runner.daily_delta.build_analysis_inline",
-                        lambda *a, **k: ("inline", ["/tmp/_frpng/daily_chart.png", "/tmp/_frpng/weekly_chart.png"], fake_zip))
+                        lambda *a, **k: ("inline", ["/tmp/_frpng/daily_chart.png", "/tmp/_frpng/weekly_chart.png"], fake_zip, {}))
     monkeypatch.setattr(
         "kr_pipeline.llm_runner.daily_delta.call_claude",
         lambda **k: {"classification": "watch", "confidence": 0.6, "reasoning": "delta"},

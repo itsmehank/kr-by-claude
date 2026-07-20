@@ -42,7 +42,9 @@ def already_done(conn: Connection, as_of: date) -> set[str]:
 
 def _process_one(conn: Connection, symbol: str, market: str, *, dry_run: bool, as_of: date) -> None:
     started = datetime.now(timezone.utc)
-    inline_text, png_paths, _ = build_analysis_inline(conn, symbol, on_date=as_of)
+    inline_text, png_paths, _, climax_topping_gates = build_analysis_inline(
+        conn, symbol, on_date=as_of
+    )
     png_dir = str(Path(png_paths[0]).parent)
     llm_io: dict = {}
     try:
@@ -53,6 +55,8 @@ def _process_one(conn: Connection, symbol: str, market: str, *, dry_run: bool, a
         )
     finally:
         shutil.rmtree(png_dir, ignore_errors=True)
+    # (#44 Task 7) 결정론 echo 주입 — LLM 경유 없음. gates.py §6.2 shadow backstop 소비.
+    result["climax_topping_gates_echo"] = climax_topping_gates
     finished = datetime.now(timezone.utc)
     if dry_run:
         log.info("dry-run: skip insert %s (%s)", symbol, result.get("classification"))

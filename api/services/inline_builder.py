@@ -39,7 +39,7 @@ def _s(x) -> str:
 
 def build_analysis_inline(
     conn: Connection, ticker: str, on_date: date
-) -> tuple[str, list[str], bytes]:
+) -> tuple[str, list[str], bytes, dict]:
     """analyze_chart_v3 인라인 입력 빌드.
 
     Returns:
@@ -47,6 +47,10 @@ def build_analysis_inline(
         png_paths: [daily_chart.png, weekly_chart.png] 임시파일 절대경로
                    (호출자가 call_claude @첨부 후 부모 디렉토리 정리 책임).
         freeze_bytes: 감사·재현용 ZIP (inline_input.md + 차트 PNG 2장).
+        climax_topping_gates: payload.climax_topping_gates 와 동일 dict (#44 Task 7 —
+            결정론 값 경로. 호출자가 LLM 응답 파싱 직후
+            result["climax_topping_gates_echo"] = 이 값 주입해 gates.py §6.2 shadow
+            backstop 이 소비하도록 배선).
 
     Raises:
         DataIntegrityError: 데이터 정합성 가드 위반 시(호출자가 정책 결정).
@@ -101,4 +105,4 @@ def build_analysis_inline(
         zf.writestr("daily_chart.png", daily_png)
         zf.writestr("weekly_chart.png", weekly_png)
 
-    return inline_text, [str(dpath), str(wpath)], fbuf.getvalue()
+    return inline_text, [str(dpath), str(wpath)], fbuf.getvalue(), payload["climax_topping_gates"]

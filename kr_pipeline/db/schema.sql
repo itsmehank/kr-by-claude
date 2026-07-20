@@ -328,6 +328,12 @@ ALTER TABLE weekly_classification
 ALTER TABLE weekly_classification
   ADD COLUMN IF NOT EXISTS pivot_continuity JSONB;
 
+-- (#44 Task 7) verdict_original — 게이트(apply_phase1_gates) 적용 전 LLM 원본
+-- classification. §6.2 topping shadow backstop 등 후처리 강등 관측용(감사 전용,
+-- 소비처 없음). NULL = 게이트 도입 이전 레코드.
+ALTER TABLE weekly_classification
+  ADD COLUMN IF NOT EXISTS verdict_original TEXT;
+
 -- (5b) 호출 이력 (append-only, 단순 abort 모델 — severity 없음)
 CREATE TABLE IF NOT EXISTS trigger_evaluation_log (
   symbol                  VARCHAR(10) NOT NULL,
@@ -501,6 +507,10 @@ CREATE INDEX IF NOT EXISTS idx_classification_backfill_date
 ALTER TABLE classification_backfill
   ADD COLUMN IF NOT EXISTS watch_reason VARCHAR(40);
 
+-- (#44 Task 7) verdict_original — weekly_classification 과 동일 의미
+ALTER TABLE classification_backfill
+  ADD COLUMN IF NOT EXISTS verdict_original TEXT;
+
 -- ====== 수익성·강건성 백테스트 전용 분류 테이블 (2026-06-23) ======
 -- classification_backfill 스키마 복제. pre-lockdown 적재분과 격리해 "검색-차단 클린
 -- 환경" 을 구조적으로 보장(spec §5.0). 적재·멱등 resume 모두 이 테이블 기준.
@@ -533,6 +543,10 @@ CREATE TABLE IF NOT EXISTS backtest_classification (
 );
 CREATE INDEX IF NOT EXISTS idx_backtest_classification_date
   ON backtest_classification (analyzed_for_date);
+
+-- (#44 Task 7) verdict_original — weekly_classification 과 동일 의미
+ALTER TABLE backtest_classification
+  ADD COLUMN IF NOT EXISTS verdict_original TEXT;
 
 -- ====== Phase 0 Step 4: FREEZE 최소판 (#P0-S4) ======
 -- 분류 (weekend/daily_delta) 시점의 분석 입력 ZIP 을 사후 검증 가능하도록 보존.
@@ -594,3 +608,7 @@ CREATE TABLE IF NOT EXISTS recall_audit_classification (
 );
 CREATE INDEX IF NOT EXISTS idx_recall_audit_classification_date
   ON recall_audit_classification (analyzed_for_date);
+
+-- (#44 Task 7) verdict_original — weekly_classification 과 동일 의미
+ALTER TABLE recall_audit_classification
+  ADD COLUMN IF NOT EXISTS verdict_original TEXT;
