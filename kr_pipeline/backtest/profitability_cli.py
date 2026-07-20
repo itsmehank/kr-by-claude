@@ -4,8 +4,10 @@
   python -m kr_pipeline.backtest.profitability_cli backfill [--sample=a|b|c] \
       [--start=YYYY-MM-DD] [--end=YYYY-MM-DD] [--dry-run]   # 멱등 백필(resume 가능)
   python -m kr_pipeline.backtest.profitability_cli analyze \
-      [--sample=a|c] [--watch-start=…] [--watch-end=…] [--px-start=…] [--px-end=…]
+      [--sample=a|b|c] [--watch-start=…] [--watch-end=…] [--px-start=…] [--px-end=…]
 
+--sample=b (표본 B, prereg 2026-07-21-sample-b-analysis): 기본 2021 윈도로 실행,
+EXCLUDED_CELLS(#50 결함 셀) 자동 제외.
 --sample=c (독립 검증 구간 2017-H2~2020, 이슈 #52): 동결 전에는 거부되며, 동결 후에도
 기본 2021 윈도 오발사를 막기 위해 backfill 은 --start/--end, analyze 는 watch/px
 윈도 4개를 전부 명시해야 한다.
@@ -79,10 +81,16 @@ def cmd_backfill(conn, dry_run: bool, kind: str, start: date, end: date) -> int:
 def cmd_analyze(conn, kind: str = "a",
                 watch_start: date = START, watch_end: date = END,
                 px_start: date = PX_START, px_end: date = PX_END) -> int:
-    """기본(인자 없음) = 표본 A · 2021~2024 윈도 — 현행 동작 불변 (이슈 #52)."""
+    """기본(인자 없음) = 표본 A · 2021~2024 윈도 — 현행 동작 불변 (이슈 #52).
+
+    kind="b": EXCLUDED_CELLS(#50 결함 셀) 를 분류점 집계에서 제외 (prereg §1)."""
     sample = _sample(conn, kind)
+    exclude = frozenset()
+    if kind == "b":
+        from kr_pipeline.backtest.frozen_sample_b import EXCLUDED_CELLS
+        exclude = frozenset((s, date.fromisoformat(d)) for s, d in EXCLUDED_CELLS)
     out = run_analysis(conn, sample, px_start, px_end,
-                       watch_start=watch_start, watch_end=watch_end)
+                       watch_start=watch_start, watch_end=watch_end, exclude=exclude)
     print(json.dumps(out, ensure_ascii=False, indent=2))
     return 0
 
@@ -105,9 +113,6 @@ def main() -> int:
     kind = _flag("sample", "a")
     start = date.fromisoformat(_flag("start", str(START)))
     end = date.fromisoformat(_flag("end", str(END)))
-    if cmd == "analyze" and kind == "b":
-        raise SystemExit(
-            "analyze 는 표본 A·C 전용 — --sample=b 는 아직 미지원(백필 완료 후 별도 분석)")
     # 표본 C 기간 명시 강제 — 기본 2021 윈도로 독립 구간 아닌 기간을 돌리는 오발사 방지
     # (이슈 #52 prereg 실행 계획의 리터럴 커맨드와 짝)
     if cmd == "backfill" and kind == "c" and not (
