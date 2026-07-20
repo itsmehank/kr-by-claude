@@ -1,0 +1,203 @@
+# 독립 검증 구간(2017-H2~2020) 백테스트 — 사전등록 (2026-07-21, 이슈 #52)
+
+**상태: 초안 — 표본 추첨·동결·LLM 본 실행은 전부 사용자 승인 후에만 수행한다.**
+본 문서의 표본 규칙·측정 지표·판정 기준은 **결과 산출 전 고정** — 결과를 보고 바꾸지
+않는다(2026-07-02 refinement prereg §7 규율 동일). 승인 전까지 이 구간에 대한 LLM
+호출·production 쓰기는 0건이다(준비 코드는 커밋됨, 실행 게이트는 CLI 가드로 강제).
+
+---
+
+## 0. 목적 — 순환 오류 차단
+
+게이트 개선 가설(#53 사다리 재정렬·FTD 무효화, #54 바닥 예외 경로)은 전부 2021~2024
+백테스트 결과를 **보면서** 만들어졌다(final-review C2). 같은 데이터로 검증하면 순환 —
+Stage 8 바닥 파일럿에서 순환 방지 가드가 실제로 자기기만을 차단한 전례가 있다. 또한
+수익성 판정 자체가 표본 부족으로 "미입증"(backtest-profitability-results.md 남은 작업
+A). 해결: **한 번도 보지 않은 독립 구간(2017-H2~2020)** 에 동일 하네스를 적용한다.
+
+**순환 방지 가드(고정)**:
+- 이 구간 결과가 나오기 전에는 #53·#54(및 파생 게이트 개선 이슈)의 **채택 판정 금지**.
+- 이 구간 결과를 본 후 본 문서의 판정 기준·표본 규칙을 수정하는 것 금지(추가 분석은
+  "탐색적"으로 별도 표기).
+- 게이트 변형(arm) 상세 정의는 §4의 원칙 아래에서 **본 실행 승인 전·이 구간 결과 확인
+  전**에 부록(§9)으로 추가해 고정한다 — 결과를 본 뒤 arm 을 소급 정의하는 것 금지.
+
+## 1. 구간 정의
+
+| 윈도 | 기간 | 근거 |
+|---|---|---|
+| 분류(watch) 윈도 | **2017-07-01 ~ 2020-12-31** | 토요일 열거(멱등 백필 단위), 지표 금요일 기준 172주 |
+| 가격 윈도 | **2017-01-01 ~ 2021-06-30** | 선행 SMA 6개월 + forward 청산 6개월 (기존 2021-2024 ↔ 2020-07~2025-06 관례와 동일 비율) |
+
+워밍업 실측(2026-07-21, production 읽기 전용): `daily_prices`·`daily_indicators` 는
+2016-06-13 부터 존재. minervini_pass(52주 신고저 lookback)·rs_line_not_declining_7m
+포함 **production 주말 필터 통과 종목 수가 2017-H2 24주에서 주당 106~250(평균 176.4)**
+— 이후 연도 평균(2018: 142.9, 2019: 115.3, 2020: 197.6)과 동급으로 지표 기아 없음.
+2017-07 시작은 유효하다.
+
+## 2. 표본 규칙 — 표본 C (동결 전)
+
+- frame = `build_frame(2017-07-01, 2020-12-31)` — production 주말 필터(qualifying 과
+  동일 조건)를 구간 내 1회 이상 통과한 종목. **preview 실측 1,652종목**.
+- 추첨: `scripts/draw_sample_c.py --draw`, **seed 20260721**, n=100, 결정론
+  단순무작위(`sample.draw_sample`). **정확히 1회** — 이후 권위는
+  `kr_pipeline/backtest/frozen_sample_c.py`(재추첨·라이브 재계산 금지, 표본 A 드리프트
+  교훈).
+- **최소 풀 임계 300**(표본의 3배): pool < 300 이면 draw 가 거부되고 표본 규칙을
+  재설계한다(임계는 스크립트에 코드화 — 실측 1,652 로 충족).
+- **표본 A/B 와 종목 겹침 허용**: 독립성의 축은 *기간*(2017-H2~2020 vs 2021~2024)이다.
+  겹침을 배제하면 "2021-2024 에 활약한 종목 제외"라는 선택 편향이 들어간다. 겹침 수는
+  기록한다(pool 기준: A 와 76, B 와 79 겹침). `backtest_classification` 은
+  (symbol, analyzed_for_date) 단위라 기간이 달라 기존 적재와 충돌하지 않으며, 분석은
+  표본 C 목록 ∧ analyzed_for_date ∈ 분류 윈도로 구분한다.
+- 동결 절차(승인 후, **표본 B Task 1~2 방식 그대로**): `--draw` 출력 JSON 을
+  `data/backtest/sample_c_draw_20260721.json` 으로 저장 → JSON→코드 **생성 스크립트로
+  전사**(손 전사 금지 — 표본 B plan Task 2 Step 3 방식)해 `frozen_sample_c.py` 의
+  `FROZEN_SAMPLE_C` 를 채우고 `FROZEN_C_STATUS = "frozen"` → 본 문서 §9 부록에 100종목
+  기재 → `tests/test_backtest_frozen_sample_c.py` green 확인(동결 목록 = JSON 산출물
+  일치 테스트를 동결 시 함께 추가 — 표본 B `test_frozen_sample_b_matches_draw_artifact`
+  동형). 동결 전에는 CLI(`--sample=c`)가 실행을 거부한다.
+
+## 3. 측정 지표 (고정)
+
+1. **분류층**: 주간 LLM 분류(`analyze_chart_v3.md`, 모델 = production 핀) →
+   `backtest_classification` 적재. 지표: 주간 분류 분포·watch 전환·§6 순종(기존
+   백테스트와 동일 산출 경로).
+2. **트레이드층(결정론)**: `run_analysis` — 진입률, 국면별 트레이드 수, pnl_net /
+   excess_net(§2.2 비용 규칙: **2021 이전 매도 증권거래세 총률 0.30%, 2019-06-03 부터
+   0.25%**, 수수료 왕복 0.03% — `refinement.cost_pct` 에 코드화 완료), 청산가 밴드,
+   payoff ratio.
+3. **수익성 통계**: 전체·국면별 mean excess_net + **종목 클러스터 부트스트랩 95% CI**
+   (B=10,000, seed=20260721 — refinement §2.5 방법 동일).
+4. **포트폴리오층**: `run_portfolio` — Arm A(gate_mode="prod") 기준선 vs 게이트 변형
+   arm(§9 부록에서 고정). 지표: final_multiple, CAGR, MDD, avg_exposure, 진입/청산
+   통계, 가드레일(§4).
+
+## 4. 판정 기준 (고정)
+
+- **게이트 가설(#53·#54) 채택 원칙**: 독립 구간에서 (i) **방향 일치** — 2021~2024
+  구간에서 그 가설이 보인 개선 방향(해당 지표)이 재현되고, (ii) **가드레일 통과** —
+  변형 arm 의 MDD 가 Arm A 대비 5pp 초과 악화하지 않음(portfolio-sim prereg v4 관례)
+  — 두 조건을 **모두** 충족할 때만 채택 후보. 하나라도 실패하면 해당 가설은 "독립 구간
+  미재현"으로 기각 또는 재설계.
+- **수익성 보고 규율**: 전체 mean excess_net 95% CI 가 0 을 포함하면 "시장 초과
+  미입증"으로 보고(점추정 서사 금지 — refinement §2.5 동일).
+- **arm 상세**: #53·#54 의 구체 arm 구성(사다리 재정렬 파라미터·바닥 예외 경로 설정)은
+  §9 부록에 **본 실행 승인 전** 고정한다. 부록 없이 본 실행에 들어가면 포트폴리오층
+  판정은 Arm A 기준선 산출까지만 유효하다.
+- LLM 비결정성 규율: **1회 실행 → 저장 → 해석. 재실행 비교 금지**(멱등 resume 만 허용).
+
+## 5. 호출량·소요 견적 (2026-07-21 실측 기반)
+
+- 구간 총 qualifying ticker-week = **26,569**(172주 × 평균 154.5/주, production 실측).
+- 표본 100이 frame(1,652) 균등 추출일 때 기대 호출 = 26,569 × 100/1,652 ≈ **1,608회**
+  (추첨 후 실제 표본으로 재산정 — 상한 여유 ~2,000회로 계획).
+- 1건 ≈ 103s, 동시성 2(BT_CONCURRENCY, 실측 안전 상한) → 순수 연산 ≈ **23시간**.
+  사용량 한도 대기(UsageLimitError → 재실행 resume)를 감안하면 **3~7일 무인 가동**.
+- **표본 B 실증 캘리브레이션**: 표본 B(100종목 × 2021~2024 209주)는 이 방식으로
+  **1,952셀 전량 적재·오염 0으로 완주**(2026-07-21, sonnet-5 핀) = 19.5셀/종목·
+  0.093셀/종목·주. 표본 C 견적 1,608셀 = 16.1셀/종목·**0.094셀/종목·주** — 밀도가
+  실증치와 일치해 견적 신뢰 가능.
+
+## 6. 실행 계획 (승인 후 — 표본 B 검증 방식 그대로, 리터럴 커맨드)
+
+**실행 방식은 신규 설계가 아니라 어제(2026-07-21) 완주한 표본 B 백필의 검증 방식
+재사용이다** — PR #48("표본 B(독립 100종목) 백필 도구 — 동결·3중 가드·무인 루프",
+머지됨)이 확립하고 1,952셀 전량 적재·오염 0으로 실증한 패턴(계획:
+`docs/superpowers/plans/2026-07-13-sample-b-backfill.md`). §6.6 대조표 참조.
+
+전제(표본 B Task 5 게이트 동일): 표본 C 동결 완료(§2 절차), **main 머지 후 main 에서만
+기동**(런 중 브랜치 전환 금지 — 구버전 CLI 가 조용히 표본 A 로 실행되는 가짜 COMPLETE
+위험), cron LLM 은 --dry-run 유지(워치독 고아 claude pkill 과 충돌 방지),
+`uv run pytest tests/` 실패 0.
+
+```bash
+# 1) 백필 단발 (멱등 — 재실행이 곧 resume. --sample=c 는 --start/--end 명시 필수: CLI 가드)
+uv run python -m kr_pipeline.backtest.profitability_cli backfill \
+    --sample=c --start=2017-07-01 --end=2020-12-31
+
+# 2) 무인 루프: 검증된 scripts/bt_backfill_loop.sh 의 표본 C 사본
+#    scripts/bt_backfill_loop_c.sh (승인 후 작성 — 수정점은 아래 5개뿐, 구조 불변):
+#    ① BF 커맨드 = 위 1) (--sample=c --start --end 포함)
+#    ② 로그/락 경로 _b → _c (/tmp/bt_loop_c.log, /tmp/bt_backfill_c.log, /tmp/bt_loop_c.pid)
+#    ③ MAX_SYMBOLS(오염 트립와이어) = 기동 시점 distinct symbol + |표본 C 신규 symbol|
+#       (겹침 허용이라 신규 = 100 − 기적재와의 겹침 수, 동결 후 실측 확정)
+#    ④ SAFETY_ROWS = 기동 시점 행수 + 견적 1,608 × 1.5 여유
+#    ⑤ COMPLETE 판정·STUCK 감지·TRIP_SLEEP 은 그대로
+nohup bash scripts/bt_backfill_loop_c.sh >/tmp/bt_loop_c.out 2>&1 & disown
+
+# 3) 워치독(crontab, 표본 B 운용 동일): 30분마다 루프 생존 점검 — pidfile 프로세스가
+#    죽었고 로그에 COMPLETE/STUCK/TRIPWIRE 가 없으면 루프 재기동. 완주 후 crontab 제거.
+#    (기동 전 유령 점검·모니터링 치트시트는 표본 B plan Task 5 Step 3·5 그대로 재사용:
+#     pgrep 유령 확인, pidfile 확인, 적재 행수 추적, 중단 절차 = pkill 루프+백필+rm pidfile.
+#     멱등이라 어떤 중단도 무해 — 재기동이 곧 재개.)
+
+# 4) 결정론 분석 (백필 완주 후 — 윈도 4개 명시 필수: CLI 가드)
+uv run python -m kr_pipeline.backtest.profitability_cli analyze \
+    --sample=c --watch-start=2017-07-01 --watch-end=2020-12-31 \
+    --px-start=2017-01-01 --px-end=2021-06-30
+
+# 5) 포트폴리오 Arm A 기준선 + (§9 고정 후) 게이트 변형 arm
+uv run python -m kr_pipeline.backtest.portfolio \
+    --sample=c --start=2017-01-01 --end=2021-06-30 \
+    --watch-start=2017-07-01 --watch-end=2020-12-31
+```
+
+- **중단/재개**: 적재는 (symbol, analyzed_for_date) 멱등 — 어떤 중단(kill·한도·서킷·
+  재부팅) 후에도 같은 커맨드/루프 재기동이 이어서 진행. 사용량 한도는 UsageLimitError
+  로 클린 abort 후 루프가 TRIP_SLEEP 뒤 재시도, 서킷브레이커(2주 연속 실패율 ≥50%)는
+  systemic 장애 시 클린 중단. 영구 실패 셀은 STUCK 감지(동일 failures 3패스)로 수동
+  개입 전환. 완주 판정 = 루프 로그의 `=== COMPLETE ===`.
+- production 쓰기는 `backtest_classification` 단 한 테이블(본 실행 시). 모델은
+  `call_claude` 기본 핀(sonnet) 그대로 — llm_model 자동 기록.
+
+### 6.6 표본 B 방식과의 대조 (재사용 vs 차이)
+
+| 요소 | 표본 B (PR #48, 실증 완주) | 표본 C (본 prereg) |
+|---|---|---|
+| 백필 드라이버 | `run_backtest_backfill` 재사용 | **동일 코드 그대로** (기간 인자만 2017-H2~2020) |
+| 추첨 | draw 스크립트 1회 → JSON 산출물 | **동형** (`draw_sample_c.py`, seed 20260721) + preview 모드·MIN_POOL 가드 추가 |
+| 동결 | frozen 모듈 + 문서/JSON 일치 테스트 | **동형** (`frozen_sample_c.py` — 현재 pending_draw) |
+| CLI | `--sample=a\|b` + >100 가드 | **동일 CLI 확장** (`--sample=c`) + 미동결 거부·기간 명시 강제 가드 추가 |
+| 무인 운용 | bt_backfill_loop.sh + 워치독 crontab + pidfile·트립와이어·STUCK | **사본 재사용** (수정점 5개뿐 — §6 ②~④) |
+| 제외 정책 | 기적재 114 **전부 제외**(같은 2021-2024 기간 → 재백필·중복 적재 방지가 목적) | **겹침 허용**(기간이 2017-H2~2020 으로 분리 — (symbol, analyzed_for_date) 단위라 중복 적재 자체가 불가능하고, 제외하면 "2021-2024 활약 종목 배제" 선택 편향이 들어감). 겹침 수는 기록 |
+| 기간 | CLI 기본값(2021-2024) 사용 | **기본값 사용 금지** — 독립 구간이 목적이므로 기간 미명시 실행을 CLI 가 거부(오발사 방지 가드) |
+
+차이는 2건(제외 정책·기간 강제)뿐이고 둘 다 "구간이 다르다"는 본 실험의 정의에서
+직접 도출된다 — 나머지는 전부 실증된 도구의 재사용이다.
+
+## 7. 준비 상태 (이번 커밋에 포함 — LLM 0회·production 쓰기 0)
+
+- 하네스 기간 파라미터화: `run_portfolio`/`load_ticker_data`/`portfolio.main`(argv)/
+  `cmd_analyze`/`cost_pct`(2021 이전 세율) — 기본값 = 현행 동작 완전 보존(회귀 테스트).
+- 표본 C 가드: `frozen_sample_c.py`(pending_draw) + CLI 미동결 거부 + **기간 미명시
+  거부**(backfill --start/--end, analyze 윈도 4개 — 기본 2021 윈도 오발사 방지).
+- `scripts/draw_sample_c.py`: 기본 preview(읽기 전용, 본 문서 §1·§2·§5 실측치 산출에
+  사용), `--draw` 는 승인 후 1회.
+
+## 8. 한계·알려진 잔여 (본 실행 전 확인)
+
+- **portfolio.main() 잔여 하드코딩**: 벤치마크 시작일 `d0 = 2021-01-04` 와 곡선 출력
+  파일 `data/backtest/portfolio_curves_v4_20260703.json` 은 파라미터화하지 않았다 —
+  독립 구간으로 실행하면 벤치마크 윈도가 arm 과 불일치하고 기존 v4 곡선 파일을
+  덮어쓴다. **§9 arm 부록 확정 시(본 실행 전) 함께 파라미터화 필요.**
+- `stop_variant_sim.py` 는 2021 윈도 고정(미파라미터화) — 독립 구간 arm 비교의 1차
+  진입점은 portfolio.py 로 하며, stop_variant 하네스가 필요해지면 후속.
+- bt_backfill_loop 표본 C 사본(`bt_backfill_loop_c.sh`)과 워치독 crontab 등록은 승인
+  후 작성·설치(§6 ①~⑤ 수정점, 트립와이어 상한은 동결 후 실측으로 확정).
+- 호출량 견적은 frame 균등 가정 — 추첨 후 실제 표본으로 재산정.
+- 2017-H2 워밍업은 밀도로 검증했으나(§1), 분류 품질(차트 이미지·페이로드의 2017년
+  데이터 정합)은 본 실행 초기 1~2주 분을 표본 검사로 확인 후 계속 진행 권장.
+
+## 9. 부록 — 게이트 변형 arm 정의 (placeholder)
+
+**미고정.** #53·#54 설계 확정 후, 본 실행 승인 전에 이 절에 arm 구성·비교 지표를
+추가하고 그 시점의 커밋 해시를 남긴다. 이 절이 비어 있는 동안 포트폴리오층 판정
+범위는 Arm A 기준선 산출까지다.
+
+## 10. 승인 게이트 요약 (사용자 결정 대기)
+
+1. 본 사전등록(§1~§6) 승인
+2. 표본 C 추첨·동결 실행 (`--draw` 1회, §2 절차)
+3. LLM 백필 본 실행 (§6 — 비용·3~7일 무인 가동)
+4. (§9 부록 고정 후) 게이트 변형 arm 비교 실행
