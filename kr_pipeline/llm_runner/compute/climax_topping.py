@@ -29,6 +29,20 @@ from kr_pipeline.common.thresholds import (
     CLIMAX_ANCHOR_STAGE1_MIN_WEEKS,
     CLIMAX_ANCHOR_TURNUP_WEEKS,
     CLIMAX_ANCHOR_VOL_AVG_WEEKS,
+    CLIMAX_GAIN_PCT,
+    CLIMAX_MATURITY_WEEKS,
+    CLIMAX_SCOPE_CORRECTION_PCT,
+    CLIMAX_SCOPE_PAST_HIGH_WEEKS,
+    CLIMAX_UP_DAYS_PCT,
+    CLIMAX_UP_DAYS_WINDOW_MAX,
+    CLIMAX_UP_DAYS_WINDOW_MIN,
+)
+
+_GATE_KEYS = (
+    "maturity_weeks", "maturity_ok", "p2_best_roll_pct", "p2_is_steepest",
+    "p2_accel_ok", "t1_max_spread_now", "t2_max_volume_now", "t3_gap_up_today",
+    "t4_up_days_pct_max", "t4_ok", "supporting_ext_sma200_pct", "scope_active",
+    "baseline", "quality_flag",
 )
 
 
@@ -73,3 +87,136 @@ def find_anchor(weekly: list[dict]) -> dict:
                     "no_transition": False, "weeks_since": n - 1 - i}
     return {"anchor_week": None, "left_censored": False,
             "no_transition": True, "weeks_since": None}
+
+
+def _roll_gain(closes: list[float], t: int, k: int, start_idx: int) -> float | None:
+    """closes[t] 를 closes[t-k] 대비 % 수익으로 (baseline 구간[start_idx:] 밖 참조 금지)."""
+    if t - k < start_idx:
+        return None
+    prev = closes[t - k]
+    if prev is None or prev <= 0:
+        return None
+    return (closes[t] / prev - 1) * 100
+
+
+def compute_climax_gates(weekly: list[dict], daily_20d: list[dict], anchor: dict) -> dict:
+    """(#44 Task 3) §6.1 climax 게이트 산술 — 순수 함수.
+
+    weekly: [{week_end, open, high, low, close, volume}, ...] (오름차순, find_anchor 와 동일 입력)
+    daily_20d: [{date, open, high, low, close, volume}, ...] (오름차순, 최근 거래일 꼬리)
+    anchor: find_anchor(weekly) 의 반환 dict.
+
+    반환 키: maturity_weeks, maturity_ok, p2_best_roll_pct, p2_is_steepest, p2_accel_ok,
+    t1_max_spread_now, t2_max_volume_now, t3_gap_up_today, t4_up_days_pct_max, t4_ok,
+    supporting_ext_sma200_pct(값만 — 70% 판정은 프롬프트 잔류), scope_active,
+    baseline("anchored"|"no_transition"|None), quality_flag.
+
+    모드: left_censored → 전부 None(baseline 포함) / no_transition → maturity_ok=True
+    (간주 — 원 규칙 보존), 극값·P2 는 전체 이력 기준, baseline="no_transition" /
+    anchored → baseline="anchored", maturity_weeks=anchor["weeks_since"].
+
+    quality_flag: 입력 주봉에 close<=0/None 존재 시 True + weekly 값에 의존하는 게이트
+    (p2_*, t1/t2, scope_active) 는 None 강등(daily 기반인 t3/t4 는 영향 없음).
+    """
+    if anchor["left_censored"]:
+        return dict.fromkeys(_GATE_KEYS)
+
+    n = len(weekly)
+    closes = [w["close"] for w in weekly]
+    last_idx = n - 1
+    quality_flag = any(c is None or c <= 0 for c in closes)
+
+    if anchor["no_transition"]:
+        baseline = "no_transition"
+        start_idx = 0
+        maturity_weeks = None
+        maturity_ok = True  # 간주(원 규칙 보존 — v2 복원)
+    else:
+        baseline = "anchored"
+        weeks_since = anchor["weeks_since"]
+        start_idx = last_idx - weeks_since
+        maturity_weeks = weeks_since
+        maturity_ok = maturity_weeks >= CLIMAX_MATURITY_WEEKS
+
+    if quality_flag:
+        p2_best_roll_pct = p2_is_steepest = p2_accel_ok = None
+        t1_max_spread_now = t2_max_volume_now = None
+        scope_active = None
+    else:
+        # P2: k∈{1,2,3} 풀링 — best_now(마지막 주 종점) ≥ CLIMAX_GAIN_PCT AND
+        # best_now ≥ best_ever(baseline 구간 전체 최대, 동률 허용 — 프롬프트보다 엄격=보수)
+        best_ever = None
+        for t in range(start_idx, n):
+            for k in (1, 2, 3):
+                g = _roll_gain(closes, t, k, start_idx)
+                if g is not None and (best_ever is None or g > best_ever):
+                    best_ever = g
+        best_now = None
+        for k in (1, 2, 3):
+            g = _roll_gain(closes, last_idx, k, start_idx)
+            if g is not None and (best_now is None or g > best_now):
+                best_now = g
+        p2_best_roll_pct = best_now
+        p2_is_steepest = (best_now is not None and best_ever is not None
+                           and best_now >= best_ever)
+        p2_accel_ok = bool(p2_is_steepest and best_now is not None
+                            and best_now >= CLIMAX_GAIN_PCT)
+
+        # T1/T2: 마지막 주의 (high-low)/volume 이 baseline 구간 최대인가
+        spreads = [w["high"] - w["low"] for w in weekly]
+        vols = [w["volume"] or 0 for w in weekly]
+        t1_max_spread_now = spreads[last_idx] >= max(spreads[start_idx:n])
+        t2_max_volume_now = vols[last_idx] >= max(vols[start_idx:n])
+
+        # scope: 고점 주(baseline 구간 종가 최대, 동률 시 최신 우선) 경과 ≤2주
+        # AND 고점 대비 조정 ≤15% — 2주 초과 시 즉시 False(지배 규약, STALE 분기 없음)
+        high_idx, high_close = start_idx, closes[start_idx]
+        for t in range(start_idx, n):
+            if closes[t] >= high_close:
+                high_close, high_idx = closes[t], t
+        weeks_since_high = last_idx - high_idx
+        if weeks_since_high > CLIMAX_SCOPE_PAST_HIGH_WEEKS:
+            scope_active = False
+        else:
+            correction_pct = (high_close - closes[last_idx]) / high_close * 100
+            scope_active = correction_pct <= CLIMAX_SCOPE_CORRECTION_PCT
+
+    # T3: daily 마지막 행 open > 직전 행 high (사실만)
+    if len(daily_20d) >= 2:
+        t3_gap_up_today = daily_20d[-1]["open"] > daily_20d[-2]["high"]
+    else:
+        t3_gap_up_today = None
+
+    # T4: 종점=마지막 거래일 고정(trailing), 길이 7~15 전부 검사한 상승일 비율의 max.
+    # 데이터 부족(7일 미만 비교 가능) → None.
+    flags = [daily_20d[i]["close"] > daily_20d[i - 1]["close"]
+             for i in range(1, len(daily_20d))]
+    num_flags = len(flags)
+    if num_flags < CLIMAX_UP_DAYS_WINDOW_MIN:
+        t4_up_days_pct_max = None
+        t4_ok = None
+    else:
+        upper = min(CLIMAX_UP_DAYS_WINDOW_MAX, num_flags)
+        t4_up_days_pct_max = max(
+            sum(flags[-length:]) / length * 100
+            for length in range(CLIMAX_UP_DAYS_WINDOW_MIN, upper + 1))
+        t4_ok = t4_up_days_pct_max >= CLIMAX_UP_DAYS_PCT
+
+    return {
+        "maturity_weeks": maturity_weeks,
+        "maturity_ok": maturity_ok,
+        "p2_best_roll_pct": p2_best_roll_pct,
+        "p2_is_steepest": p2_is_steepest,
+        "p2_accel_ok": p2_accel_ok,
+        "t1_max_spread_now": t1_max_spread_now,
+        "t2_max_volume_now": t2_max_volume_now,
+        "t3_gap_up_today": t3_gap_up_today,
+        "t4_up_days_pct_max": t4_up_days_pct_max,
+        "t4_ok": t4_ok,
+        # daily 입력엔 sma200 이 없어 주봉 근사가 불가 — 값 미공급(None). Task 5 payload
+        # 통합 시 indicators 로 공급할지 결정(#44 Task 3 report 의 concern 참조).
+        "supporting_ext_sma200_pct": None,
+        "scope_active": scope_active,
+        "baseline": baseline,
+        "quality_flag": quality_flag,
+    }
