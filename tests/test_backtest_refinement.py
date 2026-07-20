@@ -2,6 +2,22 @@
 from datetime import date
 
 
+def test_cost_pct_pre2021_independent_window():
+    """이슈 #52: 독립 구간(2017-H2~2020) 청산 비용 — 2019-06-03 증권거래세 인하 경계.
+
+    인하 전(~2019-06-02) 총 0.30%, 인하 후(2019-06-03~2020) 0.25%. 2021+ 는 기존
+    연도별 표 그대로(회귀 가드는 test_cost_pct_by_exit_year).
+    """
+    from datetime import date
+
+    from kr_pipeline.backtest.refinement import cost_pct
+    assert cost_pct(date(2017, 7, 3)) == 0.30 + 0.03
+    assert cost_pct(date(2018, 12, 28)) == 0.30 + 0.03
+    assert cost_pct(date(2019, 6, 2)) == 0.30 + 0.03
+    assert cost_pct(date(2019, 6, 3)) == 0.25 + 0.03
+    assert cost_pct(date(2020, 12, 30)) == 0.25 + 0.03
+
+
 def test_cost_pct_by_exit_year():
     """§2.2: 매도연도 증권거래세 + 왕복 수수료 0.03%p."""
     from kr_pipeline.backtest.refinement import cost_pct

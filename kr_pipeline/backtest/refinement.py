@@ -36,7 +36,15 @@ PX_START, PX_END = date(2020, 7, 1), date(2025, 6, 30)
 
 
 def cost_pct(exit_date: date) -> float:
-    """왕복 비용 %p = 매도연도 증권거래세(농특 포함) + 수수료 0.03 (prereg §2.2)."""
+    """왕복 비용 %p = 매도연도 증권거래세(농특 포함) + 수수료 0.03 (prereg §2.2).
+
+    2021 이전(이슈 #52 독립 구간 2017-H2~2020): 2019-06-03 인하 경계 기준
+    총률 0.30% → 0.25% (KOSPI 거래세+농특, KOSDAQ 거래세 — 양 시장 총률 동일).
+    2021+ 는 기존 연도별 표 그대로(기본 동작 불변).
+    """
+    if exit_date.year < 2021:
+        tax = 0.25 if exit_date >= date(2019, 6, 3) else 0.30
+        return tax + COMMISSION_RT
     return _SELL_TAX[exit_date.year] + COMMISSION_RT
 
 
