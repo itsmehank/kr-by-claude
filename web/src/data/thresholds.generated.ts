@@ -53,6 +53,7 @@ export const KOREAN_SIGMA_RATIO_FLOOR: number = 1.0;
 export const KOREAN_SIGMA_RATIO_CEILING: number = 2.5;
 export const MARKET_DISTRIBUTION_PCT_THRESHOLD: number = -0.2;
 export const MARKET_DISTRIBUTION_LOOKBACK_DAYS: number = 25;
+export const MARKET_STALL_CLOSE_RANGE_POS_MAX: number = 0.5;
 export const FTD_RALLY_WINDOW_MIN_DAYS: number = 3;
 export const FTD_RALLY_WINDOW_MAX_DAYS: number = 15;
 export const FTD_LOW_LOOKBACK_DAYS: number = 15;

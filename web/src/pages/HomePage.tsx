@@ -231,7 +231,7 @@ function MarketBento({ context, title, code, tint }: MarketBentoProps) {
                 <>
                   <div className="font-semibold mb-1">Distribution Day</div>
                   <div>
-                    시장 지수 기준 — 지수가 {MARKET_DISTRIBUTION_PCT_THRESHOLD.toFixed(1)}% 이상 하락 + 거래량 전일 대비 증가한 날. 기관 매도 신호. (종목 레벨 distribution 은 별도 정의: prompt §6.)
+                    시장 지수 기준 — 지수가 {MARKET_DISTRIBUTION_PCT_THRESHOLD.toFixed(1)}% 이상 하락 + 거래량 전일 대비 증가한 날, 또는 stalling(거래량 증가 + 가격 정체 + 일중 하단 절반 마감 — 상단 절반 마감은 제외). 기관 매도 신호. (종목 레벨 distribution 은 별도 정의: prompt §6.)
                     최근 {MARKET_DISTRIBUTION_LOOKBACK_DAYS}일 중 5일 이상이면 약세장 시사.
                   </div>
                   <div className="text-faint mt-1 text-data-xs">

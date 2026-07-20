@@ -12,16 +12,17 @@ def load_index_daily_with_sma200(
     start: date,
     end: date,
 ) -> pd.DataFrame:
-    """지수 일봉 + 지수 자체의 SMA50, SMA200, low, yearly_high 시계열.
+    """지수 일봉 + 지수 자체의 SMA50, SMA200, high, low, yearly_high 시계열.
 
     index_daily 에는 sma 가 없으므로, 함수 내에서 rolling 으로 직접 계산.
+    high/low 는 stalling 분배일 판정(일중 마감 위치, 이슈 #55)에 사용.
 
-    return columns: date, close, volume, low, sma_50, sma_200, yearly_high
+    return columns: date, close, volume, high, low, sma_50, sma_200, yearly_high
     """
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT date, close, volume, low
+            SELECT date, close, volume, high, low
               FROM index_daily
              WHERE index_code = %s AND date BETWEEN %s AND %s
              ORDER BY date
@@ -35,6 +36,7 @@ def load_index_daily_with_sma200(
         return df
     df["close"] = df["close"].astype(float)
     df["volume"] = df["volume"].astype(float)
+    df["high"] = df["high"].astype(float)
     df["low"] = df["low"].astype(float)
     df["sma_50"] = df["close"].rolling(window=50, min_periods=50).mean()
     df["sma_200"] = df["close"].rolling(window=200, min_periods=200).mean()

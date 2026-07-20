@@ -29,6 +29,7 @@ from kr_pipeline.common.thresholds import (
     STATUS_DIST_COUNT_FOR_FTD_INVALIDATION,
     KOREAN_SIGMA_RATIO_FLOOR,
     KOREAN_SIGMA_RATIO_CEILING,
+    MARKET_STALL_CLOSE_RANGE_POS_MAX,
 )
 from kr_pipeline.market_context.compute.volatility import (
     compute_korean_sigma_pct,
@@ -61,6 +62,9 @@ COMPUTATION_NOTES = json.dumps({
     "correction_off_high_pct": STATUS_CORRECTION_OFF_HIGH_PCT,
     "downtrend_off_high_pct": STATUS_DOWNTREND_OFF_HIGH_PCT,
     "dist_count_threshold_for_ftd_invalidation": STATUS_DIST_COUNT_FOR_FTD_INVALIDATION,
+    "stall_close_range_pos_max": MARKET_STALL_CLOSE_RANGE_POS_MAX,
+    "stall_note": ("issue #55: stalling/churning counted as distribution — "
+                   "0<=chg%<=|dist_pct| on higher volume, close in lower half of range"),
 }, ensure_ascii=False)
 
 
