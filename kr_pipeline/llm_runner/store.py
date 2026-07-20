@@ -80,6 +80,13 @@ def _watch_reason(result: dict) -> str | None:
 
     분류가 watch 가 아니면(혹은 phase1 게이트가 강등했으면) 사유를 비워
     'watch_reason 은 watch 일 때만' 불변식 보장 + breakout_from_watch 오발화 방지.
+
+    (#44 D2-b) 6번째 값 'suspected_climax_stage_indeterminate' 존재(§6.1 climax
+    판정 불능 — Task 9 프롬프트 개정). 이 함수는 값을 검증하지 않는 의도적
+    pass-through — enum 강제 지점은 여기가 아니라 프롬프트(§8.5 표·출력 스키마)다.
+    이 사유는 trigger_gate.ALLOWED_WATCH_REASONS 에 비포함이므로 breakout_from_watch
+    가 발화하지 않고 promotion 으로만 흐른다(go_now 금지) — extended 와 동급 취급,
+    재트리거 비대상. 회귀 고정: tests/test_climax_shadow_backstop.py.
     """
     if result.get("classification") != "watch":
         return None
