@@ -297,6 +297,9 @@ def compute_topping_gates(weekly: list[dict], dist_count_25s: int | None, anchor
         start_idx = 0 if anchor["no_transition"] else last_idx - anchor["weeks_since"]
         declines: dict[int, float] = {}
         down_vols: dict[int, float] = {}
+        # anchor 주(i=start_idx) 자체도 후보에 포함하되 하락 판정은 anchor "이전" 주
+        # 대비다 — §6.1 baseline 이 anchor 주를 포함하는 관례(P2/T1/T2)와 일관 정렬.
+        # anchor 주는 정의상 상승 확정 주라 실발화는 사실상 없음(Task 4 리뷰 확정 해석).
         for i in range(max(start_idx, 1), n):
             prev = closes[i - 1]
             if prev is None or prev <= 0 or closes[i] >= prev:

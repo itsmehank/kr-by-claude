@@ -380,7 +380,9 @@ current week, **anchor week itself included** — not "the week after the anchor
   불가능한 진짜 결측): §6.1 의 모든 필드가 `null`(`maturity_ok`·`p2_*`·`t1_max_spread_now`·
   `t2_max_volume_now`·`scope_active`·`quality_flag_climax` 포함) — climax_run 을 발화하지
   말 것(전제 판정 불능 = 미충족과 동일 취급). §6.2 의 anchor 비의존 게이트(아래 참조)는
-  이 모드에서도 정상 계산된다.
+  이 모드에서도 정상 계산된다. 예외: `supporting_ext_sma200_pct` 는 anchor 와 무관한
+  일봉 지표(SMA-200 이격)라 이 모드에서도 값이 공급될 수 있다 — supporting 은 어차피
+  단독 불충분 신호이므로 참고만 하고, null 인 §6.1 게이트의 대체 근거로 쓰지 말 것.
 - `no_transition=True` (이력은 충분하나(>50주) 전 이력에 Stage 1→2 전환 조건을 만족하는
   주가 전무 — 예: 줄곧 Stage 2 상승): `anchor_week=null` 이지만 게이트 거부가 아니다. P1
   은 충족 간주로 이미 공급됨(`maturity_ok=True`), P2/T1/T2/scope 극값은 anchor 없이 **전체

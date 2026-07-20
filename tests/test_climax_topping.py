@@ -171,3 +171,39 @@ def test_topping_dist_none_conservative():
     g = compute_topping_gates(wk, dist_count_25s=None, anchor=anchor)
     assert g["td_dist_ok"] is None
     assert g["g0_below_10w"] is False  # dist 결측과 무관하게 계산됨(독립성)
+
+
+# ---- triage 회귀 고정 (PR #56 최종 리뷰 이월 — scope 엣지 2본) ----
+
+
+def test_scope_high_tie_uses_most_recent_occurrence():
+    """고점 동률 시 '가장 최근 발생' 기준으로 경과를 세는 확정 해석의 회귀 고정.
+
+    최고 종가 1800 이 idx85·idx87 두 번 등장 — 최근(idx87) 기준 경과 1주(≤2)라
+    scope_active=True 여야 한다. 이전 발생(idx85) 기준이면 경과 3주로 False 가 되므로
+    이 픽스처는 두 해석을 판별한다(Task 3 리뷰 확정 해석의 테스트 공백 보강).
+    """
+    rows = _drift(65, 1000.0, 980.0) + [(1100.0, 260_000)] \
+        + [(1100.0 + 35 * i, 110_000) for i in range(1, 21)] \
+        + [(1750.0, 100_000), (1800.0, 100_000), (1790.0, 100_000)]
+    wk = _mk_weeks(rows)
+    anchor = find_anchor(wk)
+    assert anchor["anchor_week"] == wk[65]["week_end"]
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=5), anchor)
+    assert g["scope_active"] is True  # 최근 고점(1주 전) 기준 — 동률 최근 채택
+
+
+def test_climax_gates_anchor_at_last_week_conservative():
+    """anchor 가 마지막 주(weeks_since=0)인 극단에서 보수 폴백 회귀 고정.
+
+    성숙(maturity_ok)은 False 로 확정되고, P2 는 True 로 새지 않는다 —
+    best_ever 부재 극단이 발화 전제를 만들지 못함(최종 리뷰 이월 항목).
+    """
+    rows = _drift(65, 1000.0, 980.0) + [(1100.0, 260_000)]
+    wk = _mk_weeks(rows)
+    anchor = find_anchor(wk)
+    assert anchor["weeks_since"] == 0
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=5), anchor)
+    assert g["maturity_ok"] is False
+    assert g["p2_accel_ok"] is not True
+    assert g["p2_is_steepest"] is not True

@@ -382,7 +382,8 @@ CLIMAX_GAIN_WINDOW_WEEKS: Final[int] = 3
 """[PRESERVES] climax 상승률 측정 창 상한(주). HMMS p.262-263 '1-2 weeks', TTLC '1-3 weeks'."""
 
 CLIMAX_UP_DAYS_PCT: Final[float] = 70.0
-"""[PRESERVES] climax T4 트리거: 윈도우 내 상승일 비율 임계. TTLC Ch.9 / HMMS p.263 (#4)."""
+"""[PRESERVES] climax T4 트리거: 윈도우 내 상승일 비율 임계. 공식(70%·7~15일) 출처는
+TTLC Ch.9 — HMMS p.263 (#4) 는 '7 of 8 or 8 of 10' 로 별도 서술(2026-07-21 외부 자문 정정)."""
 CLIMAX_UP_DAYS_WINDOW_MIN: Final[int] = 7
 CLIMAX_UP_DAYS_WINDOW_MAX: Final[int] = 15
 """[PRESERVES] T4 상승일 측정 윈도우 (거래일 7~15). TTLC Ch.9."""
