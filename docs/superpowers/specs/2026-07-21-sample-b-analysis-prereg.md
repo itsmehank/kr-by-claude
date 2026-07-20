@@ -38,12 +38,16 @@
   R_up = entry-rate(confirmed_uptrend 국면 분류점). 국면 = analyzed_for_date 의
   시장상태(`phases.py`), 엔진 = `entry_rate_by_phase`(표본 B 리스트 필터).
 - **기준: R_down / R_up ≤ 0.5 → PASS** (A 와 동일. A 실측 0/1,075 ÷ 1/292 = 0.0).
-  R_up = 0 이면 A 코드의 기존 가드 규약을 따른다.
+  R_up = 0 이면 코드 규약대로 **ratio 미정의 → 자동 PASS 없음, 수동 해석**
+  (`profitability_run.py` gate_71: pass=False + note).
 
 ### P2. 트리거확인층 감사 (개선 1 대칭)
 - 대상: 결정론 트레이드 시뮬(보정 후, §3 상수)이 만든 진입 중 진입일 국면 ∈
   {downtrend, correction} 전건. 각 건에 5b LLM 확인(`evaluate_pivot_trigger_v1.md`,
   build_for_5b prior_row 주입, sonnet 핀) 1회 실행.
+- **A 와의 의도적 차이**: A 감사는 1차(비보정) 66 트레이드 기준 33건이었으나,
+  B 는 **보정 후** 트레이드 기준이다 — 5% 추격 룰이 반영된 실전 정합 집합을
+  감사하는 것이 목적에 더 맞다(감사와 보정이 병행 개발됐던 A 의 시점 제약 제거).
 - **기준(A prereg 원문 복사): G = go_now 건수 / 대상 건수 (wait·abort = 차단).
   G ≤ 0.5 → 트리거 확인 층의 게이트 방어 입증. G > 0.5 → §3.5 프롬프트 재검토 대상.**
 - 기록: `data/backtest/trigger_audit_sample_b_20260721.json` (신규 파일 — A 의
@@ -87,6 +91,9 @@
 - `refinement.py:110`, `portfolio.py:427`, `trigger_audit.py:48` 의 FROZEN_SAMPLE
   하드코딩을 **ticker 리스트 파라미터화(default=표본 A, 기존 동작 불변)**.
   `trigger_audit` 의 AUDIT_PATH 도 파라미터화(신규 파일 경로).
+- **시드 파라미터화**: `refinement.py:31` 의 `SEED = 20260702` 모듈 상수 하드코딩을
+  파라미터화(default=20260702 로 A 재현 불변, B 실행 시 20260721 전달) — 누락 시
+  B 분석이 A 시드로 돌게 되므로 명시 항목으로 잠금.
 - `profitability_cli analyze --sample=b` 허용(현재 명시 거부 상태 해제).
 - 전부 `kr_pipeline/backtest/` 한정, production 코드 무접촉.
 - **회귀 가드: 파라미터화 후 표본 A `analyze` 결과가 기존과 동일함을 확인**
