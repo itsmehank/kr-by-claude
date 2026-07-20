@@ -24,7 +24,7 @@ def test_daily_delta_dry_run(db, mocker):
     import kr_pipeline.llm_runner.daily_delta as dd
 
     mocker.patch.object(dd, "build_analysis_inline",
-                        return_value=("inline", ["/tmp/_ddpng/daily_chart.png", "/tmp/_ddpng/weekly_chart.png"], b"fake_freeze"))
+                        return_value=("inline", ["/tmp/_ddpng/daily_chart.png", "/tmp/_ddpng/weekly_chart.png"], b"fake_freeze", {}))
     freeze = mocker.patch.object(dd, "save_freeze")
 
     result = dd.run(db, dry_run=True, as_of=today)
@@ -45,7 +45,7 @@ def test_daily_delta_zip_excludes_prior_analysis_and_pins_as_of(db, mocker):
     from datetime import date
     import kr_pipeline.llm_runner.daily_delta as dd
     inline_mock = mocker.patch.object(dd, "build_analysis_inline",
-                                      return_value=("inline", ["/tmp/_ddpng/daily_chart.png", "/tmp/_ddpng/weekly_chart.png"], b"fake_freeze"))
+                                      return_value=("inline", ["/tmp/_ddpng/daily_chart.png", "/tmp/_ddpng/weekly_chart.png"], b"fake_freeze", {}))
     mocker.patch.object(dd, "save_freeze")
     with db.cursor() as cur:
         cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('DDZC1','T','KOSPI') ON CONFLICT DO NOTHING")
