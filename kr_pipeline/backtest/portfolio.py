@@ -3,7 +3,11 @@
 규칙 출처: Minervini/O'Neil 에이전트 v1.1 + 구현측 보완 §4 (사전등록 문서 참조).
 DB-free 코어(run_portfolio) + DB 로더(load_ticker_data) 분리.
 
-  python -m kr_pipeline.backtest.portfolio    # 6 시나리오(S1~S3 × incl/excl) 실행
+  python -m kr_pipeline.backtest.portfolio    # 기본: 표본 A, 2021~2025 윈도 (불변)
+  # 독립 검증 구간(이슈 #52, 표본 C 동결 후 — prereg 승인 전 실행 금지):
+  python -m kr_pipeline.backtest.portfolio --sample=c \
+      --start=2017-01-01 --end=2021-06-30 \
+      --watch-start=2017-07-01 --watch-end=2020-12-31
 """
 from __future__ import annotations
 
@@ -61,6 +65,8 @@ class PortfolioConfig:
     max_chase_pct: float = 5.0
     tranche_fracs: tuple = (0.5, 0.3, 0.2)   # T1/T2/T3
     tranche_mults: tuple = (1.02, 1.04)       # T2/T3 트리거 (T1가 대비)
+    start: date = START             # 매매 윈도 (이슈 #52: 기간 주입 — 기본 = 현행)
+    end: date = END
 
 
 @dataclass
@@ -101,7 +107,7 @@ def _sell_value(qty: float, close: float, d: date) -> float:
 def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
     bar_idx = {t: {b.d: b for b in td.bars} for t, td in data.items()}
     all_dates = sorted({b.d for td in data.values() for b in td.bars
-                        if START <= b.d <= END})
+                        if cfg.start <= b.d <= cfg.end})
     cash = cfg.initial_capital
     positions: dict[str, Position] = {}
     entered_pivots: set[tuple] = set()
@@ -417,21 +423,25 @@ def _validation(exits: list[dict]) -> dict:
 
 # ── DB 로더 + 시나리오 러너 ─────────────────────────────────────────────────
 
-def load_ticker_data(conn) -> dict[str, TickerData]:
+def load_ticker_data(conn, tickers: list[str] | None = None, *,
+                     start: date = START, end: date = END,
+                     watch_start: date = WATCH_START,
+                     watch_end: date = WATCH_END) -> dict[str, TickerData]:
+    """기본(인자 없음) = 표본 A · 2021~2025 윈도 — 현행 동작 불변 (이슈 #52 파라미터화)."""
     from kr_pipeline.backtest.market_regime import (
         compute_variant_status, compute_market_extras)
     pmaps: dict[str, list] = {}
     vmaps: dict[str, dict] = {}
     xmaps: dict[str, dict] = {}
     out: dict[str, TickerData] = {}
-    for ticker in FROZEN_SAMPLE:
+    for ticker in (FROZEN_SAMPLE if tickers is None else tickers):
         market = _market_of(conn, ticker)
         code = ph.INDEX_OF.get(market, "1001")
-        bars = load_daily_series(conn, ticker, START, END)
+        bars = load_daily_series(conn, ticker, start, end)
         if code not in pmaps:
             pmaps[code] = ph.load_phase_map(conn, code)
-            vmaps[code] = compute_variant_status(conn, code, START, END)
-            xmaps[code] = compute_market_extras(conn, code, END)
+            vmaps[code] = compute_variant_status(conn, code, start, end)
+            xmaps[code] = compute_market_extras(conn, code, end)
         phase_by_date = {b.d: ph.phase_at(pmaps[code], b.d) for b in bars}
         phase_variant_by_date = {b.d: vmaps[code].get(b.d) for b in bars}
         bottoming_by_date = {b.d: xmaps[code].get(b.d, {}).get("bottoming",
@@ -443,11 +453,11 @@ def load_ticker_data(conn) -> dict[str, TickerData]:
             cur.execute(
                 "SELECT date, rs_rating FROM daily_indicators "
                 "WHERE ticker = %s AND date BETWEEN %s AND %s",
-                (ticker, START, END))
+                (ticker, start, end))
             rs = {r[0]: r[1] for r in cur.fetchall()}
         out[ticker] = TickerData(
             market=market, bars=bars,
-            watch_rows=load_watchlist(conn, ticker, WATCH_START, WATCH_END,
+            watch_rows=load_watchlist(conn, ticker, watch_start, watch_end,
                                       table=BT_TABLE),
             rs_by_date=rs, phase_by_date=phase_by_date,
             phase_variant_by_date=phase_variant_by_date,
@@ -504,14 +514,52 @@ ARMS = {
 }
 
 
+def _parse_args(argv: list[str]) -> dict:
+    """플래그 없으면 현행 상수 그대로 — 기본 실행 불변 (이슈 #52 기간 파라미터화)."""
+    def flag(name: str, default: str) -> str:
+        prefix = f"--{name}="
+        for a in argv:
+            if a.startswith(prefix):
+                return a.split("=", 1)[1]
+        return default
+    return {
+        "kind": flag("sample", "a"),
+        "start": date.fromisoformat(flag("start", str(START))),
+        "end": date.fromisoformat(flag("end", str(END))),
+        "watch_start": date.fromisoformat(flag("watch-start", str(WATCH_START))),
+        "watch_end": date.fromisoformat(flag("watch-end", str(WATCH_END))),
+    }
+
+
+def _resolve_sample(kind: str) -> list[str]:
+    """a = 동결 표본 A. c = 동결 표본 C(미동결이면 거부 — 이슈 #52 준비 상태 가드)."""
+    if kind == "a":
+        return list(FROZEN_SAMPLE)
+    if kind == "c":
+        import kr_pipeline.backtest.frozen_sample_c as fc
+        if not fc.FROZEN_SAMPLE_C:
+            raise SystemExit(
+                "표본 C 미동결(pending_draw) — 사전등록 "
+                "(2026-07-21-independent-window-backtest-prereg.md) 승인 후 "
+                "scripts/draw_sample_c.py --draw 1회 실행으로 동결하라")
+        return list(fc.FROZEN_SAMPLE_C)
+    raise SystemExit(f"unknown --sample: {kind!r} (a|c)")
+
+
 def main() -> int:
     from kr_pipeline.db.connection import connect
+    args = _parse_args(sys.argv[1:])
+    tickers = _resolve_sample(args["kind"])
     with connect() as conn:
-        data = load_ticker_data(conn)
+        data = load_ticker_data(conn, tickers,
+                                start=args["start"], end=args["end"],
+                                watch_start=args["watch_start"],
+                                watch_end=args["watch_end"])
         out = {"prereg": "2026-07-02-portfolio-sim-prereg.md v4", "arms": {}}
         curves = {}
         for key, flags in ARMS.items():
-            r = run_portfolio(data, PortfolioConfig(**flags))
+            r = run_portfolio(data, PortfolioConfig(
+                **flags, start=args["start"], end=args["end"]))
             curves[key] = r.pop("curve")
             if flags.get("pilot_mode"):
                 out["pilot_report"] = pilot_report(r["stats"]["exits"])

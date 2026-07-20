@@ -19,10 +19,12 @@ def test_sample_b_returns_frozen_b_regardless_of_db(db):
 
 
 def test_sample_unknown_kind_rejected(db):
+    """미지 kind 는 거부 — 'c' 는 이제 알려진(보류) kind 라 별도 테스트에서 다룬다
+    (tests/test_backtest_frozen_sample_c.py)."""
     import pytest
     from kr_pipeline.backtest.profitability_cli import _sample
     with pytest.raises(SystemExit):
-        _sample(db, "c")
+        _sample(db, "z")
 
 
 def test_backfill_guard_rejects_oversized_sample(db, monkeypatch):

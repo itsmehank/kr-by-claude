@@ -224,3 +224,56 @@ def test_scaleup_via_ftd_enters_normal_size():
     assert r["stats"]["n_scaled_entries"] == 1
     assert abs(r["stats"]["entry_amounts"][0] - 0.15625 * 100_000_000) < 1.0
     assert r["stats"]["scaleup_triggers"] == {"i_ftd": 1}
+
+
+# ── 이슈 #52: 기간 파라미터화 (독립 검증 구간 2017-H2~2020 준비) ──────────────
+
+
+def test_config_default_window_matches_current_constants():
+    """기본값 = 현행 하드코딩 상수 — 인자 없는 호출의 동작 불변(회귀 가드)."""
+    from kr_pipeline.backtest.portfolio import END, START, PortfolioConfig
+    cfg = PortfolioConfig()
+    assert cfg.start == START == date(2021, 1, 1)
+    assert cfg.end == END == date(2025, 6, 30)
+
+
+def test_window_injection_excludes_out_of_window_bars():
+    """주입 윈도 밖 bar 는 거래일 집합에서 제외 — 2017 bar 는 기본 cfg 로는 트레이드 0,
+    2017 윈도 주입 시 진입 발생."""
+    start = date(2017, 1, 9)
+    bars = _bars(start, [(98, 200, 96), (104, 200, 97.76)])
+    r_default = _run({"A": _tdata(bars)})
+    assert r_default["stats"]["n_entries"] == 0
+    assert r_default["curve"] == []
+    r_2017 = _run({"A": _tdata(bars)},
+                  start=date(2017, 1, 1), end=date(2017, 12, 31))
+    assert r_2017["stats"]["n_entries"] == 1
+
+
+def test_parse_args_defaults_and_flags():
+    """portfolio main argv — 플래그 없으면 현행 상수, 플래그 주면 독립 구간."""
+    from kr_pipeline.backtest.portfolio import (
+        END, START, WATCH_END, WATCH_START, _parse_args)
+    d = _parse_args([])
+    assert d == {"kind": "a", "start": START, "end": END,
+                 "watch_start": WATCH_START, "watch_end": WATCH_END}
+    d2 = _parse_args(["--sample=c", "--start=2017-01-01", "--end=2021-06-30",
+                      "--watch-start=2017-07-01", "--watch-end=2020-12-31"])
+    assert d2 == {"kind": "c",
+                  "start": date(2017, 1, 1), "end": date(2021, 6, 30),
+                  "watch_start": date(2017, 7, 1),
+                  "watch_end": date(2020, 12, 31)}
+
+
+def test_resolve_sample_a_and_pending_c():
+    """표본 결정: a = 동결 100, c 미동결 = SystemExit, unknown = SystemExit."""
+    import pytest
+    import kr_pipeline.backtest.frozen_sample_c as fc
+    from kr_pipeline.backtest.frozen_sample import FROZEN_SAMPLE
+    from kr_pipeline.backtest.portfolio import _resolve_sample
+    assert _resolve_sample("a") == list(FROZEN_SAMPLE)
+    if fc.FROZEN_C_STATUS == "pending_draw":
+        with pytest.raises(SystemExit):
+            _resolve_sample("c")
+    with pytest.raises(SystemExit):
+        _resolve_sample("b")
