@@ -5,6 +5,11 @@ from psycopg import Connection
 from api.services.market_context_builder import build_market_context
 from api.services.corporate_actions_builder import build_corporate_actions
 from api.services.minervini_detail_builder import build_minervini_detail
+from kr_pipeline.llm_runner.compute.climax_topping import (
+    compute_climax_gates,
+    compute_topping_gates,
+    find_anchor,
+)
 from kr_pipeline.common.thresholds import (
     MARKET_DIST_DEMOTION_COUNT_25S,
     MARKET_DIST_NORMAL_MAX_25S,
@@ -97,6 +102,22 @@ def _market_direction_gate(market_context: dict) -> dict:
     }
 
 
+def _dist_count_25s(indicators_60d: list) -> int | None:
+    """(#44 Task 5) T-D 분배일 카운트 입력 — indicators_recent_60d 의 마지막 25행 기준.
+
+    null=보수(brief 규약): 25행 미만이거나, 마지막 25행 중 하나라도
+    distribution_day_flag 가 None(미산출)이면 부분 결측을 조용히 과소계수하지
+    않고 전체를 None 으로 반환한다.
+    """
+    if len(indicators_60d) < 25:
+        return None
+    last_25 = indicators_60d[-25:]
+    flags = [row.get("distribution_day_flag") for row in last_25]
+    if any(f is None for f in flags):
+        return None
+    return sum(1 for f in flags if f is True)
+
+
 def build_payload(conn: Connection, ticker: str, on_date: date | None = None) -> dict:
     """payload.json 의 전체 딕셔너리 생성."""
     if on_date is None:
@@ -127,6 +148,27 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
     market_context = build_market_context(conn, market, on_date)
     price_data_notes = build_corporate_actions(conn, ticker, lookback_years=5, as_of_date=on_date)
 
+    # (#44 Task 5) climax/topping 게이트 통합 — anchor 전 이력 탐색 + §6.1/§6.2 산술
+    weekly_full = _fetch_weekly_full(conn, ticker, on_date)
+    anchor = find_anchor(weekly_full)
+    climax_topping_gates = {
+        **compute_climax_gates(weekly_full, daily_ohlcv[-20:], anchor),
+        **compute_topping_gates(weekly_full, _dist_count_25s(indicators_60d), anchor),
+        "anchor_week": anchor["anchor_week"],
+        "left_censored": anchor["left_censored"],
+        "no_transition": anchor["no_transition"],
+    }
+    # supporting_ext_sma200_pct: Task 3 는 daily 입력에 sma200 부재로 None 고정 —
+    # Task 5 에서 indicators_60d(마지막 행의 sma_200·adj_close) 로 공급하기로 확정
+    # (Task 3 report 의 concern 해소). 둘 중 하나라도 미산출이면 None 유지(보수).
+    last_ind = indicators_60d[-1] if indicators_60d else None
+    if last_ind is not None and last_ind["sma_200"] is not None and last_ind["adj_close"] is not None:
+        climax_topping_gates["supporting_ext_sma200_pct"] = (
+            last_ind["adj_close"] / last_ind["sma_200"] - 1
+        ) * 100
+    else:
+        climax_topping_gates["supporting_ext_sma200_pct"] = None
+
     return {
         "symbol": ticker,
         "name": name,
@@ -145,6 +187,7 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
         "indicators_recent_60d": indicators_60d,
         "market_context": market_context,
         "price_data_notes": price_data_notes,
+        "climax_topping_gates": climax_topping_gates,
     }
 
 
@@ -238,6 +281,43 @@ def _fetch_weekly_ohlcv(conn: Connection, ticker: str, on_date: date, weeks: int
             "volume": int(round(float(r[5]))) if r[5] is not None else None,
         }
         for r in reversed(rows)
+    ]
+
+
+def _fetch_weekly_full(conn: Connection, ticker: str, on_date: date) -> list:
+    """(#44 Task 5) climax/topping anchor 탐색용 — 주봉 전 이력, LIMIT 없음, 오름차순.
+
+    _fetch_weekly_ohlcv(:216) 와 동일 소스·adj 정합 규약이나: LIMIT 없이 전 이력을
+    가져오고(anchor 는 임의 시점 이전 이력을 뒤로 거슬러 탐색해야 하므로 104주로
+    자를 수 없음), zero-bar(거래정지/무거래주) 제외 규약을 daily(:199)와 동일하게
+    추가한다(주봉은 daily 와 달리 이 규약이 없었음 — climax/topping SMA 산술에
+    0-바가 섞이면 오염).
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT week_end_date,
+                   COALESCE(adj_open,  open)   AS o,
+                   COALESCE(adj_high,  high)   AS h,
+                   COALESCE(adj_low,   low)    AS l,
+                   COALESCE(adj_close, close)  AS c,
+                   COALESCE(adj_volume,volume) AS v
+              FROM weekly_prices
+             WHERE ticker = %s AND week_end_date <= %s
+               -- 거래정지/무거래주(OHLV·volume 0) 제외: daily(:199)와 동일 규약
+               AND NOT (open = 0 AND high = 0 AND low = 0 AND volume = 0)
+             ORDER BY week_end_date ASC
+        """, (ticker, on_date))
+        rows = cur.fetchall()
+    return [
+        {
+            "week_end": r[0].isoformat(),
+            "open": float(r[1]),
+            "high": float(r[2]),
+            "low": float(r[3]),
+            "close": float(r[4]),
+            "volume": int(round(float(r[5]))) if r[5] is not None else None,
+        }
+        for r in rows
     ]
 
 
