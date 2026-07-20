@@ -109,13 +109,15 @@ def _mdd_pct(bars, entry_i: int, exit_i: int, entry_close: float) -> float:
     return round((lowest / entry_close - 1) * 100, 2)
 
 
-def build_refined_trades(conn: Connection) -> tuple[list[dict], int]:
+def build_refined_trades(conn: Connection,
+                         tickers: list[str] | None = None) -> tuple[list[dict], int]:
     """보정 트레이드 셋(5% 룰 + 비용 + 밴드 + MDD) + promotion 총수."""
+    tickers = list(tickers) if tickers is not None else list(FROZEN_SAMPLE)
     pmaps: dict[str, list] = {}
     idx_cache: dict[str, dict] = {}
     out: list[dict] = []
     promotions = 0
-    for ticker in FROZEN_SAMPLE:
+    for ticker in tickers:
         market = _market_of(conn, ticker)
         code = ph.INDEX_OF.get(market, "1001")
         if code not in pmaps:
@@ -202,18 +204,20 @@ def run_placebo(conn: Connection, trades: list[dict], *,
     }
 
 
-def run_refinement(conn: Connection) -> dict:
-    trades, promotions = build_refined_trades(conn)
+def run_refinement(conn: Connection, *, tickers: list[str] | None = None,
+                   seed: int = SEED,
+                   prereg_label: str = "2026-07-02-backtest-refinement-prereg.md §2·§3") -> dict:
+    trades, promotions = build_refined_trades(conn, tickers=tickers)
     in_window = [t for t in trades if t["entry_date"] <= END]
-    ci_all = cluster_bootstrap_ci(trades)
-    ci_phase = {p: cluster_bootstrap_ci([t for t in trades if t["phase"] == p])
+    ci_all = cluster_bootstrap_ci(trades, seed=seed)
+    ci_phase = {p: cluster_bootstrap_ci([t for t in trades if t["phase"] == p], seed=seed)
                 for p in {t["phase"] for t in trades if t["phase"]}}
-    placebo = run_placebo(conn, trades)
+    placebo = run_placebo(conn, trades, seed=seed)
     mean_all = round(sum(t["excess_net"] for t in trades) / len(trades), 3)
     return {
-        "prereg": "2026-07-02-backtest-refinement-prereg.md §2·§3",
+        "prereg": prereg_label,
         "params": {"max_chase_pct": MAX_CHASE_PCT, "commission_rt": COMMISSION_RT,
-                   "sell_tax": _SELL_TAX, "seed": SEED, "bootstrap_b": BOOT_B,
+                   "sell_tax": _SELL_TAX, "seed": seed, "bootstrap_b": BOOT_B,
                    "placebo_n": PLACEBO_N},
         "n_trades": len(trades),
         "promotions": promotions,
@@ -235,10 +239,28 @@ def run_refinement(conn: Connection) -> dict:
     }
 
 
+def _flag(name: str, default: str) -> str:
+    prefix = f"--{name}="
+    for a in sys.argv[1:]:
+        if a.startswith(prefix):
+            return a.split("=", 1)[1]
+    return default
+
+
 def main() -> int:
     from kr_pipeline.db.connection import connect
+    kind = _flag("sample", "a")
+    seed = int(_flag("seed", str(SEED)))
+    tickers = None
+    label = "2026-07-02-backtest-refinement-prereg.md §2·§3"
+    if kind == "b":
+        from kr_pipeline.backtest.frozen_sample_b import FROZEN_SAMPLE_B
+        tickers = list(FROZEN_SAMPLE_B)
+        label = "2026-07-21-sample-b-analysis-prereg.md P3"
+    elif kind != "a":
+        raise SystemExit(f"unknown --sample: {kind!r} (a|b)")
     with connect() as conn:
-        out = run_refinement(conn)
+        out = run_refinement(conn, tickers=tickers, seed=seed, prereg_label=label)
     print(json.dumps(out, ensure_ascii=False, indent=2))
     return 0
 
