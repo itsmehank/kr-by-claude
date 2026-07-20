@@ -36,6 +36,8 @@ from kr_pipeline.common.thresholds import (
     CLIMAX_UP_DAYS_PCT,
     CLIMAX_UP_DAYS_WINDOW_MAX,
     CLIMAX_UP_DAYS_WINDOW_MIN,
+    STOCK_DISTRIBUTION_COUNT_25D,
+    TOPPING_BELOW_10W_WEEKS,
 )
 
 _GATE_KEYS = (
@@ -218,5 +220,106 @@ def compute_climax_gates(weekly: list[dict], daily_20d: list[dict], anchor: dict
         "supporting_ext_sma200_pct": None,
         "scope_active": scope_active,
         "baseline": baseline,
+        "quality_flag": quality_flag,
+    }
+
+
+def compute_topping_gates(weekly: list[dict], dist_count_25s: int | None, anchor: dict) -> dict:
+    """(#44 Task 4) §6.2 topping 게이트 산술 — 순수 함수.
+
+    weekly: find_anchor 와 동일 입력(오름차순, adj 전 이력).
+    dist_count_25s: 종목 25세션 분배일 카운트(payload_builder 산출). 결측 시 None.
+    anchor: find_anchor(weekly) 의 반환 dict.
+
+    반환 키: g0_below_10w, tb_weeks_below_10w, tb_ok, td_max_down_volume_now,
+    td_dist_ok, ta_max_decline_now, tc_sma40_turndown, tc_prolonged_ok, quality_flag.
+
+    anchor 비의존(항상 계산 — 판정 가능한 것을 null 화하지 않음, 라운드 2 N3):
+    - G0 = 마지막 주 종가 < 10주 SMA.
+    - T-B = G0 기준 SMA 로 마지막 주부터 trailing 연속 close<10주SMA 주수 ≥
+      TOPPING_BELOW_10W_WEEKS(8) → tb_ok.
+    - T-D 분배일: td_dist_ok = dist_count_25s ≥ STOCK_DISTRIBUTION_COUNT_25D(4).
+      dist_count_25s 가 None 이면 td_dist_ok 도 None(null=보수 — g0/tb 와 별개 입력이라
+      서로 영향 없음).
+    - T-C 턴다운: tc_sma40_turndown = 40주 SMA 가 직전 주 대비 하락.
+
+    anchor 의존(anchored → anchor 이후 baseline, no_transition → 전체 이력,
+    left_censored → None):
+    - T-A: 마지막 주 전주比 하락률이 baseline 구간 하락 주 중 최대인가.
+    - T-D 거래량: 마지막 주 거래량이 baseline 구간 '하락 주(전주比 종가 하락 — 브리프
+      침묵으로 이 정의 채택, 명시)' 중 최대인가. baseline 내 하락 주가 전무하면
+      마지막 주도 하락 주가 아니므로 False(최대가 될 자격조차 없음 — None 아님).
+    - T-C prolonged(D5② — shadow 관측 전용, would_force 비참여): anchored 전용 —
+      maturity(anchor["weeks_since"]) ≥ CLIMAX_MATURITY_WEEKS(18). no_transition/
+      left_censored 는 None(고정 기산일이 없어 '경과 주수'가 정의되지 않음).
+
+    quality_flag: 입력 주봉에 close<=0/None 존재 시 True + weekly 값에 의존하는 게이트
+    (g0/tb/tc_sma40_turndown/ta/td거래량) None 강등(Task 3 과 동일 규약). td_dist_ok 는
+    dist_count_25s 라는 별개 입력에만 의존하므로 quality_flag 와 무관하게 유지.
+    """
+    closes = [w["close"] for w in weekly]
+    vols = [w["volume"] or 0 for w in weekly]
+    n = len(weekly)
+    last_idx = n - 1
+    quality_flag = any(c is None or c <= 0 for c in closes)
+
+    td_dist_ok = (None if dist_count_25s is None
+                  else dist_count_25s >= STOCK_DISTRIBUTION_COUNT_25D)
+
+    if quality_flag:
+        g0_below_10w = None
+        tb_weeks_below_10w = None
+        tb_ok = None
+        tc_sma40_turndown = None
+    else:
+        s10_last = _sma(closes, last_idx, 10)
+        g0_below_10w = None if s10_last is None else closes[last_idx] < s10_last
+
+        tb_weeks_below_10w = 0
+        for i in range(last_idx, -1, -1):
+            s10 = _sma(closes, i, 10)
+            if s10 is None or not closes[i] < s10:
+                break
+            tb_weeks_below_10w += 1
+        tb_ok = tb_weeks_below_10w >= TOPPING_BELOW_10W_WEEKS
+
+        s40_last = _sma(closes, last_idx, 40)
+        s40_prev = _sma(closes, last_idx - 1, 40) if last_idx >= 1 else None
+        tc_sma40_turndown = (None if None in (s40_last, s40_prev)
+                              else s40_last < s40_prev)
+
+    if quality_flag or anchor["left_censored"]:
+        ta_max_decline_now = None
+        td_max_down_volume_now = None
+    else:
+        # 하락 주(전주比 종가 하락)만 후보 — 동률 허용(>=, Task 3 P2/T1/T2 와 동일
+        # 관례: "엄격 = 보수"). 마지막 주가 하락 주가 아니면 최대일 자격이 없어 False.
+        start_idx = 0 if anchor["no_transition"] else last_idx - anchor["weeks_since"]
+        declines: dict[int, float] = {}
+        down_vols: dict[int, float] = {}
+        for i in range(max(start_idx, 1), n):
+            prev = closes[i - 1]
+            if prev is None or prev <= 0 or closes[i] >= prev:
+                continue  # 하락 주가 아님 — T-A/T-D 후보에서 제외
+            declines[i] = (prev - closes[i]) / prev * 100
+            down_vols[i] = vols[i]
+        ta_max_decline_now = (last_idx in declines
+                               and declines[last_idx] >= max(declines.values()))
+        td_max_down_volume_now = (last_idx in down_vols
+                                   and down_vols[last_idx] >= max(down_vols.values()))
+
+    tc_prolonged_ok = None
+    if not quality_flag and not anchor["left_censored"] and not anchor["no_transition"]:
+        tc_prolonged_ok = anchor["weeks_since"] >= CLIMAX_MATURITY_WEEKS
+
+    return {
+        "g0_below_10w": g0_below_10w,
+        "tb_weeks_below_10w": tb_weeks_below_10w,
+        "tb_ok": tb_ok,
+        "td_max_down_volume_now": td_max_down_volume_now,
+        "td_dist_ok": td_dist_ok,
+        "ta_max_decline_now": ta_max_decline_now,
+        "tc_sma40_turndown": tc_sma40_turndown,
+        "tc_prolonged_ok": tc_prolonged_ok,
         "quality_flag": quality_flag,
     }

@@ -5,7 +5,11 @@
 close<SMA 엄격 부등호가 항상 성립하도록 구성(정확 상수 평탄 구간은 부동소수/SMA
 경계에서 부등호가 깨질 수 있음).
 """
-from kr_pipeline.llm_runner.compute.climax_topping import compute_climax_gates, find_anchor
+from kr_pipeline.llm_runner.compute.climax_topping import (
+    compute_climax_gates,
+    compute_topping_gates,
+    find_anchor,
+)
 
 
 def _mk_weeks(rows: list[tuple[float, int]], start="2018-01-05") -> list[dict]:
@@ -129,3 +133,41 @@ def test_climax_gates_quality_flag_on_bad_weekly():
     assert g["quality_flag"] is True
     assert g["p2_accel_ok"] is None and g["t2_max_volume_now"] is None and g["scope_active"] is None
     assert g["t4_ok"] is True  # daily 기반 게이트는 오염 무관
+
+
+# ===== Task 4: compute_topping_gates =====
+
+def test_topping_g0_tb_fire():
+    # 40주 완만 상승(1000→1390) + 12주 드리프트-다운(1400→1220): 손계산 검증
+    # (10주 SMA 를 매 주 재계산해 대조) 결과 tb=9 연속(≥TOPPING_BELOW_10W_WEEKS=8).
+    # no_transition(연속 상승 후 하락이라 Stage1 재형성 없음) — baseline=전체 이력.
+    up = [(1000.0 + 10 * i, 100_000) for i in range(40)]
+    down = _drift(12, 1400.0, 1220.0, 100_000)
+    wk = _mk_weeks(up + down)
+    anchor = find_anchor(wk)
+    assert anchor["no_transition"] is True  # 전제 확인(baseline=전체 이력 분기 근거)
+    g = compute_topping_gates(wk, dist_count_25s=1, anchor=anchor)
+    assert g["g0_below_10w"] is True
+    assert g["tb_weeks_below_10w"] == 9
+    assert g["tb_ok"] is True  # 9 ≥ TOPPING_BELOW_10W_WEEKS(8)
+
+
+def test_topping_silent_without_g0():
+    # 60주 내내 완만 상승 — 마지막 주 종가가 10주선 위(shakeout 아님) → G0 자체가 거짓
+    # (silent): T-B 도 0 연속(직전 주가 10주선 아래가 아니므로 즉시 break).
+    wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(60)])
+    anchor = find_anchor(wk)
+    g = compute_topping_gates(wk, dist_count_25s=5, anchor=anchor)
+    assert g["g0_below_10w"] is False
+    assert g["tb_weeks_below_10w"] == 0
+    assert g["tb_ok"] is False
+
+
+def test_topping_dist_none_conservative():
+    # dist_count_25s 결측(None) → td_dist_ok 는 null=보수 원칙으로 None(0 이 아님).
+    # G0/T-B 는 dist_count_25s 와 무관한 별개 입력이므로 정상 계산 유지(독립성 확인).
+    wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(60)])
+    anchor = find_anchor(wk)
+    g = compute_topping_gates(wk, dist_count_25s=None, anchor=anchor)
+    assert g["td_dist_ok"] is None
+    assert g["g0_below_10w"] is False  # dist 결측과 무관하게 계산됨(독립성)
