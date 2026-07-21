@@ -79,7 +79,8 @@ def _optimistic_exit(bar: DayBar, stop: float | None) -> float:
 
 
 def simulate(ticker: str, watch_rows: list[WatchRow], day_bars: list[DayBar],
-             *, mode: str, max_chase_pct: float | None = None) -> tuple[list[Trade], int]:
+             *, mode: str, max_chase_pct: float | None = None,
+             entry_mode: str = "breakout") -> tuple[list[Trade], int]:
     """일별 walk 로 트리거 발화→진입→청산 시뮬. mode: 'production'|'shadow'.
 
     production: watch_reason 을 그대로 전달(비적격은 자연 불발). shadow: 적격 사유로 치환해
@@ -89,17 +90,49 @@ def simulate(ticker: str, watch_rows: list[WatchRow], day_bars: list[DayBar],
     """
     if mode not in ("production", "shadow"):
         raise ValueError(f"mode must be 'production' or 'shadow', got {mode!r}")
+    if entry_mode not in ("breakout", "next_day_confirm", "pullback"):
+        raise ValueError(
+            f"entry_mode must be breakout|next_day_confirm|pullback, got {entry_mode!r}")
     rows = sorted([r for r in watch_rows if r.pivot_price is not None], key=lambda r: r.sat)
     bars = sorted(day_bars, key=lambda b: b.d)
     trades: list[Trade] = []
     promotion_count = 0
     cur: Trade | None = None
     last_entry_pivot_sat: date | None = None
+    pending: dict | None = None   # 탐색용 entry_mode 변형의 대기 신호 (breakout 모드에선 항상 None)
 
     for b in bars:
         active = _active_row(rows, b.d)
         if active is None or b.sma_50 is None or b.avg_volume_50d is None:
             continue
+        # 탐색용 변형: 대기 신호 처리 (breakout 모드에선 도달 불가 — pending 항상 None)
+        if cur is None and pending is not None:
+            if active.sat != pending["pivot_sat"]:
+                pending = None                              # 주간 행 교체 → 소멸
+            else:
+                chase_ok = (max_chase_pct is None
+                            or b.close <= pending["pivot"] * (1 + max_chase_pct / 100))
+                fill = False
+                if entry_mode == "next_day_confirm":
+                    fill = b.close >= pending["signal_close"] and chase_ok
+                    pending_done = True                     # 익일 1회 판정 후 종료
+                else:                                       # pullback
+                    pending["bars_left"] -= 1
+                    fill = (b.low is not None and b.low <= pending["pivot"] * 1.01
+                            and chase_ok)
+                    pending_done = fill or pending["bars_left"] <= 0
+                if fill:
+                    cur = Trade(
+                        ticker=ticker, watch_reason=pending["watch_reason"],
+                        pivot_sat=pending["pivot_sat"], pivot_price=pending["pivot"],
+                        base_low=pending["base_low"], entry_date=b.d, entry_close=b.close,
+                        exit_date=None, exit_close=None, pnl_pct=None, binding_exit=None,
+                    )
+                    last_entry_pivot_sat = pending["pivot_sat"]
+                if pending_done:
+                    pending = None
+                if fill:
+                    continue                                # 진입일 청산 판정 생략(현행 규약 동일)
         # 보유 중이면 진입 시점 base_low 로 invalidation 판정; 아니면 active 의 base_low.
         stop_for_gate = cur.base_low if cur is not None else active.base_low
         # shadow 치환은 *진입*(breakout_from_watch) 게이트 우회용. invalidation 은 평가순서상 가장 먼저이고
@@ -134,13 +167,18 @@ def simulate(ticker: str, watch_rows: list[WatchRow], day_bars: list[DayBar],
                 if (max_chase_pct is not None
                         and b.close > active.pivot_price * (1 + max_chase_pct / 100)):
                     continue  # prereg §2.1: 5% 초과 추격 진입 금지(신호 소멸)
-                cur = Trade(
-                    ticker=ticker, watch_reason=active.watch_reason, pivot_sat=active.sat,
-                    pivot_price=active.pivot_price, base_low=active.base_low,
-                    entry_date=b.d, entry_close=b.close,
-                    exit_date=None, exit_close=None, pnl_pct=None, binding_exit=None,
-                )
-                last_entry_pivot_sat = active.sat
+                if entry_mode == "breakout":
+                    cur = Trade(
+                        ticker=ticker, watch_reason=active.watch_reason, pivot_sat=active.sat,
+                        pivot_price=active.pivot_price, base_low=active.base_low,
+                        entry_date=b.d, entry_close=b.close,
+                        exit_date=None, exit_close=None, pnl_pct=None, binding_exit=None,
+                    )
+                    last_entry_pivot_sat = active.sat
+                elif pending is None:
+                    pending = {"pivot_sat": active.sat, "pivot": active.pivot_price,
+                               "base_low": active.base_low, "watch_reason": active.watch_reason,
+                               "signal_close": b.close, "bars_left": 5}
             elif sig == "promotion" and mode == "production":
                 promotion_count += 1
 
