@@ -217,11 +217,18 @@ def _record_extended_block(conn, active_row, trig_type, *, dry_run, as_of):
     )
 
 
-def _extension_history(conn, active_row) -> dict | None:
+def _extension_history(conn, active_row, *, as_of) -> dict | None:
     """(#45) 같은 분류에 대한 extended 차단 이력 → 복귀일 payload 3종. 이력 0건이면 None.
 
     후속 게이트 개선 트랙의 소급 데이터 확보용 — 프롬프트가 참조하기 전까지
     무해(추가 키일 뿐). max_extension_pct 는 기록된 close/pivot 원값으로 재계산.
+    analyzed_for_date < as_of 상한 — force 재생(run --date --force)이 과거 as_of 를
+    재평가할 때 미래 차단 행이 새는 look-ahead 차단(payload_lite 의
+    recent_evaluation_history evaluated_at 상한과 동일 규율). 경계는 strict —
+    같은 날 차단 행과 LLM 평가는 상호 배타(차단 시 continue + 멱등 가드).
+    evaluated_at 이 아니라 analyzed_for_date 기준인 이유: force 재생이 과거 차단
+    행을 evaluated_at=now() 로 재기록하므로 evaluated_at 상한은 정당한 과거
+    이력을 오배제한다.
     """
     cls_at = active_row.get("classified_at")
     if cls_at is None:
@@ -229,8 +236,9 @@ def _extension_history(conn, active_row) -> dict | None:
     with conn.cursor() as cur:
         cur.execute(
             "SELECT close, pivot_price FROM trigger_evaluation_log "
-            "WHERE symbol = %s AND prior_classification_at = %s AND wait_reason = %s",
-            (active_row["symbol"], cls_at, EXTENDED_WAIT_REASON),
+            "WHERE symbol = %s AND prior_classification_at = %s AND wait_reason = %s "
+            "AND analyzed_for_date < %s",
+            (active_row["symbol"], cls_at, EXTENDED_WAIT_REASON, as_of),
         )
         rows = cur.fetchall()
     if not rows:
@@ -254,7 +262,7 @@ def _process_one(conn, active_row, trig_type, *, dry_run, as_of):
 
     payload = build_for_5b(conn, symbol, trigger_type=trig_type, as_of=as_of)
     # (#45) 차단 이력이 있는 종목의 복귀일 평가에만 extension_history 주입.
-    history = _extension_history(conn, active_row)
+    history = _extension_history(conn, active_row, as_of=as_of)
     if history is not None:
         payload["extension_history"] = history
     llm_io: dict = {}

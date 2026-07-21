@@ -295,3 +295,38 @@ def test_abort_skip_precedes_extended_gate(db, mocker):
         with db.cursor() as cur:
             cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol='EXT8'")
         db.commit()
+
+
+def test_extension_history_excludes_future_blocks_on_replay(db, mocker):
+    """(F-1) force-replay 로 과거 as_of 를 재평가할 때 as_of 이후의 차단 행은
+    이력에서 제외 — look-ahead 차단 (payload_lite 의 evaluated_at 상한과 동일 규율).
+
+    이력: 07-19·07-20 차단 + 07-22(미래) 차단. as_of=07-21 재생 시
+    days_extended=2 (07-22 행 미포함).
+    """
+    from datetime import timedelta
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol='EXH3'")
+    db.commit()
+    prior_at = datetime(2026, 7, 19, 3, tzinfo=timezone.utc)
+    for i, close in enumerate((88.0, 86.0)):
+        _insert_log(db, "EXH3", wait_reason="extended_past_buy_range", close=close,
+                    evaluated_at=datetime(2026, 7, 19, 7, tzinfo=timezone.utc)
+                    + timedelta(days=i),
+                    prior_at=prior_at,
+                    analyzed_for_date=date(2026, 7, 19) + timedelta(days=i))
+    # 미래(07-22) 차단 행 — 07-21 재생의 payload 에 새면 look-ahead
+    _insert_log(db, "EXH3", wait_reason="extended_past_buy_range", close=90.0,
+                evaluated_at=datetime(2026, 7, 22, 7, tzinfo=timezone.utc),
+                prior_at=prior_at, analyzed_for_date=date(2026, 7, 22))
+    db.commit()
+    try:
+        payload = _run_real_process(db, mocker, [_active_row("EXH3", close=83.0)])
+        assert "extension_history" in payload
+        h = payload["extension_history"]
+        assert h["days_extended"] == 2, f"미래 차단 행이 이력에 새어듦: {h}"
+        assert h["max_extension_pct"] == 10.0, f"미래 행(+12.5%)이 최대치 오염: {h}"
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol='EXH3'")
+        db.commit()
