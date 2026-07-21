@@ -532,9 +532,13 @@ def _parse_args(argv: list[str]) -> dict:
 
 
 def _resolve_sample(kind: str) -> list[str]:
-    """a = 동결 표본 A. c = 동결 표본 C(미동결이면 거부 — 이슈 #52 준비 상태 가드)."""
+    """a = 동결 표본 A. ab = A+B 200종목(prereg 2026-07-21 I1).
+    c = 동결 표본 C(미동결이면 거부 — 이슈 #52 준비 상태 가드)."""
     if kind == "a":
         return list(FROZEN_SAMPLE)
+    if kind == "ab":
+        from kr_pipeline.backtest.frozen_sample_b import FROZEN_SAMPLE_B
+        return list(FROZEN_SAMPLE) + list(FROZEN_SAMPLE_B)   # 잉여 14 제외
     if kind == "c":
         import kr_pipeline.backtest.frozen_sample_c as fc
         if not fc.FROZEN_SAMPLE_C:
@@ -543,19 +547,26 @@ def _resolve_sample(kind: str) -> list[str]:
                 "(2026-07-21-independent-window-backtest-prereg.md) 승인 후 "
                 "scripts/draw_sample_c.py --draw 1회 실행으로 동결하라")
         return list(fc.FROZEN_SAMPLE_C)
-    raise SystemExit(f"unknown --sample: {kind!r} (a|c)")
+    raise SystemExit(f"unknown --sample: {kind!r} (a|ab|c)")
 
 
 def main() -> int:
+    import sys
     from kr_pipeline.db.connection import connect
+    from kr_pipeline.backtest.premium_bins import premium_bins
     args = _parse_args(sys.argv[1:])
-    tickers = _resolve_sample(args["kind"])
+    kind = args["kind"]
+    tickers = _resolve_sample(kind)
+    curves_path = ("data/backtest/portfolio_curves_sample_ab_20260721.json"
+                   if kind == "ab" else "data/backtest/portfolio_curves_v4_20260703.json")
     with connect() as conn:
         data = load_ticker_data(conn, tickers,
                                 start=args["start"], end=args["end"],
                                 watch_start=args["watch_start"],
                                 watch_end=args["watch_end"])
-        out = {"prereg": "2026-07-02-portfolio-sim-prereg.md v4", "arms": {}}
+        out = {"prereg": ("2026-07-21-sample-b-analysis-prereg.md I1·P4" if kind == "ab"
+                          else "2026-07-02-portfolio-sim-prereg.md v4"),
+               "sample": kind, "arms": {}}
         curves = {}
         for key, flags in ARMS.items():
             r = run_portfolio(data, PortfolioConfig(
@@ -563,6 +574,8 @@ def main() -> int:
             curves[key] = r.pop("curve")
             if flags.get("pilot_mode"):
                 out["pilot_report"] = pilot_report(r["stats"]["exits"])
+            if kind == "ab":
+                r["premium_bins"] = premium_bins(r["stats"]["exits"])
             r["stats"].pop("entry_amounts")
             r["stats"].pop("exits")
             out["arms"][key] = r
@@ -574,7 +587,7 @@ def main() -> int:
             "value_pp": round(a["max_drawdown_pct"] - p["max_drawdown_pct"], 2),
             "pass": (a["max_drawdown_pct"] - p["max_drawdown_pct"]) <= 5.0,
         }
-    with open("data/backtest/portfolio_curves_v4_20260703.json", "w",
+    with open(curves_path, "w",
               encoding="utf-8") as f:
         json.dump(curves, f, ensure_ascii=False)
     print(json.dumps(out, ensure_ascii=False, indent=2))

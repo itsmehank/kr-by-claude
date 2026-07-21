@@ -44,13 +44,19 @@ def test_backfill_guard_rejects_oversized_sample(db, monkeypatch):
         cli.cmd_backfill(db, dry_run=True, kind="a", start=cli.START, end=cli.END)
 
 
-def test_analyze_rejects_sample_b(monkeypatch):
-    """analyze --sample=b 는 DB 연결 전에 SystemExit — 표본 A로 조용히 대체되면 안 됨.
-
-    main() 이 connect() 로 실 DB에 붙기 전에 kind 검증을 하므로 DB 없이 통과해야 한다.
-    """
-    import pytest
+def test_analyze_sample_b_uses_frozen_b_and_exclusion(db, monkeypatch):
+    """analyze --sample=b 개방: 표본 B + EXCLUDED_CELLS 로 run_analysis 호출."""
+    from datetime import date as _date
     import kr_pipeline.backtest.profitability_cli as cli
-    monkeypatch.setattr(cli.sys, "argv", ["prog", "analyze", "--sample=b"])
-    with pytest.raises(SystemExit):
-        cli.main()
+    from kr_pipeline.backtest.frozen_sample_b import EXCLUDED_CELLS, FROZEN_SAMPLE_B
+    captured = {}
+
+    def fake_run_analysis(conn, tickers, px_start, px_end, *, watch_start, watch_end, exclude=frozenset()):
+        captured.update(tickers=tickers, exclude=exclude)
+        return {"ok": True}
+
+    monkeypatch.setattr(cli, "run_analysis", fake_run_analysis)
+    cli.cmd_analyze(db, "b")
+    assert sorted(captured["tickers"]) == sorted(FROZEN_SAMPLE_B)
+    expected = frozenset((s, _date.fromisoformat(d)) for s, d in EXCLUDED_CELLS)
+    assert captured["exclude"] == expected

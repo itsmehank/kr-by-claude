@@ -59,3 +59,39 @@ def test_cluster_bootstrap_deterministic_and_sane():
     lo2, hi2 = cluster_bootstrap_ci(trades, b=500, seed=20260702)
     assert (lo1, hi1) == (lo2, hi2)
     assert lo1 <= 1.0 <= hi1   # 표본평균 1.0
+
+
+def test_run_refinement_threads_tickers_and_seed(db, monkeypatch):
+    """tickers·seed 파라미터가 하위 호출로 전달되는지 (기본값 = A 동작 불변).
+
+    run_refinement 는 내부에서 aggregate_refined·mean 계산·trades 직렬화를 하므로
+    fake 트레이드는 실제 스키마(dict)로 1건 제공한다 (빈 리스트면 mean 이 0-division).
+    """
+    from datetime import date
+    import kr_pipeline.backtest.refinement as rf
+    calls = {"ci_seeds": []}
+    fake_trade = {"ticker": "000001", "market": "KOSPI",
+                  "entry_date": date(2021, 1, 4), "exit_date": date(2021, 2, 1),
+                  "phase": "confirmed_uptrend", "excess_net": 1.0,
+                  "excess_net_hi": 1.5, "pnl_net": 2.0, "mdd_pct": -3.0}
+
+    def fake_build(conn, tickers=None):
+        calls["tickers"] = tickers
+        return [dict(fake_trade)], 0
+
+    def fake_ci(trades, **kw):
+        calls["ci_seeds"].append(kw.get("seed"))
+        return (0.0, 2.0)
+
+    def fake_placebo(conn, trades, **kw):
+        calls["pl_seed"] = kw.get("seed")
+        return {"p": 1.0}
+
+    monkeypatch.setattr(rf, "build_refined_trades", fake_build)
+    monkeypatch.setattr(rf, "cluster_bootstrap_ci", fake_ci)
+    monkeypatch.setattr(rf, "run_placebo", fake_placebo)
+    out = rf.run_refinement(db, tickers=["000001"], seed=20260721)
+    assert calls["tickers"] == ["000001"]
+    assert set(calls["ci_seeds"]) == {20260721}      # 전체 CI + phase별 CI 전 호출
+    assert calls["pl_seed"] == 20260721
+    assert out["params"]["seed"] == 20260721          # 실코드 기록 위치 = params.seed

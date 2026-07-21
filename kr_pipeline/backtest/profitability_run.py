@@ -26,7 +26,8 @@ def _market_of(conn: Connection, ticker: str) -> str:
         return cur.fetchone()[0]
 
 
-def entry_rate_by_phase(conn: Connection, tickers: list[str]) -> dict[str, dict]:
+def entry_rate_by_phase(conn: Connection, tickers: list[str],
+                         exclude: frozenset = frozenset()) -> dict[str, dict]:
     """분류점(BT_TABLE 행) 기준 국면별 entry-rate. 국면 = analyzed_for_date 의 시장상태."""
     pmaps: dict[str, list] = {}
     counts: dict[str, dict] = {}
@@ -39,6 +40,8 @@ def entry_rate_by_phase(conn: Connection, tickers: list[str]) -> dict[str, dict]
         )
         rows = cur.fetchall()
     for symbol, afd, cls, market in rows:
+        if (symbol, afd) in exclude:
+            continue
         code = ph.INDEX_OF.get(market, "1001")
         if code not in pmaps:
             pmaps[code] = ph.load_phase_map(conn, code)
@@ -99,8 +102,9 @@ def evaluate_criteria(entry_rates: dict[str, dict], trade_aggs: dict[str, dict])
     return {"gate_defense_71": gate_71, "excess_72": excess_72, "power_guard": power}
 
 
-def run_analysis(conn: Connection, tickers: list[str], px_start: date, px_end: date,
-                 watch_start: date, watch_end: date) -> dict:
+def run_analysis(conn: Connection, tickers: list[str], px_start: date, px_end: date, *,
+                 watch_start: date, watch_end: date,
+                 exclude: frozenset = frozenset()) -> dict:
     """전체 산출: 트레이드(production)별 진입일 국면 라벨 + 국면별 집계 + §7 판정."""
     pmaps: dict[str, list] = {}
     all_trades: list[dict] = []
@@ -124,7 +128,7 @@ def run_analysis(conn: Connection, tickers: list[str], px_start: date, px_end: d
                 "binding_exit": t.binding_exit,
                 "phase": ph.phase_at(pmaps[code], t.entry_date),
             })
-    entry_rates = entry_rate_by_phase(conn, tickers)
+    entry_rates = entry_rate_by_phase(conn, tickers, exclude=exclude)
     trade_aggs = aggregate_trades(all_trades)
     criteria = evaluate_criteria(entry_rates, trade_aggs)
     return {"n_tickers": len(tickers), "n_trades": len(all_trades),

@@ -230,3 +230,8 @@ FROZEN_SAMPLE_B: list[str] = [
     "357230",
     "378850",
 ]
+
+# 분석 입력 제외 셀 (prereg §1 — #50: entry 인데 pivot_price NULL, 무검사 저장분)
+EXCLUDED_CELLS: list[tuple[str, str]] = [
+    ("317870", "2022-04-09"),
+]
