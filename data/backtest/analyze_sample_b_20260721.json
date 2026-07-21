@@ -1,0 +1,1049 @@
+{
+  "n_tickers": 100,
+  "n_trades": 108,
+  "entry_rates": {
+    "confirmed_uptrend": {
+      "entry": 13,
+      "total": 300,
+      "rate": 0.043333333333333335
+    },
+    "correction": {
+      "entry": 0,
+      "total": 676,
+      "rate": 0.0
+    },
+    "downtrend": {
+      "entry": 0,
+      "total": 304,
+      "rate": 0.0
+    },
+    "rally_attempt": {
+      "entry": 0,
+      "total": 671,
+      "rate": 0.0
+    }
+  },
+  "trade_aggs": {
+    "rally_attempt": {
+      "n": 35,
+      "mean_excess": -0.619,
+      "win_rate": 0.257,
+      "mean_pnl": -0.405
+    },
+    "correction": {
+      "n": 26,
+      "mean_excess": -2.433,
+      "win_rate": 0.346,
+      "mean_pnl": -5.988
+    },
+    "confirmed_uptrend": {
+      "n": 23,
+      "mean_excess": 6.347,
+      "win_rate": 0.348,
+      "mean_pnl": 3.79
+    },
+    "downtrend": {
+      "n": 24,
+      "mean_excess": -3.108,
+      "win_rate": 0.25,
+      "mean_pnl": -5.249
+    }
+  },
+  "criteria": {
+    "gate_defense_71": {
+      "r_down": 0.0,
+      "r_up": 0.043,
+      "ratio": 0.0,
+      "pass": true,
+      "note": ""
+    },
+    "excess_72": {
+      "down_mean_excess": [
+        -3.108,
+        -2.433
+      ],
+      "supportive": false,
+      "note": "보조 지표 — §4 트리거 누수 영향. 음수≠게이트 실패(§7.1로 판정)."
+    },
+    "power_guard": {
+      "correction": "ok",
+      "downtrend": "ok",
+      "confirmed_uptrend": "ok",
+      "rally_attempt": "ok"
+    }
+  },
+  "trades": [
+    {
+      "ticker": "001750",
+      "entry_date": "2021-06-07",
+      "exit_date": "2021-07-09",
+      "pnl_pct": -2.21,
+      "excess_pct": -1.16,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "001750",
+      "entry_date": "2021-08-23",
+      "exit_date": "2021-10-05",
+      "pnl_pct": -3.52,
+      "excess_pct": 0.62,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "001750",
+      "entry_date": "2024-05-20",
+      "exit_date": "2024-09-23",
+      "pnl_pct": 31.23,
+      "excess_pct": 36.34,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "001750",
+      "entry_date": "2025-03-17",
+      "exit_date": "2025-03-28",
+      "pnl_pct": -1.83,
+      "excess_pct": 0.19,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "002710",
+      "entry_date": "2021-07-13",
+      "exit_date": "2021-10-28",
+      "pnl_pct": 43.32,
+      "excess_pct": 51.33,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "002710",
+      "entry_date": "2023-03-03",
+      "exit_date": "2023-06-23",
+      "pnl_pct": 173.56,
+      "excess_pct": 167.88,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "003850",
+      "entry_date": "2023-12-11",
+      "exit_date": "2024-02-29",
+      "pnl_pct": 6.26,
+      "excess_pct": 1.62,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "003850",
+      "entry_date": "2024-03-13",
+      "exit_date": "2024-04-03",
+      "pnl_pct": -5.23,
+      "excess_pct": -5.73,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "005430",
+      "entry_date": "2024-02-14",
+      "exit_date": "2024-03-08",
+      "pnl_pct": -10.42,
+      "excess_pct": -12.71,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "005430",
+      "entry_date": "2024-04-03",
+      "exit_date": "2024-08-05",
+      "pnl_pct": 5.94,
+      "excess_pct": 15.74,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "005720",
+      "entry_date": "2023-06-27",
+      "exit_date": "2023-06-30",
+      "pnl_pct": -1.26,
+      "excess_pct": -0.6,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "005720",
+      "entry_date": "2025-05-12",
+      "exit_date": "2025-06-30",
+      "pnl_pct": 19.43,
+      "excess_pct": 1.62,
+      "binding_exit": "open",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "005800",
+      "entry_date": "2022-03-10",
+      "exit_date": "2022-04-18",
+      "pnl_pct": -4.15,
+      "excess_pct": -4.63,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2021-01-07",
+      "exit_date": "2021-01-28",
+      "pnl_pct": -14.54,
+      "excess_pct": -15.77,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2021-02-22",
+      "exit_date": "2021-02-24",
+      "pnl_pct": -4.99,
+      "excess_pct": -2.24,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2022-11-22",
+      "exit_date": "2023-01-02",
+      "pnl_pct": -5.61,
+      "excess_pct": 1.86,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2023-03-27",
+      "exit_date": "2023-05-19",
+      "pnl_pct": 8.75,
+      "excess_pct": 3.42,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2023-07-25",
+      "exit_date": "2023-09-01",
+      "pnl_pct": -15.65,
+      "excess_pct": -12.89,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "006490",
+      "entry_date": "2024-08-12",
+      "exit_date": "2024-08-14",
+      "pnl_pct": -4.25,
+      "excess_pct": -5.25,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2021-10-13",
+      "exit_date": "2021-11-01",
+      "pnl_pct": -6.38,
+      "excess_pct": -7.56,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2022-01-13",
+      "exit_date": "2022-01-27",
+      "pnl_pct": -9.26,
+      "excess_pct": 2.48,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2022-03-14",
+      "exit_date": "2022-04-29",
+      "pnl_pct": -2.37,
+      "excess_pct": -4.24,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2022-08-29",
+      "exit_date": "2022-10-21",
+      "pnl_pct": -5.02,
+      "excess_pct": 3.79,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2022-11-18",
+      "exit_date": "2022-12-02",
+      "pnl_pct": -5.71,
+      "excess_pct": -5.29,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "012860",
+      "entry_date": "2023-08-21",
+      "exit_date": "2023-09-01",
+      "pnl_pct": -18.11,
+      "excess_pct": -21.6,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "015890",
+      "entry_date": "2023-04-19",
+      "exit_date": "2023-05-16",
+      "pnl_pct": -20.78,
+      "excess_pct": -17.09,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "017040",
+      "entry_date": "2024-05-07",
+      "exit_date": "2024-05-20",
+      "pnl_pct": -19.31,
+      "excess_pct": -19.59,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "017960",
+      "entry_date": "2022-08-22",
+      "exit_date": "2022-09-08",
+      "pnl_pct": -10.06,
+      "excess_pct": -6.89,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "017960",
+      "entry_date": "2025-02-19",
+      "exit_date": "2025-03-25",
+      "pnl_pct": -11.25,
+      "excess_pct": -9.16,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "029780",
+      "entry_date": "2024-06-13",
+      "exit_date": "2024-06-14",
+      "pnl_pct": -11.78,
+      "excess_pct": -11.91,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "029780",
+      "entry_date": "2025-06-09",
+      "exit_date": "2025-06-30",
+      "pnl_pct": 4.0,
+      "excess_pct": -3.56,
+      "binding_exit": "open",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "036460",
+      "entry_date": "2022-05-12",
+      "exit_date": "2022-06-20",
+      "pnl_pct": -6.55,
+      "excess_pct": -0.32,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "036530",
+      "entry_date": "2025-01-31",
+      "exit_date": "2025-04-07",
+      "pnl_pct": 15.5,
+      "excess_pct": 23.02,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "036640",
+      "entry_date": "2021-09-07",
+      "exit_date": "2021-11-18",
+      "pnl_pct": 15.78,
+      "excess_pct": 17.84,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "038540",
+      "entry_date": "2022-01-26",
+      "exit_date": "2022-05-19",
+      "pnl_pct": 5.89,
+      "excess_pct": 7.96,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "038540",
+      "entry_date": "2022-05-31",
+      "exit_date": "2022-06-09",
+      "pnl_pct": -11.27,
+      "excess_pct": -9.46,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "039840",
+      "entry_date": "2023-07-21",
+      "exit_date": "2023-08-01",
+      "pnl_pct": -15.22,
+      "excess_pct": -15.76,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "042370",
+      "entry_date": "2023-08-14",
+      "exit_date": "2023-08-23",
+      "pnl_pct": -19.3,
+      "excess_pct": -17.21,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "045660",
+      "entry_date": "2024-01-02",
+      "exit_date": "2024-01-31",
+      "pnl_pct": -13.29,
+      "excess_pct": -4.22,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "045660",
+      "entry_date": "2024-03-14",
+      "exit_date": "2024-04-11",
+      "pnl_pct": -14.02,
+      "excess_pct": -10.7,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "046390",
+      "entry_date": "2022-03-31",
+      "exit_date": "2022-04-27",
+      "pnl_pct": -4.75,
+      "excess_pct": 0.37,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "054090",
+      "entry_date": "2021-01-07",
+      "exit_date": "2021-02-24",
+      "pnl_pct": -6.68,
+      "excess_pct": 1.67,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2023-08-30",
+      "exit_date": "2023-09-21",
+      "pnl_pct": -8.51,
+      "excess_pct": -1.67,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2023-12-18",
+      "exit_date": "2023-12-27",
+      "pnl_pct": -7.7,
+      "excess_pct": -8.74,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2024-05-16",
+      "exit_date": "2024-07-08",
+      "pnl_pct": 1.94,
+      "excess_pct": 3.21,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2024-08-14",
+      "exit_date": "2024-11-12",
+      "pnl_pct": 2.48,
+      "excess_pct": 11.01,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2025-01-13",
+      "exit_date": "2025-03-21",
+      "pnl_pct": -1.44,
+      "excess_pct": -3.02,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "080010",
+      "entry_date": "2021-10-13",
+      "exit_date": "2021-11-10",
+      "pnl_pct": -6.41,
+      "excess_pct": -10.01,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "082740",
+      "entry_date": "2022-08-23",
+      "exit_date": "2022-09-19",
+      "pnl_pct": -13.22,
+      "excess_pct": -9.95,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "082740",
+      "entry_date": "2024-06-14",
+      "exit_date": "2024-07-25",
+      "pnl_pct": -11.86,
+      "excess_pct": -10.13,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-01-04",
+      "exit_date": "2022-01-11",
+      "pnl_pct": -11.4,
+      "excess_pct": -5.42,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-01-13",
+      "exit_date": "2022-01-25",
+      "pnl_pct": -11.44,
+      "excess_pct": -1.9,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-02-04",
+      "exit_date": "2022-02-14",
+      "pnl_pct": -4.35,
+      "excess_pct": 1.2,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-04-19",
+      "exit_date": "2022-04-25",
+      "pnl_pct": -6.98,
+      "excess_pct": -3.58,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-05-18",
+      "exit_date": "2022-06-13",
+      "pnl_pct": -8.8,
+      "excess_pct": -3.89,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "089230",
+      "entry_date": "2021-06-04",
+      "exit_date": "2021-06-22",
+      "pnl_pct": -17.37,
+      "excess_pct": -19.8,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "090150",
+      "entry_date": "2021-06-16",
+      "exit_date": "2021-09-17",
+      "pnl_pct": 51.92,
+      "excess_pct": 47.15,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "094850",
+      "entry_date": "2021-05-17",
+      "exit_date": "2021-07-08",
+      "pnl_pct": 8.11,
+      "excess_pct": 0.63,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "096530",
+      "entry_date": "2024-08-08",
+      "exit_date": "2024-09-30",
+      "pnl_pct": -11.13,
+      "excess_pct": -13.63,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "099190",
+      "entry_date": "2022-07-22",
+      "exit_date": "2022-09-23",
+      "pnl_pct": 0.7,
+      "excess_pct": 8.34,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "099190",
+      "entry_date": "2023-06-09",
+      "exit_date": "2023-09-14",
+      "pnl_pct": 54.43,
+      "excess_pct": 52.65,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "099190",
+      "entry_date": "2023-12-21",
+      "exit_date": "2024-01-31",
+      "pnl_pct": -7.81,
+      "excess_pct": -0.8,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "099750",
+      "entry_date": "2021-07-14",
+      "exit_date": "2021-09-23",
+      "pnl_pct": 2.96,
+      "excess_pct": 3.79,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "100250",
+      "entry_date": "2022-01-10",
+      "exit_date": "2022-01-18",
+      "pnl_pct": -10.07,
+      "excess_pct": -7.93,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "100250",
+      "entry_date": "2022-06-16",
+      "exit_date": "2022-06-23",
+      "pnl_pct": -7.08,
+      "excess_pct": -1.49,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "105740",
+      "entry_date": "2022-11-16",
+      "exit_date": "2022-12-20",
+      "pnl_pct": -11.36,
+      "excess_pct": -5.98,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "112610",
+      "entry_date": "2023-04-14",
+      "exit_date": "2023-05-03",
+      "pnl_pct": -7.5,
+      "excess_pct": -4.77,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "112610",
+      "entry_date": "2023-07-11",
+      "exit_date": "2023-07-21",
+      "pnl_pct": -7.83,
+      "excess_pct": -9.67,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "124560",
+      "entry_date": "2021-08-12",
+      "exit_date": "2021-08-17",
+      "pnl_pct": -6.44,
+      "excess_pct": -2.35,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "126600",
+      "entry_date": "2021-06-14",
+      "exit_date": "2021-07-08",
+      "pnl_pct": -7.5,
+      "excess_pct": -11.21,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "126600",
+      "entry_date": "2021-08-09",
+      "exit_date": "2021-08-17",
+      "pnl_pct": -9.84,
+      "excess_pct": -5.22,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "126600",
+      "entry_date": "2021-09-01",
+      "exit_date": "2021-12-28",
+      "pnl_pct": 48.39,
+      "excess_pct": 50.17,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "126600",
+      "entry_date": "2023-04-13",
+      "exit_date": "2023-05-26",
+      "pnl_pct": -18.24,
+      "excess_pct": -12.53,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "128660",
+      "entry_date": "2021-08-30",
+      "exit_date": "2021-10-06",
+      "pnl_pct": 11.11,
+      "excess_pct": 21.72,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "160980",
+      "entry_date": "2021-02-15",
+      "exit_date": "2021-02-24",
+      "pnl_pct": -12.17,
+      "excess_pct": -4.46,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "160980",
+      "entry_date": "2021-04-05",
+      "exit_date": "2021-05-11",
+      "pnl_pct": -4.75,
+      "excess_pct": -5.66,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "160980",
+      "entry_date": "2024-03-05",
+      "exit_date": "2024-04-16",
+      "pnl_pct": -12.37,
+      "excess_pct": -8.5,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "160980",
+      "entry_date": "2024-04-25",
+      "exit_date": "2024-06-24",
+      "pnl_pct": -6.09,
+      "excess_pct": -4.72,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "161580",
+      "entry_date": "2023-06-21",
+      "exit_date": "2023-07-24",
+      "pnl_pct": 8.57,
+      "excess_pct": 2.38,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "178920",
+      "entry_date": "2021-03-22",
+      "exit_date": "2021-05-17",
+      "pnl_pct": -5.77,
+      "excess_pct": -9.03,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "189300",
+      "entry_date": "2022-01-12",
+      "exit_date": "2022-01-24",
+      "pnl_pct": -11.17,
+      "excess_pct": -3.51,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "189300",
+      "entry_date": "2022-03-25",
+      "exit_date": "2022-04-25",
+      "pnl_pct": -4.1,
+      "excess_pct": -0.37,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "189300",
+      "entry_date": "2023-03-28",
+      "exit_date": "2023-04-20",
+      "pnl_pct": -11.17,
+      "excess_pct": -17.43,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "189300",
+      "entry_date": "2023-09-14",
+      "exit_date": "2023-10-04",
+      "pnl_pct": -11.59,
+      "excess_pct": -1.35,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "190650",
+      "entry_date": "2021-07-05",
+      "exit_date": "2021-08-17",
+      "pnl_pct": -15.6,
+      "excess_pct": -12.13,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "195870",
+      "entry_date": "2021-06-23",
+      "exit_date": "2021-08-13",
+      "pnl_pct": 3.7,
+      "excess_pct": 6.9,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "195870",
+      "entry_date": "2021-11-12",
+      "exit_date": "2021-12-15",
+      "pnl_pct": -8.91,
+      "excess_pct": -9.6,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "195870",
+      "entry_date": "2022-01-25",
+      "exit_date": "2022-02-11",
+      "pnl_pct": -8.36,
+      "excess_pct": -9.37,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "195940",
+      "entry_date": "2024-08-30",
+      "exit_date": "2024-10-29",
+      "pnl_pct": -3.85,
+      "excess_pct": -0.8,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "214370",
+      "entry_date": "2023-02-01",
+      "exit_date": "2023-05-16",
+      "pnl_pct": 11.11,
+      "excess_pct": 2.35,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "214370",
+      "entry_date": "2023-06-16",
+      "exit_date": "2023-07-31",
+      "pnl_pct": -3.96,
+      "excess_pct": -9.36,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "214420",
+      "entry_date": "2023-06-21",
+      "exit_date": "2023-07-13",
+      "pnl_pct": -9.91,
+      "excess_pct": -10.25,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "214420",
+      "entry_date": "2023-08-10",
+      "exit_date": "2023-09-20",
+      "pnl_pct": -11.76,
+      "excess_pct": -10.16,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "225570",
+      "entry_date": "2024-08-01",
+      "exit_date": "2024-08-30",
+      "pnl_pct": -33.68,
+      "excess_pct": -28.04,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "272110",
+      "entry_date": "2023-03-17",
+      "exit_date": "2023-04-24",
+      "pnl_pct": -8.37,
+      "excess_pct": -15.62,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "298380",
+      "entry_date": "2024-07-30",
+      "exit_date": "2024-08-05",
+      "pnl_pct": -20.1,
+      "excess_pct": -6.1,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "310200",
+      "entry_date": "2025-06-17",
+      "exit_date": "2025-06-30",
+      "pnl_pct": -2.78,
+      "excess_pct": -3.53,
+      "binding_exit": "open",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2022-03-11",
+      "exit_date": "2022-03-28",
+      "pnl_pct": -7.66,
+      "excess_pct": -11.63,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2022-04-18",
+      "exit_date": "2022-04-28",
+      "pnl_pct": -6.09,
+      "excess_pct": -3.26,
+      "binding_exit": "sma_50",
+      "phase": "confirmed_uptrend"
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2023-06-22",
+      "exit_date": "2023-08-16",
+      "pnl_pct": -2.83,
+      "excess_pct": -3.04,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2023-09-04",
+      "exit_date": "2023-10-10",
+      "pnl_pct": -4.75,
+      "excess_pct": 8.75,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2024-04-03",
+      "exit_date": "2024-05-03",
+      "pnl_pct": -9.34,
+      "excess_pct": -7.71,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2024-09-25",
+      "exit_date": "2024-10-24",
+      "pnl_pct": -7.76,
+      "excess_pct": -4.5,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "332370",
+      "entry_date": "2022-11-30",
+      "exit_date": "2022-12-08",
+      "pnl_pct": -7.71,
+      "excess_pct": -5.38,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "332370",
+      "entry_date": "2023-02-06",
+      "exit_date": "2023-02-14",
+      "pnl_pct": -7.04,
+      "excess_pct": -9.44,
+      "binding_exit": "sma_50",
+      "phase": "downtrend"
+    },
+    {
+      "ticker": "337930",
+      "entry_date": "2021-09-10",
+      "exit_date": "2021-10-05",
+      "pnl_pct": -17.89,
+      "excess_pct": -9.93,
+      "binding_exit": "sma_50",
+      "phase": "correction"
+    },
+    {
+      "ticker": "337930",
+      "entry_date": "2025-06-10",
+      "exit_date": "2025-06-13",
+      "pnl_pct": -4.82,
+      "excess_pct": -4.51,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    },
+    {
+      "ticker": "338220",
+      "entry_date": "2023-06-07",
+      "exit_date": "2023-08-17",
+      "pnl_pct": 37.68,
+      "excess_pct": 37.08,
+      "binding_exit": "sma_50",
+      "phase": "rally_attempt"
+    }
+  ]
+}
