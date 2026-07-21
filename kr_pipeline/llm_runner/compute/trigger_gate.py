@@ -40,8 +40,8 @@ PROMOTION_THRESHOLD_RATIO = GATE_PROMOTION_PRICE_RATIO
 # [design judgment] breakout_from_watch 대상 watch 사유.
 # pivot 이 유효한 (=확정·완성) base 의 watch 만 정당한 돌파 후보. base_forming/
 # extended 는 제외 (D2) — base 완성·신규 base 는 weekend 재분류가 pivot 재계산과
-# 함께 처리. 추격 (>pivot+5%) 방지는 게이트가 아니라 calculate_entry_params 의
-# 5% 룰 (extended_from_pivot_already) 이 담당 (loose gates, LLM/param precision).
+# 함께 처리. 추격 (>pivot+5%) 방지는 (#45) evaluate_pivot 의 결정론 extended
+# 게이트가 발화 *후* 단계에서 담당 (이 게이트는 loose 유지 — 발화 집합 불변).
 ALLOWED_WATCH_REASONS = frozenset(
     {"unfavorable_market", "marginal_tt", "valid_base_awaiting_breakout"}
 )
