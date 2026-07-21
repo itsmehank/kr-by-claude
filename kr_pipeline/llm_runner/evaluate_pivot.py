@@ -9,11 +9,20 @@ from datetime import date, datetime, timezone
 
 from psycopg import Connection
 
+from kr_pipeline.common.thresholds import PIVOT_EXTENDED_BAND_MULT
 from kr_pipeline.llm_runner.compute.payload_lite import build_for_5b
 from kr_pipeline.llm_runner.compute.trigger_gate import evaluate as evaluate_gate
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 from kr_pipeline.llm_runner.load import get_active_with_current
 from kr_pipeline.llm_runner.store import insert_trigger_log
+
+# (#45) 결정론 extended 게이트의 wait 사유 — 사전등록 코호트 질의 키(동등비교 전용).
+# weekly watch_reason='extended'(주 단위)와 별개 값(일 단위 경로) — 리네임 없음.
+EXTENDED_WAIT_REASON = "extended_past_buy_range"
+
+# (#45) 인터셉트 대상 = go_now 로 이어질 수 있는 상향 트리거만.
+# promotion 은 §3.3 이 go_now 를 전면 금지(매수 위험 0), invalidation 은 하향 — 비대상.
+_EXTENDED_INTERCEPT_TRIGGERS = frozenset({"breakout", "breakout_from_watch"})
 
 
 log = logging.getLogger("kr_pipeline.llm_runner.evaluate_pivot")
@@ -122,9 +131,22 @@ def run(
     )
 
     evaluated = 0
+    extended_blocked = 0
     failed = []
     for a, trig in triggered:
         try:
+            # (#45) 결정론 extended 게이트 — O'Neil 5% 추격 금지의 매수 시점 강제.
+            # close > pivot × 1.05 인 상향 트리거는 LLM 없이 wait 기록(결정 3′,
+            # plans/2026-07-21-issue45-extended-gate.md §1). buy zone 복귀일에만
+            # LLM 평가로 진행. wait 는 abort 와 달리 이후 날짜 재평가를 막지 않는다.
+            if (
+                trig in _EXTENDED_INTERCEPT_TRIGGERS
+                and a["close"] > a["pivot_price"] * PIVOT_EXTENDED_BAND_MULT
+            ):
+                _record_extended_block(conn, a, trig, dry_run=dry_run, as_of=as_of)
+                extended_blocked += 1
+                conn.commit()
+                continue
             _process_one(conn, a, trig, dry_run=dry_run, as_of=as_of)
             evaluated += 1
             conn.commit()
@@ -147,6 +169,90 @@ def run(
         "active": len(active),
         "triggered": len(triggered),
         "abort_skipped": abort_skipped,
+        "extended_blocked": extended_blocked,
+    }
+
+
+def _record_extended_block(conn, active_row, trig_type, *, dry_run, as_of):
+    """(#45) extended 차단의 결정론 wait 행 기록 — LLM 비관여(llm_* 전부 NULL).
+
+    close/pivot 원값 보존 — pivot 재판독(±20% 실측) 시 "지난주 차단이 pivot
+    오독 때문이었는지" 사후 감사용. reasoning 은 사람용 산식 표시일 뿐,
+    조회 기준은 wait_reason 동등비교만(사전등록 규약).
+    """
+    symbol = active_row["symbol"]
+    close = active_row["close"]
+    pivot = active_row["pivot_price"]
+    extension_pct = (close / pivot - 1) * 100
+    if dry_run:
+        log.info(
+            "dry-run: extended block %s (close %s > pivot %s × %s, %+.1f%%)",
+            symbol, close, pivot, PIVOT_EXTENDED_BAND_MULT, extension_pct,
+        )
+        return
+    insert_trigger_log(
+        conn,
+        symbol=symbol,
+        evaluated_at=datetime.now(timezone.utc),
+        trigger_type=trig_type,
+        close=close,
+        volume=active_row["volume"],
+        pivot_price=pivot,
+        result={
+            "decision": "wait",
+            "confidence": None,
+            "reasoning": (
+                f"deterministic extended gate: close {close} > pivot {pivot} × "
+                f"{PIVOT_EXTENDED_BAND_MULT} (extension {extension_pct:+.1f}%)"
+            ),
+            "abort_reason": None,
+        },
+        # subscript 의도적 — prior_classification_at 은 NOT NULL 컬럼이고 production
+        # active 행(get_active_with_current)은 classified_at 을 항상 가진다. 결측이면
+        # 여기서 KeyError → 종목 단위 failed 격리가 조용한 NULL INSERT 시도보다 낫다.
+        prior_classification_at=active_row["classified_at"],
+        llm_meta={},
+        analyzed_for_date=as_of,
+        wait_reason=EXTENDED_WAIT_REASON,
+    )
+
+
+def _extension_history(conn, active_row, *, as_of) -> dict | None:
+    """(#45) 같은 분류에 대한 extended 차단 이력 → 복귀일 payload 3종. 이력 0건이면 None.
+
+    후속 게이트 개선 트랙의 소급 데이터 확보용 — 프롬프트가 참조하기 전까지
+    무해(추가 키일 뿐). max_extension_pct 는 기록된 close/pivot 원값으로 재계산.
+    analyzed_for_date < as_of 상한 — force 재생(run --date --force)이 과거 as_of 를
+    재평가할 때 미래 차단 행이 새는 look-ahead 차단(payload_lite 의
+    recent_evaluation_history evaluated_at 상한과 동일 규율). 경계는 strict —
+    같은 날 차단 행과 LLM 평가는 상호 배타(차단 시 continue + 멱등 가드).
+    evaluated_at 이 아니라 analyzed_for_date 기준인 이유: force 재생이 과거 차단
+    행을 evaluated_at=now() 로 재기록하므로 evaluated_at 상한은 정당한 과거
+    이력을 오배제한다.
+    """
+    cls_at = active_row.get("classified_at")
+    if cls_at is None:
+        return None
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT close, pivot_price FROM trigger_evaluation_log "
+            "WHERE symbol = %s AND prior_classification_at = %s AND wait_reason = %s "
+            "AND analyzed_for_date < %s",
+            (active_row["symbol"], cls_at, EXTENDED_WAIT_REASON, as_of),
+        )
+        rows = cur.fetchall()
+    if not rows:
+        return None
+    max_ext = max(
+        (float(c) / float(p) - 1) * 100 for c, p in rows if c is not None and p
+    )
+    vol, avg = active_row.get("volume"), active_row.get("avg_volume_50d")
+    return {
+        "max_extension_pct": round(max_ext, 2),
+        "days_extended": len(rows),
+        "return_day_volume_ratio": (
+            round(vol / avg, 2) if vol is not None and avg else None
+        ),
     }
 
 
@@ -155,6 +261,10 @@ def _process_one(conn, active_row, trig_type, *, dry_run, as_of):
     started = datetime.now(timezone.utc)
 
     payload = build_for_5b(conn, symbol, trigger_type=trig_type, as_of=as_of)
+    # (#45) 차단 이력이 있는 종목의 복귀일 평가에만 extension_history 주입.
+    history = _extension_history(conn, active_row, as_of=as_of)
+    if history is not None:
+        payload["extension_history"] = history
     llm_io: dict = {}
     result = call_claude(
         prompt_file="evaluate_pivot_trigger_v1.md",

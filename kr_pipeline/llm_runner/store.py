@@ -586,8 +586,13 @@ def insert_trigger_log(
     prior_classification_at: datetime,
     llm_meta: dict,
     analyzed_for_date: date | None = None,
+    wait_reason: str | None = None,
 ) -> None:
-    """trigger_evaluation_log 에 (5b) 결과 INSERT."""
+    """trigger_evaluation_log 에 (5b) 결과 INSERT.
+
+    wait_reason: (#45) 결정론 extended 게이트 전용 사유('extended_past_buy_range').
+    LLM 평가 행은 None. 사전등록 코호트 질의의 동등비교 키.
+    """
     decision = _validate_decision(result)
     with conn.cursor() as cur:
         cur.execute(
@@ -598,13 +603,15 @@ def insert_trigger_log(
                decision, confidence, reasoning, abort_reason,
                analyzed_for_date,
                prior_classification_at,
-               llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model)
+               llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model,
+               wait_reason)
             VALUES (%s, %s, %s,
                     %s, %s, %s,
                     %s, %s, %s, %s,
                     %s,
                     %s,
-                    %s, %s, %s, %s)
+                    %s, %s, %s, %s,
+                    %s)
             ON CONFLICT (symbol, evaluated_at) DO NOTHING
             """,
             (
@@ -624,6 +631,7 @@ def insert_trigger_log(
                 llm_meta.get("input_tokens"),
                 llm_meta.get("output_tokens"),
                 llm_meta.get("model"),
+                wait_reason,
             ),
         )
 

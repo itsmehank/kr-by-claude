@@ -361,6 +361,13 @@ CREATE TABLE IF NOT EXISTS trigger_evaluation_log (
   PRIMARY KEY (symbol, evaluated_at)
 );
 
+-- (#45) wait_reason — 결정론 extended 게이트의 wait 사유. 현재 유일 값
+-- 'extended_past_buy_range' (close > pivot × PIVOT_EXTENDED_BAND_MULT 로 LLM 없이
+-- 차단). weekly watch_reason='extended'(주 단위)와 별개 값(일 단위 경로) — 사전등록
+-- 코호트 질의는 이 컬럼 동등비교만 사용(LIKE 금지). NULL = LLM 평가 행.
+ALTER TABLE trigger_evaluation_log
+  ADD COLUMN IF NOT EXISTS wait_reason VARCHAR(60);
+
 CREATE INDEX IF NOT EXISTS idx_trigger_log_recent
   ON trigger_evaluation_log (evaluated_at DESC);
 
