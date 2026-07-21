@@ -1,0 +1,2743 @@
+{
+ "sample": {
+  "backtest": [
+   "000390",
+   "000520",
+   "000760",
+   "000850",
+   "000990",
+   "001000",
+   "001460",
+   "001500",
+   "001750",
+   "001820",
+   "002150",
+   "002220",
+   "002240",
+   "002460",
+   "002690"
+  ],
+  "random": [
+   "189330",
+   "080220",
+   "090710",
+   "067000",
+   "059210",
+   "066900",
+   "008770",
+   "402340",
+   "356890",
+   "003230",
+   "041920",
+   "240810",
+   "042110",
+   "084650",
+   "050860"
+  ]
+ },
+ "unmapped": [],
+ "tickers": {
+  "000390": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180330",
+     "lag_days": 89
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190329",
+     "lag_days": 88
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200327",
+     "lag_days": 87
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210317",
+     "lag_days": 76
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220316",
+     "lag_days": 75
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230316",
+     "lag_days": 75
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240320",
+     "lag_days": 80
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250312",
+     "lag_days": 71
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "000520": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180330",
+     "lag_days": 89
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190712",
+     "lag_days": 193
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210311",
+     "lag_days": 70
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220316",
+     "lag_days": 75
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230316",
+     "lag_days": 75
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240314",
+     "lag_days": 74
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250328",
+     "lag_days": 87
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "000760": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180329",
+     "lag_days": 88
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190401",
+     "lag_days": 91
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240314",
+     "lag_days": 1535
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240315",
+     "lag_days": 1170
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240315",
+     "lag_days": 805
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240315",
+     "lag_days": 440
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240321",
+     "lag_days": 81
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250320",
+     "lag_days": 79
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "000850": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180330",
+     "lag_days": 89
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190329",
+     "lag_days": 88
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210317",
+     "lag_days": 76
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220316",
+     "lag_days": 75
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230315",
+     "lag_days": 74
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240313",
+     "lag_days": 73
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250312",
+     "lag_days": 71
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "000990": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180813",
+     "lag_days": 225
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190329",
+     "lag_days": 88
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210319",
+     "lag_days": 78
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220321",
+     "lag_days": 80
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230321",
+     "lag_days": 80
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240327",
+     "lag_days": 87
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250312",
+     "lag_days": 71
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230512",
+     "lag_days": 42
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "001000": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180402",
+     "lag_days": 92
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190329",
+     "lag_days": 88
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210304",
+     "lag_days": 63
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220304",
+     "lag_days": 63
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230303",
+     "lag_days": 62
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240308",
+     "lag_days": 68
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250307",
+     "lag_days": 66
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "001460": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180402",
+     "lag_days": 92
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190401",
+     "lag_days": 91
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210318",
+     "lag_days": 77
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220317",
+     "lag_days": 76
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230316",
+     "lag_days": 75
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240314",
+     "lag_days": 74
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250320",
+     "lag_days": 79
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "001500": {
+   "annual": {
+    "2017": {
+     "status": "013"
+    },
+    "2018": {
+     "status": "013"
+    },
+    "2019": {
+     "status": "013"
+    },
+    "2020": {
+     "status": "013"
+    },
+    "2021": {
+     "status": "013"
+    },
+    "2022": {
+     "status": "013"
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액"
+     ],
+     "rcept_date": "20240313",
+     "lag_days": 73
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액"
+     ],
+     "rcept_date": "20250814",
+     "lag_days": 226
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "013"
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "001750": {
+   "annual": {
+    "2017": {
+     "status": "013"
+    },
+    "2018": {
+     "status": "013"
+    },
+    "2019": {
+     "status": "013"
+    },
+    "2020": {
+     "status": "013"
+    },
+    "2021": {
+     "status": "013"
+    },
+    "2022": {
+     "status": "013"
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액"
+     ],
+     "rcept_date": "20240313",
+     "lag_days": 73
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액"
+     ],
+     "rcept_date": "20250321",
+     "lag_days": 80
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "013"
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "001820": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180402",
+     "lag_days": 92
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190329",
+     "lag_days": 88
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210318",
+     "lag_days": 77
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220317",
+     "lag_days": 76
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230316",
+     "lag_days": 75
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240314",
+     "lag_days": 74
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250313",
+     "lag_days": 72
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "002150": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180330",
+     "lag_days": 89
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190329",
+     "lag_days": 88
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200327",
+     "lag_days": 87
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210310",
+     "lag_days": 69
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220310",
+     "lag_days": 69
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230316",
+     "lag_days": 75
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240314",
+     "lag_days": 74
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250813",
+     "lag_days": 225
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230512",
+     "lag_days": 42
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231110",
+     "lag_days": 41
+    }
+   }
+  },
+  "002220": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180330",
+     "lag_days": 89
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190329",
+     "lag_days": 88
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210311",
+     "lag_days": 70
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220310",
+     "lag_days": 69
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230322",
+     "lag_days": 81
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240319",
+     "lag_days": 79
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250715",
+     "lag_days": 196
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "002240": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180921",
+     "lag_days": 264
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190402",
+     "lag_days": 92
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210318",
+     "lag_days": 77
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220317",
+     "lag_days": 76
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230316",
+     "lag_days": 75
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240321",
+     "lag_days": 81
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250515",
+     "lag_days": 135
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230512",
+     "lag_days": 42
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231113",
+     "lag_days": 44
+    }
+   }
+  },
+  "002460": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180402",
+     "lag_days": 92
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190401",
+     "lag_days": 91
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210318",
+     "lag_days": 77
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220331",
+     "lag_days": 90
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230316",
+     "lag_days": 75
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240314",
+     "lag_days": 74
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250320",
+     "lag_days": 79
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "002690": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180402",
+     "lag_days": 92
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190401",
+     "lag_days": 91
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210318",
+     "lag_days": 77
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220323",
+     "lag_days": 82
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230322",
+     "lag_days": 81
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240321",
+     "lag_days": 81
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250424",
+     "lag_days": 114
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "189330": {
+   "annual": {
+    "2017": {
+     "status": "013"
+    },
+    "2018": {
+     "status": "013"
+    },
+    "2019": {
+     "status": "013"
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210602",
+     "lag_days": 153
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220616",
+     "lag_days": 167
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230726",
+     "lag_days": 207
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240318",
+     "lag_days": 78
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250813",
+     "lag_days": 225
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230512",
+     "lag_days": 42
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "080220": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180330",
+     "lag_days": 89
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20221111",
+     "lag_days": 1411
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20221111",
+     "lag_days": 1046
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20221111",
+     "lag_days": 680
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220329",
+     "lag_days": 88
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230329",
+     "lag_days": 88
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240328",
+     "lag_days": 88
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250318",
+     "lag_days": 77
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231113",
+     "lag_days": 44
+    }
+   }
+  },
+  "090710": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180814",
+     "lag_days": 226
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190401",
+     "lag_days": 91
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220207",
+     "lag_days": 403
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220322",
+     "lag_days": 81
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230711",
+     "lag_days": 192
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240321",
+     "lag_days": 81
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250324",
+     "lag_days": 83
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "067000": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "영업이익"
+     ],
+     "rcept_date": "20180330",
+     "lag_days": 89
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "영업이익"
+     ],
+     "rcept_date": "20190401",
+     "lag_days": 91
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "영업이익"
+     ],
+     "rcept_date": "20210614",
+     "lag_days": 165
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "영업이익"
+     ],
+     "rcept_date": "20220816",
+     "lag_days": 228
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "영업이익"
+     ],
+     "rcept_date": "20230317",
+     "lag_days": 76
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "영업이익"
+     ],
+     "rcept_date": "20240319",
+     "lag_days": 79
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "영업이익"
+     ],
+     "rcept_date": "20250318",
+     "lag_days": 77
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "059210": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180330",
+     "lag_days": 89
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190329",
+     "lag_days": 88
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210317",
+     "lag_days": 76
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220805",
+     "lag_days": 217
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230321",
+     "lag_days": 80
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240322",
+     "lag_days": 82
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250327",
+     "lag_days": 86
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "066900": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180402",
+     "lag_days": 92
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190401",
+     "lag_days": 91
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210319",
+     "lag_days": 78
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220318",
+     "lag_days": 77
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230322",
+     "lag_days": 81
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240315",
+     "lag_days": 75
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250814",
+     "lag_days": 226
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "008770": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180402",
+     "lag_days": 92
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190401",
+     "lag_days": 91
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210310",
+     "lag_days": 69
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220310",
+     "lag_days": 69
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230308",
+     "lag_days": 67
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240313",
+     "lag_days": 73
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250515",
+     "lag_days": 135
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "402340": {
+   "annual": {
+    "2017": {
+     "status": "013"
+    },
+    "2018": {
+     "status": "013"
+    },
+    "2019": {
+     "status": "013"
+    },
+    "2020": {
+     "status": "013"
+    },
+    "2021": {
+     "status": "013"
+    },
+    "2022": {
+     "status": "013"
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240419",
+     "lag_days": 110
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250319",
+     "lag_days": 78
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "013"
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231115",
+     "lag_days": 46
+    }
+   }
+  },
+  "356890": {
+   "annual": {
+    "2017": {
+     "status": "013"
+    },
+    "2018": {
+     "status": "013"
+    },
+    "2019": {
+     "status": "013"
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220323",
+     "lag_days": 447
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220323",
+     "lag_days": 82
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230323",
+     "lag_days": 82
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240321",
+     "lag_days": 81
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250320",
+     "lag_days": 79
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230512",
+     "lag_days": 42
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231129",
+     "lag_days": 60
+    }
+   }
+  },
+  "003230": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180402",
+     "lag_days": 92
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190401",
+     "lag_days": 91
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200331",
+     "lag_days": 91
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210318",
+     "lag_days": 77
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220315",
+     "lag_days": 74
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20251112",
+     "lag_days": 1047
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240320",
+     "lag_days": 80
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250318",
+     "lag_days": 77
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "041920": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180330",
+     "lag_days": 89
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190401",
+     "lag_days": 91
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210315",
+     "lag_days": 74
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220712",
+     "lag_days": 193
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230317",
+     "lag_days": 76
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240318",
+     "lag_days": 78
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250314",
+     "lag_days": 73
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "240810": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180402",
+     "lag_days": 92
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190401",
+     "lag_days": 91
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210317",
+     "lag_days": 76
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220316",
+     "lag_days": 75
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230321",
+     "lag_days": 80
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240320",
+     "lag_days": 80
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250325",
+     "lag_days": 84
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "042110": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180402",
+     "lag_days": 92
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190401",
+     "lag_days": 91
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210322",
+     "lag_days": 81
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220322",
+     "lag_days": 81
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230323",
+     "lag_days": 82
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240321",
+     "lag_days": 81
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250320",
+     "lag_days": 79
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "084650": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180615",
+     "lag_days": 166
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20190401",
+     "lag_days": 91
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200330",
+     "lag_days": 90
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210319",
+     "lag_days": 78
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220401",
+     "lag_days": 91
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231215",
+     "lag_days": 349
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240320",
+     "lag_days": 80
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20250318",
+     "lag_days": 77
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": 45
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 45
+    }
+   }
+  },
+  "050860": {
+   "annual": {
+    "2017": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20170928",
+     "lag_days": -94
+    },
+    "2018": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20180928",
+     "lag_days": -94
+    },
+    "2019": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20191216",
+     "lag_days": -15
+    },
+    "2020": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20200928",
+     "lag_days": -94
+    },
+    "2021": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20210917",
+     "lag_days": -105
+    },
+    "2022": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20220916",
+     "lag_days": -106
+    },
+    "2023": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230915",
+     "lag_days": -107
+    },
+    "2024": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20240913",
+     "lag_days": -109
+    }
+   },
+   "quarterly": {
+    "11013": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20231114",
+     "lag_days": 228
+    },
+    "11014": {
+     "status": "000",
+     "accounts": [
+      "매출액",
+      "영업이익"
+     ],
+     "rcept_date": "20230515",
+     "lag_days": -138
+    }
+   }
+  }
+ }
+}
