@@ -28,6 +28,23 @@ def test_frozen_sample_c_state_consistent():
         assert all(re.fullmatch(r"\d{6}", t) for t in FROZEN_SAMPLE_C)
 
 
+def test_frozen_sample_c_matches_draw_artifact():
+    """동결 목록 = --draw 산출물 JSON (표본 B 동형 — 손 전사 드리프트 차단).
+
+    pending 상태에서는 산출물이 아직 없을 수 있으므로 frozen 일 때만 검사."""
+    import json
+    import os
+
+    from kr_pipeline.backtest.frozen_sample_c import FROZEN_C_STATUS, FROZEN_SAMPLE_C
+    if FROZEN_C_STATUS != "frozen":
+        pytest.skip("동결 전 — 산출물 대조는 frozen 전용")
+    path = "data/backtest/sample_c_draw_20260721.json"
+    if not os.path.exists(path):
+        pytest.skip(f"산출물 없음: {path}")
+    d = json.load(open(path))
+    assert FROZEN_SAMPLE_C == d["sample_c"]
+
+
 def test_sample_c_pending_rejected():
     """미동결 표본 C 는 SystemExit — 조용히 빈 표본으로 진행되면 안 됨."""
     import kr_pipeline.backtest.frozen_sample_c as fc
