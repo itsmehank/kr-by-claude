@@ -1,0 +1,222 @@
+{
+  "label": "탐색/관찰 — 채택 판정 아님 (표본 C 사전등록 가설 후보용)",
+  "seed": 20260722,
+  "results": {
+    "A/breakout": {
+      "all": {
+        "n": 56,
+        "win_rate_pct": 23.2,
+        "payoff": 4.87,
+        "mean_excess_net": 3.223,
+        "ci95": [
+          -5.833,
+          15.864
+        ],
+        "ci_contains_zero": true
+      },
+      "confirmed_uptrend_only": {
+        "n": 10,
+        "win_rate_pct": 20.0,
+        "payoff": 0.94,
+        "mean_excess_net": -7.325,
+        "ci95": [
+          -13.379,
+          -1.296
+        ],
+        "ci_contains_zero": false
+      }
+    },
+    "A/next_day_confirm": {
+      "all": {
+        "n": 32,
+        "win_rate_pct": 28.1,
+        "payoff": 6.98,
+        "mean_excess_net": 10.395,
+        "ci95": [
+          -3.793,
+          29.682
+        ],
+        "ci_contains_zero": true
+      },
+      "confirmed_uptrend_only": {
+        "n": 4,
+        "win_rate_pct": 25.0,
+        "payoff": 0.84,
+        "mean_excess_net": -6.628,
+        "ci95": [
+          -15.255,
+          4.712
+        ],
+        "ci_contains_zero": true
+      }
+    },
+    "A/pullback": {
+      "all": {
+        "n": 51,
+        "win_rate_pct": 23.5,
+        "payoff": 5.4,
+        "mean_excess_net": 3.936,
+        "ci95": [
+          -5.02,
+          15.828
+        ],
+        "ci_contains_zero": true
+      },
+      "confirmed_uptrend_only": {
+        "n": 11,
+        "win_rate_pct": 27.3,
+        "payoff": 1.19,
+        "mean_excess_net": -3.505,
+        "ci95": [
+          -9.511,
+          2.208
+        ],
+        "ci_contains_zero": true
+      }
+    },
+    "B/breakout": {
+      "all": {
+        "n": 93,
+        "win_rate_pct": 29.0,
+        "payoff": 2.69,
+        "mean_excess_net": 0.522,
+        "ci95": [
+          -3.72,
+          6.739
+        ],
+        "ci_contains_zero": true
+      },
+      "confirmed_uptrend_only": {
+        "n": 22,
+        "win_rate_pct": 40.9,
+        "payoff": 3.78,
+        "mean_excess_net": 7.479,
+        "ci95": [
+          -5.288,
+          26.897
+        ],
+        "ci_contains_zero": true
+      }
+    },
+    "B/next_day_confirm": {
+      "all": {
+        "n": 43,
+        "win_rate_pct": 27.9,
+        "payoff": 2.28,
+        "mean_excess_net": -0.49,
+        "ci95": [
+          -3.997,
+          3.79
+        ],
+        "ci_contains_zero": true
+      },
+      "confirmed_uptrend_only": {
+        "n": 12,
+        "win_rate_pct": 25.0,
+        "payoff": 1.36,
+        "mean_excess_net": -2.277,
+        "ci95": [
+          -5.58,
+          2.034
+        ],
+        "ci_contains_zero": true
+      }
+    },
+    "B/pullback": {
+      "all": {
+        "n": 76,
+        "win_rate_pct": 27.6,
+        "payoff": 1.12,
+        "mean_excess_net": -2.829,
+        "ci95": [
+          -4.955,
+          -0.167
+        ],
+        "ci_contains_zero": false
+      },
+      "confirmed_uptrend_only": {
+        "n": 13,
+        "win_rate_pct": 15.4,
+        "payoff": 0.46,
+        "mean_excess_net": -4.595,
+        "ci95": [
+          -6.53,
+          -2.847
+        ],
+        "ci_contains_zero": false
+      }
+    },
+    "AB/breakout": {
+      "all": {
+        "n": 149,
+        "win_rate_pct": 26.8,
+        "payoff": 3.45,
+        "mean_excess_net": 1.537,
+        "ci95": [
+          -3.006,
+          7.504
+        ],
+        "ci_contains_zero": true
+      },
+      "confirmed_uptrend_only": {
+        "n": 32,
+        "win_rate_pct": 34.4,
+        "payoff": 2.79,
+        "mean_excess_net": 2.853,
+        "ci95": [
+          -6.627,
+          17.523
+        ],
+        "ci_contains_zero": true
+      }
+    },
+    "AB/next_day_confirm": {
+      "all": {
+        "n": 75,
+        "win_rate_pct": 28.0,
+        "payoff": 4.73,
+        "mean_excess_net": 4.154,
+        "ci95": [
+          -2.2,
+          12.337
+        ],
+        "ci_contains_zero": true
+      },
+      "confirmed_uptrend_only": {
+        "n": 16,
+        "win_rate_pct": 25.0,
+        "payoff": 1.14,
+        "mean_excess_net": -3.365,
+        "ci95": [
+          -7.147,
+          0.734
+        ],
+        "ci_contains_zero": true
+      }
+    },
+    "AB/pullback": {
+      "all": {
+        "n": 127,
+        "win_rate_pct": 26.0,
+        "payoff": 2.79,
+        "mean_excess_net": -0.113,
+        "ci95": [
+          -3.926,
+          4.904
+        ],
+        "ci_contains_zero": true
+      },
+      "confirmed_uptrend_only": {
+        "n": 24,
+        "win_rate_pct": 20.8,
+        "payoff": 1.03,
+        "mean_excess_net": -4.095,
+        "ci95": [
+          -6.96,
+          -1.28
+        ],
+        "ci_contains_zero": false
+      }
+    }
+  }
+}
