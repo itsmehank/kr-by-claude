@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>표본 B 아웃오브샘플 분석 결과</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; background: #f4f6f9; color: #222; line-height: 1.65; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 1.45rem; margin-bottom: 4px; }
+  .sub { color: #667; font-size: .9rem; margin-bottom: 18px; }
+  .tabs { display: flex; gap: 6px; border-bottom: 2px solid #d8dee6; margin-bottom: 20px; }
+  .tab-btn { padding: 10px 22px; border: none; background: #e6eaf0; border-radius: 8px 8px 0 0; font-size: 1rem; cursor: pointer; color: #445; }
+  .tab-btn.active { background: #2b5aa7; color: #fff; font-weight: 700; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  section { background: #fff; border: 1px solid #e2e7ee; border-radius: 10px; padding: 20px 22px; margin-bottom: 16px; }
+  h2 { font-size: 1.12rem; color: #2b5aa7; margin-bottom: 10px; }
+  h3 { font-size: 1rem; margin: 14px 0 6px; }
+  p, li { font-size: .95rem; }
+  ul, ol { padding-left: 22px; margin: 6px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: .9rem; }
+  th, td { border: 1px solid #d5dbe4; padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: #eef2f8; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tldr { background: #eef6ff; border-left: 4px solid #2b5aa7; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; }
+  .pass { color: #0a7a3d; font-weight: 700; }
+  .hold { color: #b06000; font-weight: 700; }
+  .warn { background: #fff7e8; border-left: 4px solid #d99000; padding: 10px 14px; border-radius: 6px; margin: 10px 0; font-size: .92rem; }
+  .term { background: #f2f4f8; border-radius: 6px; padding: 2px 6px; font-size: .88em; }
+  code { background: #f0f2f6; padding: 1px 5px; border-radius: 4px; font-size: .86em; }
+  pre { background: #1f2530; color: #dfe6f0; padding: 12px 14px; border-radius: 8px; overflow-x: auto; font-size: .82rem; margin: 8px 0; }
+  .scenario { background: #f6faf6; border: 1px dashed #9cc79c; border-radius: 8px; padding: 12px 14px; margin: 8px 0; font-size: .92rem; }
+  .foot { color: #889; font-size: .8rem; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>표본 B 아웃오브샘플 분석 결과</h1>
+  <div class="sub">사전등록 2026-07-21(표본 시드 20260713) · 실행일 2026-07-22 — 판정 지표는 이 실행에서 최초 계산(산출물 파일명 20260721은 사전등록 시점 표기) · 원본: docs/superpowers/backtest-sample-b-results.md</div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="show(0)">내용</button>
+    <button class="tab-btn" onclick="show(1)">초보자 설명</button>
+  </div>
+
+  <!-- ================= 탭 1: 내용 ================= -->
+  <div class="panel active">
+    <div class="tldr">
+      <b>TL;DR</b> — 기존 표본 A(100종목)에서 나온 결론을 완전히 새로운 표본 B(독립 100종목, 같은 기간 2021–2024)로 재검증했다.
+      결과: <b>방어 2층은 완벽 재현(P1·P2 PASS)</b>, <b>수익성은 여전히 미입증(P3)</b>,
+      <b>추격상한 5→3% 하향은 근거 없음으로 기각(P4 hold)</b> — A의 "4/4 stopout"은 소표본 노이즈로 판명.
+      종합: <b>"잃지 않는 시스템은 입증, 시장을 이기는 시스템은 미입증"이 두 독립 표본에서 확인됐다.</b> (수익성은 표본 B에서 오히려 A보다 더 약했다: +0.52% vs +3.2%)
+    </div>
+
+    <section>
+      <h2>⚠️ 범위 라벨 (먼저 읽을 것)</h2>
+      <ul>
+        <li>게이트 개선 가설(#53~#55)의 채택 판정은 <b>이 분석의 범위 밖</b> — 같은 기간(2021–2024)이라 순환 오류. 그 판정은 #52(2016–2020 독립 구간, 표본 C)의 몫.</li>
+        <li>입력 = 표본 B 1,952셀 중 <b>제외 1셀</b>(#50 결함: 317870/2022-04-09, entry인데 pivot_price NULL) 적용.</li>
+        <li>표본(종목)은 다르지만 <b>기간·시장 국면 시퀀스는 A와 동일</b> — 종목-차원 아웃오브샘플이지 기간-차원이 아니다.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>판정 요약 (사전등록 기준 4개)</h2>
+      <table>
+        <tr><th>판정</th><th>기준 (사전 잠금)</th><th>표본 B 결과</th><th>표본 A</th><th>판정</th></tr>
+        <tr><td>P1 분류층 방어</td><td>R_down/R_up ≤ 0.5</td><td>r_down <b>0.0</b> / r_up 0.043 / ratio <b>0.0</b></td><td>0.0 / 0.003 / 0.0</td><td class="pass">PASS — 재현</td></tr>
+        <tr><td>P2 트리거확인층 감사</td><td>G ≤ 0.5</td><td><b>G = 0/43 = 0.000</b> (전건 wait)</td><td>0/33 = 0.000</td><td class="pass">PASS — 재현</td></tr>
+        <tr><td>P3 수익성 (B 단독)</td><td>CI 하한 &gt; 0 → 입증 갱신</td><td>93건, +0.52%, CI <b>[−3.70, +6.73]</b> 0 포함</td><td>56건, +3.2%, [−5.8, +16.1]</td><td class="hold">미입증 유지 — 재현</td></tr>
+        <tr><td>P4 추격상한 (5→3%)</td><td>3–5% stopout이 0–3% 대비 ≥ +20%p → 승격 (n≥8 가드)</td><td>n=9 (가드 통과), 55.6% vs 58.6% = <b>−3.0%p</b></td><td>4/4=100% (n=4, 관찰)</td><td class="hold">hold — 승격 기각</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>P1. 분류층 방어 — <span class="pass">PASS</span></h2>
+      <ul>
+        <li>하락·조정기 국면의 분류점에서 entry 분류 <b>정확히 0건</b> (r_down = 0.0).</li>
+        <li>entry는 confirmed_uptrend(상승 확인 국면)에만 편중 — r_up 0.043 (A 0.003보다 높음: B의 entry 14건 중 13건이 상승 국면. #50 제외 1셀 반영).</li>
+        <li>ratio 0.0 ≤ 0.5 → PASS. §3.5 hard rule(하락장 매수 금지 규칙)이 신규 100종목에서도 동일 작동.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>P2. 트리거확인층 감사 — <span class="pass">PASS (G = 0.000)</span></h2>
+      <ul>
+        <li>대상: 보정 후 시뮬 93건 중 진입일 국면 ∈ {downtrend, correction} = <b>43건</b>.</li>
+        <li>A와의 의도적 차이: A는 1차(비보정) 66건 기준 33건이었으나 B는 <b>보정 후</b>(5% 추격 룰 반영) 기준 — 사전등록에 명기된 차이.</li>
+        <li><b>43건 전부 wait</b> — go_now 0건, 실패 0. 실전 시스템이라면 하락·조정기 매수 노출 0을 재확인.</li>
+        <li>기록: <code>data/backtest/trigger_audit_sample_b_20260721.json</code> (LLM 1회 실행, sonnet, 재실행 비교 금지).</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>P3. 수익성 — <span class="hold">미입증 유지</span></h2>
+      <ul>
+        <li>보정 후(5% 추격·연도별 거래비용·청산 밴드) <b>93 트레이드</b>: 평균 시장초과 <b>+0.522%</b>, 종목 클러스터 부트스트랩 95% CI <b>[−3.697, +6.725]</b> (BOOT_B 10,000, seed 20260721) → 0 포함 → 미입증 유지.</li>
+        <li>플라시보(진입일만 무작위, N=1,000, B 단독): 실제 +0.522 vs 플라시보 평균 +1.42, <b>p = 0.699</b> — 돌파 타이밍의 가치 미입증 (A p=0.194보다 약함. 실제가 무작위 진입 평균보다도 낮음).</li>
+        <li>2025 절단 제외 민감도: 85건 +0.661% — 결론 불변.</li>
+        <li><b>보조(판정 아님) 풀링 A+B</b>: 149건, 평균 +1.537%, CI <b>[−2.944, +7.496]</b> — 검정력 약 2배에서도 0 포함. "표본을 늘리면 유의해질 것" 가설에 부정적.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>P4. 추격상한 5→3% — <span class="hold">hold (승격 기각)</span></h2>
+      <p>armA-prod(200종목) 트레이드 로그의 진입 프리미엄 구간(pivot 대비 얼마나 비싸게 진입했나):</p>
+      <table>
+        <tr><th>구간</th><th class="num">n</th><th class="num">stopout(stop8) 비율</th><th class="num">평균 pnl</th></tr>
+        <tr><td>0–1%</td><td class="num">18</td><td class="num">66.7%</td><td class="num">+5.65%</td></tr>
+        <tr><td>1–3%</td><td class="num">11</td><td class="num">45.5%</td><td class="num">−1.26%</td></tr>
+        <tr><td>3–5%</td><td class="num">9</td><td class="num">55.6%</td><td class="num">−3.95%</td></tr>
+      </table>
+      <ul>
+        <li>격차 = 55.6 − 58.6(0–3 합산) = <b>−3.0%p</b> &lt; +20%p → hold.</li>
+        <li><b>A의 "3–5% 구간 stopout 100%(4/4)"는 소표본 노이즈였음이 드러남</b> — n=9로 늘리자 프리미엄 구간의 stopout이 특별히 높지 않다.</li>
+        <li>단, 평균 pnl은 여전히 최악(−3.95%) — 수익성 관점의 열위는 남지만 사전등록 판정 지표는 stopout 격차. 후속 관찰 대상으로만 기록.</li>
+        <li>결론: 추격상한 5→3% 하향의 근거 없음. thresholds.py 무접촉.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>I1. 포트폴리오 200종목 (정보용 — 판정 아님)</h2>
+      <ul>
+        <li>구성: 현행 ARMS(armA-prod = Arm A 기준선, v2 스톱 3층 스택), A+B 200종목, 잉여 14 제외. v1은 과거 커밋 재현 필요로 제외(사전등록 확정).</li>
+        <li>armA-prod: <b>CAGR +0.82% / MDD −26.82% / 평균 노출 24.9%</b> (벤치마크 KOSPI CAGR +0.95%).</li>
+        <li>관찰 ①: 노출(가동률)은 A 단독 9~19% → <b>24.9%</b>로 상승 — 표본밀도 하한이 실제로 완화됨.</li>
+        <li>관찰 ②: 그러나 CAGR은 A 단독 armA(+2.20%)보다 <b>낮아져 벤치마크를 소폭 하회</b> — B 종목들이 성과를 희석. 수익 미입증(P3)과 정합. 채택 판정 없음.</li>
+        <li>곡선: <code>data/backtest/portfolio_curves_sample_ab_20260721.json</code>.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>I2. §7.2~7.5 대칭 지표 (정보용, B 단독)</h2>
+      <ul>
+        <li>손실 억제(§7.2 대응): down_mean_excess = [−3.108(correction), −2.433(downtrend)] — supportive 아님(A와 동일 방향). §4 트리거 누수 영향, 게이트 판정은 P1/P2 소관.</li>
+        <li>국면별(보정 후 93건): confirmed_uptrend n=22 <b>+7.48%</b>(승률 40.9%) / correction n=23 −0.54% / rally_attempt n=28 −1.38% / downtrend n=20 −3.24% — 상승 국면에서만 양(+), A와 동일 구조.</li>
+        <li>검정력 가드: 4개 국면 전부 ok(n≥20) — A 대비 표본 사정 개선.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>한계</h2>
+      <ul>
+        <li><b>기간 비독립</b>: B는 종목-차원 아웃오브샘플. 2021–2024 국면 시퀀스에 조건부인 결론(게이트 구성 등)의 기간-차원 검증은 #52(2016–2020) 필요.</li>
+        <li>#49: B 100종목 × 가격윈도에서 수정 OHLC 불변식 위반 241행/23종목(pykrx 소스 유래) — 실측 하류 영향은 boolean 판정 불변, 수정 없이 기록.</li>
+        <li>입력 분류 = 1회 LLM 백필(sonnet-5), 감사 = 1회 LLM — 재실행 비교 금지(LLM 비결정성 규율).</li>
+        <li>2025 진입 절단은 민감도로만 커버(85/93). I1은 armA 구성만(v1 제외).</li>
+        <li>P4의 mean_pnl 열위(3–5% 구간 −3.95%)는 판정 지표가 아니므로 미반영 — 후속 관찰 대상.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>재현 명령</h2>
+      <pre>uv run python -m kr_pipeline.backtest.profitability_cli analyze --sample=b   # P1+I2
+uv run python -m kr_pipeline.backtest.refinement --sample=b --seed=20260721  # P3
+uv run python -m kr_pipeline.backtest.trigger_audit --sample=b               # P2(멱등 resume)
+uv run python -m kr_pipeline.backtest.portfolio --sample=ab                  # I1+P4</pre>
+      <p>산출물: <code>analyze_sample_b_20260721.json</code> · <code>refinement_sample_b_20260721.json</code> · <code>trigger_audit_sample_b_20260721.json</code> · <code>portfolio_curves_sample_ab_20260721.json</code> (전부 <code>data/backtest/</code>)</p>
+    </section>
+  </div>
+
+  <!-- ================= 탭 2: 초보자 설명 ================= -->
+  <div class="panel">
+    <div class="tldr">
+      <b>한 줄 결론</b> — 새로운 종목 100개로 다시 시험해 봤더니, 이 시스템은 <b>"하락장에서 사는 실수는 절대 안 하는 시스템"</b>이라는 게 다시 한번 증명됐고,
+      <b>"시장 평균보다 더 버는 시스템"</b>이라는 건 이번에도 증명되지 않았다.
+    </div>
+
+    <section>
+      <h2>1. 무엇을 하는 프로젝트인가</h2>
+      <p>이 프로젝트는 한국 주식(코스피/코스닥)에서 <span class="term">미너비니/오닐 스타일</span>(상승 추세의 강한 종목이 저항선을 돌파할 때만 사는 전략)로 "살 만한 종목"을 고르는 자동 시스템이다. 매주 주말에 AI(LLM, 대규모 언어 모델)가 차트를 보고 종목을 <b>watch(관찰)/entry(진입)/ignore(무시)</b>로 분류하고, 평일에 실제 돌파가 오면 마지막으로 한 번 더 AI가 "지금 사도 되나"를 확인한다.</p>
+      <p><span class="term">백테스트</span>(과거 데이터로 전략을 시험하는 것)로 이 시스템이 과거 2021~2024년에 어떻게 동작했을지를 측정해 왔다.</p>
+    </section>
+
+    <section>
+      <h2>2. 왜 "표본 B"가 필요했나</h2>
+      <p>앞서 <b>표본 A</b>(무작위 100종목)로 백테스트를 했더니 두 가지 결론이 나왔다: ① 하락장 매수 방어는 완벽하다, ② 수익이 시장 평균보다 낫다는 증거는 없다.</p>
+      <p>그런데 한 번의 실험만 믿으면 위험하다 — 우연히 그 100종목에서만 그런 결과가 나왔을 수 있기 때문이다. 그래서 <b>이전에 쓰지 않은 완전히 새로운 100종목(표본 B)</b>을 뽑아 같은 실험을 반복했다. 이것을 <span class="term">아웃오브샘플 검증</span>(결론을 만들 때 쓰지 않은 데이터로 다시 확인하는 것)이라 한다.</p>
+      <div class="scenario"><b>중요한 규칙 — 사전등록</b>: 결과 숫자를 보기 <b>전에</b> "무엇을 어떤 기준으로 판정할지"를 문서로 잠가서 커밋했다. 숫자를 본 뒤에 기준을 바꾸면(예: "60%면 통과로 하자") 자기가 보고 싶은 결론을 만들 수 있기 때문이다. 이번 판정 4개(P1~P4)의 기준은 전부 실행 전에 고정됐다.</div>
+    </section>
+
+    <section>
+      <h2>3. 판정 1 — 하락장에서 "사자"고 분류한 적 있나? (P1: 통과)</h2>
+      <p>표본 B의 주간 분류 1,951건(1,952건 중 결함 데이터 1건 제외)을 시장 국면별로 나눠, <b>하락장·조정장에서 entry(진입) 분류가 나온 횟수</b>를 셌다.</p>
+      <div class="scenario"><b>결과</b>: 하락·조정 국면의 분류 중 entry = <b>0건</b>. entry로 분류된 14건 중 13건이 "상승 확인" 국면에서 나왔다. → 기준(상승장 대비 비율 0.5 이하)을 여유 있게 통과. 표본 A(0건/1,075)와 똑같은 결과.</div>
+      <p>의미: "하락장에서는 사지 말라"는 규칙이 분류 단계에서 새 종목들에도 완벽하게 작동한다.</p>
+    </section>
+
+    <section>
+      <h2>4. 판정 2 — 마지막 관문(AI 확인)은 막았을까? (P2: 통과)</h2>
+      <p>백테스트 시뮬레이션은 속도 때문에 "매수 직전 AI 확인" 단계를 생략한다. 그래서 시뮬레이션에는 하락·조정장 매수가 43건 섞여 있었다. 이 43건을 실제 AI 확인 단계(5b 프롬프트, sonnet 모델)에 하나씩 넣어 "실전이었다면 정말 샀을까?"를 물었다.</p>
+      <div class="scenario"><b>결과</b>: 43건 <b>전부 "wait(사지 않음)"</b> — 통과(go) 0건. 표본 A 때(33건 전부 wait)와 동일. → 실전 시스템의 하락장 매수 노출은 0이라는 게 새 종목에서도 재확인됐다.</div>
+      <p>참고: AI에게 묻는 이유는, 그 규칙이 코드가 아니라 <b>AI에게 준 지시문</b>이어서 실제로 지켜지는지는 실측해야만 알 수 있기 때문이다. 이 43번이 이번 분석에서 유일하게 AI 사용량을 쓴 부분이다(나머지는 전부 코드 계산).</p>
+    </section>
+
+    <section>
+      <h2>5. 판정 3 — 그래서 돈은 벌었나? (P3: 증명 안 됨)</h2>
+      <p>표본 B에서 시스템 규칙대로 사고팔았다면 나왔을 거래 93건의 <b>시장 대비 초과수익</b>(그냥 지수를 샀을 때보다 얼마나 더 벌었나)을 계산했다. 수수료·세금·5% 추격 제한 같은 현실 보정을 전부 적용했다.</p>
+      <div class="scenario">
+        <b>결과</b>: 평균 초과수익 <b>+0.52%</b>. 그런데 <span class="term">95% 신뢰구간</span>(통계적으로 "진짜 값이 이 범위 안에 있다"고 볼 수 있는 구간)이 <b>[−3.70%, +6.73%]</b>로 0을 포함 — 즉 "사실은 0(시장과 차이 없음)"일 가능성을 배제할 수 없다.<br><br>
+        <b>플라시보 검사</b>: 같은 종목을 아무 날짜에나 무작위로 샀다고 1,000번 시뮬레이션했더니 평균 +1.42% — <b>실제 전략(+0.52%)이 무작위 진입보다도 낮았다</b>(p=0.699). "돌파 타이밍에 사는 것"의 가치가 증명되지 않았다.<br><br>
+        <b>두 표본 합산(149건)</b>으로도 신뢰구간이 여전히 0을 포함 → "데이터가 부족해서 그렇다"는 반론도 약해졌다.
+      </div>
+      <p>의미: 손실 방어는 확실하지만, 시장 평균을 이긴다는 증거는 두 표본 모두에서 나오지 않았다.</p>
+    </section>
+
+    <section>
+      <h2>6. 판정 4 — "비싸게 추격한 매수가 더 위험한가?" (P4: 기각 — 이번 분석의 백미)</h2>
+      <p>배경: 표본 A 때 "<span class="term">pivot</span>(돌파 기준 가격)보다 3~5% 비싸게 산 4건이 전부 손절로 끝났다"는 관찰이 있었다. 그래서 "추격 허용 한도를 5%에서 3%로 조이자"는 제안이 후보로 올라와 있었다.</p>
+      <div class="scenario">
+        <b>결과(200종목 합산)</b>: 3~5% 비싸게 산 매수가 9건으로 늘어나자 손절 비율은 <b>55.6%</b> — 0~3% 구간(58.6%)과 사실상 같았다(격차 −3.0%p, 기준은 +20%p 이상).<br>
+        → <b>A의 "4건 전부 손절"은 표본이 4건뿐이라 생긴 우연(노이즈)</b>이었다. 한도 하향은 기각.
+      </div>
+      <p>의미: 만약 사전등록 없이 A의 관찰만 믿고 규칙을 바꿨다면 <b>근거 없는 변경</b>이 될 뻔했다. "기준을 미리 잠그고, 표본을 늘려 다시 재본다"는 절차가 잘못된 결정을 막은 실제 사례다. (단, 3~5% 추격 매수의 평균 수익이 −3.95%로 가장 나쁜 건 사실이라 계속 지켜보기로 기록.)</p>
+    </section>
+
+    <section>
+      <h2>7. 참고 관찰 (판정 아님)</h2>
+      <ul>
+        <li><b>포트폴리오 시뮬(200종목)</b>: 계좌에 돈이 투입돼 있는 비율(가동률)이 25%로 올라갔지만(이전 9~19%), 연수익률은 +0.82%로 코스피(+0.95%)를 소폭 밑돌았다 — "수익 미입증"과 같은 방향.</li>
+        <li><b>국면별 수익</b>: 상승 확인 국면의 거래만 평균 +7.48%로 양(+)이고, 나머지 국면(조정/랠리시도(하락 후 반등을 시도했지만 아직 상승 추세로 확정되지 않은 국면)/하락)은 전부 음(−) — 표본 A와 같은 구조.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>8. 이 결과가 말해주지 않는 것 (한계)</h2>
+      <ul>
+        <li><b>기간은 같다</b>: 종목만 바꿨지 기간(2021~2024)은 A와 동일. "다른 시장 환경에서도 성립하나"는 별도 검증(2016~2020 구간, 표본 C — 진행 예정)이 필요하다.</li>
+        <li>가격 데이터 원천(pykrx)의 반올림 결함이 일부 있으나(241행) 판정에 영향 없음을 확인하고 기록만 했다.</li>
+        <li>AI 분류는 1회 실행 원칙 — AI는 같은 입력에도 답이 조금씩 달라질 수 있어(비결정성), "다시 돌려 비교"는 금지 규율이다.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>9. 용어 정리</h2>
+      <table>
+        <tr><th>용어</th><th>뜻</th></tr>
+        <tr><td>백테스트</td><td>과거 데이터로 "이 전략을 썼다면 어땠을까"를 계산하는 것</td></tr>
+        <tr><td>아웃오브샘플</td><td>결론을 만들 때 쓰지 않은 새 데이터로 결론을 다시 확인하는 것</td></tr>
+        <tr><td>사전등록</td><td>결과를 보기 전에 판정 기준을 문서로 잠가 두는 것 — 결과를 보고 기준을 바꾸는 자기기만 방지</td></tr>
+        <tr><td>표본 A / B</td><td>각각 무작위로 뽑은 100종목 묶음. B는 A와 겹치지 않게 뽑음</td></tr>
+        <tr><td>국면(시장상태)</td><td>지수 기준으로 나눈 시장 상태 4분류: 하락(downtrend) / 조정(correction) / 랠리시도(rally_attempt, 반등 시도 중·미확정) / 상승확인(confirmed_uptrend)</td></tr>
+        <tr><td>entry / watch / ignore</td><td>AI 주간 분류: 진입 후보 / 관찰 / 무시</td></tr>
+        <tr><td>pivot</td><td>돌파 기준 가격 — 이 가격을 넘으면 매수 신호</td></tr>
+        <tr><td>stopout(손절)</td><td>매수가 대비 8% 하락 시 자동 매도된 경우</td></tr>
+        <tr><td>95% 신뢰구간(CI)</td><td>"진짜 평균이 이 범위 안"이라고 통계적으로 말할 수 있는 구간. 0을 포함하면 "효과 없음일 수도 있다"는 뜻</td></tr>
+        <tr><td>플라시보 검사</td><td>같은 종목을 무작위 날짜에 샀다고 가정한 대조군 — 전략의 타이밍에 가치가 있는지 확인</td></tr>
+        <tr><td>G (감사 지표)</td><td>하락장 매수 후보 중 AI 확인 단계가 "사겠다(go)"라고 한 비율 — 낮을수록 방어가 잘 작동</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>10. 종합과 다음</h2>
+      <p><b>확정된 것</b>: 이 시스템의 방어(하락장 매수 금지)는 분류·확인 두 층 모두, 두 독립 표본 모두에서 완벽하게 작동한다. 추격상한을 조일 근거는 없다.</p>
+      <p><b>증명 안 된 것</b>: 시장 평균을 이기는 수익 — 두 표본 합산으로도 증거가 나오지 않았고, 플라시보보다도 낮았다.</p>
+      <p><b>다음</b>: 남은 질문은 "다른 시대(2016~2020)에서도 같을까"이며, 이는 표본 C(이슈 #52)로 별도 진행된다.</p>
+    </section>
+
+    <div class="foot">이 문서는 docs/superpowers/backtest-sample-b-results.md(2026-07-21 사전등록 분석)를 초보자 눈높이로 재구성한 것입니다.</div>
+  </div>
+</div>
+<script>
+function show(i) {
+  document.querySelectorAll('.panel').forEach((p, j) => p.classList.toggle('active', i === j));
+  document.querySelectorAll('.tab-btn').forEach((b, j) => b.classList.toggle('active', i === j));
+}
+</script>
+</body>
+</html>
