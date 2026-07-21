@@ -1,0 +1,33 @@
+{
+ "population_cells": 217,
+ "variants": {
+  "V0_current": {
+   "fired_cells": 18,
+   "real_llm_cells": 12,
+   "promotion_cells_obs": 145,
+   "ret20_median_obs": 19.25,
+   "ret20_n": 12
+  },
+  "V1_all_watch_reasons": {
+   "fired_cells": 35,
+   "real_llm_cells": 22,
+   "promotion_cells_obs": 144,
+   "ret20_median_obs": 8.29,
+   "ret20_n": 22
+  },
+  "V2_no_fresh_cross": {
+   "fired_cells": 36,
+   "real_llm_cells": 20,
+   "promotion_cells_obs": 119,
+   "ret20_median_obs": 15.64,
+   "ret20_n": 20
+  },
+  "V3_both": {
+   "fired_cells": 132,
+   "real_llm_cells": 44,
+   "promotion_cells_obs": 35,
+   "ret20_median_obs": 7.93,
+   "ret20_n": 44
+  }
+ }
+}
