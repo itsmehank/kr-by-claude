@@ -631,3 +631,50 @@ ALTER TABLE recall_audit_classification
 -- (#50) sanity_warnings — weekly_classification 과 동일 의미 (SOFT 경고, 쓰기 전용)
 ALTER TABLE recall_audit_classification
   ADD COLUMN IF NOT EXISTS sanity_warnings JSONB;
+
+-- ====== (#47) 포지션 관리 wiring — 수동 기록 + 일일 손절 평가 (2026-07-22) ======
+-- 포지션 소스 결정(2026-07-22, 사용자): 수동 기록. source 컬럼은 어댑터 구조 —
+-- 브로커 연동 도입 시 'manual' 외 값으로 확장(스키마·러너는 소스와 독립).
+-- 스펙 §3 불변 계약: entry_price(평균매입가)는 매수 시점 고정 — 재분류 pivot/base_low
+-- 유입 금지. 단순 abort 모델 정합(전량 매도 신호만, 부분 청산·피라미딩 없음).
+CREATE TABLE IF NOT EXISTS positions (
+  id               BIGSERIAL PRIMARY KEY,
+  symbol           VARCHAR(10) NOT NULL,
+  entry_date       DATE NOT NULL,
+  entry_price      NUMERIC(12, 4) NOT NULL CHECK (entry_price > 0),
+  quantity         INTEGER,                        -- 선택 — 판정 무영향(전량 모델)
+  breakeven_armed  BOOLEAN NOT NULL DEFAULT FALSE, -- 2층 래치 (러너가 갱신·영속, 해제 없음)
+  status           VARCHAR(10) NOT NULL DEFAULT 'open',   -- open | closed
+  source           VARCHAR(20) NOT NULL DEFAULT 'manual',
+  closed_at        DATE,
+  close_reason     TEXT,
+  note             TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT positions_status_chk CHECK (status IN ('open', 'closed')),
+  CONSTRAINT positions_quantity_chk CHECK (quantity IS NULL OR quantity > 0)
+);
+CREATE INDEX IF NOT EXISTS idx_positions_open ON positions (status, symbol);
+-- 종목당 open 포지션 1개 (전량 매도 신호 모델 — 이중 등록 시 이중 평가·이중 알림 방지)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_positions_open_symbol
+  ON positions (symbol) WHERE status = 'open';
+
+-- 일일 손절 평가 로그 — 멱등 (position_id, eval_date). warnings: no_bar/halt 는
+-- 행 미생성(skip)이고, 여기 남는 것은 평가는 수행하되 주의가 필요한 경우
+-- (예: corp_action_after_entry — entry_price 수동 재확인).
+CREATE TABLE IF NOT EXISTS position_stop_evaluations (
+  -- FK 는 의도적으로 ON DELETE 없음 — 평가 이력은 보존 대상(포지션 삭제 경로 자체가
+  -- 없음, close 만 존재). 수동 DELETE 시 FK 에러가 나는 것이 정상.
+  position_id      BIGINT NOT NULL REFERENCES positions(id),
+  eval_date        DATE NOT NULL,
+  close            NUMERIC(12, 4) NOT NULL,
+  sma_50           NUMERIC(12, 4),
+  effective_stop   NUMERIC(12, 4) NOT NULL,
+  binding          VARCHAR(20) NOT NULL,
+  breakeven_armed  BOOLEAN NOT NULL,
+  triggered        BOOLEAN NOT NULL,
+  warnings         JSONB,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (position_id, eval_date)
+);
+CREATE INDEX IF NOT EXISTS idx_position_stop_eval_date
+  ON position_stop_evaluations (eval_date);

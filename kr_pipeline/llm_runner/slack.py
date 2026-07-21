@@ -32,6 +32,21 @@ def notify_signal(*, symbol: str, name: str, entry_price: float, stop_loss: floa
     _post({"text": text})
 
 
+def notify_stop_triggered(*, symbol: str, name: str, close: float,
+                          effective_stop: float, binding: str,
+                          eval_date=None) -> None:
+    """(#47) 보유 포지션 매도 신호 알림 (일일 손절 평가 러너).
+
+    eval_date 명시 — 과거일 재평가 알림이 실시간 신호로 오독되는 것 방지(리뷰).
+    """
+    when = f" [{eval_date}]" if eval_date else ""
+    text = (
+        f"🔴 *매도 신호*{when} `{symbol}` {name}\n"
+        f"종가 ₩{close:,.0f} < 유효 손절선 ₩{effective_stop:,.0f} ({binding})"
+    )
+    _post({"text": text})
+
+
 def notify_weekend_digest(*, entry_count: int, watch_count: int, ignore_count: int) -> None:
     """주말 (5) batch 다이제스트."""
     text = (
