@@ -75,7 +75,7 @@ def test_run_refinement_threads_tickers_and_seed(db, monkeypatch):
                   "phase": "confirmed_uptrend", "excess_net": 1.0,
                   "excess_net_hi": 1.5, "pnl_net": 2.0, "mdd_pct": -3.0}
 
-    def fake_build(conn, tickers=None):
+    def fake_build(conn, tickers=None, entry_mode="breakout"):
         calls["tickers"] = tickers
         return [dict(fake_trade)], 0
 
@@ -95,3 +95,25 @@ def test_run_refinement_threads_tickers_and_seed(db, monkeypatch):
     assert set(calls["ci_seeds"]) == {20260721}      # 전체 CI + phase별 CI 전 호출
     assert calls["pl_seed"] == 20260721
     assert out["params"]["seed"] == 20260721          # 실코드 기록 위치 = params.seed
+
+
+def test_run_refinement_threads_entry_mode(db, monkeypatch):
+    """entry_mode 가 build 로 전달되고 params 에 기록된다 (기본 breakout 불변)."""
+    from datetime import date
+    import kr_pipeline.backtest.refinement as rf
+    seen = {}
+    fake_trade = {"ticker": "000001", "market": "KOSPI",
+                  "entry_date": date(2021, 1, 4), "exit_date": date(2021, 2, 1),
+                  "phase": "confirmed_uptrend", "excess_net": 1.0,
+                  "excess_net_hi": 1.5, "pnl_net": 2.0, "mdd_pct": -3.0}
+
+    def fake_build(conn, tickers=None, entry_mode="breakout"):
+        seen["entry_mode"] = entry_mode
+        return [dict(fake_trade)], 0
+
+    monkeypatch.setattr(rf, "build_refined_trades", fake_build)
+    monkeypatch.setattr(rf, "cluster_bootstrap_ci", lambda trades, **kw: (0.0, 2.0))
+    monkeypatch.setattr(rf, "run_placebo", lambda conn, trades, **kw: {"p": 1.0})
+    out = rf.run_refinement(db, entry_mode="pullback")
+    assert seen["entry_mode"] == "pullback"
+    assert out["params"]["entry_mode"] == "pullback"

@@ -109,8 +109,8 @@ def _mdd_pct(bars, entry_i: int, exit_i: int, entry_close: float) -> float:
     return round((lowest / entry_close - 1) * 100, 2)
 
 
-def build_refined_trades(conn: Connection,
-                         tickers: list[str] | None = None) -> tuple[list[dict], int]:
+def build_refined_trades(conn: Connection, tickers: list[str] | None = None,
+                         entry_mode: str = "breakout") -> tuple[list[dict], int]:
     """보정 트레이드 셋(5% 룰 + 비용 + 밴드 + MDD) + promotion 총수."""
     tickers = list(tickers) if tickers is not None else list(FROZEN_SAMPLE)
     pmaps: dict[str, list] = {}
@@ -128,8 +128,8 @@ def build_refined_trades(conn: Connection,
         bars = load_daily_series(conn, ticker, PX_START, PX_END)
         date_i = {b.d: i for i, b in enumerate(bars)}
         cls = classify_rows(wr)
-        trades, promo = simulate(ticker, cls["production"], bars,
-                                 mode="production", max_chase_pct=MAX_CHASE_PCT)
+        trades, promo = simulate(ticker, cls["production"], bars, mode="production",
+                                 max_chase_pct=MAX_CHASE_PCT, entry_mode=entry_mode)
         promotions += promo
         for t in trades:
             if t.pnl_pct is None or t.exit_date is None:
@@ -205,9 +205,9 @@ def run_placebo(conn: Connection, trades: list[dict], *,
 
 
 def run_refinement(conn: Connection, *, tickers: list[str] | None = None,
-                   seed: int = SEED,
+                   seed: int = SEED, entry_mode: str = "breakout",
                    prereg_label: str = "2026-07-02-backtest-refinement-prereg.md §2·§3") -> dict:
-    trades, promotions = build_refined_trades(conn, tickers=tickers)
+    trades, promotions = build_refined_trades(conn, tickers=tickers, entry_mode=entry_mode)
     in_window = [t for t in trades if t["entry_date"] <= END]
     ci_all = cluster_bootstrap_ci(trades, seed=seed)
     ci_phase = {p: cluster_bootstrap_ci([t for t in trades if t["phase"] == p], seed=seed)
@@ -218,7 +218,7 @@ def run_refinement(conn: Connection, *, tickers: list[str] | None = None,
         "prereg": prereg_label,
         "params": {"max_chase_pct": MAX_CHASE_PCT, "commission_rt": COMMISSION_RT,
                    "sell_tax": _SELL_TAX, "seed": seed, "bootstrap_b": BOOT_B,
-                   "placebo_n": PLACEBO_N},
+                   "placebo_n": PLACEBO_N, "entry_mode": entry_mode},
         "n_trades": len(trades),
         "promotions": promotions,
         "mean_excess_net_all": mean_all,
