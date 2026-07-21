@@ -280,3 +280,138 @@ def test_full_refresh_accounts_empty_fetches(monkeypatch, db):
     )
     joined = " ".join(stats.warnings)
     assert "empty_fetch" in joined and "2/2" in joined and "EMFR1" in joined
+
+
+# ====== (#49) 수정 OHLC 봉 불변식 관측 (pykrx adjusted 반올림 유래, 관측 전용) ======
+
+def _insert_price_row(cur, ticker, d, *, adj_close, adj_high, adj_low):
+    cur.execute(
+        "INSERT INTO stocks (ticker, name, market) VALUES (%s, %s, 'KOSPI') ON CONFLICT DO NOTHING",
+        (ticker, ticker),
+    )
+    cur.execute(
+        """
+        INSERT INTO daily_prices (ticker, date, open, high, low, close, volume, value,
+                                  adj_close, adj_high, adj_low)
+        VALUES (%s, %s, 10000, 10450, 9900, 10450, 1000, 1000, %s, %s, %s)
+        ON CONFLICT DO NOTHING
+        """,
+        (ticker, d, adj_close, adj_high, adj_low),
+    )
+
+
+def test_sanity_checks_adj_invariant_warning(db):
+    """adj_close > adj_high 또는 adj_close < adj_low 행이 있으면 관측 경고 1건."""
+    from kr_pipeline.ohlcv.modes import _run_sanity_checks, Mode
+    from datetime import date as _date
+
+    with db.cursor() as cur:
+        # 재현 실측(#49): 299900@2021-03-22 고가 2612 < 종가 2613 (환산계수 0.25 반올림)
+        _insert_price_row(cur, "INV1", _date(2021, 3, 22),
+                          adj_close=2613, adj_high=2612, adj_low=2551)
+        _insert_price_row(cur, "INV2", _date(2021, 3, 23),
+                          adj_close=2500, adj_high=2612, adj_low=2551)  # close < low
+    db.commit()
+
+    try:
+        warnings = _run_sanity_checks(db, Mode.FULL_REFRESH)
+        inv = [w for w in warnings if w.startswith("adj_ohlc_invariant")]
+        assert len(inv) == 1, f"관측 경고 1건이어야 함: {warnings}"
+        assert "close>high 1" in inv[0] and "close<low 1" in inv[0]
+        assert "2021-03-23" in inv[0]  # 최근 위반일
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker IN ('INV1','INV2')")
+            cur.execute("DELETE FROM stocks WHERE ticker IN ('INV1','INV2')")
+        db.commit()
+
+
+def test_sanity_checks_no_adj_invariant_warning_when_clean(db):
+    """불변식 위반 0행이면 경고 없음."""
+    from kr_pipeline.ohlcv.modes import _run_sanity_checks, Mode
+    from datetime import date as _date
+
+    with db.cursor() as cur:
+        _insert_price_row(cur, "INVOK", _date(2021, 3, 22),
+                          adj_close=2612, adj_high=2612, adj_low=2551)
+    db.commit()
+
+    try:
+        warnings = _run_sanity_checks(db, Mode.FULL_REFRESH)
+        assert not any(w.startswith("adj_ohlc_invariant") for w in warnings)
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker = 'INVOK'")
+            cur.execute("DELETE FROM stocks WHERE ticker = 'INVOK'")
+        db.commit()
+
+
+def test_sanity_checks_adj_invariant_baseline_emphasis(db, monkeypatch):
+    """실측 기준(baseline) 초과 시에만 강조 문구 — 소스 동작 변화 신호."""
+    from kr_pipeline.ohlcv import modes
+    from datetime import date as _date
+
+    with db.cursor() as cur:
+        _insert_price_row(cur, "INVB", _date(2021, 3, 22),
+                          adj_close=2613, adj_high=2612, adj_low=2551)
+    db.commit()
+
+    try:
+        monkeypatch.setattr(modes, "_ADJ_INVARIANT_BASELINE", 0)
+        over = [w for w in modes._run_sanity_checks(db, modes.Mode.FULL_REFRESH)
+                if w.startswith("adj_ohlc_invariant")]
+        assert len(over) == 1 and "기준" in over[0] and "초과" in over[0]
+
+        monkeypatch.setattr(modes, "_ADJ_INVARIANT_BASELINE", 21_541)
+        under = [w for w in modes._run_sanity_checks(db, modes.Mode.FULL_REFRESH)
+                 if w.startswith("adj_ohlc_invariant")]
+        assert len(under) == 1 and "초과" not in under[0]
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker = 'INVB'")
+            cur.execute("DELETE FROM stocks WHERE ticker = 'INVB'")
+        db.commit()
+
+
+def test_sanity_checks_adj_invariant_recent_emphasis(db, monkeypatch):
+    """최근 30일 위반이 임계 초과면 강조 — 절대 기준의 드리프트 사각을 보완.
+
+    절대 기준(21,541)은 주간 재정규화로 카운트가 하향 드리프트해 여유가 계속
+    늘어나므로, 신규 적재 위반은 최근 윈도우로 별도 감지한다 (리뷰 지적).
+    """
+    from kr_pipeline.ohlcv import modes
+    from datetime import date as _date, timedelta
+
+    recent_d = _date.today() - timedelta(days=5)
+    old_d = _date(2021, 3, 22)
+
+    with db.cursor() as cur:
+        _insert_price_row(cur, "INVR", recent_d,
+                          adj_close=2613, adj_high=2612, adj_low=2551)
+    db.commit()
+    try:
+        monkeypatch.setattr(modes, "_ADJ_INVARIANT_RECENT_WARN", 0)
+        w = [x for x in modes._run_sanity_checks(db, modes.Mode.FULL_REFRESH)
+             if x.startswith("adj_ohlc_invariant")]
+        assert len(w) == 1 and "최근 30일" in w[0] and "소스 동작 변화" in w[0]
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker = 'INVR'")
+            cur.execute("DELETE FROM stocks WHERE ticker = 'INVR'")
+        db.commit()
+
+    # 같은 위반이라도 오래된 날짜면 recent 강조 없음
+    with db.cursor() as cur:
+        _insert_price_row(cur, "INVR2", old_d,
+                          adj_close=2613, adj_high=2612, adj_low=2551)
+    db.commit()
+    try:
+        monkeypatch.setattr(modes, "_ADJ_INVARIANT_RECENT_WARN", 0)
+        w = [x for x in modes._run_sanity_checks(db, modes.Mode.FULL_REFRESH)
+             if x.startswith("adj_ohlc_invariant")]
+        assert len(w) == 1 and "최근 30일" not in w[0]
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker = 'INVR2'")
+            cur.execute("DELETE FROM stocks WHERE ticker = 'INVR2'")
+        db.commit()

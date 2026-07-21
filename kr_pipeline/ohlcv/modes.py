@@ -91,6 +91,19 @@ def _empty_fetch_warning(empties: list[str], total: int) -> list[str]:
     return [msg]
 
 
+# (#49) 수정 OHLC 봉 불변식 위반의 실측 기준 (2026-07-17 0단계 검증 F1, 21,541행).
+# 소스(pykrx adjusted)가 수정 환산 시 컬럼별 독립 반올림을 해 adj_close > adj_high
+# 행을 돌려주는 것을 직접 호출로 확증 — 로컬 수리 불가라 보정은 보류(관측 전용).
+# 강조 신호 2종 (empty_fetch 임계와 동일 철학 — 항상 집계, 임계 초과 시 강조):
+# 1) 절대 기준 초과 — full-refresh 가 과거 이력까지 대량 오염시키는 소스 변화 감지.
+#    단, 카운트는 주간 재정규화로 하향 드리프트(2026-07-21 실측 21,288)하므로
+#    이 기준의 민감도는 ±수백 행 수준이다 — 소량 신규 위반은 2)가 담당.
+# 2) 최근 30일 위반 행 수 — 신규 적재분의 위반 급증 감지 (드리프트 무관).
+#    2025+ 전체가 8행(월 ~0.7행)이라 30일 3행 초과는 정상 대비 ~4배 신호.
+_ADJ_INVARIANT_BASELINE = 21_541
+_ADJ_INVARIANT_RECENT_WARN = 3
+
+
 def _run_sanity_checks(conn: Connection, mode: Mode) -> list[str]:
     """OHLCV 적재 후 데이터 sanity 검증. 경고 메시지 리스트 반환 (실패 아님).
 
@@ -98,6 +111,9 @@ def _run_sanity_checks(conn: Connection, mode: Mode) -> list[str]:
     1. 최근 영업일 커버리지: daily_prices 의 가장 최근 날짜에 들어온 종목 수가
        활성 universe 의 80% 미만이면 경고.
     2. 가격 이상치: close <= 0 또는 adj_close <= 0 인 행이 있으면 경고.
+    3. (#49) 수정 봉 불변식: adj_close 가 adj_high 초과 또는 adj_low 미만인 행
+       카운트 — pykrx 유래 관측 전용. 강조는 최근 30일 급증(우선) 또는
+       절대 기준(_ADJ_INVARIANT_BASELINE) 초과 시.
 
     full-refresh 모드는 새 행을 추가하지 않으므로 커버리지 검증을 건너뜀.
     """
@@ -132,6 +148,36 @@ def _run_sanity_checks(conn: Connection, mode: Mode) -> list[str]:
         bad_price_count = cur.fetchone()[0] or 0
         if bad_price_count > 0:
             warnings.append(f"bad_prices: {bad_price_count} 행이 close 또는 adj_close <= 0")
+
+        # 검증 3 (#49): 수정 봉 불변식 (adj_low ≤ adj_close ≤ adj_high)
+        # total 은 COUNT(*)(고유 행) — 양방향 동시 위반 행의 이중 계수 방지.
+        cur.execute("""
+            SELECT COUNT(*),
+                   COUNT(*) FILTER (WHERE adj_close > adj_high),
+                   COUNT(*) FILTER (WHERE adj_close < adj_low),
+                   COUNT(*) FILTER (WHERE date >= CURRENT_DATE - 30),
+                   MAX(date)
+              FROM daily_prices
+             WHERE adj_close > adj_high OR adj_close < adj_low
+        """)
+        total, over_high, under_low, recent, latest = cur.fetchone()
+        if total > 0:
+            msg = (
+                f"adj_ohlc_invariant: {total}행 수정 봉 불변식 위반 "
+                f"(close>high {over_high}·close<low {under_low}, 최근 {latest}) "
+                f"— pykrx 반올림 유래 관측(#49)"
+            )
+            if recent > _ADJ_INVARIANT_RECENT_WARN:
+                msg += (
+                    f" — 최근 30일 {recent}행(임계 {_ADJ_INVARIANT_RECENT_WARN}행 초과), "
+                    f"신규 적재 위반 급증 — 소스 동작 변화 의심"
+                )
+            elif total > _ADJ_INVARIANT_BASELINE:
+                msg += (
+                    f" — 기준 {_ADJ_INVARIANT_BASELINE:,}행(2026-07 실측) 초과, "
+                    f"소스 동작 변화 의심"
+                )
+            warnings.append(msg)
 
     return warnings
 
