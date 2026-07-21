@@ -511,6 +511,10 @@ ALTER TABLE classification_backfill
 ALTER TABLE classification_backfill
   ADD COLUMN IF NOT EXISTS verdict_original TEXT;
 
+-- (#50) sanity_warnings — weekly_classification 과 동일 의미 (SOFT 경고, 쓰기 전용)
+ALTER TABLE classification_backfill
+  ADD COLUMN IF NOT EXISTS sanity_warnings JSONB;
+
 -- ====== 수익성·강건성 백테스트 전용 분류 테이블 (2026-06-23) ======
 -- classification_backfill 스키마 복제. pre-lockdown 적재분과 격리해 "검색-차단 클린
 -- 환경" 을 구조적으로 보장(spec §5.0). 적재·멱등 resume 모두 이 테이블 기준.
@@ -547,6 +551,10 @@ CREATE INDEX IF NOT EXISTS idx_backtest_classification_date
 -- (#44 Task 7) verdict_original — weekly_classification 과 동일 의미
 ALTER TABLE backtest_classification
   ADD COLUMN IF NOT EXISTS verdict_original TEXT;
+
+-- (#50) sanity_warnings — weekly_classification 과 동일 의미 (SOFT 경고, 쓰기 전용)
+ALTER TABLE backtest_classification
+  ADD COLUMN IF NOT EXISTS sanity_warnings JSONB;
 
 -- ====== Phase 0 Step 4: FREEZE 최소판 (#P0-S4) ======
 -- 분류 (weekend/daily_delta) 시점의 분석 입력 ZIP 을 사후 검증 가능하도록 보존.
@@ -612,3 +620,7 @@ CREATE INDEX IF NOT EXISTS idx_recall_audit_classification_date
 -- (#44 Task 7) verdict_original — weekly_classification 과 동일 의미
 ALTER TABLE recall_audit_classification
   ADD COLUMN IF NOT EXISTS verdict_original TEXT;
+
+-- (#50) sanity_warnings — weekly_classification 과 동일 의미 (SOFT 경고, 쓰기 전용)
+ALTER TABLE recall_audit_classification
+  ADD COLUMN IF NOT EXISTS sanity_warnings JSONB;

@@ -457,7 +457,8 @@ def insert_backfill_classification(
 ) -> None:
     """백필 분류 결과를 `table` (기본 classification_backfill) 에 INSERT (멱등: symbol+analyzed_for_date).
 
-    insert_classification 과 동일하게 Phase 1 2-A 후처리 게이트 적용. freeze 는 만들지 않음.
+    insert_classification 과 동일하게 Phase 1 2-A 후처리 게이트 + (#50) 가격 sanity
+    적용 (HARD=저장 거부, SOFT=sanity_warnings). freeze 는 만들지 않음.
     table 파라미터로 대상 테이블 지정 가능 (allowlist: classification_backfill,
     backtest_classification, recall_audit_classification).
     """
@@ -481,6 +482,15 @@ def insert_backfill_classification(
         result = _original
         triggered_rules = None
 
+    # (#50) weekly(insert_classification)와 동일한 게이트 뒤 가격 sanity — HARD 위반은
+    # ValueError 로 저장 거부(fail-closed), 호출자 워커(run_parallel_batch)가 단건 격리.
+    # as_of=analyzed_for_date (이슈 명세). 주의: 게이트는 gate_at(=D+1) 종가를 보므로
+    # 평일 셀(recall_audit)에선 sanity 와 종가 원천이 하루 어긋날 수 있음 — 토요일 셀은
+    # 동일 최종거래일로 수렴. SOFT 전용이라 판정 무영향.
+    sanity_warnings = _validate_classification_prices(
+        conn, result, symbol=symbol, as_of=analyzed_for_date,
+    )
+
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -493,12 +503,14 @@ def insert_backfill_classification(
                triggered_rules,
                measurements,
                watch_reason,
-               verdict_original)
+               verdict_original,
+               sanity_warnings)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
                     %s, %s, %s, %s,
+                    %s,
                     %s,
                     %s,
                     %s,
@@ -530,6 +542,7 @@ def insert_backfill_classification(
                 _measurements_json(result),
                 _watch_reason(result),
                 verdict_original,
+                json.dumps(sanity_warnings) if sanity_warnings else None,
             ),
         )
 
