@@ -8,6 +8,7 @@ import {
   Sparkles,
   FileArchive,
   Zap,
+  Briefcase,
   TrendingUp,
   Wrench,
   ListChecks,
@@ -24,6 +25,7 @@ import ChartPage from "./pages/ChartPage";
 import MinerviniPage from "./pages/MinerviniPage";
 import PromptPage from "./pages/PromptPage";
 import SignalsPage from "./pages/SignalsPage";
+import PositionsPage from "./pages/PositionsPage";
 import PerformancePage from "./pages/PerformancePage";
 import RunnerPage from "./pages/RunnerPage";
 import ClassificationsPage from "./pages/ClassificationsPage";
@@ -54,6 +56,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/classifications", label: "Classifications", kr: "LLM 분류", Icon: ListChecks },
   { to: "/triggers", label: "Triggers", kr: "트리거 이력", Icon: Activity },
   { to: "/signals", label: "Signals", kr: "시그널", Icon: Zap },
+  { to: "/positions", label: "Positions", kr: "포지션", Icon: Briefcase },
   { to: "/performance", label: "Performance", kr: "시그널 성과", Icon: TrendingUp },
 
   // ─── 메타 문서 / 운영 ──────────────────────
@@ -253,6 +256,7 @@ function App() {
           <Route path="/chart/:ticker" element={<ChartPage />} />
           <Route path="/minervini" element={<MinerviniPage />} />
           <Route path="/signals" element={<SignalsPage />} />
+          <Route path="/positions" element={<PositionsPage />} />
           <Route path="/performance" element={<PerformancePage />} />
           <Route path="/classifications" element={<ClassificationsPage />} />
           <Route path="/triggers" element={<TriggersPage />} />
