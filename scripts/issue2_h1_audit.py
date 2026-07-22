@@ -40,7 +40,7 @@ def relaxed_go_now(decision: str | None, gates: dict | None) -> bool | None:
     """완화선(1.2×) 재판정 — 사전등록 §2 규칙 그대로 (결정론).
 
     완화선 go_now = 현행 go_now ∪ (LLM wait ∧ volume_band=='wait_band'
-    ∧ 나머지 §3.1 go_now 게이트 전부 pass ∧ §3.4 회복 게이트 둘 다 pass).
+    ∧ 나머지 §3.1 go_now 게이트 전부 pass ∧ §3.5 회복 게이트 둘 다 pass).
     게이트 null 은 불충족(go_now 금지 규약과 동일 보수). gates 미기록이면 None.
     """
     if decision == "go_now":
@@ -132,6 +132,16 @@ def main() -> int:
         except UsageLimitError:
             log.warning("[h1] usage limit — clean abort(%d done), 재실행 resume", len(done))
             break
+        except Exception as e:  # noqa: BLE001 — 단건 실패 격리 (CLI 일시 오류 등)
+            log.warning("[h1] cell fail %s %s: %s — skip, 재실행이 재시도",
+                        c["ticker"], c["gate_date"], e)
+            consec_fail = getattr(main, "_cf", 0) + 1
+            main._cf = consec_fail
+            if consec_fail >= 3:
+                log.warning("[h1] 연속 실패 3회 — 환경 문제로 보고 중단(재실행 resume)")
+                break
+            continue
+        main._cf = 0
         called += 1
         if dry_run:
             log.info("[h1-dry] %s %s gates_ok=%s vb=%s", c["ticker"], c["gate_date"],
