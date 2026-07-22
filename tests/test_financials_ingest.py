@@ -112,6 +112,83 @@ def test_upsert_and_asof_lookahead_guard(db):
         _cleanup(db)
 
 
+def test_load_sample_a_and_b():
+    """(#68 3단계) 백필 표본 선택 — a=FROZEN_SAMPLE, b=기존 JSON, 서로소 100/100."""
+    from kr_pipeline.financials.__main__ import load_sample
+    a, b = load_sample("a"), load_sample("b")
+    assert len(a) == 100 and len(b) == 100
+    assert not set(a) & set(b), "표본 A/B 는 서로소여야 함 (추첨 규약)"
+
+
+def test_extract_eps_basic_over_diluted_and_fsdiv():
+    """(#68 3단계) 전체계정 응답에서 공시 EPS 추출 — 기본 우선·희석 제외·fs_div 일치."""
+    from kr_pipeline.financials.parse import extract_eps
+    rows = [
+        {"fs_div": "CFS", "sj_div": "IS", "account_nm": "희석주당이익",
+         "thstrm_amount": "1,100"},
+        {"fs_div": "CFS", "sj_div": "IS", "account_nm": "기본주당이익(손실)",
+         "thstrm_amount": "1,234"},
+        {"fs_div": "OFS", "sj_div": "IS", "account_nm": "기본주당이익(손실)",
+         "thstrm_amount": "999"},
+        {"fs_div": "CFS", "sj_div": "BS", "account_nm": "자본총계",
+         "thstrm_amount": "5"},
+    ]
+    assert extract_eps(rows, "CFS") == 1234.0
+    assert extract_eps(rows, "OFS") == 999.0
+    # '기본' 표기가 없으면 희석 아닌 주당 계정 폴백, 음수 파싱
+    rows2 = [{"fs_div": "CFS", "sj_div": "CIS", "account_nm": "주당순이익",
+              "thstrm_amount": "-321"}]
+    assert extract_eps(rows2, "CFS") == -321.0
+    assert extract_eps([], "CFS") is None
+    # 실측: fnlttSinglAcntAll 응답엔 fs_div 필드 자체가 없음(요청 파라미터로
+    # 스코프됨) — fs_div 없는 행은 요청 스코프를 신뢰하고 수용해야 함
+    rows3 = [{"sj_div": "CIS", "account_nm": "기본주당손익",
+              "thstrm_amount": "654"}]
+    assert extract_eps(rows3, "CFS") == 654.0
+
+
+def test_extract_eps_pair_annual_and_quarterly():
+    """(#68 3단계) 같은 공시의 (당기, 전년 동기) EPS 쌍 — 연간=frmtrm, 분기=frmtrm_q.
+
+    실측(016800): 분기 행은 thstrm=3개월 단독·frmtrm_q=전년 동기 3개월,
+    frmtrm 은 비어 있음. 연간 행은 frmtrm=전년 연간.
+    """
+    from kr_pipeline.financials.parse import extract_eps_pair
+    annual = [{"sj_div": "IS", "account_nm": "기본주당순이익",
+               "thstrm_amount": "5,333", "frmtrm_amount": "7,470"}]
+    assert extract_eps_pair(annual, "CFS") == (5333.0, 7470.0)
+    quarterly = [{"sj_div": "CIS", "account_nm": "기본주당이익(손실)",
+                  "thstrm_amount": "539", "frmtrm_amount": "",
+                  "frmtrm_q_amount": "2,106"}]
+    assert extract_eps_pair(quarterly, "CFS") == (539.0, 2106.0)
+    assert extract_eps_pair([], "CFS") == (None, None)
+
+
+def test_set_eps_published_and_asof_exposure(db):
+    """(#68 3단계) 공시 EPS 표적 UPDATE + as-of 유틸이 새 컬럼을 노출."""
+    from kr_pipeline.financials.store import (
+        get_financials_asof, set_eps_published, upsert_financial)
+    _cleanup(db)
+    upsert_financial(db, {
+        "ticker": "FINT3", "bsns_year": 2024, "reprt_code": "11014",
+        "status": "ok", "fs_div": "CFS", "fiscal_start": date(2024, 7, 1),
+        "fiscal_end": date(2024, 9, 30), "revenue": 100, "operating_income": 10,
+        "net_income": 5, "shares_outstanding": 100, "eps_derived": 0.05,
+        "rcept_no": None, "disclosed_at": date(2024, 11, 14)})
+    set_eps_published(db, "FINT3", 2024, "11014", cur=539.0, prior=2106.0)
+    db.commit()
+    try:
+        rows = get_financials_asof(db, "FINT3", as_of=date(2025, 1, 1))
+        assert rows and rows[0]["eps_published"] == 539.0
+        assert rows[0]["eps_published_prior"] == 2106.0
+        with db.cursor() as cur:
+            cur.execute("SELECT eps_pub_fetched_at FROM dart_financials "
+                        "WHERE ticker='FINT3'")
+            assert cur.fetchone()[0] is not None, "시도 마커 미기록"
+    finally:
+        _cleanup(db)
+
+
 def test_upsert_idempotent_update(db):
     """같은 PK 재적재 시 갱신(멱등 재개) — 중복 행 없이 최신값."""
     from kr_pipeline.financials.store import upsert_financial

@@ -1,8 +1,9 @@
 # kr_pipeline/financials/__main__.py
-"""(#68 2단계) DART 실적 백필 — 표본 B 100종목, 멱등 재개.
+"""(#68 2단계) DART 실적 백필 — 표본 A/B 100종목, 멱등 재개.
 
-  uv run python -m kr_pipeline.financials --mode=backfill [--limit-tickers N]
+  uv run python -m kr_pipeline.financials --mode=backfill [--sample a|b] [--limit-tickers N]
 스펙: docs/superpowers/specs/2026-07-22-issue68-stage2-ingest.md
+(3단계 확장: --sample a = FROZEN_SAMPLE — 탐색 모집단 A+B 풀링 준비)
 """
 import argparse
 import json
@@ -17,12 +18,13 @@ from kr_pipeline.common.logging import setup_logging
 from kr_pipeline.db.connection import connect
 from kr_pipeline.db.runs import run_tracking
 from kr_pipeline.financials.fetch import (
-    DartApiError, fetch_disclosures, fetch_shares, fetch_single_account,
+    DartApiError, fetch_all_accounts, fetch_disclosures, fetch_shares,
+    fetch_single_account,
 )
 from kr_pipeline.financials.parse import (
-    match_disclosure, normalize_accounts, parse_thstrm,
+    extract_eps_pair, match_disclosure, normalize_accounts, parse_thstrm,
 )
-from kr_pipeline.financials.store import upsert_financial
+from kr_pipeline.financials.store import set_eps_published, upsert_financial
 
 log = logging.getLogger("kr_pipeline.financials")
 
@@ -39,11 +41,75 @@ def _period_end_guess(year: int, reprt: str) -> date:
     return date(year, m, 28)  # 원공시 매칭용 근사 — 실제 회계기간은 thstrm 파싱이 확정
 
 
+def load_sample(which: str) -> list[str]:
+    """백필 표본 선택 — a=FROZEN_SAMPLE(동결 모듈이 권위), b=추첨 JSON(기존 경로 유지)."""
+    if which == "a":
+        from kr_pipeline.backtest.frozen_sample import FROZEN_SAMPLE
+        return list(FROZEN_SAMPLE)
+    return json.loads(SAMPLE_JSON.read_text())["sample_b"]
+
+
 def parse_args():
     p = argparse.ArgumentParser(prog="python -m kr_pipeline.financials")
-    p.add_argument("--mode", required=True, choices=["backfill"])
+    p.add_argument("--mode", required=True, choices=["backfill", "eps-published"])
+    p.add_argument("--sample", choices=["a", "b"], default="b")
     p.add_argument("--limit-tickers", type=int, default=None)
     return p.parse_args()
+
+
+def run_eps_published(conn, api_key: str) -> int:
+    """(#68 3단계) ok 셀 전체에 공시 EPS 쌍 백필 — 멱등(시도 마커 기준 재개).
+
+    셀당 전체계정 1콜. 013(데이터 없음)·EPS 계정 부재는 (None, None)+마커로
+    영구 기록, 환경성 실패(DartApiError)는 클린 중단 — 재실행이 이어감.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT f.ticker, f.bsns_year, f.reprt_code, f.fs_div, c.corp_code
+              FROM dart_financials f
+              JOIN dart_corp_codes c ON c.stock_code = f.ticker
+             WHERE f.status = 'ok' AND f.eps_pub_fetched_at IS NULL
+             ORDER BY f.ticker, f.bsns_year, f.reprt_code
+            """)
+        todo = cur.fetchall()
+    log.info("eps-published 대상 %d셀", len(todo))
+    with run_tracking(conn, pipeline="financials", mode="eps-published",
+                      params={"cells": len(todo)}) as state:
+        done = 0
+        last_ticker = None
+        for t, y, rc, fs, cc in todo:
+            try:
+                resp = fetch_all_accounts(api_key, cc, y, rc, fs or "CFS")
+            except DartApiError as e:
+                log.error("DART 환경성 실패(%s) — 클린 중단, 재실행이 이어감", e)
+                state["warnings"].append(f"dart_fatal: {e}")
+                break
+            except Exception as e:  # noqa: BLE001 — 단건 격리, 재실행 재시도
+                log.warning("fetch fail %s %s %s: %s", t, y, rc, e)
+                time.sleep(_SLEEP)
+                continue
+            time.sleep(_SLEEP)
+            if resp.get("status") == "000":
+                cur_eps, prior_eps = extract_eps_pair(resp.get("list") or [], fs)
+            elif resp.get("status") == "013":
+                cur_eps, prior_eps = None, None
+            else:
+                log.warning("unexpected status %s %s/%s/%s — 미기록 skip",
+                            resp.get("status"), t, y, rc)
+                state["warnings"].append(
+                    f"unexpected_status {resp.get('status')} {t}/{y}/{rc}")
+                continue
+            set_eps_published(conn, t, y, rc, cur=cur_eps, prior=prior_eps)
+            done += 1
+            if t != last_ticker:
+                if last_ticker is not None:
+                    conn.commit()
+                last_ticker = t
+        conn.commit()
+        state["rows_affected"] = done
+        log.info("eps-published 완료 %d/%d셀", done, len(todo))
+    return 0
 
 
 def main() -> int:
@@ -54,7 +120,11 @@ def main() -> int:
         log.error("DART_API_KEY 필요 (.env)")
         return 1
 
-    sample = json.loads(SAMPLE_JSON.read_text())["sample_b"]
+    if args.mode == "eps-published":
+        with connect(cfg.database_url) as conn:
+            return run_eps_published(conn, cfg.dart_api_key)
+
+    sample = load_sample(args.sample)
     if args.limit_tickers:
         sample = sample[: args.limit_tickers]
 
@@ -81,7 +151,8 @@ def main() -> int:
                  len(unmapped), ",".join(unmapped) or "-", len(done))
 
         with run_tracking(conn, pipeline="financials", mode="backfill",
-                          params={"tickers": len(targets), "years": f"{YEARS[0]}-{YEARS[-1]}"}) as state:
+                          params={"sample": args.sample, "tickers": len(targets),
+                                  "years": f"{YEARS[0]}-{YEARS[-1]}"}) as state:
             if excluded:
                 state["warnings"].append(f"금융업 제외 {len(excluded)}: {excluded}")
             if unmapped:

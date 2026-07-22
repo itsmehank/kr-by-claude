@@ -31,6 +31,25 @@ def upsert_financial(conn: Connection, rec: dict) -> None:
         )
 
 
+def set_eps_published(conn: Connection, ticker: str, bsns_year: int,
+                      reprt_code: str, *, cur: float | None,
+                      prior: float | None) -> None:
+    """공시 EPS 쌍 표적 UPDATE — 시도 마커(eps_pub_fetched_at) 동시 기록.
+
+    값이 (None, None) 이어도 마커는 남겨 영구 결측 셀의 재호출을 방지.
+    """
+    with conn.cursor() as c:
+        c.execute(
+            """
+            UPDATE dart_financials
+               SET eps_published = %s, eps_published_prior = %s,
+                   eps_pub_fetched_at = NOW()
+             WHERE ticker = %s AND bsns_year = %s AND reprt_code = %s
+            """,
+            (cur, prior, ticker, bsns_year, reprt_code),
+        )
+
+
 def get_financials_asof(conn: Connection, ticker: str, *, as_of: date,
                         limit: int = 12) -> list[dict]:
     """as_of 시점에 **공시돼 있던** 실적만 — fiscal_end 최신 순.
@@ -45,7 +64,8 @@ def get_financials_asof(conn: Connection, ticker: str, *, as_of: date,
             """
             SELECT ticker, bsns_year, reprt_code, status, fs_div,
                    fiscal_start, fiscal_end, revenue, operating_income,
-                   net_income, shares_outstanding, eps_derived, disclosed_at
+                   net_income, shares_outstanding, eps_derived,
+                   eps_published, eps_published_prior, disclosed_at
               FROM dart_financials
              WHERE ticker = %s AND status = 'ok'
                AND disclosed_at IS NOT NULL AND disclosed_at < %s

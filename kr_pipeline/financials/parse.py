@@ -63,6 +63,34 @@ def normalize_accounts(rows: list[dict]) -> dict:
     return out
 
 
+def extract_eps_pair(rows: list[dict], fs_div: str) -> tuple[float | None, float | None]:
+    """fnlttSinglAcntAll list → (당기 EPS, 같은 공시의 전년 동기 EPS) — 원 단위.
+
+    손익계산서(IS/CIS) 의 주당이익 계정 중 '희석' 제외, '기본' 표기 우선.
+    fs_div: 응답에 fs_div 필드가 있으면 일치 요구, 없으면(실측 —
+    fnlttSinglAcntAll 은 요청 파라미터로 스코프돼 필드 미포함) 수용.
+    전년 동기 = 분기·반기 frmtrm_q_amount(3개월 단독), 연간 frmtrm_amount
+    (실측 016800). 같은 공시의 비교값은 소급 재작성돼 무상증자/분할·지배/전체
+    혼재에 면역 — F-C1/C2 의 1순위 YoY 입력.
+    """
+    cand = [r for r in rows
+            if r.get("fs_div") in (fs_div, None) and r.get("sj_div") in ("IS", "CIS")
+            and "주당" in (r.get("account_nm") or "")
+            and "희석" not in (r.get("account_nm") or "")]
+    if not cand:
+        return (None, None)
+    pick = next((r for r in cand if "기본" in (r.get("account_nm") or "")), cand[0])
+    prior = _num(pick.get("frmtrm_q_amount"))
+    if prior is None:
+        prior = _num(pick.get("frmtrm_amount"))
+    return (_num(pick.get("thstrm_amount")), prior)
+
+
+def extract_eps(rows: list[dict], fs_div: str) -> float | None:
+    """당기 공시 EPS 만 — extract_eps_pair 의 축약(대조 스크립트용)."""
+    return extract_eps_pair(rows, fs_div)[0]
+
+
 _PERIOD_RE = re.compile(r"(\d{4})\.(\d{2})\.(\d{2})")
 
 
