@@ -30,8 +30,11 @@
 
 ## 미검증 잔여 (재검 조건)
 
-- **TLOND 인용 전부**(§4.5 pocket pivot 계열): web 프로젝트에 TLOND PDF 미탑재 —
-  **탑재 후 재왕복 1회** 필요.
+- **TLOND 인용**(§4.5 pocket pivot 계열): 1차 왕복 시 PDF 미탑재로 검증 불가였으나
+  **2차 왕복(F1 검토, TLOND 탑재 후 — 2026-07-22)에서 재검 완료**: p.132 인용문
+  원문 정합 확인(book-mandated 유지), "≥6주 base" 는 TLOND 비명시(design-judgment
+  재태깅 — 이슈 #74 별건에 기록), 10일 창 단서는 기문서화(thresholds.py) 확인.
+  잔여 없음.
 - reverse split "per O'Neil" 귀속: 검토자가 원문에서 못 찾음(추정 표기) —
   실질 근거는 데이터 무결성 로직이므로 귀속 문구 정비 후보에 병합.
 
