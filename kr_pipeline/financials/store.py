@@ -35,8 +35,10 @@ def get_financials_asof(conn: Connection, ticker: str, *, as_of: date,
                         limit: int = 12) -> list[dict]:
     """as_of 시점에 **공시돼 있던** 실적만 — fiscal_end 최신 순.
 
-    disclosed_at IS NULL(원공시 매칭 실패)은 제외: look-ahead 0 보장이
-    커버리지보다 우선(스펙 §4·§5).
+    - disclosed_at IS NULL(원공시 매칭 실패)은 제외: look-ahead 0 보장이
+      커버리지보다 우선(스펙 §4·§5).
+    - 경계 규약 = **strict < (T+1 가용)**: 공시는 통상 장마감 후 접수되므로
+      공시 당일 as_of 에는 미노출(리뷰 Important-4 결정 — 보수 방향).
     """
     with conn.cursor() as cur:
         cur.execute(
@@ -46,7 +48,7 @@ def get_financials_asof(conn: Connection, ticker: str, *, as_of: date,
                    net_income, shares_outstanding, eps_derived, disclosed_at
               FROM dart_financials
              WHERE ticker = %s AND status = 'ok'
-               AND disclosed_at IS NOT NULL AND disclosed_at <= %s
+               AND disclosed_at IS NOT NULL AND disclosed_at < %s
              ORDER BY fiscal_end DESC NULLS LAST, reprt_code
              LIMIT %s
             """,

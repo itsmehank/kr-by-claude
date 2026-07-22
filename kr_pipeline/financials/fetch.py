@@ -7,11 +7,26 @@ import urllib.request
 
 _BASE = "https://opendart.fss.or.kr/api"
 
+# (리뷰 Critical-1) 환경성 실패 status — '데이터 없음(013)' 과 절대 혼동 금지.
+# 010/011 인증키, 012 IP, 020 사용한도, 800 시스템 점검, 900 정의되지 않은 오류.
+FATAL_STATUSES = {"010", "011", "012", "020", "800", "900"}
+
+
+class DartApiError(RuntimeError):
+    """DART 환경성 실패(키/한도/점검) — 셀 기록 금지, 러너는 중단 후 재개."""
+
+    def __init__(self, endpoint: str, status: str, message: str = ""):
+        super().__init__(f"{endpoint} status={status} {message}")
+        self.status = status
+
 
 def _get(endpoint: str, **params) -> dict:
     q = urllib.parse.urlencode(params)
     with urllib.request.urlopen(f"{_BASE}/{endpoint}.json?{q}", timeout=20) as r:
-        return json.load(r)
+        resp = json.load(r)
+    if resp.get("status") in FATAL_STATUSES:
+        raise DartApiError(endpoint, resp.get("status"), resp.get("message", ""))
+    return resp
 
 
 def fetch_single_account(key: str, corp_code: str, year: int, reprt: str) -> dict:

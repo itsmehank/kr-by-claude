@@ -101,6 +101,10 @@ def test_upsert_and_asof_lookahead_guard(db):
         # 공시 전 시점 — Q1(5/14 공시)은 안 보여야 함
         rows2 = get_financials_asof(db, "FINT1", as_of=date(2024, 5, 13))
         assert [r["fiscal_end"] for r in rows2] == [date(2023, 12, 31)]
+        # 경계: 공시 **당일**도 미노출 (strict < — T+1 가용 규약, 리뷰 반영)
+        rows2b = get_financials_asof(db, "FINT1", as_of=date(2024, 5, 14))
+        assert [r["fiscal_end"] for r in rows2b] == [date(2023, 12, 31)], \
+            "공시 당일 노출 — same-day look-ahead"
         # disclosed_at NULL(반기)은 어떤 as_of 에서도 미노출
         rows3 = get_financials_asof(db, "FINT1", as_of=date(2026, 1, 1))
         assert date(2024, 6, 30) not in [r["fiscal_end"] for r in rows3]

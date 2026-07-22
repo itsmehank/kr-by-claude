@@ -12,6 +12,8 @@ from datetime import date
 
 _ACCOUNT_MAP = {
     "매출액": "revenue",
+    "영업수익": "revenue",       # 서비스업 변형 (리뷰 Important-5: 094850 등 실측)
+    "수익(매출액)": "revenue",
     "영업이익": "operating_income",
     "당기순이익": "net_income",
     "당기순이익(손실)": "net_income",

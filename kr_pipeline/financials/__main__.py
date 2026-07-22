@@ -17,7 +17,7 @@ from kr_pipeline.common.logging import setup_logging
 from kr_pipeline.db.connection import connect
 from kr_pipeline.db.runs import run_tracking
 from kr_pipeline.financials.fetch import (
-    fetch_disclosures, fetch_shares, fetch_single_account,
+    DartApiError, fetch_disclosures, fetch_shares, fetch_single_account,
 )
 from kr_pipeline.financials.parse import (
     match_disclosure, normalize_accounts, parse_thstrm,
@@ -93,23 +93,47 @@ def main() -> int:
                         if (t, y, rc) not in done]
                 if not need:
                     continue
-                disclosures = fetch_disclosures(
-                    cfg.dart_api_key, cc, f"{YEARS[0]}0101", f"{YEARS[-1] + 1}1231")
+                try:
+                    disclosures = fetch_disclosures(
+                        cfg.dart_api_key, cc, f"{YEARS[0]}0101", f"{YEARS[-1] + 1}1231")
+                except DartApiError as e:
+                    log.error("DART 환경성 실패(%s) — 클린 중단, 재실행이 이어감", e)
+                    state["warnings"].append(f"dart_fatal: {e}")
+                    break
+                except Exception as e:  # noqa: BLE001 — 종목 단위 격리
+                    log.warning("disclosures fail %s: %s — 종목 skip", t, e)
+                    state["warnings"].append(f"disclosures_fail {t}")
+                    continue
                 time.sleep(_SLEEP)
                 shares_by_year: dict[int, float | None] = {}
+                fatal = False
                 for y, rc in need:
                     try:
                         resp = fetch_single_account(cfg.dart_api_key, cc, y, rc)
+                    except DartApiError as e:
+                        log.error("DART 환경성 실패(%s) — 클린 중단, 재실행이 이어감", e)
+                        state["warnings"].append(f"dart_fatal: {e}")
+                        fatal = True
+                        break
                     except Exception as e:  # noqa: BLE001 — 단건 격리, 재실행 재시도
                         log.warning("fetch fail %s %s %s: %s", t, y, rc, e)
                         time.sleep(_SLEEP)
                         continue
                     time.sleep(_SLEEP)
-                    if resp.get("status") != "000":
+                    if resp.get("status") == "013":
+                        # '조회 데이터 없음' 만 no_data 로 영구 기록 (리뷰 Critical-1:
+                        # 그 외 비정상 status 는 _get 이 DartApiError 로 승격하거나
+                        # 아래 else 에서 미기록 skip — done-set 오염 금지)
                         upsert_financial(conn, {
                             "ticker": t, "bsns_year": y, "reprt_code": rc,
                             "status": "no_data"})
                         rows += 1
+                        continue
+                    if resp.get("status") != "000":
+                        log.warning("unexpected status %s %s %s: %s — 미기록 skip",
+                                    t, y, rc, resp.get("status"))
+                        state["warnings"].append(
+                            f"unexpected_status {resp.get('status')} {t}/{y}/{rc}")
                         continue
                     acct = normalize_accounts(resp.get("list") or [])
                     sub = [r for r in resp["list"] if r.get("fs_div") == acct["fs_div"]]
@@ -124,7 +148,16 @@ def main() -> int:
                     if y not in shares_by_year:
                         # 연간 우선 순회지만, 재개 시 연간이 기적재면 분기가 먼저
                         # 올 수 있어 rc 무관 1회 조회 (조회 자체는 11011 기준)
-                        shares_by_year[y] = fetch_shares(cfg.dart_api_key, cc, y, "11011")
+                        try:
+                            shares_by_year[y] = fetch_shares(
+                                cfg.dart_api_key, cc, y, "11011")
+                        except DartApiError as e:
+                            log.error("DART 환경성 실패(%s) — 클린 중단", e)
+                            state["warnings"].append(f"dart_fatal: {e}")
+                            fatal = True
+                            break
+                        except Exception:  # noqa: BLE001 — shares 만 결측 허용
+                            shares_by_year[y] = None
                         time.sleep(_SLEEP)
                     shares = shares_by_year.get(y)
                     ni = acct["net_income"]
@@ -141,6 +174,8 @@ def main() -> int:
                     })
                     rows += 1
                 conn.commit()
+                if fatal:
+                    break
                 log.info("[%d/%d] %s done (+%d rows)", i, len(targets), t, len(need))
             state["rows_affected"] = rows
     return 0
