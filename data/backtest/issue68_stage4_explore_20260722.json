@@ -1,0 +1,4741 @@
+{
+  "label": "탐색/관찰 — 채택 판정 아님 (승격 시 표본 C 사전등록 이관)",
+  "prereg": "docs/superpowers/specs/2026-07-22-issue68-stage3-filter-prereg.md",
+  "seed": 20260722,
+  "n_trades": 149,
+  "baseline_all": {
+    "n": 149,
+    "win_rate_pct": 26.8,
+    "payoff": 3.45,
+    "mean_excess_net": 1.537,
+    "ci95": [
+      -3.006,
+      7.504
+    ],
+    "ci_contains_zero": true
+  },
+  "filters": {
+    "F-C1": {
+      "counts": {
+        "pass": 52,
+        "fail": 67,
+        "indeterminate": 14,
+        "turnaround": 16
+      },
+      "indeterminate_ratio": 0.094,
+      "look_primary_pass_vs_fail": {
+        "pass": {
+          "n": 52,
+          "win_rate_pct": 26.9,
+          "payoff": 2.45,
+          "mean_excess_net": -0.463,
+          "ci95": [
+            -4.419,
+            4.485
+          ],
+          "ci_contains_zero": true
+        },
+        "fail": {
+          "n": 67,
+          "win_rate_pct": 20.9,
+          "payoff": 5.86,
+          "mean_excess_net": 3.711,
+          "ci95": [
+            -4.762,
+            14.957
+          ],
+          "ci_contains_zero": true
+        },
+        "win_diff_pp": 6.0
+      },
+      "look_turnaround_included": {
+        "pass": {
+          "n": 68,
+          "win_rate_pct": 27.9,
+          "payoff": 2.33,
+          "mean_excess_net": -0.469,
+          "ci95": [
+            -3.932,
+            3.783
+          ],
+          "ci_contains_zero": true
+        },
+        "fail": {
+          "n": 67,
+          "win_rate_pct": 20.9,
+          "payoff": 5.86,
+          "mean_excess_net": 3.711,
+          "ci95": [
+            -4.762,
+            14.957
+          ],
+          "ci_contains_zero": true
+        },
+        "win_diff_pp": 7.0
+      },
+      "promotion": {
+        "criteria": {
+          "min_pass_n": 25,
+          "min_diff_pp": 8.0,
+          "max_indet_ratio": 0.4
+        },
+        "promoted": false
+      },
+      "descriptive": {
+        "indeterminate_stats": {
+          "n": 14,
+          "win_rate_pct": 50.0,
+          "payoff": 1.17,
+          "mean_excess_net": 0.878,
+          "ci95": [
+            -6.225,
+            10.653
+          ],
+          "ci_contains_zero": true
+        },
+        "turnaround_stats": {
+          "n": 16,
+          "win_rate_pct": 31.2,
+          "payoff": 2.01,
+          "mean_excess_net": -0.49,
+          "ci95": [
+            -7.041,
+            8.418
+          ],
+          "ci_contains_zero": true
+        },
+        "q4_excluded_sensitivity": {
+          "pass": {
+            "n": 44,
+            "win_rate_pct": 29.5,
+            "payoff": 2.57,
+            "mean_excess_net": 0.36,
+            "ci95": [
+              -4.166,
+              6.234
+            ],
+            "ci_contains_zero": true
+          },
+          "fail": {
+            "n": 45,
+            "win_rate_pct": 24.4,
+            "payoff": 4.34,
+            "mean_excess_net": 2.914,
+            "ci95": [
+              -6.689,
+              15.448
+            ],
+            "ci_contains_zero": true
+          },
+          "win_diff_pp": 5.1
+        },
+        "channel_mix": {
+          "published": 96,
+          "eps_fallback": 39,
+          "q4_derived": 35,
+          "guard_data_error": 0,
+          "guard_corp_action": 0,
+          "fiscal_transition": 0
+        }
+      }
+    },
+    "F-C2": {
+      "counts": {
+        "pass": 29,
+        "fail": 49,
+        "indeterminate": 71,
+        "turnaround": 0
+      },
+      "indeterminate_ratio": 0.477,
+      "look_primary_pass_vs_fail": {
+        "pass": {
+          "n": 29,
+          "win_rate_pct": 27.6,
+          "payoff": 1.65,
+          "mean_excess_net": -1.897,
+          "ci95": [
+            -5.951,
+            3.399
+          ],
+          "ci_contains_zero": true
+        },
+        "fail": {
+          "n": 49,
+          "win_rate_pct": 28.6,
+          "payoff": 4.86,
+          "mean_excess_net": 5.444,
+          "ci95": [
+            -3.821,
+            17.661
+          ],
+          "ci_contains_zero": true
+        },
+        "win_diff_pp": -1.0
+      },
+      "look_turnaround_included": {
+        "pass": {
+          "n": 29,
+          "win_rate_pct": 27.6,
+          "payoff": 1.65,
+          "mean_excess_net": -1.897,
+          "ci95": [
+            -5.951,
+            3.399
+          ],
+          "ci_contains_zero": true
+        },
+        "fail": {
+          "n": 49,
+          "win_rate_pct": 28.6,
+          "payoff": 4.86,
+          "mean_excess_net": 5.444,
+          "ci95": [
+            -3.821,
+            17.661
+          ],
+          "ci_contains_zero": true
+        },
+        "win_diff_pp": -1.0
+      },
+      "promotion": {
+        "criteria": {
+          "min_pass_n": 25,
+          "min_diff_pp": 8.0,
+          "max_indet_ratio": 0.4
+        },
+        "promoted": false
+      },
+      "descriptive": {
+        "indeterminate_stats": {
+          "n": 71,
+          "win_rate_pct": 25.4,
+          "payoff": 3.06,
+          "mean_excess_net": 0.244,
+          "ci95": [
+            -5.304,
+            8.611
+          ],
+          "ci_contains_zero": true
+        },
+        "turnaround_stats": {
+          "n": 0
+        },
+        "q4_excluded_sensitivity": {
+          "pass": {
+            "n": 16,
+            "win_rate_pct": 18.8,
+            "payoff": 3.7,
+            "mean_excess_net": -0.759,
+            "ci95": [
+              -6.495,
+              8.924
+            ],
+            "ci_contains_zero": true
+          },
+          "fail": {
+            "n": 29,
+            "win_rate_pct": 31.0,
+            "payoff": 5.9,
+            "mean_excess_net": 9.96,
+            "ci95": [
+              -5.109,
+              30.295
+            ],
+            "ci_contains_zero": true
+          },
+          "win_diff_pp": -12.2
+        },
+        "channel_mix": {
+          "published": 116,
+          "eps_fallback": 62,
+          "q4_derived": 59,
+          "guard_data_error": 0,
+          "guard_corp_action": 0,
+          "fiscal_transition": 0
+        }
+      }
+    },
+    "F-C3": {
+      "counts": {
+        "pass": 60,
+        "fail": 59,
+        "indeterminate": 15,
+        "turnaround": 15
+      },
+      "indeterminate_ratio": 0.101,
+      "look_primary_pass_vs_fail": {
+        "pass": {
+          "n": 60,
+          "win_rate_pct": 26.7,
+          "payoff": 4.64,
+          "mean_excess_net": 3.109,
+          "ci95": [
+            -3.438,
+            12.454
+          ],
+          "ci_contains_zero": true
+        },
+        "fail": {
+          "n": 59,
+          "win_rate_pct": 22.0,
+          "payoff": 3.43,
+          "mean_excess_net": -0.2,
+          "ci95": [
+            -6.645,
+            9.235
+          ],
+          "ci_contains_zero": true
+        },
+        "win_diff_pp": 4.7
+      },
+      "look_turnaround_included": {
+        "pass": {
+          "n": 75,
+          "win_rate_pct": 26.7,
+          "payoff": 4.47,
+          "mean_excess_net": 3.183,
+          "ci95": [
+            -3.436,
+            12.14
+          ],
+          "ci_contains_zero": true
+        },
+        "fail": {
+          "n": 59,
+          "win_rate_pct": 22.0,
+          "payoff": 3.43,
+          "mean_excess_net": -0.2,
+          "ci95": [
+            -6.645,
+            9.235
+          ],
+          "ci_contains_zero": true
+        },
+        "win_diff_pp": 4.7
+      },
+      "promotion": {
+        "criteria": {
+          "min_pass_n": 25,
+          "min_diff_pp": 8.0,
+          "max_indet_ratio": 0.4
+        },
+        "promoted": false
+      },
+      "descriptive": {
+        "indeterminate_stats": {
+          "n": 15,
+          "win_rate_pct": 46.7,
+          "payoff": 1.17,
+          "mean_excess_net": 0.14,
+          "ci95": [
+            -6.989,
+            8.842
+          ],
+          "ci_contains_zero": true
+        },
+        "turnaround_stats": {
+          "n": 15,
+          "win_rate_pct": 26.7,
+          "payoff": 4.07,
+          "mean_excess_net": 3.481,
+          "ci95": [
+            -9.629,
+            18.79
+          ],
+          "ci_contains_zero": true
+        },
+        "q4_excluded_sensitivity": {
+          "pass": {
+            "n": 49,
+            "win_rate_pct": 28.6,
+            "payoff": 5.08,
+            "mean_excess_net": 4.744,
+            "ci95": [
+              -3.16,
+              16.446
+            ],
+            "ci_contains_zero": true
+          },
+          "fail": {
+            "n": 37,
+            "win_rate_pct": 27.0,
+            "payoff": 1.42,
+            "mean_excess_net": -3.389,
+            "ci95": [
+              -9.049,
+              2.207
+            ],
+            "ci_contains_zero": true
+          },
+          "win_diff_pp": 1.6
+        },
+        "channel_mix": {
+          "published": 0,
+          "eps_fallback": 0,
+          "q4_derived": 35,
+          "guard_data_error": 0,
+          "guard_corp_action": 0,
+          "fiscal_transition": 0
+        }
+      }
+    },
+    "F-S1": {
+      "counts": {
+        "pass": 57,
+        "fail": 73,
+        "indeterminate": 19,
+        "turnaround": 0
+      },
+      "indeterminate_ratio": 0.128,
+      "look_primary_pass_vs_fail": {
+        "pass": {
+          "n": 57,
+          "win_rate_pct": 28.1,
+          "payoff": 3.81,
+          "mean_excess_net": 2.89,
+          "ci95": [
+            -4.256,
+            13.091
+          ],
+          "ci_contains_zero": true
+        },
+        "fail": {
+          "n": 73,
+          "win_rate_pct": 20.5,
+          "payoff": 4.38,
+          "mean_excess_net": 0.794,
+          "ci95": [
+            -5.154,
+            8.865
+          ],
+          "ci_contains_zero": true
+        },
+        "win_diff_pp": 7.6
+      },
+      "look_turnaround_included": {
+        "pass": {
+          "n": 57,
+          "win_rate_pct": 28.1,
+          "payoff": 3.81,
+          "mean_excess_net": 2.89,
+          "ci95": [
+            -4.256,
+            13.091
+          ],
+          "ci_contains_zero": true
+        },
+        "fail": {
+          "n": 73,
+          "win_rate_pct": 20.5,
+          "payoff": 4.38,
+          "mean_excess_net": 0.794,
+          "ci95": [
+            -5.154,
+            8.865
+          ],
+          "ci_contains_zero": true
+        },
+        "win_diff_pp": 7.6
+      },
+      "promotion": {
+        "criteria": {
+          "min_pass_n": 25,
+          "min_diff_pp": 8.0,
+          "max_indet_ratio": 0.4
+        },
+        "promoted": false
+      },
+      "descriptive": {
+        "indeterminate_stats": {
+          "n": 19,
+          "win_rate_pct": 47.4,
+          "payoff": 1.19,
+          "mean_excess_net": 0.333,
+          "ci95": [
+            -5.429,
+            7.263
+          ],
+          "ci_contains_zero": true
+        },
+        "turnaround_stats": {
+          "n": 0
+        },
+        "q4_excluded_sensitivity": {
+          "pass": {
+            "n": 44,
+            "win_rate_pct": 29.5,
+            "payoff": 4.51,
+            "mean_excess_net": 5.195,
+            "ci95": [
+              -4.14,
+              18.632
+            ],
+            "ci_contains_zero": true
+          },
+          "fail": {
+            "n": 53,
+            "win_rate_pct": 24.5,
+            "payoff": 2.47,
+            "mean_excess_net": -1.206,
+            "ci95": [
+              -6.298,
+              4.516
+            ],
+            "ci_contains_zero": true
+          },
+          "win_diff_pp": 5.0
+        },
+        "channel_mix": {
+          "published": 0,
+          "eps_fallback": 0,
+          "q4_derived": 33,
+          "guard_data_error": 0,
+          "guard_corp_action": 0,
+          "fiscal_transition": 0
+        }
+      }
+    }
+  },
+  "trades": [
+    {
+      "ticker": "001460",
+      "entry_date": "2021-05-26",
+      "excess_net": 0.01,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "001460",
+      "entry_date": "2023-02-17",
+      "excess_net": -6.24,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "003160",
+      "entry_date": "2023-06-15",
+      "excess_net": -2.01,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "003200",
+      "entry_date": "2021-06-11",
+      "excess_net": -7.48,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "003200",
+      "entry_date": "2021-09-13",
+      "excess_net": 3.52,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "003200",
+      "entry_date": "2022-02-16",
+      "excess_net": -6.07,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "003830",
+      "entry_date": "2021-03-16",
+      "excess_net": 15.89,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "003830",
+      "entry_date": "2025-06-11",
+      "excess_net": -18.57,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "004360",
+      "entry_date": "2022-10-25",
+      "excess_net": 159.68,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "006360",
+      "entry_date": "2021-09-06",
+      "excess_net": -1.71,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "009150",
+      "entry_date": "2023-07-17",
+      "excess_net": -8.01,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "012450",
+      "entry_date": "2021-06-18",
+      "excess_net": 6.44,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "012450",
+      "entry_date": "2022-03-25",
+      "excess_net": -8.2,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "012450",
+      "entry_date": "2023-06-16",
+      "excess_net": -0.68,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "012450",
+      "entry_date": "2024-01-18",
+      "excess_net": -14.12,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "013580",
+      "entry_date": "2021-04-20",
+      "excess_net": -1.41,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "013580",
+      "entry_date": "2021-08-30",
+      "excess_net": -2.94,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "016710",
+      "entry_date": "2021-04-02",
+      "excess_net": 221.86,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "017940",
+      "entry_date": "2023-12-18",
+      "excess_net": -14.58,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "017940",
+      "entry_date": "2024-04-25",
+      "excess_net": -4.51,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "017940",
+      "entry_date": "2024-08-26",
+      "excess_net": -1.51,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "017940",
+      "entry_date": "2025-06-16",
+      "excess_net": -6.65,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "032540",
+      "entry_date": "2023-05-18",
+      "excess_net": -11.72,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "033240",
+      "entry_date": "2023-04-19",
+      "excess_net": -2.77,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "051390",
+      "entry_date": "2023-11-17",
+      "excess_net": -7.65,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "053350",
+      "entry_date": "2024-09-30",
+      "excess_net": -2.73,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "053350",
+      "entry_date": "2025-01-24",
+      "excess_net": 99.42,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "058470",
+      "entry_date": "2023-11-27",
+      "excess_net": 2.89,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "060980",
+      "entry_date": "2025-05-14",
+      "excess_net": -11.99,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "064820",
+      "entry_date": "2021-05-03",
+      "excess_net": -7.74,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "072990",
+      "entry_date": "2021-01-13",
+      "excess_net": -0.73,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "072990",
+      "entry_date": "2024-01-11",
+      "excess_net": 10.82,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "072990",
+      "entry_date": "2024-10-07",
+      "excess_net": -2.91,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "077500",
+      "entry_date": "2023-09-25",
+      "excess_net": -47.08,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "079960",
+      "entry_date": "2024-03-29",
+      "excess_net": -7.36,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "083310",
+      "entry_date": "2023-07-04",
+      "excess_net": -7.85,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "088390",
+      "entry_date": "2023-03-27",
+      "excess_net": 10.6,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "089790",
+      "entry_date": "2023-12-22",
+      "excess_net": -9.09,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "095610",
+      "entry_date": "2024-04-11",
+      "excess_net": -5.8,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "105550",
+      "entry_date": "2021-06-01",
+      "excess_net": -1.24,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "105550",
+      "entry_date": "2021-11-26",
+      "excess_net": -1.14,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "153460",
+      "entry_date": "2021-11-16",
+      "excess_net": 2.26,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "166480",
+      "entry_date": "2024-12-17",
+      "excess_net": -30.62,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "183190",
+      "entry_date": "2022-01-13",
+      "excess_net": -5.14,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "183190",
+      "entry_date": "2022-03-10",
+      "excess_net": -5.68,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "183190",
+      "entry_date": "2024-02-23",
+      "excess_net": -10.85,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "206650",
+      "entry_date": "2024-04-15",
+      "excess_net": -10.73,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "206650",
+      "entry_date": "2024-05-30",
+      "excess_net": -12.34,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "211050",
+      "entry_date": "2023-05-15",
+      "excess_net": 16.37,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "251270",
+      "entry_date": "2024-08-08",
+      "excess_net": -22.13,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "259960",
+      "entry_date": "2024-03-26",
+      "excess_net": -4.07,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "259960",
+      "entry_date": "2024-05-03",
+      "excess_net": -3.73,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "259960",
+      "entry_date": "2024-06-14",
+      "excess_net": 11.65,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "259960",
+      "entry_date": "2025-01-31",
+      "excess_net": -12.81,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "300080",
+      "entry_date": "2021-07-01",
+      "excess_net": -9.96,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "300080",
+      "entry_date": "2025-02-18",
+      "excess_net": -20.4,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "001750",
+      "entry_date": "2021-06-07",
+      "excess_net": -1.42,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "001750",
+      "entry_date": "2024-05-20",
+      "excess_net": 36.13,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "001750",
+      "entry_date": "2025-03-17",
+      "excess_net": 0.01,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "002710",
+      "entry_date": "2021-07-13",
+      "excess_net": 51.07,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "002710",
+      "entry_date": "2023-03-03",
+      "excess_net": 167.65,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "003850",
+      "entry_date": "2023-12-11",
+      "excess_net": 1.41,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "003850",
+      "entry_date": "2024-03-13",
+      "excess_net": -5.94,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "005430",
+      "entry_date": "2024-02-14",
+      "excess_net": -12.92,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "005430",
+      "entry_date": "2024-04-03",
+      "excess_net": 15.53,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "005720",
+      "entry_date": "2023-06-27",
+      "excess_net": -0.83,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "005800",
+      "entry_date": "2025-06-09",
+      "excess_net": -5.77,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2021-01-07",
+      "excess_net": -16.03,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2021-02-22",
+      "excess_net": -2.5,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2022-11-22",
+      "excess_net": 1.63,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2023-03-27",
+      "excess_net": 3.19,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2024-02-05",
+      "excess_net": -17.41,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2021-10-13",
+      "excess_net": -7.82,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2022-01-13",
+      "excess_net": 2.22,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2022-03-14",
+      "excess_net": -4.5,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2022-08-29",
+      "excess_net": 3.53,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2022-11-18",
+      "excess_net": -5.55,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "012860",
+      "entry_date": "2023-08-21",
+      "excess_net": -21.83,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "015890",
+      "entry_date": "2023-04-25",
+      "excess_net": -8.25,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "017040",
+      "entry_date": "2024-05-07",
+      "excess_net": -19.8,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "017960",
+      "entry_date": "2022-08-22",
+      "excess_net": -7.15,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "017960",
+      "entry_date": "2025-02-19",
+      "excess_net": -9.34,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "029780",
+      "entry_date": "2024-07-29",
+      "excess_net": 2.65,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "029780",
+      "entry_date": "2025-06-09",
+      "excess_net": -3.74,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "036460",
+      "entry_date": "2022-05-12",
+      "excess_net": -0.58,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "036530",
+      "entry_date": "2025-01-31",
+      "excess_net": 22.84,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "036640",
+      "entry_date": "2021-09-07",
+      "excess_net": 17.58,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "038540",
+      "entry_date": "2022-04-11",
+      "excess_net": 0.94,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "039840",
+      "entry_date": "2023-07-21",
+      "excess_net": -15.99,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "042370",
+      "entry_date": "2023-08-14",
+      "excess_net": -17.44,
+      "filters": {
+        "F-C1": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "045660",
+      "entry_date": "2024-03-14",
+      "excess_net": -10.91,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "046390",
+      "entry_date": "2022-03-31",
+      "excess_net": 0.11,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "054090",
+      "entry_date": "2021-04-12",
+      "excess_net": -4.45,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2023-08-30",
+      "excess_net": -1.9,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2023-12-18",
+      "excess_net": -8.97,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2024-05-16",
+      "excess_net": 3.0,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2024-08-14",
+      "excess_net": 10.8,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2025-01-13",
+      "excess_net": -3.2,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "080010",
+      "entry_date": "2021-10-13",
+      "excess_net": -10.27,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "082740",
+      "entry_date": "2022-08-23",
+      "excess_net": -10.21,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "082740",
+      "entry_date": "2024-07-26",
+      "excess_net": -1.95,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-01-07",
+      "excess_net": -4.38,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-01-13",
+      "excess_net": -2.16,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-02-04",
+      "excess_net": 0.94,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-04-19",
+      "excess_net": -3.84,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-05-18",
+      "excess_net": -4.15,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "089230",
+      "entry_date": "2021-06-04",
+      "excess_net": -20.06,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "090150",
+      "entry_date": "2022-08-03",
+      "excess_net": -3.02,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "094850",
+      "entry_date": "2021-05-17",
+      "excess_net": 0.37,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "099190",
+      "entry_date": "2022-07-22",
+      "excess_net": 8.08,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "099190",
+      "entry_date": "2023-06-09",
+      "excess_net": 52.42,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "099190",
+      "entry_date": "2023-12-21",
+      "excess_net": -1.01,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "100250",
+      "entry_date": "2022-01-12",
+      "excess_net": -0.92,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "100250",
+      "entry_date": "2022-06-16",
+      "excess_net": -1.75,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "105740",
+      "entry_date": "2022-11-16",
+      "excess_net": -6.24,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "112610",
+      "entry_date": "2023-04-14",
+      "excess_net": -5.0,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "112610",
+      "entry_date": "2023-07-11",
+      "excess_net": -9.9,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "124560",
+      "entry_date": "2021-08-12",
+      "excess_net": -2.61,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "126600",
+      "entry_date": "2021-06-14",
+      "excess_net": -11.47,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "126600",
+      "entry_date": "2021-08-09",
+      "excess_net": -5.48,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "126600",
+      "entry_date": "2021-09-01",
+      "excess_net": 49.91,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "126600",
+      "entry_date": "2023-04-13",
+      "excess_net": -12.76,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "128660",
+      "entry_date": "2021-08-30",
+      "excess_net": 21.46,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "160980",
+      "entry_date": "2021-04-05",
+      "excess_net": -5.92,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "160980",
+      "entry_date": "2024-04-25",
+      "excess_net": -4.93,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "161580",
+      "entry_date": "2023-06-21",
+      "excess_net": 2.15,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "189300",
+      "entry_date": "2022-01-12",
+      "excess_net": -3.77,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "189300",
+      "entry_date": "2022-03-25",
+      "excess_net": -0.63,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "189300",
+      "entry_date": "2023-03-28",
+      "excess_net": -17.66,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "189300",
+      "entry_date": "2023-09-14",
+      "excess_net": -1.58,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "195870",
+      "entry_date": "2021-06-23",
+      "excess_net": 6.64,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "195870",
+      "entry_date": "2021-12-08",
+      "excess_net": -6.06,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "195870",
+      "entry_date": "2022-01-25",
+      "excess_net": -9.63,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "195940",
+      "entry_date": "2024-08-30",
+      "excess_net": -1.01,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "214370",
+      "entry_date": "2023-04-03",
+      "excess_net": -1.86,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "214420",
+      "entry_date": "2023-06-21",
+      "excess_net": -10.48,
+      "filters": {
+        "F-C1": {
+          "label": "turnaround",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "272110",
+      "entry_date": "2023-03-17",
+      "excess_net": -15.85,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "298380",
+      "entry_date": "2024-07-30",
+      "excess_net": -6.31,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "310200",
+      "entry_date": "2025-06-17",
+      "excess_net": -3.71,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2022-03-11",
+      "excess_net": -11.89,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2022-04-18",
+      "excess_net": -3.52,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2023-09-04",
+      "excess_net": 8.52,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "turnaround",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2024-04-03",
+      "excess_net": -7.92,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2024-09-25",
+      "excess_net": -4.71,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "332370",
+      "entry_date": "2022-11-30",
+      "excess_net": -5.64,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "332370",
+      "entry_date": "2023-02-06",
+      "excess_net": -9.67,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "pass",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "337930",
+      "entry_date": "2021-09-10",
+      "excess_net": -10.19,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "indeterminate",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "indeterminate",
+          "tags": []
+        }
+      }
+    },
+    {
+      "ticker": "337930",
+      "entry_date": "2025-06-10",
+      "excess_net": -4.69,
+      "filters": {
+        "F-C1": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "q4_derived"
+          ]
+        },
+        "F-C2": {
+          "label": "pass",
+          "tags": [
+            "eps_fallback",
+            "published",
+            "q4_derived"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        },
+        "F-S1": {
+          "label": "fail",
+          "tags": [
+            "q4_derived"
+          ]
+        }
+      }
+    },
+    {
+      "ticker": "338220",
+      "entry_date": "2023-06-07",
+      "excess_net": 36.85,
+      "filters": {
+        "F-C1": {
+          "label": "fail",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C2": {
+          "label": "indeterminate",
+          "tags": [
+            "published"
+          ]
+        },
+        "F-C3": {
+          "label": "fail",
+          "tags": []
+        },
+        "F-S1": {
+          "label": "pass",
+          "tags": []
+        }
+      }
+    }
+  ]
+}
