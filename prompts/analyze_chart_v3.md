@@ -83,7 +83,9 @@ Read `price_data_notes.known_corporate_actions`.
 
 - If a **reverse split within the past ~12 weeks** is present: the historical price series is unreliable. Metrics spanning the split date (52w low, pct_above_52w_low, SMAs) are not meaningful.
 - You MUST add `reverse_split_distortion` to `risk_flags` in this case.
-- Stocks that have recently reverse-split typically reflect distress (per O'Neil, *HMMS*). Unless a clean multi-week base has formed entirely post-split with institutional volume confirmation, classify as `ignore`. (This is the third FORCE-IGNORE condition in §5.1 / §8 — a DATA-INTEGRITY exclusion, distinct from the climax/topping setup verdicts: the price series cannot be evaluated. The clean-post-split-base carveout above keeps the verdict normal.)
+- Stocks that have recently reverse-split typically reflect distress (attribution
+  unverified in *HMMS* — 2026-07-22 book review; the operative basis is the
+  DATA-INTEGRITY exclusion below, design judgment). Unless a clean multi-week base has formed entirely post-split with institutional volume confirmation, classify as `ignore`. (This is the third FORCE-IGNORE condition in §5.1 / §8 — a DATA-INTEGRITY exclusion, distinct from the climax/topping setup verdicts: the price series cannot be evaluated. The clean-post-split-base carveout above keeps the verdict normal.)
 - Forward stock splits (e.g., 2:1, 3:1) are NOT a problem provided adjusted prices are being used — note in reasoning but do not flag.
 
 ### 2. Trend Confirmation with Margin Analysis
@@ -134,8 +136,8 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 
 | Pattern | Textbook criteria | Source |
 |---|---|---|
-| `flat_base` | 5+ weeks sideways; ≤15% correction from high to low; prior uptrend ≥20% from previous base | Minervini, *TLSMW* Ch.10 |
-| `cup_with_handle` | U-shape (not V); 7–45 weeks; depth ≤33% (up to 50% if forming during/after bear market recovery, per O'Neil); handle forms in upper half of cup on lower volume; handle ≥1 week | O'Neil, *HMMS* Ch.2 |
+| `flat_base` | 5+ weeks sideways; ≤15% correction from high to low; prior uptrend ≥20% from previous base | O'Neil, *HMMS* Ch.2 (수치 원전; 구 Minervini 표기는 오귀속 — 2026-07-22 정정) |
+| `cup_with_handle` | U-shape (not V); 7–45 weeks; depth ≤33% (up to 50% if forming during/after bear market recovery, per O'Neil); handle forms in upper half of cup on lower volume; handle ≥1 week | O'Neil *HMMS* Ch.2 7–65w / Minervini *TLSMW* Ch.10 3–45w — 시스템 교집합 7–45w (design judgment) |
 | `vcp` | Successive price contractions (each tighter, typically ~half the prior); volume contracting with each contraction; 2–6 contractions (typically 2–4) | Minervini, *TLSMW* Ch.10 |
 | `double_bottom` | Two lows near the same level; second undercuts first (W-shape, shakeout); 7+ weeks total duration; pivot at middle peak of W | O'Neil, *HMMS* Ch.2 |
 | `none` | No structure matching above. Use for climax runs, early-stage, wide-and-loose action, or ambiguous structure. |
@@ -162,8 +164,10 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 - **Gate3 (핸들 — 분기, shape ≠ quality 분리; 길이 먼저)**:
   - **핸들 길이 < HANDLE_LEGIT_MIN_DAYS(5거래일 ≈1주)** → `pattern=cup_with_handle`,
     `handle_status=not_formed`, **classification=watch**. (2~3일 조임 = shakeout 미완 = *형성중* 이지
-    결함 아님 — faulty 로 보지 말 것. ~1주 floor: Minervini (handle ≥1주, §4 표) primary;
-    O'Neil HMMS Ch.2 "handle ... more than one or two weeks" corroborating (1~2주는 변동성 큰 종목 예외 floor).)
+    결함 아님 — faulty 로 보지 말 것. ~1주 floor 의 출처: O'Neil HMMS Ch.2 —
+    일반 규칙은 "more than one or two weeks", 1~2주는 변동성 큰 종목의 예외 하한.
+    시스템은 그 예외 하한을 floor 로 채택 [design judgment — 2026-07-22 책 검토:
+    Minervini 원문에 핸들 최소 기간 명시 문구 미확인, 구 'Minervini primary' 귀속 정정].)
   - 핸들 미형성(cup 구조 완성, 핸들 아직) → `handle_status=not_formed`, **watch** (none 아님 —
     '매수점 없음'은 verdict 판단이지 shape 판단 아님).
   - 적법 핸들(길이 ≥5일 ∧ 상단절반 ∧ 50일선 위 ∧ **하향(down) drift = shakeout** ∧ 깊이 ≤HANDLE_DEPTH_BULL_MAX_PCT(12%)) →
@@ -195,7 +199,9 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 **Cup-with-handle depth exception:**
 - Normal market: depth > 33% → invalid, use `none`.
 - If `market_context` shows a transition from `downtrend` to `confirmed_uptrend` within the past 60 sessions, allow depth up to 50% (O'Neil exception for bear-market recovery cup formations).
-- Depth > 50% in any market: invalid, use `none`.
+- Depth > 50% in any market: invalid, use `none`. [system hard cap, design
+  judgment — the book's looser absolute bound (~60%, Minervini *TLSMW*) is
+  **not operative here**; 50% is the conservative end, kept deliberately]
 
 **`high_tight_flag`** — A rare and powerful pattern. **Flagpole**: stock advances 100–120%+ in **4–8 weeks**. **Flag**: sideways consolidation of no more than 25% over **3–6 weeks**. Total duration 7–14 weeks. Difficult to interpret accurately — use only with high confidence. Risk_flag `narrow_base` does NOT apply to this pattern (the flag period is intentionally short by definition). Source: O'Neil HMM 'High Tight Flag' / Minervini Power Play.
 
@@ -215,6 +221,10 @@ If `indicators_recent_60d[-5:].any(pocket_pivot_flag == true)` (pocket pivot tri
 
 **Required criteria for valid pocket pivot:**
 - Stock is in Stage 2 (per §3) with a proper base of ≥ 6 weeks
+  [**this ≥6-week floor is a hard requirement of THIS system — do not waive it.**
+  design judgment: *TLOND* Ch.5 itself does not impose a minimum base length
+  (verified against TLOND, 2026-07-22 second review round); the stricter floor
+  is kept deliberately]
 - Price is above SMA-50 at the pocket pivot
   - *Note*: Morales & Kacher, *TLOND* p.132: "pocket pivots should only be bought when they occur above the 50-day moving average ... **Except in very rare cases, such as in the aftermath of the crash of late 2008**". This system intentionally does NOT carve out that exception — §3.5 market-direction rules (downtrend / unconfirmed rally_attempt) would force such a post-crash stock to `watch` regardless, so the exception has effectively zero opportunity cost. (Conservative-by-design, not a book deviation: book *permits* the rare exception; we suppress it because a different gate handles the same case.)
 - Preceding 5-10 sessions show tight, sideways action (not a "V" reversal)
@@ -345,8 +355,15 @@ Apply only if BOTH hold over the consolidation window:
 (b) Structural fault: deep + erratic — depth exceeds CUP_DEPTH_MAX_NORMAL_PCT (33%)
     AND the action is V-shaped straight-up / wedging / "large point spreads high-to-
     low each week throughout the base" (O'Neil HMMS pp.140-143).
-The old "1.5–2.5× the general-market correction" figure is IBD-workshop convention,
-not literal in the source texts.
+The "1.5–2.5× the general-market correction" figure IS literal in the source text
+(O'Neil *HMMS* Ch.2: "correct 1½ to 2½ times the market averages ... downturns that
+exceed 2½ times the market averages are usually too wide and loose"). This system
+**deliberately replaces** that market-relative yardstick with the self-volatility
+median above — a design judgment for KR high-beta leaders (market-relative 2.5×
+flags too many legitimate KR leaders). Book-literal rule superseded, not absent.
+**Do NOT apply the market-relative 1.5–2.5× test** — only (a)+(b) above are
+operative. (The 1.5× in (a) is a self-median multiplier, unrelated to the book's
+market-relative multiple.)
 
 ### 6. Stock-Level Distribution Check
 
