@@ -678,3 +678,29 @@ CREATE TABLE IF NOT EXISTS position_stop_evaluations (
 );
 CREATE INDEX IF NOT EXISTS idx_position_stop_eval_date
   ON position_stop_evaluations (eval_date);
+
+-- ====== (#68 2단계) DART 실적 적재 — 표본 100 우선 (2026-07-22) ======
+-- 스펙: docs/superpowers/specs/2026-07-22-issue68-stage2-ingest.md.
+-- rcept_no 는 최신 접수(정정 포함)라 as-of 판정 사용 금지 — as-of 는 disclosed_at
+-- (list.json 원공시 접수일, strict < 로 소비 = T+1 가용)만. eps_derived 분기 행은
+-- 연간 주식수 근사. ⚠분기 금액은 3개월 단독인데 fiscal_* 라벨은 누적 기간(스펙 §3).
+CREATE TABLE IF NOT EXISTS dart_financials (
+  ticker             VARCHAR(10) NOT NULL,
+  bsns_year          SMALLINT NOT NULL,
+  reprt_code         VARCHAR(5) NOT NULL,   -- 11013 Q1 / 11012 반기 / 11014 Q3 / 11011 사업
+  status             VARCHAR(10) NOT NULL,  -- ok | no_data(013 전용 — 환경성 실패는 미기록)
+  fs_div             VARCHAR(3),
+  fiscal_start       DATE,
+  fiscal_end         DATE,
+  revenue            NUMERIC(20, 0),
+  operating_income   NUMERIC(20, 0),
+  net_income         NUMERIC(20, 0),
+  shares_outstanding NUMERIC(20, 0),
+  eps_derived        NUMERIC(14, 2),
+  rcept_no           VARCHAR(20),
+  disclosed_at       DATE,                  -- NULL = 원공시 매칭 실패(as-of 제외)
+  fetched_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (ticker, bsns_year, reprt_code)
+);
+CREATE INDEX IF NOT EXISTS idx_dart_financials_asof
+  ON dart_financials (ticker, disclosed_at) WHERE disclosed_at IS NOT NULL;
