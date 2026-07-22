@@ -1,8 +1,9 @@
 # kr_pipeline/financials/__main__.py
-"""(#68 2단계) DART 실적 백필 — 표본 B 100종목, 멱등 재개.
+"""(#68 2단계) DART 실적 백필 — 표본 A/B 100종목, 멱등 재개.
 
-  uv run python -m kr_pipeline.financials --mode=backfill [--limit-tickers N]
+  uv run python -m kr_pipeline.financials --mode=backfill [--sample a|b] [--limit-tickers N]
 스펙: docs/superpowers/specs/2026-07-22-issue68-stage2-ingest.md
+(3단계 확장: --sample a = FROZEN_SAMPLE — 탐색 모집단 A+B 풀링 준비)
 """
 import argparse
 import json
@@ -39,9 +40,18 @@ def _period_end_guess(year: int, reprt: str) -> date:
     return date(year, m, 28)  # 원공시 매칭용 근사 — 실제 회계기간은 thstrm 파싱이 확정
 
 
+def load_sample(which: str) -> list[str]:
+    """백필 표본 선택 — a=FROZEN_SAMPLE(동결 모듈이 권위), b=추첨 JSON(기존 경로 유지)."""
+    if which == "a":
+        from kr_pipeline.backtest.frozen_sample import FROZEN_SAMPLE
+        return list(FROZEN_SAMPLE)
+    return json.loads(SAMPLE_JSON.read_text())["sample_b"]
+
+
 def parse_args():
     p = argparse.ArgumentParser(prog="python -m kr_pipeline.financials")
     p.add_argument("--mode", required=True, choices=["backfill"])
+    p.add_argument("--sample", choices=["a", "b"], default="b")
     p.add_argument("--limit-tickers", type=int, default=None)
     return p.parse_args()
 
@@ -54,7 +64,7 @@ def main() -> int:
         log.error("DART_API_KEY 필요 (.env)")
         return 1
 
-    sample = json.loads(SAMPLE_JSON.read_text())["sample_b"]
+    sample = load_sample(args.sample)
     if args.limit_tickers:
         sample = sample[: args.limit_tickers]
 
@@ -81,7 +91,8 @@ def main() -> int:
                  len(unmapped), ",".join(unmapped) or "-", len(done))
 
         with run_tracking(conn, pipeline="financials", mode="backfill",
-                          params={"tickers": len(targets), "years": f"{YEARS[0]}-{YEARS[-1]}"}) as state:
+                          params={"sample": args.sample, "tickers": len(targets),
+                                  "years": f"{YEARS[0]}-{YEARS[-1]}"}) as state:
             if excluded:
                 state["warnings"].append(f"금융업 제외 {len(excluded)}: {excluded}")
             if unmapped:

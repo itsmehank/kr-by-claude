@@ -63,6 +63,23 @@ def normalize_accounts(rows: list[dict]) -> dict:
     return out
 
 
+def extract_eps(rows: list[dict], fs_div: str) -> float | None:
+    """fnlttSinglAcntAll list → 공시 EPS(원) — (#68 3단계 선행 체크: 파생 EPS 대조).
+
+    손익계산서(IS/CIS) 의 주당이익 계정 중 '희석' 제외, '기본' 표기 우선.
+    fs_div: 응답에 fs_div 필드가 있으면 일치 요구, 없으면(실측 —
+    fnlttSinglAcntAll 은 요청 파라미터로 스코프돼 필드 미포함) 수용.
+    """
+    cand = [r for r in rows
+            if r.get("fs_div") in (fs_div, None) and r.get("sj_div") in ("IS", "CIS")
+            and "주당" in (r.get("account_nm") or "")
+            and "희석" not in (r.get("account_nm") or "")]
+    if not cand:
+        return None
+    pick = next((r for r in cand if "기본" in (r.get("account_nm") or "")), cand[0])
+    return _num(pick.get("thstrm_amount"))
+
+
 _PERIOD_RE = re.compile(r"(\d{4})\.(\d{2})\.(\d{2})")
 
 

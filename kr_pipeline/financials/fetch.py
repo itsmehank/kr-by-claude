@@ -35,6 +35,13 @@ def fetch_single_account(key: str, corp_code: str, year: int, reprt: str) -> dic
                 bsns_year=str(year), reprt_code=reprt)
 
 
+def fetch_all_accounts(key: str, corp_code: str, year: int, reprt: str,
+                       fs_div: str) -> dict:
+    """fnlttSinglAcntAll — {status, list}. (#68 3단계 공시 EPS 대조 전용 — 적재 미사용)."""
+    return _get("fnlttSinglAcntAll", crtfc_key=key, corp_code=corp_code,
+                bsns_year=str(year), reprt_code=reprt, fs_div=fs_div)
+
+
 def fetch_shares(key: str, corp_code: str, year: int, reprt: str) -> float | None:
     """stockTotqySttus — 보통주(주식 종류에 '보통' 포함) 발행총수. 실패 시 None."""
     resp = _get("stockTotqySttus", crtfc_key=key, corp_code=corp_code,
