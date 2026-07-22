@@ -147,6 +147,48 @@ def test_extract_eps_basic_over_diluted_and_fsdiv():
     assert extract_eps(rows3, "CFS") == 654.0
 
 
+def test_extract_eps_pair_annual_and_quarterly():
+    """(#68 3단계) 같은 공시의 (당기, 전년 동기) EPS 쌍 — 연간=frmtrm, 분기=frmtrm_q.
+
+    실측(016800): 분기 행은 thstrm=3개월 단독·frmtrm_q=전년 동기 3개월,
+    frmtrm 은 비어 있음. 연간 행은 frmtrm=전년 연간.
+    """
+    from kr_pipeline.financials.parse import extract_eps_pair
+    annual = [{"sj_div": "IS", "account_nm": "기본주당순이익",
+               "thstrm_amount": "5,333", "frmtrm_amount": "7,470"}]
+    assert extract_eps_pair(annual, "CFS") == (5333.0, 7470.0)
+    quarterly = [{"sj_div": "CIS", "account_nm": "기본주당이익(손실)",
+                  "thstrm_amount": "539", "frmtrm_amount": "",
+                  "frmtrm_q_amount": "2,106"}]
+    assert extract_eps_pair(quarterly, "CFS") == (539.0, 2106.0)
+    assert extract_eps_pair([], "CFS") == (None, None)
+
+
+def test_set_eps_published_and_asof_exposure(db):
+    """(#68 3단계) 공시 EPS 표적 UPDATE + as-of 유틸이 새 컬럼을 노출."""
+    from kr_pipeline.financials.store import (
+        get_financials_asof, set_eps_published, upsert_financial)
+    _cleanup(db)
+    upsert_financial(db, {
+        "ticker": "FINT3", "bsns_year": 2024, "reprt_code": "11014",
+        "status": "ok", "fs_div": "CFS", "fiscal_start": date(2024, 7, 1),
+        "fiscal_end": date(2024, 9, 30), "revenue": 100, "operating_income": 10,
+        "net_income": 5, "shares_outstanding": 100, "eps_derived": 0.05,
+        "rcept_no": None, "disclosed_at": date(2024, 11, 14)})
+    set_eps_published(db, "FINT3", 2024, "11014", cur=539.0, prior=2106.0)
+    db.commit()
+    try:
+        rows = get_financials_asof(db, "FINT3", as_of=date(2025, 1, 1))
+        assert rows and rows[0]["eps_published"] == 539.0
+        assert rows[0]["eps_published_prior"] == 2106.0
+        with db.cursor() as cur:
+            cur.execute("SELECT eps_pub_fetched_at FROM dart_financials "
+                        "WHERE ticker='FINT3'")
+            assert cur.fetchone()[0] is not None, "시도 마커 미기록"
+    finally:
+        _cleanup(db)
+
+
 def test_upsert_idempotent_update(db):
     """같은 PK 재적재 시 갱신(멱등 재개) — 중복 행 없이 최신값."""
     from kr_pipeline.financials.store import upsert_financial

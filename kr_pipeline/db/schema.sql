@@ -697,6 +697,12 @@ CREATE TABLE IF NOT EXISTS dart_financials (
   net_income         NUMERIC(20, 0),
   shares_outstanding NUMERIC(20, 0),
   eps_derived        NUMERIC(14, 2),
+  -- (#68 3단계) 공시 EPS — 전체계정 API 기본주당이익. 같은 공시의 전년 동기
+  -- 비교값(prior: 연간=frmtrm, 분기=frmtrm_q)은 소급 재작성돼 무상증자/분할·
+  -- 지배/전체 혼재에 면역 — F-C1/C2 의 1순위 입력(외부 검토 반영, 결정 07-22)
+  eps_published        NUMERIC(14, 2),
+  eps_published_prior  NUMERIC(14, 2),
+  eps_pub_fetched_at   TIMESTAMPTZ,         -- 시도 마커(영구 결측 재호출 방지)
   rcept_no           VARCHAR(20),
   disclosed_at       DATE,                  -- NULL = 원공시 매칭 실패(as-of 제외)
   fetched_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
