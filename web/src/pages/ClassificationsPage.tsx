@@ -67,6 +67,8 @@ const PATTERN_DESCRIPTIONS: Record<string, string> = {
     "5~7주 횡보 통합, depth ≤15% — Cup-with-handle 이후 자주 등장하는 2차 base (Box 형태).",
   cup_with_handle:
     "U자 컵 (12~33% 조정, 깊으면 50%까지) + cup 상반부에 형성된 짧은 손잡이 (8~12% pullback), 7주~수개월. O'Neil 의 가장 흔한 정통 패턴.",
+  cup_without_handle:
+    "U자 컵 (기준은 cup_with_handle 과 동일) — 손잡이 없이 컵 고점 돌파를 노리는 패턴 (O'Neil 5대 모델). 우측이 고점의 90%까지 회복돼야 인정. 보수 장치: 돌파 거래량 strict 1.5× + 사이징 감액 (#74).",
   vcp:
     "Volatility Contraction Pattern — 변동성과 거래량이 단계적으로 줄어드는 통합 (Minervini).",
   double_bottom:

@@ -29,10 +29,10 @@ export const ENTRY_PARAMS_FIELDS: EntryParamField[] = [
   { name: "suggested_weight_pct", category: "sizing", what: "포트폴리오 내 권장 비중 % — Minervini 의 거래당 1-3% 위험 룰 적용.", constraint: "3.0 ~ 25.0%" },
 
   // Guard 매수 가드 + 거래량 요건 (5, 모두 category: "guard")
-  { name: "pattern_basis", category: "guard", what: "이 매수가 어떤 base 패턴에 기반했는지 (flat_base / cup_with_handle / vcp / double_bottom / 3c_cheat).", constraint: "exactly one of: flat_base, cup_with_handle, vcp, double_bottom, 3c_cheat" },
+  { name: "pattern_basis", category: "guard", what: "이 매수가 어떤 base 패턴에 기반했는지 (flat_base / cup_with_handle / cup_without_handle / vcp / double_bottom / 3c_cheat).", constraint: "exactly one of: flat_base, cup_with_handle, cup_without_handle, vcp, double_bottom, 3c_cheat" },
   { name: "entry_window_days", category: "guard", what: "트리거 발생 후 며칠 안에 진입해야 유효한가 (1~5 일).", constraint: "integer, 1 ~ 5" },
   { name: "max_chase_pct_from_pivot", category: "guard", what: "pivot 위로 최대 몇 %까지 추격 매수 허용 (O'Neil: ≤5%).", constraint: "0.0 ~ 5.0%" },
-  { name: "breakout_volume_requirement", category: "guard", what: "돌파일 거래량 요건 (1.4× / 1.5× 50일평균 / pocket pivot signature).", constraint: "exactly one of: ge_1.3x_50day_avg, ge_1.4x_50day_avg, ge_1.5x_50day_avg, pocket_pivot_signature" },
+  { name: "breakout_volume_requirement", category: "guard", what: "돌파일 거래량 요건 (1.4× / 1.5× 50일평균 / strict 1.5×(#74 cup_without_handle) / pocket pivot signature).", constraint: "exactly one of: ge_1.3x_50day_avg, ge_1.4x_50day_avg, ge_1.5x_50day_avg, ge_1.5x_strict, pocket_pivot_signature" },
   { name: "observed_breakout_volume_ratio", category: "guard", what: "실제 관측된 거래량 비율 — null 또는 0.0-20.0× 사이.", constraint: "null OR 0.0 ~ 20.0" },
 
   // Meta 메타 (3)

@@ -9,7 +9,7 @@
 입력으로 제공된 `analysis_result.json` 의 다음 7 필드:
 - `measurements` (prior_uptrend_pct · cup_depth_pct · cup_shape · handle_status · handle_position · handle_vs_sma50 · handle_drift · handle_depth_pct · handle_volume_ratio 등 수치/enum 측정값)
 - `classification` (entry / watch / ignore)
-- `pattern` (9 base 패턴 중 하나 또는 none)
+- `pattern` (10 base 패턴 중 하나 또는 none)
 - `pivot_price` + `pivot_basis`
 - `base_depth_pct` + `base_high` + `base_low`
 - `risk_flags` (14 risk taxonomy 부분집합)

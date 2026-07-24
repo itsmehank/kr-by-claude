@@ -25,7 +25,7 @@ export const PROMPT_EXPLANATIONS: Record<string, PromptExplanation> = {
     ],
     output: [
       "classification: entry / watch / ignore 중 하나",
-      "pattern: 9 종 base 패턴 (flat_base, cup_with_handle, vcp 등) 중 하나 또는 none",
+      "pattern: 10 종 base 패턴 (flat_base, cup_with_handle, cup_without_handle, vcp 등) 중 하나 또는 none",
       "pivot_price: 책 정의 매수 기준가 (패턴별 정의 다름)",
       "base_depth_pct: base 깊이 (peak 대비 trough)",
       "risk_flags: 13 종 위험 신호 중 부분집합 (climax_run·late_stage_base·faulty_pivot 등)",
@@ -34,7 +34,7 @@ export const PROMPT_EXPLANATIONS: Record<string, PromptExplanation> = {
     ],
     keyRules: [
       "**책 정통 추세주만 entry**: Stage 2 진입 + 깨끗한 base + 시장 우호적 시점 (§3.5 의 4-enum 시장 상태가 confirmed_uptrend) — 모두 만족해야 entry. 하나라도 빠지면 watch 또는 ignore.",
-      "**9 base 패턴만 허용**: flat_base / cup_with_handle / vcp / double_bottom / high_tight_flag / 3c_cheat / base_on_base / ascending_base / none. 책에 없는 패턴은 추측 금지 — none 으로 처리.",
+      "**10 base 패턴만 허용**: flat_base / cup_with_handle / cup_without_handle / vcp / double_bottom / high_tight_flag / 3c_cheat / base_on_base / ascending_base / none. 책에 없는 패턴은 추측 금지 — none 으로 처리.",
       "**13 risk flag 분류**: 위험 신호도 고정 13 종 목록만 사용. 자유 표현 금지. UI 와 prompt 가 동일한 분류 체계 공유.",
       "**시장 컨텍스트 하드룰** (§3.5): 시장이 correction/downtrend 면 entry 불가 → watch 강제. 시장 distribution day ≥ 5 이면 confidence -0.15.",
       "**handle 품질 (cup_with_handle)**: handle 깊이 8-12% / 10주 MA 위 / wedging 금지 — O'Neil HMMS p.116. 위반 시 watch 강등.",

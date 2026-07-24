@@ -138,6 +138,7 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 |---|---|---|
 | `flat_base` | 5+ weeks sideways; ≤15% correction from high to low; prior uptrend ≥20% from previous base | O'Neil, *HMMS* Ch.2 (수치 원전; 구 Minervini 표기는 오귀속 — 2026-07-22 정정) |
 | `cup_with_handle` | U-shape (not V); 7–45 weeks; depth ≤33% (up to 50% if forming during/after bear market recovery, per O'Neil); handle forms in upper half of cup on lower volume; handle ≥1 week | O'Neil *HMMS* Ch.2 7–65w / Minervini *TLSMW* Ch.10 3–45w — 시스템 교집합 7–45w (design judgment) |
+| `cup_without_handle` | 컵 기준은 cup_with_handle 과 **완전 동일**(U-shape not V; 7–45w; depth ≤33%/베어 회복 50%; 선행상승 ≥30%) — 핸들 요소만 없음. **우측 회복 완료** 필요: 컵 바닥 이후 우측 구간의 **최고 종가 ≥ cup high × 0.90** (도달치 기준 래칫 — 한번 완성이면 이후 조정으로 밀려도 완성 유지, 현재가 위치는 §8.5 밴드가 담당) + U자 바닥 rounding 완성. pivot = **컵 내 절대 고점**(§4.7). 진입 규율: 돌파 거래량 strict 1.5×(§8 각주·B 게이트) + 사이징 감액(shakeout 부재 보수화 — C 단계 자동) | O'Neil *HMMS* 5대 모델 장 — cup-without-handle 명명·승자 사례 실재 (book-mandated). 0.90 회복 경계·보수 장치는 design judgment (#74) |
 | `vcp` | Successive price contractions (each tighter, typically ~half the prior); volume contracting with each contraction; 2–6 contractions (typically 2–4) | Minervini, *TLSMW* Ch.10 |
 | `double_bottom` | Two lows near the same level; second undercuts first (W-shape, shakeout); 7+ weeks total duration; pivot at middle peak of W | O'Neil, *HMMS* Ch.2 |
 | `none` | No structure matching above. Use for climax runs, early-stage, wide-and-loose action, or ambiguous structure. |
@@ -162,14 +163,21 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 
 **★ 경계 수렴 규칙 (verdict 재현 — over-forcing 아닌 over-rejecting 방지)**: `prior_uptrend`·`cup_depth` 가 밴드 내(전제 통과)인데 U/V·climax 판정이 *애매한* 종목은 — **명백한 실격(명백 climax / 명백 직하강 V / depth ≫ 상한)이 아닌 한** — `not_cup_family`/`gate2` 로 튀어 `ignore` 가 되지 말고, **형성중·불명확 base = 보수적 `watch`** 로 수렴하라(cup 으로 보아 Gate3 진행). 책: 형성중·불명확 base 는 *매수 보류*(watch)이지 *배제*(ignore)가 아니다. `ignore` 는 명백 실격에만. (목표는 라벨 고정이 아니라 *verdict 재현* — 같은 경계 종목이 회차마다 watch↔ignore 로 갈리면 안 된다.)
 - **Gate3 (핸들 — 분기, shape ≠ quality 분리; 길이 먼저)**:
-  - **핸들 길이 < HANDLE_LEGIT_MIN_DAYS(5거래일 ≈1주)** → `pattern=cup_with_handle`,
-    `handle_status=not_formed`, **classification=watch**. (2~3일 조임 = shakeout 미완 = *형성중* 이지
-    결함 아님 — faulty 로 보지 말 것. ~1주 floor 의 출처: O'Neil HMMS Ch.2 —
-    일반 규칙은 "more than one or two weeks", 1~2주는 변동성 큰 종목의 예외 하한.
-    시스템은 그 예외 하한을 floor 로 채택 [design judgment — 2026-07-22 책 검토:
-    Minervini 원문에 핸들 최소 기간 명시 문구 미확인, 구 'Minervini primary' 귀속 정정].)
-  - 핸들 미형성(cup 구조 완성, 핸들 아직) → `handle_status=not_formed`, **watch** (none 아님 —
-    '매수점 없음'은 verdict 판단이지 shape 판단 아님).
+  - **핸들 길이 < HANDLE_LEGIT_MIN_DAYS(5거래일 ≈1주) — 0일(핸들 시도 없음) 포함**
+    (2~3일 조임 = shakeout 미완 = *형성중* 이지 결함 아님 — faulty 로 보지 말 것.
+    ~1주 floor 의 출처: O'Neil HMMS Ch.2 — 일반 규칙은 "more than one or two
+    weeks", 1~2주는 변동성 큰 종목의 예외 하한을 floor 로 채택 [design
+    judgment — 2026-07-22 책 검토, 구 'Minervini primary' 귀속 정정].)
+    이때 컵 우측 회복 여부로 분기(#74):
+    - **우측 회복 완료**(컵 바닥 이후 최고 종가 ≥ cup high × 0.90 — 도달치
+      기준 래칫, §4 표) → `pattern=cup_without_handle`,
+      `handle_status=not_formed`, pivot = 컵 내 절대 고점(§4.7).
+      classification 은 §8.5 가격 밴드 그대로(pivot 확정 상태 — <0.95×pivot
+      은 watch `valid_base_awaiting_breakout`, 0.95~1.05 는 entry 후보).
+    - **우측 회복 미완**(최고 종가 < cup high × 0.90) →
+      `pattern=cup_with_handle`, `handle_status=not_formed`,
+      **classification=watch** (`base_forming` — 컵 우측 벽 미완 = base
+      미완성. 구 라벨 연속성 유지).
   - 적법 핸들(길이 ≥5일 ∧ 상단절반 ∧ 50일선 위 ∧ **하향(down) drift = shakeout** ∧ 깊이 ≤HANDLE_DEPTH_BULL_MAX_PCT(12%)) →
     `handle_status=legitimate` (entry 후보).
   - faulty 핸들(깊이 > HANDLE_DEPTH_BULL_MAX_PCT(12%) / 하단절반(handle_position=lower_half, 50% 경계) /
@@ -219,6 +227,10 @@ A pocket pivot is an early entry signal within an existing base, defined by Mora
 
 If `indicators_recent_60d[-5:].any(pocket_pivot_flag == true)` (pocket pivot triggered in past 5 sessions), evaluate as an alternate entry route:
 
+(**의도적 제외 — #74**: `cup_without_handle` 은 pocket pivot 대체 진입 **비대상**.
+PP 경로로 strict 1.5× 돌파 거래량 요건을 우회할 수 없다 — 후속 작업에서
+무심코 추가하지 말 것.)
+
 **Required criteria for valid pocket pivot:**
 - Stock is in Stage 2 (per §3) with a proper base of ≥ 6 weeks
   [**this ≥6-week floor is a hard requirement of THIS system — do not waive it.**
@@ -255,6 +267,7 @@ Boolean signals (use as corroboration, not as filters): `rs_line_at_52w_high` (R
 |-----------------|-----------------------------------|-----------------|
 | flat_base       | range_high + 0.1                  | range_high      |
 | cup_with_handle | handle_high + 0.1                 | handle_high     |
+| cup_without_handle | cup 내 절대 고점 + 0.1 (#74)    | cup_high        |
 | vcp             | final_T_high + 0.1                | final_T_high    |
 | double_bottom   | mid_W_peak + 0.1 (두 low 사이 최고점) | mid_W_peak        |
 | high_tight_flag | top of flag (highest point of consolidation)  | top_of_flag       |
@@ -509,6 +522,7 @@ If a base pattern is identified and you claim a pivot or breakout:
 
 - **pivot_price** = max(weekly.high) of the identified base period + $0.10 (Minervini's standard add-on). For KR stocks, use base high + 1 tick (typically +10 or +100 KRW depending on price level — but base_high alone is acceptable).
 - For `cup_with_handle`: pivot_price = high of the handle, not high of the cup.
+- For `cup_without_handle`: pivot_price = high of the cup (핸들이 없으므로 컵 절대 고점 — §4.7, #74).
 - For `double_bottom`: pivot_price = middle peak of the W (high between the two bottoms).
 - **breakout_date** = first trading day in daily data where `close > pivot_price` on volume ≥ 1.4× 50-day average.
 - If you claim a breakout but no day in the provided daily data shows `close > pivot_price`: this is a methodology error. Lower confidence by 0.2 and note the discrepancy in `reasoning`, and DO NOT classify as `entry` based on a non-existent breakout.
@@ -519,6 +533,9 @@ If a base pattern is identified and you claim a pivot or breakout:
 - **돌파 거래량 확인 (verdict 필수 입력 — 분해로 누락 금지)**: entry 는 돌파 거래량 ≥ 50일 평균 1.4~1.5×
   (O'Neil/Minervini). 미달 → `low_volume_breakout` → entry 아닌 watch. ⚠ `measurements.handle_volume_ratio`
   (핸들 dry-up = 품질)와 *별개* — 혼동 금지.
+  **cup_without_handle 각주(#74)**: **돌파를 근거로 entry 판정할 때에 한해** strict **1.5×** 미만이면
+  entry 로 판정하지 말 것(1.4~1.5 grace 비허용 — shakeout 부재 보수 장치). 돌파 전 밴드 내(§8.5
+  0.95~1.05) entry 는 이 각주 비적용(거래량 조건 없음 — 밴드 규칙 그대로).
 
 Synthesize Steps 1–7 into `entry / watch / ignore`:
 
@@ -537,7 +554,7 @@ LLM 정밀판정으로 넘길지(`breakout_from_watch`) 여부를 가른다.
 
 | watch_reason | 판정 기준 |
 |---|---|
-| `base_forming` | **pivot 정의 요소 미완성** → pivot 미확정. 예: **cup 구조 완성이나 handle 미형성**(handle 은 base 상반부 최종 구성요소 — handle 미형성 = pivot=handle_high 미정 = base 미완성, O'Neil HMM), VCP 최종 수축(final-T) 미완, flat base 옆걸음 확장 중, double_bottom 중앙 peak 미확정. *handle shakeout 전 성급한 돌파를 actionable 로 잡지 않기 위함.* |
+| `base_forming` | **pivot 정의 요소 미완성** → pivot 미확정. 예: **cup 우측 회복 미완**(컵 바닥 이후 최고 종가 < cup high × 0.90 — 우측 벽 미완 = base 미완성. 회복 완료 + 핸들 <5일이면 `cup_without_handle` 로 pivot 확정 — §4 Gate3, #74), VCP 최종 수축(final-T) 미완, flat base 옆걸음 확장 중, double_bottom 중앙 peak 미확정. *shakeout 부재 리스크는 배제가 아니라 보수 장치(§8 각주 strict 1.5×·C 단계 사이징 감액)로 흡수한다.* |
 | `extended` | pivot 정의 요소는 완성이나 current 가 이미 진입 구간 위로 extended(돌파 후 추격 구간 / `extended_from_ma`). |
 | `unfavorable_market` | 종목 셋업은 entry 급이나 §3.5 시장 방향(downtrend/correction/미확인 rally_attempt 또는 dist≥5)이 entry 를 watch 로 강등시킴. |
 | `marginal_tt` | Trend Template 통과가 marginal(§2: 3개 이상 조건이 <3% 마진) — 추가 확인 필요. |
@@ -581,13 +598,13 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
 {
   "classification": "entry | watch | ignore",
   "watch_reason": "base_forming | extended | unfavorable_market | marginal_tt | valid_base_awaiting_breakout | suspected_climax_stage_indeterminate | null",
-  "pattern": "flat_base | cup_with_handle | vcp | double_bottom | high_tight_flag | 3c_cheat | base_on_base | ascending_base | none",
+  "pattern": "flat_base | cup_with_handle | cup_without_handle | vcp | double_bottom | high_tight_flag | 3c_cheat | base_on_base | ascending_base | none",
   "confidence": 0.0,
   "reasoning": "≤1500자 (markdown, 5 sections)",
   "risk_flags": ["..."],
 
   "pivot_price": 82500.1,
-  "pivot_basis": "handle_high | range_high | final_T_high | mid_W_peak | null",
+  "pivot_basis": "handle_high | cup_high | range_high | final_T_high | mid_W_peak | null",
   "base_high": 82500.0,
   "base_low": 75000.0,
   "base_depth_pct": 9.1,
@@ -657,7 +674,7 @@ For non-VCP patterns (`flat_base`, `cup_with_handle`, etc.), both fields MUST be
   - 각 판단의 책 원전 (예: "Minervini Trend Template #5", "O'Neil HMM 'Cup with Handle'") 짧게 언급.
   - If pocket pivot entry, mark it explicitly in '진입 시그널'.
   - If 3-C / cheat early entry, mark it explicitly in '진입 시그널' or '결론'.
-- `pattern`: must be exactly one of: `flat_base`, `cup_with_handle`, `vcp`, `double_bottom`, `high_tight_flag`, `3c_cheat`, `base_on_base`, `ascending_base`, `none`.
+- `pattern`: must be exactly one of: `flat_base`, `cup_with_handle`, `cup_without_handle`, `vcp`, `double_bottom`, `high_tight_flag`, `3c_cheat`, `base_on_base`, `ascending_base`, `none`.
 - `watch_reason`: `classification == "watch"` 이면 §8.5 의 6개 enum 중 정확히 하나 (null 금지). `classification != "watch"`(entry/ignore) 이면 반드시 `null`. 제외 사유 우선(D4): base_forming/extended 가 해당하면 그것을 선택. `suspected_climax_stage_indeterminate` 는 §6.1 제3안(E1 판정 불능) 전용 — `trigger_gate.ALLOWED_WATCH_REASONS` 비포함이라 `breakout_from_watch` 재트리거 대상이 아니다(§8.5 표 참조).
 - `measurements`: **`prior_uptrend_pct` · `cup_depth_pct` · `cup_shape` 는 항상 보고** (어떤 차트든 측정 가능 — 이것이 트리 분기와 `none` 판정의 근거다; null 금지). `handle_*` 필드만 핸들 없음/비-cup 일 때 null. 숫자는 차트/OHLCV 에서 측정해 보고 — *라벨을 먼저 정하지 말고 측정값을 먼저 보고*.
 - `measurements.rejected_gate`: `pattern == "none"` 이면 **어느 Gate 에서 탈락했는지 의무 보고** — `gate0`(선행상승<30%) / `gate1`(depth 초과) / `gate2`(V자) / `not_cup_family`(climax·base 없음 등 cup 계열 1차 라우팅 미진입). cup 패턴이 식별되면(none 아님) `null`. (숫자만 채우고 분기를 안 적으면 "왜 none"이 비감사로 남으므로 필수.)
@@ -675,7 +692,7 @@ For non-VCP patterns (`flat_base`, `cup_with_handle`, etc.), both fields MUST be
 - Do not give entry parameters here (stop loss, position size) — that is a separate task (`calculate_entry_params`). pivot_price and base fields ARE output by this prompt (§4.7).
 - Do not include Trend Template positive signals (high RS Rating, price above MAs, MA alignment, RS Line leadership) as risk_flags.
 - Do not invent risk flags outside the 14-value taxonomy.
-- Do not invent new pattern names outside the 9-value taxonomy.
+- Do not invent new pattern names outside the 10-value taxonomy.
 - Do not classify as `entry` when `market_context.current_status` is downtrend/correction/unconfirmed_rally — this is a hard rule per §3.5.
 
 ## Input Payload
