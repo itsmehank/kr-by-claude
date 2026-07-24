@@ -159,8 +159,8 @@
 행 / flag 주입 → `no_handle_shakeout_absent` → 사이징·경고 / 신 pattern 값 →
 분류·pivot_basis·트리거 경로 전파.
 
-**2단계(소비 룰)**: evaluate_pivot 인터셉트 체인(신규 dedupe → #45 extended → 신규 strict →
-dedupe) / entry_params_calc 티어·배수·vol_req / trigger_gate(발화 —
+**2단계(소비 룰)**: evaluate_pivot 인터셉트 체인(신규 dedupe → #45 extended →
+신규 strict) / entry_params_calc 티어·배수·vol_req / trigger_gate(발화 —
 GATE_BREAKOUT_VOL_MULT) / prompt §8.5 밴드·D4.
 
 **3단계(룰 내부 고정 상수) — 상수별 2축**:

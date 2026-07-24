@@ -107,7 +107,7 @@ export const TABLES: Record<string, TableInfo> = {
     keyColumns: [
       "classification ('entry' / 'watch' / 'ignore')",
       "confidence (0.0-1.0)",
-      "pattern (9 base 패턴 중 하나)",
+      "pattern (10 base 패턴 중 하나)",
       "pivot_price (책 정의 매수 기준가)",
       "base_depth_pct (base 깊이 %)",
       "risk_flags (JSONB, 13 risk flag 중 부분집합)",

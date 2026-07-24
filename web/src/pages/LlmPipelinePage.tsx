@@ -71,7 +71,7 @@ const STAGES: PipelineStage[] = [
     deterministicDetail:
       "SQL 조건:\n  WHERE minervini_pass = TRUE\n    AND stocks.delisted_at IS NULL\n\n기준 행: 직전 금요일자 daily_indicators.\ncron 시각: 토 03:20 KST.\n\n💡 minervini_pass 컬럼은 daily_indicators 가 적재될 때 함께 계산 — 8 조건 모두 충족 시에만 TRUE (아래 '8 조건 모두 보기' fold 참조).",
     llmSummary:
-      "각 종목별로 13 개의 파일이 든 ZIP 묶음 (차트 PNG·일/주봉 OHLCV·시장 컨텍스트·corporate actions·minervini 진단 등) 을 만들어 AI 에게 보내고, analyze_chart_v3.md prompt 의 지시를 따라 '[[base]] 패턴 + risk flag + 분류' 를 받습니다. AI 는 9 종 [[base]] 패턴과 13 종 risk flag 만 사용하도록 제약돼 있습니다.",
+      "각 종목별로 13 개의 파일이 든 ZIP 묶음 (차트 PNG·일/주봉 OHLCV·시장 컨텍스트·corporate actions·minervini 진단 등) 을 만들어 AI 에게 보내고, analyze_chart_v3.md prompt 의 지시를 따라 '[[base]] 패턴 + risk flag + 분류' 를 받습니다. AI 는 10 종 [[base]] 패턴과 13 종 risk flag 만 사용하도록 제약돼 있습니다.",
     llmShowsLists: {
       eightConditions: true,
       thirteenZipFiles: true,
@@ -458,7 +458,7 @@ function StageCard({ stage }: { stage: PipelineStage }) {
               </ListFold>
             )}
             {stage.llmShowsLists?.nineBasePatterns && (
-              <ListFold label="AI 가 식별하는 9 base 패턴 모두 보기" count={BASE_PATTERNS.length}>
+              <ListFold label="AI 가 식별하는 10 base 패턴 모두 보기" count={BASE_PATTERNS.length}>
                 <ul className="space-y-2">
                   {BASE_PATTERNS.map((p) => (
                     <li key={p.id}>
@@ -686,7 +686,7 @@ export default function LlmPipelinePage() {
             <ul className="space-y-1.5 list-disc list-inside pl-1">
               <li><span className="text-ink">결정론</span> — 사람이 미리 정한 명확한 룰 (예: <em>"거래량이 평균 이상이어야 통과"</em>).</li>
               <li><span className="text-ink">LLM (AI)</span> — 차트·지표·뉴스 등을 받아 판단하는 AI 모델. <em>"이 종목은 entry / watch / ignore"</em> 같은 결정을 내림.</li>
-              <li><span className="text-ink">base 패턴</span> — 주가가 옆으로 가다가 돌파 직전인 <em>모양</em> (컵·평평한 박스·VCP 등 9 종).</li>
+              <li><span className="text-ink">base 패턴</span> — 주가가 옆으로 가다가 돌파 직전인 <em>모양</em> (컵·평평한 박스·VCP 등 10 종).</li>
               <li><span className="text-ink">Minervini / O'Neil</span> — 본 시스템이 따르는 두 미국 성장주 투자 대가. 룰 대부분이 그들의 책에서 옴.</li>
             </ul>
           </div>

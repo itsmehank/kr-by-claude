@@ -139,6 +139,10 @@ def test_held_symbol_breakout_from_watch_and_promotion_suppressed(db, mocker):
         result, llm_calls = _run_with(db, mocker, rows, held={"NH7", "NH8"})
         assert llm_calls == []
         assert result.get("position_suppressed") == 2
+        # 발화 유형 고정 — NH7=breakout_from_watch(fresh cross), NH8=promotion
+        # (회귀로 둘 다 bfw 로 변질되는 것 방지, 최종 리뷰 권고 5)
+        assert _log_row(db, "NH7")[2] == "breakout_from_watch"
+        assert _log_row(db, "NH8")[2] == "promotion"
     finally:
         _cleanup(db, "NH7", "NH8")
 
