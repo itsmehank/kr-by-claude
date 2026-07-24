@@ -300,3 +300,39 @@ def test_warnings_never_silently_truncated():
     assert len(r["known_warnings"]) == 8
     assert "extended_from_pivot_already" in r["known_warnings"]
     assert "stop_distance_from_current_price_exceeds_book_limit" in r["known_warnings"]
+
+
+# ---------- (#74) cup_without_handle 보수 장치 ----------
+
+def test_no_handle_flag_injected_and_sized_4_9pp():
+    """pattern=cup_without_handle → flag 결정론 주입: fallback 7.0 × 0.7 = 4.9pp.
+
+    준거: specs/2026-07-24-issue74-cup-without-handle.md §4 (이중 페널티 수용,
+    실효 4.9 — _STANDARD_PATTERNS 비등재는 dead code 사유).
+    """
+    r = calculate_entry_params(_payload(prior_analysis={
+        "pattern": "cup_without_handle", "pivot_basis": "cup_high"}))
+    assert r["suggested_weight_pct"] == 4.9
+    assert "size_reduced_due_to_no_handle_shakeout" in r["known_warnings"]
+    assert r["breakout_volume_requirement"] == "ge_1.5x_strict"
+
+
+def test_no_handle_flag_injection_idempotent():
+    """flag 가 이미 있어도(재실행·수동 포함) 배수 1회만 — 멱등."""
+    r = calculate_entry_params(_payload(prior_analysis={
+        "pattern": "cup_without_handle", "pivot_basis": "cup_high",
+        "risk_flags": ["no_handle_shakeout_absent"]}))
+    assert r["suggested_weight_pct"] == 4.9
+
+
+def test_no_handle_other_patterns_untouched():
+    """타 패턴엔 flag 미주입 — 기존 vol_req·티어 불변."""
+    r = calculate_entry_params(_payload())
+    assert r["breakout_volume_requirement"] == "ge_1.5x_50day_avg"
+    assert r["suggested_weight_pct"] == 10.0
+
+
+def test_cup_high_pivot_basis_in_store_tick_validation():
+    """pivot_basis='cup_high' 가 store +tick 사후검증 대상에 등재 (#74 §2)."""
+    from kr_pipeline.llm_runner.store import _PIVOT_TABLE_BASES
+    assert "cup_high" in _PIVOT_TABLE_BASES

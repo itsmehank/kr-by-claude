@@ -204,7 +204,8 @@ def _pivot_continuity(
 # 이 성립하고 +0.1 오프셋 규칙이 적용되는 집합. pocket pivot 등 표 밖 basis 는
 # base_high 초과가 정당하므로 비대상 (HARD 미검사 사유와 동일 — docstring 참조).
 _PIVOT_TABLE_BASES = frozenset(
-    {"handle_high", "range_high", "final_T_high", "mid_W_peak"}
+    # cup_high = (#74) cup_without_handle 의 컵 절대 고점 pivot — +tick 검증 대상
+    {"handle_high", "range_high", "final_T_high", "mid_W_peak", "cup_high"}
 )
 
 
