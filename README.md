@@ -32,6 +32,19 @@ KOSPI / KOSDAQ 일봉 데이터 적재 파이프라인 및 후속 분석 도구.
 - 기업행위 백필: `uv run python -m kr_pipeline.corporate_actions --mode=backfill --years=5`
 - 기업행위 증분: `uv run python -m kr_pipeline.corporate_actions --mode=incremental --window-days=7`
 
+## 개발 API 서버 (web UI 백엔드)
+
+```
+uv run uvicorn api.main:app --reload --port 8000
+```
+
+- **uvloop 미설치 유지 (#82)**: Python 3.14 + uvloop 조합이 reload 워커
+  세그폴트 크래시루프를 일으켜(2026-07-24 실측) `uvicorn[standard]` extra 를
+  제거했다. 기본 asyncio 루프로 동작하며 별도 플래그 불필요. uvloop 재도입은
+  3.14 지원 확정 릴리스 이후 재검토(조건은 이슈 #82).
+- **재기동 관례**: main 머지 후(stale 코드 방지)와 brew python 업그레이드
+  후(프레임워크 불일치 방지)에는 서버를 재기동한다.
+
 ## Cron 등록
 
 `scripts/cron.example` 참고. `crontab -e` 로 등록.
