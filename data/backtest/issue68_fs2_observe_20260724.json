@@ -1,0 +1,1637 @@
+{
+  "label": "F-S2 A+B 관찰 (look #9) — 승격 시에만 표본 C 판정 이관",
+  "prereg": "docs/superpowers/specs/2026-07-24-issue68-fs2-prereg.md",
+  "n_trades": 149,
+  "counts": {
+    "pass": 74,
+    "fail": 53,
+    "indeterminate": 22,
+    "turnaround": 0
+  },
+  "indeterminate_ratio": 0.148,
+  "look_primary_pass_vs_fail": {
+    "pass": {
+      "n": 74,
+      "win_rate_pct": 29.7,
+      "payoff": 3.78,
+      "mean_excess_net": 3.403,
+      "ci95": [
+        -3.449,
+        12.585
+      ],
+      "ci_contains_zero": true
+    },
+    "fail": {
+      "n": 53,
+      "win_rate_pct": 17.0,
+      "payoff": 4.6,
+      "mean_excess_net": -0.388,
+      "ci95": [
+        -7.114,
+        9.777
+      ],
+      "ci_contains_zero": true
+    },
+    "win_diff_pp": 12.7
+  },
+  "look_turnaround_included": {
+    "pass": {
+      "n": 74,
+      "win_rate_pct": 29.7,
+      "payoff": 3.78,
+      "mean_excess_net": 3.403,
+      "ci95": [
+        -3.449,
+        12.585
+      ],
+      "ci_contains_zero": true
+    },
+    "fail": {
+      "n": 53,
+      "win_rate_pct": 17.0,
+      "payoff": 4.6,
+      "mean_excess_net": -0.388,
+      "ci95": [
+        -7.114,
+        9.777
+      ],
+      "ci_contains_zero": true
+    },
+    "win_diff_pp": 12.7
+  },
+  "promotion": {
+    "criteria": {
+      "min_pass_n": 25,
+      "min_diff_pp": 8.0,
+      "max_indet_ratio": 0.4
+    },
+    "promoted": true
+  },
+  "descriptive": {
+    "accel_branch_only_pass": {
+      "n": 17,
+      "win_rate_pct": 35.3,
+      "payoff": 3.74,
+      "mean_excess_net": 5.125,
+      "ci95": [
+        -5.707,
+        21.099
+      ],
+      "ci_contains_zero": true
+    },
+    "accel_branch_pass_n": 17,
+    "indeterminate_stats": {
+      "n": 22,
+      "win_rate_pct": 40.9,
+      "payoff": 1.41,
+      "mean_excess_net": -0.102,
+      "ci95": [
+        -5.039,
+        5.724
+      ],
+      "ci_contains_zero": true
+    }
+  },
+  "trades": [
+    {
+      "ticker": "001460",
+      "entry_date": "2021-05-26",
+      "excess_net": 0.01,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch",
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "001460",
+      "entry_date": "2023-02-17",
+      "excess_net": -6.24,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "003160",
+      "entry_date": "2023-06-15",
+      "excess_net": -2.01,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "003200",
+      "entry_date": "2021-06-11",
+      "excess_net": -7.48,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch",
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "003200",
+      "entry_date": "2021-09-13",
+      "excess_net": 3.52,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "003200",
+      "entry_date": "2022-02-16",
+      "excess_net": -6.07,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "003830",
+      "entry_date": "2021-03-16",
+      "excess_net": 15.89,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "003830",
+      "entry_date": "2025-06-11",
+      "excess_net": -18.57,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "004360",
+      "entry_date": "2022-10-25",
+      "excess_net": 159.68,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "006360",
+      "entry_date": "2021-09-06",
+      "excess_net": -1.71,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "009150",
+      "entry_date": "2023-07-17",
+      "excess_net": -8.01,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "012450",
+      "entry_date": "2021-06-18",
+      "excess_net": 6.44,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch",
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "012450",
+      "entry_date": "2022-03-25",
+      "excess_net": -8.2,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "012450",
+      "entry_date": "2023-06-16",
+      "excess_net": -0.68,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "012450",
+      "entry_date": "2024-01-18",
+      "excess_net": -14.12,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "013580",
+      "entry_date": "2021-04-20",
+      "excess_net": -1.41,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "013580",
+      "entry_date": "2021-08-30",
+      "excess_net": -2.94,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch",
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "016710",
+      "entry_date": "2021-04-02",
+      "excess_net": 221.86,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "017940",
+      "entry_date": "2023-12-18",
+      "excess_net": -14.58,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "017940",
+      "entry_date": "2024-04-25",
+      "excess_net": -4.51,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch",
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "017940",
+      "entry_date": "2024-08-26",
+      "excess_net": -1.51,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "017940",
+      "entry_date": "2025-06-16",
+      "excess_net": -6.65,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "032540",
+      "entry_date": "2023-05-18",
+      "excess_net": -11.72,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "033240",
+      "entry_date": "2023-04-19",
+      "excess_net": -2.77,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "051390",
+      "entry_date": "2023-11-17",
+      "excess_net": -7.65,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "053350",
+      "entry_date": "2024-09-30",
+      "excess_net": -2.73,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "053350",
+      "entry_date": "2025-01-24",
+      "excess_net": 99.42,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch"
+        ]
+      }
+    },
+    {
+      "ticker": "058470",
+      "entry_date": "2023-11-27",
+      "excess_net": 2.89,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "060980",
+      "entry_date": "2025-05-14",
+      "excess_net": -11.99,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "064820",
+      "entry_date": "2021-05-03",
+      "excess_net": -7.74,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "072990",
+      "entry_date": "2021-01-13",
+      "excess_net": -0.73,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch"
+        ]
+      }
+    },
+    {
+      "ticker": "072990",
+      "entry_date": "2024-01-11",
+      "excess_net": 10.82,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "072990",
+      "entry_date": "2024-10-07",
+      "excess_net": -2.91,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "077500",
+      "entry_date": "2023-09-25",
+      "excess_net": -47.08,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "079960",
+      "entry_date": "2024-03-29",
+      "excess_net": -7.36,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "083310",
+      "entry_date": "2023-07-04",
+      "excess_net": -7.85,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "088390",
+      "entry_date": "2023-03-27",
+      "excess_net": 10.6,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "089790",
+      "entry_date": "2023-12-22",
+      "excess_net": -9.09,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch"
+        ]
+      }
+    },
+    {
+      "ticker": "095610",
+      "entry_date": "2024-04-11",
+      "excess_net": -5.8,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "105550",
+      "entry_date": "2021-06-01",
+      "excess_net": -1.24,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "105550",
+      "entry_date": "2021-11-26",
+      "excess_net": -1.14,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "153460",
+      "entry_date": "2021-11-16",
+      "excess_net": 2.26,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "166480",
+      "entry_date": "2024-12-17",
+      "excess_net": -30.62,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "183190",
+      "entry_date": "2022-01-13",
+      "excess_net": -5.14,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch"
+        ]
+      }
+    },
+    {
+      "ticker": "183190",
+      "entry_date": "2022-03-10",
+      "excess_net": -5.68,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch"
+        ]
+      }
+    },
+    {
+      "ticker": "183190",
+      "entry_date": "2024-02-23",
+      "excess_net": -10.85,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "206650",
+      "entry_date": "2024-04-15",
+      "excess_net": -10.73,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "206650",
+      "entry_date": "2024-05-30",
+      "excess_net": -12.34,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "211050",
+      "entry_date": "2023-05-15",
+      "excess_net": 16.37,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "251270",
+      "entry_date": "2024-08-08",
+      "excess_net": -22.13,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch",
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "259960",
+      "entry_date": "2024-03-26",
+      "excess_net": -4.07,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "259960",
+      "entry_date": "2024-05-03",
+      "excess_net": -3.73,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "259960",
+      "entry_date": "2024-06-14",
+      "excess_net": 11.65,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "259960",
+      "entry_date": "2025-01-31",
+      "excess_net": -12.81,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "300080",
+      "entry_date": "2021-07-01",
+      "excess_net": -9.96,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "300080",
+      "entry_date": "2025-02-18",
+      "excess_net": -20.4,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "001750",
+      "entry_date": "2021-06-07",
+      "excess_net": -1.42,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "001750",
+      "entry_date": "2024-05-20",
+      "excess_net": 36.13,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "001750",
+      "entry_date": "2025-03-17",
+      "excess_net": 0.01,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "002710",
+      "entry_date": "2021-07-13",
+      "excess_net": 51.07,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch",
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "002710",
+      "entry_date": "2023-03-03",
+      "excess_net": 167.65,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "003850",
+      "entry_date": "2023-12-11",
+      "excess_net": 1.41,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "003850",
+      "entry_date": "2024-03-13",
+      "excess_net": -5.94,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "005430",
+      "entry_date": "2024-02-14",
+      "excess_net": -12.92,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "005430",
+      "entry_date": "2024-04-03",
+      "excess_net": 15.53,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "005720",
+      "entry_date": "2023-06-27",
+      "excess_net": -0.83,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "005800",
+      "entry_date": "2025-06-09",
+      "excess_net": -5.77,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2021-01-07",
+      "excess_net": -16.03,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2021-02-22",
+      "excess_net": -2.5,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2022-11-22",
+      "excess_net": 1.63,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2023-03-27",
+      "excess_net": 3.19,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "006260",
+      "entry_date": "2024-02-05",
+      "excess_net": -17.41,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2021-10-13",
+      "excess_net": -7.82,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2022-01-13",
+      "excess_net": 2.22,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2022-03-14",
+      "excess_net": -4.5,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2022-08-29",
+      "excess_net": 3.53,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "010130",
+      "entry_date": "2022-11-18",
+      "excess_net": -5.55,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "012860",
+      "entry_date": "2023-08-21",
+      "excess_net": -21.83,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "015890",
+      "entry_date": "2023-04-25",
+      "excess_net": -8.25,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "017040",
+      "entry_date": "2024-05-07",
+      "excess_net": -19.8,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "017960",
+      "entry_date": "2022-08-22",
+      "excess_net": -7.15,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "017960",
+      "entry_date": "2025-02-19",
+      "excess_net": -9.34,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "029780",
+      "entry_date": "2024-07-29",
+      "excess_net": 2.65,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "029780",
+      "entry_date": "2025-06-09",
+      "excess_net": -3.74,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "036460",
+      "entry_date": "2022-05-12",
+      "excess_net": -0.58,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "036530",
+      "entry_date": "2025-01-31",
+      "excess_net": 22.84,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "036640",
+      "entry_date": "2021-09-07",
+      "excess_net": 17.58,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "038540",
+      "entry_date": "2022-04-11",
+      "excess_net": 0.94,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "039840",
+      "entry_date": "2023-07-21",
+      "excess_net": -15.99,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "042370",
+      "entry_date": "2023-08-14",
+      "excess_net": -17.44,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "045660",
+      "entry_date": "2024-03-14",
+      "excess_net": -10.91,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "046390",
+      "entry_date": "2022-03-31",
+      "excess_net": 0.11,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "054090",
+      "entry_date": "2021-04-12",
+      "excess_net": -4.45,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2023-08-30",
+      "excess_net": -1.9,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2023-12-18",
+      "excess_net": -8.97,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch"
+        ]
+      }
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2024-05-16",
+      "excess_net": 3.0,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch",
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2024-08-14",
+      "excess_net": 10.8,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch",
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "069510",
+      "entry_date": "2025-01-13",
+      "excess_net": -3.2,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "080010",
+      "entry_date": "2021-10-13",
+      "excess_net": -10.27,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "082740",
+      "entry_date": "2022-08-23",
+      "excess_net": -10.21,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "082740",
+      "entry_date": "2024-07-26",
+      "excess_net": -1.95,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-01-07",
+      "excess_net": -4.38,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-01-13",
+      "excess_net": -2.16,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-02-04",
+      "excess_net": 0.94,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-04-19",
+      "excess_net": -3.84,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "085910",
+      "entry_date": "2022-05-18",
+      "excess_net": -4.15,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "089230",
+      "entry_date": "2021-06-04",
+      "excess_net": -20.06,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "090150",
+      "entry_date": "2022-08-03",
+      "excess_net": -3.02,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "094850",
+      "entry_date": "2021-05-17",
+      "excess_net": 0.37,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "099190",
+      "entry_date": "2022-07-22",
+      "excess_net": 8.08,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "099190",
+      "entry_date": "2023-06-09",
+      "excess_net": 52.42,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "099190",
+      "entry_date": "2023-12-21",
+      "excess_net": -1.01,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "100250",
+      "entry_date": "2022-01-12",
+      "excess_net": -0.92,
+      "fs2": {
+        "label": "fail",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "100250",
+      "entry_date": "2022-06-16",
+      "excess_net": -1.75,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "105740",
+      "entry_date": "2022-11-16",
+      "excess_net": -6.24,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "112610",
+      "entry_date": "2023-04-14",
+      "excess_net": -5.0,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "112610",
+      "entry_date": "2023-07-11",
+      "excess_net": -9.9,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "124560",
+      "entry_date": "2021-08-12",
+      "excess_net": -2.61,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "126600",
+      "entry_date": "2021-06-14",
+      "excess_net": -11.47,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch",
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "126600",
+      "entry_date": "2021-08-09",
+      "excess_net": -5.48,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "accel_branch",
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "126600",
+      "entry_date": "2021-09-01",
+      "excess_net": 49.91,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "126600",
+      "entry_date": "2023-04-13",
+      "excess_net": -12.76,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "128660",
+      "entry_date": "2021-08-30",
+      "excess_net": 21.46,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "160980",
+      "entry_date": "2021-04-05",
+      "excess_net": -5.92,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "160980",
+      "entry_date": "2024-04-25",
+      "excess_net": -4.93,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "161580",
+      "entry_date": "2023-06-21",
+      "excess_net": 2.15,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "189300",
+      "entry_date": "2022-01-12",
+      "excess_net": -3.77,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "189300",
+      "entry_date": "2022-03-25",
+      "excess_net": -0.63,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "189300",
+      "entry_date": "2023-03-28",
+      "excess_net": -17.66,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "189300",
+      "entry_date": "2023-09-14",
+      "excess_net": -1.58,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "195870",
+      "entry_date": "2021-06-23",
+      "excess_net": 6.64,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "195870",
+      "entry_date": "2021-12-08",
+      "excess_net": -6.06,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "195870",
+      "entry_date": "2022-01-25",
+      "excess_net": -9.63,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "195940",
+      "entry_date": "2024-08-30",
+      "excess_net": -1.01,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "214370",
+      "entry_date": "2023-04-03",
+      "excess_net": -1.86,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "214420",
+      "entry_date": "2023-06-21",
+      "excess_net": -10.48,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "272110",
+      "entry_date": "2023-03-17",
+      "excess_net": -15.85,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "298380",
+      "entry_date": "2024-07-30",
+      "excess_net": -6.31,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "310200",
+      "entry_date": "2025-06-17",
+      "excess_net": -3.71,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2022-03-11",
+      "excess_net": -11.89,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2022-04-18",
+      "excess_net": -3.52,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2023-09-04",
+      "excess_net": 8.52,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2024-04-03",
+      "excess_net": -7.92,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "317870",
+      "entry_date": "2024-09-25",
+      "excess_net": -4.71,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "332370",
+      "entry_date": "2022-11-30",
+      "excess_net": -5.64,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "332370",
+      "entry_date": "2023-02-06",
+      "excess_net": -9.67,
+      "fs2": {
+        "label": "pass",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "337930",
+      "entry_date": "2021-09-10",
+      "excess_net": -10.19,
+      "fs2": {
+        "label": "indeterminate",
+        "tags": []
+      }
+    },
+    {
+      "ticker": "337930",
+      "entry_date": "2025-06-10",
+      "excess_net": -4.69,
+      "fs2": {
+        "label": "fail",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    },
+    {
+      "ticker": "338220",
+      "entry_date": "2023-06-07",
+      "excess_net": 36.85,
+      "fs2": {
+        "label": "pass",
+        "tags": [
+          "q4_derived"
+        ]
+      }
+    }
+  ]
+}
