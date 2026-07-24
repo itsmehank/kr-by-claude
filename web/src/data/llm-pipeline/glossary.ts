@@ -15,7 +15,7 @@ export const GLOSSARY: GlossaryEntry[] = [
   // ─── 책 용어 — 패턴·매수 기준 ───
   { term: "Trend Template (8조건)", meaning: "Minervini *TLSMW Ch.5* 의 강세 종목 식별 8 기준. 가격이 SMA-50/150/200 위, SMA 정렬, 200일선 상승 추세, 52주 고점 25% 이내, 52주 저점 25% 이상, RS Rating ≥70 등. 시스템의 1차 결정론 필터." },
   { term: "RS Rating", meaning: "Relative Strength Rating (상대 강도). 전체 종목 대비 가격 상승률의 백분위 (0-99). 70 이상이 책 기준 (Minervini), 80+ 가 O'Neil 선호. 같은 종목 풀 안에서의 *상대* 측정." },
-  { term: "base (베이스)", meaning: "주가가 옆으로 정리되는 구간 — 컵·평평한 박스·VCP·이중바닥 등 9 종. 돌파 전의 매수 준비 단계." },
+  { term: "base (베이스)", meaning: "주가가 옆으로 정리되는 구간 — 컵·평평한 박스·VCP·이중바닥 등 10 종. 돌파 전의 매수 준비 단계." },
   { term: "pivot (피벗)", meaning: "책에서 권하는 *정확한 매수 기준가*. 패턴별로 다르게 정의 — cup_with_handle 은 손잡이 고점, flat_base 는 범위 상단 등." },
   { term: "breakout (돌파)", meaning: "종가가 pivot 위로 올라간 사건. 거래량 동반이면 진짜 돌파, 아니면 가짜 돌파 가능성." },
   { term: "pocket pivot (포켓 피벗)", meaning: "Morales/Kacher *TLOND Ch.5* 의 *조기 매수 신호*. base 안에서 거래량이 직전 10일 중 하락일 최대 거래량을 초과 + 종가가 SMA-50 위. 표준 pivot 돌파 *전* 의 매수 기회." },
@@ -80,7 +80,7 @@ export const GLOSSARY_MAP: Record<string, string> = (() => {
     ["breakout", "종가가 pivot 위로 올라간 사건. 거래량 동반이면 진짜 돌파."],
     ["promotion", "watch 종목이 pivot 의 95% 까지 도달 — 돌파 직전 staging."],
     ["invalidation", "base 무효화 — 종가가 손절선/SMA-50 아래로."],
-    ["base", "주가가 옆으로 정리되는 구간 — 컵·평평한 박스·VCP 등 9 종."],
+    ["base", "주가가 옆으로 정리되는 구간 — 컵·평평한 박스·VCP 등 10 종."],
     ["Stage 2", "Minervini 의 종목 사이클 4 단계 중 *기관 누적 + 상승* 구간. 매수 적기."],
     ["distribution day", "기관 매도일 — 시장 지수 ≥0.2% 하락 + 거래량 전일보다 증가."],
     ["FTD", "Follow-Through Day — 조정 끝 강세 전환 확인 신호."],

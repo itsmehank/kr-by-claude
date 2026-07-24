@@ -20,6 +20,12 @@ export const BASE_PATTERNS: BasePattern[] = [
     source: "O'Neil, *HMMS* Ch.2",
   },
   {
+    id: "cup_without_handle",
+    definition:
+      "컵 기준은 cup_with_handle 과 동일(U-shape not V; 7–45 weeks; depth ≤33%/베어 회복 50%) — 핸들 없음. 우측 회복(최고 종가 ≥ cup high × 0.90, 래칫) 필요. 돌파 strict 1.5× + 사이징 감액(#74 보수 장치)",
+    source: "O'Neil, *HMMS* 5대 모델 장 (book-mandated) — 경계·장치는 design judgment #74",
+  },
+  {
     id: "vcp",
     definition:
       "Successive price contractions (each tighter, typically ~half the prior); volume contracting with each contraction; 2–6 contractions (typically 2–4)",
@@ -66,6 +72,7 @@ export const BASE_PATTERNS: BasePattern[] = [
 export const NARROW_BASE_THRESHOLDS = [
   { pattern: "flat_base", minWeeks: 5 },
   { pattern: "cup_with_handle", minWeeks: 7 },
+  { pattern: "cup_without_handle", minWeeks: 7 },
   { pattern: "double_bottom", minWeeks: 7 },
   { pattern: "vcp", minWeeks: 5 },
 ];
@@ -85,6 +92,7 @@ export interface PivotRule {
 export const PIVOT_RULES: PivotRule[] = [
   { pattern: "flat_base", formula: "range_high + 0.1", basisLabel: "range_high" },
   { pattern: "cup_with_handle", formula: "handle_high + 0.1", basisLabel: "handle_high" },
+  { pattern: "cup_without_handle", formula: "cup 내 절대 고점 + 0.1", basisLabel: "cup_high" },
   { pattern: "vcp", formula: "final_T_high + 0.1", basisLabel: "final_T_high" },
   { pattern: "double_bottom", formula: "mid_W_peak + 0.1 (두 low 사이 최고점)", basisLabel: "mid_W_peak" },
   { pattern: "high_tight_flag", formula: "top of flag (consolidation 최고점)", basisLabel: "top_of_flag" },

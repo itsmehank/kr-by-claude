@@ -1,4 +1,6 @@
 """Phase 2 (i) build-first 재측정 하니스 (spec §10 / plan Task 11).
+# ⚠ superseded (#74, 2026-07-24): Gate3 가 cup_without_handle 분기를 신설해
+#   아래 gate3_neg 합격 기대문(cup_with_handle 고정)은 구 기준 — 재사용 시 갱신 필요.
 
 ⚠ 일회성 *진단* 스크립트 — 프로덕션 경로 아님. DB 미기록, cron/파이프라인 미연결.
    프로덕션 분류는 kr_pipeline/llm_runner/ (weekend.py 등) 경로. 본 스크립트는 (i) 안정화

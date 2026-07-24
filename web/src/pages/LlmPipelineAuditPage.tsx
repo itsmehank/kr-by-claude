@@ -44,7 +44,7 @@ export default function LlmPipelineAuditPage() {
         </h1>
         <p className="text-data text-muted mt-3 leading-relaxed">
           Minervini / O'Neil 책 전문가가 한 페이지만 보고 시스템 전체
-          (스케줄링 / 5 stage / Minervini 8조건 / 9 base 패턴 / 13 risk_flag /
+          (스케줄링 / 5 stage / Minervini 8조건 / 10 base 패턴 / 13 risk_flag /
           ZIP 13 / 3 prompt / 변경 이력) 를 line-by-line 검증할 수 있는 페이지.
         </p>
       </header>
@@ -67,7 +67,7 @@ export default function LlmPipelineAuditPage() {
             <div className="text-ink font-semibold mb-2">무엇을 볼 수 있나요?</div>
             <ul className="space-y-1.5 list-disc list-inside pl-1">
               <li><span className="text-ink">Minervini Trend Template 8 조건</span> — 추세 강도를 판정하는 8 기준 (이동평균 배열, 신고가 근접 등).</li>
-              <li><span className="text-ink">9 base 패턴 정의</span> — flat_base · cup_with_handle · VCP · double_bottom 등 책이 정의한 모든 base 모양.</li>
+              <li><span className="text-ink">10 base 패턴 정의</span> — flat_base · cup_with_handle · cup_without_handle · VCP · double_bottom 등 책이 정의한 모든 base 모양.</li>
               <li><span className="text-ink">13 risk flag</span> — 매수 적합도를 깎는 위험 신호 (climax_run · late_stage_base · faulty_pivot 등).</li>
               <li><span className="text-ink">3 prompt 본문 전체</span> — AI 가 실제로 받는 지시문 (analyze_chart_v3 / evaluate_pivot_trigger / calculate_entry_params).</li>
               <li><span className="text-ink">변경 이력</span> — 룰이 언제·왜·어떻게 바뀌었는지 letter 별 (A, B, ..., K) 추적.</li>
@@ -88,7 +88,7 @@ export default function LlmPipelineAuditPage() {
             <ul className="space-y-1.5 list-disc list-inside pl-1">
               <li><span className="text-ink">prompt</span> — AI 에게 주는 지시문 (예: <em>"이 차트를 분석해 entry/watch/ignore 중 하나로 분류해줘"</em>). 본 시스템은 3 prompt 사용.</li>
               <li><span className="text-ink">risk flag</span> — 매수에 부적합한 위험 신호. 13 종 고정 목록만 사용.</li>
-              <li><span className="text-ink">base 패턴</span> — 주가가 옆으로 정리되는 모양. 9 종 분류.</li>
+              <li><span className="text-ink">base 패턴</span> — 주가가 옆으로 정리되는 모양. 10 종 분류.</li>
               <li><span className="text-ink">book quote / English quote</span> — 룰의 책 원문 인용. "Why" 를 책 페이지·문장 단위로 추적 가능.</li>
             </ul>
           </div>

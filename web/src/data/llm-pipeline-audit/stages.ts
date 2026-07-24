@@ -267,7 +267,7 @@ position_size_pct (prompt §3.1-3.3):
 10. risk_reward_ratio
 11. position_size_pct (3-25%)
 12. position_size_basis
-13. breakout_volume_requirement (ge_1.3x / 1.4x / 1.5x_50day_avg / pocket_pivot_signature)
+13. breakout_volume_requirement (ge_1.3x / 1.4x / 1.5x_50day_avg / 1.5x_strict(#74) / pocket_pivot_signature)
 14. observed_breakout_volume_ratio
 15. known_warnings (JSONB 15 화이트리스트)
 16. other_warnings

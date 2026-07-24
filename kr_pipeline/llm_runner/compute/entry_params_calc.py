@@ -40,6 +40,10 @@ _SIZE_PP_WIDE_FLOOR = 3.0  # §7: wide_and_loose → 3.0 floor (pocket pivot)
 
 # §3.3 배수 (책 근거: Minervini pilot buy 보수화 — 구 프롬프트 §3.3 표)
 _FLAG_MULT = {
+    # (#74) cup_without_handle 결정론 주입 flag — shakeout 부재 보수화.
+    # 실효 = fallback 7.0 × 0.7 = 4.9pp (이중 페널티 수용 — 사용자 결정 07-24,
+    # 구조 재검토는 #80). specs/2026-07-24-issue74-cup-without-handle.md §4.
+    "no_handle_shakeout_absent": 0.7,
     "late_stage_base": 0.7,
     "narrow_base": 0.7,
     "thin_liquidity_us_only": 0.7,
@@ -51,6 +55,7 @@ _FLAG_MULT = {
     "reverse_split_distortion": 0.5,
 }
 _MULT_WARNING = {
+    "no_handle_shakeout_absent": "size_reduced_due_to_no_handle_shakeout",
     "late_stage_base": "size_reduced_due_to_late_stage",
     "thin_liquidity_us_only": "size_reduced_due_to_thin_liquidity",
     "unfavorable_market_context": "size_reduced_due_to_unfavorable_market",
@@ -67,6 +72,7 @@ _WARNING_PRIORITY = [
     "absolute_stop_used_due_to_wide_handle",
     "size_floored_due_to_multiple_flags",
     "size_reduced_due_to_unfavorable_market",
+    "size_reduced_due_to_no_handle_shakeout",
     "size_reduced_due_to_late_stage",
     "size_reduced_due_to_thin_liquidity",
     "breakout_volume_below_requirement",
@@ -112,6 +118,11 @@ def calculate_entry_params(payload: dict) -> dict:
     current = float(current)
 
     raw_flags = list(pa.get("risk_flags") or [])
+    # (#74) cup_without_handle → 결정론 flag 주입(멱등, LLM 재량 아님) — 티어
+    # no_flags 판정과 _FLAG_MULT 둘 다에 작용(이중 페널티 수용, 실효 4.9pp)
+    if pa.get("pattern") == "cup_without_handle" \
+            and "no_handle_shakeout_absent" not in raw_flags:
+        raw_flags.append("no_handle_shakeout_absent")
     # §7 breakout_from_watch 예외 — stale unfavorable 의 '완화 효과 4개(size×0.5 /
     # target cap / window=1 / stop 강화)'만 미적용 (#29/#34 로 전제 성립). 예외는
     # 열거된 효과에 한정: §3 티어 조건("no risk flags")과 chase=2.0 은 raw 기준 그대로 —
@@ -311,7 +322,10 @@ def calculate_entry_params(payload: dict) -> dict:
     if entry_mode == "pocket_pivot":
         vol_req = "pocket_pivot_signature"  # flag 산출이 signature 를 결정론 보증 — 재검증 없음
     else:
-        vol_req = "ge_1.5x_50day_avg"  # v2.1 기본. ge_1.3x 완화 분기는 폐기(완화 유령 제거)
+        # (#74) cup_without_handle 은 strict 표기 — 실제 차단은 B 인터셉트
+        # (evaluate_pivot)가 선행하므로 여기 도달분은 이미 ≥1.5x
+        vol_req = ("ge_1.5x_strict" if pattern == "cup_without_handle"
+                   else "ge_1.5x_50day_avg")  # 기본 v2.1. ge_1.3x 완화 분기는 폐기
         if ratio is not None:
             if ratio < BREAKOUT_VOL_FLOOR:
                 known.append("breakout_volume_below_requirement")

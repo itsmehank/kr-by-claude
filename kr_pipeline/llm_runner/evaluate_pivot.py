@@ -9,12 +9,16 @@ from datetime import date, datetime, timezone
 
 from psycopg import Connection
 
-from kr_pipeline.common.thresholds import PIVOT_EXTENDED_BAND_MULT
+from kr_pipeline.common.thresholds import (
+    BREAKOUT_VOL_PREFERRED,
+    PIVOT_EXTENDED_BAND_MULT,
+)
 from kr_pipeline.llm_runner.compute.payload_lite import build_for_5b
 from kr_pipeline.llm_runner.compute.trigger_gate import evaluate as evaluate_gate
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 from kr_pipeline.llm_runner.load import get_active_with_current
 from kr_pipeline.llm_runner.store import insert_trigger_log
+from kr_pipeline.trade_management.store import get_open_positions
 
 # (#45) 결정론 extended 게이트의 wait 사유 — 사전등록 코호트 질의 키(동등비교 전용).
 # weekly watch_reason='extended'(주 단위)와 별개 값(일 단위 경로) — 리네임 없음.
@@ -23,6 +27,14 @@ EXTENDED_WAIT_REASON = "extended_past_buy_range"
 # (#45) 인터셉트 대상 = go_now 로 이어질 수 있는 상향 트리거만.
 # promotion 은 §3.3 이 go_now 를 전면 금지(매수 위험 0), invalidation 은 하향 — 비대상.
 _EXTENDED_INTERCEPT_TRIGGERS = frozenset({"breakout", "breakout_from_watch"})
+
+# (#74) strict 1.5× 거래량 게이트 — cup_without_handle 전용(F4 사전등록 코호트 키).
+STRICT_NH_WAIT_REASON = "volume_below_strict_no_handle"
+
+# (#74) 보유 억제(dedupe) — 상향 트리거 전부. invalidation(하향)은 보유자 필수
+# 신호라 절대 비억제. 체인 순서 = dedupe → extended → strict (F4 분모 오염 방지).
+POSITION_SUPPRESSED_WAIT_REASON = "suppressed_position_held"
+_UPWARD_TRIGGERS = frozenset({"breakout", "breakout_from_watch", "promotion"})
 
 
 log = logging.getLogger("kr_pipeline.llm_runner.evaluate_pivot")
@@ -130,11 +142,28 @@ def run(
         len(triggered), len(active), abort_skipped,
     )
 
+    held = {p["symbol"] for p in get_open_positions(conn)}
+
     evaluated = 0
     extended_blocked = 0
+    strict_vol_blocked = 0
+    position_suppressed = 0
     failed = []
     for a, trig in triggered:
         try:
+            # (#74) 보유 억제 — 상향 트리거는 보유 중 재트리거가 전부 노이즈
+            # (단순 abort 모델·피라미딩 없음). invalidation 은 통과(하향 신호).
+            # 체인 최선행: 억제분이 extended/strict(F4 분모) 기록에 안 섞이게.
+            if trig in _UPWARD_TRIGGERS and a["symbol"] in held:
+                _record_deterministic_wait(
+                    conn, a, trig, dry_run=dry_run, as_of=as_of,
+                    wait_reason=POSITION_SUPPRESSED_WAIT_REASON,
+                    reasoning=("deterministic dedupe: open position held — "
+                               "upward re-trigger suppressed (#74 §5)"),
+                )
+                position_suppressed += 1
+                conn.commit()
+                continue
             # (#45) 결정론 extended 게이트 — O'Neil 5% 추격 금지의 매수 시점 강제.
             # close > pivot × 1.05 인 상향 트리거는 LLM 없이 wait 기록(결정 3′,
             # plans/2026-07-21-issue45-extended-gate.md §1). buy zone 복귀일에만
@@ -147,6 +176,27 @@ def run(
                 extended_blocked += 1
                 conn.commit()
                 continue
+            # (#74) strict 1.5× — cup_without_handle 은 grace band(1.2~1.4)·
+            # 1.4 floor 비허용. 결측(volume/avg)은 차단 근거로 쓰지 않음(LLM 경로).
+            # specs/2026-07-24-issue74-cup-without-handle.md §3.
+            if trig in _EXTENDED_INTERCEPT_TRIGGERS \
+                    and a.get("pattern") == "cup_without_handle":
+                vol, avg = a.get("volume"), a.get("avg_volume_50d")
+                if vol is not None and avg is not None and float(avg) > 0:
+                    ratio = float(vol) / float(avg)
+                    if ratio < BREAKOUT_VOL_PREFERRED:
+                        _record_deterministic_wait(
+                            conn, a, trig, dry_run=dry_run, as_of=as_of,
+                            wait_reason=STRICT_NH_WAIT_REASON,
+                            reasoning=(
+                                f"deterministic strict volume gate (#74): ratio "
+                                f"{ratio:.2f} < {BREAKOUT_VOL_PREFERRED} — "
+                                f"no-handle breakout requires strict 1.5x"
+                            ),
+                        )
+                        strict_vol_blocked += 1
+                        conn.commit()
+                        continue
             _process_one(conn, a, trig, dry_run=dry_run, as_of=as_of)
             evaluated += 1
             conn.commit()
@@ -170,41 +220,36 @@ def run(
         "triggered": len(triggered),
         "abort_skipped": abort_skipped,
         "extended_blocked": extended_blocked,
+        "strict_vol_blocked": strict_vol_blocked,
+        "position_suppressed": position_suppressed,
     }
 
 
-def _record_extended_block(conn, active_row, trig_type, *, dry_run, as_of):
-    """(#45) extended 차단의 결정론 wait 행 기록 — LLM 비관여(llm_* 전부 NULL).
+def _record_deterministic_wait(conn, active_row, trig_type, *, dry_run, as_of,
+                               wait_reason, reasoning):
+    """결정론 wait 행 기록 공통기 — LLM 비관여(llm_* 전부 NULL).
 
-    close/pivot 원값 보존 — pivot 재판독(±20% 실측) 시 "지난주 차단이 pivot
-    오독 때문이었는지" 사후 감사용. reasoning 은 사람용 산식 표시일 뿐,
-    조회 기준은 wait_reason 동등비교만(사전등록 규약).
+    close/pivot/volume 원값 보존 — 사후 감사·F4 측정 재료. reasoning 은
+    사람용 산식 표시일 뿐, 조회 기준은 wait_reason 동등비교만(사전등록 규약).
+    (#45 extended / #74 strict·dedupe 공용.)
     """
     symbol = active_row["symbol"]
-    close = active_row["close"]
-    pivot = active_row["pivot_price"]
-    extension_pct = (close / pivot - 1) * 100
     if dry_run:
-        log.info(
-            "dry-run: extended block %s (close %s > pivot %s × %s, %+.1f%%)",
-            symbol, close, pivot, PIVOT_EXTENDED_BAND_MULT, extension_pct,
-        )
+        log.info("dry-run: deterministic wait %s (%s) %s", symbol, wait_reason,
+                 reasoning)
         return
     insert_trigger_log(
         conn,
         symbol=symbol,
         evaluated_at=datetime.now(timezone.utc),
         trigger_type=trig_type,
-        close=close,
+        close=active_row["close"],
         volume=active_row["volume"],
-        pivot_price=pivot,
+        pivot_price=active_row["pivot_price"],
         result={
             "decision": "wait",
             "confidence": None,
-            "reasoning": (
-                f"deterministic extended gate: close {close} > pivot {pivot} × "
-                f"{PIVOT_EXTENDED_BAND_MULT} (extension {extension_pct:+.1f}%)"
-            ),
+            "reasoning": reasoning,
             "abort_reason": None,
         },
         # subscript 의도적 — prior_classification_at 은 NOT NULL 컬럼이고 production
@@ -213,7 +258,22 @@ def _record_extended_block(conn, active_row, trig_type, *, dry_run, as_of):
         prior_classification_at=active_row["classified_at"],
         llm_meta={},
         analyzed_for_date=as_of,
+        wait_reason=wait_reason,
+    )
+
+
+def _record_extended_block(conn, active_row, trig_type, *, dry_run, as_of):
+    """(#45) extended 차단 기록 — _record_deterministic_wait 로 위임."""
+    close = active_row["close"]
+    pivot = active_row["pivot_price"]
+    extension_pct = (close / pivot - 1) * 100
+    _record_deterministic_wait(
+        conn, active_row, trig_type, dry_run=dry_run, as_of=as_of,
         wait_reason=EXTENDED_WAIT_REASON,
+        reasoning=(
+            f"deterministic extended gate: close {close} > pivot {pivot} × "
+            f"{PIVOT_EXTENDED_BAND_MULT} (extension {extension_pct:+.1f}%)"
+        ),
     )
 
 

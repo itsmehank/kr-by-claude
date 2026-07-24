@@ -25,7 +25,7 @@ export const PROMPT_EXPLANATIONS: Record<string, PromptExplanation> = {
     ],
     output: [
       "classification: entry / watch / ignore 중 하나",
-      "pattern: 9 종 base 패턴 (flat_base, cup_with_handle, vcp 등) 중 하나 또는 none",
+      "pattern: 10 종 base 패턴 (flat_base, cup_with_handle, cup_without_handle, vcp 등) 중 하나 또는 none",
       "pivot_price: 책 정의 매수 기준가 (패턴별 정의 다름)",
       "base_depth_pct: base 깊이 (peak 대비 trough)",
       "risk_flags: 13 종 위험 신호 중 부분집합 (climax_run·late_stage_base·faulty_pivot 등)",
@@ -34,7 +34,7 @@ export const PROMPT_EXPLANATIONS: Record<string, PromptExplanation> = {
     ],
     keyRules: [
       "**책 정통 추세주만 entry**: Stage 2 진입 + 깨끗한 base + 시장 우호적 시점 (§3.5 의 4-enum 시장 상태가 confirmed_uptrend) — 모두 만족해야 entry. 하나라도 빠지면 watch 또는 ignore.",
-      "**9 base 패턴만 허용**: flat_base / cup_with_handle / vcp / double_bottom / high_tight_flag / 3c_cheat / base_on_base / ascending_base / none. 책에 없는 패턴은 추측 금지 — none 으로 처리.",
+      "**10 base 패턴만 허용**: flat_base / cup_with_handle / cup_without_handle / vcp / double_bottom / high_tight_flag / 3c_cheat / base_on_base / ascending_base / none. 책에 없는 패턴은 추측 금지 — none 으로 처리.",
       "**13 risk flag 분류**: 위험 신호도 고정 13 종 목록만 사용. 자유 표현 금지. UI 와 prompt 가 동일한 분류 체계 공유.",
       "**시장 컨텍스트 하드룰** (§3.5): 시장이 correction/downtrend 면 entry 불가 → watch 강제. 시장 distribution day ≥ 5 이면 confidence -0.15.",
       "**handle 품질 (cup_with_handle)**: handle 깊이 8-12% / 10주 MA 위 / wedging 금지 — O'Neil HMMS p.116. 위반 시 watch 강등.",
@@ -93,7 +93,7 @@ export const PROMPT_EXPLANATIONS: Record<string, PromptExplanation> = {
       "**Minervini 1-3% per trade**: suggested_weight_pct 는 포트폴리오의 1-3% *위험* 한도 안에서 산출. 손절 폭이 크면 포지션 작게, 손절 폭이 좁으면 포지션 크게.",
       "**5% chase 한계**: max_chase_pct_from_pivot ≤ 5% — pivot 위로 5% 넘게 올라간 종목은 추격 매수 금지 (O'Neil HMMS Ch.10). 현행 결정론 함수는 VCP 를 일괄 3% 로 더 보수화 (#21 D3a).",
       "**entry_mode 별 다른 룰**: pivot_breakout 은 표준 손절·사이징·거래량 1.4-1.5×. pocket_pivot 은 더 타이트 (손절 -5.5%~-4.5%, 거래량 1.0× 가능).",
-      "**책 표준 거래량**: standard pivot_breakout 의 breakout_volume_requirement 디폴트 = ge_1.5x_50day_avg (책 선호치 50%+). 관측값 1.4×~1.5% 면 known_warning emit + 진입 허용.",
+      "**책 표준 거래량**: standard pivot_breakout 의 breakout_volume_requirement 디폴트 = ge_1.5x_50day_avg (책 선호치 50%+). 관측값 1.4×~1.5% 면 known_warning emit + 진입 허용. (cup_without_handle 은 예외 — strict 1.5× 미만은 진입 불가, #74)",
       "**known_warnings 화이트리스트**: 16 종 정의된 경고 코드만 사용. 자유 텍스트 경고는 other_warnings 로. 현행 결정론 함수는 이 중 11 종만 발행 가능 (나머지 4+1 종은 #21 결정으로 발행 지점 소멸).",
     ],
   },
