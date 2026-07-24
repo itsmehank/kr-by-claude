@@ -115,3 +115,35 @@ def test_no_rows_all_indeterminate():
     out = evaluate_filters([])
     for f in ("F-C1", "F-C2", "F-C3", "F-S1"):
         assert out[f]["label"] == "indeterminate"
+
+
+def _fs2_rows(rev_2023, rev_2024):
+    """분기별 매출 시계열 → 행 목록 (2023 Q1~Q3 + 2024 Q1~Q3)."""
+    rows = []
+    for y, revs in ((2023, rev_2023), (2024, rev_2024)):
+        for rc, r_ in zip(("11013", "11012", "11014"), revs):
+            if r_ is not None:
+                rows.append(row(y, rc, rev=r_))
+    return rows
+
+
+def test_fs2_branch1_pass_and_accel_branch():
+    """(신규 후보 사전등록 2026-07-24 §2) F-S2 = ≥25% OR 3분기 연속 가속."""
+    from kr_pipeline.financials.filters import evaluate_fs2
+    # 지선 ①: 최신 분기 +50% → pass
+    out = evaluate_fs2(_fs2_rows([100, 100, 100], [100, 100, 150]))
+    assert out["label"] == "pass"
+    # 지선 ②: g = +5% → +10% → +20% (전부 25% 미달이지만 단조 가속) → pass
+    out2 = evaluate_fs2(_fs2_rows([100, 100, 100], [105, 110, 120]))
+    assert out2["label"] == "pass"
+    assert "accel_branch" in out2["tags"]
+
+
+def test_fs2_both_fail_and_indeterminate():
+    from kr_pipeline.financials.filters import evaluate_fs2
+    # 감속(+20% → +10% → +5%) + 지선① 미달 → 둘 다 fail → fail
+    out = evaluate_fs2(_fs2_rows([100, 100, 100], [120, 110, 105]))
+    assert out["label"] == "fail"
+    # 지선① 미달 + 지선② 체인 결측(2023 Q1 부재 → g_{t−2q} 미정의) → 판정불가
+    out2 = evaluate_fs2(_fs2_rows([None, 100, 100], [105, 110, 120]))
+    assert out2["label"] == "indeterminate"

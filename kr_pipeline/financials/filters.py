@@ -143,6 +143,39 @@ def _prev_quarter(year: int, q: int) -> tuple[int, int]:
     return (year, q - 1) if q > 1 else (year - 1, 4)
 
 
+def evaluate_fs2(rows: list[dict]) -> dict:
+    """F-S2 (신규 후보 사전등록 2026-07-24 §2, LOCKED) — 매출 이중 지선.
+
+    지선 ① 최신 분기 revenue YoY ≥ +25% OR 지선 ② 3분기 연속 가속
+    (g_t > g_{t−1q} > g_{t−2q}, 3개 전부 양수 기저로 정의될 때만).
+    합성: 하나라도 pass → pass / 둘 다 fail → fail / ① turnaround 이고
+    ② 가 pass 아님 → turnaround / 그 외 → indeterminate.
+    """
+    v = _View([r for r in rows if r.get("status") == "ok"])
+    latest = v.latest()
+    if latest is None:
+        return _label("indeterminate", set())
+    year, q = latest
+    b1_state, b1_g, tags = _amount_growth(v, year, q, "revenue")
+    gs: list[float | None] = []
+    yy, qq = year, q
+    for _ in range(3):
+        st, g, t = _amount_growth(v, yy, qq, "revenue")
+        gs.append(g if st == "g" else None)
+        tags |= t
+        yy, qq = _prev_quarter(yy, qq)
+    b2 = None if any(g is None for g in gs) else (gs[0] > gs[1] > gs[2])
+    if (b1_state == "g" and b1_g >= THRESHOLD) or b2 is True:
+        if not (b1_state == "g" and b1_g >= THRESHOLD):
+            tags |= {"accel_branch"}
+        return _label("pass", tags)
+    if b1_state == "g" and b2 is False:
+        return _label("fail", tags)
+    if b1_state == "turnaround":
+        return _label("turnaround", tags)
+    return _label("indeterminate", tags)
+
+
 def evaluate_filters(rows: list[dict]) -> dict:
     """진입일 as-of 가시 행 → 필터 4개 라벨 (LOCKED §2·§3).
 
