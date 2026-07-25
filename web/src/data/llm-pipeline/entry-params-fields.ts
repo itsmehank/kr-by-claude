@@ -26,7 +26,7 @@ export const ENTRY_PARAMS_FIELDS: EntryParamField[] = [
   { name: "expected_target_pct", category: "target", what: "pivot 대비 목표 % — O'Neil 20-30% 1차 익절 룰 적용.", constraint: "15.0 ~ 50.0%" },
 
   // Sizing 포지션 (1)
-  { name: "suggested_weight_pct", category: "sizing", what: "포트폴리오 내 권장 비중 % — Minervini 의 거래당 1-3% 위험 룰 적용.", constraint: "3.0 ~ 25.0%" },
+  { name: "suggested_weight_pct", category: "sizing", what: "포트폴리오 내 권장 비중 % — Minervini 의 거래당 1-3% 위험 룰 적용. risk flag 는 티어 강등과 배수 감액에 이중 작용(의도된 2층 보수 — #80 확정), 예: flag 1개면 10→7×0.7=4.9%.", constraint: "3.0 ~ 25.0%" },
 
   // Guard 매수 가드 + 거래량 요건 (5, 모두 category: "guard")
   { name: "pattern_basis", category: "guard", what: "이 매수가 어떤 base 패턴에 기반했는지 (flat_base / cup_with_handle / cup_without_handle / vcp / double_bottom / 3c_cheat).", constraint: "exactly one of: flat_base, cup_with_handle, cup_without_handle, vcp, double_bottom, 3c_cheat" },
