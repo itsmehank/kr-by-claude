@@ -225,6 +225,13 @@ def calculate_entry_params(payload: dict) -> dict:
     # 티어 조건 "no risk flags" 는 raw 기준 — §7 watch 예외는 완화 4효과 미적용까지만
     # 허용하고 티어 '승격'(15/25)은 허용하지 않는다.
     no_flags = not raw_flags
+    # (#80 확정, 2026-07-24) flag 의 이중 작용은 **의도된 2층 보수 장치**다:
+    # ① 위 no_flags 로 티어 자격 박탈(standard 10→fallback 7) + ② _FLAG_MULT
+    # 배수 감액 — 문면 ×0.7 보다 항상 더 깎인다(예: late_stage 단독 10→7→4.9pp).
+    # 신설 flag 도 이중 작용이 기본값(단일 의도면 명시적 예외를 설계하고 그
+    # 사유를 기록할 것 — threshold-change-checklist 가이드). 역할 분리(완화)는
+    # 수익성 입증 + #74 F1~F4 첫 판독 이후에만 재검토 —
+    # specs/2026-07-24-issue80-flag-double-penalty-decision.md
     # confidence None(레거시 행): 승격 조건(≥0.8/0.85) 불충족 처리 + <0.7 감산도 미적용 —
     # '모름'은 보수(승격 없음) 쪽으로만 작용하고 벌점 근거로는 쓰지 않는다.
     conf = pa.get("confidence")

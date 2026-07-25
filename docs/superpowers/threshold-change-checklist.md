@@ -90,6 +90,12 @@ P2-1a (한국시장 FTD/distribution 임계 σ 보정) 가 *작성 당시 이 �
 
 ---
 
+## (e) 사이징 flag 신설 가이드 (#80 확정, 2026-07-24)
+
+risk flag 는 티어 자격 박탈 + `_FLAG_MULT` 배수의 **이중 작용이 기본값**(의도된 2층 보수 — specs/2026-07-24-issue80-flag-double-penalty-decision.md). 신설 flag 가 단일 감액 의도라면 명시적 예외를 설계하고 사유를 스펙에 기록할 것 — "문면 ×N 이라 N 만 깎일 것"이라는 가정은 #74 에서 실측 반증됨(fallback 강등 동반).
+
+---
+
 ## 적용 이력
 
 - 2026-05-25: P2-1a 소급 (위 (d)). 이후 P2-1b (cup depth) 부터 신규 spec 작성 시 (a)~(c) 의무.
@@ -108,3 +114,4 @@ P2-1a (한국시장 FTD/distribution 임계 σ 보정) 가 *작성 당시 이 �
 - 2026-07-13: #3-이슈4(PR #40) manage_active_trade 사전등록 + 3층 손절 스택 코어 이식 — SSOT 상수 3종 신설(TRADE_STOP_INITIAL_PCT=0.08·TRADE_BREAKEVEN_TRIGGER_PCT=0.20(장전식 min(3R,·) 상한)·TRADE_STOP_MAX_PCT=0.10 uncle point). 의존성 맵 = docs/superpowers/specs/2026-07-13-manage-active-trade.md §6 (⚠ 관례 위치 plans/ 아님 — 스펙 내 상수별 행). wiring 은 범위 외(#47 추적). 머지 전 재리뷰 수리: BREAKEVEN docstring 앵커 정정(익절 구간 → loss-column+2~3R)·BoB 비래치 테스트 고정·동률 라벨 준거 정합·시뮬 상수 동기화 절차·동결 규약(§8) 신설. ⚠ 이 이력 줄은 재리뷰 시점 추가 — 최초 커밋 누락(#37/#38 과 동일 유형)의 사후 정정.
 - 2026-07-21: #45 B extended 상한 결정론 게이트 — PIVOT_EXTENDED_BAND_MULT 소비처 추가(값 변화 0): evaluate_pivot 인터셉트(breakout·breakout_from_watch × close>pivot×1.05 → LLM 없이 wait_reason='extended_past_buy_range' 기록, 결정 3′=외부 red-team 2왕복+사용자 확정). 의존성 맵 = docs/superpowers/plans/2026-07-21-issue45-extended-gate.md §3(상수별 행 2축 판정). 방향 = 보수화만(발화 집합 불변, 발화 후 매수 경로만 차단). B-수치 = 사전등록 코호트(specs/2026-07-21-issue45-extended-gate-prereg.md, 기각 조건 등록). ⚠ breakout_from_watch 는 차단 다음날 fresh_cross 불성립(prev_close>pivot)으로 재발화가 구조적으로 제한 — 복귀 재평가 서사는 entry 경로 한정, bfw 는 pivot 하회 후 재크로스 or 주말 재분류 경로(리뷰 발견, 후속 트랙에서 bfw 차단→재발화 카운트 관측).
 - 2026-07-22: #25 책-충실성 검토 후속 — 프롬프트 귀속·태그 문구 정비 7건 (**동작 중립 의도** — operative 임계·규칙 문장 불변, 출처/태그 텍스트만): §5.2 "1.5–2.5× 책에 없음" 사실 오류 정정(HMMS 원문 실재 — 의도적 대체로 재서술), reverse-split O'Neil 귀속 철회(데이터 무결성 design-judgment 명시), §4.5 "≥6주" design-judgment 재태깅(TLOND 비명시), 컵 깊이 50% 캡·핸들 5일 floor·flat_base 출처·컵 기간 병기. 근거 = docs/superpowers/2026-07-22-issue25-book-fidelity-review.md. 게이트: P2-1d(2026-05-27) 동작 중립 전례 — 의존성 맵 생략, 단 프롬프트 산문은 LLM 입력이므로 분류 표류 여부는 실전 주간 분류에서 자연 관측(재실행 비교 금지 규율 유지). PP 10일 창 TLOND 단서는 기문서화 확인(thresholds.py:70 — 변경 없음).
+- 2026-07-24: #80 — 사이징 flag 이중 작용(티어 강등+배수)을 **의도로 확정·명문화** (동작 중립 — 값 변경 0, 주석·가이드·web 설명만). 역할 분리(완화)는 수익성 입증+#74 F1~F4 첫 판독 후 재개봉 조건부 동결. 기준선 실측(현행 3.2~3.3pp vs 분리안 4.9~5.3pp, 갈림 91~93%) = specs/2026-07-24-issue80-flag-double-penalty-decision.md §4.
