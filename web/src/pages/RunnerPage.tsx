@@ -128,23 +128,22 @@ function CronManagerSection() {
               <span className="text-faint">등록된 cron 라인 없음</span>
             )}
           </div>
-          <div className="flex gap-2">
-            {!statusQ.data.registered && (
+          {/* 실전 LLM 작업이 launchd 로 이전됨(#86). register=이중등록·unregister=데이터
+              cron 삭제 위험이라 두 버튼 비활성화. 서버도 409 로 하드 차단. */}
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
               <button
-                onClick={() => setPreviewAction("register")}
-                className="px-4 py-2 bg-accent text-white rounded-lg text-data font-semibold hover:bg-accent-light"
+                disabled
+                title="launchd 이전(#86)으로 비활성화됨"
+                className="px-4 py-2 bg-paper border border-line text-faint rounded-lg text-data font-semibold cursor-not-allowed opacity-60"
               >
-                등록 미리보기
+                등록/해제 비활성화
               </button>
-            )}
-            {statusQ.data.registered && (
-              <button
-                onClick={() => setPreviewAction("unregister")}
-                className="px-4 py-2 bg-paper border border-danger text-danger rounded-lg text-data font-semibold hover:bg-danger-soft"
-              >
-                해제 미리보기
-              </button>
-            )}
+            </div>
+            <span className="text-faint text-xs">
+              실전 LLM 작업이 launchd 로 이전되어 cron 등록/해제를 비활성화했습니다(#86).
+              register 는 launchd 와 이중 등록, unregister 는 데이터 cron 삭제 위험.
+            </span>
           </div>
         </>
       )}
