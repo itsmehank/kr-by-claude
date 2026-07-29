@@ -13,14 +13,15 @@ UIDN=$(id -u)
 TS=$(date +%Y%m%d-%H%M%S)
 
 # ── 선행 검사 (#88 리뷰 차단 4·권고 12)
-GITCOMMON=$(git -C "$REPO" rev-parse --git-common-dir 2>/dev/null || echo "")
+GITDIR=$(git -C "$REPO" rev-parse --git-dir 2>/dev/null || echo "")
 case "$REPO" in
   *worktrees*) echo "오류: 워크트리($REPO)에서 설치 금지 — 본 리포에서 실행"; exit 1;;
 esac
-case "$GITCOMMON" in
+case "$GITDIR" in
   *"/worktrees/"*) echo "오류: 워크트리에서 설치 금지"; exit 1;;
 esac
-if ! pmset -g custom | grep -qE "^\s*sleep\s+0"; then
+AC_SLEEP=$(pmset -g custom | awk '/AC Power/{f=1} /Battery Power/{f=0} f && $1=="sleep"{print $2}')
+if [ "${AC_SLEEP:-1}" != "0" ]; then
   echo "오류: pmset -c sleep 0 미설정 — 저녁 잡 중단 위험(#88 전제). sudo pmset -c sleep 0 후 재실행"
   echo "      (무시하려면 FORCE=1 로 실행)"
   [ "${FORCE:-0}" = "1" ] || exit 1

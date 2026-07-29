@@ -1,6 +1,6 @@
 #!/bin/bash
 # weekend_chain.sh — 주말 체인 (#88): 주봉 데이터 → LLM 주말 분류 → freeze 정리
-# launchd 토 03:00 + 월 08:00(catch-up 슬롯) + RunAtLoad.
+# launchd 토 03:00 + 월 07:00(catch-up 슬롯 — morning-corp 08:00 락 경합 회피) + RunAtLoad.
 # 요일 고정 대신 "주차 몫 미완료" 기준 — 주말 내내 잠들어 월요일로 밀려도
 # 장전(09시 전)이면 복구한다. freeze 정리는 최신 분류에 의존하므로 LLM 뒤.
 source "$(dirname "${BASH_SOURCE[0]}")/lib_guards.sh"
@@ -32,7 +32,7 @@ release_lock data
 
 # ── 2. LLM 주말 분류
 if [ "$DOW" = "0" ] && bt_loop_alive; then
-  log "일요일 + 표본 C 루프 생존 — LLM 단계 skip (월 08:00 슬롯에서 재시도)"
+  log "일요일 + 표본 C 루프 생존 — LLM 단계 skip (월 07:00 슬롯에서 재시도)"
   exit 0
 fi
 if has_success_since llm_weekend "$ANCHOR" weekend; then
@@ -61,7 +61,7 @@ fi
 if has_success_since freeze_cleanup "$ANCHOR"; then
   log "freeze 정리 몫 완료 — skip"
 else
-  EVER=$(psql_req "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='freeze_cleanup' AND status='success'")
+  EVER=$(db_query "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='freeze_cleanup' AND status='success'") || { log "DB 조회 실패 — fail-closed 중단"; exit 1; }
   if [ "$EVER" = "0" ]; then
     log "freeze 정리 최초 실행 — dry-run 으로 규모 확인만 (apply 는 다음 주부터)"
     uv run python -m kr_pipeline.llm_runner.freeze_cleanup || log "freeze dry-run 실패(비차단)"

@@ -25,7 +25,7 @@ log "대상 거래일 ELTD=$ELTD"
 if ! acquire_lock data 3600; then log "data 락 획득 실패(1h) — 중단"; exit 1; fi
 
 # ── 1. 데이터 체인 (멱등: 지표 최신일 >= ELTD 면 완료)
-MAXI=$(psql_req "SELECT COALESCE(MAX(date)::text,'0001-01-01') FROM daily_indicators")
+MAXI=$(db_query "SELECT COALESCE(MAX(date)::text,'0001-01-01') FROM daily_indicators") || { log "DB 조회 실패 — fail-closed 중단"; exit 1; }
 if [ "$MAXI" \< "$ELTD" ]; then
   log "데이터 체인 실행 (지표 최신 $MAXI < $ELTD)"
   uv run python -m kr_pipeline.pipeline --chain=daily || { log "데이터 체인 실패 — 후속 중단"; exit 1; }
@@ -54,7 +54,7 @@ if [ "$(date +%w)" = "0" ] && bt_loop_alive; then
   log "일요일 + 표본 C 루프 생존 — LLM 단계 skip (pkill 상호배제)"
   exit 0
 fi
-N=$(psql_req "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='llm_daily_delta' AND mode='full-daily' AND status='success' AND params->>'as_of' = '$ELTD'")
+N=$(db_query "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='llm_daily_delta' AND mode='full-daily' AND status='success' AND params->>'as_of' = '$ELTD'") || { log "DB 조회 실패 — fail-closed 중단"; exit 1; }
 if [ "$N" -gt 0 ]; then
   log "LLM full-daily 몫(as_of=$ELTD) 완료 — skip"
   exit 0

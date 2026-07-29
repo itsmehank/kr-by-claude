@@ -18,7 +18,7 @@ else
 fi
 
 # refresh-mapping 도 corporate_actions pipeline 으로 기록되므로 mode 로 구분
-N=$(psql_req "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='corporate_actions' AND mode='refresh-mapping' AND status='success' AND started_at >= $MONTH_START")
+N=$(db_query "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='corporate_actions' AND mode='refresh-mapping' AND status='success' AND started_at >= $MONTH_START") || { log "DB 조회 실패 — fail-closed 중단"; exit 1; }
 if [ "$N" -gt 0 ]; then
   log "corp_code 매핑 이번 달 몫 완료 — skip"
 else

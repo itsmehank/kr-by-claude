@@ -34,7 +34,7 @@ q() { psql -d kr_pipeline -Atc "$1" 2>/dev/null; }
 
 # ── wake 유예: 완전 기상(Wake from) 20분 내면 miss.* 만 보류 (DarkWake 는 제외)
 GRACE=0
-LAST_WAKE=$(pmset -g log 2>/dev/null | tail -3000 | grep -E " Wake from" | tail -1 | awk '{print $1" "$2}')
+LAST_WAKE=$(pmset -g log 2>/dev/null | tail -3000 | grep -E "[[:space:]]Wake from" | tail -1 | awk '{print $1" "$2}')
 if [ -n "$LAST_WAKE" ]; then
   WAKE_TS=$(date -j -f "%Y-%m-%d %H:%M:%S" "$LAST_WAKE" +%s 2>/dev/null || echo 0)
   if [ "$WAKE_TS" -gt 0 ] && [ $(( $(date +%s) - WAKE_TS )) -lt 1200 ]; then

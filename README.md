@@ -57,13 +57,13 @@ scripts/launchd/install.sh   # crontab 백업·제거 → 구 LLM plist 정리 �
 | 잡 | 스케줄 | 내용 |
 |---|---|---|
 | evening-chain | 평일 18:30 | 데이터 체인 → 포지션 평가 → 시장 지표 → LLM full-daily(performance 내장) |
-| weekend-chain | 토 03:00 (+월 08:00 catch-up) | 주봉 체인 → LLM 주말 분류 → freeze 정리 |
+| weekend-chain | 토 03:00 (+월 07:00 catch-up) | 주봉 체인 → LLM 주말 분류 → freeze 정리 |
 | morning-corp | 평일 08:00 | 공시 증분(7일 창) |
 | monthly-chain | 매월 1일 06:30 | universe → corp_code 매핑 (순서 고정) |
 | pipeline-watch | 1시간마다 | 결측·failed·좌초 감시 → Slack 알림 |
 
 공통 가드: 시간 자물쇠(장중 09~17시 실행 금지 — 부분봉 오염 방지) ·
-멱등(대상 거래일 몫 완료 시 skip) · flock 직렬화(data/llm 2계열) ·
+멱등(대상 거래일 몫 완료 시 skip) · 원자 락 직렬화(data/llm 2계열, /tmp — flock 은 macOS 미탑재) ·
 RunAtLoad(재부팅 복구). 전제: **저녁 전원(AC) 연결** + `pmset repeat
 wakeorpoweron MTWRFS 18:25:00` + `pmset -c sleep 0`.
 롤백: `launchctl bootout gui/$UID/com.krbyclaude.<잡>` 5종 +

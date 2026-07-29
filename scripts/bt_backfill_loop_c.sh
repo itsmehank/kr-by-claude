@@ -74,7 +74,7 @@ while true; do
   if pgrep -f "$CLAUDE_SIG" >/dev/null 2>&1; then
     # #88: 실전 LLM(launchd 체인)이 llm 락 보유 중이면 pkill 생략 — 시그니처가 동일해
       # 실전 claude 를 죽일 수 있다(상호배제 역방향 가드)
-      LLM_LOCK="$HOME/.kr-by-claude/locks/llm.lock.d"
+      LLM_LOCK="/tmp/kr-by-claude-locks/llm.d"
       if [ -d "$LLM_LOCK" ] && kill -0 "$(cat "$LLM_LOCK/pid" 2>/dev/null)" 2>/dev/null; then
         echo "[$(date '+%F %T')] 실전 LLM 진행 중(llm.lock) — pkill 생략"
       else

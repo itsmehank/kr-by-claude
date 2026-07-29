@@ -4,18 +4,20 @@
 # — PR #89 리뷰 차단 1) / DB 조회 실패 = fail-closed(차단 2) / bt-c pkill 상호배제.
 set -u
 REPO="${KR_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-LOCK_DIR="$HOME/.kr-by-claude/locks"
+# 락은 /tmp — 재부팅 시 소거돼 죽은 PID 의 stale lock 이 영구 차단하지 않게
+# (bt_backfill_loop_c.sh 의 기존 교훈과 동일)
+LOCK_DIR="/tmp/kr-by-claude-locks"
 mkdir -p "$LOCK_DIR"
 cd "$REPO" || exit 1
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >&2; }  # stdout 은 값 캡처용 — 로그는 stderr
 
-# DB 조회 — 실패 시 래퍼 중단(fail-closed). 성공 시 값 echo.
-psql_req() {
-  local out rc
-  out=$(psql -d kr_pipeline -Atc "$1" 2>&1); rc=$?
-  if [ $rc -ne 0 ]; then log "DB 조회 실패(rc=$rc): ${out:0:120} — fail-closed 중단"; exit 1; fi
+# DB 조회 — 실패 시 rc≠0 반환(command substitution 안에서 exit 은 서브셸만 죽음 —
+# 2회차 검토 차단). 호출부가 반드시 `|| exit 1` 로 fail-closed 처리한다.
+db_query() {
+  local out
+  out=$(psql -d kr_pipeline -Atc "$1" 2>&1) || { log "DB 조회 실패: ${out:0:120}"; return 1; }
   echo "$out"
 }
 
@@ -58,7 +60,7 @@ acquire_lock() {
 }
 release_lock() {
   rm -rf "$LOCK_DIR/$1.d"
-  _HELD_LOCKS=$(echo "$_HELD_LOCKS" | sed "s/ $1//")
+  _HELD_LOCKS=$(echo " $_HELD_LOCKS " | sed "s/ $1 / /")  # 정확 일치(부분일치 훼손 방지)
 }
 _release_all() { local l; for l in $_HELD_LOCKS; do rm -rf "$LOCK_DIR/$l.d"; done; }
 trap _release_all EXIT
@@ -68,13 +70,15 @@ has_success_since() {
   local mode_clause=""
   [ $# -ge 3 ] && mode_clause="AND mode='$3'"
   local n
-  n=$(psql_req "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='$1' AND status='success' $mode_clause AND started_at >= $2")
+  n=$(db_query "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='$1' AND status='success' $mode_clause AND started_at >= $2") \
+    || { log "몫 판정 불가(DB) — fail-closed 중단"; exit 1; }
   [ "$n" -gt 0 ]
 }
 
 has_running_recent() {
   local n
-  n=$(psql_req "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='$1' AND status='running' AND started_at >= now() - interval '$2 hours'")
+  n=$(db_query "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='$1' AND status='running' AND started_at >= now() - interval '$2 hours'") \
+    || { log "running 판정 불가(DB) — fail-closed 중단"; exit 1; }
   [ "$n" -gt 0 ]
 }
 
