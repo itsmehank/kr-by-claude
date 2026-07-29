@@ -12,6 +12,21 @@ LOGD="$HOME/.kr-by-claude"
 UIDN=$(id -u)
 TS=$(date +%Y%m%d-%H%M%S)
 
+# ── 선행 검사 (#88 리뷰 차단 4·권고 12)
+GITCOMMON=$(git -C "$REPO" rev-parse --git-common-dir 2>/dev/null || echo "")
+case "$REPO" in
+  *worktrees*) echo "오류: 워크트리($REPO)에서 설치 금지 — 본 리포에서 실행"; exit 1;;
+esac
+case "$GITCOMMON" in
+  *"/worktrees/"*) echo "오류: 워크트리에서 설치 금지"; exit 1;;
+esac
+if ! pmset -g custom | grep -qE "^\s*sleep\s+0"; then
+  echo "오류: pmset -c sleep 0 미설정 — 저녁 잡 중단 위험(#88 전제). sudo pmset -c sleep 0 후 재실행"
+  echo "      (무시하려면 FORCE=1 로 실행)"
+  [ "${FORCE:-0}" = "1" ] || exit 1
+fi
+pmset -g sched | grep -q "wakepoweron" || echo "경고: 반복 wake 예약 없음 — sudo pmset repeat wakeorpoweron MTWRFS 18:25:00 권장"
+
 echo "== ① crontab 백업"
 mkdir -p "$LOGD/cron-backups"
 crontab -l > "$LOGD/cron-backups/crontab.backup.$TS" 2>/dev/null || true
@@ -33,7 +48,7 @@ plist_head() { cat <<EOF
 <plist version="1.0"><dict>
   <key>Label</key><string>com.krbyclaude.$1</string>
   <key>WorkingDirectory</key><string>$REPO</string>
-  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string><key>KR_REPO</key><string>$REPO</string></dict>
   <key>StandardOutPath</key><string>$LOGD/launchd-$1.log</string>
   <key>StandardErrorPath</key><string>$LOGD/launchd-$1.log</string>
   <key>RunAtLoad</key><true/>
@@ -56,7 +71,7 @@ echo "== ④ 새 plist 생성·로드"
 { plist_head weekend-chain
   echo "  <key>ProgramArguments</key><array><string>/usr/bin/caffeinate</string><string>-s</string><string>$SCRIPTS/weekend_chain.sh</string></array>"
   echo "  <key>StartCalendarInterval</key><array>"
-  cal 6 3 0; cal 1 8 0
+  cal 6 3 0; cal 1 7 0   # 월 슬롯 07:00 — 08:00 morning-corp 와 락 경합 회피(#88 리뷰 22)
   echo "  </array>"
   echo "</dict></plist>"
 } > "$LA/com.krbyclaude.weekend-chain.plist"

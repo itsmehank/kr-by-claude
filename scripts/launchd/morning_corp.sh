@@ -7,14 +7,12 @@ log "morning_corp 시작"
 DOW=$(date +%w)
 if [ "$DOW" = "0" ] || [ "$DOW" = "6" ]; then log "주말 — skip"; exit 0; fi
 
-if has_success_since corporate_actions "date_trunc('day', now())" \
-   && [ "$(psql_one "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='corporate_actions' AND mode='incremental' AND status='success' AND started_at >= date_trunc('day', now())")" -gt 0 ]; then
+if has_success_since corporate_actions "date_trunc('day', now())" incremental; then
   log "오늘 몫 완료 — skip"
   exit 0
 fi
 
-exec 8>"$LOCK_DIR/data.lock"
-if ! flock -w 1800 8; then log "data.lock 획득 실패(30m) — skip(내일 7일 창이 복구)"; exit 1; fi
+if ! acquire_lock data 1800; then log "data 락 획득 실패(30m) — 미실행(내일 7일 창이 복구, 감시가 보고)"; exit 1; fi
 uv run python -m kr_pipeline.corporate_actions --mode=incremental --window-days=7
 rc=$?
 log "morning_corp 종료 rc=$rc"

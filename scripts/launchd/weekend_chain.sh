@@ -16,36 +16,44 @@ fi
 
 ANCHOR=$(last_saturday_expr)   # 직전 토요일 00:00 — 이번 주차 몫의 기준점
 
-exec 8>"$LOCK_DIR/data.lock"
-if ! flock -w 7200 8; then log "data.lock 획득 실패(2h) — 중단"; exit 1; fi
+if ! acquire_lock data 7200; then log "data 락 획득 실패(2h) — 중단"; exit 1; fi
+# 락 대기로 장중(월 09시 이후)에 진입했으면 중단 — 주봉 drift reload 가 end=today 라 부분봉 위험
+if intraday_lock; then log "락 대기 중 장중 진입 — 중단(다음 슬롯)"; exit 0; fi
 
 # ── 1. 주봉 데이터 체인 (실측 2h08m)
-if has_success_since data_weekly "$ANCHOR"; then
+if has_success_since data_weekly "$ANCHOR" incremental; then
   log "주봉 데이터 몫 완료 — skip"
 else
   log "주봉 데이터 체인 실행"
   uv run python -m kr_pipeline.pipeline --chain=weekly || { log "주봉 체인 실패 — 후속 중단"; exit 1; }
 fi
 
-flock -u 8
+release_lock data
 
 # ── 2. LLM 주말 분류
 if [ "$DOW" = "0" ] && bt_loop_alive; then
   log "일요일 + 표본 C 루프 생존 — LLM 단계 skip (월 08:00 슬롯에서 재시도)"
   exit 0
 fi
-if has_success_since llm_weekend "$ANCHOR"; then
+if has_success_since llm_weekend "$ANCHOR" weekend; then
   log "주말 분류 몫 완료 — skip"
 else
   if has_running_recent llm_weekend 10; then
-    log "llm_weekend running 중 — skip"
+    log "llm_weekend running 중 — freeze 포함 후속 skip(갱신 전 분류로 삭제 판정 방지)"
+    exit 0
   else
-    exec 9>"$LOCK_DIR/llm.lock"
-    if ! flock -w 600 9; then log "llm.lock 획득 실패 — 중단"; exit 1; fi
+    if ! acquire_lock llm 600; then log "llm 락 획득 실패 — 중단"; exit 1; fi
     log "LLM 주말 분류 실행"
     uv run python -m kr_pipeline.llm_runner --mode=weekend || { log "주말 분류 실패"; exit 1; }
-    flock -u 9
+    release_lock llm
   fi
+fi
+
+# ── 2.5 성과 backfill (토요일 회차 — #88 계약. LLM 없음·가격 계산만, as_of 불변이라 저비용)
+if has_success_since llm_performance "$ANCHOR" performance; then
+  log "performance 몫 완료 — skip"
+else
+  uv run python -m kr_pipeline.llm_runner --mode=performance || log "performance 실패(비차단)"
 fi
 
 # ── 3. freeze 정리 (분류 후 — 활성 종목 보호 조건이 최신 분류에 의존)
@@ -53,8 +61,8 @@ fi
 if has_success_since freeze_cleanup "$ANCHOR"; then
   log "freeze 정리 몫 완료 — skip"
 else
-  EVER=$(psql_one "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='freeze_cleanup' AND status='success'")
-  if [ "${EVER:-0}" = "0" ]; then
+  EVER=$(psql_req "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='freeze_cleanup' AND status='success'")
+  if [ "$EVER" = "0" ]; then
     log "freeze 정리 최초 실행 — dry-run 으로 규모 확인만 (apply 는 다음 주부터)"
     uv run python -m kr_pipeline.llm_runner.freeze_cleanup || log "freeze dry-run 실패(비차단)"
   else

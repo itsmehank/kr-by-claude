@@ -8,10 +8,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_guards.sh"
 log "monthly_chain 시작"
 MONTH_START="date_trunc('month', now())"
 
-exec 8>"$LOCK_DIR/data.lock"
-if ! flock -w 7200 8; then log "data.lock 획득 실패(2h) — 중단"; exit 1; fi
+if ! acquire_lock data 7200; then log "data 락 획득 실패(2h) — 중단"; exit 1; fi
 
-if has_success_since universe "$MONTH_START"; then
+if has_success_since universe "$MONTH_START"; then  # universe 는 단일 mode
   log "universe 이번 달 몫 완료 — skip"
 else
   log "universe 실행"
@@ -19,8 +18,8 @@ else
 fi
 
 # refresh-mapping 도 corporate_actions pipeline 으로 기록되므로 mode 로 구분
-N=$(psql_one "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='corporate_actions' AND mode='refresh-mapping' AND status='success' AND started_at >= $MONTH_START")
-if [ "${N:-0}" -gt 0 ]; then
+N=$(psql_req "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='corporate_actions' AND mode='refresh-mapping' AND status='success' AND started_at >= $MONTH_START")
+if [ "$N" -gt 0 ]; then
   log "corp_code 매핑 이번 달 몫 완료 — skip"
 else
   log "corp_code 매핑 갱신 실행"

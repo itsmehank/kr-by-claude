@@ -210,7 +210,7 @@ PIPELINE_SPECS: list[dict] = [
 
     {
         "id": "trade-management",
-        "group": "llm",
+        "group": "data",
         "label": "포지션 일일 평가",
         "description": "보유 포지션의 손절/청산 조건 일일 평가 — evening chain 內 데이터 체인 직후 실행.",
         "module": "kr_pipeline.trade_management",
@@ -224,7 +224,7 @@ PIPELINE_SPECS: list[dict] = [
         "schedule_label": "평일 18:30 evening chain 內 순차",
         "long_description": "보유 포지션에 대해 당일 종가 기준 손절·청산 조건을 평가합니다.\n\n(position_id, eval_date) 멱등 — 같은 날 재실행해도 중복 평가되지 않습니다. 결측일의 평가는 소급되지 않습니다(당일 평가 전용).\n\n선행 작업: data-daily (당일 종가)\n후속 작업: 없음",
         "inputs": ["daily_prices", "positions"],
-        "outputs": ["position_evaluations"],
+        "outputs": ["position_stop_evaluations"],
         "depends_on": ["data-daily"],
     },
     # ─── LLM 분석 ────────────────────────────────────────────────
@@ -287,6 +287,7 @@ PIPELINE_SPECS: list[dict] = [
         ],
         "default_cron": "",
         "scheduler": "embedded-in-full-daily",
+        "embedded_in": "llm-full-daily",
         "schedule_label": "평일 full-daily 내장 (독립 스케줄 없음)",
         "long_description": "기존에 LLM 이 생성한 진입 시그널의 실현 성과를 backfill 합니다.\n\n진입 후 최고가·최저가·현재가를 비교해 RR (risk-reward), 최대 손익 등을 계산해 signal_performance 테이블에 적재합니다.\n\nLLM 호출은 없음 — 가격 데이터만으로 계산.\n\n선행 작업: ohlcv (현재가 + 과거 가격), llm-full-daily (평가 대상 시그널)\n후속 작업: 없음",
         "inputs": ["daily_prices", "entry_params"],

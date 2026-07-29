@@ -313,3 +313,59 @@ def test_cron_mode_absent_falls_back_to_first_mode(monkeypatch):
     monkeypatch.setattr(psm, "PIPELINE_SPECS", psm.PIPELINE_SPECS + [fake])
     line = next(ln for ln in psm.get_default_cron_lines() if "fake.mod" in ln)
     assert "--dry-run" in line
+
+
+# ─── #88 launchd 이전 회귀 방어선 ───────────────────────────────
+
+def test_launchd_synthetic_spec_excluded(monkeypatch):
+    """scheduler=launchd 인 spec 은 default_cron 이 있어도 cron 라인 미방출(양성 검증)."""
+    from kr_pipeline.llm_runner import pipeline_specs as psm
+
+    fake = {"id": "fake-l", "module": "fake.mod2", "default_cron": "5 5 * * *",
+            "scheduler": "launchd", "modes": [{"id": "a", "args": []}]}
+    monkeypatch.setattr(psm, "PIPELINE_SPECS", psm.PIPELINE_SPECS + [fake])
+    assert not any("fake.mod2" in ln for ln in psm.get_default_cron_lines())
+
+
+def test_all_scheduled_specs_declare_scheduler():
+    """default_cron 보유 spec 은 전부 scheduler 선언 필수 — 신규 spec 이 조용히
+    cron 으로 부활하는 것을 막는 실질 회귀 방어선(#88)."""
+    from kr_pipeline.llm_runner.pipeline_specs import PIPELINE_SPECS
+
+    for s in PIPELINE_SPECS:
+        if s.get("default_cron"):
+            assert s.get("scheduler") == "launchd", f"{s['id']}: scheduler 미선언"
+
+
+def test_trade_management_spec_registered():
+    """#88: 이번 사고 당사자(trade_management)가 감시·대시보드에 보이도록 등재."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+
+    s = get_spec("trade-management")
+    assert s is not None
+    assert s["pipeline_db_name"] == "trade_management"
+    assert s["scheduler"] == "launchd"
+    assert s["outputs"] == ["position_stop_evaluations"]
+
+
+def test_llm_performance_embedded_no_schedule():
+    """performance 는 full-daily 내장 — 독립 스케줄 금지(일요일 pkill 충돌 표면 제거)."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec
+
+    s = get_spec("llm-performance")
+    assert s["default_cron"] == ""
+    assert s.get("embedded_in") == "llm-full-daily"
+
+
+def test_launchd_wrapper_scripts_syntax():
+    """셸 래퍼 문법 스모크 — flock 부재류 사고의 최소 방어선(#88 리뷰 23)."""
+    import subprocess
+    from pathlib import Path
+
+    d = Path(__file__).parent.parent / "scripts" / "launchd"
+    scripts = sorted(d.glob("*.sh"))
+    assert len(scripts) >= 7
+    for f in scripts:
+        subprocess.run(["bash", "-n", str(f)], check=True)
+        # flock 은 macOS 미탑재(#88 리뷰 차단 1) — 재도입 금지
+        assert "flock -" not in f.read_text(), f"{f.name}: flock 명령 사용 금지(macOS 미탑재)"

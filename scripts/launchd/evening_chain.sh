@@ -22,11 +22,10 @@ fi
 log "대상 거래일 ELTD=$ELTD"
 
 # ── data.lock (주말 체인·아침 corp 와 직렬화)
-exec 8>"$LOCK_DIR/data.lock"
-if ! flock -w 3600 8; then log "data.lock 획득 실패(1h) — 중단"; exit 1; fi
+if ! acquire_lock data 3600; then log "data 락 획득 실패(1h) — 중단"; exit 1; fi
 
 # ── 1. 데이터 체인 (멱등: 지표 최신일 >= ELTD 면 완료)
-MAXI=$(psql_one "SELECT COALESCE(MAX(date)::text,'0001-01-01') FROM daily_indicators")
+MAXI=$(psql_req "SELECT COALESCE(MAX(date)::text,'0001-01-01') FROM daily_indicators")
 if [ "$MAXI" \< "$ELTD" ]; then
   log "데이터 체인 실행 (지표 최신 $MAXI < $ELTD)"
   uv run python -m kr_pipeline.pipeline --chain=daily || { log "데이터 체인 실패 — 후속 중단"; exit 1; }
@@ -35,27 +34,28 @@ else
 fi
 
 # ── 2. 포지션 일일 평가 (내부 (position_id, eval_date) 멱등)
-if has_success_since trade_management "'$ELTD'::date + interval '17 hours'"; then
+if has_success_since trade_management "'$ELTD'::date + interval '17 hours'" daily-eval; then
   log "daily-eval 몫 완료 — skip"
 else
   uv run python -m kr_pipeline.trade_management --mode=daily-eval || log "daily-eval 실패(비차단 — 계속)"
 fi
 
 # ── 3. 시장 지표 (30일 증분 — 내부 upsert 멱등)
-if has_success_since market_context "'$ELTD'::date + interval '17 hours'"; then
+if has_success_since market_context "'$ELTD'::date + interval '17 hours'" incremental; then
   log "market_context 몫 완료 — skip"
 else
   uv run python -m kr_pipeline.market_context --mode=incremental --window-days=30 || log "market_context 실패(비차단 — 계속)"
 fi
 
-flock -u 8   # 데이터 락 반납 (LLM 7h 실측 — 락 굶김 방지)
+release_lock data   # LLM 7h 실측 — 락 굶김 방지
 
 # ── 4. LLM full-daily (performance 내장 — 독립 23:00 잡 불요)
 if [ "$(date +%w)" = "0" ] && bt_loop_alive; then
   log "일요일 + 표본 C 루프 생존 — LLM 단계 skip (pkill 상호배제)"
   exit 0
 fi
-if psql_one "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='llm_daily_delta' AND mode='full-daily' AND status='success' AND params->>'as_of' = '$ELTD'" | grep -qv '^0$'; then
+N=$(psql_req "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='llm_daily_delta' AND mode='full-daily' AND status='success' AND params->>'as_of' = '$ELTD'")
+if [ "$N" -gt 0 ]; then
   log "LLM full-daily 몫(as_of=$ELTD) 완료 — skip"
   exit 0
 fi
@@ -63,8 +63,7 @@ if has_running_recent llm_daily_delta 10; then
   log "LLM full-daily running 중 — 이중 실행 방지 skip"
   exit 0
 fi
-exec 9>"$LOCK_DIR/llm.lock"
-if ! flock -w 600 9; then log "llm.lock 획득 실패 — skip"; exit 1; fi
+if ! acquire_lock llm 600; then log "llm 락 획득 실패(10m) — 중단"; exit 1; fi
 log "LLM full-daily 실행 (as_of=$ELTD)"
 uv run python -m kr_pipeline.llm_runner --mode=full-daily
 rc=$?
