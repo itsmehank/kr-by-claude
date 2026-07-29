@@ -254,8 +254,9 @@ def test_manual_pipeline_excluded_from_cron():
     from kr_pipeline.llm_runner.pipeline_specs import get_default_cron_lines, PIPELINE_SPECS
 
     lines = get_default_cron_lines()
-    scheduled = [s for s in PIPELINE_SPECS if s.get("default_cron")]
-    # 빈 cron spec 은 라인 미생성
+    scheduled = [s for s in PIPELINE_SPECS
+                 if s.get("default_cron") and s.get("scheduler") != "launchd"]
+    # 빈 cron spec + launchd 소유 spec 은 라인 미생성 (#88)
     assert len(lines) == len(scheduled)
     # 수동 backfill args 가 cron 에 등록되지 않음
     assert not any("--mode=backfill" in ln for ln in lines)
@@ -291,19 +292,24 @@ def test_freeze_cleanup_spec_registered():
     assert "--apply" in apply_mode["args"]
 
 
-def test_freeze_cleanup_cron_line_uses_apply():
-    """cron 라인은 --apply 여야 retention 이 실제 실행된다 (cron_mode 키)."""
-    from kr_pipeline.llm_runner.pipeline_specs import get_default_cron_lines
+def test_freeze_cleanup_owned_by_launchd_weekend_chain():
+    """#88: freeze retention 은 weekend chain(launchd) 소유 — cron 라인 미방출.
+    apply 실행은 scripts/launchd/weekend_chain.sh 가 담당(최초 1회 dry-run)."""
+    from kr_pipeline.llm_runner.pipeline_specs import get_spec, get_default_cron_lines
 
-    lines = [ln for ln in get_default_cron_lines() if "freeze_cleanup" in ln]
-    assert len(lines) == 1
-    assert "--apply" in lines[0]
-    assert lines[0].startswith("40 4 * * 6")
+    s = get_spec("freeze-cleanup")
+    assert s["scheduler"] == "launchd"
+    assert s["default_cron"] == "0 3 * * 6"
+    assert not any("freeze_cleanup" in ln for ln in get_default_cron_lines())
 
 
-def test_cron_mode_absent_falls_back_to_first_mode():
-    """cron_mode 없는 기존 spec 은 modes[0] args 그대로 (llm-full-daily = dry-run 유지)."""
-    from kr_pipeline.llm_runner.pipeline_specs import get_default_cron_lines
+def test_cron_mode_absent_falls_back_to_first_mode(monkeypatch):
+    """cron_mode 없는 spec 은 modes[0] args 로 라인 생성 (합성 spec 으로 검증 —
+    실 spec 은 전부 launchd 소유라 라인이 없다, #88)."""
+    from kr_pipeline.llm_runner import pipeline_specs as psm
 
-    line = next(ln for ln in get_default_cron_lines() if "--mode=full-daily" in ln)
+    fake = {"id": "fake", "module": "fake.mod", "default_cron": "1 2 * * *",
+            "modes": [{"id": "a", "args": ["--x", "--dry-run"]}]}
+    monkeypatch.setattr(psm, "PIPELINE_SPECS", psm.PIPELINE_SPECS + [fake])
+    line = next(ln for ln in psm.get_default_cron_lines() if "fake.mod" in ln)
     assert "--dry-run" in line

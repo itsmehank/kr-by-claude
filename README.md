@@ -45,9 +45,30 @@ uv run uvicorn api.main:app --reload --port 8000
 - **재기동 관례**: main 머지 후(stale 코드 방지)와 brew python 업그레이드
   후(프레임워크 불일치 방지)에는 서버를 재기동한다.
 
-## Cron 등록
+## 스케줄 등록 (launchd — #88 로 cron 에서 이전)
 
-`scripts/cron.example` 참고. `crontab -e` 로 등록.
+예약 실행은 **launchd** 가 담당한다(cron 은 Mac 수면 중 놓친 발화를 버리지만
+launchd 는 깨어날 때 만회 발화). 설치/갱신:
+
+```bash
+scripts/launchd/install.sh   # crontab 백업·제거 → 구 LLM plist 정리 → 새 plist 5종 로드
+```
+
+| 잡 | 스케줄 | 내용 |
+|---|---|---|
+| evening-chain | 평일 18:30 | 데이터 체인 → 포지션 평가 → 시장 지표 → LLM full-daily(performance 내장) |
+| weekend-chain | 토 03:00 (+월 08:00 catch-up) | 주봉 체인 → LLM 주말 분류 → freeze 정리 |
+| morning-corp | 평일 08:00 | 공시 증분(7일 창) |
+| monthly-chain | 매월 1일 06:30 | universe → corp_code 매핑 (순서 고정) |
+| pipeline-watch | 1시간마다 | 결측·failed·좌초 감시 → Slack 알림 |
+
+공통 가드: 시간 자물쇠(장중 09~17시 실행 금지 — 부분봉 오염 방지) ·
+멱등(대상 거래일 몫 완료 시 skip) · flock 직렬화(data/llm 2계열) ·
+RunAtLoad(재부팅 복구). 전제: **저녁 전원(AC) 연결** + `pmset repeat
+wakeorpoweron MTWRFS 18:25:00` + `pmset -c sleep 0`.
+롤백: `launchctl bootout gui/$UID/com.krbyclaude.<잡>` 5종 +
+`crontab < ~/.kr-by-claude/cron-backups/<백업파일>`.
+(구 `scripts/cron.example` 은 참고용 유산 — 신규 등록 금지.)
 
 ## 운영 점검 쿼리
 

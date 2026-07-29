@@ -103,21 +103,12 @@ def test_diff_managed_block_shows_changes():
     assert any("+new_a" in line for line in diff)
 
 
-def test_default_cron_lines_contains_three_modes():
-    """default cron 라인에 LLM 3종 (full-daily, weekend, performance) + 통합 체인 2종 포함 확인.
-    예약 spec 9개: universe, corporate-actions, data-daily, data-weekly,
-    market-context, llm-full-daily, llm-weekend, llm-performance, freeze-cleanup.
-    (기존 ohlcv/weekly/indicators-daily/indicators-weekly 는 비예약(cron="")으로 제외, llm-backfill 도 제외.)
-    """
+def test_default_cron_lines_empty_after_launchd_migration():
+    """#88: 예약 잡 전체가 launchd 소유 → cron 라인 방출 0 (이중 등록 방지).
+    register 가 어떤 경로로 호출되어도 crontab 에 부활할 라인이 없어야 한다."""
     from kr_pipeline.llm_runner.cron_manager import DEFAULT_CRON_LINES
 
-    assert len(DEFAULT_CRON_LINES) == 9
-    assert any("full-daily" in line for line in DEFAULT_CRON_LINES)
-    assert any("weekend" in line for line in DEFAULT_CRON_LINES)
-    assert any("performance" in line for line in DEFAULT_CRON_LINES)
-    assert any("--chain=daily" in line for line in DEFAULT_CRON_LINES)
-    assert any("--chain=weekly" in line for line in DEFAULT_CRON_LINES)
-    assert any("freeze_cleanup" in line for line in DEFAULT_CRON_LINES)
+    assert DEFAULT_CRON_LINES == []
 
 
 def test_register_and_unregister_flow(monkeypatch, tmp_path):
@@ -136,9 +127,10 @@ def test_register_and_unregister_flow(monkeypatch, tmp_path):
     monkeypatch.setattr(cm, "install_crontab", fake_install)
     monkeypatch.setattr(cm, "BACKUP_DIR", tmp_path)
 
-    backup1, new_text = cm.register()
+    test_lines = ["0 5 * * * echo kr-test-line"]
+    backup1, new_text = cm.register(lines=test_lines)
     assert "kr-by-claude-llm-runner BEGIN" in state["crontab"]
-    assert "--mode=full-daily" in state["crontab"]
+    assert "kr-test-line" in state["crontab"]
     assert "/user_backup" in state["crontab"]
     assert backup1.exists()
 
