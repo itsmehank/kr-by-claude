@@ -38,7 +38,8 @@ PIPELINE_SPECS: list[dict] = [
         "modes": [
             {"id": "default", "label": "전체 갱신", "args": [], "is_heavy": False},
         ],
-        "default_cron": "0 4 1 * *",
+        "default_cron": "30 6 1 * *",
+        "scheduler": "launchd",
         "schedule_label": "월 1회",
         "long_description": "KOSPI/KOSDAQ 의 모든 상장 종목 (이름·섹터·시장) 을 수집해 stocks 테이블에 갱신합니다.\n\n새로 상장되거나 폐지된 종목을 반영하는 작업으로, 다른 모든 분석 작업의 기준이 되는 종목 마스터를 관리합니다.\n\n선행 작업: 없음 (외부 KRX API 만 사용)\n실행 빈도: 월 1회 — 종목 변화가 잦지 않음.",
         "inputs": [],
@@ -109,6 +110,7 @@ PIPELINE_SPECS: list[dict] = [
              "args": ["--mode=refresh-mapping"], "is_heavy": True},
         ],
         "default_cron": "0 8 * * 1-5",
+        "scheduler": "launchd",
         "schedule_label": "평일 매일",
         "long_description": "액면분할·배당·합병 등 corporate action 이력을 수집해 corporate_actions 테이블에 적재합니다.\n\n이 데이터는 주가의 조정 계수 (adj_close) 를 계산할 때 사용되며, 잘못된 액면분할 처리는 잘못된 지표로 이어집니다.\n\n■ corp_code 매핑 (중요)\nDART API 는 종목 티커가 아니라 DART 내부 corp_code 로 조회합니다. 그래서 '티커 → corp_code' 매핑 테이블 (dart_corp_codes) 이 먼저 있어야 하고, 그 다리를 통해서만 공시를 가져올 수 있습니다.\n\n■ 모드별 차이\n- 증분 (7일) / 과거 N년 적재: 매핑이 *이미 있는* 활성 종목만 조회합니다 (INNER JOIN). 매핑 없는 종목은 조용히 건너뜁니다.\n- 기업코드 매핑 갱신 (refresh-mapping): DART 의 전체 corpCode.xml 을 다시 받아 dart_corp_codes 를 갱신합니다. 공시 자체는 안 가져오고 *매핑만* 채웁니다.\n\n■ 신규 종목 처리 (Universe 와의 관계)\nUniverse 가 추가한 신규 종목은 corp_code 매핑이 없어 증분/백필에서 빠집니다. 따라서 신규 종목이 생기면 순서가: Universe → [기업코드 매핑 갱신] → [증분/백필] 입니다. 매핑 갱신을 건너뛰면 신규 종목의 corporate action 이 영영 적재되지 않습니다 (매핑 없는 활성 종목이 5% 를 넘으면 mapping_low 경고가 뜹니다).\n\n주의: 기업코드 매핑 갱신은 기본 cron 스케줄에 포함되지 않습니다 (정기 작업은 증분만). 신규 종목 매핑은 현재 수동으로 챙겨야 합니다.\n\n선행 작업: 없음 (외부 KRX/DART API)\n후속 작업: indicators-daily, indicators-weekly (지표 계산 시 가격 조정), data-daily (drift 평일 후보 공급)",
         "inputs": [],
@@ -121,7 +123,8 @@ PIPELINE_SPECS: list[dict] = [
         "description": "평일 데이터 통합 — 일봉 가격(ohlcv) → 일봉 지표(indicators) 순서 보장.",
         "module": "kr_pipeline.pipeline", "pipeline_db_name": "data_daily",
         "modes": [{"id": "default", "label": "평일 통합", "args": ["--chain=daily"], "is_heavy": True}],
-        "default_cron": "30 18 * * 1-5", "schedule_label": "평일 매일",
+        "default_cron": "30 18 * * 1-5",
+        "scheduler": "launchd", "schedule_label": "평일 매일",
         "long_description": "평일 장마감 후 일봉 가격(ohlcv 증분)을 적재하고 곧바로 일봉 지표를 계산합니다.\n\n가격→지표 순서를 한 프로세스에서 보장(기존 cron 시간차 의존 제거).\n\n선행 작업: corporate-actions\n후속 작업: market-context, llm-full-daily",
         "inputs": ["daily_prices", "corporate_actions"], "outputs": ["daily_prices", "daily_indicators"],
         "depends_on": ["corporate-actions"],
@@ -131,7 +134,8 @@ PIPELINE_SPECS: list[dict] = [
         "description": "주말 데이터 통합 — 주봉 가격(weekly) → 주봉 지표(indicators) 순서 보장.",
         "module": "kr_pipeline.pipeline", "pipeline_db_name": "data_weekly",
         "modes": [{"id": "default", "label": "주말 통합", "args": ["--chain=weekly"], "is_heavy": True}],
-        "default_cron": "0 3 * * 6", "schedule_label": "주 1회 (토)",
+        "default_cron": "0 3 * * 6",
+        "scheduler": "launchd", "schedule_label": "주 1회 (토)",
         "long_description": "토요일 주봉 가격(weekly 집계)을 적재하고 곧바로 주봉 지표를 계산합니다.\n\n선행 작업: data-daily(일봉 최신), corporate-actions\n후속 작업: llm-weekend",
         "inputs": ["weekly_prices", "corporate_actions"], "outputs": ["weekly_prices", "weekly_indicators"],
         "depends_on": ["data-daily"],
@@ -195,7 +199,8 @@ PIPELINE_SPECS: list[dict] = [
             {"id": "full-refresh", "label": "전체 기간 재계산",
              "args": ["--mode=full-refresh"], "is_heavy": True},
         ],
-        "default_cron": "30 19 * * 1-5",
+        "default_cron": "30 18 * * 1-5",
+        "scheduler": "launchd",
         "schedule_label": "평일 매일",
         "long_description": "시장 전반 상황 — KOSPI 와 KOSDAQ 각각의 추세 단계, distribution day 수, follow-through day, 200일선 위 종목 비율 등 — 을 계산해 market_context_daily 테이블에 적재합니다.\n\n각 종목의 LLM 분석 시 그 종목 시장의 컨텍스트를 함께 전달해 LLM 이 시장 분위기를 고려한 판단을 할 수 있게 합니다.\n\n선행 작업: indicators-daily, ohlcv (200일선 위 종목 비율 + KOSPI/KOSDAQ 지수 일봉)\n후속 작업: llm-full-daily, llm-weekend",
         "inputs": ["daily_indicators", "daily_prices"],
@@ -203,6 +208,25 @@ PIPELINE_SPECS: list[dict] = [
         "depends_on": ["indicators-daily", "ohlcv"],
     },
 
+    {
+        "id": "trade-management",
+        "group": "data",
+        "label": "포지션 일일 평가",
+        "description": "보유 포지션의 손절/청산 조건 일일 평가 — evening chain 內 데이터 체인 직후 실행.",
+        "module": "kr_pipeline.trade_management",
+        "pipeline_db_name": "trade_management",
+        "modes": [
+            {"id": "daily-eval", "label": "일일 평가",
+             "args": ["--mode=daily-eval"], "is_heavy": False},
+        ],
+        "default_cron": "30 18 * * 1-5",
+        "scheduler": "launchd",
+        "schedule_label": "평일 18:30 evening chain 內 순차",
+        "long_description": "보유 포지션에 대해 당일 종가 기준 손절·청산 조건을 평가합니다.\n\n(position_id, eval_date) 멱등 — 같은 날 재실행해도 중복 평가되지 않습니다. 결측일의 평가는 소급되지 않습니다(당일 평가 전용).\n\n선행 작업: data-daily (당일 종가)\n후속 작업: 없음",
+        "inputs": ["daily_prices", "positions"],
+        "outputs": ["position_stop_evaluations"],
+        "depends_on": ["data-daily"],
+    },
     # ─── LLM 분석 ────────────────────────────────────────────────
     {
         "id": "llm-full-daily",
@@ -217,7 +241,8 @@ PIPELINE_SPECS: list[dict] = [
             {"id": "real", "label": "평일 통합 (실제 호출)",
              "args": ["--mode=full-daily"], "is_heavy": True},
         ],
-        "default_cron": "0 20 * * 1-5",
+        "default_cron": "30 18 * * 1-5",
+        "scheduler": "launchd",
         "schedule_label": "평일 매일",
         "long_description": "신규 종목 분류 → 진입 시그널 생성 → 직전 시그널 평가 → 성과 backfill 을 LLM 으로 통합 처리합니다.\n\nLLM 에 전달되는 payload 에는 일봉 OHLCV, 지표, 시장 컨텍스트, 액면분할 이력이 모두 포함됩니다.\n\n선행 작업: indicators-daily, market-context, ohlcv (오늘 데이터) — 모두 19:30 까지 끝난 후 20:00 에 실행\n후속 작업: 없음 (분석 결과는 신호 테이블에 직접 적재)",
         "inputs": ["daily_indicators", "market_context_daily", "daily_prices"],
@@ -241,7 +266,8 @@ PIPELINE_SPECS: list[dict] = [
             {"id": "real", "label": "주말 batch (실제 호출)",
              "args": ["--mode=weekend"], "is_heavy": True},
         ],
-        "default_cron": "20 3 * * 6",
+        "default_cron": "0 3 * * 6",
+        "scheduler": "launchd",
         "schedule_label": "주 1회 (토)",
         "long_description": "평일 분석에서 누락된 전체 종목을 LLM 으로 batch 분류합니다.\n\nMinervini Trend Stage (accumulation / advancing / distribution / declining) 4단계 판정 + 핵심 코멘트 1~2 줄.\n\n토요일 새벽 03:20 에 실행되며, 직전 금요일 데이터를 기준으로 분류합니다.\n\n선행 작업: indicators-daily, indicators-weekly, market-context (금요일 기준)\n후속 작업: 없음",
         "inputs": ["daily_indicators", "weekly_indicators", "market_context_daily"],
@@ -259,8 +285,10 @@ PIPELINE_SPECS: list[dict] = [
             {"id": "default", "label": "Performance backfill",
              "args": ["--mode=performance"], "is_heavy": True},
         ],
-        "default_cron": "0 23 * * *",
-        "schedule_label": "매일",
+        "default_cron": "",
+        "scheduler": "embedded-in-full-daily",
+        "embedded_in": "llm-full-daily",
+        "schedule_label": "평일 full-daily 내장 (독립 스케줄 없음)",
         "long_description": "기존에 LLM 이 생성한 진입 시그널의 실현 성과를 backfill 합니다.\n\n진입 후 최고가·최저가·현재가를 비교해 RR (risk-reward), 최대 손익 등을 계산해 signal_performance 테이블에 적재합니다.\n\nLLM 호출은 없음 — 가격 데이터만으로 계산.\n\n선행 작업: ohlcv (현재가 + 과거 가격), llm-full-daily (평가 대상 시그널)\n후속 작업: 없음",
         "inputs": ["daily_prices", "entry_params"],
         "outputs": ["signal_performance"],
@@ -302,7 +330,8 @@ PIPELINE_SPECS: list[dict] = [
              "params": [{"name": "days", "label": "보존 기간(일)", "type": "int",
                          "default": 90, "min": 30, "max": 365}]},
         ],
-        "default_cron": "40 4 * * 6",
+        "default_cron": "0 3 * * 6",
+        "scheduler": "launchd",
         "cron_mode": "apply",
         "schedule_label": "주 1회 (토)",
         "long_description": "LLM 분류 시 저장되는 freeze 아티팩트(zip)를 정리해 디스크를 회수합니다.\n\n삭제 조건 (모두 충족해야 삭제):\n- frozen_at 이 보존 기간(기본 90일) 경과\n- 그 종목의 최신 weekly_classification 이 entry/watch 가 아님 (활성 종목 보호)\n- (종목, stage) 그룹의 최신 freeze 는 classification 무관하게 항상 보존\n\n미리보기(dry-run)는 삭제 후보 수만 계산하고, 실제 삭제(--apply)는 아티팩트 파일 삭제 + DB 행 삭제를 함께 수행합니다. LLM 호출 없음.\n\ncron 은 실제 삭제(--apply) 로 등록됩니다 — dry-run cron 은 retention 을 수행하지 않아 무의미하기 때문. UI 기본 모드는 안전한 미리보기입니다.\n\n선행 작업: llm-full-daily, llm-weekend (freeze 생성 주체)\n후속 작업: 없음",
@@ -347,6 +376,8 @@ def get_default_cron_lines() -> list[str]:
     for spec in PIPELINE_SPECS:
         if not spec.get("default_cron"):
             continue  # 수동 전용 파이프라인(빈 cron)은 등록 안 함
+        if spec.get("scheduler") == "launchd":
+            continue  # #88: launchd 소유 잡 — cron 라인 방출 중단(이중 등록 방지)
         cron_mode_id = spec.get("cron_mode")
         if cron_mode_id:
             default_mode = next(m for m in spec["modes"] if m["id"] == cron_mode_id)

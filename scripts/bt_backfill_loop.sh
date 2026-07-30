@@ -55,7 +55,12 @@ while true; do
 
   # 고아 claude 정리(직전 트립의 잔재) — cron LLM dry-run 전제(파일 상단 주석)
   if pgrep -f "$CLAUDE_SIG" >/dev/null 2>&1; then
-    pkill -TERM -f "$CLAUDE_SIG" 2>/dev/null; log "cleaned orphan claude calls"
+    LLM_LOCK="/tmp/kr-by-claude-locks/llm.d"  # #88 실전 LLM 상호배제
+    if [ -d "$LLM_LOCK" ] && kill -0 "$(cat "$LLM_LOCK/pid" 2>/dev/null)" 2>/dev/null; then
+      echo "[$(date '+%F %T')] 실전 LLM 진행 중(llm.lock) — pkill 생략"
+    else
+      pkill -TERM -f "$CLAUDE_SIG"
+    fi
   fi
 
   out=$(mktemp)

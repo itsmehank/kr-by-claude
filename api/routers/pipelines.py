@@ -87,6 +87,7 @@ def get_pipeline_detail(pipeline_id: str, conn: Connection = Depends(get_conn)):
         "module": spec["module"],
         "schedule_label": spec["schedule_label"],
         "default_cron": spec["default_cron"],
+        "scheduler": spec.get("scheduler", "cron"),
         "inputs": spec["inputs"],
         "outputs": spec["outputs"],
         "depends_on": depends_on,

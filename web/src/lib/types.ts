@@ -193,6 +193,7 @@ export interface PipelineSummary {
     duration_seconds: number | null;
   } | null;
   next_scheduled: string | null;
+  scheduler?: string;  // #88: "launchd" | "cron" | "embedded-in-full-daily"
   modes: PipelineMode[];
 }
 

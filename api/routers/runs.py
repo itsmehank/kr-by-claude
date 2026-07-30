@@ -125,9 +125,13 @@ def get_summary(conn: Connection = Depends(get_conn)):
                 "description": spec["description"],
                 "module": spec["module"],
                 "cron_expression": spec["default_cron"],
+                "scheduler": spec.get("scheduler", "cron"),
                 "schedule_label": spec["schedule_label"],
                 "last_run": last_run,
-                "next_scheduled": _next_scheduled(spec["default_cron"]),
+                # #88: launchd 소유 잡은 cron 계산식이 거짓값(체인 순차·catch-up·RunAtLoad
+                # 미반영) — None 으로 두고 schedule_label 이 사람용 설명을 담당
+                "next_scheduled": (None if spec.get("scheduler") == "launchd"
+                                   else _next_scheduled(spec["default_cron"])),
                 "modes": spec["modes"],
             })
     return {"pipelines": result}
