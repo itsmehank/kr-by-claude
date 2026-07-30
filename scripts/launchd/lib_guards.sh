@@ -23,12 +23,14 @@ db_query() {
 
 # 대상 거래일(ELTD). 실패 시 빈 문자열(호출부 fail-closed).
 eltd() {
+  # config import = .env 로드(KRX 인증 — 미로드 시 pykrx 에러 문구가 stdout 오염, 07-31 실전 발견)
   uv run python -c "
+from kr_pipeline.common import config  # noqa: F401 — load_dotenv
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from kr_pipeline.common.trading_calendar import expected_latest_trading_day
 print(expected_latest_trading_day(datetime.now(ZoneInfo('Asia/Seoul'))))
-" 2>/dev/null
+" 2>/dev/null | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
 }
 
 # 장중(09:00~16:59) = 0(차단), 그 외 = 1(허용)
