@@ -35,7 +35,9 @@ print(expected_latest_trading_day(datetime.now(ZoneInfo('Asia/Seoul'))))
 
 # 장중(09:00~16:59) = 0(차단), 그 외 = 1(허용)
 intraday_lock() {
-  local h; h=$(date +%H)
+  local h d; h=$(date +%H); d=$(date +%w)
+  # 주말(토·일)은 장이 없어 부분봉 위험 없음 — 차단 면제(08-01 실전 발견)
+  [ "$d" = "0" ] || [ "$d" = "6" ] && return 1
   [ "$h" -ge 9 ] && [ "$h" -lt 17 ]
 }
 
