@@ -25,12 +25,14 @@ log "대상 거래일 ELTD=$ELTD"
 if ! acquire_lock data 3600; then log "data 락 획득 실패(1h) — 중단"; exit 1; fi
 
 # ── 1. 데이터 체인 (멱등: 지표 최신일 >= ELTD 면 완료)
-MAXI=$(db_query "SELECT COALESCE(MAX(date)::text,'0001-01-01') FROM daily_indicators") || { log "DB 조회 실패 — fail-closed 중단"; exit 1; }
-if [ "$MAXI" \< "$ELTD" ]; then
-  log "데이터 체인 실행 (지표 최신 $MAXI < $ELTD)"
+# 몫 판정 = 해당일 지표 "행 수"(완전성) — MAX(date) 는 부분행(실패 런 잔재)에 속는다
+# (08-01~03 실증: 부분행 2~3개가 밤새 만회를 skip 시키고 주말 체인을 오염 통과시킴, #90)
+NIND=$(db_query "SELECT COUNT(*) FROM daily_indicators WHERE date='$ELTD'") || { log "DB 조회 실패 — fail-closed 중단"; exit 1; }
+if [ "$NIND" -lt 2200 ]; then
+  log "데이터 체인 실행 (ELTD=$ELTD 지표 $NIND행 < 2200)"
   uv run python -m kr_pipeline.pipeline --chain=daily || { log "데이터 체인 실패 — 후속 중단"; exit 1; }
 else
-  log "데이터 몫 완료(지표 최신 $MAXI) — skip"
+  log "데이터 몫 완료($ELTD 지표 $NIND행) — skip"
 fi
 
 # ── 2. 포지션 일일 평가 (내부 (position_id, eval_date) 멱등)
