@@ -11,7 +11,11 @@ from kr_pipeline.universe.transform import filter_common_stocks
 from kr_pipeline.universe.store import upsert_stocks
 
 
-pytestmark = pytest.mark.integration
+# krx 마커 = 실제 KRX 접촉(#92). 기본 실행에서 제외되며
+# KR_ALLOW_KRX=1 uv run pytest -m krx 로만 실행한다.
+# integration 마커를 통째로 제외하면 KRX 와 무관한 Postgres 전용 통합 테스트 13개가
+# 함께 죽으므로, KRX 를 실제로 타는 이 파일에만 별도 마커를 붙인다.
+pytestmark = [pytest.mark.integration, pytest.mark.krx]
 
 
 def test_universe_then_ohlcv_incremental_smoke(test_db_url):

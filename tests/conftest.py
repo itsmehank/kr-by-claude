@@ -9,6 +9,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ── KRX 자격증명 무력화 (#92) ────────────────────────────────────────
+# pykrx 는 import 시점에 build_krx_session() 을 호출해 KRX 로 로그인 POST 를 보낸다
+# (pykrx/website/comm/webio.py:12). 자격증명이 falsy 면 HTTP 없이 None 을 반환하므로
+# (comm/auth.py:176-181) 테스트 모듈 import 전에 여기서 값을 비운다. conftest 는
+# 테스트 수집보다 먼저 로드되므로 순서가 보장된다.
+#
+# ⚠️ pop 하면 안 된다 — kr_pipeline/common/config.py:5 가 import 시 load_dotenv() 를
+# 다시 돌리고, dotenv 는 "키가 os.environ 에 없을 때만" 주입하므로(dotenv/main.py:105)
+# 제거한 값이 복원된다. 키는 남기고 값만 비운다.
+#
+# 라이브 호출이 필요한 실행만 KR_ALLOW_KRX=1 로 명시 해제한다.
+if os.environ.get("KR_ALLOW_KRX") != "1":
+    os.environ["KRX_ID"] = ""
+    os.environ["KRX_PW"] = ""
+
 SCHEMA_PATH = Path(__file__).parent.parent / "kr_pipeline" / "db" / "schema.sql"
 
 
