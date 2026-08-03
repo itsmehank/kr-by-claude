@@ -10,9 +10,14 @@ LOCK_DIR="/tmp/kr-by-claude-locks"
 mkdir -p "$LOCK_DIR"
 # ── #92: 접촉 빈도 제한 설정 ──────────────────────────────────────
 KR_DB="${KR_DB:-kr_pipeline}"
-# ${HOME:-/tmp} — plist EnvironmentVariables 에는 PATH·KR_REPO 만 있어 HOME 이 없을 수
-# 있고, 이 파일은 set -u 라 무방비 참조 시 source 자체가 죽는다(log() 정의 전이라 무음).
-ELTD_CACHE="${ELTD_CACHE:-${HOME:-/tmp}/.kr-by-claude/state/eltd.cache}"
+# 홈 경로는 **Python 의 Path.expanduser() 와 반드시 같은 값**이어야 한다 — 갈리면 체인(Python)이
+# 쓴 캐시를 감시(bash)가 못 읽어 영구 미스가 되고 결측 감시가 조용히 죽는다.
+# expanduser 는 HOME 이 없으면 passwd 로 폴백하는데, bash 의 `cd ~` 도 동일하게 동작한다(실측).
+# set -u 라 bare $HOME 참조는 금지(log() 정의 전이라 무음 사망).
+_KR_HOME="${HOME:-}"
+[ -n "$_KR_HOME" ] || _KR_HOME=$(cd ~ 2>/dev/null && pwd -P) || _KR_HOME=""
+[ -n "$_KR_HOME" ] || _KR_HOME=/tmp
+ELTD_CACHE="${ELTD_CACHE:-$_KR_HOME/.kr-by-claude/state/eltd.cache}"
 ELTD_STALE_SEC="${ELTD_STALE_SEC:-108000}"        # 30h — 금 저녁→월 저녁 간격 허용
 ATTEMPT_MAX_DEFAULT="${ATTEMPT_MAX_DEFAULT:-2}"
 # 6h — 실측: 08-01 두 스윕 간격이 5h57m 이라 4h 게이트로는 통과한다.
@@ -122,6 +127,10 @@ has_running_recent() {
 # 인프라 장애를 rate-limit 판단으로 은폐하지 않는다).
 attempt_allowed() {
   local pl="$1" mx="${2:-$ATTEMPT_MAX_DEFAULT}" gp="${3:-$ATTEMPT_GAP_DEFAULT}" row n age
+  # 인자 검증 — 비숫자면 `[ x -ge y ]` 가 오류로 false 가 되어 **fail-open** 한다.
+  # 재차단을 막는 가드가 오타 하나로 조용히 무력화되면 안 되므로 fail-closed 로 차단한다.
+  case "$mx" in ''|*[!0-9]*) log "$pl 시도 상한 인자 비정상(max=$mx) — fail-closed 차단"; return 1;; esac
+  case "$gp" in ''|*[!0-9]*) log "$pl 시도 상한 인자 비정상(gap=$gp) — fail-closed 차단"; return 1;; esac
   row=$(db_query "SELECT COUNT(*)||' '||COALESCE(FLOOR(EXTRACT(EPOCH FROM (now() - MAX(started_at))))::bigint, 999999) FROM pipeline_runs WHERE pipeline='$pl' AND started_at >= date_trunc('day', now())") \
     || { log "시도 이력 조회 불가(DB) — fail-closed 중단"; exit 1; }
   row=${row%%$'\n'*}          # db_query 가 2>&1 라 NOTICE 가 섞여 다줄이 될 수 있다

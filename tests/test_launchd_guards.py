@@ -98,6 +98,59 @@ def test_lib_guards_survives_unset_home():
     assert "REACHED_END" in r.stdout, f"source 실패 stderr={r.stderr!r}"
 
 
+def _bash_cache_path(env_extra: dict | None = None, drop_home: bool = False) -> str:
+    env = {k: v for k, v in os.environ.items() if not (drop_home and k == "HOME")}
+    env["KR_REPO"] = str(REPO)
+    env.pop("ELTD_CACHE", None)          # 기본값을 보려면 오버라이드를 걷어야 한다
+    if env_extra:
+        env.update(env_extra)
+    r = subprocess.run(
+        ["bash", "-c", f"source '{GUARDS}'\nprintf '%s' \"$ELTD_CACHE\""],
+        capture_output=True, text=True, env=env,
+    )
+    return r.stdout.strip()
+
+
+def _python_cache_path(drop_home: bool = False) -> str:
+    env = {k: v for k, v in os.environ.items() if not (drop_home and k == "HOME")}
+    env["KRX_ID"] = ""
+    env["KRX_PW"] = ""
+    env.pop("ELTD_CACHE", None)
+    # pykrx 가 import 시 stdout 에 로그인 문구를 print 하므로 접두어로 골라낸다
+    r = subprocess.run(
+        [os.sys.executable, "-c",
+         "from kr_pipeline.common.trading_calendar import eltd_cache_path;"
+         "print('PATH=' + str(eltd_cache_path()))"],
+        capture_output=True, text=True, env=env, cwd=str(REPO),
+    )
+    for line in r.stdout.splitlines():
+        if line.startswith("PATH="):
+            return line[len("PATH="):].strip()
+    raise AssertionError(f"경로를 얻지 못했다 stdout={r.stdout!r} stderr={r.stderr!r}")
+
+
+@pytest.mark.parametrize("drop_home", [False, True], ids=["home-set", "home-unset"])
+def test_bash_and_python_cache_paths_agree(drop_home):
+    """bash(감시)와 Python(체인)의 기본 캐시 경로가 같아야 한다.
+
+    갈리면 체인이 쓴 캐시를 감시가 못 읽어 **영구 미스**가 되고 결측 감시가 조용히 죽는다.
+    Python 의 Path.expanduser() 는 HOME 이 없으면 passwd 로 폴백하므로 bash 도 `cd ~` 로
+    같은 폴백을 해야 한다(초안의 `${HOME:-/tmp}` 는 여기서 갈렸다).
+    """
+    assert _bash_cache_path(drop_home=drop_home) == _python_cache_path(drop_home=drop_home)
+
+
+def test_attempt_allowed_fails_closed_on_bad_args(runs_conn):
+    """상한 인자가 비숫자면 차단한다.
+
+    `[ x -ge y ]` 는 비숫자에서 오류로 false 가 되어 fail-**open** 한다 —
+    재차단을 막는 가드가 오타 하나로 조용히 무력화되면 안 된다.
+    """
+    for bad in ("attempt_allowed guardtest abc 0", "attempt_allowed guardtest 2 xyz"):
+        r = run_guard(f"{bad} && echo ALLOW || echo BLOCK", _kr_db())
+        assert "BLOCK" in r.stdout, f"{bad!r} 가 ALLOW 됐다 stdout={r.stdout!r}"
+
+
 # ─── 시도 상한 ─────────────────────────────────────────────────────
 
 @pytest.fixture
