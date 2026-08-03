@@ -26,11 +26,11 @@ alert() { # $1=dedupe_key $2=message (키는 날짜 무관 — 메시지에 대�
 }
 
 # DB 불통 자체가 이상 — psql_req(exit) 대신 직접 확인 후 알림
-if ! psql -d kr_pipeline -Atc "SELECT 1" >/dev/null 2>&1; then
-  alert "db_down.$(date +%Y%m%d%H)" "kr_pipeline DB 조회 실패"
+if ! psql -d "$KR_DB" -Atc "SELECT 1" >/dev/null 2>&1; then
+  alert "db_down.$(date +%Y%m%d%H)" "$KR_DB DB 조회 실패"
   exit 0
 fi
-q() { psql -d kr_pipeline -Atc "$1" 2>/dev/null; }
+q() { psql -d "$KR_DB" -Atc "$1" 2>/dev/null; }
 
 # ── wake 유예: 완전 기상(Wake from) 20분 내면 miss.* 만 보류 (DarkWake 는 제외)
 GRACE=0
@@ -56,9 +56,13 @@ done
 
 [ "$GRACE" = "1" ] && exit 0
 
-# ── 3. 저녁 몫 결측 — ELTD 기준(요일·시각 게이트 없음: 어제 저녁 통째 수면도 탐지)
-E=$(eltd)
-if [ -n "$E" ]; then
+# ── 3. 저녁 몫 결측 — 캐시 최신 1건 기준. 라이브 조회하지 않는다(#92).
+#    캐시는 체인이 발화할 때마다 갱신된다(공휴일에도 평일 스케줄로 발화 → 갱신).
+#    따라서 "캐시가 오래 안 갱신됐다" = "체인이 안 돌았다" 이고, 그 자체가 결측 신호다.
+CACHED=$(eltd_cached_latest) || CACHED=""
+E=""; AGE=999999
+if [ -n "$CACHED" ]; then E=${CACHED%% *}; AGE=${CACHED##* }; fi
+if [ -n "$E" ] && [ "$AGE" -lt "$ELTD_STALE_SEC" ]; then
   DUE=$(q "SELECT (now() >= '$E'::date + interval '21 hours')::int")   # 대상일 21시 이후부터 판정
   if [ "$DUE" = "1" ]; then
     MAXI=$(q "SELECT COALESCE(MAX(date)::text,'0001-01-01') FROM daily_indicators")
@@ -69,7 +73,14 @@ if [ -n "$E" ]; then
     [ "${N:-0}" -gt 0 ] || alert "miss.eval.$E" "포지션 일일 평가 미실행 (대상 $E — 소급 불가 항목)"
   fi
 else
-  alert "eltd_fail.$(date +%Y%m%d)" "거래 캘린더(ELTD) 조회 실패 — 결측 판정 불가"
+  # 캐시가 오래 안 갱신됐거나 없음 = 체인 미발화 의심.
+  # ⚠️ 체인 잡이 로드돼 있을 때만 알림한다 — bootout 상태(의도적 중단, 또는 "감시만 먼저
+  #   재개"하는 재개 절차 중)에서는 정보량 0인 소음이 평일마다 울린다.
+  DOW_S=$(date +%w); HOUR_S=$(date +%H)
+  if [ "$DOW_S" != "0" ] && [ "$DOW_S" != "6" ] && [ "$HOUR_S" -ge 21 ] \
+     && launchctl list com.krbyclaude.evening-chain >/dev/null 2>&1; then
+    alert "eltd_stale.$(date +%Y%m%d)" "ELTD 캐시 미갱신(${AGE}s) — 저녁 체인 미실행 의심(라이브 조회 없음)"
+  fi
 fi
 
 # ── 4. 아침 공시 몫 (평일 09시 이후)

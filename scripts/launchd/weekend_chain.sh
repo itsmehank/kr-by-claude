@@ -23,6 +23,11 @@ if intraday_lock; then log "락 대기 중 장중 진입 — 중단(다음 슬�
 # ── 1. 주봉 데이터 체인 (실측 2h08m)
 if has_success_since data_weekly "$ANCHOR" incremental; then
   log "주봉 데이터 몫 완료 — skip"
+elif has_running_recent data_weekly 6; then
+  # #92: LLM 단계엔 있는 가드가 주봉 단계엔 없어서 08-01 16:30 좌초 → 08-03 07:06 전량 재스윕
+  log "data_weekly running 중 — 이중 스윕 방지 skip"
+elif ! attempt_allowed data_weekly 1 43200; then
+  log "주봉 데이터 미완료이나 시도 상한/백오프 — skip"
 else
   log "주봉 데이터 체인 실행"
   uv run python -m kr_pipeline.pipeline --chain=weekly || { log "주봉 체인 실패 — 후속 중단"; exit 1; }

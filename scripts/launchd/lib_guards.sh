@@ -8,6 +8,15 @@ REPO="${KR_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 # (bt_backfill_loop_c.sh 의 기존 교훈과 동일)
 LOCK_DIR="/tmp/kr-by-claude-locks"
 mkdir -p "$LOCK_DIR"
+# ── #92: 접촉 빈도 제한 설정 ──────────────────────────────────────
+KR_DB="${KR_DB:-kr_pipeline}"
+# ${HOME:-/tmp} — plist EnvironmentVariables 에는 PATH·KR_REPO 만 있어 HOME 이 없을 수
+# 있고, 이 파일은 set -u 라 무방비 참조 시 source 자체가 죽는다(log() 정의 전이라 무음).
+ELTD_CACHE="${ELTD_CACHE:-${HOME:-/tmp}/.kr-by-claude/state/eltd.cache}"
+ELTD_STALE_SEC="${ELTD_STALE_SEC:-108000}"        # 30h — 금 저녁→월 저녁 간격 허용
+ATTEMPT_MAX_DEFAULT="${ATTEMPT_MAX_DEFAULT:-2}"
+# 6h — 실측: 08-01 두 스윕 간격이 5h57m 이라 4h 게이트로는 통과한다.
+ATTEMPT_GAP_DEFAULT="${ATTEMPT_GAP_DEFAULT:-21600}"
 cd "$REPO" || exit 1
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
@@ -17,7 +26,7 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >&2; }  # stdout 은 값 캡처
 # 2회차 검토 차단). 호출부가 반드시 `|| exit 1` 로 fail-closed 처리한다.
 db_query() {
   local out
-  out=$(psql -d kr_pipeline -Atc "$1" 2>&1) || { log "DB 조회 실패: ${out:0:120}"; return 1; }
+  out=$(psql -d "$KR_DB" -Atc "$1" 2>&1) || { log "DB 조회 실패: ${out:0:120}"; return 1; }
   echo "$out"
 }
 
@@ -31,6 +40,25 @@ from zoneinfo import ZoneInfo
 from kr_pipeline.common.trading_calendar import expected_latest_trading_day
 print(expected_latest_trading_day(datetime.now(ZoneInfo('Asia/Seoul'))))
 " 2>/dev/null | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+}
+
+# 캐시 최신 1건과 그 나이(초)를 "<date> <age_sec>" 로 출력. 미스/손상이면 rc=1.
+#
+# ⚠️ 순수 bash 로 구현한다. Python 을 태우면 안 된다 —
+#   trading_calendar.py:10 → ohlcv/fetch.py:9 → pykrx → webio.py:12 build_krx_session()
+#   이므로 "캐시만 읽는" 호출이 매시간 KRX 로그인 POST 를 낸다(#92 실측 확인).
+# ⚠️ 정확일치 키로 읽지 않는다. 캐시를 쓰는 주체는 저녁 체인(키 D:post)뿐이라
+#   D+1 00:00~16:59 의 키 D+1:pre 는 항상 미스가 되는데, 그 17시간이 바로
+#   "어제 저녁 통째 수면"을 탐지해야 하는 구간이다(#88 의 존재 이유).
+#   최신 1건 + 파일 나이로 읽어 KRX 접촉 0과 24시간 커버리지를 동시에 만족시킨다.
+#   시각 판정은 호출부의 DUE 게이트(대상일 +21h)가 담당한다.
+eltd_cached_latest() {
+  local v m
+  [ -f "$ELTD_CACHE" ] || return 1
+  v=$(tail -1 "$ELTD_CACHE" 2>/dev/null | cut -d'|' -f2)
+  case "$v" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) return 1 ;; esac
+  m=$(stat -f %m "$ELTD_CACHE" 2>/dev/null) || return 1
+  echo "$v $(( $(date +%s) - m ))"
 }
 
 # 장중(09:00~16:59) = 0(차단), 그 외 = 1(허용)
@@ -84,6 +112,27 @@ has_running_recent() {
   n=$(db_query "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='$1' AND status='running' AND started_at >= now() - interval '$2 hours'") \
     || { log "running 판정 불가(DB) — fail-closed 중단"; exit 1; }
   [ "$n" -gt 0 ]
+}
+
+# 대량 외부 호출 파이프라인의 시도 허용 판정 — #92 재탐지 방지.
+# 사용: attempt_allowed <pipeline> [max_per_day] [min_gap_sec]
+# 이력은 pipeline_runs(성공·실패 모두 기록. run_tracking 이 start_run+commit 을 yield 앞에서
+# 수행하므로 스윕 시작 전에 행이 열린다 → 진행 중 실행도 보인다).
+# rc=0 허용 / rc=1 상한·백오프. DB 실패는 exit 1(기존 has_success_since 관례와 일치 —
+# 인프라 장애를 rate-limit 판단으로 은폐하지 않는다).
+attempt_allowed() {
+  local pl="$1" mx="${2:-$ATTEMPT_MAX_DEFAULT}" gp="${3:-$ATTEMPT_GAP_DEFAULT}" row n age
+  row=$(db_query "SELECT COUNT(*)||' '||COALESCE(FLOOR(EXTRACT(EPOCH FROM (now() - MAX(started_at))))::bigint, 999999) FROM pipeline_runs WHERE pipeline='$pl' AND started_at >= date_trunc('day', now())") \
+    || { log "시도 이력 조회 불가(DB) — fail-closed 중단"; exit 1; }
+  row=${row%%$'\n'*}          # db_query 가 2>&1 라 NOTICE 가 섞여 다줄이 될 수 있다
+  n=${row%% *}; age=${row##* }
+  if [ "$n" -ge "$mx" ]; then
+    log "$pl 일일 시도 상한 도달($n/$mx) — skip"; return 1
+  fi
+  if [ "$n" -gt 0 ] && [ "$age" -lt "$gp" ]; then
+    log "$pl 직전 시도 후 ${age}s < ${gp}s — skip(백오프)"; return 1
+  fi
+  return 0
 }
 
 last_saturday_expr() {

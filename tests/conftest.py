@@ -59,6 +59,19 @@ def _setup_schema(test_db_url):
     )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_eltd_cache(tmp_path, monkeypatch):
+    """#92: ELTD 파일 캐시를 테스트별로 격리.
+
+    필요한 이유 둘:
+    ① 신규 캐시 테스트끼리 같은 키를 공유한다 — test_failure_is_not_cached 가
+       "캐시 없음"을 단정하는데 test_expected_latest_writes_cache 가 먼저 같은 키
+       (2026-06-10:post)를 쓰면 정의 순서상 확실히 깨진다(실행 순서 = 파일 정의 순).
+    ② 격리가 없으면 suite 가 운영 캐시(~/.kr-by-claude/state/eltd.cache)를 오염시킨다.
+    """
+    monkeypatch.setenv("ELTD_CACHE", str(tmp_path / "eltd.cache"))
+
+
 @pytest.fixture
 def db(test_db_url):
     """매 테스트마다 트랜잭션 → ROLLBACK 으로 격리."""
