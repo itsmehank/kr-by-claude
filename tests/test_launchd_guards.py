@@ -279,23 +279,63 @@ def test_eltd_cache_fresh_today_boundary(tmp_path):
     assert "STALE" in r.stdout, "캐시 없음이 fresh 로 판정됐다"
 
 
-def test_eltd_cache_older_than_yesterday17(tmp_path):
-    """어제 17시 이전 기록 = 어제 저녁 결측 → 아침에도 알림(1회 검토 보완).
+# 요일별 결정론 검증 — 함수 내부의 `date` 를 셰도잉해 "오늘"을 고정한다.
+# (실행 요일에 따라 결과가 달라지면 flaky — 월요일 오탐이 3차 커밋에서 이렇게 숨었다)
+_DATE_SHADOW = """date() {{
+  case "$*" in
+    "+%w") echo {dow};;
+    "-j -v-1d +%F") echo {d1};;
+    "-j -v-3d +%F") echo {d3};;
+    *) command date "$@";;
+  esac
+}}
+eltd_cache_older_than_prev_workday17 && echo OLD || echo OK"""
 
-    캐시 없음은 '오래됨'으로 치지 않는다 — 재개 당일 아침 오탐 방지.
+
+def _shadow(dow: int, d1: str, d3: str) -> str:
+    return _DATE_SHADOW.format(dow=dow, d1=d1, d3=d3)
+
+
+def test_older_than_prev_workday17_monday_normal_weekend_is_ok(tmp_path):
+    """정상 주말(금 18:30 기록) 뒤 월요일 아침 → 오탐 없어야 한다.
+
+    기준이 단순 '어제(일요일) 17시'면 금 18:30 < 일 17:00 이라 매주 월요일 오탐
+    (4차 전체검토 실측 재현). 월요일의 기준은 직전 평일 = 금요일 17시다.
     """
-    from datetime import datetime, time, timedelta, date as _date
+    cache = tmp_path / "eltd.cache"
+    cache.write_text("2026-08-07:post|2026-08-07\n")
+    _set_mtime(cache, __import__("datetime").datetime(2026, 8, 7, 18, 30))  # 금 18:30
+    r = run_guard(_shadow(1, "2026-08-09", "2026-08-07"), {"ELTD_CACHE": str(cache)})
+    assert "OK" in r.stdout, f"정상 주말이 월요일 아침 오탐: {r.stdout!r} {r.stderr!r}"
+
+
+def test_older_than_prev_workday17_monday_catches_weekend_outage(tmp_path):
+    """목요일에 멈춘 캐시 → 월요일 아침 알림(금요일 저녁까지 통째 결측)."""
+    cache = tmp_path / "eltd.cache"
+    cache.write_text("2026-08-06:post|2026-08-06\n")
+    _set_mtime(cache, __import__("datetime").datetime(2026, 8, 6, 18, 30))  # 목 18:30
+    r = run_guard(_shadow(1, "2026-08-09", "2026-08-07"), {"ELTD_CACHE": str(cache)})
+    assert "OLD" in r.stdout, f"주말 통째 결측을 월요일 아침에 못 잡음: {r.stdout!r}"
+
+
+def test_older_than_prev_workday17_tuesday(tmp_path):
+    """화요일: 월 18:30 기록 = 정상(OK), 금 18:30 에 멈춤 = 월요일 결측(OLD)."""
+    from datetime import datetime as _dt
 
     cache = tmp_path / "eltd.cache"
-    cache.write_text("2026-08-03:post|2026-08-03\n")
+    cache.write_text("2026-08-10:post|2026-08-10\n")
     env = {"ELTD_CACHE": str(cache)}
-    _set_mtime(cache, datetime.combine(_date.today() - timedelta(days=3), time(18, 30)))
-    r = run_guard("eltd_cache_older_than_yesterday17 && echo OLD || echo OK", env)
-    assert "OLD" in r.stdout, f"3일 전 기록이 OLD 가 아니다: {r.stdout!r}"
-    _set_mtime(cache, datetime.combine(_date.today() - timedelta(days=1), time(18, 30)))
-    r = run_guard("eltd_cache_older_than_yesterday17 && echo OLD || echo OK", env)
-    assert "OK" in r.stdout, f"어제 저녁 기록(정상)이 OLD 로 오판: {r.stdout!r}"
-    r = run_guard("eltd_cache_older_than_yesterday17 && echo OLD || echo OK",
+    _set_mtime(cache, _dt(2026, 8, 10, 18, 30))          # 월 18:30 — 정상
+    r = run_guard(_shadow(2, "2026-08-10", "2026-08-08"), env)
+    assert "OK" in r.stdout, f"정상 화요일 아침 오탐: {r.stdout!r}"
+    _set_mtime(cache, _dt(2026, 8, 7, 18, 30))           # 금 18:30 — 월요일 결측
+    r = run_guard(_shadow(2, "2026-08-10", "2026-08-08"), env)
+    assert "OLD" in r.stdout, f"월요일 결측을 화요일 아침에 못 잡음: {r.stdout!r}"
+
+
+def test_older_than_prev_workday17_absent_cache_is_ok(tmp_path):
+    """캐시 없음은 '오래됨'으로 치지 않는다 — 재개 당일 아침 오탐 방지."""
+    r = run_guard("eltd_cache_older_than_prev_workday17 && echo OLD || echo OK",
                   {"ELTD_CACHE": str(tmp_path / "absent.cache")})
     assert "OK" in r.stdout, "캐시 없음이 OLD 로 판정 — 재개 당일 아침 오탐"
 

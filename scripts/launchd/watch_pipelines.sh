@@ -78,16 +78,18 @@ if [ -n "$E" ] && eltd_cache_fresh_today; then
   fi
 else
   # 체인 미발화 의심. 알림 시점 = ①당일 21시 이후(저녁 슬롯이 지났는데 미갱신)
-  # ②캐시가 어제 17시보다 오래됨(어제 저녁 통째 결측 — 아침에도 즉시. 3차 1회검토 보완:
+  # ②캐시가 직전 평일 17시보다 오래됨(그 저녁 통째 결측 — 아침에도 즉시. 3차 보완:
   #   이 조건이 없으면 "화 저녁 수면 → 수 아침 기상" 에서 수요일 체인이 성공하는 순간
-  #   화요일 daily-eval(소급 불가) 소실이 영구 무알림이 된다).
+  #   화요일 daily-eval(소급 불가) 소실이 영구 무알림이 된다. 기준이 '어제'가 아니라
+  #   '직전 평일'인 이유 = 월요일 오탐 방지, 4차 검토).
   # ⚠️ 체인 잡이 로드돼 있을 때만 알림 — bootout 상태(의도적 중단·재개 절차 중)에서는
   #   정보량 0인 소음이 평일마다 울린다.
   DOW_S=$(date +%w); HOUR_S=$(date +%H)
   if [ "$DOW_S" != "0" ] && [ "$DOW_S" != "6" ] \
-     && { [ "$HOUR_S" -ge 21 ] || eltd_cache_older_than_yesterday17; } \
+     && { [ "$HOUR_S" -ge 21 ] || eltd_cache_older_than_prev_workday17; } \
      && launchctl list com.krbyclaude.evening-chain >/dev/null 2>&1; then
-    alert "eltd_stale.$(date +%Y%m%d)" "ELTD 캐시 미갱신(마지막 ${AGE}s 전) — 저녁 체인 미실행 의심(라이브 조회 없음)"
+    AGE_TXT="마지막 갱신 ${AGE}s 전"; [ "$AGE" = "999999" ] && AGE_TXT="캐시 없음"
+    alert "eltd_stale.$(date +%Y%m%d)" "ELTD 캐시 미갱신($AGE_TXT) — 저녁 체인 미실행 의심(라이브 조회 없음)"
   fi
 fi
 

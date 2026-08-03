@@ -54,10 +54,10 @@ print(expected_latest_trading_day(datetime.now(ZoneInfo('Asia/Seoul'))))
 #   trading_calendar.py:10 → ohlcv/fetch.py:9 → pykrx → webio.py:12 build_krx_session()
 #   이므로 "캐시만 읽는" 호출이 매시간 KRX 로그인 POST 를 낸다(#92 실측 확인).
 # ⚠️ 정확일치 키로 읽지 않는다. 캐시를 쓰는 주체는 저녁 체인(키 D:post)뿐이라
-#   D+1 00:00~16:59 의 키 D+1:pre 는 항상 미스가 되는데, 그 17시간이 바로
-#   "어제 저녁 통째 수면"을 탐지해야 하는 구간이다(#88 의 존재 이유).
-#   최신 1건 + 파일 나이로 읽어 KRX 접촉 0과 24시간 커버리지를 동시에 만족시킨다.
-#   시각 판정은 호출부의 DUE 게이트(대상일 +21h)가 담당한다.
+#   D+1 00:00~16:59 의 키 D+1:pre 는 항상 미스가 된다(#88 이 지키려는 탐지 구간).
+#   값의 신선도 판정은 이 함수가 아니라 eltd_cache_fresh_today(오늘 17시 이후 기록 =
+#   오늘의 목표일) / eltd_cache_older_than_prev_workday17(아침 결측 탐지)가 담당한다
+#   — 값은 "체인이 마지막으로 돈 시점의 목표일"일 뿐이므로(3차 H-1).
 eltd_cached_latest() {
   local v m
   [ -f "$ELTD_CACHE" ] || return 1
@@ -78,15 +78,21 @@ eltd_cache_fresh_today() {
   [ "$m" -ge "$t17" ]
 }
 
-# 캐시가 "어제 17:00 이전"에 멈춰 있는가 — 다음날 아침 결측 탐지(#92 3차 1회검토 보완).
-# 어제 저녁 체인이 정상이었다면 mtime ≥ 어제 17시다. 그보다 오래됐으면 어제 저녁이
+# 캐시가 "직전 평일 17:00 이전"에 멈춰 있는가 — 다음날 아침 결측 탐지(#92 3차 보완).
+# 직전 평일 저녁 체인이 정상이었다면 mtime ≥ 그날 17시다. 그보다 오래됐으면 그 저녁이
 # 통째로 빠진 것이므로 21시를 기다리지 않고 아침에도 알린다(구 라이브 방식과 동일 시점).
+#
+# ⚠️ 기준이 단순 '어제'면 안 된다(4차 전체검토 실측) — 월요일의 어제는 일요일이라,
+#   정상 주말(마지막 기록 = 금 18:30 저녁체인 또는 토 03:00 주말체인)조차 OLD 로 판정돼
+#   **매주 월요일 아침 오탐**이 난다. 월요일만 -3d(금), 그 외 평일 -1d.
+#   주말(토·일)은 호출부의 DOW 게이트가 걸러 이 함수까지 오지 않는다.
 # 캐시 없음은 "오래됨"으로 치지 않는다(rc=1) — 재개 당일 아침 오탐 방지, 21시 경로가 담당.
-eltd_cache_older_than_yesterday17() {
-  local m y17
+eltd_cache_older_than_prev_workday17() {
+  local m p17 off
   m=$(stat -f %m "$ELTD_CACHE" 2>/dev/null) || return 1
-  y17=$(date -j -f "%Y-%m-%d %H:%M:%S" "$(date -j -v-1d +%F) 17:00:00" +%s 2>/dev/null) || return 1
-  [ "$m" -lt "$y17" ]
+  case "$(date +%w)" in 1) off="-3d";; *) off="-1d";; esac
+  p17=$(date -j -f "%Y-%m-%d %H:%M:%S" "$(date -j -v"$off" +%F) 17:00:00" +%s 2>/dev/null) || return 1
+  [ "$m" -lt "$p17" ]
 }
 
 # 장중(09:00~16:59) = 0(차단), 그 외 = 1(허용)
