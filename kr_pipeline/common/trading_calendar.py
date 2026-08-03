@@ -51,7 +51,7 @@ def cached_eltd(now: datetime) -> date | None:
             try:
                 return date.fromisoformat(v)
             except ValueError:
-                return None
+                continue  # 손상 줄은 건너뛴다 — 같은 키의 앞선 유효 줄을 살린다(3차 검토)
     return None
 
 
@@ -73,7 +73,9 @@ def _write_cache(now: datetime, value: date) -> None:
             prev = []
         want = cache_key(now)
         keep = [ln for ln in prev if not ln.startswith(f"{want}|")][-30:]
-        tmp = p.with_name(p.name + ".tmp")
+        # tmp 에 PID — 동시 writer(체인·llm_runner·weekly·웹 UI)가 같은 tmp 를 밟으면
+        # 원자성이 깨진다(3차 검토). replace 는 rename 이라 원자적.
+        tmp = p.with_name(f"{p.name}.{os.getpid()}.tmp")
         tmp.write_text("\n".join(keep + [f"{want}|{value.isoformat()}"]) + "\n")
         tmp.replace(p)
     except Exception as e:  # noqa: BLE001 — 캐시 실패가 ELTD 산출을 막아선 안 된다

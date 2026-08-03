@@ -147,3 +147,29 @@ def test_assert_fresh_falls_back_to_live_on_cache_miss(monkeypatch):
     _patch_fetch(monkeypatch, [], raises=True)
     with pytest.raises(tc.TradingCalendarUnavailable):
         tc.assert_data_fresh(date(2026, 6, 10), datetime(2026, 6, 10, 18, 0))
+
+
+def test_write_cache_keeps_newest_entry_last(monkeypatch, tmp_path):
+    """'마지막 줄 = 최신 항목' 계약 — 감시(bash)의 tail -1 이 이 계약에 의존한다.
+
+    _write_cache 를 정렬/prepend 로 바꾸면 감시가 과거 날짜를 조용히 반환한다(3차 검토).
+    """
+    p = tmp_path / "eltd.cache"
+    monkeypatch.setenv("ELTD_CACHE", str(p))
+    tc._write_cache(datetime(2026, 6, 9, 18, 0), date(2026, 6, 9))
+    tc._write_cache(datetime(2026, 6, 10, 18, 0), date(2026, 6, 10))
+    lines = p.read_text().splitlines()
+    assert lines[-1] == "2026-06-10:post|2026-06-10", f"마지막 줄이 최신이 아니다: {lines}"
+    # 같은 키 재기록도 마지막 줄이 새 값이어야 한다
+    tc._write_cache(datetime(2026, 6, 10, 18, 0), date(2026, 6, 11))
+    lines = p.read_text().splitlines()
+    assert lines[-1] == "2026-06-10:post|2026-06-11"
+    assert len([ln for ln in lines if ln.startswith("2026-06-10:post|")]) == 1
+
+
+def test_cached_eltd_skips_corrupt_line_and_uses_valid_one(monkeypatch, tmp_path):
+    """같은 키의 손상 줄이 뒤에 있어도 앞의 유효 줄을 살린다(3차 검토 — 조기 abort 금지)."""
+    p = tmp_path / "eltd.cache"
+    p.write_text("2026-06-10:post|2026-06-10\n2026-06-10:post|NOTADATE\n")
+    monkeypatch.setenv("ELTD_CACHE", str(p))
+    assert tc.cached_eltd(datetime(2026, 6, 10, 18, 0)) == date(2026, 6, 10)

@@ -1,8 +1,11 @@
 #!/bin/bash
-# watch_pipelines.sh — 파이프라인 감시 (#88 2단계). launchd StartInterval 3600.
+# watch_pipelines.sh — 파이프라인 감시 (#88 2단계 → #92 캐시 전환). launchd StartInterval 3600.
 # PR #89 리뷰 반영: wake 유예는 miss.* 판정만 보류(failed/stuck 은 항상 수행 — 차단 6),
-# 평일 결측 판정은 DOW/HOUR 게이트 대신 ELTD 기준(저녁 통째 수면 시나리오 탐지 — 차단 7),
 # failed/stuck 은 24h 창(자정 롤오버 미탐 방지), DB 자체 불통도 알림.
+# #92: 결측 판정 기준이 라이브 ELTD → **캐시**로 바뀜(KRX 접촉 0). 캐시 값은 "체인이
+# 마지막으로 돈 시점의 목표일"이라 오늘 17시 이후 기록일 때만 miss.* 정밀 판정에 쓰고,
+# 그 외엔 mtime 자체가 신호다(stale 분기). PR #89 가 제거했던 DOW/HOUR 게이트는
+# stale 분기(체인 미발화 알림)에 한정해 부활 — miss.* 판정은 여전히 목표일 기준.
 source "$(dirname "${BASH_SOURCE[0]}")/lib_guards.sh"
 
 STATE_DIR="$HOME/.kr-by-claude/watch_state"
@@ -56,13 +59,14 @@ done
 
 [ "$GRACE" = "1" ] && exit 0
 
-# ── 3. 저녁 몫 결측 — 캐시 최신 1건 기준. 라이브 조회하지 않는다(#92).
+# ── 3. 저녁 몫 결측 — 캐시 기준. 라이브 조회하지 않는다(#92).
 #    캐시는 체인이 발화할 때마다 갱신된다(공휴일에도 평일 스케줄로 발화 → 갱신).
-#    따라서 "캐시가 오래 안 갱신됐다" = "체인이 안 돌았다" 이고, 그 자체가 결측 신호다.
+#    오늘 17시 이후 기록일 때만 캐시 값이 오늘의 목표일이다(3차 H-1) — 어제 기록으로
+#    판정하면 저녁 1회 결측이 조용히 통과한다(실측: E=어제 → miss.* 3종 무발화).
 CACHED=$(eltd_cached_latest) || CACHED=""
 E=""; AGE=999999
 if [ -n "$CACHED" ]; then E=${CACHED%% *}; AGE=${CACHED##* }; fi
-if [ -n "$E" ] && [ "$AGE" -lt "$ELTD_STALE_SEC" ]; then
+if [ -n "$E" ] && eltd_cache_fresh_today; then
   DUE=$(q "SELECT (now() >= '$E'::date + interval '21 hours')::int")   # 대상일 21시 이후부터 판정
   if [ "$DUE" = "1" ]; then
     MAXI=$(q "SELECT COALESCE(MAX(date)::text,'0001-01-01') FROM daily_indicators")
@@ -73,13 +77,17 @@ if [ -n "$E" ] && [ "$AGE" -lt "$ELTD_STALE_SEC" ]; then
     [ "${N:-0}" -gt 0 ] || alert "miss.eval.$E" "포지션 일일 평가 미실행 (대상 $E — 소급 불가 항목)"
   fi
 else
-  # 캐시가 오래 안 갱신됐거나 없음 = 체인 미발화 의심.
-  # ⚠️ 체인 잡이 로드돼 있을 때만 알림한다 — bootout 상태(의도적 중단, 또는 "감시만 먼저
-  #   재개"하는 재개 절차 중)에서는 정보량 0인 소음이 평일마다 울린다.
+  # 체인 미발화 의심. 알림 시점 = ①당일 21시 이후(저녁 슬롯이 지났는데 미갱신)
+  # ②캐시가 어제 17시보다 오래됨(어제 저녁 통째 결측 — 아침에도 즉시. 3차 1회검토 보완:
+  #   이 조건이 없으면 "화 저녁 수면 → 수 아침 기상" 에서 수요일 체인이 성공하는 순간
+  #   화요일 daily-eval(소급 불가) 소실이 영구 무알림이 된다).
+  # ⚠️ 체인 잡이 로드돼 있을 때만 알림 — bootout 상태(의도적 중단·재개 절차 중)에서는
+  #   정보량 0인 소음이 평일마다 울린다.
   DOW_S=$(date +%w); HOUR_S=$(date +%H)
-  if [ "$DOW_S" != "0" ] && [ "$DOW_S" != "6" ] && [ "$HOUR_S" -ge 21 ] \
+  if [ "$DOW_S" != "0" ] && [ "$DOW_S" != "6" ] \
+     && { [ "$HOUR_S" -ge 21 ] || eltd_cache_older_than_yesterday17; } \
      && launchctl list com.krbyclaude.evening-chain >/dev/null 2>&1; then
-    alert "eltd_stale.$(date +%Y%m%d)" "ELTD 캐시 미갱신(${AGE}s) — 저녁 체인 미실행 의심(라이브 조회 없음)"
+    alert "eltd_stale.$(date +%Y%m%d)" "ELTD 캐시 미갱신(마지막 ${AGE}s 전) — 저녁 체인 미실행 의심(라이브 조회 없음)"
   fi
 fi
 

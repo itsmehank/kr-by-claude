@@ -18,7 +18,8 @@ _KR_HOME="${HOME:-}"
 [ -n "$_KR_HOME" ] || _KR_HOME=$(cd ~ 2>/dev/null && pwd -P) || _KR_HOME=""
 [ -n "$_KR_HOME" ] || _KR_HOME=/tmp
 ELTD_CACHE="${ELTD_CACHE:-$_KR_HOME/.kr-by-claude/state/eltd.cache}"
-ELTD_STALE_SEC="${ELTD_STALE_SEC:-108000}"        # 30h — 금 저녁→월 저녁 간격 허용
+# (3차 검토 H-1: ELTD_STALE_SEC(30h) 폐기 — 어떤 시나리오도 근거로 갖지 못한 채
+#  26.5h 탐지 침묵 창만 만들었다. 신선도 판정은 아래 eltd_cache_fresh_today 가 담당.)
 ATTEMPT_MAX_DEFAULT="${ATTEMPT_MAX_DEFAULT:-2}"
 # 6h — 실측: 08-01 두 스윕 간격이 5h57m 이라 4h 게이트로는 통과한다.
 ATTEMPT_GAP_DEFAULT="${ATTEMPT_GAP_DEFAULT:-21600}"
@@ -64,6 +65,28 @@ eltd_cached_latest() {
   case "$v" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) return 1 ;; esac
   m=$(stat -f %m "$ELTD_CACHE" 2>/dev/null) || return 1
   echo "$v $(( $(date +%s) - m ))"
+}
+
+# 캐시가 "오늘 17:00 이후"에 쓰였는가 — 그때만 캐시 값이 **오늘의** 목표일이다(#92 3차 H-1).
+# 캐시 값은 "체인이 마지막으로 돈 시점의 목표일"이라, 어제 기록을 오늘 판정에 쓰면
+# 저녁 1회 결측이 조용히 통과한다(실측: 26.5h 캐시가 E=어제로 miss.* 3종 전부 무발화).
+# rc=0 = fresh(오늘 목표일) / rc=1 = stale 또는 캐시 없음
+eltd_cache_fresh_today() {
+  local m t17
+  m=$(stat -f %m "$ELTD_CACHE" 2>/dev/null) || return 1
+  t17=$(date -j -f "%Y-%m-%d %H:%M:%S" "$(date +%F) 17:00:00" +%s 2>/dev/null) || return 1
+  [ "$m" -ge "$t17" ]
+}
+
+# 캐시가 "어제 17:00 이전"에 멈춰 있는가 — 다음날 아침 결측 탐지(#92 3차 1회검토 보완).
+# 어제 저녁 체인이 정상이었다면 mtime ≥ 어제 17시다. 그보다 오래됐으면 어제 저녁이
+# 통째로 빠진 것이므로 21시를 기다리지 않고 아침에도 알린다(구 라이브 방식과 동일 시점).
+# 캐시 없음은 "오래됨"으로 치지 않는다(rc=1) — 재개 당일 아침 오탐 방지, 21시 경로가 담당.
+eltd_cache_older_than_yesterday17() {
+  local m y17
+  m=$(stat -f %m "$ELTD_CACHE" 2>/dev/null) || return 1
+  y17=$(date -j -f "%Y-%m-%d %H:%M:%S" "$(date -j -v-1d +%F) 17:00:00" +%s 2>/dev/null) || return 1
+  [ "$m" -lt "$y17" ]
 }
 
 # 장중(09:00~16:59) = 0(차단), 그 외 = 1(허용)
@@ -133,8 +156,13 @@ attempt_allowed() {
   case "$gp" in ''|*[!0-9]*) log "$pl 시도 상한 인자 비정상(gap=$gp) — fail-closed 차단"; return 1;; esac
   row=$(db_query "SELECT COUNT(*)||' '||COALESCE(FLOOR(EXTRACT(EPOCH FROM (now() - MAX(started_at))))::bigint, 999999) FROM pipeline_runs WHERE pipeline='$pl' AND started_at >= date_trunc('day', now())") \
     || { log "시도 이력 조회 불가(DB) — fail-closed 중단"; exit 1; }
-  row=${row%%$'\n'*}          # db_query 가 2>&1 라 NOTICE 가 섞여 다줄이 될 수 있다
+  # db_query 가 2>&1 라 psql 경고가 섞이면 다줄이 되는데, 경고는 결과보다 **먼저** 온다(실측).
+  # 첫 줄을 취하면 경고 문장을 파싱해 fail-open 이 된다(3차 검토 H-2) → 마지막 줄이 결과다.
+  row=${row##*$'\n'}
   n=${row%% *}; age=${row##* }
+  # 파싱 결과가 비숫자 = 출력 오염 — DB 실패와 동일하게 fail-closed 중단
+  case "$n" in ''|*[!0-9]*) log "$pl 시도 이력 파싱 실패(n=$n) — fail-closed 중단"; exit 1;; esac
+  case "$age" in ''|*[!0-9]*) log "$pl 시도 이력 파싱 실패(age=$age) — fail-closed 중단"; exit 1;; esac
   if [ "$n" -ge "$mx" ]; then
     log "$pl 일일 시도 상한 도달($n/$mx) — skip"; return 1
   fi

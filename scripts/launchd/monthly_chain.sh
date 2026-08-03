@@ -12,7 +12,7 @@ if ! acquire_lock data 7200; then log "data 락 획득 실패(2h) — 중단"; e
 
 if has_success_since universe "$MONTH_START"; then  # universe 는 단일 mode
   log "universe 이번 달 몫 완료 — skip"
-elif ! attempt_allowed universe 1 86400; then
+elif ! attempt_allowed universe 1; then   # max=1 → 하루 1회. gap 인자는 발화 불가라 제거(3차 검토)
   # #92: 멱등이 성공 기준이라 실패한 달에는 RunAtLoad 발화마다 재시도한다(08-01 실측 실패).
   log "universe 미완료이나 시도 상한/백오프 — skip"
 else

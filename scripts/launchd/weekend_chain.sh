@@ -26,7 +26,7 @@ if has_success_since data_weekly "$ANCHOR" incremental; then
 elif has_running_recent data_weekly 6; then
   # #92: LLM 단계엔 있는 가드가 주봉 단계엔 없어서 08-01 16:30 좌초 → 08-03 07:06 전량 재스윕
   log "data_weekly running 중 — 이중 스윕 방지 skip"
-elif ! attempt_allowed data_weekly 1 43200; then
+elif ! attempt_allowed data_weekly 1; then   # max=1 → 하루 1회. gap 인자는 발화 불가라 제거(3차 검토)
   log "주봉 데이터 미완료이나 시도 상한/백오프 — skip"
 else
   log "주봉 데이터 체인 실행"

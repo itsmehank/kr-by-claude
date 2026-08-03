@@ -249,3 +249,99 @@ def test_no_hardcoded_db_name():
     """DB 이름이 하드코딩되어 있으면 KR_DB 로 테스트할 수 없다."""
     for f in LAUNCHD.glob("*.sh"):
         assert "psql -d kr_pipeline" not in f.read_text(), f"{f.name} 에 하드코딩"
+
+
+# ─── #92 3차 검토 반영: 신선도 판정 · 파싱 방어 · 기본값 고정 ─────────
+
+def _set_mtime(path: Path, dt) -> None:
+    ts = dt.timestamp()
+    os.utime(path, (ts, ts))
+
+
+def test_eltd_cache_fresh_today_boundary(tmp_path):
+    """오늘 17시 이후 기록만 fresh — 어제 기록으로 오늘을 판정하면 결측이 통과한다(H-1)."""
+    from datetime import datetime, time, timedelta, date as _date
+
+    cache = tmp_path / "eltd.cache"
+    cache.write_text("2026-08-03:post|2026-08-03\n")
+    env = {"ELTD_CACHE": str(cache)}
+    cases = [
+        (datetime.combine(_date.today(), time(18, 0)), "FRESH"),               # 오늘 18시
+        (datetime.combine(_date.today(), time(10, 0)), "STALE"),               # 오늘 아침
+        (datetime.combine(_date.today() - timedelta(days=1), time(18, 30)), "STALE"),  # 어제 저녁
+    ]
+    for dt, want in cases:
+        _set_mtime(cache, dt)
+        r = run_guard("eltd_cache_fresh_today && echo FRESH || echo STALE", env)
+        assert want in r.stdout, f"mtime={dt} 기대={want} 실제={r.stdout!r}"
+    r = run_guard("eltd_cache_fresh_today && echo FRESH || echo STALE",
+                  {"ELTD_CACHE": str(tmp_path / "absent.cache")})
+    assert "STALE" in r.stdout, "캐시 없음이 fresh 로 판정됐다"
+
+
+def test_eltd_cache_older_than_yesterday17(tmp_path):
+    """어제 17시 이전 기록 = 어제 저녁 결측 → 아침에도 알림(1회 검토 보완).
+
+    캐시 없음은 '오래됨'으로 치지 않는다 — 재개 당일 아침 오탐 방지.
+    """
+    from datetime import datetime, time, timedelta, date as _date
+
+    cache = tmp_path / "eltd.cache"
+    cache.write_text("2026-08-03:post|2026-08-03\n")
+    env = {"ELTD_CACHE": str(cache)}
+    _set_mtime(cache, datetime.combine(_date.today() - timedelta(days=3), time(18, 30)))
+    r = run_guard("eltd_cache_older_than_yesterday17 && echo OLD || echo OK", env)
+    assert "OLD" in r.stdout, f"3일 전 기록이 OLD 가 아니다: {r.stdout!r}"
+    _set_mtime(cache, datetime.combine(_date.today() - timedelta(days=1), time(18, 30)))
+    r = run_guard("eltd_cache_older_than_yesterday17 && echo OLD || echo OK", env)
+    assert "OK" in r.stdout, f"어제 저녁 기록(정상)이 OLD 로 오판: {r.stdout!r}"
+    r = run_guard("eltd_cache_older_than_yesterday17 && echo OLD || echo OK",
+                  {"ELTD_CACHE": str(tmp_path / "absent.cache")})
+    assert "OK" in r.stdout, "캐시 없음이 OLD 로 판정 — 재개 당일 아침 오탐"
+
+
+def test_attempt_allowed_default_values_pinned():
+    """기본값(하루 2회 · 간격 6h)이 바뀌면 테스트가 알아챈다 — 호출부는 인자 없이 부른다."""
+    text = GUARDS.read_text()
+    assert "ATTEMPT_MAX_DEFAULT:-2}" in text, "기본 상한이 2가 아니다"
+    assert "ATTEMPT_GAP_DEFAULT:-21600}" in text, "기본 간격이 6h(21600)가 아니다"
+
+
+def test_attempt_allowed_no_args_uses_defaults(runs_conn):
+    """인자 없는 호출(evening_chain 의 실제 형태)이 기본 상한 2를 적용한다."""
+    _insert_at(runs_conn, _DAY_START)
+    _insert_at(runs_conn, f"{_DAY_START} + interval '1 minute'")
+    r = run_guard("attempt_allowed guardtest && echo ALLOW || echo BLOCK", _kr_db())
+    assert "BLOCK" in r.stdout, f"stdout={r.stdout!r} stderr={r.stderr!r}"
+
+
+def test_attempt_allowed_takes_last_line_of_db_output(runs_conn):
+    """psql 경고가 결과보다 먼저 와도(실측 순서) 마지막 줄의 결과를 파싱한다(H-2).
+
+    첫 줄을 취하면 경고 문장을 숫자 비교해 오류 → false → **무제한 허용**이 됐다.
+    """
+    stub_ok = (
+        'db_query() { printf "WARNING:  there is no transaction in progress\\n'
+        'ROLLBACK\\n0 999999\\n"; }\n'
+        "attempt_allowed guardtest && echo ALLOW || echo BLOCK"
+    )
+    r = run_guard(stub_ok, _kr_db())
+    assert "ALLOW" in r.stdout, f"오염됐지만 결과는 0회 — 허용이어야 함: {r.stdout!r}"
+
+    stub_cap = (
+        'db_query() { printf "WARNING:  junk\\n2 999999\\n"; }\n'
+        "attempt_allowed guardtest && echo ALLOW || echo BLOCK"
+    )
+    r = run_guard(stub_cap, _kr_db())
+    assert "BLOCK" in r.stdout, f"상한 도달인데 허용됐다(fail-open): {r.stdout!r}"
+
+
+def test_attempt_allowed_garbage_output_fails_closed(runs_conn):
+    """마지막 줄까지 비숫자면 DB 실패와 동일하게 중단한다 — 조용한 허용 금지."""
+    stub = (
+        'db_query() { printf "total garbage output\\n"; }\n'
+        "attempt_allowed guardtest; echo RC=$?"
+    )
+    r = run_guard(stub, _kr_db())
+    assert "RC=" not in r.stdout, f"오염 출력인데 계속 진행: {r.stdout!r}"
+    assert r.returncode == 1

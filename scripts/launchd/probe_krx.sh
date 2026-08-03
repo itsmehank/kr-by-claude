@@ -11,18 +11,24 @@
 # 사용: scripts/launchd/probe_krx.sh
 # 주의: 하루 1회를 넘기지 말 것. 차단 대기 중에는 실행하지 말 것.
 set -u
+# 날짜 가드 — 실행 자체가 재탐지 리스크인 스크립트가 주석으로만 보호되면 안 된다(3차 검토).
+# 차단 대기 종료일(08-06) 전에는 거부. 불가피하면 PROBE_FORCE=1 로 명시 오버라이드.
+if [ "$(date +%Y%m%d)" -lt 20260806 ] && [ "${PROBE_FORCE:-0}" != "1" ]; then
+  echo "[probe] 차단 대기 기간(08-06 전) — 실행 거부. 불가피하면 PROBE_FORCE=1"
+  exit 2
+fi
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO" || exit 1
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
-echo "[probe] 대형주 3종목 최근 5일 원주가 조회"
+echo "[probe] 대형주 3종목 최근 10일 원주가 조회"
 OUT=$(uv run python -c "
 from kr_pipeline.common import config  # noqa: F401 — .env 로드(KRX 인증)
 from datetime import date, timedelta
 from kr_pipeline.ohlcv.fetch import _fetch_one
 
 end = date.today()
-start = end - timedelta(days=5)
+start = end - timedelta(days=10)   # 5일이면 연휴 직후 정상인데도 0행 → 차단 오판(3차 검토)
 ok = 0
 for t in ('005930', '000660', '005380'):
     try:
