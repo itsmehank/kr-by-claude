@@ -30,7 +30,9 @@
 
 **BACKFILL 적용 결정(이슈 할 일 6):** INCREMENTAL·BACKFILL 모두 같은 `_run_upsert` 경로이므로 **둘 다 날짜별로 전환**한다(모드 분기 없음). 요청 수: incremental 30달력일 ≈ 30요청(현행 2,549), backfill 2년 ≈ 730요청(현행 2,549). 두 모드 모두 감소하고 코드 경로가 하나로 유지된다.
 
-**요청 수 주석:** "1~2요청/일"은 신규 1거래일만 증분할 때의 이론치다. 현행 incremental은 30일 window를 매일 재-upsert하므로 실제로는 달력일당 1요청 × ~30 = **~30요청/일**이 된다(그래도 85× 감소). window 축소 최적화는 이 이슈 범위 밖(YAGNI).
+**요청 수 주석:** "1~2요청/일"은 신규 1거래일만 증분할 때의 이론치다. 현행 incremental은 30일 window를 매일 재-upsert하므로 실제로는 평일당 1요청 × ~22 = **~22요청/일**이 된다(주말은 달력으로 skip — 리뷰 반영; 그래도 100×+ 감소). window 축소 최적화는 이 이슈 범위 밖(YAGNI).
+
+**구현 후 독립 리뷰 반영(08-04):** ① 차단 실경로는 pykrx 가 KeyError 로 표면화(빈 DF 분기는 도달 불가) → try/except 정규화로 재시도 증폭(날짜당 3회) 차단 ② 주말 skip(접촉 ~30% 감소) ③ probe: 전종목시세 불통 시 rc=1(재개 오판 방지) ④ adj(Naver) 워커 페이싱 0.15s 복원. pre-existing 발견(adj 빈 DF 시 run 중단, merge_raw_and_adjusted KeyError)은 별도 이슈로 분리.
 
 ---
 

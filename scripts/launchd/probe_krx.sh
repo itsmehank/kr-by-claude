@@ -75,11 +75,13 @@ except Exception as e:  # noqa: BLE001
 " 2>&1)
 echo "$SNAP_OUT" | grep -v '로그인 ID'
 SNAP_ROWS=$(echo "$SNAP_OUT" | grep -E '^SNAP_ROWS ' | awk '{print $2}')
+# #94 이후 재개 경로가 날짜별 수집이므로 스냅샷 불통이면 rc=1 — rc 만 보는 소비자가
+# "개별 조회만 정상" 상태를 재개 가능으로 오판하지 않게 한다.
 if [ -z "$SNAP_ROWS" ] || [ "$SNAP_ROWS" = "-1" ] || [ "$SNAP_ROWS" = "0" ]; then
   echo "[probe] 전종목시세 판정: 불통(0행/오류 — 평일 공휴일이면 오판 가능, 수동 재확인)"
-else
-  echo "[probe] 전종목시세 판정: 통과(${SNAP_ROWS}행) — 날짜별 수집 재개 가능"
+  echo "[probe] 판정: 개별 조회 정상(3/3)이나 전종목시세 불통 — 날짜별 수집 재개 불가"
+  exit 1
 fi
-
-echo "[probe] 판정: 정상(3/3) — 단계적 재개 가능"
+echo "[probe] 전종목시세 판정: 통과(${SNAP_ROWS}행)"
+echo "[probe] 판정: 정상(3/3 + 전종목시세) — 단계적 재개 가능"
 exit 0

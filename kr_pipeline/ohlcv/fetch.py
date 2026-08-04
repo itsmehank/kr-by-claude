@@ -129,10 +129,18 @@ def fetch_market_snapshot(d: date, market: str = "ALL") -> pd.DataFrame:
     - 휴일: KRX 가 전 종목 OHLC=0 행을 반환(빈 DF 아님) → 빈 스냅샷으로 정규화
       (적재 금지 — bad_prices sanity·halt 마커 규약·weekly 파생 오염 방지).
     - 차단/빈 응답: 빈 스냅샷 — 호출자의 empty 계정(P1-5)이 경고로 승격.
+      실경로에선 pykrx wrap 층(@dataframe_empty_handler)이 컬럼 없는 빈 DF 를
+      반환하고 stock_api 의 휴일 판정에서 KeyError 로 표면화된다(08-04 실측)
+      → 여기서 잡아 정규화하고 **재시도하지 않는다**(차단 중 접촉 증폭 방지 —
+      with_retry 는 transport 오류 전용으로 남긴다).
     - 거래정지 행(OHLV=0, close>0)은 그대로 통과 — raw 의 halt 마커 계약이며
       adj NULL 화는 merge_raw_and_adjusted → nullify_halt_adj 가 수행.
     """
-    df = stock.get_market_ohlcv_by_ticker(d.strftime("%Y%m%d"), market=market)
+    try:
+        df = stock.get_market_ohlcv_by_ticker(d.strftime("%Y%m%d"), market=market)
+    except KeyError:
+        log.info(f"snapshot {d}: blocked/empty (pykrx KeyError)")
+        return _empty_snapshot()
     if df.empty:
         log.info(f"snapshot {d}: empty response")
         return _empty_snapshot()
@@ -164,6 +172,9 @@ def fetch_many_datewise(
 
     d = start
     while d <= end:
+        if d.weekday() >= 5:  # 주말 — KRX 접촉 없이 달력으로 확정
+            d += timedelta(days=1)
+            continue
         try:
             snap = fetch_market_snapshot(d)
             if not snap.empty:
@@ -187,10 +198,15 @@ def fetch_many_datewise(
             return got
         return pd.DataFrame(columns=[c for c in SNAPSHOT_COLUMNS if c != "ticker"])
 
+    def _adj_task(t: str) -> pd.DataFrame:
+        adj = _fetch_one(t, start, end, True)
+        time.sleep(0.15)  # 워커당 요청 간격 — 구 fetch_ohlcv_pair 의 페이싱 보존
+        return adj
+
     successes: dict[str, tuple[pd.DataFrame, pd.DataFrame]] = {}
     adj_failures: list[tuple[str, str]] = []
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
-        futures = {ex.submit(_fetch_one, t, start, end, True): t for t in tickers}
+        futures = {ex.submit(_adj_task, t): t for t in tickers}
         for i, fut in enumerate(as_completed(futures), 1):
             ticker = futures[fut]
             try:
@@ -205,7 +221,7 @@ def fetch_many_datewise(
         log.warning(f"Retrying {len(adj_failures)} failed adj tickers")
         for ticker, _ in adj_failures:
             try:
-                successes[ticker] = (_raw_for(ticker), _fetch_one(ticker, start, end, True))
+                successes[ticker] = (_raw_for(ticker), _adj_task(ticker))
             except Exception as e:
                 failures.append((ticker, str(e)))
 

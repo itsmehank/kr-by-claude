@@ -66,6 +66,21 @@ def test_snapshot_halt_row_passes_through(monkeypatch):
     assert halt["open"] == 0 and halt["close"] == 5000
 
 
+def test_snapshot_blocked_keyerror_normalized_without_retry(monkeypatch):
+    """차단/빈 응답의 실경로: pykrx wrap 층이 컬럼 없는 빈 DF 를 반환하고
+    stock_api 휴일 판정이 KeyError 로 표면화(08-04 실측) — 빈 스냅샷으로
+    정규화하고 with_retry 재시도 없이 1회 접촉으로 끝나야 한다."""
+    calls = {"n": 0}
+
+    def blocked(ds, market):
+        calls["n"] += 1
+        raise KeyError("None of [Index(['시가', ...])] are in the [columns]")
+    monkeypatch.setattr(fetch_mod.stock, "get_market_ohlcv_by_ticker", blocked)
+    out = fetch_mod.fetch_market_snapshot(date(2026, 8, 4))
+    assert out.empty
+    assert calls["n"] == 1
+
+
 # ====== fetch_many_datewise ======
 
 def _snap(d, rows):
@@ -108,6 +123,23 @@ def test_datewise_assembles_raw_and_filters_universe(monkeypatch):
     assert list(raw_a["date"]) == [date(2026, 8, 3), date(2026, 8, 4)]  # 날짜 정렬
     assert successes["B"][0].shape[0] == 1
     assert successes["C"][0].empty                     # 활성인데 미출현 → empty 계정 대상
+
+
+def test_datewise_skips_weekends_without_contact(monkeypatch):
+    """주말은 KRX 접촉 없이 달력으로 확정 — 스냅샷 요청 자체를 보내지 않는다."""
+    called: list[date] = []
+
+    def snap(d, market="ALL"):
+        called.append(d)
+        return fetch_mod._empty_snapshot()
+    monkeypatch.setattr(fetch_mod, "fetch_market_snapshot", snap)
+    monkeypatch.setattr(fetch_mod, "_fetch_one",
+                        lambda t, s, e, adjusted: pd.DataFrame())
+    monkeypatch.setattr(fetch_mod.time, "sleep", lambda s: None)
+
+    # 2026-08-07(금) ~ 08-10(월): 토(8)·일(9) 은 요청 금지
+    fetch_mod.fetch_many_datewise(["A"], date(2026, 8, 7), date(2026, 8, 10), max_workers=1)
+    assert called == [date(2026, 8, 7), date(2026, 8, 10)]
 
 
 def test_datewise_snapshot_failure_recorded_others_continue(monkeypatch):
