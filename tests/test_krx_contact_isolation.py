@@ -103,7 +103,9 @@ def test_krx_marker_skipped_even_when_explicitly_selected():
          "-p", "no:cacheprovider", "-q"],
         capture_output=True, text=True,
         cwd=str(Path(__file__).parent.parent),
-        env={**os.environ},
+        # KR_ALLOW_KRX 상속 차단(8회차 리뷰) — 부모가 allow 세션이어도 자식은 격리.
+        # (현재는 모듈 skipif 가 그 세션에서 이 테스트를 건너뛰지만 방어를 한 겹 더 둔다.)
+        env={**os.environ, "KR_ALLOW_KRX": ""},
     )
     out = r.stdout + r.stderr
     assert "1 skipped" in out, f"krx 테스트가 skip 되지 않았다:\n{out[-800:]}"

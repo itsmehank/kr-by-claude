@@ -401,10 +401,18 @@ def test_blocked_branches_halt_the_chain(script, gate):
     박제된다(weekend.py 계약). monthly: 매핑이 universe 를 앞지르면 헤더가 경고한
     "역순이면 한 달 누락"이 실제로 일어난다. 각 분기 직후 5줄 안에 exit 0 이 있어야 한다.
     """
+    import re
+
     lines = (LAUNCHD / script).read_text().splitlines()
     idx = next(i for i, ln in enumerate(lines) if gate in ln and ("elif" in ln or "if" in ln))
-    window = "\n".join(lines[idx:idx + 6])
-    assert "exit 0" in window, f"{script} 의 {gate!r} 분기가 fall-through 한다:\n{window}"
+    # ⚠️ 주석을 제외한 **코드 줄**에서 exit 0 문을 찾는다(8회차 리뷰) — 분기 옆의
+    # "exit 0 필수" 설명 주석이 문자열 매치돼, 실제 exit 문을 지워도 통과하는
+    # 자기-무력화가 실측으로 재현됐다(3케이스 중 2케이스).
+    code = [ln for ln in lines[idx:idx + 8] if not ln.lstrip().startswith("#")]
+    assert any(re.match(r"\s*exit 0\s*$", ln) for ln in code), (
+        f"{script} 의 {gate!r} 분기가 fall-through 한다(코드 줄에 exit 0 없음):\n"
+        + "\n".join(code)
+    )
 
 
 def test_attempt_gap_survives_midnight(runs_conn):
