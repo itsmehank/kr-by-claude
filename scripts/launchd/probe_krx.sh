@@ -55,5 +55,31 @@ if [ "$OKC" != "3" ]; then
   echo "[probe] 판정: 부분 응답($OKC/3) — 스로틀 잔존 의심. 재개 보류 권장"
   exit 1
 fi
+
+# #94 날짜별 수집 경로 판정 — 전종목시세(MDCSTAT01501) 1요청.
+# 3종목(개별 조회) 통과 ≠ 전종목시세 통과 (08-04 실측: endpoint 별로 차단이 갈림).
+echo "[probe] 전종목시세(MDCSTAT01501) 1요청 판정 (#94)"
+SNAP_OUT=$(uv run python -c "
+from kr_pipeline.common import config  # noqa: F401 — .env 로드(KRX 인증)
+from datetime import date, timedelta
+from kr_pipeline.ohlcv.fetch import fetch_market_snapshot
+
+d = date.today()
+while d.weekday() >= 5:   # 주말이면 직전 평일 (KRX 추가 접촉 없는 순수 달력 계산)
+    d -= timedelta(days=1)
+try:
+    df = fetch_market_snapshot(d)
+    print('SNAP_ROWS', len(df))
+except Exception as e:  # noqa: BLE001
+    print(f'SNAP_ROWS -1 {type(e).__name__}')
+" 2>&1)
+echo "$SNAP_OUT" | grep -v '로그인 ID'
+SNAP_ROWS=$(echo "$SNAP_OUT" | grep -E '^SNAP_ROWS ' | awk '{print $2}')
+if [ -z "$SNAP_ROWS" ] || [ "$SNAP_ROWS" = "-1" ] || [ "$SNAP_ROWS" = "0" ]; then
+  echo "[probe] 전종목시세 판정: 불통(0행/오류 — 평일 공휴일이면 오판 가능, 수동 재확인)"
+else
+  echo "[probe] 전종목시세 판정: 통과(${SNAP_ROWS}행) — 날짜별 수집 재개 가능"
+fi
+
 echo "[probe] 판정: 정상(3/3) — 단계적 재개 가능"
 exit 0
