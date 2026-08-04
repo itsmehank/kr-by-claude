@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 import socket
@@ -153,6 +153,74 @@ def fetch_market_snapshot(d: date, market: str = "ALL") -> pd.DataFrame:
     df = df.reset_index().rename(columns=_SNAPSHOT_RENAME)
     df["date"] = d
     return df[SNAPSHOT_COLUMNS]
+
+
+def fetch_many_datewise(
+    tickers: list[str],
+    start: date,
+    end: date,
+    *,
+    max_workers: int = 3,
+) -> tuple[dict[str, tuple[pd.DataFrame, pd.DataFrame]], list[tuple[str, str]]]:
+    """날짜별 전종목 스냅샷으로 raw 를 조립하고 종목별 Naver adj 를 붙인다 (#94).
+
+    KRX 접촉 = 달력일 수 × 1요청(전종목시세). 종목별 KRX 스윕 0회.
+    adj(수정 OHLCV)는 Naver 경유(adjusted=True)라 차단과 무관 — 종목별 유지.
+    반환 계약은 구 fetch_many 와 동일: ({ticker: (raw, adj)}, [(식별자, 오류)]).
+    raw 미출현 종목도 (빈 raw, adj) 로 dict 에 남아 P1-5 empty 계정이 잡는다.
+    """
+    wanted = set(tickers)
+    frames: list[pd.DataFrame] = []
+    failures: list[tuple[str, str]] = []
+
+    d = start
+    while d <= end:
+        try:
+            snap = fetch_market_snapshot(d)
+            if not snap.empty:
+                frames.append(snap[snap["ticker"].isin(wanted)])
+        except Exception as e:
+            failures.append((f"snapshot:{d.isoformat()}", str(e)))
+        time.sleep(0.2)  # 날짜 간 페이싱 — 재탐지 방지
+        d += timedelta(days=1)
+
+    raw_by_ticker: dict[str, pd.DataFrame] = {}
+    if frames:
+        raw_all = pd.concat(frames, ignore_index=True)
+        raw_by_ticker = {
+            t: g.drop(columns=["ticker"]).sort_values("date").reset_index(drop=True)
+            for t, g in raw_all.groupby("ticker")
+        }
+
+    def _raw_for(t: str) -> pd.DataFrame:
+        got = raw_by_ticker.get(t)
+        if got is not None:
+            return got
+        return pd.DataFrame(columns=[c for c in SNAPSHOT_COLUMNS if c != "ticker"])
+
+    successes: dict[str, tuple[pd.DataFrame, pd.DataFrame]] = {}
+    adj_failures: list[tuple[str, str]] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futures = {ex.submit(_fetch_one, t, start, end, True): t for t in tickers}
+        for i, fut in enumerate(as_completed(futures), 1):
+            ticker = futures[fut]
+            try:
+                successes[ticker] = (_raw_for(ticker), fut.result())
+            except Exception as e:
+                adj_failures.append((ticker, str(e)))
+            if i % 100 == 0:
+                log.info(f"adj progress: {i}/{len(tickers)} (failures so far: {len(adj_failures)})")
+
+    # adj 1차 실패 재시도 (구 fetch_many 패턴)
+    if adj_failures:
+        log.warning(f"Retrying {len(adj_failures)} failed adj tickers")
+        for ticker, _ in adj_failures:
+            try:
+                successes[ticker] = (_raw_for(ticker), _fetch_one(ticker, start, end, True))
+            except Exception as e:
+                failures.append((ticker, str(e)))
+
+    return successes, failures
 
 
 def fetch_many(
