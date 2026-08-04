@@ -23,6 +23,13 @@ prompt (.md) 는 수동 동기화. 임계 변경 시 export 스크립트 재실�
 
 ## 테스트
 
-`uv run pytest tests/` — 기대 실패 **0** (conftest 가 세션 시작 시 kr_test 스키마를
-DROP→재생성으로 리셋). 실패가 하나라도 있으면 그 작업의 회귀로 간주하고 원인을 찾을 것.
+`uv run pytest tests/` — 기대 실패 **0**, **1 deselected** (conftest 가 세션 시작 시 kr_test
+스키마를 DROP→재생성으로 리셋). **1 skipped** 는 표본 C 동결 가드(데이터 상태 의존,
+`test_backtest_frozen_sample_c`)로 정상이다. 실패가 하나라도 있으면 그 작업의 회귀로 간주하고 원인을 찾을 것.
 TEST_DATABASE_URL 의 dbname 에 'test' 가 없으면 conftest 가 리셋을 거부한다.
+
+**KRX 접촉 격리 (#92)**: conftest 가 테스트 수집 전에 `KRX_ID`/`KRX_PW` 를 빈 문자열로 만들어
+pykrx import 시 로그인 요청이 나가지 않게 한다(pop 이 아니라 빈 문자열 — `config.py` 의
+`load_dotenv()` 가 "키가 없을 때만" 복원하므로). 실제 KRX 를 타는 테스트는 `krx` 마커로
+분리돼 `addopts` 가 기본 제외하며(그것이 위 1 deselected), 돌려야 할 때만
+`KR_ALLOW_KRX=1 uv run pytest -m krx` 로 명시 실행한다. **차단 대응 기간에는 실행 금지.**

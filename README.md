@@ -54,6 +54,11 @@ launchd 는 깨어날 때 만회 발화). 설치/갱신:
 scripts/launchd/install.sh   # crontab 백업·제거 → 구 LLM plist 정리 → 새 plist 5종 로드
 ```
 
+> ⚠️ **KRX 차단 대응·재개 기간에는 `install.sh` 를 재실행하지 말 것**(#92). 재실행은 crontab 을
+> 다시 건드리고 `RunAtLoad` 즉발로 전 종목 스윕을 발생시킨다. 개별 잡 재개는
+> `launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.krbyclaude.<잡>.plist` 를 쓰고,
+> 순서·검증은 `docs/superpowers/plans/2026-08-03-krx-contact-hardening.md` 의 재개 절차를 따른다.
+
 | 잡 | 스케줄 | 내용 |
 |---|---|---|
 | evening-chain | 평일 18:30 | 데이터 체인 → 포지션 평가 → 시장 지표 → LLM full-daily(performance 내장) |
@@ -64,7 +69,8 @@ scripts/launchd/install.sh   # crontab 백업·제거 → 구 LLM plist 정리 �
 
 공통 가드: 시간 자물쇠(장중 09~17시 실행 금지 — 부분봉 오염 방지) ·
 멱등(대상 거래일 몫 완료 시 skip) · 원자 락 직렬화(data/llm 2계열, /tmp — flock 은 macOS 미탑재) ·
-RunAtLoad(재부팅 복구). 전제: **저녁 전원(AC) 연결** + `pmset repeat
+RunAtLoad(재부팅 복구) · **ELTD 파일 캐시**(체인만 라이브 조회, 감시는 순수 bash 로 캐시만 읽어
+KRX 접촉 0 — #92) · **시도 상한**(전 종목 스윕: data_daily 하루 2회·간격 6h, data_weekly·universe 하루 1회. 웹 UI `/runner`의 data-daily/data-weekly *체인* 실행은 같은 상한을 소모하지만 **standalone ohlcv/weekly 실행은 상한 밖** — 재개 기간엔 UI 실행 버튼 금지). 전제: **저녁 전원(AC) 연결** + `pmset repeat
 wakeorpoweron MTWRFS 18:25:00` + `pmset -c sleep 0`.
 롤백: `launchctl bootout gui/$UID/com.krbyclaude.<잡>` 5종 +
 `crontab < ~/.kr-by-claude/cron-backups/<백업파일>`.

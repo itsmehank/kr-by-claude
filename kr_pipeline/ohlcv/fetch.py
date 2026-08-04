@@ -102,6 +102,10 @@ def fetch_index(index_code: str, start: date, end: date) -> pd.DataFrame:
         start.strftime("%Y%m%d"),
         end.strftime("%Y%m%d"),
         index_code,
+        # #92: 기본값 True 면 get_index_ticker_name → IndexTicker() 가 시장 4종 마스터를
+        # 추가로 fetch 해 ELTD 1회가 6요청이 된다(로그인 3 + OHLCV 1 + 마스터 4 중 일부).
+        # 컬럼명 메타데이터는 소비하지 않는다(to_index_rows 는 date/OHLC/volume/value 만 읽음).
+        name_display=False,
     )
     if df.empty:
         return df

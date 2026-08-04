@@ -16,8 +16,11 @@ fi
 # ── 대상 거래일 (fail-closed)
 ELTD=$(eltd)
 if [ -z "$ELTD" ]; then
-  log "ELTD 산출 실패(pykrx) — fail-closed 중단"
-  exit 1
+  # #92 결정 4: 중단은 유지하되 종료 코드는 0. exit 1 이면 launchd 가 failed 로 기록하고
+  # 감시의 failed.* 알림이 발화마다 울린다(차단 기간엔 같은 알림 반복). 데이터 결측 자체는
+  # miss.data.* 알림이 담당하므로 정보 손실이 없다.
+  log "ELTD 산출 실패(pykrx) — fail-closed 중단(exit 0: launchd failed 소음 회피)"
+  exit 0
 fi
 log "대상 거래일 ELTD=$ELTD"
 
@@ -29,6 +32,13 @@ if ! acquire_lock data 3600; then log "data 락 획득 실패(1h) — 중단"; e
 # (08-01~03 실증: 부분행 2~3개가 밤새 만회를 skip 시키고 주말 체인을 오염 통과시킴, #90)
 NIND=$(db_query "SELECT COUNT(*) FROM daily_indicators WHERE date='$ELTD'") || { log "DB 조회 실패 — fail-closed 중단"; exit 1; }
 if [ "$NIND" -lt 2200 ]; then
+  if ! attempt_allowed data_daily; then
+    # #92 결정 2: 웹 UI(/runner)의 data-daily *체인* 실행은 같은 pipeline_runs 행을 남겨
+    # 이 상한을 소모한다(아침 수동 2회 → 저녁 정규 skip). ⚠️ 단 standalone ohlcv/weekly
+    # 스펙은 별도 이름으로 기록돼 상한 밖이다(PR#93 리뷰 M-3) — 재개 기간 UI 실행 금지 이유.
+    log "데이터 체인 필요($ELTD 지표 $NIND행 < 2200)하나 시도 상한/백오프 — skip (웹 UI 의 data-daily 체인 실행도 이 상한을 소모함: pipeline_runs 의 오늘 data_daily 행 확인)"
+    exit 0
+  fi
   log "데이터 체인 실행 (ELTD=$ELTD 지표 $NIND행 < 2200)"
   uv run python -m kr_pipeline.pipeline --chain=daily || { log "데이터 체인 실패 — 후속 중단"; exit 1; }
 else

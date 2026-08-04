@@ -9,7 +9,38 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ── KRX 자격증명 무력화 (#92) ────────────────────────────────────────
+# pykrx 는 import 시점에 build_krx_session() 을 호출해 KRX 로 로그인 POST 를 보낸다
+# (pykrx/website/comm/webio.py:12). 자격증명이 falsy 면 HTTP 없이 None 을 반환하므로
+# (comm/auth.py:176-181) 테스트 모듈 import 전에 여기서 값을 비운다. conftest 는
+# 테스트 수집보다 먼저 로드되므로 순서가 보장된다.
+#
+# ⚠️ pop 하면 안 된다 — kr_pipeline/common/config.py:5 가 import 시 load_dotenv() 를
+# 다시 돌리고, dotenv 는 "키가 os.environ 에 없을 때만" 주입하므로(dotenv/main.py:105)
+# 제거한 값이 복원된다. 키는 남기고 값만 비운다.
+#
+# 라이브 호출이 필요한 실행만 KR_ALLOW_KRX=1 로 명시 해제한다.
+if os.environ.get("KR_ALLOW_KRX") != "1":
+    os.environ["KRX_ID"] = ""
+    os.environ["KRX_PW"] = ""
+
 SCHEMA_PATH = Path(__file__).parent.parent / "kr_pipeline" / "db" / "schema.sql"
+
+
+def pytest_collection_modifyitems(config, items):
+    """krx 마커는 KR_ALLOW_KRX=1 없이는 **어떤 선택 방식으로도** 실행 금지 (#92, PR#93 리뷰 M-1).
+
+    addopts 의 `-m 'not krx'` 는 CLI `-m` 이 덮는다 — `pytest -m integration`(문서화된
+    마커라 자연스러운 실수)이면 krx 테스트가 선택된다. 자격증명 공백화는 로그인 POST 만
+    막고, pykrx webio 는 세션이 없어도 무인증 데이터 요청을 보내므로(webio.py:39-42)
+    실행 자체를 수집 단계에서 차단해야 fail-closed 가 된다.
+    """
+    if os.environ.get("KR_ALLOW_KRX") == "1":
+        return
+    skip = pytest.mark.skip(reason="krx 마커 — KR_ALLOW_KRX=1 없이 실행 금지(#92)")
+    for item in items:
+        if "krx" in item.keywords:
+            item.add_marker(skip)
 
 
 @pytest.fixture(scope="session")
@@ -42,6 +73,19 @@ def _setup_schema(test_db_url):
         ["psql", "-v", "ON_ERROR_STOP=1", test_db_url, "-f", str(SCHEMA_PATH)],
         check=True, capture_output=True,
     )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_eltd_cache(tmp_path, monkeypatch):
+    """#92: ELTD 파일 캐시를 테스트별로 격리.
+
+    필요한 이유 둘:
+    ① 신규 캐시 테스트끼리 같은 키를 공유한다 — test_failure_is_not_cached 가
+       "캐시 없음"을 단정하는데 test_expected_latest_writes_cache 가 먼저 같은 키
+       (2026-06-10:post)를 쓰면 정의 순서상 확실히 깨진다(실행 순서 = 파일 정의 순).
+    ② 격리가 없으면 suite 가 운영 캐시(~/.kr-by-claude/state/eltd.cache)를 오염시킨다.
+    """
+    monkeypatch.setenv("ELTD_CACHE", str(tmp_path / "eltd.cache"))
 
 
 @pytest.fixture

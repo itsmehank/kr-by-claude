@@ -1,8 +1,11 @@
 #!/bin/bash
-# watch_pipelines.sh — 파이프라인 감시 (#88 2단계). launchd StartInterval 3600.
+# watch_pipelines.sh — 파이프라인 감시 (#88 2단계 → #92 캐시 전환). launchd StartInterval 3600.
 # PR #89 리뷰 반영: wake 유예는 miss.* 판정만 보류(failed/stuck 은 항상 수행 — 차단 6),
-# 평일 결측 판정은 DOW/HOUR 게이트 대신 ELTD 기준(저녁 통째 수면 시나리오 탐지 — 차단 7),
 # failed/stuck 은 24h 창(자정 롤오버 미탐 방지), DB 자체 불통도 알림.
+# #92: 결측 판정 기준이 라이브 ELTD → **캐시**로 바뀜(KRX 접촉 0). 캐시 값은 "체인이
+# 마지막으로 돈 시점의 목표일"이라 오늘 17시 이후 기록일 때만 miss.* 정밀 판정에 쓰고,
+# 그 외엔 mtime 자체가 신호다(stale 분기). PR #89 가 제거했던 DOW/HOUR 게이트는
+# stale 분기(체인 미발화 알림)에 한정해 부활 — miss.* 판정은 여전히 목표일 기준.
 source "$(dirname "${BASH_SOURCE[0]}")/lib_guards.sh"
 
 STATE_DIR="$HOME/.kr-by-claude/watch_state"
@@ -26,11 +29,11 @@ alert() { # $1=dedupe_key $2=message (키는 날짜 무관 — 메시지에 대�
 }
 
 # DB 불통 자체가 이상 — psql_req(exit) 대신 직접 확인 후 알림
-if ! psql -d kr_pipeline -Atc "SELECT 1" >/dev/null 2>&1; then
-  alert "db_down.$(date +%Y%m%d%H)" "kr_pipeline DB 조회 실패"
+if ! psql -d "$KR_DB" -Atc "SELECT 1" >/dev/null 2>&1; then
+  alert "db_down.$(date +%Y%m%d%H)" "$KR_DB DB 조회 실패"
   exit 0
 fi
-q() { psql -d kr_pipeline -Atc "$1" 2>/dev/null; }
+q() { psql -d "$KR_DB" -Atc "$1" 2>/dev/null; }
 
 # ── wake 유예: 완전 기상(Wake from) 20분 내면 miss.* 만 보류 (DarkWake 는 제외)
 GRACE=0
@@ -56,9 +59,14 @@ done
 
 [ "$GRACE" = "1" ] && exit 0
 
-# ── 3. 저녁 몫 결측 — ELTD 기준(요일·시각 게이트 없음: 어제 저녁 통째 수면도 탐지)
-E=$(eltd)
-if [ -n "$E" ]; then
+# ── 3. 저녁 몫 결측 — 캐시 기준. 라이브 조회하지 않는다(#92).
+#    캐시는 체인이 발화할 때마다 갱신된다(공휴일에도 평일 스케줄로 발화 → 갱신).
+#    오늘 17시 이후 기록일 때만 캐시 값이 오늘의 목표일이다(3차 H-1) — 어제 기록으로
+#    판정하면 저녁 1회 결측이 조용히 통과한다(실측: E=어제 → miss.* 3종 무발화).
+CACHED=$(eltd_cached_latest) || CACHED=""
+E=""; AGE=999999
+if [ -n "$CACHED" ]; then E=${CACHED%% *}; AGE=${CACHED##* }; fi
+if [ -n "$E" ] && eltd_cache_fresh_today; then
   DUE=$(q "SELECT (now() >= '$E'::date + interval '21 hours')::int")   # 대상일 21시 이후부터 판정
   if [ "$DUE" = "1" ]; then
     MAXI=$(q "SELECT COALESCE(MAX(date)::text,'0001-01-01') FROM daily_indicators")
@@ -69,7 +77,20 @@ if [ -n "$E" ]; then
     [ "${N:-0}" -gt 0 ] || alert "miss.eval.$E" "포지션 일일 평가 미실행 (대상 $E — 소급 불가 항목)"
   fi
 else
-  alert "eltd_fail.$(date +%Y%m%d)" "거래 캘린더(ELTD) 조회 실패 — 결측 판정 불가"
+  # 체인 미발화 의심. 알림 시점 = ①당일 21시 이후(저녁 슬롯이 지났는데 미갱신)
+  # ②캐시가 직전 평일 17시보다 오래됨(그 저녁 통째 결측 — 아침에도 즉시. 3차 보완:
+  #   이 조건이 없으면 "화 저녁 수면 → 수 아침 기상" 에서 수요일 체인이 성공하는 순간
+  #   화요일 daily-eval(소급 불가) 소실이 영구 무알림이 된다. 기준이 '어제'가 아니라
+  #   '직전 평일'인 이유 = 월요일 오탐 방지, 4차 검토).
+  # ⚠️ 체인 잡이 로드돼 있을 때만 알림 — bootout 상태(의도적 중단·재개 절차 중)에서는
+  #   정보량 0인 소음이 평일마다 울린다.
+  DOW_S=$(date +%w); HOUR_S=$(date +%H)
+  if [ "$DOW_S" != "0" ] && [ "$DOW_S" != "6" ] \
+     && { [ "$HOUR_S" -ge 21 ] || eltd_cache_older_than_prev_workday17; } \
+     && launchctl list com.krbyclaude.evening-chain >/dev/null 2>&1; then
+    AGE_TXT="마지막 갱신 ${AGE}s 전"; [ "$AGE" = "999999" ] && AGE_TXT="캐시 없음"
+    alert "eltd_stale.$(date +%Y%m%d)" "ELTD 캐시 미갱신($AGE_TXT) — 저녁 체인 미실행 의심(라이브 조회 없음)"
+  fi
 fi
 
 # ── 4. 아침 공시 몫 (평일 09시 이후)
