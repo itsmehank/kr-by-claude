@@ -385,3 +385,39 @@ def test_attempt_allowed_garbage_output_fails_closed(runs_conn):
     r = run_guard(stub, _kr_db())
     assert "RC=" not in r.stdout, f"오염 출력인데 계속 진행: {r.stdout!r}"
     assert r.returncode == 1
+
+
+# ─── PR#93 리뷰 반영: fall-through 봉쇄 · 자정 seam ──────────────────
+
+@pytest.mark.parametrize("script,gate", [
+    ("weekend_chain.sh", "has_running_recent data_weekly"),
+    ("weekend_chain.sh", "attempt_allowed data_weekly"),
+    ("monthly_chain.sh", "attempt_allowed universe"),
+])
+def test_blocked_branches_halt_the_chain(script, gate):
+    """차단 분기는 후속 단계로 fall-through 하면 안 된다(PR#93 리뷰 H-1·H-2).
+
+    weekend: 주봉 미완 상태로 LLM 분류가 실행되면 불완전 분류가 그 주의 최신으로
+    박제된다(weekend.py 계약). monthly: 매핑이 universe 를 앞지르면 헤더가 경고한
+    "역순이면 한 달 누락"이 실제로 일어난다. 각 분기 직후 5줄 안에 exit 0 이 있어야 한다.
+    """
+    lines = (LAUNCHD / script).read_text().splitlines()
+    idx = next(i for i, ln in enumerate(lines) if gate in ln and ("elif" in ln or "if" in ln))
+    window = "\n".join(lines[idx:idx + 6])
+    assert "exit 0" in window, f"{script} 의 {gate!r} 분기가 fall-through 한다:\n{window}"
+
+
+def test_attempt_gap_survives_midnight(runs_conn):
+    """어제 밤 시도 + 자정 직후 발화 = 간격 백오프가 여전히 차단한다(PR#93 리뷰 M-2).
+
+    count·age 둘 다 당일 필터면 자정에 간격이 리셋돼 35분 간격 재스윕이 통과한다.
+    age 를 전역 최근 시도 기준으로 바꿔, '35분 전' 행이 어제 날짜여도(자정 직후 실행)
+    차단됨을 고정한다. now()-35min 은 자정을 걸치든 아니든 항상 간격 내다 — 시각 무관.
+    """
+    runs_conn.execute(
+        "INSERT INTO pipeline_runs (pipeline, mode, started_at, status) "
+        "VALUES ('guardtest','incremental', now() - interval '35 minutes', 'failed')"
+    )
+    runs_conn.commit()
+    r = run_guard("attempt_allowed guardtest 9 21600 && echo ALLOW || echo BLOCK", _kr_db())
+    assert "BLOCK" in r.stdout, f"35분 전 시도인데 통과(자정 seam): {r.stdout!r} {r.stderr!r}"

@@ -85,3 +85,26 @@ def test_pykrx_session_is_none_after_import():
     from pykrx.website.comm.auth import get_auth_session
 
     assert get_auth_session() is None
+
+
+def test_krx_marker_skipped_even_when_explicitly_selected():
+    """`-m krx` 로 직접 선택해도 KR_ALLOW_KRX=1 없이는 실행되지 않는다(PR#93 리뷰 M-1).
+
+    addopts 의 'not krx' 는 CLI -m 이 덮으므로 deselect 만으로는 부족하다 —
+    수집 훅이 강제 skip 해야 `pytest -m integration` 실수에서도 접촉이 0 이다.
+    (skip 마커는 픽스처보다 먼저 평가되므로 내부 pytest 가 kr_test 스키마 리셋을
+    건드리지 않는다 — 실행 항목이 0 이면 세션 픽스처가 아예 돌지 않는다.)
+    """
+    import subprocess
+    import sys
+
+    r = subprocess.run(
+        [sys.executable, "-m", "pytest", "tests/test_integration.py", "-m", "krx",
+         "-p", "no:cacheprovider", "-q"],
+        capture_output=True, text=True,
+        cwd=str(Path(__file__).parent.parent),
+        env={**os.environ},
+    )
+    out = r.stdout + r.stderr
+    assert "1 skipped" in out, f"krx 테스트가 skip 되지 않았다:\n{out[-800:]}"
+    assert "passed" not in out.split("\n")[-2], f"krx 테스트가 실행됐다:\n{out[-800:]}"

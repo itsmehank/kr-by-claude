@@ -1481,3 +1481,27 @@ launchctl list | grep krbyclaude   # 6개
 사안이라 리마인더 소실일 뿐. / 같은 결측이 당일 21시 + 익일 아침 두 번 울릴 수 있다
 (dedupe 키가 날짜별) — 리마인더로 간주. / `_write_cache` 의 PID tmp 는 크래시 시 잔존
 파일이 누적될 수 있다(cosmetic). / 캐시 없음일 때 알림 문구는 "캐시 없음"으로 표시.
+
+---
+
+## 5차 — PR#93 코드 리뷰(7회차) 반영 (2026-08-04)
+
+리뷰 발견 높음 2·중간 3·낮음 4 중, 검증(1회)으로 전부 확정 후 높음 2 + 중간 3 수리.
+
+- **H-1(수리)**: weekend_chain 의 running/상한 분기가 fall-through → 주봉 미완 상태로
+  LLM 분류 실행 → 불완전 분류가 그 주의 최신으로 박제(weekend.py 계약 위반). main 에서는
+  구조적으로 불가능했던 경로를 이 PR 이 열었었다. → 두 분기 `exit 0`(체인 전체 보류).
+- **H-2(수리)**: monthly_chain 상한 분기 fall-through → 매핑이 universe 를 앞질러 월 몫
+  완료 마킹 → "역순이면 한 달 누락" 실현. → `exit 0`(순서 보전).
+- **M-1(수리)**: `pytest -m integration` 이 addopts 의 `-m 'not krx'` 를 덮어 krx 테스트가
+  실행됨 + pykrx webio 는 세션 없이도 무인증 요청을 보냄 → conftest 수집 훅으로 krx 마커
+  강제 skip(KR_ALLOW_KRX=1 제외). skip 마커는 픽스처보다 먼저 평가되므로 내부 스키마
+  리셋도 발생하지 않는다.
+- **M-2(수리)**: 백오프 간격의 자정 리셋(count·age 둘 다 당일 필터 → 어제 23:30 +
+  오늘 00:05 = 35분 통과) → age 를 전역 최근 시도 기준으로, `n>0` 전제 제거.
+- **M-3(수리)**: "웹 UI 수동 실행도 상한 소모" 문구가 부분만 참(standalone ohlcv/weekly
+  스펙은 별도 이름이라 상한 밖) → evening_chain 주석·README 정정.
+- **낮음 4(기록)**: tail/stat 비원자(1h 내 자기 정정) / FRESH 경계 테스트의 자정 순간
+  flaky 잔존 / ELTD 실패 exit 0 은 탐지가 당일 21시로 지연됨(수용) / probe 마스킹은
+  pykrx 문구 결합(비밀번호는 어떤 경로로도 미출력 확인).
+- 리뷰 과정 사고: 리뷰 에이전트가 워킹트리를 main 으로 되돌림 → 재체크아웃 복구(유실 0).

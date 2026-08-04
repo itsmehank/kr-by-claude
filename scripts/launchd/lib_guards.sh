@@ -160,7 +160,10 @@ attempt_allowed() {
   # 재차단을 막는 가드가 오타 하나로 조용히 무력화되면 안 되므로 fail-closed 로 차단한다.
   case "$mx" in ''|*[!0-9]*) log "$pl 시도 상한 인자 비정상(max=$mx) — fail-closed 차단"; return 1;; esac
   case "$gp" in ''|*[!0-9]*) log "$pl 시도 상한 인자 비정상(gap=$gp) — fail-closed 차단"; return 1;; esac
-  row=$(db_query "SELECT COUNT(*)||' '||COALESCE(FLOOR(EXTRACT(EPOCH FROM (now() - MAX(started_at))))::bigint, 999999) FROM pipeline_runs WHERE pipeline='$pl' AND started_at >= date_trunc('day', now())") \
+  # count 는 당일 창(하루 상한), age 는 **전역 최근 시도**(PR#93 리뷰 M-2) —
+  # 둘 다 당일 필터면 자정에 간격이 리셋돼 어제 23:30 + 오늘 00:05(35분)가 통과한다.
+  # 수면→기상 catch-up 이 자정을 걸치는 것이 이 리포의 실측 패턴이라 실제로 밟힌다.
+  row=$(db_query "SELECT COUNT(*)||' '||COALESCE(FLOOR(EXTRACT(EPOCH FROM (now() - (SELECT MAX(started_at) FROM pipeline_runs WHERE pipeline='$pl'))))::bigint, 999999) FROM pipeline_runs WHERE pipeline='$pl' AND started_at >= date_trunc('day', now())") \
     || { log "시도 이력 조회 불가(DB) — fail-closed 중단"; exit 1; }
   # db_query 가 2>&1 라 psql 경고가 섞이면 다줄이 되는데, 경고는 결과보다 **먼저** 온다(실측).
   # 첫 줄을 취하면 경고 문장을 파싱해 fail-open 이 된다(3차 검토 H-2) → 마지막 줄이 결과다.
@@ -172,7 +175,9 @@ attempt_allowed() {
   if [ "$n" -ge "$mx" ]; then
     log "$pl 일일 시도 상한 도달($n/$mx) — skip"; return 1
   fi
-  if [ "$n" -gt 0 ] && [ "$age" -lt "$gp" ]; then
+  # `n>0` 조건을 걸지 않는다 — age 가 전역 기준이라, 당일 count=0 이어도 어젯밤 시도가
+  # 간격 내면 차단해야 자정 seam 이 막힌다. 이력이 아예 없으면 age=999999 라 통과.
+  if [ "$age" -lt "$gp" ]; then
     log "$pl 직전 시도 후 ${age}s < ${gp}s — skip(백오프)"; return 1
   fi
   return 0

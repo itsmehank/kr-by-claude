@@ -33,9 +33,10 @@ if ! acquire_lock data 3600; then log "data 락 획득 실패(1h) — 중단"; e
 NIND=$(db_query "SELECT COUNT(*) FROM daily_indicators WHERE date='$ELTD'") || { log "DB 조회 실패 — fail-closed 중단"; exit 1; }
 if [ "$NIND" -lt 2200 ]; then
   if ! attempt_allowed data_daily; then
-    # #92 결정 2: 웹 UI(/runner) 수동 실행도 같은 pipeline_runs 행을 남겨 이 상한을 공유한다.
-    # 아침에 수동 2회를 돌리면 그날 저녁 정규 실행이 여기서 멈추므로 이유를 명확히 남긴다.
-    log "데이터 체인 필요($ELTD 지표 $NIND행 < 2200)하나 시도 상한/백오프 — skip (웹 UI 수동 실행도 이 상한을 소모함: pipeline_runs 의 오늘 data_daily 행 확인)"
+    # #92 결정 2: 웹 UI(/runner)의 data-daily *체인* 실행은 같은 pipeline_runs 행을 남겨
+    # 이 상한을 소모한다(아침 수동 2회 → 저녁 정규 skip). ⚠️ 단 standalone ohlcv/weekly
+    # 스펙은 별도 이름으로 기록돼 상한 밖이다(PR#93 리뷰 M-3) — 재개 기간 UI 실행 금지 이유.
+    log "데이터 체인 필요($ELTD 지표 $NIND행 < 2200)하나 시도 상한/백오프 — skip (웹 UI 의 data-daily 체인 실행도 이 상한을 소모함: pipeline_runs 의 오늘 data_daily 행 확인)"
     exit 0
   fi
   log "데이터 체인 실행 (ELTD=$ELTD 지표 $NIND행 < 2200)"

@@ -27,6 +27,22 @@ if os.environ.get("KR_ALLOW_KRX") != "1":
 SCHEMA_PATH = Path(__file__).parent.parent / "kr_pipeline" / "db" / "schema.sql"
 
 
+def pytest_collection_modifyitems(config, items):
+    """krx 마커는 KR_ALLOW_KRX=1 없이는 **어떤 선택 방식으로도** 실행 금지 (#92, PR#93 리뷰 M-1).
+
+    addopts 의 `-m 'not krx'` 는 CLI `-m` 이 덮는다 — `pytest -m integration`(문서화된
+    마커라 자연스러운 실수)이면 krx 테스트가 선택된다. 자격증명 공백화는 로그인 POST 만
+    막고, pykrx webio 는 세션이 없어도 무인증 데이터 요청을 보내므로(webio.py:39-42)
+    실행 자체를 수집 단계에서 차단해야 fail-closed 가 된다.
+    """
+    if os.environ.get("KR_ALLOW_KRX") == "1":
+        return
+    skip = pytest.mark.skip(reason="krx 마커 — KR_ALLOW_KRX=1 없이 실행 금지(#92)")
+    for item in items:
+        if "krx" in item.keywords:
+            item.add_marker(skip)
+
+
 @pytest.fixture(scope="session")
 def test_db_url() -> str:
     url = os.environ.get("TEST_DATABASE_URL")
