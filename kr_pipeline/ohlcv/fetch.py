@@ -117,6 +117,44 @@ def fetch_index(index_code: str, start: date, end: date) -> pd.DataFrame:
     return df
 
 
+SNAPSHOT_COLUMNS = ["ticker", "open", "high", "low", "close", "volume", "value", "date"]
+
+_SNAPSHOT_RENAME = {
+    "티커": "ticker", "시가": "open", "고가": "high",
+    "저가": "low", "종가": "close", "거래량": "volume", "거래대금": "value",
+}
+
+
+def _empty_snapshot() -> pd.DataFrame:
+    return pd.DataFrame(columns=SNAPSHOT_COLUMNS)
+
+
+@with_retry(attempts=3, wait_seconds=1.0)
+def fetch_market_snapshot(d: date, market: str = "ALL") -> pd.DataFrame:
+    """일자별 전종목 raw OHLCV — KRX 전종목시세(MDCSTAT01501) 단일 요청 (#94).
+
+    종목별 스윕(2,549요청)이 차단 재트리거로 실측돼(run 1235, 86.2% 빈 응답)
+    날짜별 1요청으로 대체. market="ALL" 이면 KOSPI+KOSDAQ+KONEX 가 한 번에 오고
+    universe 교집합은 호출자(fetch_many_datewise)가 거른다.
+
+    - 휴일: KRX 가 전 종목 OHLC=0 행을 반환(빈 DF 아님) → 빈 스냅샷으로 정규화
+      (적재 금지 — bad_prices sanity·halt 마커 규약·weekly 파생 오염 방지).
+    - 차단/빈 응답: 빈 스냅샷 — 호출자의 empty 계정(P1-5)이 경고로 승격.
+    - 거래정지 행(OHLV=0, close>0)은 그대로 통과 — raw 의 halt 마커 계약이며
+      adj NULL 화는 merge_raw_and_adjusted → nullify_halt_adj 가 수행.
+    """
+    df = stock.get_market_ohlcv_by_ticker(d.strftime("%Y%m%d"), market=market)
+    if df.empty:
+        log.info(f"snapshot {d}: empty response")
+        return _empty_snapshot()
+    if (df[["시가", "고가", "저가", "종가"]] == 0).all(axis=None):
+        log.info(f"snapshot {d}: holiday (all-zero)")
+        return _empty_snapshot()
+    df = df.reset_index().rename(columns=_SNAPSHOT_RENAME)
+    df["date"] = d
+    return df[SNAPSHOT_COLUMNS]
+
+
 def fetch_many(
     tickers: list[str],
     start: date,
