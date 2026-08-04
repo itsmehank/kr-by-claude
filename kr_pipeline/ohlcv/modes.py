@@ -7,7 +7,7 @@ import pandas as pd
 from psycopg import Connection
 
 from kr_pipeline.db.runs import run_tracking
-from kr_pipeline.ohlcv.fetch import fetch_many, fetch_index
+from kr_pipeline.ohlcv.fetch import fetch_many_datewise, fetch_index
 from kr_pipeline.ohlcv.transform import (
     merge_raw_and_adjusted, to_price_rows, to_index_rows, nullify_halt_adj,
 )
@@ -219,7 +219,7 @@ def run(
 
 
 def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
-    successes, failures = fetch_many(tickers, start, end, max_workers=max_workers)
+    successes, failures = fetch_many_datewise(tickers, start, end, max_workers=max_workers)
     rows_total = 0
     empties: list[str] = []
     for ticker, (raw, adj) in successes.items():
@@ -244,6 +244,16 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
         conn.commit()
 
     warnings = _empty_fetch_warning(empties, len(tickers))
+    # 스냅샷 결측 날짜 승격 (#94 리뷰) — 창 중간 하루 차단/실패는 어떤 종목도
+    # raw.empty 로 만들지 않아 empty_fetch 가 못 잡는다. failures 는 run warnings
+    # 에 영속되지 않으므로(run_tracking 은 warnings 만 기록) 여기서 승격한다.
+    snap_gaps = [ident.split("snapshot:", 1)[1] for ident, _ in failures
+                 if ident.startswith("snapshot:")]
+    if snap_gaps:
+        warnings.append(
+            f"snapshot_gap: 날짜별 스냅샷 결측 {len(snap_gaps)}건 {snap_gaps} — "
+            f"해당 날짜 전 종목 raw 미적재 (P1-5 계열, backfill 이면 해당 구간 재실행 필요)"
+        )
     if empty_indexes:
         warnings.append(f"empty_index_fetch: 지수 {empty_indexes} 빈 응답")
     warnings.extend(_run_sanity_checks(conn, mode))
@@ -294,7 +304,7 @@ def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.
         if i % 100 == 0:
             log.info(f"full-refresh progress: {i}/{len(tickers)} (failures so far: {len(failures)})")
 
-    # 1차 실패 재시도 (fetch_many 와 같은 패턴)
+    # 1차 실패 재시도 (fetch_many_datewise 의 adj 재시도와 같은 패턴)
     if failures:
         log.warning(f"Retrying {len(failures)} failed tickers in full-refresh")
         retry_failures: list[tuple[str, str]] = []

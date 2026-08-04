@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 import socket
@@ -79,20 +79,9 @@ def _fetch_one(ticker: str, start: date, end: date, adjusted: bool) -> pd.DataFr
     return df
 
 
-def fetch_ohlcv_pair(ticker: str, start: date, end: date) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """원가 + 수정종가 두 번 호출."""
-    raw = _fetch_one(ticker, start, end, adjusted=False)
-    time.sleep(0.15)
-    adj = _fetch_one(ticker, start, end, adjusted=True)
-    return raw, adj
-
-
 @with_retry(attempts=3, wait_seconds=1.0)
 def fetch_adj_only(ticker: str, start: date, end: date) -> pd.DataFrame:
-    """수정종가만 가져옴 (full-refresh 전용).
-
-    fetch_ohlcv_pair 와 달리 raw 호출 안 함. adjusted=True 만 한 번 호출.
-    """
+    """수정종가만 가져옴 (full-refresh 전용). adjusted=True(Naver) 만 한 번 호출."""
     return _fetch_one(ticker, start, end, adjusted=True)
 
 
@@ -117,37 +106,133 @@ def fetch_index(index_code: str, start: date, end: date) -> pd.DataFrame:
     return df
 
 
-def fetch_many(
+SNAPSHOT_COLUMNS = ["ticker", "open", "high", "low", "close", "volume", "value", "date"]
+
+_SNAPSHOT_RENAME = {
+    "티커": "ticker", "시가": "open", "고가": "high",
+    "저가": "low", "종가": "close", "거래량": "volume", "거래대금": "value",
+}
+
+
+def _empty_snapshot(status: str = "empty") -> pd.DataFrame:
+    """빈 스냅샷. status(attrs): holiday=정상 skip / blocked=결측 계정 대상."""
+    df = pd.DataFrame(columns=SNAPSHOT_COLUMNS)
+    df.attrs["snapshot_status"] = status
+    return df
+
+
+@with_retry(attempts=3, wait_seconds=1.0)
+def fetch_market_snapshot(d: date, market: str = "ALL") -> pd.DataFrame:
+    """일자별 전종목 raw OHLCV — KRX 전종목시세(MDCSTAT01501) 단일 요청 (#94).
+
+    종목별 스윕(2,549요청)이 차단 재트리거로 실측돼(run 1235, 86.2% 빈 응답)
+    날짜별 1요청으로 대체. market="ALL" 이면 KOSPI+KOSDAQ+KONEX 가 한 번에 오고
+    universe 교집합은 호출자(fetch_many_datewise)가 거른다.
+
+    - 휴일: KRX 가 전 종목 OHLC=0 행을 반환(빈 DF 아님) → 빈 스냅샷으로 정규화
+      (적재 금지 — bad_prices sanity·halt 마커 규약·weekly 파생 오염 방지).
+    - 차단/빈 응답: 빈 스냅샷(status="blocked") — 호출자(fetch_many_datewise)가
+      failures 로 계정하고 _run_upsert 가 snapshot_gap 경고로 승격한다. 창 중간
+      하루만 차단이면 어떤 종목도 raw.empty 가 아니어서 P1-5 empty 계정이 못
+      잡기 때문(전 기간 차단이면 empty 계정도 함께 발동). 실경로에선 pykrx
+      wrap 층(@dataframe_empty_handler)이 컬럼 없는 빈 DF 를 반환하고 stock_api
+      의 휴일 판정에서 KeyError 로 표면화된다(08-04 실측) → 여기서 잡아
+      정규화하고 **재시도하지 않는다**(차단 중 접촉 증폭 방지 — with_retry 는
+      transport 오류 전용으로 남긴다).
+    - 거래정지 행(OHLV=0, close>0)은 그대로 통과 — raw 의 halt 마커 계약이며
+      adj NULL 화는 merge_raw_and_adjusted → nullify_halt_adj 가 수행.
+    """
+    try:
+        df = stock.get_market_ohlcv_by_ticker(d.strftime("%Y%m%d"), market=market)
+    except KeyError:
+        log.info(f"snapshot {d}: blocked/empty (pykrx KeyError)")
+        return _empty_snapshot("blocked")
+    if df.empty:
+        log.info(f"snapshot {d}: empty response")
+        return _empty_snapshot("blocked")
+    if (df[["시가", "고가", "저가", "종가"]] == 0).all(axis=None):
+        log.info(f"snapshot {d}: holiday (all-zero)")
+        return _empty_snapshot("holiday")
+    df = df.reset_index().rename(columns=_SNAPSHOT_RENAME)
+    df["date"] = d
+    return df[SNAPSHOT_COLUMNS]
+
+
+def fetch_many_datewise(
     tickers: list[str],
     start: date,
     end: date,
     *,
     max_workers: int = 3,
 ) -> tuple[dict[str, tuple[pd.DataFrame, pd.DataFrame]], list[tuple[str, str]]]:
-    """병렬 fetch. (성공 dict, 실패 [(ticker, error)] ) 반환."""
-    successes: dict[str, tuple[pd.DataFrame, pd.DataFrame]] = {}
+    """날짜별 전종목 스냅샷으로 raw 를 조립하고 종목별 Naver adj 를 붙인다 (#94).
+
+    KRX 접촉 = 평일 수 × 1요청(전종목시세 — 주말은 달력으로 skip). 종목별 KRX 스윕 0회.
+    adj(수정 OHLCV)는 Naver 경유(adjusted=True)라 차단과 무관 — 종목별 유지.
+    반환 계약은 구 fetch_many 와 동일: ({ticker: (raw, adj)}, [(식별자, 오류)]).
+    raw 미출현 종목도 (빈 raw, adj) 로 dict 에 남아 P1-5 empty 계정이 잡는다.
+    """
+    wanted = set(tickers)
+    frames: list[pd.DataFrame] = []
     failures: list[tuple[str, str]] = []
 
+    d = start
+    while d <= end:
+        if d.weekday() >= 5:  # 주말 — KRX 접촉 없이 달력으로 확정
+            d += timedelta(days=1)
+            continue
+        try:
+            snap = fetch_market_snapshot(d)
+            if not snap.empty:
+                frames.append(snap[snap["ticker"].isin(wanted)])
+            elif snap.attrs.get("snapshot_status") == "blocked":
+                # 휴일(전량-0)과 달리 차단/빈 응답은 결측 — 창 중간 하루면
+                # P1-5 empty 계정이 못 잡으므로 여기서 failures 로 남긴다.
+                failures.append((f"snapshot:{d.isoformat()}", "blocked/empty response"))
+        except Exception as e:
+            failures.append((f"snapshot:{d.isoformat()}", str(e)))
+        time.sleep(0.2)  # 날짜 간 페이싱 — 재탐지 방지
+        d += timedelta(days=1)
+
+    raw_by_ticker: dict[str, pd.DataFrame] = {}
+    if frames:
+        raw_all = pd.concat(frames, ignore_index=True)
+        raw_by_ticker = {
+            t: g.drop(columns=["ticker"]).sort_values("date").reset_index(drop=True)
+            for t, g in raw_all.groupby("ticker")
+        }
+
+    def _raw_for(t: str) -> pd.DataFrame:
+        got = raw_by_ticker.get(t)
+        if got is not None:
+            return got
+        return pd.DataFrame(columns=[c for c in SNAPSHOT_COLUMNS if c != "ticker"])
+
+    def _adj_task(t: str) -> pd.DataFrame:
+        adj = _fetch_one(t, start, end, True)
+        time.sleep(0.15)  # 워커당 요청 간격 — 구 fetch_ohlcv_pair 의 페이싱 보존
+        return adj
+
+    successes: dict[str, tuple[pd.DataFrame, pd.DataFrame]] = {}
+    adj_failures: list[tuple[str, str]] = []
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
-        futures = {ex.submit(fetch_ohlcv_pair, t, start, end): t for t in tickers}
+        futures = {ex.submit(_adj_task, t): t for t in tickers}
         for i, fut in enumerate(as_completed(futures), 1):
             ticker = futures[fut]
             try:
-                successes[ticker] = fut.result()
+                successes[ticker] = (_raw_for(ticker), fut.result())
+            except Exception as e:
+                adj_failures.append((ticker, str(e)))
+            if i % 100 == 0:
+                log.info(f"adj progress: {i}/{len(tickers)} (failures so far: {len(adj_failures)})")
+
+    # adj 1차 실패 재시도 (구 fetch_many 패턴)
+    if adj_failures:
+        log.warning(f"Retrying {len(adj_failures)} failed adj tickers")
+        for ticker, _ in adj_failures:
+            try:
+                successes[ticker] = (_raw_for(ticker), _adj_task(ticker))
             except Exception as e:
                 failures.append((ticker, str(e)))
-            if i % 100 == 0:
-                log.info(f"Progress: {i}/{len(tickers)} (failures so far: {len(failures)})")
-
-    # 1차 실패 재시도
-    if failures:
-        log.warning(f"Retrying {len(failures)} failed tickers")
-        retry_failures = []
-        for ticker, _ in failures:
-            try:
-                successes[ticker] = fetch_ohlcv_pair(ticker, start, end)
-            except Exception as e:
-                retry_failures.append((ticker, str(e)))
-        failures = retry_failures
 
     return successes, failures
