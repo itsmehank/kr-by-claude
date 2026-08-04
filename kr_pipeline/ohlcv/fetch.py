@@ -114,8 +114,11 @@ _SNAPSHOT_RENAME = {
 }
 
 
-def _empty_snapshot() -> pd.DataFrame:
-    return pd.DataFrame(columns=SNAPSHOT_COLUMNS)
+def _empty_snapshot(status: str = "empty") -> pd.DataFrame:
+    """빈 스냅샷. status(attrs): holiday=정상 skip / blocked=결측 계정 대상."""
+    df = pd.DataFrame(columns=SNAPSHOT_COLUMNS)
+    df.attrs["snapshot_status"] = status
+    return df
 
 
 @with_retry(attempts=3, wait_seconds=1.0)
@@ -128,11 +131,14 @@ def fetch_market_snapshot(d: date, market: str = "ALL") -> pd.DataFrame:
 
     - 휴일: KRX 가 전 종목 OHLC=0 행을 반환(빈 DF 아님) → 빈 스냅샷으로 정규화
       (적재 금지 — bad_prices sanity·halt 마커 규약·weekly 파생 오염 방지).
-    - 차단/빈 응답: 빈 스냅샷 — 호출자의 empty 계정(P1-5)이 경고로 승격.
-      실경로에선 pykrx wrap 층(@dataframe_empty_handler)이 컬럼 없는 빈 DF 를
-      반환하고 stock_api 의 휴일 판정에서 KeyError 로 표면화된다(08-04 실측)
-      → 여기서 잡아 정규화하고 **재시도하지 않는다**(차단 중 접촉 증폭 방지 —
-      with_retry 는 transport 오류 전용으로 남긴다).
+    - 차단/빈 응답: 빈 스냅샷(status="blocked") — 호출자(fetch_many_datewise)가
+      failures 로 계정하고 _run_upsert 가 snapshot_gap 경고로 승격한다. 창 중간
+      하루만 차단이면 어떤 종목도 raw.empty 가 아니어서 P1-5 empty 계정이 못
+      잡기 때문(전 기간 차단이면 empty 계정도 함께 발동). 실경로에선 pykrx
+      wrap 층(@dataframe_empty_handler)이 컬럼 없는 빈 DF 를 반환하고 stock_api
+      의 휴일 판정에서 KeyError 로 표면화된다(08-04 실측) → 여기서 잡아
+      정규화하고 **재시도하지 않는다**(차단 중 접촉 증폭 방지 — with_retry 는
+      transport 오류 전용으로 남긴다).
     - 거래정지 행(OHLV=0, close>0)은 그대로 통과 — raw 의 halt 마커 계약이며
       adj NULL 화는 merge_raw_and_adjusted → nullify_halt_adj 가 수행.
     """
@@ -140,13 +146,13 @@ def fetch_market_snapshot(d: date, market: str = "ALL") -> pd.DataFrame:
         df = stock.get_market_ohlcv_by_ticker(d.strftime("%Y%m%d"), market=market)
     except KeyError:
         log.info(f"snapshot {d}: blocked/empty (pykrx KeyError)")
-        return _empty_snapshot()
+        return _empty_snapshot("blocked")
     if df.empty:
         log.info(f"snapshot {d}: empty response")
-        return _empty_snapshot()
+        return _empty_snapshot("blocked")
     if (df[["시가", "고가", "저가", "종가"]] == 0).all(axis=None):
         log.info(f"snapshot {d}: holiday (all-zero)")
-        return _empty_snapshot()
+        return _empty_snapshot("holiday")
     df = df.reset_index().rename(columns=_SNAPSHOT_RENAME)
     df["date"] = d
     return df[SNAPSHOT_COLUMNS]
@@ -161,7 +167,7 @@ def fetch_many_datewise(
 ) -> tuple[dict[str, tuple[pd.DataFrame, pd.DataFrame]], list[tuple[str, str]]]:
     """날짜별 전종목 스냅샷으로 raw 를 조립하고 종목별 Naver adj 를 붙인다 (#94).
 
-    KRX 접촉 = 달력일 수 × 1요청(전종목시세). 종목별 KRX 스윕 0회.
+    KRX 접촉 = 평일 수 × 1요청(전종목시세 — 주말은 달력으로 skip). 종목별 KRX 스윕 0회.
     adj(수정 OHLCV)는 Naver 경유(adjusted=True)라 차단과 무관 — 종목별 유지.
     반환 계약은 구 fetch_many 와 동일: ({ticker: (raw, adj)}, [(식별자, 오류)]).
     raw 미출현 종목도 (빈 raw, adj) 로 dict 에 남아 P1-5 empty 계정이 잡는다.
@@ -179,6 +185,10 @@ def fetch_many_datewise(
             snap = fetch_market_snapshot(d)
             if not snap.empty:
                 frames.append(snap[snap["ticker"].isin(wanted)])
+            elif snap.attrs.get("snapshot_status") == "blocked":
+                # 휴일(전량-0)과 달리 차단/빈 응답은 결측 — 창 중간 하루면
+                # P1-5 empty 계정이 못 잡으므로 여기서 failures 로 남긴다.
+                failures.append((f"snapshot:{d.isoformat()}", "blocked/empty response"))
         except Exception as e:
             failures.append((f"snapshot:{d.isoformat()}", str(e)))
         time.sleep(0.2)  # 날짜 간 페이싱 — 재탐지 방지

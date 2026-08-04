@@ -244,6 +244,16 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
         conn.commit()
 
     warnings = _empty_fetch_warning(empties, len(tickers))
+    # 스냅샷 결측 날짜 승격 (#94 리뷰) — 창 중간 하루 차단/실패는 어떤 종목도
+    # raw.empty 로 만들지 않아 empty_fetch 가 못 잡는다. failures 는 run warnings
+    # 에 영속되지 않으므로(run_tracking 은 warnings 만 기록) 여기서 승격한다.
+    snap_gaps = [ident.split("snapshot:", 1)[1] for ident, _ in failures
+                 if ident.startswith("snapshot:")]
+    if snap_gaps:
+        warnings.append(
+            f"snapshot_gap: 날짜별 스냅샷 결측 {len(snap_gaps)}건 {snap_gaps} — "
+            f"해당 날짜 전 종목 raw 미적재 (P1-5 계열, backfill 이면 해당 구간 재실행 필요)"
+        )
     if empty_indexes:
         warnings.append(f"empty_index_fetch: 지수 {empty_indexes} 빈 응답")
     warnings.extend(_run_sanity_checks(conn, mode))

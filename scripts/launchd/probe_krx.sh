@@ -4,9 +4,10 @@
 # 전 종목 스윕으로 해제를 확인하면 그 자체가 재탐지 유발 행위다. 3종목만 조회한다.
 # DB 를 쓰지 않고 판정만 출력한다. rc=0 정상 / rc=1 차단 지속.
 #
-# KRX 접촉 = 로그인 1회(pykrx import 부작용) + OHLCV 종목당 1~3회
-#            (_fetch_one 은 @with_retry(attempts=3) — 차단 시엔 빈 DataFrame 을 예외 없이
-#             반환하므로 재시도하지 않고 1회로 끝난다)
+# KRX 접촉 = 로그인 2회(python 서브프로세스 2개 × pykrx import 부작용 각 1회)
+#            + OHLCV 종목당 1~3회 + 전종목시세 1회(#94 판정 블록)
+#            (_fetch_one/fetch_market_snapshot 은 차단 시 빈 DataFrame/KeyError 흡수로
+#             예외 없이 반환 — 재시도 없이 각 1회로 끝난다)
 #
 # 사용: scripts/launchd/probe_krx.sh
 # 주의: 하루 1회를 넘기지 말 것. 차단 대기 중에는 실행하지 말 것.

@@ -66,6 +66,48 @@ def test_snapshot_halt_row_passes_through(monkeypatch):
     assert halt["open"] == 0 and halt["close"] == 5000
 
 
+def test_snapshot_status_distinguishes_blocked_from_holiday(monkeypatch):
+    """빈 스냅샷의 사유를 attrs 로 구분 — blocked(차단/빈 응답)만 결측 계정 대상,
+    holiday(전량-0)는 정상 skip. 창 중간 하루 차단이 무신호로 소멸하는 것 방지."""
+    monkeypatch.setattr(fetch_mod.stock, "get_market_ohlcv_by_ticker",
+                        lambda ds, market: (_ for _ in ()).throw(KeyError("blocked")))
+    blocked = fetch_mod.fetch_market_snapshot(date(2026, 8, 4))
+    assert blocked.attrs["snapshot_status"] == "blocked"
+
+    krx_holiday = _krx_frame({
+        "티커": ["005930"], "시가": [0], "고가": [0], "저가": [0], "종가": [0],
+        "거래량": [0], "거래대금": [0], "등락률": [0.0], "시가총액": [0],
+    })
+    monkeypatch.setattr(fetch_mod.stock, "get_market_ohlcv_by_ticker",
+                        lambda ds, market: krx_holiday)
+    holiday = fetch_mod.fetch_market_snapshot(date(2026, 8, 2))
+    assert holiday.attrs["snapshot_status"] == "holiday"
+
+
+def test_datewise_blocked_date_recorded_as_failure(monkeypatch):
+    """차단으로 빈 스냅샷이 된 날짜는 failures 에 남아야 한다 — 다른 날짜가
+    성공하면 어떤 종목도 raw.empty 가 아니어서 P1-5 계정이 못 잡기 때문."""
+    def snap(d, market="ALL"):
+        if d == date(2026, 8, 3):
+            return fetch_mod._empty_snapshot("blocked")
+        df = pd.DataFrame({
+            "ticker": ["A"], "open": [3], "high": [3], "low": [3], "close": [3],
+            "volume": [30], "value": [300],
+        })
+        df["date"] = d
+        return df[fetch_mod.SNAPSHOT_COLUMNS]
+    monkeypatch.setattr(fetch_mod, "fetch_market_snapshot", snap)
+    monkeypatch.setattr(fetch_mod, "_fetch_one",
+                        lambda t, s, e, adjusted: pd.DataFrame())
+    monkeypatch.setattr(fetch_mod.time, "sleep", lambda s: None)
+
+    successes, failures = fetch_mod.fetch_many_datewise(
+        ["A"], date(2026, 8, 3), date(2026, 8, 4), max_workers=1)
+
+    assert dict(failures).get("snapshot:2026-08-03") == "blocked/empty response"
+    assert successes["A"][0].shape[0] == 1  # 8/4 데이터는 정상 조립
+
+
 def test_snapshot_blocked_keyerror_normalized_without_retry(monkeypatch):
     """차단/빈 응답의 실경로: pykrx wrap 층이 컬럼 없는 빈 DF 를 반환하고
     stock_api 휴일 판정이 KeyError 로 표면화(08-04 실측) — 빈 스냅샷으로

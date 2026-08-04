@@ -267,6 +267,29 @@ def test_run_upsert_no_empty_no_warning(monkeypatch, db):
     assert not any(w.startswith("empty_fetch") for w in stats.warnings)
 
 
+def test_run_upsert_snapshot_gap_promoted_to_warning(monkeypatch, db):
+    """스냅샷 결측 날짜(failures 의 snapshot:*)는 run warnings 로 승격 (#94 리뷰).
+
+    창 중간 하루 차단이면 어떤 종목도 raw.empty 가 아니어서 empty_fetch 가
+    못 잡는다 — P1-5(2026-06-10 조용한 누락)와 같은 계열이므로 경고 필수.
+    """
+    from kr_pipeline.ohlcv import modes
+
+    monkeypatch.setattr(
+        modes, "fetch_many_datewise",
+        lambda tickers, s, e, max_workers: (
+            {}, [("snapshot:2026-07-02", "blocked/empty response")],
+        ),
+    )
+    monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+
+    stats = modes._run_upsert(
+        db, [], date(2026, 7, 1), date(2026, 7, 7), 2, modes.Mode.INCREMENTAL)
+    joined = " ".join(stats.warnings)
+    assert "snapshot_gap" in joined and "2026-07-02" in joined
+
+
 def test_run_upsert_datewise_halt_row_nullifies_adj(monkeypatch, db):
     """날짜별 수집 경로에서도 거래정지 행은 raw 0/종가 보존 + adj_* NULL (#94).
 
