@@ -237,7 +237,7 @@ def test_run_upsert_accounts_empty_fetches(monkeypatch, db):
 
     empty = pd.DataFrame()
     monkeypatch.setattr(
-        modes, "fetch_many",
+        modes, "fetch_many_datewise",
         lambda tickers, s, e, max_workers: ({t: (empty, empty) for t in tickers}, []),
     )
     monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
@@ -259,12 +259,55 @@ def test_run_upsert_no_empty_no_warning(monkeypatch, db):
     """빈 응답 0건이면 empty_fetch 경고 없음 (기존 동작 보존)."""
     from kr_pipeline.ohlcv import modes
 
-    monkeypatch.setattr(modes, "fetch_many", lambda tickers, s, e, max_workers: ({}, []))
+    monkeypatch.setattr(modes, "fetch_many_datewise", lambda tickers, s, e, max_workers: ({}, []))
     monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
     monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
 
     stats = modes._run_upsert(db, [], date(2026, 7, 1), date(2026, 7, 7), 2, modes.Mode.INCREMENTAL)
     assert not any(w.startswith("empty_fetch") for w in stats.warnings)
+
+
+def test_run_upsert_datewise_halt_row_nullifies_adj(monkeypatch, db):
+    """날짜별 수집 경로에서도 거래정지 행은 raw 0/종가 보존 + adj_* NULL (#94).
+
+    스냅샷의 halt 계약(OHLV=0, close>0)이 merge_raw_and_adjusted →
+    nullify_halt_adj chokepoint 를 그대로 통과하는지 DB 실물로 확인.
+    """
+    from kr_pipeline.ohlcv import modes
+
+    raw = pd.DataFrame({
+        "date": [date(2026, 7, 2)], "open": [0], "high": [0], "low": [0],
+        "close": [5000], "volume": [0], "value": [0],
+    })
+    adj = pd.DataFrame({
+        "date": [date(2026, 7, 2)], "open": [0.0], "high": [0.0], "low": [0.0],
+        "close": [5000.0], "volume": [0.0], "value": [0.0],
+    })
+    monkeypatch.setattr(
+        modes, "fetch_many_datewise",
+        lambda tickers, s, e, max_workers: ({"HLT": (raw, adj)}, []),
+    )
+    monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stocks (ticker, name, market) VALUES ('HLT', '정지주', 'KOSPI') "
+            "ON CONFLICT (ticker) DO NOTHING")
+        db.commit()
+
+    modes._run_upsert(db, ["HLT"], date(2026, 7, 1), date(2026, 7, 7), 2, modes.Mode.INCREMENTAL)
+
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT open, close, adj_close, adj_open, adj_volume FROM daily_prices "
+            "WHERE ticker='HLT' AND date='2026-07-02'")
+        row = cur.fetchone()
+    assert row is not None
+    o, c, adj_close, adj_open, adj_volume = row
+    assert o == 0 and c == 5000            # raw halt 마커 보존
+    assert adj_close is not None            # 종가는 유지
+    assert adj_open is None and adj_volume is None  # OHLV → NULL
 
 
 def test_full_refresh_accounts_empty_fetches(monkeypatch, db):

@@ -79,20 +79,9 @@ def _fetch_one(ticker: str, start: date, end: date, adjusted: bool) -> pd.DataFr
     return df
 
 
-def fetch_ohlcv_pair(ticker: str, start: date, end: date) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """원가 + 수정종가 두 번 호출."""
-    raw = _fetch_one(ticker, start, end, adjusted=False)
-    time.sleep(0.15)
-    adj = _fetch_one(ticker, start, end, adjusted=True)
-    return raw, adj
-
-
 @with_retry(attempts=3, wait_seconds=1.0)
 def fetch_adj_only(ticker: str, start: date, end: date) -> pd.DataFrame:
-    """수정종가만 가져옴 (full-refresh 전용).
-
-    fetch_ohlcv_pair 와 달리 raw 호출 안 함. adjusted=True 만 한 번 호출.
-    """
+    """수정종가만 가져옴 (full-refresh 전용). adjusted=True(Naver) 만 한 번 호출."""
     return _fetch_one(ticker, start, end, adjusted=True)
 
 
@@ -219,41 +208,5 @@ def fetch_many_datewise(
                 successes[ticker] = (_raw_for(ticker), _fetch_one(ticker, start, end, True))
             except Exception as e:
                 failures.append((ticker, str(e)))
-
-    return successes, failures
-
-
-def fetch_many(
-    tickers: list[str],
-    start: date,
-    end: date,
-    *,
-    max_workers: int = 3,
-) -> tuple[dict[str, tuple[pd.DataFrame, pd.DataFrame]], list[tuple[str, str]]]:
-    """병렬 fetch. (성공 dict, 실패 [(ticker, error)] ) 반환."""
-    successes: dict[str, tuple[pd.DataFrame, pd.DataFrame]] = {}
-    failures: list[tuple[str, str]] = []
-
-    with ThreadPoolExecutor(max_workers=max_workers) as ex:
-        futures = {ex.submit(fetch_ohlcv_pair, t, start, end): t for t in tickers}
-        for i, fut in enumerate(as_completed(futures), 1):
-            ticker = futures[fut]
-            try:
-                successes[ticker] = fut.result()
-            except Exception as e:
-                failures.append((ticker, str(e)))
-            if i % 100 == 0:
-                log.info(f"Progress: {i}/{len(tickers)} (failures so far: {len(failures)})")
-
-    # 1차 실패 재시도
-    if failures:
-        log.warning(f"Retrying {len(failures)} failed tickers")
-        retry_failures = []
-        for ticker, _ in failures:
-            try:
-                successes[ticker] = fetch_ohlcv_pair(ticker, start, end)
-            except Exception as e:
-                retry_failures.append((ticker, str(e)))
-        failures = retry_failures
 
     return successes, failures

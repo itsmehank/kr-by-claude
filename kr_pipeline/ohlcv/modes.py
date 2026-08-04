@@ -7,7 +7,7 @@ import pandas as pd
 from psycopg import Connection
 
 from kr_pipeline.db.runs import run_tracking
-from kr_pipeline.ohlcv.fetch import fetch_many, fetch_index
+from kr_pipeline.ohlcv.fetch import fetch_many_datewise, fetch_index
 from kr_pipeline.ohlcv.transform import (
     merge_raw_and_adjusted, to_price_rows, to_index_rows, nullify_halt_adj,
 )
@@ -219,7 +219,7 @@ def run(
 
 
 def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
-    successes, failures = fetch_many(tickers, start, end, max_workers=max_workers)
+    successes, failures = fetch_many_datewise(tickers, start, end, max_workers=max_workers)
     rows_total = 0
     empties: list[str] = []
     for ticker, (raw, adj) in successes.items():
@@ -294,7 +294,7 @@ def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.
         if i % 100 == 0:
             log.info(f"full-refresh progress: {i}/{len(tickers)} (failures so far: {len(failures)})")
 
-    # 1차 실패 재시도 (fetch_many 와 같은 패턴)
+    # 1차 실패 재시도 (fetch_many_datewise 의 adj 재시도와 같은 패턴)
     if failures:
         log.warning(f"Retrying {len(failures)} failed tickers in full-refresh")
         retry_failures: list[tuple[str, str]] = []
