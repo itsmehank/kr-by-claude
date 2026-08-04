@@ -1505,3 +1505,23 @@ launchctl list | grep krbyclaude   # 6개
   flaky 잔존 / ELTD 실패 exit 0 은 탐지가 당일 21시로 지연됨(수용) / probe 마스킹은
   pykrx 문구 결합(비밀번호는 어떤 경로로도 미출력 확인).
 - 리뷰 과정 사고: 리뷰 에이전트가 워킹트리를 main 으로 되돌림 → 재체크아웃 복구(유실 0).
+
+---
+
+## ⚠️ 재개 절차 필수 변경 (2026-08-04 오후 — 머지 직후 발견)
+
+**bootout 은 영구적이지 않다.** 08-04 10:01 로그인/재부팅 시 launchd 가 디스크의 plist 를
+재로드해 정지시킨 4잡이 전부 되살아났고, RunAtLoad 로 즉발했다. 피해: evening(장중 skip)·
+weekend(주차 창 밖 skip)·watch(캐시 read-only — 새 코드가 설계대로 접촉 0) 무해,
+**monthly 만 universe 실행**(KRX ~6요청. 결과는 성공 — 차단 해제 긍정 신호이나 소량 조회라
+대량 스윕과는 별개, 탐침으로 확인 필요).
+
+→ 4잡에 `launchctl disable gui/$UID/<label>` 적용(재로그인에도 유지되는 영구 플래그).
+
+**재개 시 bootstrap 전에 반드시 enable 부터**:
+```bash
+launchctl enable "gui/$(id -u)/com.krbyclaude.<잡>"      # disable 플래그 해제
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.krbyclaude.<잡>.plist
+```
+disable 상태에서는 bootstrap 이 거부되거나 무시된다. 재개 절차 3~5단계의 각 bootstrap 앞에
+이 enable 을 추가할 것.
