@@ -34,7 +34,7 @@
 
 **구현 후 독립 리뷰 반영(08-04):** ① 차단 실경로는 pykrx 가 KeyError 로 표면화(빈 DF 분기는 도달 불가) → try/except 정규화로 재시도 증폭(날짜당 3회) 차단 ② 주말 skip(접촉 ~30% 감소) ③ probe: 전종목시세 불통 시 rc=1(재개 오판 방지) ④ adj(Naver) 워커 페이싱 0.15s 복원. pre-existing 발견(adj 빈 DF 시 run 중단, merge_raw_and_adjusted KeyError)은 별도 이슈로 분리(#95).
 
-**PR 코드리뷰 반영(08-04, 5각도+스코어링):** ⑤ 창 중간 하루 차단/실패가 무신호로 소멸하던 관측성 구멍 수리 — 스냅샷 status(blocked/holiday) 구분 → blocked 날짜를 failures 계정 → `_run_upsert`가 `snapshot_gap` 경고로 승격(failures 는 run_tracking 에 영속되지 않음을 실측 확인. INCREMENTAL 은 30일 window 재-upsert 로 자가치유되나 BACKFILL 은 1회성이라 경고 필수) ⑥ probe_krx.sh 헤더 접촉 산식 정정(python 서브프로세스 2개 = 로그인 2회 + 전종목시세 1회) ⑦ `fetch_many_datewise` docstring "달력일 수"→"평일 수" 정정.
+**PR 코드리뷰 반영(08-04, 5각도+스코어링):** ⑤ 창 중간 하루 차단/실패가 무신호로 소멸하던 관측성 구멍 수리 — 스냅샷 status(blocked/holiday) 구분 → blocked 날짜를 failures 계정 → `_run_upsert`가 `snapshot_gap` 경고로 승격(failures 는 run_tracking 에 영속되지 않음을 실측 확인. INCREMENTAL 은 30일 window 재-upsert 로 자가치유되나 BACKFILL 은 1회성이라 경고 필수) ⑥ probe_krx.sh 헤더 접촉 산식 정정(python 서브프로세스 2개 = 로그인 2회 + 전종목시세 1회) ⑦ `fetch_many_datewise` docstring "달력일 수"→"평일 수" 정정 ⑧ 동일성 실측 스크립트 `scripts/verify_snapshot_parity.py` 신설(과거 날짜의 스냅샷 vs 구 경로 적재 DB raw 전량 비교, 08-06 날짜 가드 + `PARITY_FORCE=1`) — #92 계획서 재개 절차 2.5 단계로 편입(탐침 통과 후·저녁 체인 재개 전 필수).
 
 ---
 

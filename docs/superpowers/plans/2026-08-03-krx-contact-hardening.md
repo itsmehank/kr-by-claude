@@ -1247,6 +1247,18 @@ psql -d kr_pipeline -Atc "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline IN (
 Expected: 잡 2개, 실행 0건.
 
 - [ ] **2. 탐침 1회** — `scripts/launchd/probe_krx.sh`. **rc=1 이면 중단하고 3일 더 대기.**
+  (#94 이후 탐침에 전종목시세(MDCSTAT01501) 판정이 포함됨 — 3종목 통과여도 스냅샷
+  불통이면 rc=1. 날짜별 수집이 재개 경로이므로 이 판정이 실질 게이트다.)
+
+- [ ] **2.5. 동일성 실측 (#94)** — 탐침 rc=0 이후에만:
+
+```bash
+uv run python scripts/verify_snapshot_parity.py   # 기본 2026-07-30, 접촉 = 로그인 1 + 1요청
+```
+
+새 수집 경로(날짜별 스냅샷)가 구 종목별 경로로 적재된 DB raw 와 **전량 일치**하는지
+실데이터로 검증한다(mock 검증이 못 하는 실응답 대조 — 계약 검증의 마지막 조각).
+**rc≠0 이면 4단계(저녁 체인)로 가지 않는다** — 불일치 목록으로 원인부터 확인.
 
 - [ ] **3. 감시부터 재개** — 캐시 read-only 라 KRX 접촉이 0이어야 한다
 
