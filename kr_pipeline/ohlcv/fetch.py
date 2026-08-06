@@ -108,6 +108,9 @@ def fetch_index(index_code: str, start: date, end: date) -> pd.DataFrame:
 
 SNAPSHOT_COLUMNS = ["ticker", "open", "high", "low", "close", "volume", "value", "date"]
 
+# 빈-adj run 내 재시도 상한 — 초과면 광역 장애로 보고 재시도 생략(#92 시도 상한 원칙)
+_EMPTY_ADJ_RETRY_MAX = 20
+
 _SNAPSHOT_RENAME = {
     "티커": "ticker", "시가": "open", "고가": "high",
     "저가": "low", "종가": "close", "거래량": "volume", "거래대금": "value",
@@ -232,6 +235,25 @@ def fetch_many_datewise(
         for ticker, _ in adj_failures:
             try:
                 successes[ticker] = (_raw_for(ticker), _adj_task(ticker))
+            except Exception as e:
+                failures.append((ticker, str(e)))
+
+    # 빈-adj 재시도 (#95 후속) — 빈 DF 는 예외가 아니라 위 재시도에 안 잡힌다.
+    # raw 는 정상인데 adj 만 빈 종목은 일시 장애일 수 있어 run 안에서 1회 재요청.
+    # 그래도 비면 그대로 둔다 — 적재 보류·경고 계정은 _run_upsert 가 담당.
+    # 예외 시 failures 에도 기록(의도적 이중 계정 — failures 는 영속되지 않아 경고가 주 신호).
+    empty_adj = [t for t, (r, a) in successes.items() if not r.empty and a.empty]
+    if len(empty_adj) > _EMPTY_ADJ_RETRY_MAX:
+        log.warning(
+            f"empty-adj {len(empty_adj)}종목 > 상한 {_EMPTY_ADJ_RETRY_MAX} — "
+            f"광역 장애 의심, run 내 재시도 생략(보류·경고는 _run_upsert 가 계정)")
+    else:
+        for ticker in empty_adj:
+            raw_df = successes[ticker][0]
+            try:
+                retried = _adj_task(ticker)
+                if not retried.empty:
+                    successes[ticker] = (raw_df, retried)
             except Exception as e:
                 failures.append((ticker, str(e)))
 
