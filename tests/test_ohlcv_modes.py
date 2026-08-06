@@ -483,12 +483,12 @@ def test_sanity_checks_adj_invariant_recent_emphasis(db, monkeypatch):
         db.commit()
 
 
-def test_run_upsert_empty_adj_does_not_block_other_tickers(monkeypatch, db):
-    """한 종목의 adj 빈 응답(컬럼 없는 빈 DF)이 다른 종목 적재를 막지 않음 (#95).
+def test_run_upsert_empty_adj_held_with_warning_others_proceed(monkeypatch, db):
+    """adj 빈 응답 종목은 적재 통째 보류 + adj_empty_fetch 경고, 다른 종목은 정상 적재 (#95 설계 변경).
 
-    Naver adj 경로는 빈 응답 시 컬럼 없는 빈 DF 를 반환 — 구 merge 는 KeyError 로
-    run 전체를 중단시켰다(종목별 격리 없는 _run_upsert 루프). 빈-adj 종목은
-    raw fallback 으로, 나머지 종목은 정상 adj 로 둘 다 적재돼야 한다.
+    구 설계(raw fallback 적재)는 upsert 의 ON CONFLICT 가 adj_* 를 무조건 교체해
+    기존 올바른 adj 30일 창을 raw 로 덮어쓸 수 있었다(리뷰 major). 보류 설계는
+    기존 행을 건드리지 않고 다음 run 의 창 재수집이 자연 보충한다.
     """
     from kr_pipeline.ohlcv import modes
 
@@ -512,22 +512,30 @@ def test_run_upsert_empty_adj_does_not_block_other_tickers(monkeypatch, db):
     monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
     monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
 
-    with db.cursor() as cur:
-        cur.execute(
-            "INSERT INTO stocks (ticker, name, market) VALUES "
-            "('EAJ', '빈수정주', 'KOSPI'), ('OKJ', '정상주', 'KOSPI') "
-            "ON CONFLICT (ticker) DO NOTHING")
+    try:
+        with db.cursor() as cur:
+            cur.execute(
+                "INSERT INTO stocks (ticker, name, market) VALUES "
+                "('EAJ', '빈수정주', 'KOSPI'), ('OKJ', '정상주', 'KOSPI') "
+                "ON CONFLICT (ticker) DO NOTHING")
+            db.commit()
+
+        stats = modes._run_upsert(
+            db, ["EAJ", "OKJ"], date(2026, 7, 1), date(2026, 7, 7), 2, modes.Mode.INCREMENTAL)
+
+        with db.cursor() as cur:
+            cur.execute(
+                "SELECT ticker, close, adj_close FROM daily_prices "
+                "WHERE ticker IN ('EAJ', 'OKJ') AND date='2026-07-02' ORDER BY ticker")
+            rows = cur.fetchall()
+        # 보류: EAJ 는 적재되지 않는다 (기존 행도 없으므로 0행) — OKJ 만 적재
+        assert rows == [("OKJ", 1000, 500.0)], f"보류/적재 판정 오류: {rows}"
+        joined = " ".join(stats.warnings)
+        assert "adj_empty_fetch" in joined and "EAJ" in joined
+        # 정상 종목은 경고 목록에 없어야 한다
+        assert "OKJ" not in joined
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker IN ('EAJ','OKJ')")
+            cur.execute("DELETE FROM stocks WHERE ticker IN ('EAJ','OKJ')")
         db.commit()
-
-    modes._run_upsert(
-        db, ["EAJ", "OKJ"], date(2026, 7, 1), date(2026, 7, 7), 2, modes.Mode.INCREMENTAL)
-
-    with db.cursor() as cur:
-        cur.execute(
-            "SELECT ticker, close, adj_close FROM daily_prices "
-            "WHERE ticker IN ('EAJ', 'OKJ') AND date='2026-07-02' ORDER BY ticker")
-        rows = cur.fetchall()
-    assert len(rows) == 2, f"두 종목 모두 적재돼야 함: {rows}"
-    (t1, c1, a1), (t2, c2, a2) = rows
-    assert (t1, c1, a1) == ("EAJ", 7000, 7000.0)  # 빈 adj → raw fallback
-    assert (t2, c2, a2) == ("OKJ", 1000, 500.0)   # 정상 adj 보존
