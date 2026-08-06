@@ -160,3 +160,40 @@ def test_nullify_halt_adj_excludes_volume_positive():
     df = pd.DataFrame([{"adj_open": 0.0, "adj_high": 0.0, "adj_low": 0.0,
                         "adj_close": 1395.0, "adj_volume": 278989.0}])
     assert not math.isnan(nullify_halt_adj(df).iloc[0]["adj_low"])
+
+
+# ====== #95: adj(Naver) 빈 DF 방어 ======
+
+def test_merge_columnless_empty_adj_falls_back_to_raw():
+    """adj 가 컬럼 없는 빈 DF(pd.DataFrame())여도 KeyError 없이 raw fallback (#95).
+
+    pykrx Naver 경로는 빈 응답 시 컬럼 없는 빈 DF 를 그대로 반환 — 구 코드는
+    rename-select `[["date","adj_close"]]` 에서 KeyError 로 run 전체를 중단시켰다.
+    """
+    raw = pd.DataFrame([
+        _ohlcv_row(date(2026, 5, 12), 70000, 71000, 69500, 70500, 1000, 70_500_000),
+    ])
+    merged = merge_raw_and_adjusted(raw, pd.DataFrame())
+    row = merged.iloc[0]
+    assert row["adj_close"] == 70500.0
+    assert row["adj_high"] == 71000.0
+    assert row["adj_low"] == 69500.0
+    assert row["adj_open"] == 70000.0
+    assert row["adj_volume"] == 1000.0
+    for col in ("adj_close", "adj_high", "adj_low", "adj_open", "adj_volume"):
+        assert merged[col].dtype == float
+
+
+def test_merge_empty_adj_with_columns_falls_back_to_raw():
+    """adj 가 컬럼 있는 빈 DF 여도 동일하게 raw fallback — 빈-adj 가드 경로 회귀 앵커 (#95)."""
+    raw = pd.DataFrame([
+        _ohlcv_row(date(2026, 5, 12), 70000, 71000, 69500, 70500, 1000, 70_500_000),
+    ])
+    adj = pd.DataFrame(columns=["date", "open", "high", "low", "close", "volume"])
+    merged = merge_raw_and_adjusted(raw, adj)
+    row = merged.iloc[0]
+    assert row["adj_close"] == 70500.0
+    assert row["adj_high"] == 71000.0
+    assert row["adj_low"] == 69500.0
+    assert row["adj_open"] == 70000.0
+    assert row["adj_volume"] == 1000.0

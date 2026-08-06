@@ -481,3 +481,53 @@ def test_sanity_checks_adj_invariant_recent_emphasis(db, monkeypatch):
             cur.execute("DELETE FROM daily_prices WHERE ticker = 'INVR2'")
             cur.execute("DELETE FROM stocks WHERE ticker = 'INVR2'")
         db.commit()
+
+
+def test_run_upsert_empty_adj_does_not_block_other_tickers(monkeypatch, db):
+    """한 종목의 adj 빈 응답(컬럼 없는 빈 DF)이 다른 종목 적재를 막지 않음 (#95).
+
+    Naver adj 경로는 빈 응답 시 컬럼 없는 빈 DF 를 반환 — 구 merge 는 KeyError 로
+    run 전체를 중단시켰다(종목별 격리 없는 _run_upsert 루프). 빈-adj 종목은
+    raw fallback 으로, 나머지 종목은 정상 adj 로 둘 다 적재돼야 한다.
+    """
+    from kr_pipeline.ohlcv import modes
+
+    def _raw(close):
+        return pd.DataFrame({
+            "date": [date(2026, 7, 2)], "open": [close - 100], "high": [close + 100],
+            "low": [close - 200], "close": [close], "volume": [1000], "value": [close * 1000],
+        })
+
+    adj_ok = pd.DataFrame({
+        "date": [date(2026, 7, 2)], "open": [450.0], "high": [550.0],
+        "low": [350.0], "close": [500.0], "volume": [2000.0],
+    })
+    # 빈-adj 종목을 dict 앞에 둬서, 격리 실패 시 뒤 종목 적재가 확실히 막히게 한다.
+    monkeypatch.setattr(
+        modes, "fetch_many_datewise",
+        lambda tickers, s, e, max_workers: (
+            {"EAJ": (_raw(7000), pd.DataFrame()), "OKJ": (_raw(1000), adj_ok)}, [],
+        ),
+    )
+    monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stocks (ticker, name, market) VALUES "
+            "('EAJ', '빈수정주', 'KOSPI'), ('OKJ', '정상주', 'KOSPI') "
+            "ON CONFLICT (ticker) DO NOTHING")
+        db.commit()
+
+    modes._run_upsert(
+        db, ["EAJ", "OKJ"], date(2026, 7, 1), date(2026, 7, 7), 2, modes.Mode.INCREMENTAL)
+
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT ticker, close, adj_close FROM daily_prices "
+            "WHERE ticker IN ('EAJ', 'OKJ') AND date='2026-07-02' ORDER BY ticker")
+        rows = cur.fetchall()
+    assert len(rows) == 2, f"두 종목 모두 적재돼야 함: {rows}"
+    (t1, c1, a1), (t2, c2, a2) = rows
+    assert (t1, c1, a1) == ("EAJ", 7000, 7000.0)  # 빈 adj → raw fallback
+    assert (t2, c2, a2) == ("OKJ", 1000, 500.0)   # 정상 adj 보존
