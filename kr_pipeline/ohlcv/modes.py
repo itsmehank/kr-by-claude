@@ -222,10 +222,17 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
     successes, failures = fetch_many_datewise(tickers, start, end, max_workers=max_workers)
     rows_total = 0
     empties: list[str] = []
+    adj_empties: list[str] = []
     for ticker, (raw, adj) in successes.items():
         if raw.empty:
             # 성공도 실패도 아닌 소멸 금지 — 계정 후 skip (P1-5 B)
             empties.append(ticker)
+            continue
+        if adj.empty:
+            # #95 설계: 빈 adj(재시도 후에도)는 적재 통째 보류 — raw fallback 으로
+            # 적재하면 upsert 의 ON CONFLICT 가 기존 올바른 adj 30일 창을 raw 로
+            # 덮어쓴다(조용한 오염). 기존 행 불변, 다음 run 창 재수집이 자연 보충.
+            adj_empties.append(ticker)
             continue
         merged = merge_raw_and_adjusted(raw, adj)
         rows = to_price_rows(ticker, merged)
@@ -244,6 +251,11 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
         conn.commit()
 
     warnings = _empty_fetch_warning(empties, len(tickers))
+    if adj_empties:
+        warnings.append(
+            f"adj_empty_fetch: {len(adj_empties)}종목 적재 보류 {adj_empties[:20]} — "
+            f"재시도 후에도 adj(Naver) 빈 응답, 기존 행 불변·다음 run 자연 보충"
+        )
     # 스냅샷 결측 날짜 승격 (#94 리뷰) — 창 중간 하루 차단/실패는 어떤 종목도
     # raw.empty 로 만들지 않아 empty_fetch 가 못 잡는다. failures 는 run warnings
     # 에 영속되지 않으므로(run_tracking 은 warnings 만 기록) 여기서 승격한다.

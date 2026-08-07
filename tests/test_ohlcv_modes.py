@@ -481,3 +481,61 @@ def test_sanity_checks_adj_invariant_recent_emphasis(db, monkeypatch):
             cur.execute("DELETE FROM daily_prices WHERE ticker = 'INVR2'")
             cur.execute("DELETE FROM stocks WHERE ticker = 'INVR2'")
         db.commit()
+
+
+def test_run_upsert_empty_adj_held_with_warning_others_proceed(monkeypatch, db):
+    """adj 빈 응답 종목은 적재 통째 보류 + adj_empty_fetch 경고, 다른 종목은 정상 적재 (#95 설계 변경).
+
+    구 설계(raw fallback 적재)는 upsert 의 ON CONFLICT 가 adj_* 를 무조건 교체해
+    기존 올바른 adj 30일 창을 raw 로 덮어쓸 수 있었다(리뷰 major). 보류 설계는
+    기존 행을 건드리지 않고 다음 run 의 창 재수집이 자연 보충한다.
+    """
+    from kr_pipeline.ohlcv import modes
+
+    def _raw(close):
+        return pd.DataFrame({
+            "date": [date(2026, 7, 2)], "open": [close - 100], "high": [close + 100],
+            "low": [close - 200], "close": [close], "volume": [1000], "value": [close * 1000],
+        })
+
+    adj_ok = pd.DataFrame({
+        "date": [date(2026, 7, 2)], "open": [450.0], "high": [550.0],
+        "low": [350.0], "close": [500.0], "volume": [2000.0],
+    })
+    # 빈-adj 종목을 dict 앞에 둬서, 격리 실패 시 뒤 종목 적재가 확실히 막히게 한다.
+    monkeypatch.setattr(
+        modes, "fetch_many_datewise",
+        lambda tickers, s, e, max_workers: (
+            {"EAJ": (_raw(7000), pd.DataFrame()), "OKJ": (_raw(1000), adj_ok)}, [],
+        ),
+    )
+    monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+
+    try:
+        with db.cursor() as cur:
+            cur.execute(
+                "INSERT INTO stocks (ticker, name, market) VALUES "
+                "('EAJ', '빈수정주', 'KOSPI'), ('OKJ', '정상주', 'KOSPI') "
+                "ON CONFLICT (ticker) DO NOTHING")
+            db.commit()
+
+        stats = modes._run_upsert(
+            db, ["EAJ", "OKJ"], date(2026, 7, 1), date(2026, 7, 7), 2, modes.Mode.INCREMENTAL)
+
+        with db.cursor() as cur:
+            cur.execute(
+                "SELECT ticker, close, adj_close FROM daily_prices "
+                "WHERE ticker IN ('EAJ', 'OKJ') AND date='2026-07-02' ORDER BY ticker")
+            rows = cur.fetchall()
+        # 보류: EAJ 는 적재되지 않는다 (기존 행도 없으므로 0행) — OKJ 만 적재
+        assert rows == [("OKJ", 1000, 500.0)], f"보류/적재 판정 오류: {rows}"
+        joined = " ".join(stats.warnings)
+        assert "adj_empty_fetch" in joined and "EAJ" in joined
+        # 정상 종목은 경고 목록에 없어야 한다
+        assert "OKJ" not in joined
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker IN ('EAJ','OKJ')")
+            cur.execute("DELETE FROM stocks WHERE ticker IN ('EAJ','OKJ')")
+        db.commit()

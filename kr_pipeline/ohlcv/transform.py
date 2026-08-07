@@ -39,18 +39,28 @@ def merge_raw_and_adjusted(raw: pd.DataFrame, adjusted: pd.DataFrame) -> pd.Data
             adj_volume=pd.Series(dtype=float),
         )
 
-    rename = {"close": "adj_close"}
-    if "high" in adjusted.columns:
-        rename["high"] = "adj_high"
-    if "low" in adjusted.columns:
-        rename["low"] = "adj_low"
-    if "open" in adjusted.columns:
-        rename["open"] = "adj_open"
-    if "volume" in adjusted.columns:
-        rename["volume"] = "adj_volume"
-    adj = adjusted.rename(columns=rename)[["date"] + list(rename.values())]
-    merged = raw.merge(adj, on="date", how="left")
+    # #95: adj 빈 응답 방어 — pykrx(Naver) 경로는 빈 응답을 컬럼 없는 빈 DF 로
+    # 그대로 반환하며, 그 경우 아래 rename-select 가 KeyError 로 run 전체를
+    # 중단시켰다. empty 면(컬럼 유무 무관) merge 를 건너뛰고 raw fallback 직행.
+    # 단 production 파이프라인(_run_upsert)은 빈-adj 종목을 적재 보류로 먼저
+    # 거르므로(#95 설계 변경) 이 fallback 은 방어층(defense-in-depth)이다.
+    if adjusted.empty:
+        merged = raw.copy()
+    else:
+        rename = {"close": "adj_close"}
+        if "high" in adjusted.columns:
+            rename["high"] = "adj_high"
+        if "low" in adjusted.columns:
+            rename["low"] = "adj_low"
+        if "open" in adjusted.columns:
+            rename["open"] = "adj_open"
+        if "volume" in adjusted.columns:
+            rename["volume"] = "adj_volume"
+        adj = adjusted.rename(columns=rename)[["date"] + list(rename.values())]
+        merged = raw.merge(adj, on="date", how="left")
 
+    if "adj_close" not in merged.columns:
+        merged["adj_close"] = merged["close"]
     merged["adj_close"] = merged["adj_close"].fillna(merged["close"]).astype(float)
     if "adj_high" not in merged.columns:
         merged["adj_high"] = merged["high"]
