@@ -4,10 +4,13 @@
 8~12 턴을 돌았다(측정). 입력을 프롬프트에 직접 인라인하면 turns→1 로 붕괴,
 배치 처리량 ~29%↓, 잡당 토큰 ~80%↓, classification 불변(2단계 격리측정 45/45).
 
-dedup:
-  - market_context.json 만 제외 — payload.market_context 와 **바이트 동일**.
+dedup (#99 — payload 와 동일한 데이터의 별도 블록은 인라인하지 않는다):
+  - market_context.json 제외 — payload.market_context 와 **바이트 동일**.
+  - minervini.json 제외 — payload.conditions_detail 과 동일(같은 함수·같은 인자).
+  - corporate_actions.json 제외 — payload.price_data_notes 와 동일.
   - daily.csv / weekly.csv 는 **유지**. (daily.csv 제외 시 borderline 종목의
-    late_stage_base 플래그가 baseline 대비 저하되는 정황이 있어 보존.)
+    late_stage_base 플래그가 baseline 대비 저하되는 정황이 있어 보존 — #99 부터는
+    지표 시계열의 유일 표현이기도 하다.)
   - market_index_*.csv 는 payload 에 없는 고유 데이터 → 유지.
 
 GUARD: 데이터 정합성 검사(check_data_integrity)는 ZIP 경로(build_analysis_zip)와
@@ -28,8 +31,6 @@ from api.services.integrity_guard import check_data_integrity
 from api.services.chart_render import render_daily_chart, render_weekly_chart
 from api.services.csv_builder import build_daily_csv, build_weekly_csv, build_index_csv
 from api.services.market_context_builder import INDEX_CODE_MAP
-from api.services.corporate_actions_builder import build_corporate_actions
-from api.services.minervini_detail_builder import build_minervini_detail
 from api.services.payload_builder import build_payload
 
 
@@ -67,8 +68,8 @@ def build_analysis_inline(
     _name, market, _sector = row
 
     payload = build_payload(conn, ticker, on_date)
-    corp_actions = build_corporate_actions(conn, ticker, lookback_years=5, as_of_date=on_date)
-    minervini = build_minervini_detail(conn, ticker, on_date)
+    # minervini.json/corporate_actions.json 은 인라인 안 함 — payload.conditions_detail/
+    # payload.price_data_notes 와 동일(dedup, #99)
     daily_csv = _s(build_daily_csv(conn, ticker, days=60, on_date=on_date))      # 유지
     weekly_csv = _s(build_weekly_csv(conn, ticker, weeks=104, on_date=on_date))  # 유지
     index_code = INDEX_CODE_MAP.get(market, "1001")
@@ -89,8 +90,6 @@ def build_analysis_inline(
         "아래는 분석 입력 데이터입니다. 먼저 첨부된 차트 PNG 2장"
         "(daily_chart.png, weekly_chart.png)을 examine 한 뒤 아래 데이터로 분석하세요.",
         "### payload.json\n```json\n" + json.dumps(payload, ensure_ascii=False, indent=2) + "\n```",
-        "### minervini.json\n```json\n" + json.dumps(minervini, ensure_ascii=False, indent=2) + "\n```",
-        "### corporate_actions.json\n```json\n" + json.dumps(corp_actions, ensure_ascii=False, indent=2) + "\n```",
         "### daily.csv\n```csv\n" + daily_csv + "\n```",
         "### weekly.csv\n```csv\n" + weekly_csv + "\n```",
         "### market_index_daily.csv\n```csv\n" + idx_daily + "\n```",
