@@ -33,8 +33,15 @@ class UsageLimitError(RuntimeError):
 
 # CLI 가 제한 시 내는 메시지 패턴 (rc≠0 stderr 또는 rc=0 텍스트 stdout 양쪽).
 # 예: "Claude AI usage limit reached|1760000000", "5-hour limit reached ∙ resets 3am"
+#     "You've hit your org's monthly spend limit · run /usage-credits to ..."  (#98)
+#
+# 패턴을 좁게 유지할 것 — _is_usage_limit() 는 아래 rc=0 경로에서 **모델 응답 본문**
+# (envelope.result)에도 적용된다. 넓은 패턴(예: 단독 "spend limit")은 정상 분류
+# 응답의 reasoning 을 한도로 오인해 UsageLimitError 를 던지고, 이를 처리하는 12개
+# 모듈의 배치를 통째로 중단시킨다.
 _USAGE_LIMIT_RE = re.compile(
-    r"usage limit reached|rate.?limit|5-hour limit|limit will reset",
+    r"usage limit reached|rate.?limit|5-hour limit|limit will reset"
+    r"|hit your .{0,40}?spend limit|/usage-credits",
     re.IGNORECASE,
 )
 
