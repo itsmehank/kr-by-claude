@@ -193,9 +193,11 @@ def call_claude(
     Args:
         prompt_file: prompts/ 하위 파일명 (예: "analyze_chart_v3.md")
         attachments: 첨부 파일 절대경로 리스트 (ZIP, PNG 등)
-        payload_inline: 프롬프트 본문에 직접 붙일 입력.
+        payload_inline: user 메시지(stdin)에 담을 호출별 입력. (#99) 정적
+            프롬프트는 --append-system-prompt 로 분리되므로 user 메시지는 이것
+            (+첨부 @참조)만으로 구성된다.
             dict → ```json 블록으로 직렬화(가벼운 payload 용).
-            str  → 원문 그대로 append(인라인 데이터 섹션 용; analyze_chart_v3 인라인 경로).
+            str  → 원문 그대로(인라인 데이터 섹션 용; analyze_chart_v3 인라인 경로).
         dry_run: True 면 LLM 호출 안 함, mock JSON 반환
         timeout_seconds: subprocess timeout
         meta_out: dict 를 주면 호출 메타를 채움 — model(별칭이 아닌 실제 해석된
@@ -218,15 +220,21 @@ def call_claude(
     if not prompt_path.exists():
         raise FileNotFoundError(f"Prompt not found: {prompt_path}")
 
-    # Build prompt input
+    # (#99) 정적 프롬프트(prompt_file 전문)는 user 메시지에 붙이지 않고
+    # --append-system-prompt 로 승격 — 모든 호출에서 동일한 수십 KB 가 안정적인
+    # 프롬프트 캐시 프리픽스가 된다. user 메시지(stdin)에는 호출별로 달라지는
+    # 데이터(payload_inline·첨부 참조)만 남긴다.
     prompt_text = prompt_path.read_text(encoding="utf-8")
+    user_parts: list[str] = []
     if payload_inline is not None:
         if isinstance(payload_inline, str):
-            prompt_text += "\n\n" + payload_inline + "\n"
+            user_parts.append(payload_inline)
         else:
-            prompt_text += "\n\n## Input (JSON)\n\n```json\n"
-            prompt_text += json.dumps(payload_inline, ensure_ascii=False, indent=2)
-            prompt_text += "\n```\n"
+            user_parts.append(
+                "## Input (JSON)\n\n```json\n"
+                + json.dumps(payload_inline, ensure_ascii=False, indent=2)
+                + "\n```"
+            )
 
     # --tools Read: default-deny tool surface. Classification reads only the
     # attached chart PNGs (@absolute_path → Read); web/news/external lookups must
@@ -235,8 +243,13 @@ def call_claude(
     # from prompting on the allowed Read.
     # --output-format json: 봉투(modelUsage/usage)로 실제 사용 모델·토큰을 기록
     # 가능하게 한다 — 별칭 'sonnet' 핀이 어느 버전으로 해석됐는지 사후 추적용.
+    # --exclude-dynamic-system-prompt-sections: cwd/git status 등 호출마다 변할 수
+    # 있는 섹션을 system prompt 앞부분에서 첫 user 메시지로 밀어낸다 — 이게 없으면
+    # append 한 정적 프롬프트 앞의 동적 텍스트가 캐시 프리픽스를 계속 깨뜨린다.
     cmd = ["claude", "--print", "--permission-mode", "bypassPermissions",
-           "--tools", "Read", "--output-format", "json"]
+           "--tools", "Read", "--output-format", "json",
+           "--append-system-prompt", prompt_text,
+           "--exclude-dynamic-system-prompt-sections"]
 
     # 모델 핀: 기본 'sonnet'(별칭 — 그 시점의 최신 Sonnet). 사용자 /model·
     # settings.json 변경이 production 분류 모델을 조용히 바꾸지 않도록 항상 핀.
@@ -250,11 +263,15 @@ def call_claude(
     for d in attach_dirs:
         cmd.extend(["--add-dir", d])
 
-    # prompt 안에 파일 reference 를 @absolute_path 형식으로 추가
+    # user 메시지 안에 파일 reference 를 @absolute_path 형식으로 추가
     if attachments:
-        prompt_text += "\n\n## 첨부 파일\n\n다음 파일들을 참고하세요:\n"
-        for att in attachments:
-            prompt_text += f"- @{os.path.abspath(att)}\n"
+        att_lines = "\n".join(f"- @{os.path.abspath(att)}" for att in attachments)
+        user_parts.append("## 첨부 파일\n\n다음 파일들을 참고하세요:\n" + att_lines)
+
+    # payload 도 첨부도 없는 경우(현재 15개 호출처 중 해당 없음 — 방어) 빈 stdin 방지
+    user_text = "\n\n".join(user_parts) + "\n" if user_parts else (
+        "시스템 프롬프트의 지침에 따라 진행하세요.\n"
+    )
 
     last_error = None
     for attempt, delay in enumerate([0] + RETRY_DELAYS):
@@ -264,7 +281,7 @@ def call_claude(
 
         result = subprocess.run(
             cmd,
-            input=prompt_text,
+            input=user_text,
             capture_output=True,
             text=True,
             timeout=timeout_seconds,
