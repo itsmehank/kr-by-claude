@@ -1,4 +1,5 @@
 """Claude CLI subprocess wrapper + dry-run."""
+import json
 import subprocess
 import pytest
 
@@ -150,19 +151,74 @@ def test_call_claude_no_longer_uses_attach_in_source():
     assert "--add-dir" in content, "claude_cli.py 가 --add-dir 를 사용해야 함"
 
 
-def test_call_claude_usage_limit_no_retry(mocker):
-    """사용량 제한(5시간)은 1~9초 재시도가 무의미 — 즉시 UsageLimitError, 재시도 0회."""
+@pytest.mark.parametrize("stdout", [
+    "Claude AI usage limit reached|1760000000",
+    "5-hour limit reached ∙ resets 3am",
+    "Your rate limit has been exceeded",
+    "The limit will reset at 9pm",
+    # (#98) 2026-08-09 표본 C 백필에서 실제로 나온 문구 — 기존 패턴에 안 걸려
+    # 셀당 4회 재시도로 약 1,175건의 0-토큰 헛호출이 발생했다.
+    "You've hit your org's monthly spend limit · run /usage-credits to ask "
+    "your admin for a higher limit",
+])
+def test_call_claude_usage_limit_no_retry(mocker, stdout):
+    """사용량 제한은 1~9초 재시도가 무의미 — 즉시 UsageLimitError, 재시도 0회."""
     from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 
     sleep = mocker.patch("time.sleep")
     mock_run = mocker.patch("subprocess.run")
     mock_run.return_value = subprocess.CompletedProcess(
-        args=[], returncode=1, stdout="Claude AI usage limit reached|1760000000", stderr=""
+        args=[], returncode=1, stdout=stdout, stderr=""
     )
     with pytest.raises(UsageLimitError):
         call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
     assert mock_run.call_count == 1
     sleep.assert_not_called()
+
+
+def test_call_claude_usage_limit_inside_error_envelope_no_retry(mocker):
+    """(#98) 한도 문구가 --output-format json 봉투 안(rc≠0)에 실려도 재시도 0회.
+
+    실제 실패 형태 — stderr 는 비고 stdout 에 is_error 봉투만 온다.
+    """
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
+
+    envelope = json.dumps({
+        "type": "result",
+        "subtype": "error_during_execution",
+        "is_error": True,
+        "result": "You've hit your org's monthly spend limit · run /usage-credits "
+                  "to ask your admin for a higher limit",
+    })
+    sleep = mocker.patch("time.sleep")
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=1, stdout=envelope, stderr=""
+    )
+    with pytest.raises(UsageLimitError):
+        call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
+    assert mock_run.call_count == 1
+    sleep.assert_not_called()
+
+
+def test_is_usage_limit_no_false_positive_on_classification():
+    """(#98) 정상 분류 응답을 한도로 오인하면 12개 모듈의 배치가 통째로 중단된다.
+
+    _is_usage_limit 는 봉투 result(모델 응답 본문)에도 적용되므로 오탐이 치명적이다.
+    """
+    from kr_pipeline.llm_runner.llm.claude_cli import _is_usage_limit
+
+    result = json.dumps({
+        "classification": "watch",
+        "pattern": "cup_with_handle",
+        "pivot_price": 51200.0,
+        "confidence": 0.62,
+        "reasoning": "52주 신고가 대비 -8% 구간에서 손잡이 형성 중. 거래량 감소를 "
+                     "동반한 조정으로 베이스 품질은 양호하나, 시장 방향이 조정 "
+                     "국면이라 신규 진입은 보류. 리스크 한도(risk limit) 내에서 "
+                     "관찰 지속.",
+    }, ensure_ascii=False)
+    assert _is_usage_limit(result) is False
 
 
 def test_call_claude_usage_limit_rc0_text_output(mocker):
