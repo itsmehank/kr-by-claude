@@ -1,4 +1,4 @@
-"""LLM 분석/검증 ZIP 빌더. 14(원본 분석)~15(검증 모드) 파일 묶기."""
+"""LLM 분석/검증 ZIP 빌더. 15(원본 분석)~16(검증 모드) 파일 묶기."""
 import io
 import json
 import zipfile
@@ -8,7 +8,12 @@ from pathlib import Path
 from psycopg import Connection
 
 from api.services.chart_render import render_daily_chart, render_weekly_chart
-from api.services.csv_builder import build_daily_csv, build_weekly_csv, build_index_csv
+from api.services.csv_builder import (
+    build_daily_csv,
+    build_weekly_csv,
+    build_weekly_ohlcv_csv,
+    build_index_csv,
+)
 from api.services.market_context_builder import build_market_context, INDEX_CODE_MAP
 from api.services.corporate_actions_builder import build_corporate_actions
 from api.services.minervini_detail_builder import build_minervini_detail
@@ -34,12 +39,13 @@ README_TEMPLATE = """# LLM 분석 패키지
 
 1. **Step 1**: `prompt_step1_analyze.md` 와 함께 다음을 입력:
    - `payload.json` (텍스트로)
+   - `daily.csv` (지표 시계열 — payload 에는 더 이상 없음), `weekly.csv`, `weekly_ohlcv.csv` (주봉 OHLCV)
    - `daily_chart.png`, `weekly_chart.png` (이미지)
 
    → LLM 이 classification (entry/watch/ignore) + pattern + risk_flags 반환.
 
 2. **Step 2** (Step 1 결과가 `entry` 일 때만): `prompt_step2_entry_params.md` 와 함께:
-   - `payload.json` + Step 1 결과를 `prior_analysis` 로 포함
+   - `payload.json` + `daily.csv` + `weekly.csv` + `weekly_ohlcv.csv` + Step 1 결과를 `prior_analysis` 로 포함
    - `daily_chart.png`, `weekly_chart.png`
 
    → LLM 이 진입 파라미터 18개 필드 반환.
@@ -51,6 +57,7 @@ ZIP 에 `analysis_result.json` 이 포함돼 있다면 *이미 시스템 LLM 이
 1. `prompt_verify.md` 를 system prompt 로 사용.
 2. user input 에 다음을 함께 제공:
    - `payload.json`, `minervini.json`, `market_context.json`, `corporate_actions.json` (원본 입력)
+   - `daily.csv`, `weekly.csv`, `weekly_ohlcv.csv` (시계열 — 지표·주봉 OHLCV 는 payload 에 없음)
    - `daily_chart.png`, `weekly_chart.png` (차트)
    - `analysis_result.json` (검증 대상)
    - `prompt_step1_analyze.md` (원본 분석이 따른 룰의 출처)
@@ -70,7 +77,8 @@ ZIP 에 `analysis_result.json` 이 포함돼 있다면 *이미 시스템 LLM 이
 | `market_context.json` | 시장 컨텍스트 | ✓ | ✓ |
 | `corporate_actions.json` | 기업행위 이력 | ✓ | ✓ |
 | `minervini.json` | 8 조건 detail | ✓ | ✓ |
-| `daily.csv` / `weekly.csv` | 종목 시계열 | ✓ | ✓ |
+| `daily.csv` / `weekly.csv` | 종목 시계열 (일봉 17지표 / 주봉 지표) | ✓ | ✓ |
+| `weekly_ohlcv.csv` | 주봉 OHLCV 104주 (open/high/low 는 여기만) | ✓ | ✓ |
 | `market_index_daily.csv` / `market_index_weekly.csv` | 시장 지수 | ✓ | ✓ |
 | `daily_chart.png` / `weekly_chart.png` | 차트 이미지 | ✓ | ✓ |
 | `analysis_result.json` | **시스템 LLM 의 분석 결과 (검증 대상)** | — | ✓ |
@@ -84,6 +92,7 @@ ZIP 에 `analysis_result.json` 이 포함돼 있다면 *이미 시스템 LLM 이
 
   [입력 데이터]
   payload.json, minervini.json, market_context.json, corporate_actions.json
+  daily.csv, weekly.csv, weekly_ohlcv.csv
   weekly_chart.png, daily_chart.png
 
   [검증 대상]
@@ -149,11 +158,13 @@ def _fetch_latest_analysis_result(conn: Connection, ticker: str, on_date: date) 
 
 def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = None,
                        include_prior_analysis: bool = True) -> bytes:
-    """분석/검증 ZIP 빌더. 14 또는 15 파일 묶기.
+    """분석/검증 ZIP 빌더. 15 또는 16 파일 묶기.
 
     종목에 weekly_classification 분류 이력이 있으면(on_date 이하)
-    analysis_result.json 을 추가해 *검증 모드 ZIP* (15 파일) 생성.
-    분류 이력 없으면 *원본 분석 ZIP* (14 파일 — prompt_verify.md 는 항상 포함).
+    analysis_result.json 을 추가해 *검증 모드 ZIP* (16 파일) 생성.
+    분류 이력 없으면 *원본 분석 ZIP* (15 파일 — prompt_verify.md 는 항상 포함).
+    (#99) payload 가 지표/주봉 OHLCV 시계열을 더 이상 싣지 않으므로
+    weekly_ohlcv.csv 를 포함해 무손실 재현을 보존한다(지표는 daily.csv 17열).
     """
     if on_date is None:
         on_date = date.today()
@@ -180,6 +191,7 @@ def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = Non
 
     daily_csv = build_daily_csv(conn, ticker, days=60, on_date=on_date)
     weekly_csv = build_weekly_csv(conn, ticker, weeks=104, on_date=on_date)
+    weekly_ohlcv_csv = build_weekly_ohlcv_csv(conn, ticker, weeks=104, on_date=on_date)
     index_code = INDEX_CODE_MAP.get(market, "1001")
     market_index_daily_csv = build_index_csv(conn, index_code, "daily", lookback=60, on_date=on_date)
     market_index_weekly_csv = build_index_csv(conn, index_code, "weekly", lookback=104, on_date=on_date)
@@ -216,6 +228,7 @@ def build_analysis_zip(conn: Connection, ticker: str, on_date: date | None = Non
         zf.writestr("minervini.json", json.dumps(minervini, ensure_ascii=False, indent=2))
         zf.writestr("daily.csv", daily_csv)
         zf.writestr("weekly.csv", weekly_csv)
+        zf.writestr("weekly_ohlcv.csv", weekly_ohlcv_csv)
         zf.writestr("market_index_daily.csv", market_index_daily_csv)
         zf.writestr("market_index_weekly.csv", market_index_weekly_csv)
         zf.writestr("daily_chart.png", daily_chart_png)

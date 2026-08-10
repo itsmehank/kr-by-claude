@@ -116,9 +116,13 @@ def test_build_payload_climax_topping_gates_anchor_consistent(db):
 
     # 기존 키 보존 (additive 확인)
     assert "conditions_summary" in payload
-    assert "weekly_ohlcv_recent_104w" in payload
     assert "market_direction_gate" in payload
     assert "current_metrics" in payload
+    # (#99) 시계열 사본 키는 payload 에서 제거 — daily.csv/weekly_ohlcv.csv 로 이동.
+    # daily_ohlcv 는 open/high/low 가 고유하므로 유지.
+    assert "weekly_ohlcv_recent_104w" not in payload
+    assert "indicators_recent_60d" not in payload
+    assert "daily_ohlcv_recent_60d" in payload
 
 
 def test_build_payload_dist_count_partial_missing_yields_none(db):

@@ -29,7 +29,12 @@ from psycopg import Connection
 
 from api.services.integrity_guard import check_data_integrity
 from api.services.chart_render import render_daily_chart, render_weekly_chart
-from api.services.csv_builder import build_daily_csv, build_weekly_csv, build_index_csv
+from api.services.csv_builder import (
+    build_daily_csv,
+    build_weekly_csv,
+    build_weekly_ohlcv_csv,
+    build_index_csv,
+)
 from api.services.market_context_builder import INDEX_CODE_MAP
 from api.services.payload_builder import build_payload
 
@@ -72,6 +77,9 @@ def build_analysis_inline(
     # payload.price_data_notes 와 동일(dedup, #99)
     daily_csv = _s(build_daily_csv(conn, ticker, days=60, on_date=on_date))      # 유지
     weekly_csv = _s(build_weekly_csv(conn, ticker, weeks=104, on_date=on_date))  # 유지
+    # (#99) payload.weekly_ohlcv_recent_104w(JSON) 의 CSV 전환 — weekly.csv(지표)와
+    # 상호 보완(open/high/low 는 여기만 있음), 둘 다 유지.
+    weekly_ohlcv_csv = _s(build_weekly_ohlcv_csv(conn, ticker, weeks=104, on_date=on_date))
     index_code = INDEX_CODE_MAP.get(market, "1001")
     idx_daily = _s(build_index_csv(conn, index_code, "daily", lookback=60, on_date=on_date))
     idx_weekly = _s(build_index_csv(conn, index_code, "weekly", lookback=104, on_date=on_date))
@@ -92,6 +100,7 @@ def build_analysis_inline(
         "### payload.json\n```json\n" + json.dumps(payload, ensure_ascii=False, indent=2) + "\n```",
         "### daily.csv\n```csv\n" + daily_csv + "\n```",
         "### weekly.csv\n```csv\n" + weekly_csv + "\n```",
+        "### weekly_ohlcv.csv\n```csv\n" + weekly_ohlcv_csv + "\n```",
         "### market_index_daily.csv\n```csv\n" + idx_daily + "\n```",
         "### market_index_weekly.csv\n```csv\n" + idx_weekly + "\n```",
     ]

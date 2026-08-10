@@ -108,7 +108,16 @@ def test_inline_block_exact_set_and_two_pngs(inline_result):
         "payload.json",
         "daily.csv",
         "weekly.csv",
+        "weekly_ohlcv.csv",
         "market_index_daily.csv",
         "market_index_weekly.csv",
     ]
     assert len(png_paths) == 2
+
+
+def test_inline_payload_block_drops_timeseries_copies(inline_result):
+    """B: payload 블록에서 시계열 사본 키 제거, daily_ohlcv(고유 open/high/low)는 유지."""
+    inline_text, _ = inline_result
+    assert '"indicators_recent_60d"' not in inline_text
+    assert '"weekly_ohlcv_recent_104w"' not in inline_text
+    assert '"daily_ohlcv_recent_60d"' in inline_text
