@@ -22,11 +22,11 @@ def _seed_minimal(db, ticker="ZIP1"):
     db.commit()
 
 
-def test_build_analysis_zip_contains_14_files(db):
-    """원본 분석 ZIP = 14 파일 (분류 이력 없을 때 — prompt_verify.md 는 항상 포함).
+def test_build_analysis_zip_contains_15_files(db):
+    """원본 분석 ZIP = 15 파일 (분류 이력 없을 때 — prompt_verify.md 는 항상 포함).
 
-    (stale 정정: prompt_verify.md 추가 후 13→14 가 됐는데 테스트가 미갱신돼
-    baseline 상시 실패로 방치돼 있었다.)"""
+    (#99: payload 가 지표/주봉 OHLCV 시계열을 잃으면서 weekly_ohlcv.csv 가
+    추가돼 14→15. 검증 모드는 +analysis_result.json = 16.)"""
     _seed_minimal(db)
     zip_bytes = build_analysis_zip(db, "ZIP1", on_date=date(2026, 5, 17))
 
@@ -37,7 +37,7 @@ def test_build_analysis_zip_contains_14_files(db):
         "README.md", "prompt_step1_analyze.md", "prompt_step2_entry_params.md",
         "prompt_verify.md",
         "payload.json", "market_context.json", "corporate_actions.json",
-        "minervini.json", "daily.csv", "weekly.csv",
+        "minervini.json", "daily.csv", "weekly.csv", "weekly_ohlcv.csv",
         "market_index_daily.csv", "market_index_weekly.csv",
         "daily_chart.png", "weekly_chart.png",
     }
@@ -188,6 +188,9 @@ def test_build_analysis_zip_skips_prior_analysis_when_disabled(db):
         z_without = zipfile.ZipFile(io.BytesIO(build_analysis_zip(db, t, on_date=date(2025,6,10), include_prior_analysis=False)))
         assert "analysis_result.json" in z_with.namelist()        # 기본: verify-mode 포함
         assert "analysis_result.json" not in z_without.namelist()  # 백필: 미포함
+        # (#99) 파일 수 계약: 원본 15 / 검증 16
+        assert len(z_without.namelist()) == 15
+        assert len(z_with.namelist()) == 16
     finally:
         with db.cursor() as cur:
             cur.execute("DELETE FROM weekly_classification WHERE symbol=%s", (t,))

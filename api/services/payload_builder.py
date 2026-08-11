@@ -103,7 +103,8 @@ def _market_direction_gate(market_context: dict) -> dict:
 
 
 def _dist_count_25s(indicators_60d: list) -> int | None:
-    """(#44 Task 5) T-D 분배일 카운트 입력 — indicators_recent_60d 의 마지막 25행 기준.
+    """(#44 Task 5) T-D 분배일 카운트 입력 — 지표 시계열(_fetch_indicators_recent,
+    #99 부터 payload 미출력·내부 계산 전용)의 마지막 25행 기준.
 
     null=보수(brief 규약): 25행 미만이거나, 마지막 25행 중 하나라도
     distribution_day_flag 가 None(미산출)이면 부분 결측을 조용히 과소계수하지
@@ -142,7 +143,10 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
 
     current = _build_current_metrics(conn, ticker, on_date)
     daily_ohlcv = _fetch_daily_ohlcv(conn, ticker, on_date, days=60)
-    weekly_ohlcv = _fetch_weekly_ohlcv(conn, ticker, on_date, weeks=104)
+    # (#99) weekly_ohlcv/indicators_60d 는 더 이상 payload 로 출력하지 않는다 —
+    # 주봉 OHLCV 는 weekly_ohlcv.csv(build_weekly_ohlcv_csv), 지표 시계열은
+    # daily.csv(17지표) 가 유일 표현. indicators_60d 는 아래 게이트 산술
+    # (climax/topping, dist count, supporting_ext_sma200_pct) 의 입력으로만 유지.
     indicators_60d = _fetch_indicators_recent(conn, ticker, on_date, days=60)
 
     market_context = build_market_context(conn, market, on_date)
@@ -191,8 +195,6 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
         "rs_rating": rs_rating,
         "current_metrics": current,
         "daily_ohlcv_recent_60d": daily_ohlcv,
-        "weekly_ohlcv_recent_104w": weekly_ohlcv,
-        "indicators_recent_60d": indicators_60d,
         "market_context": market_context,
         "price_data_notes": price_data_notes,
         "climax_topping_gates": climax_topping_gates,
@@ -265,6 +267,8 @@ def _fetch_daily_ohlcv(conn: Connection, ticker: str, on_date: date, days: int =
 
 
 def _fetch_weekly_ohlcv(conn: Connection, ticker: str, on_date: date, weeks: int = 104) -> list:
+    """주봉 OHLCV 104주 (COALESCE(adj_*, raw)). #99 부터 payload 미출력 —
+    csv_builder.build_weekly_ohlcv_csv 가 이 함수를 소비해 CSV 로 직렬화한다."""
     with conn.cursor() as cur:
         cur.execute("""
             SELECT week_end_date,

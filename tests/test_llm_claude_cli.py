@@ -360,3 +360,81 @@ def test_call_claude_usage_limit_inside_envelope(mocker):
     )
     with pytest.raises(UsageLimitError):
         call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/f.zip"])
+
+
+# --- (#99) 정적 프롬프트의 system prompt 승격 (캐시 프리픽스) ---
+
+def _completed(stdout='{"ok": true}'):
+    return subprocess.CompletedProcess(args=[], returncode=0, stdout=stdout, stderr="")
+
+
+def test_call_claude_promotes_static_prompt_to_system_prompt(mocker):
+    """(#99) 정적 프롬프트 전문이 --append-system-prompt 인자로 승격되고,
+    stdin(user 메시지)에는 포함되지 않는다 — 매 호출 동일한 프리픽스가
+    프롬프트 캐시로 재사용되게 하는 구조."""
+    from pathlib import Path
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude, PROMPTS_DIR
+
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = _completed()
+    call_claude(
+        prompt_file="analyze_chart_v3.md",
+        attachments=[],
+        payload_inline="## 입력 데이터 (인라인)\n\nDATA",
+    )
+    cmd = mock_run.call_args[0][0]
+    prompt_text = (Path(PROMPTS_DIR) / "analyze_chart_v3.md").read_text(encoding="utf-8")
+
+    assert "--append-system-prompt" in cmd
+    assert cmd[cmd.index("--append-system-prompt") + 1] == prompt_text
+    # 동적 섹션(cwd/git status)이 system prompt 앞에서 프리픽스를 깨지 않게 하는 플래그
+    assert "--exclude-dynamic-system-prompt-sections" in cmd
+
+    stdin_text = mock_run.call_args[1]["input"]
+    assert "## 입력 데이터 (인라인)" in stdin_text
+    # 정적 프롬프트 본문은 stdin 에 없어야 함 (첫 줄로 대표 확인)
+    first_prompt_line = prompt_text.splitlines()[0]
+    assert first_prompt_line not in stdin_text
+
+
+def test_call_claude_dict_payload_goes_to_stdin_as_json_block(mocker):
+    """dict payload(evaluate_pivot 경로)는 기존과 동일하게 ```json 블록 — 위치만
+    프롬프트 뒤 append 에서 user 메시지로 이동."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = _completed()
+    call_claude(
+        prompt_file="evaluate_pivot_trigger_v1.md",
+        attachments=[],
+        payload_inline={"symbol": "TEST"},
+    )
+    stdin_text = mock_run.call_args[1]["input"]
+    assert "## Input (JSON)" in stdin_text
+    assert '"symbol": "TEST"' in stdin_text
+
+
+def test_call_claude_attachments_only_user_message(mocker, tmp_path):
+    """payload_inline 없이 attachments 만 있는 상시 경로(scripts/remeasure_phase2i·
+    replay_breakout_from_watch): user 메시지는 첨부 섹션만으로 구성된다."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+
+    att = tmp_path / "data.zip"
+    att.write_bytes(b"PK\x03\x04x")
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = _completed()
+    call_claude(prompt_file="analyze_chart_v3.md", attachments=[str(att)])
+    stdin_text = mock_run.call_args[1]["input"]
+    assert f"@{att}" in stdin_text
+    assert "## 첨부 파일" in stdin_text
+    assert "Inputs" not in stdin_text  # 정적 프롬프트 미포함
+
+
+def test_call_claude_empty_inputs_fallback_stdin(mocker):
+    """payload 도 첨부도 없으면 고정 폴백 1줄 — 빈 stdin 방지(방어 경로)."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = _completed()
+    call_claude(prompt_file="analyze_chart_v3.md", attachments=[])
+    assert mock_run.call_args[1]["input"] == "시스템 프롬프트의 지침에 따라 진행하세요.\n"

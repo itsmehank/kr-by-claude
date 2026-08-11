@@ -16,6 +16,9 @@ DAILY_INDICATOR_COLUMNS = [
     "minervini_pass",
     "avg_volume_50d", "volume_ratio_50d",
     "pocket_pivot_flag", "distribution_day_flag",
+    # (#99) payload.indicators_recent_60d 를 daily.csv 로 일원화하면서 JSON 에만
+    # 있던 3열을 추가 — 17지표로 LLM 지표 시계열의 유일 표현이 된다.
+    "rs_line_at_52w_high", "rs_line_uptrend_6w", "rs_line_uptrend_13w",
 ]
 
 
@@ -85,6 +88,31 @@ def build_weekly_csv(conn: Connection, ticker: str, weeks: int = 104, on_date: d
     writer.writerow(WEEKLY_COLUMNS)
     for row in rows:
         writer.writerow([_fmt(v) for v in row])
+    return buf.getvalue().encode("utf-8")
+
+
+WEEKLY_OHLCV_COLUMNS = ["week_start", "week_end", "open", "high", "low", "close", "volume"]
+
+
+def build_weekly_ohlcv_csv(conn: Connection, ticker: str, weeks: int = 104,
+                           on_date: date | None = None) -> bytes:
+    """(#99) 주봉 OHLCV 104주 → CSV. payload.weekly_ohlcv_recent_104w(JSON) 의
+    포맷 전환 — 데이터 규약(COALESCE(adj_*, raw), zero-bar 필터 없음,
+    week_start=week_end-4d)은 `_fetch_weekly_ohlcv` 를 그대로 소비해 구조적으로
+    동일(SQL 2벌 중복 방지). weekly.csv(지표)와 상호 보완 — open/high/low 가 고유.
+    """
+    # 순환 import 없음 — payload_builder 는 csv_builder 를 import 하지 않는다.
+    from api.services.payload_builder import _fetch_weekly_ohlcv
+
+    if on_date is None:
+        on_date = date.today()
+    rows = _fetch_weekly_ohlcv(conn, ticker, on_date, weeks=weeks)
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(WEEKLY_OHLCV_COLUMNS)
+    for r in rows:
+        writer.writerow([_fmt(r[c]) for c in WEEKLY_OHLCV_COLUMNS])
     return buf.getvalue().encode("utf-8")
 
 

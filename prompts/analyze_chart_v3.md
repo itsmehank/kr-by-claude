@@ -69,8 +69,8 @@ You will receive a JSON payload with:
 - **`market_direction_gate`** (#23, 결정론 선계산): `status`·`dist_count`·`last_follow_through_day`(echo) · `force_watch`(downtrend/correction 무조건, rally_attempt 는 **최근 FTD 부재일 때만**(경과일 ≤ STATUS_FTD_RECENT_DAYS 판정 — 만료 FTD 는 부재 취급, §3.5 둘째 룰의 한정어 그대로) · `confidence_penalty`(분배일 누적 임계 이상) · `normal_range`(confirmed_uptrend 이고 분배일 정상 상한 이하). §3.5 하드룰의 authoritative 입력 — 값 `null` = 미산출/미지 상태.
 - **Current price metrics**: close, 52w high/low, distance from extremes, volume averages
 - **Recent daily OHLCV**: past ~60 trading days
-- **Recent weekly OHLCV**: past ~104 weeks for full base-pattern recognition including prior uptrend confirmation
-- **Recent indicator series**: SMA-10, SMA-50, SMA-150, SMA-200, RS Line, RS Rating series, volume_ma_50, volume_ratio, pocket_pivot_flag, distribution_day_flag, rs_line_at_52w_high, rs_line_uptrend_6w (6주 회귀 기울기>0), rs_line_uptrend_13w (13주 기울기>0)
+- **Recent weekly OHLCV** (provided as the `weekly_ohlcv.csv` block, NOT inside the JSON payload): past ~104 weeks for full base-pattern recognition including prior uptrend confirmation
+- **Recent indicator series** (provided as the `daily.csv` block, NOT inside the JSON payload): SMA-10, SMA-50, SMA-150, SMA-200, RS Line, RS Rating series, avg_volume_50d, volume_ratio_50d, pocket_pivot_flag, distribution_day_flag, rs_line_at_52w_high, rs_line_uptrend_6w (6주 회귀 기울기>0), rs_line_uptrend_13w (13주 기울기>0)
 - **Market context** (`market_context`): current market status (confirmed_uptrend / rally_attempt / downtrend / correction), distribution day count over last 25 sessions, last follow-through day, % of stocks above 200-day MA
 - **Price data notes** (`price_data_notes`): corporate action history (splits, reverse splits, spinoffs) and raw price anomalies
 - **Optional chart images**: if `daily_chart` and/or `weekly_chart` PNG images are attached, examine them BEFORE the OHLCV text analysis. Visual pattern recognition (VCP tightness, handle drift, base contour, volume signature) is more reliable than reconstruction from OHLCV numbers alone.
@@ -225,7 +225,7 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 
 A pocket pivot is an early entry signal within an existing base, defined by Morales & Kacher in *Trade Like an O'Neil Disciple* Ch.5.
 
-If `indicators_recent_60d[-5:].any(pocket_pivot_flag == true)` (pocket pivot triggered in past 5 sessions), evaluate as an alternate entry route:
+If any of the last 5 rows of `daily.csv` has `pocket_pivot_flag == TRUE` (pocket pivot triggered in past 5 sessions), evaluate as an alternate entry route:
 
 (**의도적 제외 — #74**: `cup_without_handle` 은 pocket pivot 대체 진입 **비대상**.
 PP 경로로 strict 1.5× 돌파 거래량 요건을 우회할 수 없다 — 후속 작업에서
@@ -251,7 +251,7 @@ If criteria not met but pocket pivot flag present: do not use pocket pivot as th
 
 ### 4.6. RS Line Leadership Check (O'Neil)
 
-Examine the RS Line series in `indicators_recent_60d`:
+Examine the RS Line series in `daily.csv`:
 
 Boolean signals (use as corroboration, not as filters): `rs_line_at_52w_high` (RS Line at 52-week high today), `rs_line_uptrend_6w` / `rs_line_uptrend_13w` (RS Line 6/13-week regression slope > 0). These are advisory inputs to the leadership judgment below, not pass/fail gates.
 
@@ -383,7 +383,7 @@ market-relative multiple.)
 Separate from the market-level distribution count in `market_context`, evaluate the stock's own distribution pattern over the past 25 sessions:
 
 - A stock distribution day = close down ≥ 0.2% (daily return ≤ STOCK_DISTRIBUTION_PCT_DOWN = -0.2%) on volume > 1.0× of 50-day average.
-- **Use the `distribution_day_flag` series in `indicators_recent_60d` as the authoritative per-day signal for this count; the textual definition above describes how that flag is computed.** (Same convention as `pocket_pivot_flag` in §4.5 — column is authoritative.)
+- **Use the `distribution_day_flag` column in `daily.csv` as the authoritative per-day signal for this count; the textual definition above describes how that flag is computed.** (Same convention as `pocket_pivot_flag` in §4.5 — column is authoritative.)
 - If `STOCK_DISTRIBUTION_COUNT_25D`+ (=4) distribution days within the past 25 sessions on the stock itself: institutions are selling even in Stage 2. Add `volume_contraction_on_advance` if volume is also drying up on up-days, or demote to `watch`. (This is demote-to-watch per §5.1 — NOT ignore. The same count gates §6.2 T-D for the topping force-ignore, which additionally requires G0 = below the 10-week line.)
 - A single distribution day is normal; clusters are warnings.
 
