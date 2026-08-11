@@ -45,8 +45,7 @@ README_TEMPLATE = """# LLM 분석 패키지
    → LLM 이 classification (entry/watch/ignore) + pattern + risk_flags 반환.
 
 2. **Step 2** (Step 1 결과가 `entry` 일 때만): `prompt_step2_entry_params.md` 와 함께:
-   - `payload.json` + `daily.csv` + `weekly.csv` + `weekly_ohlcv.csv` + Step 1 결과를 `prior_analysis` 로 포함
-   - `daily_chart.png`, `weekly_chart.png`
+   - `payload.json` + Step 1 결과를 `prior_analysis` 로 포함 (시계열 CSV·차트는 이 단계 프롬프트가 첨부 비대상으로 명시 — Step 1 에만 첨부)
 
    → LLM 이 진입 파라미터 18개 필드 반환.
 
