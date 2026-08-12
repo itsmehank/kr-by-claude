@@ -438,3 +438,100 @@ def test_call_claude_empty_inputs_fallback_stdin(mocker):
     mock_run.return_value = _completed()
     call_claude(prompt_file="analyze_chart_v3.md", attachments=[])
     assert mock_run.call_args[1]["input"] == "시스템 프롬프트의 지침에 따라 진행하세요.\n"
+
+
+# ── #100: rc≠0 실패 사유 합성 ────────────────────────────────────────────────
+
+
+def test_call_claude_failure_reason_from_stdout_envelope(mocker):
+    """rc=1 + 빈 stderr + stdout 에러 봉투 → 예외 메시지에 봉투 사유 포함 (#100)."""
+    from kr_pipeline.llm_runner.llm.claude_cli import ClaudeCLIError, call_claude
+
+    mocker.patch("time.sleep")
+    envelope = json.dumps({
+        "type": "result", "subtype": "error_during_execution", "is_error": True,
+        "result": "API Error: 529 overloaded", "api_error_status": 529,
+        "stop_reason": None,
+    })
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=1, stdout=envelope, stderr=""
+    )
+
+    with pytest.raises(ClaudeCLIError) as ei:
+        call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
+    msg = str(ei.value)
+    assert "API Error: 529 overloaded" in msg
+    assert "error_during_execution" in msg
+    assert not msg.rstrip().endswith("rc=1:")
+
+
+def test_call_claude_failure_reason_fallback_raw_stdout(mocker):
+    """rc=1 + 빈 stderr + 비-JSON stdout → raw stdout 으로 폴백 (#100)."""
+    from kr_pipeline.llm_runner.llm.claude_cli import ClaudeCLIError, call_claude
+
+    mocker.patch("time.sleep")
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=1, stdout="plain text CLI crash message", stderr=""
+    )
+
+    with pytest.raises(ClaudeCLIError) as ei:
+        call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
+    assert "plain text CLI crash message" in str(ei.value)
+
+
+def test_call_claude_failure_diag_capped_500(mocker):
+    """합성 진단 문자열은 500자 상한 — 백필 로그 무절단 append 폭주 방지 (#100)."""
+    from kr_pipeline.llm_runner.llm.claude_cli import ClaudeCLIError, call_claude
+
+    mocker.patch("time.sleep")
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=1, stdout="", stderr="x" * 5000
+    )
+
+    with pytest.raises(ClaudeCLIError) as ei:
+        call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
+    # 고정 접두("claude CLI failed after N attempts: rc=1: ") 여유 100자
+    assert len(str(ei.value)) <= 600
+
+
+def test_call_claude_non_quota_limit_no_false_alarm(mocker, caplog):
+    """컨텍스트 초과류 'limit' 문구는 미분류 한도 경보를 울리지 않는다 (#100 함정 ③)."""
+    import logging
+
+    from kr_pipeline.llm_runner.llm.claude_cli import ClaudeCLIError, call_claude
+
+    mocker.patch("time.sleep")
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=1, stdout="",
+        stderr="prompt is too long: 250000 tokens > 200000 maximum context limit",
+    )
+
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(ClaudeCLIError):
+            call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
+    assert not any("미분류" in r.getMessage() for r in caplog.records)
+
+
+def test_call_claude_unclassified_limit_phrase_alerts(mocker, caplog):
+    """비-컨텍스트 'limit' 문구가 한도 패턴에 안 걸리면 조기경보를 남긴다 (#100)."""
+    import logging
+
+    from kr_pipeline.llm_runner.llm.claude_cli import ClaudeCLIError, call_claude
+
+    mocker.patch("time.sleep")
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(
+        args=[], returncode=1, stdout="", stderr="weekly limit exceeded for your plan"
+    )
+
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(ClaudeCLIError):
+            call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
+    assert any(
+        "미분류" in r.getMessage() and "_USAGE_LIMIT_RE" in r.getMessage()
+        for r in caplog.records
+    )

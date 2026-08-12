@@ -50,6 +50,32 @@ def _is_usage_limit(text: str | None) -> bool:
     return bool(text and _USAGE_LIMIT_RE.search(text))
 
 
+# (#100) 조기경보 제외용 — 쿼터와 무관한 'limit' 문구(컨텍스트 초과 등).
+# 이 프로젝트는 호출당 ~125k 토큰을 보내므로 컨텍스트 초과가 실제로 난다.
+# 이걸 한도 패턴(_USAGE_LIMIT_RE)에 넣으면 컨텍스트 초과 1건이 배치 전체를
+# 중단시키므로, 경보에서 제외해 그 오판 유도를 차단한다.
+_NON_QUOTA_LIMIT_RE = re.compile(r"context limit|too long|max(imum)? tokens", re.I)
+
+
+def _failure_diagnostic(stdout: str, stderr: str) -> str:
+    """rc≠0 실패의 진단 문자열 합성 (#100).
+
+    --output-format json 에서 실패 사유는 stdout 봉투(result/api_error_status/
+    subtype/stop_reason)에 실리고 stderr 는 비는 경우가 있다. 봉투가 파싱되면
+    사유 필드만 추려 합성하고, 없으면 stderr → stdout 순으로 폴백한다.
+    """
+    for env in reversed(_extract_json_objects(stdout or "")):
+        parts = []
+        for key in ("result", "api_error_status", "subtype", "stop_reason"):
+            v = env.get(key)
+            if v in (None, "") or (key == "subtype" and v == "success"):
+                continue
+            parts.append(f"{key}={v}")
+        if parts:
+            return " ".join(parts)
+    return (stderr or "").strip() or (stdout or "").strip()
+
+
 def _extract_json_objects(text: str) -> list[dict]:
     """텍스트에서 최상위 JSON object 들을 순서대로 추출.
 
@@ -331,17 +357,28 @@ def call_claude(
                 continue
         else:
             # 사용량 제한(5시간)은 backoff 재시도가 무의미 — 즉시 전파해 배치 중단.
+            # (#100) 한도 판정은 raw stdout/stderr 검사를 유지 — 합성 diag 로
+            # 대체하면 합성에 안 담긴 필드·봉투 밖 산문의 한도 문구를 놓친다.
             if _is_usage_limit(result.stdout) or _is_usage_limit(result.stderr):
                 raise UsageLimitError(
                     f"usage limit: rc={result.returncode} "
                     f"{(result.stdout or result.stderr).strip()[:200]}"
                 )
+            # (#100) 진단은 stdout 봉투에서 합성 — stderr 만으로는 사유가 빈다.
+            # 500자 상한: backfill.py agg["failed"] 가 무절단 append 하므로 원천 절단.
+            diag = _failure_diagnostic(result.stdout, result.stderr)[:500]
+            if "limit" in diag.lower() and not _NON_QUOTA_LIMIT_RE.search(diag):
+                log.error(
+                    "claude CLI rc=%d 실패에 미분류 'limit' 문구 — 쿼터 한도면 "
+                    "_USAGE_LIMIT_RE 보강 검토: %r",
+                    result.returncode, diag[:300],
+                )
             log.warning(
                 "claude CLI failed (rc=%d): %s",
                 result.returncode,
-                result.stderr[:200],
+                diag[:200],
             )
-            last_error = RuntimeError(f"rc={result.returncode}: {result.stderr}")
+            last_error = RuntimeError(f"rc={result.returncode}: {diag}")
 
     raise ClaudeCLIError(
         f"claude CLI failed after {len(RETRY_DELAYS) + 1} attempts: {last_error}"
