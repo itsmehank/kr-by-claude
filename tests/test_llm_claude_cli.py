@@ -505,14 +505,17 @@ def test_call_claude_non_quota_limit_no_false_alarm(mocker, caplog):
 
     mocker.patch("time.sleep")
     mock_run = mocker.patch("subprocess.run")
-    mock_run.return_value = subprocess.CompletedProcess(
-        args=[], returncode=1, stdout="",
-        stderr="prompt is too long: 250000 tokens > 200000 maximum context limit",
-    )
-
-    with caplog.at_level(logging.ERROR):
-        with pytest.raises(ClaudeCLIError):
-            call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
+    non_quota = [
+        "prompt is too long: 250000 tokens > 200000 maximum context limit",
+        "max_tokens limit exceeded",  # 언더스코어 표기 (리뷰 관찰 반영)
+    ]
+    for stderr in non_quota:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr=stderr,
+        )
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(ClaudeCLIError):
+                call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
     assert not any("미분류" in r.getMessage() for r in caplog.records)
 
 

@@ -54,7 +54,7 @@ def _is_usage_limit(text: str | None) -> bool:
 # 이 프로젝트는 호출당 ~125k 토큰을 보내므로 컨텍스트 초과가 실제로 난다.
 # 이걸 한도 패턴(_USAGE_LIMIT_RE)에 넣으면 컨텍스트 초과 1건이 배치 전체를
 # 중단시키므로, 경보에서 제외해 그 오판 유도를 차단한다.
-_NON_QUOTA_LIMIT_RE = re.compile(r"context limit|too long|max(imum)? tokens", re.I)
+_NON_QUOTA_LIMIT_RE = re.compile(r"context limit|too long|max(imum)?[ _]tokens", re.I)
 
 
 def _failure_diagnostic(stdout: str, stderr: str) -> str:
