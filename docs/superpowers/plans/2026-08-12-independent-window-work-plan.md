@@ -75,8 +75,10 @@
 - [ ] **DART 표본 C 백필 실행**(네트워크): `uv run python -m kr_pipeline.financials
   --mode=backfill --sample c --year-start 2016 --year-end 2020` → 완료 후
   `--mode=eps-published` 는 F-S2 에 불요(매출 기반). 실행은 사용자 승인 후.
-- [ ] **arm 구현**: §9 고정 **후**, 리플레이 하네스(`run_portfolio` gate_mode)에
-  #53/#54 변형 arm 구현. 합성 데이터 테스트만 (규율 3).
+- [x] **arm 구현 완료 — PR #106 머지됨(2026-08-14, main f645252)**: gate 'a53' +
+  pilot54 + ARMS arm53/arm53-pilot54 + SSOT 상수 3개. 테스트 13종·suite 1237p/1s/1d,
+  double-check 발견 0(관찰 1 — 실행은 ARMS 레지스트리 경유가 규율). 구현 구체화
+  2건(에피소드=베이스 단위·해제 FTD 시장 무구분)은 PR #106 본문 기록.
 
 ### 3편 — 성적표 개봉 (1·2편 전부 완료 후, 하루에 몰아서)
 
