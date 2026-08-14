@@ -72,9 +72,11 @@
 - [x] **준비 3종 완료 — PR #105 머지됨(2026-08-14, main b10113e)**: DART CLI
   `--sample c`+연도 범위 / 빌더 윈도 파라미터화 / F-S2 러너 `--sample c`(look #10
   구성). suite 1224p/1s/1d, 검토(double-check) 발견 0.
-- [ ] **DART 표본 C 백필 실행**(네트워크): `uv run python -m kr_pipeline.financials
-  --mode=backfill --sample c --year-start 2016 --year-end 2020` → 완료 후
-  `--mode=eps-published` 는 F-S2 에 불요(매출 기반). 실행은 사용자 승인 후.
+- [x] **DART 표본 C 백필 완주(2026-08-14)**: 대상 94/100(금융업 제외 6 — A/B 동일
+  규칙), 미매핑 0, +1,780셀(총 7,796행). 2016~2020 상태 분포 ok 4,256 / no_data
+  532(~11% — 상장 전 등 구조적 결측, 표본 B 패턴과 정합). 커버리지 94/94.
+  **→ 2편 완결. 다음 = 3편 개봉 시퀀스: ① Arm-54 A+B 관찰(비보호) →
+  ② C 1회 개봉(Arm-53 판정 + Arm-54 재현 + F-S2 look #10). 각각 사용자 게이트.**
 - [x] **arm 구현 완료 — PR #106 머지됨(2026-08-14, main f645252)**: gate 'a53' +
   pilot54 + ARMS arm53/arm53-pilot54 + SSOT 상수 3개. 테스트 13종·suite 1237p/1s/1d,
   double-check 발견 0(관찰 1 — 실행은 ARMS 레지스트리 경유가 규율). 구현 구체화
