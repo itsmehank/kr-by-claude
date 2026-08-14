@@ -1,0 +1,59 @@
+{
+  "label": "표본 C 수익성 통계 (prereg §3-③ — 2026-08-14 개봉 완결분, 확증 등급)",
+  "seed": 20260721,
+  "n_trades": 97,
+  "promotions": 2217,
+  "overall": {
+    "n": 97,
+    "mean_excess_net": 0.755,
+    "ci95": [
+      -2.71,
+      4.693
+    ],
+    "ci_contains_zero": true,
+    "win_rate": 0.351
+  },
+  "by_phase": {
+    "confirmed_uptrend": {
+      "n": 25,
+      "mean_excess_net": 0.551,
+      "ci95": [
+        -5.493,
+        6.561
+      ],
+      "ci_contains_zero": true,
+      "win_rate": 0.36
+    },
+    "correction": {
+      "n": 31,
+      "mean_excess_net": 0.074,
+      "ci95": [
+        -5.527,
+        7.431
+      ],
+      "ci_contains_zero": true,
+      "win_rate": 0.29
+    },
+    "downtrend": {
+      "n": 13,
+      "mean_excess_net": -4.284,
+      "ci95": [
+        -8.181,
+        0.587
+      ],
+      "ci_contains_zero": true,
+      "win_rate": 0.154
+    },
+    "rally_attempt": {
+      "n": 28,
+      "mean_excess_net": 4.029,
+      "ci95": [
+        -3.303,
+        12.114
+      ],
+      "ci_contains_zero": true,
+      "win_rate": 0.5
+    }
+  },
+  "verdict_s4": "시장 초과 미입증 (CI 0 포함)"
+}

@@ -15,3 +15,4 @@
 | 2026-08-14 | 표본 C | F-S2 재현 판정 (look #10) | F-S2 | **확증** | issue68_fs2_judge_c_20260814.json | 미재현 → 트랙 종결 |
 | 2026-08-14 | 표본 C | 수익성·방어 기준선 | 시스템 전반 | **확증** | independent_window_analyze_c_20260814.json | 방어 재현 |
 | 2026-08-14 | 표본 C | Arm-53 손익 분해 | Arm-53 후속 | 탐색 | exploratory_arm53_c_decompose_20260814.json | 2020 +26.8pp 단서 |
+| 2026-08-14 | 표본 C | 수익성 통계(§3-③ 개봉 완결분 — mean excess_net+CI) | 시스템 전반 | **확증** | independent_window_profitability_c_20260814.json | 미입증 재현(3번째) |
