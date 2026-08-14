@@ -69,13 +69,12 @@
 
 ### 2편 — 재료 준비 (1편과 병렬 가능, 결과 열람 없음)
 
-- [ ] **DART 표본 C 백필**: `kr_pipeline/financials` CLI `--sample c` 지원 +
-  연도 하한 2016 연장(F-S2 지선② YoY 기저) → 미커버 ~107종목 적재.
-  참고: `get_financials_asof` limit 20 필요(fs2-prereg 구현 노트).
-- [ ] **트레이드 빌더 기간 파라미터화**: `kr_pipeline/backtest/refinement.py` 의
-  START/END(2021~2024)·PX_START/PX_END 하드코딩을 인자화. 2019-06 세금 경계는 반영돼 있음.
-- [ ] **F-S2 러너 표본 C 지원**: `scripts/issue68_fs2_observe.py` 가 표본 A+B 전용 —
-  `FROZEN_SAMPLE_C` + 독립 구간 윈도를 받도록 확장 (1차 검토에서 발견된 누락).
+- [x] **준비 3종 완료 — PR #105 머지됨(2026-08-14, main b10113e)**: DART CLI
+  `--sample c`+연도 범위 / 빌더 윈도 파라미터화 / F-S2 러너 `--sample c`(look #10
+  구성). suite 1224p/1s/1d, 검토(double-check) 발견 0.
+- [ ] **DART 표본 C 백필 실행**(네트워크): `uv run python -m kr_pipeline.financials
+  --mode=backfill --sample c --year-start 2016 --year-end 2020` → 완료 후
+  `--mode=eps-published` 는 F-S2 에 불요(매출 기반). 실행은 사용자 승인 후.
 - [ ] **arm 구현**: §9 고정 **후**, 리플레이 하네스(`run_portfolio` gate_mode)에
   #53/#54 변형 arm 구현. 합성 데이터 테스트만 (규율 3).
 
