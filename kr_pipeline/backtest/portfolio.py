@@ -26,6 +26,10 @@ from kr_pipeline.backtest.trigger_sim import (
     DayBar, WatchRow, load_watchlist, load_daily_series, load_index_series,
     _active_row,
 )
+from kr_pipeline.common.thresholds import (
+    PILOT_CONSEC_STOP_LOCK, PILOT_OFF_HIGH_MAX_PCT, PILOT_OFF_HIGH_MIN_PCT,
+    STATUS_DIST_COUNT_FOR_FTD_INVALIDATION,
+)
 from kr_pipeline.llm_runner.compute.trigger_gate import evaluate as gate_evaluate
 
 START, END = date(2021, 1, 1), date(2025, 6, 30)   # 매매 윈도(신호는 ~2024 분류)
@@ -43,6 +47,10 @@ class TickerData:
     phase_variant_by_date: dict = field(default_factory=dict)  # v3.2 변형 사다리
     bottoming_by_date: dict = field(default_factory=dict)      # v4.1 (active, episode)
     ftd_valid_by_date: dict = field(default_factory=dict)      # v4.2 증액 (i)
+    phase_a53_by_date: dict = field(default_factory=dict)      # Arm-53 사다리 (LOCKED)
+    pilot54_ok_by_date: dict = field(default_factory=dict)     # Arm-54 3중 필터 (E2)
+    mkt_dist_by_date: dict = field(default_factory=dict)       # 시장 분배일 카운트 (E1)
+    ftd_event_by_date: dict = field(default_factory=dict)      # FTD 이벤트 당일 (E5 해제)
 
 
 @dataclass
@@ -57,6 +65,8 @@ class PortfolioConfig:
     pilot_frac: float = 0.5         # 파일럿 = 정상 목표의 50% (prereg v4.2)
     pilot_stop_pct: float = 0.06    # 파일럿 초기 스톱 6%
     pilot_retry_cap: int = 2        # (종목, 에피소드)당 최대 진입
+    pilot54_mode: bool = False      # Arm-54: rally_attempt 3중 필터 파일럿 (gate=a53 전제)
+    pilot_consec_lock: int = PILOT_CONSEC_STOP_LOCK   # E5 전역 잠금 임계
     risk_pct: float = 0.0125        # 계좌 리스크/건 (TTLC §8)
     max_position_pct: float = 0.25
     fixed_stop_pct: float = 0.08    # v2: 매수가 기준 초기 스톱 (O'Neil 7-8% 상단)
@@ -124,9 +134,26 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
     episode_entries: dict[tuple, int] = {}   # (ticker, episode) -> 진입 수
     curve: list[tuple] = []
 
+    # (Arm-54 E5) 파일럿 전역 잠금 상태 — 연속 손실 청산 카운트, 해제 = 새 FTD 단독.
+    # 잠금은 시장 무구분 전역(설계 문언 '전역'), 해제 이벤트는 어느 시장의 FTD 든 인정.
+    pilot54_lock = {"locked": False, "consec": 0, "date": None}
+    ftd_events_all = sorted({dd for td_ in data.values()
+                             for dd, ev in td_.ftd_event_by_date.items() if ev})
+
     def _full_exit(pos: Position, close: float, d: date, reason: str):
         nonlocal cash
         cash += _sell_value(pos.qty, close, d)
+        pnl_pct_ = round((close / pos.avg_price - 1) * 100, 2)
+        if cfg.pilot54_mode and pos.entry_kind == "pilot":
+            if pnl_pct_ < 0:
+                pilot54_lock["consec"] += 1
+                if pilot54_lock["consec"] >= cfg.pilot_consec_lock:
+                    pilot54_lock["locked"] = True
+                    pilot54_lock["date"] = d
+                    stats["pilot54_lock_events"] = (
+                        stats.get("pilot54_lock_events", 0) + 1)
+            else:
+                pilot54_lock["consec"] = 0
         stats["exit_reasons"][reason] = stats["exit_reasons"].get(reason, 0) + 1
         stats["exits"].append({"ticker": pos.ticker, "date": str(d),
                                "t1_date": str(pos.t1_date),
@@ -252,36 +279,70 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
             if gate == "legacy" and td.phase_by_date.get(d) in DOWN_PHASES:
                 stats["n_skipped_down_phase"] += 1      # v2 excl 그대로 (Arm C)
                 continue
-            if gate in ("prod", "variant"):
+            if gate in ("prod", "variant", "a53"):
                 # v3.1: §3.5 코드화 분기 재현 — unfavorable_market 은 confirmed 필수
                 phases = (td.phase_variant_by_date if gate == "variant"
+                          else td.phase_a53_by_date if gate == "a53"
                           else td.phase_by_date)
                 if (active.watch_reason == "unfavorable_market"
                         and phases.get(d) != "confirmed_uptrend"):
-                    # v4 파일럿 경로: down 국면 ∧ bottoming 활성 ∧ 재시도 캡 내
-                    bott_active, bott_ep = td.bottoming_by_date.get(d, (False, None))
-                    if not (cfg.pilot_mode and phases.get(d) in DOWN_PHASES
-                            and bott_active):
-                        stats["n_skipped_down_phase"] += 1
-                        continue
-                    episode_id = str(bott_ep)
-                    if episode_entries.get((t, episode_id), 0) >= cfg.pilot_retry_cap:
-                        stats["n_skipped_retry_cap"] += 1
-                        continue
-                    # 증액 트리거 (일별 평가): (i) FTD 유효 OR (ii) 활성 파일럿≥2 ∧ 합산 미실현>0
-                    pilots = [p for p in positions.values() if p.entry_kind == "pilot"]
-                    unreal = sum(p.qty * last_close.get(p.ticker, p.avg_price)
-                                 - p.cost_krw for p in pilots)
-                    if td.ftd_valid_by_date.get(d, False):
-                        entry_kind = "scaled"
-                        stats["scaleup_triggers"]["i_ftd"] = (
-                            stats["scaleup_triggers"].get("i_ftd", 0) + 1)
-                    elif len(pilots) >= 2 and unreal > 0:
-                        entry_kind = "scaled"
-                        stats["scaleup_triggers"]["ii_feedback"] = (
-                            stats["scaleup_triggers"].get("ii_feedback", 0) + 1)
-                    else:
+                    if cfg.pilot54_mode:
+                        # (Arm-54, LOCKED) 파일럿 v2: rally_attempt ∧ dist<6 ∧
+                        # 3중 필터(E2) ∧ 전역 비잠금(E5). 증액 트리거 없음(E4 —
+                        # v4 와 달리 파일럿 고정), 추격 상한은 위 공통 검사 상속(#45).
+                        if not (phases.get(d) == "rally_attempt"
+                                and td.mkt_dist_by_date.get(d, 99)
+                                < STATUS_DIST_COUNT_FOR_FTD_INVALIDATION
+                                and td.pilot54_ok_by_date.get(d, False)):
+                            stats["n_skipped_pilot54_filter"] = (
+                                stats.get("n_skipped_pilot54_filter", 0) + 1)
+                            continue
+                        if pilot54_lock["locked"]:
+                            # 해제 = 잠금 이후 새 FTD 이벤트 단독 (E5)
+                            if any(pilot54_lock["date"] < e <= d
+                                   for e in ftd_events_all):
+                                pilot54_lock.update(
+                                    locked=False, consec=0, date=None)
+                            else:
+                                stats["n_skipped_pilot_lock"] = (
+                                    stats.get("n_skipped_pilot_lock", 0) + 1)
+                                continue
+                        # E5 구체화: 에피소드 = watch 베이스(주간 분류 행) 단위 —
+                        # 같은 베이스 파일럿 재진입 상한 = pilot_retry_cap.
+                        episode_id = f"base-{active.sat}"
+                        if (episode_entries.get((t, episode_id), 0)
+                                >= cfg.pilot_retry_cap):
+                            stats["n_skipped_retry_cap"] += 1
+                            continue
                         entry_kind = "pilot"
+                    else:
+                        # v4 파일럿 경로: down 국면 ∧ bottoming 활성 ∧ 재시도 캡 내
+                        bott_active, bott_ep = td.bottoming_by_date.get(
+                            d, (False, None))
+                        if not (cfg.pilot_mode and phases.get(d) in DOWN_PHASES
+                                and bott_active):
+                            stats["n_skipped_down_phase"] += 1
+                            continue
+                        episode_id = str(bott_ep)
+                        if (episode_entries.get((t, episode_id), 0)
+                                >= cfg.pilot_retry_cap):
+                            stats["n_skipped_retry_cap"] += 1
+                            continue
+                        # 증액 트리거 (일별 평가): (i) FTD 유효 OR (ii) 활성 파일럿≥2 ∧ 합산 미실현>0
+                        pilots = [p for p in positions.values()
+                                  if p.entry_kind == "pilot"]
+                        unreal = sum(p.qty * last_close.get(p.ticker, p.avg_price)
+                                     - p.cost_krw for p in pilots)
+                        if td.ftd_valid_by_date.get(d, False):
+                            entry_kind = "scaled"
+                            stats["scaleup_triggers"]["i_ftd"] = (
+                                stats["scaleup_triggers"].get("i_ftd", 0) + 1)
+                        elif len(pilots) >= 2 and unreal > 0:
+                            entry_kind = "scaled"
+                            stats["scaleup_triggers"]["ii_feedback"] = (
+                                stats["scaleup_triggers"].get("ii_feedback", 0) + 1)
+                        else:
+                            entry_kind = "pilot"
             # 같은 pivot 재진입 금지 — 단 파일럿 경로는 에피소드 캡(2회)이 관장
             # (prereg v4.2 재시도 허용의 구현 귀결)
             if pivot_reentered and episode_id is None:
@@ -429,9 +490,10 @@ def load_ticker_data(conn, tickers: list[str] | None = None, *,
                      watch_end: date = WATCH_END) -> dict[str, TickerData]:
     """기본(인자 없음) = 표본 A · 2021~2025 윈도 — 현행 동작 불변 (이슈 #52 파라미터화)."""
     from kr_pipeline.backtest.market_regime import (
-        compute_variant_status, compute_market_extras)
+        compute_variant_status, compute_variant_status_a53, compute_market_extras)
     pmaps: dict[str, list] = {}
     vmaps: dict[str, dict] = {}
+    amaps: dict[str, dict] = {}
     xmaps: dict[str, dict] = {}
     out: dict[str, TickerData] = {}
     for ticker in (FROZEN_SAMPLE if tickers is None else tickers):
@@ -441,20 +503,34 @@ def load_ticker_data(conn, tickers: list[str] | None = None, *,
         if code not in pmaps:
             pmaps[code] = ph.load_phase_map(conn, code)
             vmaps[code] = compute_variant_status(conn, code, start, end)
+            amaps[code] = compute_variant_status_a53(conn, code, start, end)
             xmaps[code] = compute_market_extras(conn, code, end)
         phase_by_date = {b.d: ph.phase_at(pmaps[code], b.d) for b in bars}
         phase_variant_by_date = {b.d: vmaps[code].get(b.d) for b in bars}
+        phase_a53_by_date = {b.d: amaps[code].get(b.d) for b in bars}
         bottoming_by_date = {b.d: xmaps[code].get(b.d, {}).get("bottoming",
                                                               (False, None))
                              for b in bars}
         ftd_valid_by_date = {b.d: xmaps[code].get(b.d, {}).get("ftd_valid", False)
                              for b in bars}
+        mkt_dist_by_date = {b.d: xmaps[code].get(b.d, {}).get("dist", 0)
+                            for b in bars}
+        ftd_event_by_date = {b.d: xmaps[code].get(b.d, {}).get("is_ftd_event",
+                                                               False)
+                             for b in bars}
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT date, rs_rating FROM daily_indicators "
+                "SELECT date, rs_rating, minervini_pass, rs_line_at_52w_high, "
+                "pct_from_52w_high FROM daily_indicators "
                 "WHERE ticker = %s AND date BETWEEN %s AND %s",
                 (ticker, start, end))
-            rs = {r[0]: r[1] for r in cur.fetchall()}
+            rows = cur.fetchall()
+        rs = {r[0]: r[1] for r in rows}
+        # (Arm-54 E2) 3중 하드 필터 — 전부 as-of 저장 지표, AND 결합
+        pilot54_ok = {
+            r[0]: bool(r[2]) and bool(r[3]) and r[4] is not None
+            and PILOT_OFF_HIGH_MIN_PCT <= float(r[4]) <= PILOT_OFF_HIGH_MAX_PCT
+            for r in rows}
         out[ticker] = TickerData(
             market=market, bars=bars,
             watch_rows=load_watchlist(conn, ticker, watch_start, watch_end,
@@ -462,7 +538,11 @@ def load_ticker_data(conn, tickers: list[str] | None = None, *,
             rs_by_date=rs, phase_by_date=phase_by_date,
             phase_variant_by_date=phase_variant_by_date,
             bottoming_by_date=bottoming_by_date,
-            ftd_valid_by_date=ftd_valid_by_date)
+            ftd_valid_by_date=ftd_valid_by_date,
+            phase_a53_by_date=phase_a53_by_date,
+            pilot54_ok_by_date=pilot54_ok,
+            mkt_dist_by_date=mkt_dist_by_date,
+            ftd_event_by_date=ftd_event_by_date)
     return out
 
 
@@ -511,6 +591,9 @@ def _benchmark(conn, code_market: str, d0: date, d1: date) -> dict:
 ARMS = {
     "armA-prod": {"gate_mode": "prod"},
     "armP-pilot": {"gate_mode": "prod", "pilot_mode": True},
+    # (LOCKED prereg §9.2) 독립 구간 판정용 — Arm-53 사다리 / +Arm-54 파일럿
+    "arm53": {"gate_mode": "a53"},
+    "arm53-pilot54": {"gate_mode": "a53", "pilot54_mode": True},
 }
 
 
