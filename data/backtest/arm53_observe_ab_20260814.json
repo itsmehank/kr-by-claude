@@ -1,0 +1,66 @@
+{
+  "label": "Arm-53 A+B 관찰(look) — C 재현 판정의 방향 기준",
+  "prereg": [
+    "docs/superpowers/specs/2026-07-21-independent-window-backtest-prereg.md §4·§9.2",
+    "docs/superpowers/specs/2026-08-12-issue53-ladder-redesign.md §7"
+  ],
+  "sample": "ab",
+  "armA_prod_metrics": {
+    "final_multiple": 1.0185,
+    "cagr_pct": 0.41,
+    "max_drawdown_pct": -26.87,
+    "avg_exposure_pct": 24.7,
+    "open_positions_at_end": 2
+  },
+  "arm53_metrics": {
+    "final_multiple": 1.1311,
+    "cagr_pct": 2.79,
+    "max_drawdown_pct": -26.0,
+    "avg_exposure_pct": 36.2,
+    "open_positions_at_end": 2
+  },
+  "delta": {
+    "final_multiple": 0.1126,
+    "cagr_pct": 2.38,
+    "max_drawdown_pct": 0.87
+  },
+  "n_entries": {
+    "armA": 39,
+    "arm53": 64
+  },
+  "phase_diff": {
+    "KOSPI": {
+      "days": 1101,
+      "diff_days": 260,
+      "dist_current": {
+        "rally_attempt": 217,
+        "correction": 349,
+        "confirmed_uptrend": 260,
+        "downtrend": 275
+      },
+      "dist_a53": {
+        "confirmed_uptrend": 438,
+        "correction": 383,
+        "rally_attempt": 82,
+        "downtrend": 198
+      }
+    },
+    "KOSDAQ": {
+      "days": 1101,
+      "diff_days": 305,
+      "dist_current": {
+        "rally_attempt": 275,
+        "correction": 318,
+        "confirmed_uptrend": 100,
+        "downtrend": 408
+      },
+      "dist_a53": {
+        "confirmed_uptrend": 349,
+        "rally_attempt": 64,
+        "correction": 362,
+        "downtrend": 326
+      }
+    }
+  },
+  "note": "방향 판정은 사람이 이 산출물로 해석 — 여기서 개선으로 관측된 지표의 방향이 표본 C 에서 재현돼야 채택(§4)."
+}
