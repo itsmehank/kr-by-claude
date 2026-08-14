@@ -1,0 +1,139 @@
+{
+  "label": "[탐색적] Arm-53 표본 C 분해 — 채택 근거 사용 금지",
+  "reproduction_check": "PASS — 저장 판정 지표와 완전 일치",
+  "totals": {
+    "armA": {
+      "n": 32,
+      "sum_pnl_pct": -3.15,
+      "mean_pnl_pct": -0.1,
+      "win_rate": 0.281
+    },
+    "arm53": {
+      "n": 42,
+      "sum_pnl_pct": -12.49,
+      "mean_pnl_pct": -0.3,
+      "win_rate": 0.31
+    }
+  },
+  "shared_entries_arm53": {
+    "n": 32,
+    "sum_pnl_pct": -3.15,
+    "mean_pnl_pct": -0.1,
+    "win_rate": 0.281
+  },
+  "arm53_only_entries": {
+    "n": 10,
+    "sum_pnl_pct": -9.34,
+    "mean_pnl_pct": -0.93,
+    "win_rate": 0.4
+  },
+  "armA_only_entries": {
+    "n": 0
+  },
+  "arm53_only_by_year": {
+    "2017": {
+      "n": 1,
+      "sum_pnl_pct": -9.06,
+      "mean_pnl_pct": -9.06,
+      "win_rate": 0.0
+    },
+    "2019": {
+      "n": 3,
+      "sum_pnl_pct": -16.01,
+      "mean_pnl_pct": -5.34,
+      "win_rate": 0.333
+    },
+    "2020": {
+      "n": 5,
+      "sum_pnl_pct": 26.81,
+      "mean_pnl_pct": 5.36,
+      "win_rate": 0.6
+    },
+    "2021": {
+      "n": 1,
+      "sum_pnl_pct": -11.08,
+      "mean_pnl_pct": -11.08,
+      "win_rate": 0.0
+    }
+  },
+  "arm53_only_by_phase": {
+    "confirmed_uptrend": {
+      "n": 10,
+      "sum_pnl_pct": -9.34,
+      "mean_pnl_pct": -0.93,
+      "win_rate": 0.4
+    }
+  },
+  "arm53_only_trades": [
+    {
+      "ticker": "101160",
+      "t1_date": "2017-09-14",
+      "date": "2017-10-18",
+      "reason": "stop8",
+      "pnl_pct": -9.06
+    },
+    {
+      "ticker": "033500",
+      "t1_date": "2019-03-14",
+      "date": "2019-04-12",
+      "reason": "stop8",
+      "pnl_pct": -8.43
+    },
+    {
+      "ticker": "109860",
+      "t1_date": "2019-02-13",
+      "date": "2019-07-25",
+      "reason": "sma50_trail",
+      "pnl_pct": 3.58
+    },
+    {
+      "ticker": "213420",
+      "t1_date": "2019-10-15",
+      "date": "2019-11-21",
+      "reason": "stop8",
+      "pnl_pct": -11.16
+    },
+    {
+      "ticker": "001570",
+      "t1_date": "2020-11-24",
+      "date": "2020-12-11",
+      "reason": "replaced",
+      "pnl_pct": -2.01
+    },
+    {
+      "ticker": "183490",
+      "t1_date": "2020-11-26",
+      "date": "2021-01-11",
+      "reason": "stop8",
+      "pnl_pct": -8.75
+    },
+    {
+      "ticker": "016360",
+      "t1_date": "2020-11-23",
+      "date": "2021-01-26",
+      "reason": "sma50_trail",
+      "pnl_pct": 1.51
+    },
+    {
+      "ticker": "102120",
+      "t1_date": "2020-12-03",
+      "date": "2021-01-29",
+      "reason": "sma50_trail",
+      "pnl_pct": 23.63
+    },
+    {
+      "ticker": "122870",
+      "t1_date": "2021-01-20",
+      "date": "2021-01-29",
+      "reason": "stop8",
+      "pnl_pct": -11.08
+    },
+    {
+      "ticker": "247540",
+      "t1_date": "2020-12-11",
+      "date": "2021-02-22",
+      "reason": "sma50_trail",
+      "pnl_pct": 12.43
+    }
+  ]
+}
