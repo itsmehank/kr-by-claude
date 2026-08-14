@@ -49,6 +49,41 @@ def variant_ladder(*, close: float, sma_50: float | None, sma_200: float | None,
     return "correction"
 
 
+def variant_ladder_a53(*, close: float, sma_50: float | None,
+                       sma_200: float | None, off_high_pct: float,
+                       dist_count: int, ftd_valid: bool,
+                       days_since_ftd: int | None) -> str:
+    """Arm-53 사다리 (LOCKED 2026-08-12 설계 §4, prereg §9.2 — 커밋 6433db6).
+
+    v3.2(variant_ladder)와의 차이: ① FTD 규칙(1′ 무효화·2′ confirmed)을 구 규칙
+    1·2 **앞**으로 재정렬 ② 2′ 는 close>SMA50 대기 **유지**(당일 개방 아님).
+    공통: 시간 만료 없음, ftd_valid = 가격 기반(랠리 저점 종가 이탈 시 무효).
+    유효 FTD 가 없는 날은 3′~6′ 이 현행 사다리(1→2→5→6)와 동일 동작.
+    """
+    # 1′ (구 규칙 3) FTD 분배 무효화 — confirmed 보다 반드시 앞 (D5)
+    if (dist_count >= STATUS_DIST_COUNT_FOR_FTD_INVALIDATION and ftd_valid
+            and days_since_ftd is not None
+            and days_since_ftd > STATUS_FTD_INVALIDATION_DAYS):
+        return "correction"
+    # 2′ (구 규칙 4, 만료 제거) confirmed — close>SMA50 유지 (D2)
+    if (ftd_valid and sma_50 is not None and close > sma_50
+            and dist_count < STATUS_DIST_COUNT_FOR_FTD_INVALIDATION):
+        return "confirmed_uptrend"
+    # 3′ (구 규칙 1) downtrend
+    if (sma_200 is not None and sma_50 is not None
+            and close < sma_200 and sma_50 < sma_200
+            and off_high_pct < STATUS_DOWNTREND_OFF_HIGH_PCT):
+        return "downtrend"
+    # 4′ (구 규칙 2) correction — 가격 기준
+    if (off_high_pct < STATUS_CORRECTION_OFF_HIGH_PCT
+            and sma_50 is not None and close < sma_50):
+        return "correction"
+    # 5′ rally_attempt (구 5·6 통합 — 만료 절 제거로 동일화)
+    if sma_50 is not None and close > sma_50:
+        return "rally_attempt"
+    return "correction"
+
+
 def ftd_validity_series(dates: list[date], closes: list[float],
                         lows: list[float], ftd_dates: set[date]) -> dict[date, bool]:
     """일별 'FTD 유효' 여부. 유효 = 최근 FTD 발생 후 랠리 저점 종가 미이탈.
@@ -99,7 +134,8 @@ def bottoming_series(dates: list[date], closes: list[float],
 
 def compute_market_extras(conn: Connection, index_code: str,
                           end: date) -> dict[date, dict]:
-    """v4 파일럿용 시장 부가 시계열: bottoming(활성·에피소드) + FTD 유효 여부."""
+    """파일럿용 시장 부가 시계열: bottoming(v4)·FTD 유효(v4.2)
+    + (Arm-54) 분배일 카운트·FTD 이벤트 당일 여부."""
     with conn.cursor() as cur:
         cur.execute(
             "SELECT date, close, low FROM index_daily WHERE index_code = %s "
@@ -110,18 +146,70 @@ def compute_market_extras(conn: Connection, index_code: str,
             "WHERE index_code = %s AND last_follow_through_day IS NOT NULL",
             (index_code,))
         ftd_dates = {r[0] for r in cur.fetchall()}
+        cur.execute(
+            "SELECT date, distribution_day_count_last_25 FROM market_context_daily "
+            "WHERE index_code = %s AND date <= %s", (index_code, end))
+        dist_by_date = {r[0]: (r[1] or 0) for r in cur.fetchall()}
     dates = [r[0] for r in rows]
     closes = [float(r[1]) for r in rows]
     lows = [float(r[2]) for r in rows]
     bott = bottoming_series(dates, closes, lows)
     ftd_valid = ftd_validity_series(dates, closes, lows, ftd_dates)
-    return {d: {"bottoming": bott[d], "ftd_valid": ftd_valid[d]} for d in dates}
+    return {d: {"bottoming": bott[d], "ftd_valid": ftd_valid[d],
+                "dist": dist_by_date.get(d, 0), "is_ftd_event": d in ftd_dates}
+            for d in dates}
 
 
 def _sma(vals: list[float], n: int, i: int) -> float | None:
     if i + 1 < n:
         return None
     return sum(vals[i - n + 1:i + 1]) / n
+
+
+def compute_variant_status_a53(conn: Connection, index_code: str,
+                               start: date, end: date) -> dict[date, str]:
+    """Arm-53 사다리 재계산 — 데이터 준비는 v3.2(compute_variant_status)와 동일
+    (index_daily 재계산 SMA/고점 + market_context_daily 저장 dist·FTD carry-forward),
+    사다리만 variant_ladder_a53. 별도 함수로 둔 이유: v3.2 는 종전 사전등록이
+    참조하는 동결 코드 — 리팩토링 접촉 회피."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT date, close, low FROM index_daily WHERE index_code = %s "
+            "AND date <= %s ORDER BY date", (index_code, end))
+        rows = cur.fetchall()
+        cur.execute(
+            "SELECT date, distribution_day_count_last_25, last_follow_through_day "
+            "FROM market_context_daily WHERE index_code = %s AND date <= %s "
+            "ORDER BY date", (index_code, end))
+        ctx = {r[0]: (r[1], r[2]) for r in cur.fetchall()}
+
+    dates = [r[0] for r in rows]
+    closes = [float(r[1]) for r in rows]
+    lows = [float(r[2]) for r in rows]
+    ftd_dates = {v[1] for v in ctx.values() if v[1] is not None}
+    validity = ftd_validity_series(dates, closes, lows, ftd_dates)
+    last_ftd_cf: dict[date, date | None] = {}
+    cur_ftd = None
+    for d in dates:
+        if d in ftd_dates:
+            cur_ftd = d
+        last_ftd_cf[d] = cur_ftd
+
+    out: dict[date, str] = {}
+    for i, d in enumerate(dates):
+        if d < start:
+            continue
+        sma50 = _sma(closes, 50, i)
+        sma200 = _sma(closes, 200, i)
+        yr_high = max(closes[max(0, i - 251):i + 1])
+        off = (closes[i] / yr_high - 1) * 100 if yr_high > 0 else 0.0
+        dist = ctx.get(d, (0, None))[0] or 0
+        ftd = last_ftd_cf[d]
+        out[d] = variant_ladder_a53(
+            close=closes[i], sma_50=sma50, sma_200=sma200, off_high_pct=off,
+            dist_count=dist, ftd_valid=validity[d] if ftd else False,
+            days_since_ftd=(d - ftd).days if ftd else None)
+    return out
 
 
 def compute_variant_status(conn: Connection, index_code: str,

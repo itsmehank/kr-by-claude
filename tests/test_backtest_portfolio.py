@@ -277,3 +277,122 @@ def test_resolve_sample_a_and_pending_c():
             _resolve_sample("c")
     with pytest.raises(SystemExit):
         _resolve_sample("b")
+
+
+# ── (#53/#54) Arm-53 게이트 · Arm-54 파일럿 v2 ───────────────────────────────
+
+
+def _a53_td(bars, phase="rally_attempt", pilot_ok=True, dist=0, ftd_event=None,
+            reason="unfavorable_market", sat=None):
+    from kr_pipeline.backtest.portfolio import TickerData
+    sat = sat or (bars[0].d - timedelta(days=2))
+    wr = [WatchRow(ticker="T", sat=sat, pivot_price=100.0, base_low=90.0,
+                   watch_reason=reason)]
+    return TickerData(
+        market="KOSPI", bars=bars, watch_rows=wr,
+        rs_by_date={b.d: 80 for b in bars}, phase_by_date={},
+        phase_a53_by_date={b.d: phase for b in bars},
+        pilot54_ok_by_date={b.d: pilot_ok for b in bars},
+        mkt_dist_by_date={b.d: dist for b in bars},
+        ftd_event_by_date={b.d: (ftd_event == b.d) for b in bars})
+
+
+def test_gate_mode_a53_uses_a53_phases():
+    """gate=a53 은 Arm-53 사다리 국면으로 §3.5 분기를 판정한다."""
+    start = date(2024, 1, 8)
+    bars = _bars(start, [(98, 200, 90), (104, 200, 95)])
+    td = _a53_td(bars, phase="confirmed_uptrend")
+    assert _run({"A": td}, gate_mode="a53")["stats"]["n_entries"] == 1
+    td2 = _a53_td(bars, phase="rally_attempt", pilot_ok=False)
+    assert _run({"A": td2}, gate_mode="a53")["stats"]["n_entries"] == 0
+
+
+def test_pilot54_enters_rally_attempt_with_triple_filter():
+    """Arm-54: rally_attempt ∧ 3중 필터 ∧ dist<6 → 파일럿 진입(entry_kind=pilot)."""
+    start = date(2024, 1, 8)
+    bars = _bars(start, [(98, 200, 90), (104, 200, 95), (95, 200, 95)])
+    td = _a53_td(bars, phase="rally_attempt", pilot_ok=True, dist=0)
+    r = _run({"A": td}, gate_mode="a53", pilot54_mode=True)
+    assert r["stats"]["n_entries"] == 1
+    assert r["stats"]["exits"][0]["entry_kind"] == "pilot"
+
+
+def test_pilot54_blocked_by_filter_and_dist():
+    """3중 필터 미통과 또는 dist≥6(E1 분배 경고) 이면 발동 안 함."""
+    start = date(2024, 1, 8)
+    bars = _bars(start, [(98, 200, 90), (104, 200, 95)])
+    r1 = _run({"A": _a53_td(bars, pilot_ok=False)},
+              gate_mode="a53", pilot54_mode=True)
+    assert r1["stats"]["n_entries"] == 0
+    assert r1["stats"]["n_skipped_pilot54_filter"] == 1
+    r2 = _run({"A": _a53_td(bars, pilot_ok=True, dist=6)},
+              gate_mode="a53", pilot54_mode=True)
+    assert r2["stats"]["n_entries"] == 0
+
+
+def test_pilot54_not_in_down_phases():
+    """E1: downtrend/correction 에서는 파일럿 발동 금지 (Stage 8 기각 국면)."""
+    start = date(2024, 1, 8)
+    bars = _bars(start, [(98, 200, 90), (104, 200, 95)])
+    for phase in ("downtrend", "correction"):
+        r = _run({"A": _a53_td(bars, phase=phase)},
+                 gate_mode="a53", pilot54_mode=True)
+        assert r["stats"]["n_entries"] == 0
+
+
+def test_pilot54_consec_stop_lock_and_ftd_unlock():
+    """E5: 연속 손실 3회 → 전역 잠금(4번째 차단), 새 FTD 이벤트로만 해제."""
+    from kr_pipeline.backtest.portfolio import PortfolioConfig, run_portfolio
+    start = date(2024, 1, 8)
+    # 각 종목: 돌파(104) → 폭락(90, 파일럿 스톱 발동 청산) → 이후 재돌파 없음(98)
+    crash = [(98, 200, 90), (104, 200, 95), (90, 200, 95),
+             (98, 200, 95), (98, 200, 95), (98, 200, 95), (98, 200, 95)]
+    bars = _bars(start, crash)
+    d4 = bars[3].d
+
+    def td(tk, ftd_event=None):
+        t = _a53_td(bars, ftd_event=ftd_event)
+        t.watch_rows[0] = WatchRow(ticker=tk, sat=bars[0].d - timedelta(days=2),
+                                   pivot_price=100.0, base_low=90.0,
+                                   watch_reason="unfavorable_market")
+        return t
+
+    # A·B·C: 동일 폭락 → 손실 청산 3연속 → 잠금. D: 잠금 다음날 단발 돌파 시도.
+    late = [(98, 200, 90), (98, 200, 90), (98, 200, 90),
+            (104, 200, 95), (90, 200, 95), (98, 200, 95), (98, 200, 95)]
+    bars_late = _bars(start, late)
+    assert [b.d for b in bars_late] == [b.d for b in bars]
+
+    def td_late(tk, ftd_event=None):
+        t = _a53_td(bars_late, ftd_event=ftd_event)
+        t.watch_rows[0] = WatchRow(ticker=tk, sat=bars[0].d - timedelta(days=2),
+                                   pivot_price=100.0, base_low=90.0,
+                                   watch_reason="unfavorable_market")
+        return t
+
+    # 잠금 후 FTD 이벤트 없음 → D 진입 차단
+    data = {"A": td("A"), "B": td("B"), "C": td("C"), "D": td_late("D")}
+    r = run_portfolio(data, PortfolioConfig(gate_mode="a53", pilot54_mode=True))
+    assert r["stats"].get("pilot54_lock_events", 0) >= 1
+    assert r["stats"].get("n_skipped_pilot_lock", 0) >= 1
+    assert r["stats"]["n_entries"] == 3          # D 는 못 들어감
+
+    # 잠금 후 d5 에 FTD 이벤트 발생 → D 진입 허용 (해제 = 새 FTD 단독)
+    data2 = {"A": td("A"), "B": td("B"), "C": td("C"),
+             "D": td_late("D", ftd_event=d4)}
+    r2 = run_portfolio(data2, PortfolioConfig(gate_mode="a53", pilot54_mode=True))
+    assert r2["stats"]["n_entries"] == 4         # 해제 → D 진입 (이후 재돌파 없음)
+
+
+def test_pilot54_episode_cap_per_base():
+    """E5 구체화: 같은 watch 베이스 파일럿 재진입은 pilot_retry_cap(2회)까지."""
+    start = date(2024, 1, 8)
+    seq = [(98, 200, 90), (104, 200, 95), (90, 200, 95),    # 1차 진입→손절
+           (104, 300, 95), (90, 200, 95),                    # 2차 진입→손절
+           (104, 400, 95), (104, 200, 95)]                   # 3차 시도 → 캡 차단
+    bars = _bars(start, seq)
+    td = _a53_td(bars)
+    r = _run({"A": td}, gate_mode="a53", pilot54_mode=True,
+             pilot_consec_lock=99)    # 잠금 간섭 배제 — 캡만 검증
+    assert r["stats"]["n_entries"] == 2
+    assert r["stats"]["n_skipped_retry_cap"] >= 1

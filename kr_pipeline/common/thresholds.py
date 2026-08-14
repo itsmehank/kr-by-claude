@@ -319,6 +319,20 @@ STATUS_FTD_RECENT_DAYS: Final[int] = 90
 STATUS_FTD_INVALIDATION_DAYS: Final[int] = 10
 """distribution 누적 후 FTD 무효화까지 일수."""
 
+# ===== Arm-54 파일럿 예외 경로 (#54, LOCKED 설계 2026-08-14 — backtest-local) =====
+# specs/2026-08-14-issue54-pilot-path.md §3 E2·E5. production 반영은 arm 백테스트
+# 통과 후에만(§7) — 그 전까지 소비처는 kr_pipeline/backtest/portfolio.py 뿐.
+
+PILOT_OFF_HIGH_MIN_PCT: Final[float] = -15.0
+"""파일럿 3중 필터 ③ 신고가 근접 밴드 하한 (pct_from_52w_high ≥ 이 값).
+시스템 설계값(EXTENDS — 책은 '신고가 부근'만 요구)."""
+
+PILOT_OFF_HIGH_MAX_PCT: Final[float] = -5.0
+"""파일럿 3중 필터 ③ 신고가 근접 밴드 상한 — 0~5% 구간은 정상 pivot 경로 몫."""
+
+PILOT_CONSEC_STOP_LOCK: Final[int] = 3
+"""파일럿 경로 전역 잠금 — 연속 손실 청산 횟수 임계. 해제 = 새 FTD 단독 (E5)."""
+
 # ===== Phase 2 (i): cup-shape 결정론화 (analyze_chart_v3.md §2 트리 / handle_quality / failed_breakout) =====
 # 분류: book-anchor = 책 고정 앵커(변경 금지) / heuristic = 튜닝 가능.
 # 단일 스칼라 금지 — depth 는 패턴 × 시장 2축. (i) 트리는 cup 행만 소비, 나머지는 향후 다패턴 트리용.
