@@ -27,16 +27,26 @@ def _market_of(conn: Connection, ticker: str) -> str:
 
 
 def entry_rate_by_phase(conn: Connection, tickers: list[str],
-                         exclude: frozenset = frozenset()) -> dict[str, dict]:
-    """분류점(BT_TABLE 행) 기준 국면별 entry-rate. 국면 = analyzed_for_date 의 시장상태."""
+                         exclude: frozenset = frozenset(),
+                         *, watch_start: date | None = None,
+                         watch_end: date | None = None) -> dict[str, dict]:
+    """분류점(BT_TABLE 행) 기준 국면별 entry-rate. 국면 = analyzed_for_date 의 시장상태.
+
+    watch 윈도(#52): 표본 C 백필로 A/B∩C 겹침 종목이 두 구간의 행을 갖게 됨 —
+    윈도 미지정 집계는 교차 오염. None 이면 기존 동작(전 기간) 유지.
+    """
     pmaps: dict[str, list] = {}
     counts: dict[str, dict] = {}
+    cond, params = "", [tickers]
+    if watch_start is not None and watch_end is not None:
+        cond = " AND b.analyzed_for_date BETWEEN %s AND %s"
+        params += [watch_start, watch_end]
     with conn.cursor() as cur:
         cur.execute(
             f"SELECT b.symbol, b.analyzed_for_date, b.classification, s.market "
             f"FROM {BT_TABLE} b JOIN stocks s ON s.ticker = b.symbol "
-            f"WHERE b.symbol = ANY(%s)",
-            (tickers,),
+            f"WHERE b.symbol = ANY(%s){cond}",
+            params,
         )
         rows = cur.fetchall()
     for symbol, afd, cls, market in rows:
@@ -128,7 +138,9 @@ def run_analysis(conn: Connection, tickers: list[str], px_start: date, px_end: d
                 "binding_exit": t.binding_exit,
                 "phase": ph.phase_at(pmaps[code], t.entry_date),
             })
-    entry_rates = entry_rate_by_phase(conn, tickers, exclude=exclude)
+    entry_rates = entry_rate_by_phase(conn, tickers, exclude=exclude,
+                                      watch_start=watch_start,
+                                      watch_end=watch_end)
     trade_aggs = aggregate_trades(all_trades)
     criteria = evaluate_criteria(entry_rates, trade_aggs)
     return {"n_tickers": len(tickers), "n_trades": len(all_trades),
