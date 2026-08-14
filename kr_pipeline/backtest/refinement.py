@@ -110,8 +110,16 @@ def _mdd_pct(bars, entry_i: int, exit_i: int, entry_close: float) -> float:
 
 
 def build_refined_trades(conn: Connection, tickers: list[str] | None = None,
-                         entry_mode: str = "breakout") -> tuple[list[dict], int]:
-    """보정 트레이드 셋(5% 룰 + 비용 + 밴드 + MDD) + promotion 총수."""
+                         entry_mode: str = "breakout", *,
+                         watch_start: date = START, watch_end: date = END,
+                         px_start: date = PX_START,
+                         px_end: date = PX_END) -> tuple[list[dict], int]:
+    """보정 트레이드 셋(5% 룰 + 비용 + 밴드 + MDD) + promotion 총수.
+
+    윈도 파라미터화(#52 독립 구간): 기본값 = 기존 2021~2024 상수 — 무인자 호출
+    동작 불변. 독립 구간은 watch 2017-07-01~2020-12-31 / px 2017-01-01~2021-06-30
+    을 명시 주입(prereg §1). 2019-06 세금 경계는 cost_pct 가 exit 연도로 처리.
+    """
     tickers = list(tickers) if tickers is not None else list(FROZEN_SAMPLE)
     pmaps: dict[str, list] = {}
     idx_cache: dict[str, dict] = {}
@@ -123,9 +131,9 @@ def build_refined_trades(conn: Connection, tickers: list[str] | None = None,
         if code not in pmaps:
             pmaps[code] = ph.load_phase_map(conn, code)
         if market not in idx_cache:
-            idx_cache[market] = load_index_series(conn, market, PX_START, PX_END)
-        wr = load_watchlist(conn, ticker, START, END, table=BT_TABLE)
-        bars = load_daily_series(conn, ticker, PX_START, PX_END)
+            idx_cache[market] = load_index_series(conn, market, px_start, px_end)
+        wr = load_watchlist(conn, ticker, watch_start, watch_end, table=BT_TABLE)
+        bars = load_daily_series(conn, ticker, px_start, px_end)
         date_i = {b.d: i for i, b in enumerate(bars)}
         cls = classify_rows(wr)
         trades, promo = simulate(ticker, cls["production"], bars, mode="production",
