@@ -208,11 +208,27 @@ uv run python -m kr_pipeline.backtest.portfolio \
 232680, 234080, 241520, 241690, 247540, 263770, 263860, 264850, 267850, 271560
 ```
 
-### 9.2 게이트 변형 arm 정의 (placeholder)
+### 9.2 게이트 변형 arm 정의
 
-**arm 미고정.** #53·#54 설계 확정 후, 본 실행 승인 전에 이 절에 arm 구성·비교 지표를
-추가하고 그 시점의 커밋 해시를 남긴다. 이 절이 비어 있는 동안 포트폴리오층 판정
-범위는 Arm A 기준선 산출까지다.
+**Arm-53 — 고정(2026-08-14, 사용자 게이트 승인).** 정의 원문 =
+`docs/superpowers/specs/2026-08-12-issue53-ladder-redesign.md` (LOCKED, 본 커밋 동봉 —
+커밋 해시가 곧 고정 시점). 요약:
+
+- **사다리 재정렬(안 A)**: [1′ FTD 분배 무효화(dist≥6 ∧ ftd_valid ∧ >10일 → correction)]
+  → [2′ confirmed(ftd_valid ∧ close>SMA50 ∧ dist<6)] → [3′ downtrend(현행 규칙 1)]
+  → [4′ correction(현행 규칙 2)] → [5′ rally_attempt(close>SMA50)] → [6′ correction].
+- **ftd_valid(가격 무효화)**: 랠리 저점 = FTD 당일 포함 직전 15세션 최저 low
+  (`RALLY_LOW_WINDOW=15`, 값만 `FTD_LOW_LOOKBACK_DAYS` 와 공유 — 경계 상이 유지).
+  지수 **종가** < 랠리 저점 → 무효(sticky, 새 FTD 발생 시 갱신). 시간 만료 없음.
+- **FTD 기억**: `market_context_daily.last_follow_through_day` carry-forward 복원.
+  탐지 lookback 90 유지(역할 분리 — 사다리 만료 소비 제거).
+- **고정 축**: close>SMA50 유지(당일 개방 아님), dist 임계 6, 무효화 10일.
+- **비교 지표**: §4 그대로(Arm A 대비 방향 재현 + MDD ≤5pp) + 부가 산출물 4종
+  (국면 분포 3분류 일수·1′ 발화 dist 분포·라벨 전환 빈도·1′→2′ 재전환 빈도)
+  + 랠리 저점 창 경계(당일 포함/제외) 단위테스트.
+
+**Arm-54 — placeholder (미고정).** #54 설계 확정 후 본 절에 추가. Arm-54 고정 전까지
+포트폴리오층 판정 범위는 Arm A + Arm-53 까지다.
 
 ## 10. 승인 게이트 요약 (사용자 결정 대기)
 

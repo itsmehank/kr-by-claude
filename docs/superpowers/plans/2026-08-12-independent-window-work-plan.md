@@ -1,0 +1,124 @@
+# 독립 구간 판정 트랙 — 진행 계획 (2026-08-12, 세션 인계용)
+
+> **사용법**: 세션이 바뀌면 이 문서를 먼저 읽고 §3 체크박스의 다음 미완 항목부터
+> 이어서 진행한다. 항목 완료 시 체크박스를 갱신하고 완료 커밋/산출물을 옆에 기록한다.
+> 이 계획은 사용자 승인(2026-08-12)을 받았다: **0단계(#100) → 1편(설계) → 2편(준비,
+> 1편과 병렬 가능) → 3편(개봉) → 4편(후속)** 순서.
+
+## 1. 현재 상태 스냅샷 (2026-08-12 02:15 검증)
+
+- **표본 C 분류 백필 완주**: 독립 구간(2017-07-01~2020-12-31) **1,771/1,771셀 100%**.
+  `backtest_classification` 총 6,023행/308종목. 완주 판정 = pass 신규 0·실패 0·서킷 0.
+  - 확정치 근거: 동결 100종목(`kr_pipeline/backtest/frozen_sample_c.py`, seed 20260721)
+    × 183개 토요일 중 자격(qualifying) 충족 조합을 결정론 열거 — 표본 밖 오염 0건 확인.
+  - 이로써 **#52의 실체(독립 구간 분류 백필) 완료**. #68·#53·#54 의 공통 전제 해소.
+- 실행 worktree `kr-by-claude-worktrees/bt-c-run` 은 **78be0d7 핀 유지**(표본 일관성 —
+  최신 main 으로 올리지 말 것). 일요일 워치독이 루프를 1회 더 깨우면 신규 0 확인 후
+  스스로 COMPLETE 마커를 남기고 자연 종료한다(LLM 0콜, 무해).
+- main = 38d99af (#103 프롬프트 입력 축소 머지 포함). #98·#99·#101 closed.
+- 주간 LLM 한도: 백필로 상당 소진 — LLM 쓰는 작업(#60)은 한도 회복 후.
+- 테스트 기준선: **1204 passed·1 skipped·1 deselected** (#98 머지 후, 이슈 #100 본문 명시).
+
+## 2. 규율 (위반 금지 — 이 트랙의 존재 이유)
+
+1. **봉인 순서**: #53/#54 변형(arm) 상세 정의를 사전등록 부록 §9 에 고정하기 **전에**
+   독립 구간 결과(analyze 산출·F-S2 판정 포함)를 열람하지 않는다. 근거:
+   `docs/superpowers/specs/2026-07-21-independent-window-backtest-prereg.md` —
+   "결과를 본 뒤 arm 소급 정의 금지", "부록 없이 본 실행 시 포트폴리오층 판정은
+   Arm A 기준선까지만 유효".
+2. **1회 실행 → 저장 → 해석. 재실행 비교 금지**(멱등 resume 만 허용).
+3. **준비 작업(2편)의 테스트는 kr_test 합성 데이터로만** — 빌더/러너 확장을 검증한다며
+   실 독립 구간에 돌리면 그 자체가 결과 열람이 된다.
+4. #53 은 `STATUS_*` 상수·사다리 변경 → `docs/superpowers/threshold-change-checklist.md`
+   **의존성 맵(2축) 작성 의무** (CLAUDE.md 트리거 조건 충족).
+5. 운영 관례: suite 판정 전 `pgrep pytest`(교차 세션 경합), `git add` 는 명시 경로만,
+   worktree 커밋은 GH007 대비 noreply 신원 확인.
+
+## 3. 작업 순서
+
+### 0단계 — #100 수리 (착수 지점)
+
+> **완료(2026-08-12)**: 구현+테스트(b82f574) → 5관점 코드리뷰(발견 0건)+검증 패스 →
+> 리뷰 관찰 반영(max_tokens 커버, 6840f60) → **PR #104 머지됨(main 5edae34), #100 CLOSED**.
+> 다음 착수 지점 = 1편 #53 설계.
+
+- [x] `kr_pipeline/llm_runner/llm/claude_cli.py` 의 `call_claude()` rc≠0 분기:
+  `_failure_diagnostic(stdout, stderr)` 헬퍼로 stdout 봉투(`result`/`api_error_status`/
+  `subtype`(success 제외)/`stop_reason`)에서 진단 문자열 합성, 봉투 없으면
+  `stderr or stdout` 폴백. `_extract_json_objects()` 재사용.
+- 함정 3개 (이슈 #100 본문 "반드시 지킬 것" — 필독):
+  ① 한도 판정의 raw stdout/stderr 검사 **유지**(진단 합성은 추가이지 대체 아님)
+  ② `last_error` 500자 상한 (+백필 3곳 절단 정책 통일 검토)
+  ③ 조기경보를 넣는다면 비-쿼터 `limit` 문구(`context limit` 등) 제외
+- [x] 테스트 5종 추가 → full suite 1219 passed·1 skipped·1 deselected (실패 0)
+- [x] PR #104 머지 완료 (main 5edae34, 브랜치 삭제, main 복귀 확인)
+
+### 1편 — 설계 봉인 (0단계 후 순차)
+
+- [x] **#53 설계 완료(2026-08-12)**: `docs/superpowers/specs/2026-08-12-issue53-ladder-redesign.md`
+  DRAFT v2 — D1~D5 확정(재정렬 안 A·close>SMA50 유지·가격 무효화·역할 분리·1′ 전진),
+  의존성 맵 7행, 독립 검토 2건(발견 11건) 반영. **§9 고정은 사용자 게이트 대기**.
+- [x] **Arm-53 §9.2 고정 완료(2026-08-14)**: prereg §9.2 등록 + 설계 문서 LOCKED 플립
+  (사용자 게이트 승인). Arm-54 는 §9.2 placeholder 유지.
+- [ ] **#54 설계**: Arm-53 확정 사다리 위에서 발동 국면 정의(rally_attempt) +
+  3중 하드 필터(Stage 2 × `rs_line_at_52w_high` × 신고가 5~15% 밴드) + 파일럿 사이징
+  (25~50%) + 연속 손절 자동 잠금. entry/watch 시장 게이트 비대칭 정리 포함.
+- [ ] **Arm-54 §9.2 고정** (설계 검토 후 사용자 게이트).
+
+### 2편 — 재료 준비 (1편과 병렬 가능, 결과 열람 없음)
+
+- [ ] **DART 표본 C 백필**: `kr_pipeline/financials` CLI `--sample c` 지원 +
+  연도 하한 2016 연장(F-S2 지선② YoY 기저) → 미커버 ~107종목 적재.
+  참고: `get_financials_asof` limit 20 필요(fs2-prereg 구현 노트).
+- [ ] **트레이드 빌더 기간 파라미터화**: `kr_pipeline/backtest/refinement.py` 의
+  START/END(2021~2024)·PX_START/PX_END 하드코딩을 인자화. 2019-06 세금 경계는 반영돼 있음.
+- [ ] **F-S2 러너 표본 C 지원**: `scripts/issue68_fs2_observe.py` 가 표본 A+B 전용 —
+  `FROZEN_SAMPLE_C` + 독립 구간 윈도를 받도록 확장 (1차 검토에서 발견된 누락).
+- [ ] **arm 구현**: §9 고정 **후**, 리플레이 하네스(`run_portfolio` gate_mode)에
+  #53/#54 변형 arm 구현. 합성 데이터 테스트만 (규율 3).
+
+### 3편 — 성적표 개봉 (1·2편 전부 완료 후, 하루에 몰아서)
+
+- [ ] **analyze 실행** (Arm A 기준선 + 변형 arm 동시):
+  `uv run python -m kr_pipeline.backtest.profitability_cli analyze --sample=c \
+   --watch-start=2017-07-01 --watch-end=2020-12-31 --px-start=2017-01-01 --px-end=2021-06-30`
+  → 산출물 저장 → 판정: ① 독립 구간 수익성(A·B 결론 재검증) ② #53/#54 채택 여부.
+- [ ] **#68 F-S2 최종 판정 (look #10)**: 확장된 러너로 표본 C 트레이드에 F-S2 라벨 →
+  3기준 재현 판정. LLM 0콜.
+
+### 4편 — 판정 후속 (결과에 따라 분기)
+
+- [ ] 채택분 production 반영(구현·테스트·PR) / 기각분 이슈 종결 기록.
+  F-S2 실패 시 **F-S 트랙 영구 종결**(재도전 금지 — fs2-prereg §종결 규칙).
+
+### 병렬 틈새 (언제든, 위 트랙과 독립)
+
+- [ ] #78 실전 첫 가동 점검 ②(08-08 주말 분류 성공 확인·go_now 여부·노출) → 클로즈
+- [ ] #102 검증 문서 열람 → 클로즈 (사용자 액션)
+- [ ] #90 self-heal + api/web 부팅 자동화
+- [ ] #91 KRX Open API 전환 조사
+
+### 대기 (조건 충족 시까지 착수 금지)
+
+| 이슈 | 해제 조건 |
+|---|---|
+| #60 Sonnet 재평가 | 주간 LLM 한도 회복 + 비용 승인 |
+| #59 §6.2 shadow 활성화 | 실전 주말 분류 1사이클(N회) 축적 |
+| #46 pivot_continuity 분석 | 실전 4~8주 축적 |
+| #80 사이징 이중 페널티 | [동결] 수익성 입증 + F1~F4 첫 판독 |
+
+## 4. 판정 기준 요약 (사전등록 고정분 — 변경 금지)
+
+- **#53/#54 채택**: (i) 2021~2024 에서 보인 개선 방향이 독립 구간에서 재현 AND
+  (ii) 변형 arm MDD 가 Arm A 대비 5pp 초과 악화 없음. 하나라도 실패 → 기각/재설계.
+- **수익성 보고**: mean excess_net 95% CI 가 0 포함이면 "시장 초과 미입증"(점추정 서사 금지).
+- **F-S2 (look #10)**: pass n≥25 · 승률차 ≥+8.0%p · 판정불가 ≤40% — 전부 재현 시 채택
+  후보, 실패 시 트랙 종결.
+
+## 5. 참고 경로
+
+- 사전등록: `docs/superpowers/specs/2026-07-21-independent-window-backtest-prereg.md`,
+  `docs/superpowers/specs/2026-07-24-issue68-fs2-prereg.md`
+- 백필 확정치 계산 방식: 본 문서 §1 (동결 표본 × get_qualifying_tickers 주차 열거)
+- 수동 백필 세션 기록: `~/.kr-by-claude/bt_manual_c_20260811.log`
+- 이슈: #100(스펙 상세는 이슈 본문이 SSOT), #53, #54, #68, #78, #90, #91, #102
