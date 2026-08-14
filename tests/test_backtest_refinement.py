@@ -117,3 +117,48 @@ def test_run_refinement_threads_entry_mode(db, monkeypatch):
     out = rf.run_refinement(db, entry_mode="pullback")
     assert seen["entry_mode"] == "pullback"
     assert out["params"]["entry_mode"] == "pullback"
+
+
+def test_build_refined_trades_window_params(monkeypatch):
+    """(#52) 윈도 파라미터가 로더 3곳에 전달되고, 무인자 기본값은 기존 상수 유지."""
+    from datetime import date
+    import kr_pipeline.backtest.refinement as rf
+
+    seen = {}
+
+    def fake_market_of(conn, ticker):
+        return "KOSPI"
+
+    def fake_phase_map(conn, code):
+        return []
+
+    def fake_index(conn, market, s, e):
+        seen["idx"] = (s, e)
+        return {}
+
+    def fake_watchlist(conn, ticker, s, e, table=None):
+        seen["watch"] = (s, e)
+        return []
+
+    def fake_daily(conn, ticker, s, e):
+        seen["daily"] = (s, e)
+        return []
+
+    monkeypatch.setattr(rf, "_market_of", fake_market_of)
+    monkeypatch.setattr(rf.ph, "load_phase_map", fake_phase_map)
+    monkeypatch.setattr(rf, "load_index_series", fake_index)
+    monkeypatch.setattr(rf, "load_watchlist", fake_watchlist)
+    monkeypatch.setattr(rf, "load_daily_series", fake_daily)
+
+    ws, we = date(2017, 7, 1), date(2020, 12, 31)
+    ps, pe = date(2017, 1, 1), date(2021, 6, 30)
+    rf.build_refined_trades(None, tickers=["000001"],
+                            watch_start=ws, watch_end=we,
+                            px_start=ps, px_end=pe)
+    assert seen["watch"] == (ws, we)
+    assert seen["idx"] == (ps, pe)
+    assert seen["daily"] == (ps, pe)
+
+    rf.build_refined_trades(None, tickers=["000001"])
+    assert seen["watch"] == (rf.START, rf.END)
+    assert seen["daily"] == (rf.PX_START, rf.PX_END)

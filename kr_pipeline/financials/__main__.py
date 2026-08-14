@@ -42,18 +42,27 @@ def _period_end_guess(year: int, reprt: str) -> date:
 
 
 def load_sample(which: str) -> list[str]:
-    """백필 표본 선택 — a=FROZEN_SAMPLE(동결 모듈이 권위), b=추첨 JSON(기존 경로 유지)."""
+    """백필 표본 선택 — a=FROZEN_SAMPLE(동결 모듈이 권위), b=추첨 JSON(기존 경로 유지),
+    c=FROZEN_SAMPLE_C(#52 독립 구간 100종목 — #68 표본 C 판정 재료)."""
     if which == "a":
         from kr_pipeline.backtest.frozen_sample import FROZEN_SAMPLE
         return list(FROZEN_SAMPLE)
+    if which == "c":
+        from kr_pipeline.backtest.frozen_sample_c import FROZEN_SAMPLE_C
+        return list(FROZEN_SAMPLE_C)
     return json.loads(SAMPLE_JSON.read_text())["sample_b"]
 
 
 def parse_args():
     p = argparse.ArgumentParser(prog="python -m kr_pipeline.financials")
     p.add_argument("--mode", required=True, choices=["backfill", "eps-published"])
-    p.add_argument("--sample", choices=["a", "b"], default="b")
+    p.add_argument("--sample", choices=["a", "b", "c"], default="b")
     p.add_argument("--limit-tickers", type=int, default=None)
+    # (#68 표본 C) 연도 범위 — 기본값 = 기존 YEARS(2017~2024) 동작 불변.
+    # 표본 C 는 --year-start 2016 --year-end 2020 (F-S2 지선② YoY 기저 = 2016,
+    # fs2-prereg §4: 2016 연장으로 지선① 충분·지선② 2017 초 구간만 구조적 판정불가).
+    p.add_argument("--year-start", type=int, default=YEARS[0])
+    p.add_argument("--year-end", type=int, default=YEARS[-1])
     return p.parse_args()
 
 
@@ -127,6 +136,10 @@ def main() -> int:
     sample = load_sample(args.sample)
     if args.limit_tickers:
         sample = sample[: args.limit_tickers]
+    if args.year_start > args.year_end:
+        log.error("--year-start(%d) > --year-end(%d)", args.year_start, args.year_end)
+        return 1
+    years = list(range(args.year_start, args.year_end + 1))
 
     with connect(cfg.database_url) as conn:
         with conn.cursor() as cur:
@@ -152,7 +165,7 @@ def main() -> int:
 
         with run_tracking(conn, pipeline="financials", mode="backfill",
                           params={"sample": args.sample, "tickers": len(targets),
-                                  "years": f"{YEARS[0]}-{YEARS[-1]}"}) as state:
+                                  "years": f"{years[0]}-{years[-1]}"}) as state:
             if excluded:
                 state["warnings"].append(f"금융업 제외 {len(excluded)}: {excluded}")
             if unmapped:
@@ -160,13 +173,13 @@ def main() -> int:
             rows = 0
             for i, t in enumerate(targets, 1):
                 cc = cmap[t]
-                need = [(y, rc) for y in YEARS for rc in REPRTS
+                need = [(y, rc) for y in years for rc in REPRTS
                         if (t, y, rc) not in done]
                 if not need:
                     continue
                 try:
                     disclosures = fetch_disclosures(
-                        cfg.dart_api_key, cc, f"{YEARS[0]}0101", f"{YEARS[-1] + 1}1231")
+                        cfg.dart_api_key, cc, f"{years[0]}0101", f"{years[-1] + 1}1231")
                 except DartApiError as e:
                     log.error("DART 환경성 실패(%s) — 클린 중단, 재실행이 이어감", e)
                     state["warnings"].append(f"dart_fatal: {e}")

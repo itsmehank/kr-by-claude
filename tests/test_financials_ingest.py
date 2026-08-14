@@ -209,3 +209,35 @@ def test_upsert_idempotent_update(db):
         assert (n, st, float(rev)) == (1, "ok", 777.0)
     finally:
         _cleanup(db)
+
+
+# ── (#52/#68) 표본 C 확장 — CLI 표본 선택·연도 범위 ─────────────────────────
+
+
+def test_load_sample_c_is_frozen_sample_c():
+    """--sample c 는 동결 표본 C(100종목) 를 그대로 반환한다."""
+    from kr_pipeline.backtest.frozen_sample_c import FROZEN_SAMPLE_C
+    from kr_pipeline.financials.__main__ import load_sample
+
+    got = load_sample("c")
+    assert got == list(FROZEN_SAMPLE_C)
+    assert len(got) == 100
+
+
+def test_parse_args_sample_c_and_year_range(monkeypatch):
+    """--sample c + --year-start/--year-end 파싱, 기본값 = 기존 YEARS 동작 불변."""
+    import sys
+
+    from kr_pipeline.financials.__main__ import YEARS, parse_args
+
+    monkeypatch.setattr(sys, "argv", [
+        "financials", "--mode=backfill", "--sample", "c",
+        "--year-start", "2016", "--year-end", "2020",
+    ])
+    args = parse_args()
+    assert args.sample == "c"
+    assert (args.year_start, args.year_end) == (2016, 2020)
+
+    monkeypatch.setattr(sys, "argv", ["financials", "--mode=backfill"])
+    args = parse_args()
+    assert (args.year_start, args.year_end) == (YEARS[0], YEARS[-1])
