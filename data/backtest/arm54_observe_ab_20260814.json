@@ -1,0 +1,50 @@
+{
+  "label": "Arm-54 A+B 관찰(look) — 통과 시에만 표본 C 재현 판정 이관",
+  "prereg": [
+    "docs/superpowers/specs/2026-08-14-issue54-pilot-path.md §4",
+    "docs/superpowers/specs/2026-07-21-independent-window-backtest-prereg.md §9.2"
+  ],
+  "sample": "ab",
+  "window": {
+    "start": "2021-01-01",
+    "end": "2025-06-30"
+  },
+  "arm53_metrics": {
+    "final_multiple": 1.1311,
+    "cagr_pct": 2.79,
+    "max_drawdown_pct": -26.0,
+    "avg_exposure_pct": 36.2,
+    "open_positions_at_end": 2
+  },
+  "arm53_pilot54_metrics": {
+    "final_multiple": 1.1311,
+    "cagr_pct": 2.79,
+    "max_drawdown_pct": -26.0,
+    "avg_exposure_pct": 36.2,
+    "open_positions_at_end": 2
+  },
+  "pilot_n": 0,
+  "pilot_wins": 0,
+  "pilot_mean_excess_net": null,
+  "pilot54_stats": {
+    "n_skipped_pilot54_filter": 73,
+    "pilot54_skip_breakdown": {
+      "phase_correction": 42,
+      "filter_rs_fail": 5,
+      "phase_downtrend": 22,
+      "dist_ge_6": 2,
+      "filter_mp_fail": 1,
+      "filter_band_fail": 5
+    }
+  },
+  "criteria": {
+    "i_pilot_mean_excess_net_gt_0": false,
+    "ii_final_multiple_not_worse": true,
+    "final_multiple": {
+      "arm53": 1.1311,
+      "arm53_pilot54": 1.1311
+    }
+  },
+  "observation_passed": false,
+  "pilot_trades": []
+}

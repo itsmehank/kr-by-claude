@@ -49,6 +49,7 @@ class TickerData:
     ftd_valid_by_date: dict = field(default_factory=dict)      # v4.2 증액 (i)
     phase_a53_by_date: dict = field(default_factory=dict)      # Arm-53 사다리 (LOCKED)
     pilot54_ok_by_date: dict = field(default_factory=dict)     # Arm-54 3중 필터 (E2)
+    pilot54_flags_by_date: dict = field(default_factory=dict)  # (mp, rs, band) 성분별
     mkt_dist_by_date: dict = field(default_factory=dict)       # 시장 분배일 카운트 (E1)
     ftd_event_by_date: dict = field(default_factory=dict)      # FTD 이벤트 당일 (E5 해제)
 
@@ -296,6 +297,22 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
                                 and td.pilot54_ok_by_date.get(d, False)):
                             stats["n_skipped_pilot54_filter"] = (
                                 stats.get("n_skipped_pilot54_filter", 0) + 1)
+                            # (§4 산출물) 탈락 기여 분해 — 비배타 카운트
+                            brk = stats.setdefault("pilot54_skip_breakdown", {})
+                            if phases.get(d) != "rally_attempt":
+                                brk[f"phase_{phases.get(d)}"] = (
+                                    brk.get(f"phase_{phases.get(d)}", 0) + 1)
+                            elif (td.mkt_dist_by_date.get(d, 99)
+                                  >= STATUS_DIST_COUNT_FOR_FTD_INVALIDATION):
+                                brk["dist_ge_6"] = brk.get("dist_ge_6", 0) + 1
+                            else:
+                                mp, rs, band = td.pilot54_flags_by_date.get(
+                                    d, (None, None, None))
+                                for name, v in (("mp", mp), ("rs", rs),
+                                                ("band", band)):
+                                    if v is False:
+                                        brk[f"filter_{name}_fail"] = (
+                                            brk.get(f"filter_{name}_fail", 0) + 1)
                             continue
                         if pilot54_lock["locked"]:
                             # 해제 = 잠금 이후 새 FTD 이벤트 단독 (E5)
@@ -527,10 +544,13 @@ def load_ticker_data(conn, tickers: list[str] | None = None, *,
             rows = cur.fetchall()
         rs = {r[0]: r[1] for r in rows}
         # (Arm-54 E2) 3중 하드 필터 — 전부 as-of 저장 지표, AND 결합
-        pilot54_ok = {
-            r[0]: bool(r[2]) and bool(r[3]) and r[4] is not None
-            and PILOT_OFF_HIGH_MIN_PCT <= float(r[4]) <= PILOT_OFF_HIGH_MAX_PCT
+        pilot54_flags = {
+            r[0]: (bool(r[2]), bool(r[3]),
+                   r[4] is not None
+                   and PILOT_OFF_HIGH_MIN_PCT <= float(r[4])
+                   <= PILOT_OFF_HIGH_MAX_PCT)
             for r in rows}
+        pilot54_ok = {d: all(f) for d, f in pilot54_flags.items()}
         out[ticker] = TickerData(
             market=market, bars=bars,
             watch_rows=load_watchlist(conn, ticker, watch_start, watch_end,
@@ -541,6 +561,7 @@ def load_ticker_data(conn, tickers: list[str] | None = None, *,
             ftd_valid_by_date=ftd_valid_by_date,
             phase_a53_by_date=phase_a53_by_date,
             pilot54_ok_by_date=pilot54_ok,
+            pilot54_flags_by_date=pilot54_flags,
             mkt_dist_by_date=mkt_dist_by_date,
             ftd_event_by_date=ftd_event_by_date)
     return out
