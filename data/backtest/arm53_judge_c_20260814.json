@@ -1,0 +1,47 @@
+{
+  "label": "Arm-53 표본 C 재현 판정 (독립 구간 1회 개봉 — 포트폴리오층)",
+  "window": {
+    "px": [
+      "2017-01-01",
+      "2021-06-30"
+    ],
+    "watch": [
+      "2017-07-01",
+      "2020-12-31"
+    ]
+  },
+  "observed_direction_ab": {
+    "final_multiple": 0.1126,
+    "cagr_pct": 2.38,
+    "mdd_pct": 0.87,
+    "source": "arm53_observe_ab_20260814.json"
+  },
+  "armA_prod_metrics": {
+    "final_multiple": 0.9681,
+    "cagr_pct": -0.72,
+    "max_drawdown_pct": -14.28,
+    "avg_exposure_pct": 13.3,
+    "open_positions_at_end": 0
+  },
+  "arm53_metrics": {
+    "final_multiple": 0.9486,
+    "cagr_pct": -1.17,
+    "max_drawdown_pct": -18.62,
+    "avg_exposure_pct": 18.5,
+    "open_positions_at_end": 0
+  },
+  "delta_c": {
+    "final_multiple": -0.0195,
+    "cagr_pct": -0.45,
+    "max_drawdown_pct": -4.34
+  },
+  "n_entries": {
+    "armA": 32,
+    "arm53": 42
+  },
+  "criteria": {
+    "i_direction_reproduced": false,
+    "ii_mdd_guardrail_le_5pp": true
+  },
+  "verdict_adoption_candidate": false
+}
