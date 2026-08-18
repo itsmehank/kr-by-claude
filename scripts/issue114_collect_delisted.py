@@ -36,7 +36,7 @@ CP = Path("data/verification/issue114_checkpoint.json")
 DB = os.environ.get("DATABASE_URL", "postgresql://localhost/kr_pipeline")
 FROM, TO = "20150615", "20260814"   # 하한 = 가격제한폭 체제 경계(전문가 4차)
 MAX_TICKER_FAILURES = 3             # 초과 시 스킵·폴백 목록화(리뷰 I-5)
-CALLS_PER_DELISTED = 2              # ohlcv + 주식수 (종목명은 외부 파일 — KRX 호출 없음)
+CALLS_PER_DELISTED = 3              # ohlcv + 주식수 + 종목명(외부 조달 불가 — KRX 조회 복원)
 
 
 def _call(cp: dict, fn, *args):
@@ -102,7 +102,14 @@ def main() -> int:
                                "d", False)
                     if len(df) == 0:
                         raise ValueError("empty ohlcv")   # 리뷰 C-1
-                    name = names.get(ticker) or f"상폐{ticker}"
+                    name = names.get(ticker)      # 이름 파일 있으면 우선(호출 절약)
+                    if not name:
+                        try:
+                            name = _call(cp, krx.get_market_ticker_name, ticker)
+                        except Exception:  # noqa: BLE001 — 이름 실패는 비치명
+                            name = None
+                        if not isinstance(name, str) or not name:
+                            name = f"상폐{ticker}"  # apply_names 로 후속 보정 가능
                     caps = _call(cp, krx.get_market_cap_by_date, FROM, TO, ticker)
                     if len(caps) == 0:
                         raise ValueError("empty cap")     # 리뷰 C-1
