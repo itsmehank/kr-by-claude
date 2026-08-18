@@ -710,3 +710,28 @@ CREATE TABLE IF NOT EXISTS dart_financials (
 );
 CREATE INDEX IF NOT EXISTS idx_dart_financials_asof
   ON dart_financials (ticker, disclosed_at) WHERE disclosed_at IS NOT NULL;
+
+-- (#114) 상폐 종목 이력 복원 — 별도 테이블(기존 daily_prices 무접촉 원칙).
+-- 설계: docs/superpowers/specs/2026-08-18-issue114-delisted-restore-design.md (v2)
+-- adj 컬럼 없음: 미검증 수정주가가 기존 소비처로 흘러드는 경로를 스키마로 차단.
+CREATE TABLE IF NOT EXISTS delisted_daily_prices (
+  ticker     VARCHAR(10) NOT NULL REFERENCES stocks(ticker),
+  date       DATE NOT NULL,
+  open       NUMERIC(12, 2) NOT NULL,
+  high       NUMERIC(12, 2) NOT NULL,
+  low        NUMERIC(12, 2) NOT NULL,
+  close      NUMERIC(12, 2) NOT NULL,
+  volume     BIGINT NOT NULL,
+  value      BIGINT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (ticker, date)
+);
+
+-- (#114) 일별 상장주식수 (생존+상폐 공용) — adj 재구성(§4.5)의 주 입력.
+CREATE TABLE IF NOT EXISTS share_counts (
+  ticker     VARCHAR(10) NOT NULL REFERENCES stocks(ticker),
+  date       DATE NOT NULL,
+  shares     BIGINT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (ticker, date)
+);
