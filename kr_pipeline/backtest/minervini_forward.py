@@ -88,3 +88,53 @@ def horizon_stats(events: list[dict], h: int) -> dict:
     lo, hi = agg_bootstrap_ci(by_ticker)
     return {"n": n, "tickers": len(by_ticker), "mean": round(sum(vals) / n, 3),
             "median": round(median, 3), "ci95": [lo, hi]}
+
+
+def load_index_closes(conn: Connection) -> dict[str, dict[date, float]]:
+    out: dict[str, dict[date, float]] = {}
+    with conn.cursor() as cur:
+        cur.execute("SELECT index_code, date, close FROM index_daily")
+        for code, d, c in cur.fetchall():
+            out.setdefault(code, {})[d] = float(c)
+    return out
+
+
+def load_markets(conn: Connection) -> dict[str, str]:
+    with conn.cursor() as cur:
+        cur.execute("SELECT ticker, market FROM stocks")
+        return dict(cur.fetchall())
+
+
+def iter_ticker_rows(conn: Connection) -> Iterator[tuple[str, list[Row]]]:
+    """종목별 date 오름차순 행 — 서버측 커서 스트리밍(532만 행 메모리 회피)."""
+    with conn.cursor(name="minervini_forward_rows") as cur:
+        cur.itersize = 50_000
+        cur.execute(
+            "SELECT ticker, date, adj_close, minervini_pass, "
+            "(minervini_c1::int + minervini_c2::int + minervini_c3::int"
+            " + minervini_c4::int + minervini_c5::int + minervini_c6::int"
+            " + minervini_c7::int + minervini_c8::int) "
+            "FROM daily_indicators ORDER BY ticker, date")
+        for ticker, grp in groupby(cur, key=lambda r: r[0]):
+            yield ticker, [(d, float(a), p, cc) for _, d, a, p, cc in grp]
+
+
+def transition_events(conn: Connection) -> tuple[list[dict], dict[int, int]]:
+    """전 종목 전환 이벤트 + horizon 별 제외 건수 (스펙 §2.1~§2.3·§3)."""
+    from kr_pipeline.backtest.phases import INDEX_OF
+    idx = load_index_closes(conn)
+    markets = load_markets(conn)
+    events: list[dict] = []
+    excluded = {h: 0 for h in HORIZONS}
+    for ticker, rows in iter_ticker_rows(conn):
+        iclose = idx.get(INDEX_OF.get(markets.get(ticker, ""), "1001"), {})
+        for i in extract_transitions(rows):
+            ev: dict = {"ticker": ticker, "date": rows[i][0].isoformat()}
+            for h in HORIZONS:
+                x = forward_excess(rows, i, h, iclose)
+                if x is None:
+                    excluded[h] += 1
+                else:
+                    ev[f"excess_{h}"] = round(x, 4)
+            events.append(ev)
+    return events, excluded

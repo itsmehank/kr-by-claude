@@ -5,6 +5,7 @@ import pytest
 
 from kr_pipeline.backtest.minervini_forward import (
     agg_bootstrap_ci, extract_transitions, forward_excess, horizon_stats, verdict_of,
+    iter_ticker_rows, load_index_closes, load_markets, transition_events,
 )
 from kr_pipeline.backtest.refinement import cluster_bootstrap_ci
 
@@ -72,3 +73,46 @@ def test_horizon_stats_counts_mean_median():
 
 def test_horizon_stats_empty():
     assert horizon_stats([{"ticker": "A"}], 20) == {"n": 0}
+
+
+def _seed_db(db):
+    d0 = date(2024, 1, 1)
+    with db.cursor() as cur:
+        for t in ("111110", "111120"):
+            cur.execute(
+                "INSERT INTO stocks (ticker, name, market) VALUES (%s,'T','KOSPI') "
+                "ON CONFLICT DO NOTHING", (t,))
+        for i in range(30):
+            d = d0 + timedelta(days=i)
+            cur.execute(
+                "INSERT INTO index_daily (index_code, date, open, high, low, close) "
+                "VALUES ('1001', %s, 1, 1, 1, %s)", (d, 1000 + i))
+            for t, base in (("111110", 100), ("111120", 200)):
+                cur.execute(
+                    "INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass) "
+                    "VALUES (%s, %s, %s, %s)",
+                    (t, d, base + i, i >= 5 if t == "111110" else False))
+    return d0
+
+
+def test_loaders(db):
+    d0 = _seed_db(db)
+    idx = load_index_closes(db)
+    assert idx["1001"][d0] == 1000.0
+    assert load_markets(db)["111110"] == "KOSPI"
+    rows_by = dict(iter_ticker_rows(db))
+    rows = rows_by["111110"]
+    assert rows[0][0] == d0 and rows[0][1] == 100.0   # date 오름차순·float 변환
+    assert extract_transitions(rows) == [5]
+    assert extract_transitions(rows_by["111120"]) == []
+
+
+def test_transition_events_and_exclusions(db):
+    _seed_db(db)
+    events, excluded = transition_events(db)
+    assert len(events) == 1
+    e = events[0]
+    assert e["ticker"] == "111110" and "excess_20" in e
+    # 행 30개: 전환 i=5, T+1=6, 20행 뒤=26 존재 / 40·65 는 부족 → horizon별 제외
+    assert "excess_40" not in e and "excess_65" not in e
+    assert excluded == {20: 0, 40: 1, 65: 1}
