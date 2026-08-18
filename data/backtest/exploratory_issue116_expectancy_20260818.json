@@ -1,0 +1,127 @@
+{
+  "issue": 116,
+  "part": "P2-2",
+  "grade": "exploratory",
+  "samples": {
+    "A": {
+      "excess_net": {
+        "n": 54,
+        "win_rate": 0.241,
+        "avg_gain": 43.19,
+        "avg_loss": 9.23,
+        "payoff_ratio": 4.68,
+        "expectancy": 3.386,
+        "mean": 3.386,
+        "hold_days_winners": 86.5,
+        "hold_days_losers": 18.0,
+        "top10_sum": 513.22,
+        "total_sum": 182.84,
+        "top10_count": 5
+      },
+      "pnl_net": {
+        "n": 54,
+        "win_rate": 0.259,
+        "avg_gain": 39.32,
+        "avg_loss": 9.59,
+        "payoff_ratio": 4.1,
+        "expectancy": 3.092,
+        "mean": 3.092,
+        "hold_days_winners": 86.1,
+        "hold_days_losers": 16.4,
+        "top10_sum": 518.26,
+        "total_sum": 166.97,
+        "top10_count": 5
+      }
+    },
+    "B": {
+      "excess_net": {
+        "n": 93,
+        "win_rate": 0.29,
+        "avg_gain": 19.54,
+        "avg_loss": 7.26,
+        "payoff_ratio": 2.69,
+        "expectancy": 0.522,
+        "mean": 0.522,
+        "hold_days_winners": 41.1,
+        "hold_days_losers": 14.4,
+        "top10_sum": 455.91,
+        "total_sum": 48.58,
+        "top10_count": 9
+      },
+      "pnl_net": {
+        "n": 93,
+        "win_rate": 0.215,
+        "avg_gain": 23.94,
+        "avg_loss": 8.58,
+        "payoff_ratio": 2.79,
+        "expectancy": -1.589,
+        "mean": -1.589,
+        "hold_days_winners": 49.0,
+        "hold_days_losers": 14.8,
+        "top10_sum": 428.88,
+        "total_sum": -147.76,
+        "top10_count": 9
+      }
+    },
+    "C": {
+      "excess_net": {
+        "n": 97,
+        "win_rate": 0.351,
+        "avg_gain": 18.99,
+        "avg_loss": 9.08,
+        "payoff_ratio": 2.09,
+        "expectancy": 0.755,
+        "mean": 0.755,
+        "hold_days_winners": 48.2,
+        "hold_days_losers": 18.9,
+        "top10_sum": 425.23,
+        "total_sum": 73.2,
+        "top10_count": 10
+      },
+      "pnl_net": {
+        "n": 97,
+        "win_rate": 0.289,
+        "avg_gain": 26.08,
+        "avg_loss": 8.69,
+        "payoff_ratio": 3.0,
+        "expectancy": 1.35,
+        "mean": 1.35,
+        "hold_days_winners": 57.2,
+        "hold_days_losers": 17.8,
+        "top10_sum": 498.64,
+        "total_sum": 130.93,
+        "top10_count": 10
+      }
+    }
+  },
+  "pooled": {
+    "excess_net": {
+      "n": 244,
+      "win_rate": 0.303,
+      "avg_gain": 23.44,
+      "avg_loss": 8.41,
+      "payoff_ratio": 2.79,
+      "expectancy": 1.248,
+      "mean": 1.248,
+      "hold_days_winners": 52.4,
+      "hold_days_losers": 16.9,
+      "top10_sum": 1402.28,
+      "total_sum": 304.62,
+      "top10_count": 24
+    },
+    "pnl_net": {
+      "n": 244,
+      "win_rate": 0.254,
+      "avg_gain": 28.38,
+      "avg_loss": 8.84,
+      "payoff_ratio": 3.21,
+      "expectancy": 0.615,
+      "mean": 0.615,
+      "hold_days_winners": 61.1,
+      "hold_days_losers": 16.3,
+      "top10_sum": 1484.72,
+      "total_sum": 150.14,
+      "top10_count": 24
+    }
+  }
+}

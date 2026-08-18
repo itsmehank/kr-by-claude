@@ -1,0 +1,46 @@
+{
+  "issue": 116,
+  "part": "P2-1",
+  "grade": "supplementary_non_judgment",
+  "seed": 20260721,
+  "b": 10000,
+  "method": "cluster bootstrap SE; MDE80=(1.96+0.8416)*SE, MDE50=1.96*SE",
+  "samples": {
+    "A": {
+      "n_trades": 54,
+      "tickers": 33,
+      "mean_excess_net": 3.386,
+      "se": 5.8,
+      "ci95": [
+        -6.052,
+        16.443
+      ],
+      "mde80": 16.25,
+      "mde50": 11.368
+    },
+    "B": {
+      "n_trades": 93,
+      "tickers": 50,
+      "mean_excess_net": 0.522,
+      "se": 2.723,
+      "ci95": [
+        -3.697,
+        6.725
+      ],
+      "mde80": 7.628,
+      "mde50": 5.337
+    },
+    "C": {
+      "n_trades": 97,
+      "tickers": 50,
+      "mean_excess_net": 0.755,
+      "se": 1.882,
+      "ci95": [
+        -2.71,
+        4.693
+      ],
+      "mde80": 5.272,
+      "mde50": 3.688
+    }
+  }
+}
