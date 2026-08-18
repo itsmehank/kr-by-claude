@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import date, datetime, time as dtime
 from pathlib import Path
 
@@ -30,12 +31,17 @@ def in_window(now: datetime) -> bool:
 
 def load_checkpoint(path: Path) -> dict:
     if path.exists():
-        return json.loads(path.read_text())
-    return {"done": [], "calls": {}}
+        cp = json.loads(path.read_text())
+        cp.setdefault("failed", {})
+        return cp
+    return {"done": [], "calls": {}, "failed": {}}
 
 
 def save_checkpoint(path: Path, cp: dict) -> None:
-    path.write_text(json.dumps(cp, ensure_ascii=False, indent=1))
+    """원자적 저장 — 저장 중 kill 로 인한 JSON 파손 방지 (리뷰 M-2)."""
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(cp, ensure_ascii=False, indent=1))
+    os.replace(tmp, path)
 
 
 def calls_today(cp: dict, day: str) -> int:

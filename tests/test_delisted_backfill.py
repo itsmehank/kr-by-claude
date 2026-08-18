@@ -37,13 +37,16 @@ def test_share_rows_transform():
 def test_checkpoint_roundtrip_and_budget(tmp_path: Path):
     p = tmp_path / "cp.json"
     cp = load_checkpoint(p)
-    assert cp == {"done": [], "calls": {}}
+    assert cp == {"done": [], "calls": {}, "failed": {}}
     add_calls(cp, "2026-08-18", 3)
     cp["done"].append("999990")
+    cp["failed"]["shares:999980"] = 2
     save_checkpoint(p, cp)
+    assert not p.with_suffix(".tmp").exists()   # 원자적 저장(tmp 잔존 없음)
     cp2 = load_checkpoint(p)
     assert calls_today(cp2, "2026-08-18") == 3
     assert cp2["done"] == ["999990"]
+    assert cp2["failed"] == {"shares:999980": 2}
     assert calls_today(cp2, "2026-08-19") == 0
 
 
