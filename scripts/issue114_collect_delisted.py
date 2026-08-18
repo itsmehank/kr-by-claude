@@ -31,6 +31,7 @@ from kr_pipeline.ohlcv.delisted_backfill import (  # noqa: E402
 
 MISSING = "data/verification/issue114_missing_tickers.json"
 NAMES = "data/verification/issue114_names.json"   # {ticker: 회사명} — 외부 조달
+SCOPE = "data/verification/issue114_survivor_scope.json"  # 전문가 5차 ① 사전등록
 CP = Path("data/verification/issue114_checkpoint.json")
 DB = os.environ.get("DATABASE_URL", "postgresql://localhost/kr_pipeline")
 FROM, TO = "20150615", "20260814"   # 하한 = 가격제한폭 체제 경계(전문가 4차)
@@ -60,11 +61,10 @@ def main() -> int:
     if Path(NAMES).exists():
         names = json.loads(Path(NAMES).read_text())
     cp = load_checkpoint(CP)
-    with psycopg.connect(DB) as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT ticker FROM stocks WHERE delisted_at IS NULL "
-                        "ORDER BY ticker")
-            survivors = [r[0] for r in cur.fetchall()]
+    # 생존 종목 범위 = 사전등록 scope 파일(전문가 5차 ①: 이벤트 전수 + 무이벤트
+    # 표본 150, 시드 고정·사후 교체 금지). 전수 조회로의 폴백은 두지 않는다.
+    scope = json.loads(Path(SCOPE).read_text())
+    survivors = sorted(set(scope["event_tickers"]) | set(scope["noevent_sample"]))
 
     # still_listed 스킵 근거(리뷰 I-4): delisted 경로로 넣으면 delisted_at 이
     # 채워진 행이 생기고, 이후 라이브 universe upsert 가 NULL 로 되돌리는 순간
