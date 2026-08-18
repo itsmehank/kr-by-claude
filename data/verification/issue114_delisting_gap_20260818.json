@@ -1,0 +1,101 @@
+{
+  "snapshots": {
+    "20160613": 2050,
+    "20161229": 2108,
+    "20171228": 2157,
+    "20181228": 2227,
+    "20191230": 2324,
+    "20201230": 2388,
+    "20211230": 2479,
+    "20221229": 2558,
+    "20231228": 2658,
+    "20241230": 2745,
+    "20251230": 2788,
+    "20260814": 2763
+  },
+  "per_period": [
+    {
+      "from": "20160613",
+      "to": "20161229",
+      "disappeared_all": 8,
+      "disappeared_common_approx": 8,
+      "missing_in_db": 8
+    },
+    {
+      "from": "20161229",
+      "to": "20171228",
+      "disappeared_all": 51,
+      "disappeared_common_approx": 45,
+      "missing_in_db": 45
+    },
+    {
+      "from": "20171228",
+      "to": "20181228",
+      "disappeared_all": 41,
+      "disappeared_common_approx": 38,
+      "missing_in_db": 38
+    },
+    {
+      "from": "20181228",
+      "to": "20191230",
+      "disappeared_all": 18,
+      "disappeared_common_approx": 16,
+      "missing_in_db": 16
+    },
+    {
+      "from": "20191230",
+      "to": "20201230",
+      "disappeared_all": 38,
+      "disappeared_common_approx": 36,
+      "missing_in_db": 36
+    },
+    {
+      "from": "20201230",
+      "to": "20211230",
+      "disappeared_all": 37,
+      "disappeared_common_approx": 37,
+      "missing_in_db": 37
+    },
+    {
+      "from": "20211230",
+      "to": "20221229",
+      "disappeared_all": 46,
+      "disappeared_common_approx": 43,
+      "missing_in_db": 43
+    },
+    {
+      "from": "20221229",
+      "to": "20231228",
+      "disappeared_all": 45,
+      "disappeared_common_approx": 39,
+      "missing_in_db": 39
+    },
+    {
+      "from": "20231228",
+      "to": "20241230",
+      "disappeared_all": 53,
+      "disappeared_common_approx": 52,
+      "missing_in_db": 52
+    },
+    {
+      "from": "20241230",
+      "to": "20251230",
+      "disappeared_all": 75,
+      "disappeared_common_approx": 73,
+      "missing_in_db": 73
+    },
+    {
+      "from": "20251230",
+      "to": "20260814",
+      "disappeared_all": 63,
+      "disappeared_common_approx": 62,
+      "missing_in_db": 48
+    }
+  ],
+  "total": {
+    "disappeared_common_approx": 449,
+    "missing_in_db": 435,
+    "in_db": 14
+  },
+  "note": "disappeared = 연말 스냅샷 간 소멸(상폐+합병+코드변경 포함, 시장이동은 합집합이라 제외). 보통주 근사 = 코드 끝자리 0. 요청 = 12스냅샷×2시장(+재시도), 페이싱 1.5s"
+}
