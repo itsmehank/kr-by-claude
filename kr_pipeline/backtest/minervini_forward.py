@@ -47,3 +47,44 @@ def verdict_of(lo: float, hi: float) -> str:
     if hi < 0:
         return "역효과"
     return "미입증"
+
+
+def agg_bootstrap_ci(by_ticker: dict[str, tuple[float, int]], *, b: int = BOOT_B,
+                     seed: int = SEED) -> tuple[float, float]:
+    """cluster_bootstrap_ci 등가 — 같은 rng 시퀀스, (합, 개수) 집계 (스펙 §2.5)."""
+    keys = sorted(by_ticker)
+    rng = random.Random(seed)
+    means: list[float] = []
+    for _ in range(b):
+        s, c = 0.0, 0
+        for _ in range(len(keys)):
+            ts, tc = by_ticker[rng.choice(keys)]
+            s += ts
+            c += tc
+        means.append(s / c)
+    means.sort()
+    lo = means[int(0.025 * b)]
+    hi = means[min(int(0.975 * b), b - 1)]
+    return (round(lo, 3), round(hi, 3))
+
+
+def horizon_stats(events: list[dict], h: int) -> dict:
+    """horizon 별 표본·평균·중앙값·클러스터 CI. 결손(키 부재) 이벤트는 제외."""
+    key = f"excess_{h}"
+    by_ticker: dict[str, tuple[float, int]] = {}
+    vals: list[float] = []
+    for e in events:
+        v = e.get(key)
+        if v is None:
+            continue
+        vals.append(v)
+        s, c = by_ticker.get(e["ticker"], (0.0, 0))
+        by_ticker[e["ticker"]] = (s + v, c + 1)
+    if not vals:
+        return {"n": 0}
+    vs = sorted(vals)
+    n = len(vs)
+    median = vs[n // 2] if n % 2 else (vs[n // 2 - 1] + vs[n // 2]) / 2
+    lo, hi = agg_bootstrap_ci(by_ticker)
+    return {"n": n, "tickers": len(by_ticker), "mean": round(sum(vals) / n, 3),
+            "median": round(median, 3), "ci95": [lo, hi]}
