@@ -30,11 +30,12 @@ from kr_pipeline.ohlcv.delisted_backfill import (  # noqa: E402
 )
 
 MISSING = "data/verification/issue114_missing_tickers.json"
+NAMES = "data/verification/issue114_names.json"   # {ticker: 회사명} — 외부 조달
 CP = Path("data/verification/issue114_checkpoint.json")
 DB = os.environ.get("DATABASE_URL", "postgresql://localhost/kr_pipeline")
 FROM, TO = "20150615", "20260814"   # 하한 = 가격제한폭 체제 경계(전문가 4차)
 MAX_TICKER_FAILURES = 3             # 초과 시 스킵·폴백 목록화(리뷰 I-5)
-CALLS_PER_DELISTED = 3              # ohlcv + 종목명 + 주식수
+CALLS_PER_DELISTED = 2              # ohlcv + 주식수 (종목명은 외부 파일 — KRX 호출 없음)
 
 
 def _call(cp: dict, fn, *args):
@@ -53,6 +54,11 @@ def main() -> int:
         return 1
 
     missing = json.loads(Path(MISSING).read_text())["missing"]
+    # 종목명: 외부 조달 파일(웹 수집) — 없으면 자리표시자로 넣고 도착 후
+    # scripts/issue114_apply_names.py 로 일괄 갱신(신규 삽입 행만).
+    names: dict[str, str] = {}
+    if Path(NAMES).exists():
+        names = json.loads(Path(NAMES).read_text())
     cp = load_checkpoint(CP)
     with psycopg.connect(DB) as conn:
         with conn.cursor() as cur:
@@ -96,9 +102,7 @@ def main() -> int:
                                "d", False)
                     if len(df) == 0:
                         raise ValueError("empty ohlcv")   # 리뷰 C-1
-                    name = _call(cp, krx.get_market_ticker_name, ticker)
-                    if not isinstance(name, str) or not name:
-                        name = f"상폐{ticker}"
+                    name = names.get(ticker) or f"상폐{ticker}"
                     caps = _call(cp, krx.get_market_cap_by_date, FROM, TO, ticker)
                     if len(caps) == 0:
                         raise ValueError("empty cap")     # 리뷰 C-1

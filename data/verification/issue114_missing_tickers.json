@@ -1,0 +1,3773 @@
+{
+ "generated": "2026-08-18",
+ "missing": [
+  {
+   "ticker": "000030",
+   "first_seen": "20160613",
+   "last_seen": "20181228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "000060",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "0004Y0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "001140",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "001880",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "002000",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "002250",
+   "first_seen": "20160613",
+   "last_seen": "20181228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "002270",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "002300",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "002550",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "0030R0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "003410",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "003450",
+   "first_seen": "20160613",
+   "last_seen": "20160613",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "003560",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "0037T0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "004130",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "0041B0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0041J0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0041L0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "004200",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "0044K0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "004740",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "005190",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "005390",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "005450",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "0054V0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "005620",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "005980",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "006390",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "006580",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "0068Y0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "007190",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "0071M0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0072Z0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "007630",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "008000",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "008110",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "008560",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "008800",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "0088D0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0091W0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0093G0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0096B0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0096D0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0097F0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0098T0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0099W0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0099X0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "010050",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "0101C0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "010420",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "0105P0",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "010600",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "010620",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "011160",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "0115H0",
+   "first_seen": "20260814",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "011720",
+   "first_seen": "20160613",
+   "last_seen": "20160613",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "012600",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "0129K0",
+   "first_seen": "20260814",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0130D0",
+   "first_seen": "20260814",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0130H0",
+   "first_seen": "20260814",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0131D0",
+   "first_seen": "20260814",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0132G0",
+   "first_seen": "20260814",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0134X0",
+   "first_seen": "20260814",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "014200",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "015350",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "015540",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "016170",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "0164H0",
+   "first_seen": "20260814",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "0165X0",
+   "first_seen": "20260814",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "017680",
+   "first_seen": "20160613",
+   "last_seen": "20181228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "019300",
+   "first_seen": "20160613",
+   "last_seen": "20160613",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "019440",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "019590",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "021960",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "023430",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "023460",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "023890",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "024660",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "024810",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "025270",
+   "first_seen": "20160613",
+   "last_seen": "20160613",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "026180",
+   "first_seen": "20160613",
+   "last_seen": "20181228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "026260",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "027390",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "028040",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "028150",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "029960",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "030270",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "030790",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "031390",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "032040",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "033110",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "033180",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "033430",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "033600",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "033660",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "034300",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "035480",
+   "first_seen": "20160613",
+   "last_seen": "20181228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "036180",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "036260",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "036490",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "036500",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "037340",
+   "first_seen": "20160613",
+   "last_seen": "20160613",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "037620",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "038160",
+   "first_seen": "20161229",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "038340",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "039230",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "039670",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "039790",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "041140",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "042670",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "043290",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "043580",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "044060",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "045890",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "046110",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "046140",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "047440",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "048260",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "049770",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "050320",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "050540",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "051170",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "052190",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "052270",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "052290",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "052670",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "053110",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "053590",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "053660",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "053810",
+   "first_seen": "20160613",
+   "last_seen": "20160613",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "054340",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "054630",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "056000",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "057500",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "057880",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "058220",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "058370",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "058420",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "058530",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "060300",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "060910",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "061460",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "062860",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "064510",
+   "first_seen": "20181228",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "065160",
+   "first_seen": "20160613",
+   "last_seen": "20181228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "065560",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "065620",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "065940",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "066110",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "066270",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "068150",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "068400",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "068870",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "069110",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "071460",
+   "first_seen": "20161229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "072520",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "073070",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "074150",
+   "first_seen": "20160613",
+   "last_seen": "20160613",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "077280",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "078650",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "078940",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "079440",
+   "first_seen": "20171228",
+   "last_seen": "20191230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "079660",
+   "first_seen": "20160613",
+   "last_seen": "20181228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "080000",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "080440",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "081970",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "082390",
+   "first_seen": "20160613",
+   "last_seen": "20160613",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "083350",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "083360",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "083370",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "083380",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "083390",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "083570",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "083580",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "083590",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "083600",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "083610",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "083620",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "085370",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "086250",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "086830",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "087220",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "087730",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "088260",
+   "first_seen": "20181228",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "088980",
+   "first_seen": "20160613",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "089530",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "090730",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "090740",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "090970",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "090980",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "090990",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "091000",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "091090",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "091990",
+   "first_seen": "20171228",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "093230",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "094190",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "095300",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "096040",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "096300",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "096640",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "099340",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "099350",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "099660",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "099830",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "101060",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "102210",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "102280",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "103130",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "104110",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "104120",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "108790",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "110570",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "111820",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "111870",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "112240",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "114120",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "114570",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "115390",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "115960",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "117930",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "119860",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "122800",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "123100",
+   "first_seen": "20160613",
+   "last_seen": "20181228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "123260",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "126870",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "127160",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "130960",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "131390",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "134780",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "136510",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "138040",
+   "first_seen": "20160613",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "138250",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "138490",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "138580",
+   "first_seen": "20171228",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "138690",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "138930",
+   "first_seen": "20160613",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "139050",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "139200",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "140890",
+   "first_seen": "20160613",
+   "last_seen": "20181228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "140910",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "141020",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "141070",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "144620",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "145270",
+   "first_seen": "20160613",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "148140",
+   "first_seen": "20171228",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "149940",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "150840",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "151910",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "152330",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "152550",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "153360",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "155900",
+   "first_seen": "20160613",
+   "last_seen": "20221229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "155960",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "158310",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "159650",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "159910",
+   "first_seen": "20160613",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "160600",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "161570",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "164060",
+   "first_seen": "20201230",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "168490",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "172580",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "174880",
+   "first_seen": "20161229",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "176440",
+   "first_seen": "20161229",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "181340",
+   "first_seen": "20171228",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "182690",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "192530",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "194510",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "194610",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "195440",
+   "first_seen": "20161229",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "197210",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "204210",
+   "first_seen": "20161229",
+   "last_seen": "20251230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "204440",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "204630",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "204650",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "204760",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "204990",
+   "first_seen": "20161229",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "206660",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "207720",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "207930",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "208340",
+   "first_seen": "20181228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "208870",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "213090",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "214310",
+   "first_seen": "20160613",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "214870",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "215580",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "215750",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "217600",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "217620",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "217810",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "218710",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "219580",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "219860",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "219960",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "220630",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "221200",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "221610",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "221950",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "222390",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "222810",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "223040",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "225330",
+   "first_seen": "20160613",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "225440",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "225650",
+   "first_seen": "20160613",
+   "last_seen": "20181228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "226350",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "226360",
+   "first_seen": "20160613",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "226440",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "226850",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "230490",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "232270",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "232330",
+   "first_seen": "20161229",
+   "last_seen": "20181228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "235010",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "240540",
+   "first_seen": "20161229",
+   "last_seen": "20181228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "257730",
+   "first_seen": "20171228",
+   "last_seen": "20181228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "262830",
+   "first_seen": "20171228",
+   "last_seen": "20181228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "263540",
+   "first_seen": "20171228",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "264290",
+   "first_seen": "20171228",
+   "last_seen": "20181228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "265480",
+   "first_seen": "20171228",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "265920",
+   "first_seen": "20171228",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "268600",
+   "first_seen": "20181228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "271740",
+   "first_seen": "20171228",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "276920",
+   "first_seen": "20171228",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "277480",
+   "first_seen": "20171228",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "279410",
+   "first_seen": "20171228",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "281410",
+   "first_seen": "20171228",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "282690",
+   "first_seen": "20171228",
+   "last_seen": "20231228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "287410",
+   "first_seen": "20181228",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "290380",
+   "first_seen": "20181228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "290510",
+   "first_seen": "20191230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "291210",
+   "first_seen": "20181228",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "293940",
+   "first_seen": "20181228",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "294090",
+   "first_seen": "20201230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "298870",
+   "first_seen": "20211230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "299910",
+   "first_seen": "20181228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "307070",
+   "first_seen": "20181228",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "307160",
+   "first_seen": "20181228",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "310840",
+   "first_seen": "20181228",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "311270",
+   "first_seen": "20181228",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "313750",
+   "first_seen": "20191230",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "317030",
+   "first_seen": "20191230",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "317320",
+   "first_seen": "20191230",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "323210",
+   "first_seen": "20191230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "323230",
+   "first_seen": "20191230",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "323940",
+   "first_seen": "20191230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "329560",
+   "first_seen": "20191230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "330590",
+   "first_seen": "20191230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "330990",
+   "first_seen": "20191230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "332710",
+   "first_seen": "20191230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "334890",
+   "first_seen": "20201230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "335890",
+   "first_seen": "20191230",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "337450",
+   "first_seen": "20191230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "338100",
+   "first_seen": "20191230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "340120",
+   "first_seen": "20191230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "340350",
+   "first_seen": "20201230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "341160",
+   "first_seen": "20201230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "342550",
+   "first_seen": "20201230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "343510",
+   "first_seen": "20201230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "344050",
+   "first_seen": "20201230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "347140",
+   "first_seen": "20201230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "348950",
+   "first_seen": "20201230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "349720",
+   "first_seen": "20201230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "350520",
+   "first_seen": "20201230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "351340",
+   "first_seen": "20201230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "353060",
+   "first_seen": "20201230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "353070",
+   "first_seen": "20201230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "353490",
+   "first_seen": "20201230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "357120",
+   "first_seen": "20201230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "357250",
+   "first_seen": "20201230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "357430",
+   "first_seen": "20221229",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "365550",
+   "first_seen": "20201230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "366330",
+   "first_seen": "20211230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "367340",
+   "first_seen": "20201230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "367360",
+   "first_seen": "20211230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "367460",
+   "first_seen": "20201230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "367480",
+   "first_seen": "20211230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "369370",
+   "first_seen": "20201230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "372290",
+   "first_seen": "20211230",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "373340",
+   "first_seen": "20211230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "376190",
+   "first_seen": "20211230",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "377190",
+   "first_seen": "20211230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "377400",
+   "first_seen": "20211230",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "377630",
+   "first_seen": "20211230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "380320",
+   "first_seen": "20211230",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "380440",
+   "first_seen": "20211230",
+   "last_seen": "20231228",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "386580",
+   "first_seen": "20211230",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "387310",
+   "first_seen": "20211230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "388220",
+   "first_seen": "20211230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "388800",
+   "first_seen": "20211230",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "391060",
+   "first_seen": "20211230",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "393360",
+   "first_seen": "20211230",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "395400",
+   "first_seen": "20211230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "396690",
+   "first_seen": "20211230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "396770",
+   "first_seen": "20211230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "397500",
+   "first_seen": "20211230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "397880",
+   "first_seen": "20211230",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "400560",
+   "first_seen": "20211230",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "400760",
+   "first_seen": "20211230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "400840",
+   "first_seen": "20211230",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "404950",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "404990",
+   "first_seen": "20211230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "405350",
+   "first_seen": "20221229",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "405640",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "406760",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "409570",
+   "first_seen": "20221229",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "412930",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "413600",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "415580",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "417310",
+   "first_seen": "20221229",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "418170",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "418210",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "419270",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "421800",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "422040",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "424140",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "425290",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "426550",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "426670",
+   "first_seen": "20221229",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "427950",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "430220",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "430230",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "430460",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "430700",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "432320",
+   "first_seen": "20221229",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "433530",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "435380",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "435620",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "435870",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "436530",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "436610",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "437780",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "438220",
+   "first_seen": "20221229",
+   "last_seen": "20231228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "438580",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "439250",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "439410",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "439730",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "440200",
+   "first_seen": "20221229",
+   "last_seen": "20221229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "440790",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "440820",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "442130",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "442310",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "442770",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "442900",
+   "first_seen": "20231228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "444920",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "445360",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "445970",
+   "first_seen": "20221229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "446150",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "446190",
+   "first_seen": "20231228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "446750",
+   "first_seen": "20231228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "448370",
+   "first_seen": "20231228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "448730",
+   "first_seen": "20231228",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "448740",
+   "first_seen": "20231228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "448760",
+   "first_seen": "20231228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "448830",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "449020",
+   "first_seen": "20231228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "450050",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "450140",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "450940",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "451700",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "451800",
+   "first_seen": "20231228",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "452670",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "452980",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "454640",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "454750",
+   "first_seen": "20231228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "455250",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "455310",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "455910",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "456440",
+   "first_seen": "20231228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "456490",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "457390",
+   "first_seen": "20231228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "457630",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "457940",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "458320",
+   "first_seen": "20231228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "458610",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "458650",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "462020",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "464440",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "464680",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "465320",
+   "first_seen": "20231228",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "466690",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "466910",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "467930",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "468510",
+   "first_seen": "20231228",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "468760",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "469480",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "469880",
+   "first_seen": "20231228",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "469900",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "471050",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "472220",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "472230",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "473000",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "473050",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "473370",
+   "first_seen": "20241230",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "473950",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "474490",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "474660",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "474930",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "475240",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "475250",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "476470",
+   "first_seen": "20241230",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "477340",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "477380",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "477470",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "477530",
+   "first_seen": "20241230",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "477760",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "478110",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "478390",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "478440",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "478780",
+   "first_seen": "20241230",
+   "last_seen": "20251230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "479880",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "481850",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSPI",
+   "still_listed": true
+  },
+  {
+   "ticker": "481890",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "482520",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "482680",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "482690",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "483350",
+   "first_seen": "20260814",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "484130",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "486630",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "487360",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "487400",
+   "first_seen": "20260814",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "487720",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "487830",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "488060",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "489210",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "489480",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "489730",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "492220",
+   "first_seen": "20241230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "493790",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "496070",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "498390",
+   "first_seen": "20251230",
+   "last_seen": "20260814",
+   "market": "KOSDAQ",
+   "still_listed": true
+  },
+  {
+   "ticker": "900040",
+   "first_seen": "20160613",
+   "last_seen": "20191230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "900050",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSPI",
+   "still_listed": false
+  },
+  {
+   "ticker": "900080",
+   "first_seen": "20160613",
+   "last_seen": "20201230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "900090",
+   "first_seen": "20160613",
+   "last_seen": "20181228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "900130",
+   "first_seen": "20160613",
+   "last_seen": "20161229",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "900180",
+   "first_seen": "20160613",
+   "last_seen": "20171228",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "900280",
+   "first_seen": "20161229",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "950110",
+   "first_seen": "20160613",
+   "last_seen": "20241230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  },
+  {
+   "ticker": "950180",
+   "first_seen": "20191230",
+   "last_seen": "20211230",
+   "market": "KOSDAQ",
+   "still_listed": false
+  }
+ ],
+ "n": 538,
+ "n_still_listed": 103
+}
