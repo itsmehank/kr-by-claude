@@ -1,0 +1,46 @@
+{
+  "issue": 111,
+  "spec": "docs/superpowers/specs/2026-08-18-issue111-minervini-forward-return-design.md",
+  "grade": "confirmatory",
+  "seed": 20260721,
+  "b": 10000,
+  "n_transitions_total": 39357,
+  "excluded_by_horizon": {
+    "20": 179,
+    "40": 411,
+    "65": 1092
+  },
+  "primary_h20": {
+    "n": 39178,
+    "tickers": 2311,
+    "mean": -0.337,
+    "median": -3.247,
+    "ci95": [
+      -0.621,
+      -0.057
+    ]
+  },
+  "verdict": "역효과",
+  "secondary": {
+    "h40": {
+      "n": 38946,
+      "tickers": 2309,
+      "mean": -0.858,
+      "median": -5.313,
+      "ci95": [
+        -1.327,
+        -0.396
+      ]
+    },
+    "h65": {
+      "n": 38265,
+      "tickers": 2306,
+      "mean": -1.318,
+      "median": -7.093,
+      "ci95": [
+        -2.011,
+        -0.609
+      ]
+    }
+  }
+}
