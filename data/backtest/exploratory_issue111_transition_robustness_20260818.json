@@ -1,0 +1,28 @@
+{
+  "issue": 117,
+  "grade": "exploratory",
+  "h": 20,
+  "baseline_ref": "issue111_minervini_transition_judge_20260818.json (h20 mean -0.337, ci [-0.621, -0.057])",
+  "variants": {
+    "first_only": {
+      "n": 2311,
+      "tickers": 2311,
+      "mean": 0.437,
+      "median": -3.315,
+      "ci95": [
+        -0.538,
+        1.498
+      ]
+    },
+    "cooldown63": {
+      "n": 13478,
+      "tickers": 2311,
+      "mean": -0.099,
+      "median": -3.358,
+      "ci95": [
+        -0.501,
+        0.311
+      ]
+    }
+  }
+}
