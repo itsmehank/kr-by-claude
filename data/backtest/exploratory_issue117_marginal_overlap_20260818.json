@@ -1,0 +1,32 @@
+{
+  "issue": 117,
+  "grade": "exploratory",
+  "marginal_pct": 3.0,
+  "demotion_count": 3,
+  "groups": {
+    "first": {
+      "n": 2311,
+      "n_null": 0,
+      "mean_marginal_count": 3.525,
+      "share_mc_ge1": 0.955,
+      "share_mc_ge2": 0.842,
+      "share_mc_ge3_demotion_cut": 0.78
+    },
+    "repeat_gt63": {
+      "n": 7034,
+      "n_null": 0,
+      "mean_marginal_count": 3.241,
+      "share_mc_ge1": 0.941,
+      "share_mc_ge2": 0.775,
+      "share_mc_ge3_demotion_cut": 0.704
+    },
+    "repeat_le63": {
+      "n": 30012,
+      "n_null": 0,
+      "mean_marginal_count": 2.25,
+      "share_mc_ge1": 0.829,
+      "share_mc_ge2": 0.494,
+      "share_mc_ge3_demotion_cut": 0.377
+    }
+  }
+}
