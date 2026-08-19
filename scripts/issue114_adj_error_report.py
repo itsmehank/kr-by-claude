@@ -37,10 +37,11 @@ def load_ticker(cur, ticker: str):
                 "WHERE ticker = %s AND event_type IN "
                 "('bonus_issue','rights_offering','capital_reduction')", (ticker,))
     discl = [r[0] for r in cur.fetchall()]
-    cur.execute("SELECT endpoint, record_date, ratio::float, method "
+    cur.execute("SELECT endpoint, record_date, ratio::float, method, rcept_no "
                 "FROM corp_action_details WHERE ticker = %s", (ticker,))
-    details = [{"endpoint": e, "record_date": rd, "ratio": rt, "method": m}
-               for e, rd, rt, m in cur.fetchall()]
+    details = [{"endpoint": e, "record_date": rd, "ratio": rt, "method": m,
+                "rcept_no": rc}
+               for e, rd, rt, m, rc in cur.fetchall()]
     return closes, adj, shares, discl, details
 
 

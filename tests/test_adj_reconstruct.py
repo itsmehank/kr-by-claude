@@ -67,3 +67,31 @@ def test_v3_events_fric_and_3rd_party():
     ]
     ev = v3_events(closes, shares, details)
     assert ev == [(_d(2), pytest.approx(0.5))]
+
+
+def test_v3_correction_dedup_and_halt_span():
+    from kr_pipeline.ohlcv.adj_reconstruct import v3_events
+    from datetime import timedelta
+    # 정정 공시: 기준일이 8일 이동한 무상증자 2건 — 최신 접수 1건만 적용돼야 함
+    d0 = _d(0)
+    dates = [d0 + timedelta(days=i) for i in range(0, 40, 2)]  # 격일 거래
+    closes = [(d, 1000.0) for d in dates]
+    shares = {d: 1_000_000 for d in dates}
+    details = [
+        {"endpoint": "fricDecsn", "record_date": d0 + timedelta(days=10),
+         "ratio": 1.0, "method": None, "rcept_no": "20260101000001"},
+        {"endpoint": "fricDecsn", "record_date": d0 + timedelta(days=18),
+         "ratio": 0.5, "method": None, "rcept_no": "20260105000001"},  # 정정(최신)
+    ]
+    ev = v3_events(closes, shares, details)
+    assert len(ev) == 1
+    assert ev[0][1] == pytest.approx(1 / 1.5)   # 최신 공시(0.5 배정) 채택
+
+    # 정지 스팬: 기준일 직전 거래일이 20일 전 — 이벤트는 재개일(기준일 이후 첫 거래일)로
+    dates2 = [_d(0), _d(2), _d(30), _d(32)]
+    closes2 = [(d, 1000.0) for d in dates2]
+    shares2 = {d: 1_000_000 for d in dates2}
+    details2 = [{"endpoint": "fricDecsn", "record_date": _d(20), "ratio": 1.0,
+                 "method": None, "rcept_no": "20260101000002"}]
+    ev2 = v3_events(closes2, shares2, details2)
+    assert ev2 == [(_d(30), pytest.approx(0.5))]

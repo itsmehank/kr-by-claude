@@ -212,27 +212,40 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
             events.append((d, g))
 
     big_dates = [d for d, _ in events]
-    seen_rd: set[tuple[str, date]] = set()
+
+    # 후보 수집 → 정정 공시 클러스터 중복 제거(검토 F1): 같은 종류의 기준일이
+    # ±14일 내로 몰린 복수 공시(기준일 변경 정정)는 최신 접수번호 1건만 채택.
+    cands: list[tuple[str, date, str, dict]] = []
     for det in details:
         rd = det.get("record_date")
         ep = det.get("endpoint", "")
-        if rd is None:
+        if rd is None or ep == "crDecsn":   # 감자는 대형(갭) 경로 담당 — 라벨 전용
             continue
         method = det.get("method") or ""
         if ep == "piicDecsn" and "주주" not in method:
-            continue                     # 3자배정·일반공모 = 권리락 없음
-        if ep == "crDecsn":
-            continue                     # 감자는 대형(갭) 경로 담당 — 라벨 전용
+            continue                        # 3자배정·일반공모 = 권리락 없음
         kind = "piic" if ep == "piicDecsn" else "fric"
-        if (kind, rd) in seen_rd:
+        cands.append((kind, rd, det.get("rcept_no") or "", det))
+    cands.sort(key=lambda x: (x[0], x[1]))
+    picked: list[tuple[str, date, str, dict]] = []
+    for c in cands:
+        if picked and picked[-1][0] == c[0] and (c[1] - picked[-1][1]).days <= 14:
+            if c[2] >= picked[-1][2]:       # 최신 접수 우선
+                picked[-1] = c
             continue
-        seen_rd.add((kind, rd))
+        picked.append(c)
+
+    for kind, rd, _, det in picked:
         k = bisect.bisect_left(dates, rd)
-        if k == 0 or k > len(dates) - 1:
+        if k == 0:
             continue
-        ex = dates[k - 1]                # 권리락일 = 기준일 직전 거래일
+        ex = dates[k - 1]                   # 권리락일 = 기준일 직전 거래일
+        if (rd - ex).days > 7:              # 검토 F2: 정지 스팬 — 조정 반영은 재개일
+            if k > len(dates) - 1:
+                continue
+            ex = dates[k]
         if any(abs((ex - bd).days) <= 3 for bd in big_dates):
-            continue                     # 대형 경로가 이미 처리
+            continue                        # 대형 경로가 이미 처리
         if kind == "fric":
             alloc = det.get("ratio")
             if alloc is None or alloc <= 0:
@@ -247,7 +260,7 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
                 continue
             r_evt = c_ex / c_prev
             if abs(math.log(r_evt)) < math.log(1.01):
-                continue                 # 유의미한 락 관측 없음 — 미부여
+                continue                    # 유의미한 락 관측 없음 — 미부여
         events.append((ex, r_evt))
     events.sort()
     return events
