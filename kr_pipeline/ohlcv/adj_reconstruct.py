@@ -108,3 +108,63 @@ def match_events(db_jumps: list[tuple[date, float]],
             missed_small += 1
     return {"db_jumps": len(db_jumps), "matched": matched,
             "missed_big": missed_big, "missed_small": missed_small}
+
+
+def reconstruct_v2(closes: list[tuple[date, float]], shares: dict[date, int],
+                   disclosures: list[date],
+                   big_gap: float = 1.35, match_tol: float = 1.4,
+                   window_days: int = 45, discl_days: int = 60) -> dict[date, float]:
+    """v2 — 시점은 가격 갭, 크기는 주식수 (v1 진단 반영).
+
+    1) 확정 조정 = raw 종가 갭 |log g| > log(big_gap) (가격제한폭 ±30% 초과):
+       배율 = ±window_days 내 갭과 정합(log 거리 < log(match_tol))하는 최근접
+       주식수 비율. 정합 없으면 갭 자체(당일 수익률 포함 — 잔차 허용).
+    2) 소형 조정 = 미소진 주식수 이벤트 중 조정성 공시(±discl_days) 보유분만
+       채택(CB 전환·3자배정 등 비조정 변동 = 위양성 차단). 시점 잔차(권리락↔
+       신주상장 시차)는 알려진 한계로 측정에 반영.
+    """
+    events = v2_events(closes, shares, disclosures, big_gap=big_gap,
+                       match_tol=match_tol, window_days=window_days,
+                       discl_days=discl_days)
+    dates = [d for d, _ in closes]
+    f = factor_curve(dates, events)
+    return {d: c * f[d] for d, c in closes}
+
+
+def v2_events(closes: list[tuple[date, float]], shares: dict[date, int],
+              disclosures: list[date], *, big_gap: float = 1.35,
+              match_tol: float = 1.4, window_days: int = 45,
+              discl_days: int = 60) -> list[tuple[date, float]]:
+    """v2 이벤트 목록 — reconstruct_v2 의 검출부 (매칭 통계에도 사용)."""
+    import math
+
+    se = share_events(sorted(shares), shares)
+    events: list[tuple[date, float]] = []
+    used: set[int] = set()
+    for i in range(1, len(closes)):
+        _, c_prev = closes[i - 1]
+        d, c = closes[i]
+        if c_prev <= 0 or c <= 0:
+            continue
+        g = c / c_prev
+        if abs(math.log(g)) <= math.log(big_gap):
+            continue
+        best = None
+        for j, (ds, rs) in enumerate(se):
+            if j in used or rs <= 0 or abs((ds - d).days) > window_days:
+                continue
+            dist = abs(math.log(rs) - math.log(g))
+            if dist < math.log(match_tol) and (best is None or dist < best[0]):
+                best = (dist, j, rs)
+        if best is not None:
+            used.add(best[1])
+            events.append((d, best[2]))
+        else:
+            events.append((d, g))
+    for j, (ds, rs) in enumerate(se):
+        if j in used:
+            continue
+        if any(abs((ds - dd).days) <= discl_days for dd in disclosures):
+            events.append((ds, rs))
+    events.sort()
+    return events
