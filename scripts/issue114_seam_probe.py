@@ -155,6 +155,7 @@ def main() -> int:
     tickers = scope["event_tickers"] + scope["noevent_sample"]
     all_errs = []
     ticker_p99 = {}
+    errs_by_ticker = {}
     year_days = Counter()
     residual = {}
     with psycopg.connect(DB) as conn, conn.cursor() as cur:
@@ -186,6 +187,7 @@ def main() -> int:
             n = len(errs)
             p99 = errs[min(int(0.99 * n), n - 1)]
             ticker_p99[t] = p99
+            errs_by_ticker[t] = errs
             all_errs.extend(errs)
             for d in seg:
                 year_days[d.year] += 1
@@ -316,7 +318,40 @@ def main() -> int:
         "top_step_dates": step_dates.most_common(20),
         "tickers": residual,
     }
-    out = {"generated": str(date.today()), "gate_replication": gate, "onset": onset}
+    # 11차 ② carve-out: 주식배당 클래스 종목(stock_div 스텝 보유) 제외 허용치 분포
+    carve = sorted(t for t, r in residual.items()
+                   if any(s["type"] == "stock_div" for s in r["steps"]))
+    co_errs = []
+    co_p99s = []
+    for t, errs in errs_by_ticker.items():
+        if t in carve:
+            continue
+        co_errs.extend(errs)
+        co_p99s.append(ticker_p99[t])
+    co_errs.sort()
+    co_p99s.sort()
+    cn, cm = len(co_errs), len(co_p99s)
+
+    def cpct(p):
+        return co_errs[min(int(p * cn), cn - 1)] if cn else None
+
+    carveout = {
+        "excluded_tickers": carve, "n_excluded": len(carve),
+        "tickers": cm, "ticker_days": cn,
+        "pooled": {"p50": cpct(0.50), "p90": cpct(0.90), "p99": cpct(0.99),
+                   "max": co_errs[-1] if cn else None},
+        "ticker_p99": {
+            "median": co_p99s[cm // 2] if cm else None,
+            "p90": co_p99s[min(int(0.9 * cm), cm - 1)] if cm else None,
+            "p99": co_p99s[min(int(0.99 * cm), cm - 1)] if cm else None,
+            "share_le_0.1pct": sum(1 for x in co_p99s if x <= 0.001) / cm if cm else None,
+            "share_le_1pct": sum(1 for x in co_p99s if x <= 0.01) / cm if cm else None,
+            "max": co_p99s[-1] if cm else None,
+        },
+    }
+
+    out = {"generated": str(date.today()), "gate_replication": gate,
+           "carveout_stockdiv": carveout, "onset": onset}
     path = f"{ROOT}/data/verification/issue114_seam_probe_{date.today():%Y%m%d}.json"
     with open(path, "w") as fp:
         json.dump(out, fp, ensure_ascii=False, indent=1)

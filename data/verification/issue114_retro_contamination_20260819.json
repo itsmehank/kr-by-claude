@@ -1,0 +1,26 @@
+{
+ "issue": 114,
+ "part": "11차 ③ — pykrx 누락 3건 소급 오염 점검 (즉시 실행 지시분)",
+ "generated": "2026-08-19",
+ "method": "오염 창 = 이벤트일 ~ +380일(52주 룩백이 이벤트를 교차하는 구간). 저장 판정 전수 조회(weekly_classification·classification_backfill·backtest_classification·recall_audit_classification·entry_params·positions·signal_performance) + 창 내 minervini_pass 일수",
+ "tickers": {
+  "221800": {
+   "event": "2023-02-23", "ratio": 0.25, "provenance": "share_matched_gap",
+   "stored_judgments": 0,
+   "window_days": 255, "window_pass_days": 0, "total_pass_days": 31
+  },
+  "232830": {
+   "event": "2020-09-04", "ratio": 0.173, "provenance": "share_matched_gap",
+   "stored_judgments": 2,
+   "judgment_notes": "2026-05-22 weekend ignore(climax_run 등) + 2026-06-03 system_disqualify — 둘 다 입력 룩백(≤52주)이 이벤트(2020-09-04)를 교차하지 않음 → 입력 무결",
+   "window_days": 258, "window_pass_days": 0, "total_pass_days": 161
+  },
+  "388610": {
+   "event": "2023-07-24", "ratio": 0.336, "provenance": "share_matched_gap",
+   "stored_judgments": 0,
+   "window_days": 256, "window_pass_days": 0, "total_pass_days": 0
+  }
+ },
+ "verdict": "오염 0건 — 저장 판정 2건(232830)은 창 밖 5년 후 판정으로 입력 무결, 오염 창 내 스크리너 통과 0일이라 어떤 판정·백테스트 집계에도 오염 유입 없음",
+ "residual_note": "누락 방향 영향은 잔존 — 창 내 가짜 -83%급 낙폭이 통과를 억제했을 수 있음(판정 뒤집기 아닌 표본 누락). adj 수정 시 자연 해소, 전 유니버스 대조 백로그(사용자 결정 대기)와 연동"
+}
