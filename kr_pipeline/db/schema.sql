@@ -735,3 +735,19 @@ CREATE TABLE IF NOT EXISTS share_counts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (ticker, date)
 );
+
+-- (#114 경로B) DART 주요사항 구조화 상세 — 증자·감자 기준일/비율/방식.
+-- payload 에 응답 원문(JSONB) 보존 — v3 재구성이 1차 소비. KRX 아님(DART).
+CREATE TABLE IF NOT EXISTS corp_action_details (
+  ticker      VARCHAR(10) NOT NULL,
+  rcept_no    VARCHAR(20) NOT NULL,
+  endpoint    VARCHAR(20) NOT NULL,   -- piicDecsn | fricDecsn | pifricDecsn | crDecsn
+  record_date DATE,                   -- 신주배정/감자 기준일 (권리락일 = 직전 영업일)
+  ratio       NUMERIC(14, 6),         -- 무상: 1주당 배정수 / 감자: 비율(0~1) / 유상: 신주÷기존
+  method      VARCHAR(200),           -- 증자방식(ic_mthn)·감자방법(cr_mth)
+  payload     JSONB NOT NULL,
+  fetched_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (ticker, rcept_no, endpoint)
+);
+CREATE INDEX IF NOT EXISTS idx_corp_action_details_ticker_date
+  ON corp_action_details (ticker, record_date);
