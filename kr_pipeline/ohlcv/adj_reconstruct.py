@@ -168,3 +168,86 @@ def v2_events(closes: list[tuple[date, float]], shares: dict[date, int],
             events.append((ds, rs))
     events.sort()
     return events
+
+
+def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
+              details: list[dict], *, big_gap: float = 1.35,
+              match_tol: float = 1.4, window_days: int = 45) -> list[tuple[date, float]]:
+    """v3 — 대형은 v2(가격 갭+주식수), 증자류 소형은 DART 상세 직취 (경로B).
+
+    details 항목: {endpoint, record_date, ratio, method} (corp_action_details).
+    - 무상(fricDecsn·pifricDecsn): 권리락일 = 기준일 직전 거래일,
+      배율 = 1/(1+1주당 배정수) — 정확.
+    - 유상(piicDecsn): '주주배정'만 권리락 있음(3자배정·일반공모 제외 — FP 차단).
+      배율 = 권리락일 raw 갭(발행가 미확정 대비 근사 — 당일 시장 수익률 잔차 포함).
+    - 대형 이벤트(±3일)와 겹치면 스킵(이중 계상 방지), 같은 기준일 중복 공시는 1건.
+    """
+    import bisect
+    import math
+
+    dates = [d for d, _ in closes]
+    close_of = dict(closes)
+    se = share_events(sorted(shares), shares)
+    events: list[tuple[date, float]] = []
+    used: set[int] = set()
+    for i in range(1, len(closes)):
+        _, c_prev = closes[i - 1]
+        d, c = closes[i]
+        if c_prev <= 0 or c <= 0:
+            continue
+        g = c / c_prev
+        if abs(math.log(g)) <= math.log(big_gap):
+            continue
+        best = None
+        for j, (ds, rs) in enumerate(se):
+            if j in used or rs <= 0 or abs((ds - d).days) > window_days:
+                continue
+            dist = abs(math.log(rs) - math.log(g))
+            if dist < math.log(match_tol) and (best is None or dist < best[0]):
+                best = (dist, j, rs)
+        if best is not None:
+            used.add(best[1])
+            events.append((d, best[2]))
+        else:
+            events.append((d, g))
+
+    big_dates = [d for d, _ in events]
+    seen_rd: set[tuple[str, date]] = set()
+    for det in details:
+        rd = det.get("record_date")
+        ep = det.get("endpoint", "")
+        if rd is None:
+            continue
+        method = det.get("method") or ""
+        if ep == "piicDecsn" and "주주" not in method:
+            continue                     # 3자배정·일반공모 = 권리락 없음
+        if ep == "crDecsn":
+            continue                     # 감자는 대형(갭) 경로 담당 — 라벨 전용
+        kind = "piic" if ep == "piicDecsn" else "fric"
+        if (kind, rd) in seen_rd:
+            continue
+        seen_rd.add((kind, rd))
+        k = bisect.bisect_left(dates, rd)
+        if k == 0 or k > len(dates) - 1:
+            continue
+        ex = dates[k - 1]                # 권리락일 = 기준일 직전 거래일
+        if any(abs((ex - bd).days) <= 3 for bd in big_dates):
+            continue                     # 대형 경로가 이미 처리
+        if kind == "fric":
+            alloc = det.get("ratio")
+            if alloc is None or alloc <= 0:
+                continue
+            r_evt = 1.0 / (1.0 + float(alloc))
+        else:
+            prev_i = dates.index(ex) - 1
+            if prev_i < 0:
+                continue
+            c_prev, c_ex = close_of[dates[prev_i]], close_of[ex]
+            if c_prev <= 0 or c_ex <= 0:
+                continue
+            r_evt = c_ex / c_prev
+            if abs(math.log(r_evt)) < math.log(1.01):
+                continue                 # 유의미한 락 관측 없음 — 미부여
+        events.append((ex, r_evt))
+    events.sort()
+    return events

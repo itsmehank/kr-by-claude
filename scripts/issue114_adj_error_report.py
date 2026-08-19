@@ -14,12 +14,13 @@ import psycopg
 
 from kr_pipeline.ohlcv.adj_reconstruct import (
     db_factor_jumps, error_stats, factor_curve, match_events, reconstruct,
-    share_events, v2_events,
+    share_events, v2_events, v3_events,
 )
 
 DB = "postgresql://localhost/kr_pipeline"
 SCOPE = "data/verification/issue114_survivor_scope.json"
 V2 = "--v2" in sys.argv
+V3 = "--v3" in sys.argv
 
 
 def load_ticker(cur, ticker: str):
@@ -36,13 +37,17 @@ def load_ticker(cur, ticker: str):
                 "WHERE ticker = %s AND event_type IN "
                 "('bonus_issue','rights_offering','capital_reduction')", (ticker,))
     discl = [r[0] for r in cur.fetchall()]
-    return closes, adj, shares, discl
+    cur.execute("SELECT endpoint, record_date, ratio::float, method "
+                "FROM corp_action_details WHERE ticker = %s", (ticker,))
+    details = [{"endpoint": e, "record_date": rd, "ratio": rt, "method": m}
+               for e, rd, rt, m in cur.fetchall()]
+    return closes, adj, shares, discl, details
 
 
 def main() -> int:
     scope = json.load(open(SCOPE))
     groups = {"event": scope["event_tickers"], "noevent": scope["noevent_sample"]}
-    out = {"issue": 114, "part": "§4.5 오차 분포 " + ("v2" if V2 else "v1"), "generated": str(date.today()),
+    out = {"issue": 114, "part": "§4.5 오차 분포 " + ("v3" if V3 else "v2" if V2 else "v1"), "generated": str(date.today()),
            "method": "share_events(|Δ|>0.5%) → factor_curve → 최신일 앵커 정규화",
            "groups": {}}
 
@@ -53,10 +58,15 @@ def main() -> int:
             agg_match = {"db_jumps": 0, "matched": 0, "missed_big": 0,
                          "missed_small": 0}
             for t in tickers:
-                closes, adj, shares, discl = load_ticker(cur, t)
+                closes, adj, shares, discl, details = load_ticker(cur, t)
                 if not closes or not shares:
                     continue
-                if V2:
+                if V3:
+                    ev = v3_events(closes, shares, details)
+                    dates = [d for d, _ in closes]
+                    f = factor_curve(dates, ev)
+                    recon = {d: c * f[d] for d, c in closes}
+                elif V2:
                     ev = v2_events(closes, shares, discl)
                     dates = [d for d, _ in closes]
                     f = factor_curve(dates, ev)
@@ -89,7 +99,7 @@ def main() -> int:
                 g["fp_count"] = len(fp_tickers)
             out["groups"][gname] = g
 
-    path = f"data/verification/issue114_adj_error_report_{"v2_" if V2 else ""}{date.today():%Y%m%d}.json"
+    path = f"data/verification/issue114_adj_error_report_{"v3_" if V3 else "v2_" if V2 else ""}{date.today():%Y%m%d}.json"
     with open(path, "w") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
     print(json.dumps({k: {kk: vv for kk, vv in v.items() if kk != "worst10"

@@ -52,3 +52,18 @@ def test_db_jumps_and_matching():
     assert m == {"db_jumps": 1, "matched": 1, "missed_big": 0, "missed_small": 0}
     m2 = match_events(jumps, [])
     assert m2["missed_big"] == 1
+
+
+def test_v3_events_fric_and_3rd_party():
+    from kr_pipeline.ohlcv.adj_reconstruct import v3_events
+    # 무상증자 100%: 기준일 _d(3) → 권리락일 = 직전 거래일 _d(2), 배율 0.5
+    closes = [(_d(0), 10000.0), (_d(1), 10000.0), (_d(2), 5000.0), (_d(3), 5000.0)]
+    shares = {_d(0): 1_000_000, _d(1): 1_000_000, _d(2): 1_000_000,
+              _d(3): 1_000_000}
+    details = [
+        {"endpoint": "fricDecsn", "record_date": _d(3), "ratio": 1.0, "method": None},
+        {"endpoint": "piicDecsn", "record_date": _d(3), "ratio": 0.2,
+         "method": "제3자배정증자"},           # 3자배정 → 제외돼야 함
+    ]
+    ev = v3_events(closes, shares, details)
+    assert ev == [(_d(2), pytest.approx(0.5))]
