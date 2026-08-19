@@ -1,0 +1,340 @@
+{
+ "issue": 114,
+ "part": "§4.5 오차 분포 v3",
+ "generated": "2026-08-19",
+ "method": "share_events(|Δ|>0.5%) → factor_curve → 최신일 앵커 정규화",
+ "groups": {
+  "event": {
+   "n_tickers": 1293,
+   "match": {
+    "db_jumps": 3025,
+    "matched": 1460,
+    "missed_big": 47,
+    "missed_small": 1518
+   },
+   "ticker_p99_median": 0.121905,
+   "ticker_p99_p90": 0.561672,
+   "share_of_tickers_p99_le_1pct": 0.2877,
+   "worst10": [
+    {
+     "ticker": "003060",
+     "p99": 18.97197
+    },
+    {
+     "ticker": "007460",
+     "p99": 14.0
+    },
+    {
+     "ticker": "090150",
+     "p99": 12.994353
+    },
+    {
+     "ticker": "078860",
+     "p99": 7.711649
+    },
+    {
+     "ticker": "198940",
+     "p99": 6.12
+    },
+    {
+     "ticker": "012170",
+     "p99": 6.005278
+    },
+    {
+     "ticker": "101000",
+     "p99": 4.065759
+    },
+    {
+     "ticker": "009310",
+     "p99": 4.000001
+    },
+    {
+     "ticker": "121890",
+     "p99": 2.019485
+    },
+    {
+     "ticker": "177350",
+     "p99": 1.694726
+    }
+   ]
+  },
+  "noevent": {
+   "n_tickers": 150,
+   "match": {
+    "db_jumps": 0,
+    "matched": 0,
+    "missed_big": 0,
+    "missed_small": 0
+   },
+   "ticker_p99_median": 0.0,
+   "ticker_p99_p90": 0.299228,
+   "share_of_tickers_p99_le_1pct": 0.8067,
+   "worst10": [
+    {
+     "ticker": "232830",
+     "p99": 0.827383
+    },
+    {
+     "ticker": "009190",
+     "p99": 0.798512
+    },
+    {
+     "ticker": "221800",
+     "p99": 0.75
+    },
+    {
+     "ticker": "388610",
+     "p99": 0.663965
+    },
+    {
+     "ticker": "024940",
+     "p99": 0.65315
+    },
+    {
+     "ticker": "064240",
+     "p99": 0.648412
+    },
+    {
+     "ticker": "047310",
+     "p99": 0.518058
+    },
+    {
+     "ticker": "290120",
+     "p99": 0.502002
+    },
+    {
+     "ticker": "143160",
+     "p99": 0.453287
+    },
+    {
+     "ticker": "477850",
+     "p99": 0.3
+    }
+   ],
+   "false_positive_tickers": [
+    {
+     "ticker": "000650",
+     "n_events": 1,
+     "ratios": [
+      0.7339
+     ]
+    },
+    {
+     "ticker": "000680",
+     "n_events": 1,
+     "ratios": [
+      0.7137
+     ]
+    },
+    {
+     "ticker": "002020",
+     "n_events": 1,
+     "ratios": [
+      0.7173
+     ]
+    },
+    {
+     "ticker": "003680",
+     "n_events": 1,
+     "ratios": [
+      0.7004
+     ]
+    },
+    {
+     "ticker": "009190",
+     "n_events": 4,
+     "ratios": [
+      0.5855,
+      0.7014,
+      0.7009,
+      0.7
+     ]
+    },
+    {
+     "ticker": "012690",
+     "n_events": 1,
+     "ratios": [
+      0.7141
+     ]
+    },
+    {
+     "ticker": "013990",
+     "n_events": 1,
+     "ratios": [
+      0.735
+     ]
+    },
+    {
+     "ticker": "017900",
+     "n_events": 1,
+     "ratios": [
+      0.7255
+     ]
+    },
+    {
+     "ticker": "023800",
+     "n_events": 1,
+     "ratios": [
+      0.7034
+     ]
+    },
+    {
+     "ticker": "024940",
+     "n_events": 3,
+     "ratios": [
+      0.701,
+      0.7069,
+      0.7
+     ]
+    },
+    {
+     "ticker": "025550",
+     "n_events": 1,
+     "ratios": [
+      0.7001
+     ]
+    },
+    {
+     "ticker": "030210",
+     "n_events": 1,
+     "ratios": [
+      0.7008
+     ]
+    },
+    {
+     "ticker": "033270",
+     "n_events": 1,
+     "ratios": [
+      0.7008
+     ]
+    },
+    {
+     "ticker": "047310",
+     "n_events": 3,
+     "ratios": [
+      0.9829,
+      0.7005,
+      0.7
+     ]
+    },
+    {
+     "ticker": "064240",
+     "n_events": 3,
+     "ratios": [
+      0.7003,
+      0.7169,
+      0.7002
+     ]
+    },
+    {
+     "ticker": "090470",
+     "n_events": 1,
+     "ratios": [
+      0.7093
+     ]
+    },
+    {
+     "ticker": "115570",
+     "n_events": 1,
+     "ratios": [
+      0.7341
+     ]
+    },
+    {
+     "ticker": "143160",
+     "n_events": 2,
+     "ratios": [
+      0.7399,
+      0.7389
+     ]
+    },
+    {
+     "ticker": "151860",
+     "n_events": 1,
+     "ratios": [
+      0.7093
+     ]
+    },
+    {
+     "ticker": "196300",
+     "n_events": 1,
+     "ratios": [
+      0.7001
+     ]
+    },
+    {
+     "ticker": "200350",
+     "n_events": 1,
+     "ratios": [
+      0.7016
+     ]
+    },
+    {
+     "ticker": "221800",
+     "n_events": 1,
+     "ratios": [
+      0.25
+     ]
+    },
+    {
+     "ticker": "229640",
+     "n_events": 1,
+     "ratios": [
+      0.7002
+     ]
+    },
+    {
+     "ticker": "232830",
+     "n_events": 1,
+     "ratios": [
+      0.1726
+     ]
+    },
+    {
+     "ticker": "290120",
+     "n_events": 2,
+     "ratios": [
+      0.702,
+      0.7094
+     ]
+    },
+    {
+     "ticker": "388610",
+     "n_events": 1,
+     "ratios": [
+      0.336
+     ]
+    },
+    {
+     "ticker": "457550",
+     "n_events": 1,
+     "ratios": [
+      0.7
+     ]
+    },
+    {
+     "ticker": "475460",
+     "n_events": 1,
+     "ratios": [
+      0.7157
+     ]
+    },
+    {
+     "ticker": "477850",
+     "n_events": 1,
+     "ratios": [
+      0.7
+     ]
+    },
+    {
+     "ticker": "950210",
+     "n_events": 1,
+     "ratios": [
+      0.7021
+     ]
+    }
+   ],
+   "fp_count": 30
+  }
+ }
+}
