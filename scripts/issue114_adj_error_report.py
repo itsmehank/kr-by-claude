@@ -20,7 +20,13 @@ from kr_pipeline.ohlcv.adj_reconstruct import (
 DB = "postgresql://localhost/kr_pipeline"
 SCOPE = "data/verification/issue114_survivor_scope.json"
 V2 = "--v2" in sys.argv
-V3 = "--v3" in sys.argv
+V3 = "--v3" in sys.argv or "--v4" in sys.argv
+V4 = "--v4" in sys.argv
+V41 = "--v41" in sys.argv
+V42 = "--v42" in sys.argv
+if V41 or V42:
+    V3 = True
+SIZE_TOL = 1.15 if (V41 or V42) else None
 
 
 def load_ticker(cur, ticker: str):
@@ -48,7 +54,7 @@ def load_ticker(cur, ticker: str):
 def main() -> int:
     scope = json.load(open(SCOPE))
     groups = {"event": scope["event_tickers"], "noevent": scope["noevent_sample"]}
-    out = {"issue": 114, "part": "§4.5 오차 분포 " + ("v3" if V3 else "v2" if V2 else "v1"), "generated": str(date.today()),
+    out = {"issue": 114, "part": "§4.5 오차 분포 " + ("v4.2" if V42 else "v4.1" if V41 else "v4" if V4 else "v3" if V3 else "v2" if V2 else "v1"), "generated": str(date.today()),
            "method": "share_events(|Δ|>0.5%) → factor_curve → 최신일 앵커 정규화",
            "groups": {}}
 
@@ -63,7 +69,7 @@ def main() -> int:
                 if not closes or not shares:
                     continue
                 if V3:
-                    ev = v3_events(closes, shares, details)
+                    ev = v3_events(closes, shares, details, use_cr=V42)
                     dates = [d for d, _ in closes]
                     f = factor_curve(dates, ev)
                     recon = {d: c * f[d] for d, c in closes}
@@ -81,7 +87,7 @@ def main() -> int:
                 if gname == "noevent" and ev:
                     fp_tickers.append({"ticker": t, "n_events": len(ev),
                                        "ratios": [round(r, 4) for _, r in ev][:5]})
-                m = match_events(db_factor_jumps(closes, adj), ev)
+                m = match_events(db_factor_jumps(closes, adj), ev, size_tol=SIZE_TOL)
                 for k in agg_match:
                     agg_match[k] += m[k]
                 per.append({"ticker": t, **st, **m})
@@ -100,7 +106,7 @@ def main() -> int:
                 g["fp_count"] = len(fp_tickers)
             out["groups"][gname] = g
 
-    path = f"data/verification/issue114_adj_error_report_{"v3_" if V3 else "v2_" if V2 else ""}{date.today():%Y%m%d}.json"
+    path = f"data/verification/issue114_adj_error_report_{"v42_" if V42 else "v41_" if V41 else "v4_" if V4 else "v3_" if V3 else "v2_" if V2 else ""}{date.today():%Y%m%d}.json"
     with open(path, "w") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
     print(json.dumps({k: {kk: vv for kk, vv in v.items() if kk != "worst10"

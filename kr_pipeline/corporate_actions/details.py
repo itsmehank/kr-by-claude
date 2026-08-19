@@ -108,3 +108,51 @@ def upsert_details(conn: Connection, ticker: str, endpoint: str,
             )
             n += cur.rowcount
     return n
+
+
+def fetch_document_text(api_key: str, rcept_no: str) -> str:
+    """공시 원문(document API, zip→XML) 텍스트. 실패 시 raise."""
+    import io
+    import zipfile
+
+    import requests
+
+    r = requests.get("https://opendart.fss.or.kr/api/document.xml",
+                     params={"crtfc_key": api_key, "rcept_no": rcept_no},
+                     timeout=60)
+    r.raise_for_status()
+    z = zipfile.ZipFile(io.BytesIO(r.content))
+    names = z.namelist()
+    if not names:
+        raise RuntimeError("empty document zip")
+    raw = z.read(names[0])
+    for enc in ("utf-8", "cp949"):   # 구형 공시 = EUC-KR (v4 게이트 실측)
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+
+def parse_rights_record_date(text: str) -> date | None:
+    """원문에서 신주배정기준일 추출 — 라벨 뒤 첫 구간의 날짜 중 **마지막**
+    (정정 공시는 변경 전/후 병기 — 변경 후 값) [v4, 프로토타입 실검증 규칙]."""
+    i = text.find("신주배정기준일")
+    if i < 0:
+        i = text.find("신주 배정기준일")
+    if i < 0:
+        return None
+    seg = re.sub(r"<[^>]+>", " ", text[i:i + 500])
+    dates = re.findall(r"\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일", seg)
+    return parse_kr_date(dates[-1]) if dates else None
+
+
+def parse_new_share_count(text: str) -> float | None:
+    """교차 검증 게이트(8차 ①)용 — 원문의 보통주 신주 수."""
+    plain = re.sub(r"<[^>]+>", " ", text)
+    anchor = plain.find("신주의 종류와 수")
+    seg = plain[anchor:anchor + 1500] if anchor >= 0 else plain[:6000]
+    m = re.search(r"보통주식[^\d]{0,80}?([\d,]{4,})", seg)
+    if not m:
+        return None
+    return parse_num(m.group(1))

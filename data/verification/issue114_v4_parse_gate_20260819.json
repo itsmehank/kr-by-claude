@@ -1,0 +1,214 @@
+{
+ "generated": "2026-08-19",
+ "stats": {
+  "total": 420,
+  "date_ok": 134,
+  "date_fail": 32,
+  "xcheck_ok": 154,
+  "xcheck_mismatch": 0,
+  "xcheck_unparsed": 12,
+  "fetch_error": 254
+ },
+ "fail_samples": [
+  {
+   "rcept": "20150818000006",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20150827000001",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20150828000910",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20150831000444",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20150902000286",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20150903000341",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20150911000020",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20150930000071",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20151015000002",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20151019000010",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20151030000385",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20151124000108",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20151130001629",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20151202000404",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20151202000459",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20151203000039",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20151204000068",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20151208000362",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20151211000025",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20151214000089",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160113000431",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160201000331",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160222000345",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160321000168",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160502001583",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160526000116",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160602000006",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160603000065",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160607000301",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160613000259",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160616000032",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160701000402",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160705000044",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160707000022",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160707000225",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160708000115",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160719000024",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160719000036",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160721000255",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  },
+  {
+   "rcept": "20160721000416",
+   "class": "fetch",
+   "err": "File is not a zip file"
+  }
+ ]
+}

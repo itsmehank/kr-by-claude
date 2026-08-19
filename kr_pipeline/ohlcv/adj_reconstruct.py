@@ -94,12 +94,22 @@ def db_factor_jumps(closes: list[tuple[date, float]], adj_db: dict[date, float],
 
 def match_events(db_jumps: list[tuple[date, float]],
                  recon_events: list[tuple[date, float]],
-                 tol_days: int = 3) -> dict:
-    """참조 이벤트가 재구성 이벤트(±tol_days)와 매칭되는지 — 누락 계수(밴드별)."""
-    recon_dates = [d for d, _ in recon_events]
+                 tol_days: int = 3, size_tol: float | None = None) -> dict:
+    """참조 이벤트가 재구성 이벤트(±tol_days)와 매칭되는지 — 누락 계수(밴드별).
+
+    size_tol(v4.1, 체인 고정 log(1.15)): 날짜 근접 + |log 배율 차| ≤ log(size_tol)
+    일 때만 매칭 — 크기 무시 아티팩트(8차 귀속 ①) 차단."""
+    import math
+
     missed_big = missed_small = matched = 0
     for d, r in db_jumps:
-        hit = any(abs((d - rd).days) <= tol_days for rd in recon_dates)
+        if size_tol is None:
+            hit = any(abs((d - rd).days) <= tol_days for rd, _ in recon_events)
+        else:
+            hit = any(abs((d - rd).days) <= tol_days
+                      and rr > 0 and r > 0
+                      and abs(math.log(rr) - math.log(r)) <= math.log(size_tol)
+                      for rd, rr in recon_events)
         if hit:
             matched += 1
         elif abs(r - 1) > 0.30:
@@ -172,7 +182,8 @@ def v2_events(closes: list[tuple[date, float]], shares: dict[date, int],
 
 def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
               details: list[dict], *, big_gap: float = 1.35,
-              match_tol: float = 1.4, window_days: int = 45) -> list[tuple[date, float]]:
+              match_tol: float = 1.4, window_days: int = 45,
+              use_cr: bool = False) -> list[tuple[date, float]]:
     """v3 — 대형은 v2(가격 갭+주식수), 증자류 소형은 DART 상세 직취 (경로B).
 
     details 항목: {endpoint, record_date, ratio, method} (corp_action_details).
@@ -219,7 +230,16 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
     for det in details:
         rd = det.get("record_date")
         ep = det.get("endpoint", "")
-        if rd is None or ep == "crDecsn":   # 감자는 대형(갭) 경로 담당 — 라벨 전용
+        if rd is None:
+            continue
+        if ep == "crDecsn":
+            if not use_cr:                  # v4.2 전: 감자는 대형(갭) 경로 전담
+                continue
+            ratio = det.get("ratio")
+            if ratio is None or not (0 < ratio < 1):
+                continue
+            cands.append(("cr", rd, det.get("rcept_no") or "",
+                          {**det, "_r_evt": 1.0 / (1.0 - float(ratio))}))
             continue
         method = det.get("method") or ""
         if ep == "piicDecsn" and "주주" not in method:
@@ -246,7 +266,9 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
             ex = dates[k]
         if any(abs((ex - bd).days) <= 3 for bd in big_dates):
             continue                        # 대형 경로가 이미 처리
-        if kind == "fric":
+        if kind == "cr":
+            r_evt = det["_r_evt"]           # 감자: 1/(1-비율) (v4.2)
+        elif kind == "fric":
             alloc = det.get("ratio")
             if alloc is None or alloc <= 0:
                 continue
