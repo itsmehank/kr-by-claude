@@ -183,7 +183,7 @@ def v2_events(closes: list[tuple[date, float]], shares: dict[date, int],
 def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
               details: list[dict], *, big_gap: float = 1.35,
               match_tol: float = 1.4, window_days: int = 45,
-              use_cr: bool = False) -> list[tuple[date, float]]:
+              use_cr: bool = False, cr_window: int = 90) -> list[tuple[date, float]]:
     """v3 — 대형은 v2(가격 갭+주식수), 증자류 소형은 DART 상세 직취 (경로B).
 
     details 항목: {endpoint, record_date, ratio, method} (corp_action_details).
@@ -267,7 +267,11 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
         if any(abs((ex - bd).days) <= 3 for bd in big_dates):
             continue                        # 대형 경로가 이미 처리
         if kind == "cr":
-            r_evt = det["_r_evt"]           # 감자: 1/(1-비율) (v4.2)
+            # v4.2′ 정지 스팬 앵커(9차 ④): [rd−7, rd+W(=90, p95 실분포 84일)]에
+            # 대형 갭 이벤트가 있으면 같은 사건 — 대형 경로 전담, detail 스킵.
+            if any(-7 <= (bd - rd).days <= cr_window for bd in big_dates):
+                continue
+            r_evt = det["_r_evt"]           # 감자: 1/(1-비율)
         elif kind == "fric":
             alloc = det.get("ratio")
             if alloc is None or alloc <= 0:
