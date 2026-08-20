@@ -1,6 +1,7 @@
 """#114 v5 — 주식배당결정 수시공시 백필 (11차 사전 확약 이행).
 
-대상: 표적 64종목(carve-out) + FP 비악화 측정용 무이벤트 표본 150종목.
+대상: 기본 = 표적 64종목(carve-out) + FP 비악화 측정용 무이벤트 표본 150종목.
+`--delisted` = 상폐 전 종목(stocks.delisted_at NOT NULL) — P0 생산 선행 백필.
 경로: list.json(pblntf_ty='I') → report_nm '주식배당결정' 필터 → 원문 파싱
 (parse_stkdp) → corp_action_details(endpoint='stkdpDecsn') 멱등 적재.
 DART 호출만(KRX 0), 기존 데이터 무수정(신규 행만).
@@ -29,11 +30,18 @@ BGN = date(2015, 1, 1)
 def main() -> int:
     load_dotenv()
     key = os.environ["DART_API_KEY"]
-    scope = json.load(open(SCOPE))
-    probe = json.load(open(PROBE))
-    targets = sorted(set(probe["carveout_stockdiv"]["excluded_tickers"])
-                     | set(scope["noevent_sample"]))
-    print(f"targets: {len(targets)}")
+    delisted = "--delisted" in sys.argv
+    if delisted:
+        with psycopg.connect(DB) as conn, conn.cursor() as cur:
+            cur.execute("SELECT ticker FROM stocks WHERE delisted_at IS NOT NULL "
+                        "ORDER BY ticker")
+            targets = [r[0] for r in cur.fetchall()]
+    else:
+        scope = json.load(open(SCOPE))
+        probe = json.load(open(PROBE))
+        targets = sorted(set(probe["carveout_stockdiv"]["excluded_tickers"])
+                         | set(scope["noevent_sample"]))
+    print(f"targets: {len(targets)} ({'delisted' if delisted else 'verify-scope'})")
     stats = {"tickers": len(targets), "no_corp_code": 0, "disclosures": 0,
              "parsed": 0, "parse_fail": [], "doc_unavailable": [], "inserted": 0}
     with psycopg.connect(DB) as conn, conn.cursor() as cur:
@@ -78,7 +86,8 @@ def main() -> int:
             if i % 25 == 0:
                 print(f"  {i}/{len(targets)} discl={stats['disclosures']} "
                       f"ins={stats['inserted']}")
-    out = f"data/verification/issue114_stkdp_backfill_{date.today():%Y%m%d}.json"
+    out = (f"data/verification/issue114_stkdp_backfill_"
+           f"{'delisted_' if delisted else ''}{date.today():%Y%m%d}.json")
     with open(out, "w") as f:
         json.dump(stats, f, ensure_ascii=False, indent=1)
     print(json.dumps({k: v for k, v in stats.items() if k != "parse_fail"},

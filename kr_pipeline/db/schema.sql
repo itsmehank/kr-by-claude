@@ -751,3 +751,42 @@ CREATE TABLE IF NOT EXISTS corp_action_details (
 );
 CREATE INDEX IF NOT EXISTS idx_corp_action_details_ticker_date
   ON corp_action_details (ticker, record_date);
+
+-- (#114 P0) 상폐 종목 재구성 수정주가 — 격리 테이블 (daily_prices 무접촉).
+-- 소비는 RS 재계산 파이프라인 한정 허용(12차 ②-②), 그 외 금지. chain_version='v5-d'.
+CREATE TABLE IF NOT EXISTS delisted_adj_prices (
+  ticker     VARCHAR(10) NOT NULL,
+  date       DATE NOT NULL,
+  adj_close  NUMERIC(16, 4) NOT NULL CHECK (adj_close > 0),
+  liq_window BOOLEAN NOT NULL DEFAULT FALSE,  -- 정리매매 창(상폐 전 14일) — 12차 조건 3
+  PRIMARY KEY (ticker, date)
+);
+CREATE TABLE IF NOT EXISTS delisted_adj_quality (
+  ticker        VARCHAR(10) PRIMARY KEY,
+  chain_version VARCHAR(10) NOT NULL,
+  produced_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  n_days        INTEGER NOT NULL,
+  n_events      INTEGER NOT NULL,
+  provenance    JSONB NOT NULL,        -- 적용 이벤트 census {gap_share, fric, piic_gap, stkdp}
+  flags         JSONB NOT NULL,        -- 층화 {stkdp_unresolved, has_piic_gap, n_suppressed_gaps, has_suppressed_upward_gap}
+  suppressed    JSONB NOT NULL DEFAULT '[]'  -- v5-d 미부여 갭 원장(상방 갭 감사 입력)
+);
+
+-- (#114 RS 재계산 설계 v2) 무편향 RS — 생존+상폐 합산 유니버스 백분위.
+-- 백테스트 전용 표면: 라이브 daily_indicators/weekly_indicators 무접촉.
+CREATE TABLE IF NOT EXISTS bt_rs_daily (
+  ticker      VARCHAR(10) NOT NULL,
+  date        DATE NOT NULL,
+  sf          NUMERIC(16, 8),
+  rs_rating   SMALLINT,
+  is_delisted BOOLEAN NOT NULL,
+  PRIMARY KEY (ticker, date)
+);
+CREATE TABLE IF NOT EXISTS bt_rs_weekly (
+  ticker        VARCHAR(10) NOT NULL,
+  week_end_date DATE NOT NULL,
+  sf            NUMERIC(16, 8),
+  rs_rating     SMALLINT,
+  is_delisted   BOOLEAN NOT NULL,
+  PRIMARY KEY (ticker, week_end_date)
+);

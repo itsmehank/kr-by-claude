@@ -1,0 +1,35 @@
+{
+ "tickers": 447,
+ "no_corp_code": 0,
+ "disclosures": 20,
+ "parsed": 15,
+ "parse_fail": [],
+ "doc_unavailable": [
+  {
+   "ticker": "033180",
+   "rcept_no": "20171229800863",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "037620",
+   "rcept_no": "20150312800008",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "900040",
+   "rcept_no": "20170508900341",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "900080",
+   "rcept_no": "20170512901106",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "900180",
+   "rcept_no": "20170524900097",
+   "err": "File is not a zip file"
+  }
+ ],
+ "inserted": 15
+}
