@@ -197,6 +197,8 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
       [measurement-based: 11차 잔여 조사 확증 스텝 186건 전부 폐장일-1 발생].
       배율 = 1/(1+ratio), ratio = 배당주식총수/발행주식총수(자기주식 제외 효과
       내재 — KRX 기준가 조정 실측과 정합, 1주당 배당주수 기반은 자기주식만큼 과대).
+      기준일 후 접수(주총 정정·지연 결의)는 제외 — 참조는 원공시 비율로 기조정.
+      정지 스팬은 F2 동형(재개일 배치), 비연말 기준일은 무상 동형(k-1).
     - 대형 이벤트(±3일)와 겹치면 스킵(이중 계상 방지), 같은 기준일 중복 공시는 1건.
     """
     import bisect
@@ -280,10 +282,12 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
         if kind == "stkdp":
             # 연말 결산 기준일(12/28~31): 락일 = 폐장일 직전 거래일(k-2 —
             # 폐장일 매수는 명부 미등재, 186스텝 실측). 그 외 기준일 = 무상
-            # 동형(k-1). 정지 스팬은 스킵(미부여).
+            # 동형(k-1). 정지 스팬은 F2 동형 — 조정 반영은 재개일.
             if (rd - ex).days > 7:
-                continue
-            if rd.month == 12 and rd.day >= 28:
+                if k > len(dates) - 1:
+                    continue
+                ex = dates[k]
+            elif rd.month == 12 and rd.day >= 28:
                 if k < 2:
                     continue
                 ex = dates[k - 2]

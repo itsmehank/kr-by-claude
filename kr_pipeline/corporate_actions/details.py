@@ -5,6 +5,8 @@
 3자배정/일반공모 판별)·무상증자 fricDecsn(`nstk_asstd` 기준일, `nstk_ascnt_ps_ostk`
 1주당 배정)·유무상 pifricDecsn·감자 crDecsn(`cr_std` 기준일, `cr_rt_ostk` 비율%).
 액면분할/병합은 구조화 API 부재 — v2(가격 갭+주식수)가 담당(커버리지 표 참조).
+주식배당(v5)은 구조화 API 부재 → 수시공시 원문 파싱(parse_stkdp)으로
+endpoint='stkdpDecsn' 행을 적재(ENDPOINTS 외 경로 — issue114_stkdp_backfill).
 """
 from __future__ import annotations
 
@@ -191,10 +193,12 @@ def parse_stkdp(text: str) -> dict | None:
     ratio = None
     if tot_ok:
         r = div_total / outstanding
-        if 0 < r <= 0.5 and (not ps_ok or abs(math.log(r / per_share)) < math.log(2)):
+        if 0 < r <= 0.5:
+            if ps_ok and abs(math.log(r / per_share)) >= math.log(2):
+                return None                 # 양쪽 유효인데 2배+ 불일치 — 문서 불신
             ratio = r                       # 총수 기반(자기주식 제외 효과 내재)
     if ratio is None and ps_ok:
-        ratio = per_share                   # fallback — 자기주식 보정 없는 근사
+        ratio = per_share                   # 총수 무효 시 fallback — 근사
     if ratio is None:
         return None
     return {"record_date": rd, "ratio": ratio, "div_total": div_total,

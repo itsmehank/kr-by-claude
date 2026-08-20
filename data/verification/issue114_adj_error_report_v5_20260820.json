@@ -7,13 +7,13 @@
   "event": {
    "n_tickers": 1293,
    "match": {
-    "db_jumps": 3027,
-    "matched": 1741,
-    "missed_big": 176,
+    "db_jumps": 3029,
+    "matched": 1742,
+    "missed_big": 177,
     "missed_small": 1110
    },
    "ticker_p99_median": 0.09343,
-   "ticker_p99_p90": 0.560533,
+   "ticker_p99_p90": 0.566087,
    "share_of_tickers_p99_le_1pct": 0.331,
    "worst10": [
     {
@@ -41,6 +41,10 @@
      "p99": 6.005278
     },
     {
+     "ticker": "300120",
+     "p99": 4.728979
+    },
+    {
      "ticker": "009310",
      "p99": 4.000001
     },
@@ -51,10 +55,6 @@
     {
      "ticker": "177350",
      "p99": 1.694726
-    },
-    {
-     "ticker": "269620",
-     "p99": 0.992045
     }
    ]
   },

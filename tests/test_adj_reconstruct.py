@@ -106,13 +106,14 @@ def test_v5_stkdp_mid_year_record_uses_fric_rule():
 
 def test_v5_stkdp_halt_and_overlap_skip():
     from kr_pipeline.ohlcv.adj_reconstruct import v3_events
-    # 정지 스팬(기준일-직전거래일 >7일) → detail 스킵 (조정 미부여)
+    # 정지 스팬(기준일-직전거래일 >7일) → F2 동형: 조정은 재개일에 배치
     dates = [date(2019, 12, 1), date(2019, 12, 2), date(2020, 1, 20)]
     closes = [(d, 1000.0) for d in dates]
     shares = {d: 1_000_000 for d in dates}
     details = [{"endpoint": "stkdpDecsn", "record_date": date(2019, 12, 31),
                 "ratio": 0.03, "method": "주식배당", "rcept_no": "20191220800001"}]
-    assert v3_events(closes, shares, details, use_stkdp=True) == []
+    ev = v3_events(closes, shares, details, use_stkdp=True)
+    assert ev == [(date(2020, 1, 20), pytest.approx(1 / 1.03))]
     # 대형 갭 이벤트(±3일)와 겹치면 대형 경로 전담 — detail 스킵
     dates2 = [date(2019, 12, 26), date(2019, 12, 27), date(2019, 12, 30),
               date(2020, 1, 2)]

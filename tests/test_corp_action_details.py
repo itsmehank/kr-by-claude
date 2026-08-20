@@ -93,3 +93,13 @@ def test_parse_stkdp_rejects_scrambled_correction():
           "3. 발행주식총수 보통주식 0.03 4. 배당기준일 2021-12-31")
     p2 = parse_stkdp(t2)                     # 총수/발행 역전 → 1주당 fallback
     assert p2 is not None and abs(p2["ratio"] - 0.03) < 1e-9
+
+
+def test_parse_stkdp_crosscheck_failure_fails_safe():
+    from kr_pipeline.corporate_actions.details import parse_stkdp
+    # 총수 기반과 1주당이 2배 이상 불일치 — 어느 쪽도 신뢰 불가 → None
+    # (의심값 per_share 로 조용히 fallback 하면 안 됨: 오배율이 factor 에 직결)
+    t = ("주식배당 결정 1. 1주당 배당주식수 (주) 보통주식 0.30 "
+         "2. 배당주식총수 (주) 보통주식 20,000 "
+         "3. 발행주식총수 보통주식 2,000,000 4. 배당기준일 2022-12-31")
+    assert parse_stkdp(t) is None

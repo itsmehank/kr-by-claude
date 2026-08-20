@@ -55,7 +55,8 @@ def load(cur, t):
 
 
 def v3_events_tagged(closes, shares, details):
-    """adj_reconstruct.v3_events(use_cr=False) 동일 로직 + provenance 태그."""
+    """adj_reconstruct.v3_events(use_cr=False, use_stkdp=V5) 동일 로직 +
+    provenance 태그. 수동 동기화 복사본 — 파이프라인 수정 시 함께 갱신할 것."""
     dates = [d for d, _ in closes]
     close_of = dict(closes)
     se = share_events(sorted(shares), shares)
@@ -116,9 +117,11 @@ def v3_events_tagged(closes, shares, details):
             continue
         ex = dates[k - 1]
         if kind == "stkdp":
-            if (rd - ex).days > 7:
-                continue
-            if rd.month == 12 and rd.day >= 28:
+            if (rd - ex).days > 7:          # 정지 스팬 = F2 동형(재개일 배치)
+                if k > len(dates) - 1:
+                    continue
+                ex = dates[k]
+            elif rd.month == 12 and rd.day >= 28:
                 if k < 2:
                     continue
                 ex = dates[k - 2]           # 결산 락일 = 폐장일 직전 거래일
