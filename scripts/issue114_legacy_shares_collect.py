@@ -45,6 +45,8 @@ def main() -> int:
             try:
                 time.sleep(PACE_SEC)
                 caps = krx.get_market_cap_by_date(FROM, TO, t)
+                if len(caps) == 0:          # 리뷰 C-1: 빈 응답 = 오류(세션 만료)
+                    raise ValueError("empty cap response")
                 n = insert_share_counts(conn, share_rows(t, caps))
                 conn.commit()
                 out["collected"].append({"ticker": t, "rows": n})

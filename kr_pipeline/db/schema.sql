@@ -753,7 +753,7 @@ CREATE INDEX IF NOT EXISTS idx_corp_action_details_ticker_date
   ON corp_action_details (ticker, record_date);
 
 -- (#114 P0) 상폐 종목 재구성 수정주가 — 격리 테이블 (daily_prices 무접촉).
--- 소비(RS 재계산·지표 투입)는 별도 설계 문서 승인 전 금지. chain_version='v5'.
+-- 소비는 RS 재계산 파이프라인 한정 허용(12차 ②-②), 그 외 금지. chain_version='v5-d'.
 CREATE TABLE IF NOT EXISTS delisted_adj_prices (
   ticker     VARCHAR(10) NOT NULL,
   date       DATE NOT NULL,

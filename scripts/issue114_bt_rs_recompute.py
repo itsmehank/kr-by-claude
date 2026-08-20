@@ -120,8 +120,7 @@ def recompute(target: str) -> dict:
         delta_stats = defaultdict(list)      # (year, band) -> [delta]
         flips = Counter()                    # (year, dir)
         incl_series = {}
-        cur.execute(f"DELETE FROM {table}")
-        conn.commit()
+        cur.execute(f"DELETE FROM {table}")   # COPY 와 한 트랜잭션(중단 시 원복)
         with cur.copy(f"COPY {table} (ticker, {dcol}, sf, rs_rating, "
                       "is_delisted) FROM STDIN") as cp:
             for d in sorted(by_date_live.keys() | by_date_del.keys()):

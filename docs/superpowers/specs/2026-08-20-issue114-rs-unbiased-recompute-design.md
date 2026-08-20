@@ -37,12 +37,12 @@ CREATE TABLE bt_rs_daily (
   PRIMARY KEY (ticker, date)
 );
 CREATE TABLE bt_rs_weekly ( -- 주봉 대칭(13/26/39/52) — #115 소비 지표에 따라 사용
-  ticker     VARCHAR(10) NOT NULL,
-  week_start DATE NOT NULL,
-  sf         NUMERIC(16, 8),
-  rs_rating  SMALLINT,
-  is_delisted BOOLEAN NOT NULL,
-  PRIMARY KEY (ticker, week_start)
+  ticker        VARCHAR(10) NOT NULL,
+  week_end_date DATE NOT NULL,     -- 현행 weekly_prices 관례와 동일 키
+  sf            NUMERIC(16, 8),
+  rs_rating     SMALLINT,
+  is_delisted   BOOLEAN NOT NULL,
+  PRIMARY KEY (ticker, week_end_date)
 );
 ```
 
@@ -53,7 +53,7 @@ CREATE TABLE bt_rs_weekly ( -- 주봉 대칭(13/26/39/52) — #115 소비 지표
 ## 3. 계산 설계 — 현행 코드 재사용(재구현 금지)
 
 - SF·백분위는 `kr_pipeline/indicators/compute/rs_rating.py` 의
-  `compute_strength_factor`·`assign_rs_rating_percentiles` **그대로 import**
+  `compute_ibd_strength_factor`·`assign_rs_rating_percentiles` **그대로 import**
   (공식 복제 금지 — 회귀 앵커 §5-1의 성립 조건).
 - **유니버스 원리(12차 ②-① 봉인)**: 날짜 d 의 유니버스 = **"당일 라이브 계산의
   반사실적 재현 — d 에 상장·거래 중이던 전 종목"**. 개별 규칙은 이 원리의 귀결로만
@@ -78,8 +78,11 @@ CREATE TABLE bt_rs_weekly ( -- 주봉 대칭(13/26/39/52) — #115 소비 지표
 ## 5. 검증 계획 (구현 후·소비 전)
 
 1. **회귀 앵커**: 생존 종목만으로 bt_rs 를 돌린 결과 ==
-   `daily_indicators.rs_rating` 전 구간 일치(동률 처리 포함 완전 동일 기대 —
-   같은 함수·같은 유니버스이므로. 불일치 = 구현 결함).
+   `daily_indicators.rs_rating` 일치. **판정 기준(실행 후 확정, 2026-08-20)**:
+   같은 입력 빈티지에서 완전 동일 — 최신 빈티지 날짜 완전 일치(일 0/2,546·주
+   0/2,549)로 구현 동등성 증명. 전 구간 불일치 3.5%/5.5%는 저장값의 **빈티지
+   드리프트**(증분이 과거 미재방문 — |Δ|=1 이 99%, 이상치는 full-refresh 후
+   기업행위 종목으로 인과 확인)로 판정, 구현 결함 아님. 관찰 이슈 #124 등록.
 2. **편향 이동 보고(12차 ②-③ 층화)**: 생존 종목 Δrs_rating 을
    **연도별 × RS 밴드별(특히 65~75 경계 밴드)** 분해, c8(70) 플립은
    **fail→pass / pass→fail 양방향 분리** 계수, **일자별 상폐 편입 종목 수

@@ -55,15 +55,10 @@ def produce_delisted_adj(
     f = factor_curve(dates, [(d, r) for d, r, _ in ev_used])
     adj = {d: c * f[d] for d, c in pos}
     provenance = dict(Counter(p for _, _, p in ev_used))
-    # 억제 갭 중 cr_detail 창이 설명하는 건(13차 ③(ii) '설명 안 된 억제' 측정)
-    cr_dates = [d for d, _, p in ev_used if p == "cr_detail"]
-    covered = sum(1 for d, _, _ in suppressed
-                  if any(abs((d - cd).days) <= 10 for cd in cr_dates))
     flags = {
         "stkdp_unresolved": bool(stkdp_unresolved),
         "has_piic_gap": provenance.get("piic_gap", 0) > 0,
         "n_suppressed_gaps": len(suppressed),
-        "n_suppressed_covered_by_cr": covered,
         "has_suppressed_upward_gap": any(r > UPWARD_GAP for _, r, _ in suppressed),
     }
     last = dates[-1]
