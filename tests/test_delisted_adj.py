@@ -43,16 +43,36 @@ def test_v3_events_prov_tags_and_wrapper_equivalence():
 
 def test_produce_delisted_adj_anchor_halt_and_flags():
     from kr_pipeline.ohlcv.delisted_adj import produce_delisted_adj
-    # 5:1 병합 갭 + 정지일(close=0) 1일 — 앵커=최종일 raw, 0값 행 미생산
+    # 5:1 병합 갭(주식수 정합 → 조정 유지) + 정지일(close=0) 1일
     dates = [_d(0), _d(1), _d(2), _d(3)]
     closes = [(_d(0), 2000.0), (_d(1), 0.0), (_d(2), 10000.0), (_d(3), 10100.0)]
     shares = {_d(0): 5_000_000, _d(1): 5_000_000, _d(2): 1_000_000,
               _d(3): 1_000_000}
-    adj, events, provenance, flags = produce_delisted_adj(
-        closes, shares, [], stkdp_unresolved=True)
-    assert _d(1) not in adj                      # 정지일 미생산(nullify 관례)
-    assert adj[_d(3)] == pytest.approx(10100.0)  # 최종일 앵커 = raw
-    assert adj[_d(0)] == pytest.approx(10000.0)  # 과거 ×5
-    assert provenance.get("gap_share", 0) == 1
-    assert flags["stkdp_unresolved"] is True
-    assert flags["has_gap_fallback"] is False
+    r = produce_delisted_adj(closes, shares, [], stkdp_unresolved=True)
+    assert _d(1) not in r.adj                      # 정지일 미생산(nullify 관례)
+    assert r.adj[_d(3)] == pytest.approx(10100.0)  # 최종일 앵커 = raw
+    assert r.adj[_d(0)] == pytest.approx(10000.0)  # 과거 ×5 (gap_share 유지)
+    assert r.provenance.get("gap_share", 0) == 1
+    assert r.flags["stkdp_unresolved"] is True
+    assert r.suppressed == []
+
+
+def test_v5d_suppresses_fallback_gap_and_flags_liq_window():
+    from kr_pipeline.ohlcv.adj_reconstruct import v3_events_prov
+    from kr_pipeline.ohlcv.delisted_adj import produce_delisted_adj
+    # 정리매매형 폭락(-50%, 주식수 비정합) — v5 는 fallback 이벤트, v5-d 는 보존
+    closes = [(_d(0), 10000.0), (_d(1), 10000.0), (_d(2), 5000.0),
+              (_d(3), 5000.0)]
+    shares = {d: 1_000_000 for d, _ in closes}
+    ev_v5 = v3_events_prov(closes, shares, [])
+    assert [p for _, _, p in ev_v5] == ["gap_fallback"]
+    assert v3_events_prov(closes, shares, [], use_gap_fallback=False) == []
+
+    r = produce_delisted_adj(closes, shares, [])
+    assert r.adj[_d(0)] == pytest.approx(10000.0)   # 폭락 보존(조정 미부여)
+    assert r.adj[_d(2)] == pytest.approx(5000.0)
+    assert r.suppressed == [(_d(2), pytest.approx(0.5), "gap_fallback")]
+    assert r.flags["n_suppressed_gaps"] == 1
+    assert r.flags["has_suppressed_upward_gap"] is False
+    # 정리매매 창 = 마지막 관측일 전 14일(달력) — 여기선 전 구간이 창 안
+    assert r.liq_window == {_d(0), _d(1), _d(2), _d(3)}

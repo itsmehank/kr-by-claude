@@ -35,9 +35,9 @@ def main() -> int:
     unresolved = load_stkdp_unresolved()
     out = {"generated": str(date.today()), "chain_version": CHAIN_VERSION,
            "tickers": 0, "produced": 0, "empty": [], "rows": 0,
-           "flags_census": {"stkdp_unresolved": 0, "has_gap_fallback": 0,
-                            "has_piic_gap": 0},
-           "provenance_census": {}, "extreme_factors": []}
+           "flags_census": {}, "provenance_census": {},
+           "suppressed_total": 0, "upward_suppressed": [],
+           "extreme_factors": []}
     with psycopg.connect(DB) as conn, conn.cursor() as cur:
         cur.execute("SELECT DISTINCT ticker FROM delisted_daily_prices ORDER BY 1")
         tickers = [r[0] for r in cur.fetchall()]
@@ -54,30 +54,39 @@ def main() -> int:
             details = [{"endpoint": e, "record_date": rd, "ratio": rt,
                         "method": m, "rcept_no": rc}
                        for e, rd, rt, m, rc in cur.fetchall()]
-            adj, ev_prov, provenance, flags = produce_delisted_adj(
-                closes, shares, details, stkdp_unresolved=(t in unresolved))
+            r = produce_delisted_adj(closes, shares, details,
+                                     stkdp_unresolved=(t in unresolved))
+            adj = r.adj
             if not adj:
                 out["empty"].append(t)
                 continue
             cur.execute("DELETE FROM delisted_adj_prices WHERE ticker=%s", (t,))
             cur.execute("DELETE FROM delisted_adj_quality WHERE ticker=%s", (t,))
-            with cur.copy("COPY delisted_adj_prices (ticker, date, adj_close) "
-                          "FROM STDIN") as cp:
+            with cur.copy("COPY delisted_adj_prices (ticker, date, adj_close, "
+                          "liq_window) FROM STDIN") as cp:
                 for d, a in sorted(adj.items()):
-                    cp.write_row((t, d, round(a, 4)))
+                    cp.write_row((t, d, round(a, 4), d in r.liq_window))
             cur.execute(
                 "INSERT INTO delisted_adj_quality (ticker, chain_version, "
-                "n_days, n_events, provenance, flags) VALUES (%s,%s,%s,%s,%s,%s)",
-                (t, CHAIN_VERSION, len(adj), len(ev_prov), Jsonb(provenance),
-                 Jsonb(flags)))
+                "n_days, n_events, provenance, flags, suppressed) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                (t, CHAIN_VERSION, len(adj), len(r.events), Jsonb(r.provenance),
+                 Jsonb(r.flags),
+                 Jsonb([{"date": d.isoformat(), "ratio": round(rt, 4)}
+                        for d, rt, _ in r.suppressed])))
             conn.commit()
             out["produced"] += 1
             out["rows"] += len(adj)
-            for k, v in flags.items():
+            for k, v in r.flags.items():
                 if v:
-                    out["flags_census"][k] += 1
-            for k, v in provenance.items():
+                    out["flags_census"][k] = out["flags_census"].get(k, 0) + 1
+            for k, v in r.provenance.items():
                 out["provenance_census"][k] = out["provenance_census"].get(k, 0) + v
+            out["suppressed_total"] += len(r.suppressed)
+            for d, rt, _ in r.suppressed:
+                if rt > 1.35:
+                    out["upward_suppressed"].append(
+                        {"ticker": t, "date": d.isoformat(), "ratio": round(rt, 3)})
             factors = [adj[d] / c for d, c in closes if c > 0 and d in adj]
             fmax, fmin = max(factors), min(factors)
             if fmax > 1000 or fmin < 1e-3:
@@ -89,9 +98,11 @@ def main() -> int:
     with open(path, "w") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
     print(json.dumps({k: v for k, v in out.items()
-                      if k not in ("empty", "extreme_factors")},
+                      if k not in ("empty", "extreme_factors",
+                                   "upward_suppressed")},
                      ensure_ascii=False))
-    print("empty:", len(out["empty"]), "extreme:", len(out["extreme_factors"]))
+    print("empty:", len(out["empty"]), "extreme:", len(out["extreme_factors"]),
+          "upward_suppressed:", len(out["upward_suppressed"]))
     print("saved:", path)
     return 0
 

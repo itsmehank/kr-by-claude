@@ -1,0 +1,936 @@
+{
+ "generated": "2026-08-20",
+ "n_gaps": 84,
+ "by_class": {
+  "no_evidence": 49,
+  "dart_disclosure_found": 34,
+  "share_late_match": 1
+ },
+ "tickers_flagged": [
+  "024810",
+  "028040",
+  "032040",
+  "035480",
+  "036500",
+  "038340",
+  "045890",
+  "052670",
+  "057880",
+  "066110",
+  "078940",
+  "093230",
+  "096040",
+  "138690",
+  "141020",
+  "148140",
+  "158310",
+  "215580",
+  "226350",
+  "287410",
+  "337450",
+  "366330",
+  "400560",
+  "404950",
+  "405350",
+  "405640",
+  "409570",
+  "419270",
+  "436610",
+  "438220",
+  "466910"
+ ],
+ "rows": [
+  {
+   "ticker": "001140",
+   "date": "2026-01-23",
+   "ratio": 1.371,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "008800",
+   "date": "2018-04-20",
+   "ratio": 14.352,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "010600",
+   "date": "2026-01-20",
+   "ratio": 2.143,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "014200",
+   "date": "2025-11-25",
+   "ratio": 1.578,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "015540",
+   "date": "2023-11-01",
+   "ratio": 1.427,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "019300",
+   "date": "2016-08-02",
+   "ratio": 2.242,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "024810",
+   "date": "2016-06-09",
+   "ratio": 1.634,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "024810",
+   "date": "2025-09-03",
+   "ratio": 2.826,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "024810",
+   "date": "2025-09-08",
+   "ratio": 1.497,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "024810",
+   "date": "2025-09-09",
+   "ratio": 1.356,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "028040",
+   "date": "2015-12-15",
+   "ratio": 2.136,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "032040",
+   "date": "2018-09-21",
+   "ratio": 1.511,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "033430",
+   "date": "2018-04-27",
+   "ratio": 1.69,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "033600",
+   "date": "2021-08-03",
+   "ratio": 1.672,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "035480",
+   "date": "2019-12-04",
+   "ratio": 3.735,
+   "class": "share_late_match",
+   "cr": [],
+   "share_late": [
+    "2019-10-22"
+   ],
+   "dart": [
+    "[기재정정]주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "036180",
+   "date": "2021-06-16",
+   "ratio": 2.598,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "036500",
+   "date": "2017-05-04",
+   "ratio": 1.508,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "038340",
+   "date": "2022-12-29",
+   "ratio": 1.528,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "주요사항보고서(회사분할결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "038340",
+   "date": "2025-03-21",
+   "ratio": 1.535,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "주요사항보고서(회사분할결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "045890",
+   "date": "2021-12-13",
+   "ratio": 1.424,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "050320",
+   "date": "2022-05-25",
+   "ratio": 4.298,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "050540",
+   "date": "2023-04-27",
+   "ratio": 2.968,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "052190",
+   "date": "2022-05-25",
+   "ratio": 1.405,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "052670",
+   "date": "2026-02-09",
+   "ratio": 300.481,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "053110",
+   "date": "2022-08-30",
+   "ratio": 2.152,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "053810",
+   "date": "2016-09-09",
+   "ratio": 1.425,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "057880",
+   "date": "2024-02-21",
+   "ratio": 10.098,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "060910",
+   "date": "2017-02-15",
+   "ratio": 5.543,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "065160",
+   "date": "2019-04-30",
+   "ratio": 2.885,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "065560",
+   "date": "2024-07-23",
+   "ratio": 1.444,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "065620",
+   "date": "2021-08-02",
+   "ratio": 2.054,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "066110",
+   "date": "2021-05-17",
+   "ratio": 2.354,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "주요사항보고서(감자결정)",
+    "주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "072520",
+   "date": "2025-06-11",
+   "ratio": 2.952,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "078940",
+   "date": "2025-02-12",
+   "ratio": 1.522,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "087220",
+   "date": "2018-04-26",
+   "ratio": 2.235,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "090970",
+   "date": "2017-04-17",
+   "ratio": 2.536,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "090980",
+   "date": "2017-04-17",
+   "ratio": 1.754,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "090990",
+   "date": "2017-04-17",
+   "ratio": 1.494,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "091000",
+   "date": "2017-04-17",
+   "ratio": 1.632,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "093230",
+   "date": "2025-09-03",
+   "ratio": 2.1,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "095300",
+   "date": "2016-09-06",
+   "ratio": 1.379,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "095300",
+   "date": "2017-09-06",
+   "ratio": 2.098,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "096040",
+   "date": "2016-06-09",
+   "ratio": 1.436,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "096040",
+   "date": "2025-09-03",
+   "ratio": 1.455,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "주요사항보고서(감자결정)",
+    "주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "102210",
+   "date": "2021-04-12",
+   "ratio": 1.488,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "102210",
+   "date": "2021-04-16",
+   "ratio": 1.46,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "103130",
+   "date": "2020-05-22",
+   "ratio": 2.479,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "110570",
+   "date": "2017-04-12",
+   "ratio": 1.538,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "123260",
+   "date": "2020-04-08",
+   "ratio": 1.377,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "138690",
+   "date": "2023-06-27",
+   "ratio": 2.8,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "141020",
+   "date": "2023-05-09",
+   "ratio": 2.806,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "141070",
+   "date": "2021-09-10",
+   "ratio": 1.782,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "148140",
+   "date": "2023-12-12",
+   "ratio": 9.594,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[첨부정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "149940",
+   "date": "2020-07-08",
+   "ratio": 1.677,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "150840",
+   "date": "2026-01-22",
+   "ratio": 1.977,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "151910",
+   "date": "2017-07-13",
+   "ratio": 3.9,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "155960",
+   "date": "2018-10-01",
+   "ratio": 1.37,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "158310",
+   "date": "2021-07-16",
+   "ratio": 2.01,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "158310",
+   "date": "2021-10-29",
+   "ratio": 1.655,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "158310",
+   "date": "2022-11-08",
+   "ratio": 1.37,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "160600",
+   "date": "2025-02-11",
+   "ratio": 1.389,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "194610",
+   "date": "2018-10-01",
+   "ratio": 1.558,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "195440",
+   "date": "2021-06-09",
+   "ratio": 1.587,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "214310",
+   "date": "2018-01-29",
+   "ratio": 1.398,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "215580",
+   "date": "2017-08-25",
+   "ratio": 1.682,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[첨부추가]주요사항보고서(회사합병결정)"
+   ]
+  },
+  {
+   "ticker": "221610",
+   "date": "2021-12-27",
+   "ratio": 1.614,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "226350",
+   "date": "2021-04-08",
+   "ratio": 25.0,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "226350",
+   "date": "2021-06-04",
+   "ratio": 1.728,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)",
+    "[기재정정]주요사항보고서(감자결정)"
+   ]
+  },
+  {
+   "ticker": "287410",
+   "date": "2020-12-24",
+   "ratio": 1.884,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)"
+   ]
+  },
+  {
+   "ticker": "290380",
+   "date": "2025-08-12",
+   "ratio": 1.415,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "323230",
+   "date": "2025-06-11",
+   "ratio": 1.684,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "337450",
+   "date": "2022-06-28",
+   "ratio": 1.372,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[첨부정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)"
+   ]
+  },
+  {
+   "ticker": "366330",
+   "date": "2023-06-02",
+   "ratio": 1.557,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "주요사항보고서(회사합병결정)"
+   ]
+  },
+  {
+   "ticker": "400560",
+   "date": "2023-05-08",
+   "ratio": 1.386,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "주요사항보고서(회사합병결정)"
+   ]
+  },
+  {
+   "ticker": "404950",
+   "date": "2023-09-22",
+   "ratio": 1.592,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)"
+   ]
+  },
+  {
+   "ticker": "405350",
+   "date": "2023-07-14",
+   "ratio": 1.455,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[첨부정정]주요사항보고서(회사합병결정)",
+    "[첨부정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "주요사항보고서(회사합병결정)"
+   ]
+  },
+  {
+   "ticker": "405640",
+   "date": "2024-02-16",
+   "ratio": 1.387,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)"
+   ]
+  },
+  {
+   "ticker": "409570",
+   "date": "2023-04-28",
+   "ratio": 1.378,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)"
+   ]
+  },
+  {
+   "ticker": "419270",
+   "date": "2024-01-12",
+   "ratio": 1.845,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[첨부정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)"
+   ]
+  },
+  {
+   "ticker": "436610",
+   "date": "2024-05-31",
+   "ratio": 1.763,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)"
+   ]
+  },
+  {
+   "ticker": "438220",
+   "date": "2024-06-27",
+   "ratio": 1.36,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)"
+   ]
+  },
+  {
+   "ticker": "466910",
+   "date": "2026-01-30",
+   "ratio": 1.733,
+   "class": "dart_disclosure_found",
+   "cr": [],
+   "share_late": [],
+   "dart": [
+    "[기재정정]주요사항보고서(회사합병결정)",
+    "[기재정정]주요사항보고서(회사합병결정)"
+   ]
+  },
+  {
+   "ticker": "900050",
+   "date": "2017-09-21",
+   "ratio": 1.87,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  },
+  {
+   "ticker": "900090",
+   "date": "2018-12-27",
+   "ratio": 1.4,
+   "class": "no_evidence",
+   "cr": [],
+   "share_late": [],
+   "dart": []
+  }
+ ]
+}

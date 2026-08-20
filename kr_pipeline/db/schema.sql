@@ -755,9 +755,10 @@ CREATE INDEX IF NOT EXISTS idx_corp_action_details_ticker_date
 -- (#114 P0) 상폐 종목 재구성 수정주가 — 격리 테이블 (daily_prices 무접촉).
 -- 소비(RS 재계산·지표 투입)는 별도 설계 문서 승인 전 금지. chain_version='v5'.
 CREATE TABLE IF NOT EXISTS delisted_adj_prices (
-  ticker    VARCHAR(10) NOT NULL,
-  date      DATE NOT NULL,
-  adj_close NUMERIC(16, 4) NOT NULL CHECK (adj_close > 0),
+  ticker     VARCHAR(10) NOT NULL,
+  date       DATE NOT NULL,
+  adj_close  NUMERIC(16, 4) NOT NULL CHECK (adj_close > 0),
+  liq_window BOOLEAN NOT NULL DEFAULT FALSE,  -- 정리매매 창(상폐 전 14일) — 12차 조건 3
   PRIMARY KEY (ticker, date)
 );
 CREATE TABLE IF NOT EXISTS delisted_adj_quality (
@@ -766,6 +767,7 @@ CREATE TABLE IF NOT EXISTS delisted_adj_quality (
   produced_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   n_days        INTEGER NOT NULL,
   n_events      INTEGER NOT NULL,
-  provenance    JSONB NOT NULL,        -- 이벤트 출처 census {gap_share, gap_fallback, fric, piic_gap, stkdp}
-  flags         JSONB NOT NULL         -- 층화 {stkdp_unresolved, has_gap_fallback, has_piic_gap}
+  provenance    JSONB NOT NULL,        -- 적용 이벤트 census {gap_share, fric, piic_gap, stkdp}
+  flags         JSONB NOT NULL,        -- 층화 {stkdp_unresolved, has_piic_gap, n_suppressed_gaps, has_suppressed_upward_gap}
+  suppressed    JSONB NOT NULL DEFAULT '[]'  -- v5-d 미부여 갭 원장(상방 갭 감사 입력)
 );

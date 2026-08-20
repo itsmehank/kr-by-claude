@@ -190,7 +190,8 @@ def v3_events_prov(closes: list[tuple[date, float]], shares: dict[date, int],
                    details: list[dict], *, big_gap: float = 1.35,
                    match_tol: float = 1.4, window_days: int = 45,
                    use_cr: bool = False, cr_window: int = 90,
-                   use_stkdp: bool = True) -> list[tuple[date, float, str]]:
+                   use_stkdp: bool = True,
+                   use_gap_fallback: bool = True) -> list[tuple[date, float, str]]:
     """v3 — 대형은 v2(가격 갭+주식수), 증자류 소형은 DART 상세 직취 (경로B).
 
     반환 = [(이벤트일, 배율, provenance)] — provenance ∈ {gap_share(갭+주식수
@@ -237,7 +238,9 @@ def v3_events_prov(closes: list[tuple[date, float]], shares: dict[date, int],
         if best is not None:
             used.add(best[1])
             events.append((d, best[2], "gap_share"))
-        else:
+        elif use_gap_fallback:
+            # use_gap_fallback=False = v5-d(12차 ① (a)): 상폐 생산 한정 —
+            # 제한폭 부재 구간(정리매매·재개)의 실폭락 오인 차단, 갭 보존.
             events.append((d, g, "gap_fallback"))
 
     big_dates = [d for d, _, _ in events]
