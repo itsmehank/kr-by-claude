@@ -11,6 +11,7 @@
     "stkdp_unresolved": false,
     "has_piic_gap": false,
     "n_suppressed_gaps": 5,
+    "n_suppressed_covered_by_cr": 0,
     "has_suppressed_upward_gap": false
    },
    "n_suppressed": 5,
@@ -35,6 +36,7 @@
     "stkdp_unresolved": false,
     "has_piic_gap": false,
     "n_suppressed_gaps": 0,
+    "n_suppressed_covered_by_cr": 0,
     "has_suppressed_upward_gap": false
    },
    "n_suppressed": 0,
@@ -61,6 +63,7 @@
     "stkdp_unresolved": false,
     "has_piic_gap": false,
     "n_suppressed_gaps": 7,
+    "n_suppressed_covered_by_cr": 0,
     "has_suppressed_upward_gap": true
    },
    "n_suppressed": 7,
@@ -85,6 +88,7 @@
     "stkdp_unresolved": false,
     "has_piic_gap": false,
     "n_suppressed_gaps": 0,
+    "n_suppressed_covered_by_cr": 0,
     "has_suppressed_upward_gap": false
    },
    "n_suppressed": 0,
@@ -111,6 +115,7 @@
     "stkdp_unresolved": false,
     "has_piic_gap": false,
     "n_suppressed_gaps": 7,
+    "n_suppressed_covered_by_cr": 0,
     "has_suppressed_upward_gap": false
    },
    "n_suppressed": 7,
@@ -137,6 +142,7 @@
     "stkdp_unresolved": false,
     "has_piic_gap": false,
     "n_suppressed_gaps": 6,
+    "n_suppressed_covered_by_cr": 0,
     "has_suppressed_upward_gap": false
    },
    "n_suppressed": 6,
@@ -163,6 +169,7 @@
     "stkdp_unresolved": false,
     "has_piic_gap": false,
     "n_suppressed_gaps": 4,
+    "n_suppressed_covered_by_cr": 0,
     "has_suppressed_upward_gap": true
    },
    "n_suppressed": 4,
@@ -189,6 +196,7 @@
     "stkdp_unresolved": false,
     "has_piic_gap": false,
     "n_suppressed_gaps": 1,
+    "n_suppressed_covered_by_cr": 0,
     "has_suppressed_upward_gap": false
    },
    "n_suppressed": 1,
@@ -213,6 +221,7 @@
     "stkdp_unresolved": false,
     "has_piic_gap": false,
     "n_suppressed_gaps": 3,
+    "n_suppressed_covered_by_cr": 0,
     "has_suppressed_upward_gap": true
    },
    "n_suppressed": 3,
@@ -240,6 +249,7 @@
     "stkdp_unresolved": false,
     "has_piic_gap": true,
     "n_suppressed_gaps": 7,
+    "n_suppressed_covered_by_cr": 0,
     "has_suppressed_upward_gap": true
    },
    "n_suppressed": 7,
@@ -266,6 +276,7 @@
     "stkdp_unresolved": false,
     "has_piic_gap": false,
     "n_suppressed_gaps": 0,
+    "n_suppressed_covered_by_cr": 0,
     "has_suppressed_upward_gap": false
    },
    "n_suppressed": 0,
@@ -292,6 +303,7 @@
     "stkdp_unresolved": false,
     "has_piic_gap": false,
     "n_suppressed_gaps": 7,
+    "n_suppressed_covered_by_cr": 0,
     "has_suppressed_upward_gap": true
    },
    "n_suppressed": 7,

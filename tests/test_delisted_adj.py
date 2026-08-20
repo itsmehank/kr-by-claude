@@ -57,6 +57,31 @@ def test_produce_delisted_adj_anchor_halt_and_flags():
     assert r.suppressed == []
 
 
+def test_v5dprime_cr_detail_priority_and_dedup():
+    from kr_pipeline.ohlcv.adj_reconstruct import v3_events_prov
+    # 감자 10:1(기준일 = 정지 스팬 내) → 재개일 상방 갭 ×10, 주식수도 1/10.
+    # v5-d′: crDecsn detail 우선 — 앵커 = 기준일 이후 최초 거래 행(재개일),
+    # 명시 창 내 gap_share 억제(이중 계상 가드 13차 ①).
+    dates = [date(2025, 3, 3), date(2025, 3, 4), date(2025, 4, 7),
+             date(2025, 4, 8)]
+    closes = [(dates[0], 500.0), (dates[1], 500.0), (dates[2], 5000.0),
+              (dates[3], 5100.0)]
+    shares = {dates[0]: 10_000_000, dates[1]: 10_000_000,
+              dates[2]: 1_000_000, dates[3]: 1_000_000}
+    details = [{"endpoint": "crDecsn", "record_date": date(2025, 3, 20),
+                "ratio": 0.9, "method": "무상감자", "rcept_no": "20250304000001"}]
+    # v5-d(기존): gap_share 로 재개일 포착
+    base = v3_events_prov(closes, shares, details, use_gap_fallback=False)
+    assert [(d, p) for d, _, p in base] == [(dates[2], "gap_share")]
+    # v5-d′: detail 우선 — cr_detail 1건만(gap_share 억제), 배율 = 1/(1-0.9)
+    ev = v3_events_prov(closes, shares, details, use_gap_fallback=False,
+                        use_cr_delisted=True)
+    assert [(d, p) for d, _, p in ev] == [(dates[2], "cr_detail")]
+    assert ev[0][1] == pytest.approx(10.0)
+    # 이중 적용 0: cr_detail 창 내 gap_share 잔존 금지
+    assert not any(p == "gap_share" for _, _, p in ev)
+
+
 def test_v5d_suppresses_fallback_gap_and_flags_liq_window():
     from kr_pipeline.ohlcv.adj_reconstruct import v3_events_prov
     from kr_pipeline.ohlcv.delisted_adj import produce_delisted_adj

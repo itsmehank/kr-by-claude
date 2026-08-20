@@ -21,7 +21,7 @@ from typing import NamedTuple
 
 from kr_pipeline.ohlcv.adj_reconstruct import factor_curve, v3_events_prov
 
-CHAIN_VERSION = "v5-d"
+CHAIN_VERSION = "v5-d"    # 13차 v5-d′(crDecsn 편입) 시도 → 정지 규칙 기각, 잔류
 LIQ_WINDOW_DAYS = 14        # 정리매매 창(달력일) — 12차 ① 진단 실측과 동일 정의
 UPWARD_GAP = 1.35           # 상방 갭 감사 임계 = big_gap 동일 [12차 조건 1]
 
@@ -46,6 +46,8 @@ def produce_delisted_adj(
             "stkdp_unresolved": bool(stkdp_unresolved), "has_piic_gap": False,
             "n_suppressed_gaps": 0, "has_suppressed_upward_gap": False,
         }, [], set())
+    # v5-d′(use_cr_delisted=True)는 13차 정지 규칙 기각(레거시 p99 4종목
+    # 2.0~10.9 악화·극단 factor 15 — 반복/미집행 감자 결정 오적용) → v5-d 잔류.
     ev_used = v3_events_prov(pos, shares, details, use_gap_fallback=False)
     ev_v5 = v3_events_prov(pos, shares, details)
     suppressed = [e for e in ev_v5 if e[2] == "gap_fallback"]
@@ -53,10 +55,15 @@ def produce_delisted_adj(
     f = factor_curve(dates, [(d, r) for d, r, _ in ev_used])
     adj = {d: c * f[d] for d, c in pos}
     provenance = dict(Counter(p for _, _, p in ev_used))
+    # 억제 갭 중 cr_detail 창이 설명하는 건(13차 ③(ii) '설명 안 된 억제' 측정)
+    cr_dates = [d for d, _, p in ev_used if p == "cr_detail"]
+    covered = sum(1 for d, _, _ in suppressed
+                  if any(abs((d - cd).days) <= 10 for cd in cr_dates))
     flags = {
         "stkdp_unresolved": bool(stkdp_unresolved),
         "has_piic_gap": provenance.get("piic_gap", 0) > 0,
         "n_suppressed_gaps": len(suppressed),
+        "n_suppressed_covered_by_cr": covered,
         "has_suppressed_upward_gap": any(r > UPWARD_GAP for _, r, _ in suppressed),
     }
     last = dates[-1]

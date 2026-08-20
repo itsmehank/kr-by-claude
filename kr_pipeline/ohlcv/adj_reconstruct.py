@@ -191,7 +191,8 @@ def v3_events_prov(closes: list[tuple[date, float]], shares: dict[date, int],
                    match_tol: float = 1.4, window_days: int = 45,
                    use_cr: bool = False, cr_window: int = 90,
                    use_stkdp: bool = True,
-                   use_gap_fallback: bool = True) -> list[tuple[date, float, str]]:
+                   use_gap_fallback: bool = True,
+                   use_cr_delisted: bool = False) -> list[tuple[date, float, str]]:
     """v3 — 대형은 v2(가격 갭+주식수), 증자류 소형은 DART 상세 직취 (경로B).
 
     반환 = [(이벤트일, 배율, provenance)] — provenance ∈ {gap_share(갭+주식수
@@ -254,8 +255,8 @@ def v3_events_prov(closes: list[tuple[date, float]], shares: dict[date, int],
         if rd is None:
             continue
         if ep == "crDecsn":
-            if not use_cr:                  # v4.2 전: 감자는 대형(갭) 경로 전담
-                continue
+            if not (use_cr or use_cr_delisted):
+                continue                    # 상장 체인: 감자는 대형(갭) 경로 전담
             ratio = det.get("ratio")
             if ratio is None or not (0 < ratio < 1):
                 continue
@@ -311,6 +312,8 @@ def v3_events_prov(closes: list[tuple[date, float]], shares: dict[date, int],
         if any(abs((ex - bd).days) <= 3 for bd in big_dates):
             continue                        # 대형 경로가 이미 처리
         if kind == "cr":
+            if use_cr_delisted:
+                continue                    # v5-d′ 전용 패스에서 처리(하단)
             # v4.2′ 정지 스팬 앵커(9차 ④): [rd−7, rd+W(=90, p95 실분포 84일)]에
             # 대형 갭 이벤트가 있으면 같은 사건 — 대형 경로 전담, detail 스킵.
             if any(-7 <= (bd - rd).days <= cr_window for bd in big_dates):
@@ -332,5 +335,25 @@ def v3_events_prov(closes: list[tuple[date, float]], shares: dict[date, int],
             if abs(math.log(r_evt)) < math.log(1.01):
                 continue                    # 유의미한 락 관측 없음 — 미부여
         events.append((ex, r_evt, "piic_gap" if kind == "piic" else kind))
+
+    if use_cr_delisted:
+        # v5-d′(13차): 상폐 한정 감자 crDecsn 편입 — detail 우선.
+        # 앵커 = 기준일 이후 최초 거래 행(13차 ② — 정지 스팬 내 기준일 대응),
+        # 명시 창 [기준일−7일, 앵커+3일] 내 gap_share 억제(13차 ① 이중 계상
+        # 가드 — 감자는 주식수 변동이라 재개일 갭이 gap_share 로도 잡힘).
+        # 위 fric/stkdp 겹침 가드의 big_dates 는 억제 전 목록 기준(결정적).
+        for kind, rd, _, det in picked:
+            if kind != "cr":
+                continue
+            k = bisect.bisect_left(dates, rd)
+            if k >= len(dates):
+                continue
+            ex = dates[k]
+            events = [e for e in events
+                      if not (e[2] == "gap_share"
+                              and (e[0] - rd).days >= -7
+                              and (e[0] - ex).days <= 3)]
+            events.append((ex, det["_r_evt"], "cr_detail"))
+
     events.sort()
     return events
