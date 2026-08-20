@@ -59,3 +59,47 @@ def test_upsert_idempotent(db):
         cur.execute("SELECT record_date, ratio::float FROM corp_action_details "
                     "WHERE ticker='999990'")
         assert cur.fetchone() == (date(2026, 1, 2), 0.5)
+
+
+def test_parse_stkdp_normal_and_fallback():
+    from kr_pipeline.corporate_actions.details import parse_stkdp
+    # 실공시(20191220800361) 축약 형태 — 총수 기반 ratio
+    t = ("주식배당 결정 1. 1주당 배당주식수 (주) 보통주식 0.0308160 종류주식 - "
+         "2. 배당주식총수 (주) 보통주식 657,500 종류주식 - "
+         "3. 발행주식총수 보통주식 22,342,500 종류주식 - "
+         "4. 배당기준일 2019-12-31 5. 이사회결의일(결정일) 2019-12-20")
+    p = parse_stkdp(t)
+    assert p is not None
+    assert p["record_date"] == date(2019, 12, 31)
+    assert abs(p["ratio"] - 657500 / 22342500) < 1e-9
+    # 총수 미제공 — 1주당 fallback
+    t2 = ("주식배당 결정 1. 1주당 배당주식수 (주) 보통주식 0.05 "
+          "4. 배당기준일 2020-12-31")
+    p2 = parse_stkdp(t2)
+    assert p2 is not None and abs(p2["ratio"] - 0.05) < 1e-9
+
+
+def test_parse_stkdp_rejects_scrambled_correction():
+    from kr_pipeline.corporate_actions.details import parse_stkdp
+    # 기재정정 2단 표 오정렬 계열(실사례 3건): 라벨-값 어긋나 전 필드가 동일
+    # 대수(발행총수)로 잡히거나(001040), 총수 자리에 1주당이 오는(049950 역전) 경우
+    # — 타당성 한계로 기각/안전 fallback 되어야 한다.
+    t = ("주식배당 결정 1. 1주당 배당주식수 (주) 보통주식 29,176,998 "
+         "2. 배당주식총수 (주) 보통주식 29,176,998 "
+         "3. 발행주식총수 보통주식 29,176,998 4. 배당기준일 2018-12-31")
+    assert parse_stkdp(t) is None            # ratio 1.0 — 비현실
+    t2 = ("주식배당 결정 1. 1주당 배당주식수 (주) 보통주식 0.03 "
+          "2. 배당주식총수 (주) 보통주식 224,514 "
+          "3. 발행주식총수 보통주식 0.03 4. 배당기준일 2021-12-31")
+    p2 = parse_stkdp(t2)                     # 총수/발행 역전 → 1주당 fallback
+    assert p2 is not None and abs(p2["ratio"] - 0.03) < 1e-9
+
+
+def test_parse_stkdp_crosscheck_failure_fails_safe():
+    from kr_pipeline.corporate_actions.details import parse_stkdp
+    # 총수 기반과 1주당이 2배 이상 불일치 — 어느 쪽도 신뢰 불가 → None
+    # (의심값 per_share 로 조용히 fallback 하면 안 됨: 오배율이 factor 에 직결)
+    t = ("주식배당 결정 1. 1주당 배당주식수 (주) 보통주식 0.30 "
+         "2. 배당주식총수 (주) 보통주식 20,000 "
+         "3. 발행주식총수 보통주식 2,000,000 4. 배당기준일 2022-12-31")
+    assert parse_stkdp(t) is None

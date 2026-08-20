@@ -69,6 +69,64 @@ def test_v3_events_fric_and_3rd_party():
     assert ev == [(_d(2), pytest.approx(0.5))]
 
 
+def test_v5_stkdp_event_at_pre_close_session():
+    from kr_pipeline.ohlcv.adj_reconstruct import v3_events
+    # 결산 주식배당: 기준일 12/31(비거래일) → 락일 = 폐장일 직전 거래일.
+    # 배율 = 1/(1+배당총수/발행총수) [ratio 필드 = 배당총수/발행총수].
+    dates = [date(2019, 12, 26), date(2019, 12, 27), date(2019, 12, 30),
+             date(2020, 1, 2), date(2020, 1, 3)]
+    closes = [(d, 1000.0) for d in dates]
+    shares = {d: 1_000_000 for d in dates}
+    details = [{"endpoint": "stkdpDecsn", "record_date": date(2019, 12, 31),
+                "ratio": 0.0294, "method": "주식배당", "rcept_no": "20191220800361"},
+               # 주총 후 기재정정(접수일 > 기준일) — KRX 는 원공시 비율로 이미
+               # 락 조정 완료 → 이벤트에서 제외돼야 함
+               {"endpoint": "stkdpDecsn", "record_date": date(2019, 12, 31),
+                "ratio": 0.0400, "method": "주식배당", "rcept_no": "20200328800021"}]
+    assert v3_events(closes, shares, details,
+                     use_stkdp=False) == []                  # v4.1 재현 경로
+    ev = v3_events(closes, shares, details)                  # 동결 v5: 기본 on
+    assert len(ev) == 1
+    assert ev[0][0] == date(2019, 12, 27)                    # 폐장일(12/30) 직전
+    assert ev[0][1] == pytest.approx(1 / 1.0294)             # 원공시 비율 채택
+
+
+def test_v5_stkdp_mid_year_record_uses_fric_rule():
+    from kr_pipeline.ohlcv.adj_reconstruct import v3_events
+    # 비연말 기준일(3월 결산 등) — 무상 동형: 락일 = 기준일 직전 거래일
+    dates = [date(2025, 3, 11), date(2025, 3, 12), date(2025, 3, 13),
+             date(2025, 3, 14), date(2025, 3, 17)]
+    closes = [(d, 1000.0) for d in dates]
+    shares = {d: 1_000_000 for d in dates}
+    details = [{"endpoint": "stkdpDecsn", "record_date": date(2025, 3, 14),
+                "ratio": 0.02, "method": "주식배당", "rcept_no": "20250219800800"}]
+    ev = v3_events(closes, shares, details, use_stkdp=True)
+    assert ev == [(date(2025, 3, 13), pytest.approx(1 / 1.02))]
+
+
+def test_v5_stkdp_halt_and_overlap_skip():
+    from kr_pipeline.ohlcv.adj_reconstruct import v3_events
+    # 정지 스팬(기준일-직전거래일 >7일) → F2 동형: 조정은 재개일에 배치
+    dates = [date(2019, 12, 1), date(2019, 12, 2), date(2020, 1, 20)]
+    closes = [(d, 1000.0) for d in dates]
+    shares = {d: 1_000_000 for d in dates}
+    details = [{"endpoint": "stkdpDecsn", "record_date": date(2019, 12, 31),
+                "ratio": 0.03, "method": "주식배당", "rcept_no": "20191220800001"}]
+    ev = v3_events(closes, shares, details, use_stkdp=True)
+    assert ev == [(date(2020, 1, 20), pytest.approx(1 / 1.03))]
+    # 대형 갭 이벤트(±3일)와 겹치면 대형 경로 전담 — detail 스킵
+    dates2 = [date(2019, 12, 26), date(2019, 12, 27), date(2019, 12, 30),
+              date(2020, 1, 2)]
+    closes2 = [(dates2[0], 10000.0), (dates2[1], 5000.0),
+               (dates2[2], 5000.0), (dates2[3], 5000.0)]
+    shares2 = {d: 1_000_000 for d in dates2}
+    ev2 = v3_events(closes2, shares2, [
+        {"endpoint": "stkdpDecsn", "record_date": date(2019, 12, 31),
+         "ratio": 0.03, "method": "주식배당", "rcept_no": "20191220800002"}],
+        use_stkdp=True)
+    assert all(abs(r - 1 / 1.03) > 1e-9 for _, r in ev2)
+
+
 def test_v3_correction_dedup_and_halt_span():
     from kr_pipeline.ohlcv.adj_reconstruct import v3_events
     from datetime import timedelta

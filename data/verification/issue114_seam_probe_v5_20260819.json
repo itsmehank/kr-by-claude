@@ -1,0 +1,8405 @@
+{
+ "generated": "2026-08-19",
+ "version": "v5",
+ "gate_replication": {
+  "tickers": 1254,
+  "ticker_days": 1853899,
+  "pooled": {
+   "p50": 0.0,
+   "p99": 0.34555873925501435,
+   "max": 14.000000756018533
+  },
+  "ticker_p99": {
+   "median": 0.0,
+   "p90": 0.11162937029202202,
+   "share_le_0.1pct": 0.6674641148325359,
+   "share_le_1pct": 0.7671451355661882
+  },
+  "year_days": {
+   "2017": 66631,
+   "2018": 136473,
+   "2019": 151428,
+   "2020": 167704,
+   "2021": 185750,
+   "2022": 208549,
+   "2023": 228210,
+   "2024": 249942,
+   "2025": 273668,
+   "2026": 185544
+  }
+ },
+ "carveout_stockdiv": {
+  "excluded_tickers": [
+   "214390"
+  ],
+  "n_excluded": 1,
+  "tickers": 1253,
+  "ticker_days": 1851653,
+  "pooled": {
+   "p50": 0.0,
+   "p90": 0.025925088552264497,
+   "p99": 0.3445540723544205,
+   "max": 14.000000756018533
+  },
+  "ticker_p99": {
+   "median": 0.0,
+   "p90": 0.1100000000000001,
+   "p99": 0.46128680479825523,
+   "share_le_0.1pct": 0.6679968076616122,
+   "share_le_1pct": 0.767757382282522,
+   "max": 14.000000756018533
+  }
+ },
+ "onset": {
+  "n_residual_tickers": 292,
+  "step_type_census": {
+   "event_residual": 403,
+   "small_isolated": 133,
+   "stock_div": 1
+  },
+  "stock_div_confirm": {
+   "n": 1,
+   "share_matched_180d": 0
+  },
+  "ticker_class": {
+   "C_event_residual_only": 238,
+   "D_small_isolated_only": 36,
+   "no_steps": 4,
+   "E_event+small": 13,
+   "A_stockdiv_only": 1
+  },
+  "cf_stockdiv_cut": {
+   "tickers_with_cut": 1,
+   "now_le_1pct": 1,
+   "still_gt_1pct": 0,
+   "segment_emptied": 0
+  },
+  "top_step_dates": [
+   [
+    "2018-12-27",
+    8
+   ],
+   [
+    "2020-12-29",
+    7
+   ],
+   [
+    "2021-12-29",
+    6
+   ],
+   [
+    "2019-12-27",
+    5
+   ],
+   [
+    "2021-12-30",
+    5
+   ],
+   [
+    "2017-12-27",
+    4
+   ],
+   [
+    "2018-12-28",
+    4
+   ],
+   [
+    "2020-12-30",
+    4
+   ],
+   [
+    "2026-05-08",
+    4
+   ],
+   [
+    "2017-09-06",
+    4
+   ],
+   [
+    "2020-03-19",
+    4
+   ],
+   [
+    "2022-12-28",
+    3
+   ],
+   [
+    "2023-12-27",
+    3
+   ],
+   [
+    "2023-12-28",
+    3
+   ],
+   [
+    "2017-09-26",
+    3
+   ],
+   [
+    "2026-05-29",
+    3
+   ],
+   [
+    "2025-05-09",
+    3
+   ],
+   [
+    "2018-05-15",
+    3
+   ],
+   [
+    "2026-02-13",
+    3
+   ],
+   [
+    "2019-06-27",
+    3
+   ]
+  ],
+  "tickers": {
+   "000100": {
+    "p99": 0.03436,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 14,
+    "steps": [
+     {
+      "date": "2017-12-27",
+      "dlogq_pct": 4.265,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 26,
+      "near_detail_rd": 5,
+      "near_action": 14
+     },
+     {
+      "date": "2017-12-28",
+      "dlogq_pct": 4.877,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 25,
+      "near_detail_rd": 4,
+      "near_action": 15
+     },
+     {
+      "date": "2018-12-27",
+      "dlogq_pct": 4.401,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 26,
+      "near_detail_rd": 5,
+      "near_action": 15
+     },
+     {
+      "date": "2018-12-28",
+      "dlogq_pct": 4.877,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 25,
+      "near_detail_rd": 4,
+      "near_action": 16
+     },
+     {
+      "date": "2019-12-27",
+      "dlogq_pct": 4.363,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 3,
+      "near_db_jump": 0,
+      "near_share_ev": 26,
+      "near_detail_rd": 5,
+      "near_action": 17
+     },
+     {
+      "date": "2019-12-30",
+      "dlogq_pct": 4.879,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 3,
+      "near_share_ev": 23,
+      "near_detail_rd": 2,
+      "near_action": 20
+     },
+     {
+      "date": "2020-12-29",
+      "dlogq_pct": 4.406,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 24,
+      "near_detail_rd": 3,
+      "near_action": 18
+     },
+     {
+      "date": "2020-12-30",
+      "dlogq_pct": 4.88,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 23,
+      "near_detail_rd": 2,
+      "near_action": 19
+     },
+     {
+      "date": "2021-12-29",
+      "dlogq_pct": 4.393,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 23,
+      "near_detail_rd": 3,
+      "near_action": 23
+     },
+     {
+      "date": "2021-12-30",
+      "dlogq_pct": 4.879,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 22,
+      "near_detail_rd": 2,
+      "near_action": 24
+     },
+     {
+      "date": "2022-12-28",
+      "dlogq_pct": 4.439,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 23,
+      "near_detail_rd": 4,
+      "near_action": 36
+     },
+     {
+      "date": "2022-12-29",
+      "dlogq_pct": 4.879,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 22,
+      "near_detail_rd": 3,
+      "near_action": 37
+     },
+     {
+      "date": "2023-12-27",
+      "dlogq_pct": 4.387,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 23,
+      "near_detail_rd": 5,
+      "near_action": 33
+     },
+     {
+      "date": "2023-12-28",
+      "dlogq_pct": 4.879,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 22,
+      "near_detail_rd": 4,
+      "near_action": 34
+     }
+    ]
+   },
+   "000150": {
+    "p99": 0.26947,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-10-18",
+      "dlogq_pct": 23.859,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": 85
+     }
+    ]
+   },
+   "000210": {
+    "p99": 0.10667,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2021-01-25",
+      "dlogq_pct": 10.135,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": 53
+     }
+    ]
+   },
+   "000300": {
+    "p99": 0.05524,
+    "n_days": 188,
+    "seg_start": "2025-11-11",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-01-14",
+      "dlogq_pct": 5.682,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 29,
+      "near_action": 58
+     }
+    ]
+   },
+   "000370": {
+    "p99": 0.02171,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-09-26",
+      "dlogq_pct": 2.145,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 58,
+      "near_detail_rd": null,
+      "near_action": 4
+     }
+    ]
+   },
+   "000520": {
+    "p99": 0.03763,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-06-04",
+      "dlogq_pct": 4.461,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1043,
+      "near_db_jump": 0,
+      "near_share_ev": 57,
+      "near_detail_rd": 1757,
+      "near_action": 3
+     },
+     {
+      "date": "2023-03-24",
+      "dlogq_pct": 0.61,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 27,
+      "near_detail_rd": 3,
+      "near_action": 15
+     }
+    ]
+   },
+   "000640": {
+    "p99": 0.05994,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2025-03-13",
+      "dlogq_pct": 2.9,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 36,
+      "near_detail_rd": null,
+      "near_action": 497
+     },
+     {
+      "date": "2026-03-11",
+      "dlogq_pct": 2.921,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 35,
+      "near_detail_rd": null,
+      "near_action": 134
+     }
+    ]
+   },
+   "001040": {
+    "p99": 0.46976,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-12-27",
+      "dlogq_pct": 63.442,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": null,
+      "near_detail_rd": 4,
+      "near_action": 853
+     }
+    ]
+   },
+   "001080": {
+    "p99": 0.04778,
+    "n_days": 521,
+    "seg_start": "2024-06-26",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2024-09-23",
+      "dlogq_pct": 4.667,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 467,
+      "near_db_jump": 0,
+      "near_share_ev": 532,
+      "near_detail_rd": null,
+      "near_action": null
+     }
+    ]
+   },
+   "001230": {
+    "p99": 0.08399,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2023-06-16",
+      "dlogq_pct": 16.167,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1078,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 1046,
+      "near_action": 73
+     },
+     {
+      "date": "2026-05-29",
+      "dlogq_pct": 8.773,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 32,
+      "near_action": 107
+     }
+    ]
+   },
+   "001340": {
+    "p99": 0.14301,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2024-04-22",
+      "dlogq_pct": 15.433,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 3232,
+      "near_detail_rd": null,
+      "near_action": null
+     }
+    ]
+   },
+   "001510": {
+    "p99": 0.0665,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-10-29",
+      "dlogq_pct": 6.448,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2737,
+      "near_db_jump": 0,
+      "near_share_ev": 2,
+      "near_detail_rd": null,
+      "near_action": 3
+     }
+    ]
+   },
+   "001840": {
+    "p99": 0.11163,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-02-18",
+      "dlogq_pct": 11.789,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 339,
+      "near_share_ev": 25,
+      "near_detail_rd": 321,
+      "near_action": 67
+     }
+    ]
+   },
+   "002380": {
+    "p99": 0.13903,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-01-21",
+      "dlogq_pct": 13.017,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": 105
+     }
+    ]
+   },
+   "002720": {
+    "p99": 0.011,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 0,
+    "steps": []
+   },
+   "002840": {
+    "p99": 0.04972,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-08-13",
+      "dlogq_pct": 4.851,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 137,
+      "near_db_jump": 0,
+      "near_share_ev": 59,
+      "near_detail_rd": 15,
+      "near_action": 34
+     }
+    ]
+   },
+   "002900": {
+    "p99": 0.20863,
+    "n_days": 2085,
+    "seg_start": "2018-02-14",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-09-17",
+      "dlogq_pct": 18.913,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 957,
+      "near_db_jump": 0,
+      "near_share_ev": 57,
+      "near_detail_rd": 1353,
+      "near_action": 1
+     }
+    ]
+   },
+   "003030": {
+    "p99": 0.17295,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-10-05",
+      "dlogq_pct": 15.952,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": 32
+     }
+    ]
+   },
+   "003060": {
+    "p99": 14.0,
+    "n_days": 298,
+    "seg_start": "2025-05-29",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-08",
+      "dlogq_pct": 270.805,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 725,
+      "near_share_ev": 0,
+      "near_detail_rd": 24,
+      "near_action": 25
+     }
+    ]
+   },
+   "003550": {
+    "p99": 0.05858,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2021-05-27",
+      "dlogq_pct": 5.693,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 1433,
+      "near_action": 77
+     }
+    ]
+   },
+   "003620": {
+    "p99": 0.0659,
+    "n_days": 550,
+    "seg_start": "2024-05-14",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-05-09",
+      "dlogq_pct": 6.817,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 742,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 28,
+      "near_action": 15
+     }
+    ]
+   },
+   "003690": {
+    "p99": 0.06424,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2022-12-12",
+      "dlogq_pct": 2.554,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 16,
+      "near_detail_rd": 1,
+      "near_action": 14
+     },
+     {
+      "date": "2023-11-20",
+      "dlogq_pct": 2.265,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 22,
+      "near_detail_rd": 1,
+      "near_action": 14
+     },
+     {
+      "date": "2024-11-06",
+      "dlogq_pct": 1.832,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 19,
+      "near_detail_rd": 1,
+      "near_action": 14
+     }
+    ]
+   },
+   "003850": {
+    "p99": 0.21692,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 4,
+    "steps": [
+     {
+      "date": "2020-12-29",
+      "dlogq_pct": 8.881,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 22,
+      "near_detail_rd": 3,
+      "near_action": 18
+     },
+     {
+      "date": "2020-12-30",
+      "dlogq_pct": 9.509,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 21,
+      "near_detail_rd": 2,
+      "near_action": 19
+     },
+     {
+      "date": "2021-06-02",
+      "dlogq_pct": 2.174,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 154,
+      "near_db_jump": 0,
+      "near_share_ev": 55,
+      "near_detail_rd": 47,
+      "near_action": 1
+     },
+     {
+      "date": "2021-07-16",
+      "dlogq_pct": 17.456,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 198,
+      "near_db_jump": 0,
+      "near_share_ev": 11,
+      "near_detail_rd": 3,
+      "near_action": 11
+     }
+    ]
+   },
+   "004150": {
+    "p99": 0.06519,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-05-22",
+      "dlogq_pct": 6.454,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 374,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 18,
+      "near_action": 77
+     }
+    ]
+   },
+   "004270": {
+    "p99": 0.03245,
+    "n_days": 1320,
+    "seg_start": "2021-03-30",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-07-21",
+      "dlogq_pct": 3.299,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 17,
+      "near_detail_rd": 1,
+      "near_action": 10
+     }
+    ]
+   },
+   "004310": {
+    "p99": 0.02806,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-10-20",
+      "dlogq_pct": 2.763,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 63,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "004410": {
+    "p99": 0.01255,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2021-02-18",
+      "dlogq_pct": 1.263,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1212,
+      "near_share_ev": 8,
+      "near_detail_rd": null,
+      "near_action": null
+     }
+    ]
+   },
+   "004800": {
+    "p99": 0.29815,
+    "n_days": 1733,
+    "seg_start": "2019-07-25",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2024-07-29",
+      "dlogq_pct": 26.092,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2208,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": 60
+     }
+    ]
+   },
+   "004840": {
+    "p99": 0.03958,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2019-12-27",
+      "dlogq_pct": 2.222,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 365,
+      "near_share_ev": 254,
+      "near_detail_rd": 4,
+      "near_action": 788
+     },
+     {
+      "date": "2020-12-29",
+      "dlogq_pct": 1.815,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 733,
+      "near_share_ev": 622,
+      "near_detail_rd": 2,
+      "near_action": 420
+     }
+    ]
+   },
+   "004870": {
+    "p99": 0.05172,
+    "n_days": 916,
+    "seg_start": "2022-11-16",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-07-24",
+      "dlogq_pct": 4.98,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 21,
+      "near_action": 93
+     }
+    ]
+   },
+   "005320": {
+    "p99": 0.17552,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-05-14",
+      "dlogq_pct": 16.133,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 732,
+      "near_db_jump": 0,
+      "near_share_ev": 19,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "005850": {
+    "p99": 0.25458,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-07-06",
+      "dlogq_pct": 22.677,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 447,
+      "near_detail_rd": 665,
+      "near_action": 272
+     }
+    ]
+   },
+   "005880": {
+    "p99": 0.07342,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2021-04-30",
+      "dlogq_pct": 7.062,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 200,
+      "near_db_jump": 0,
+      "near_share_ev": 61,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "006490": {
+    "p99": 0.13709,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-03-17",
+      "dlogq_pct": 14.745,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 121,
+      "near_share_ev": 38,
+      "near_detail_rd": 148,
+      "near_action": 14
+     }
+    ]
+   },
+   "006730": {
+    "p99": 0.01131,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-09-06",
+      "dlogq_pct": 1.811,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 75,
+      "near_db_jump": 0,
+      "near_share_ev": 69,
+      "near_detail_rd": 76,
+      "near_action": 1
+     }
+    ]
+   },
+   "006740": {
+    "p99": 0.03704,
+    "n_days": 426,
+    "seg_start": "2024-11-15",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-29",
+      "dlogq_pct": 3.572,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 22,
+      "near_action": 18
+     }
+    ]
+   },
+   "006800": {
+    "p99": 0.0275,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-01-23",
+      "dlogq_pct": 2.265,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 140,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "007070": {
+    "p99": 0.16925,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2024-12-23",
+      "dlogq_pct": 15.631,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 28,
+      "near_action": 25
+     }
+    ]
+   },
+   "007120": {
+    "p99": 0.25857,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2017-07-11",
+      "dlogq_pct": 18.729,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2123,
+      "near_db_jump": 0,
+      "near_share_ev": 94,
+      "near_detail_rd": 660,
+      "near_action": 4
+     },
+     {
+      "date": "2019-05-17",
+      "dlogq_pct": 22.865,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1448,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 15,
+      "near_action": 49
+     }
+    ]
+   },
+   "007330": {
+    "p99": 0.04123,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-04-14",
+      "dlogq_pct": 4.027,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": null,
+      "near_detail_rd": null,
+      "near_action": null
+     }
+    ]
+   },
+   "007460": {
+    "p99": 14.0,
+    "n_days": 664,
+    "seg_start": "2023-11-23",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-08",
+      "dlogq_pct": 270.805,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1205,
+      "near_share_ev": 0,
+      "near_detail_rd": 23,
+      "near_action": 36
+     }
+    ]
+   },
+   "007530": {
+    "p99": 0.12189,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-03-26",
+      "dlogq_pct": 22.723,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1165,
+      "near_db_jump": 0,
+      "near_share_ev": 56,
+      "near_detail_rd": 1166,
+      "near_action": 3
+     },
+     {
+      "date": "2019-09-20",
+      "dlogq_pct": 11.069,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 622,
+      "near_db_jump": 0,
+      "near_share_ev": 487,
+      "near_detail_rd": 623,
+      "near_action": 513
+     }
+    ]
+   },
+   "007570": {
+    "p99": 0.10616,
+    "n_days": 1085,
+    "seg_start": "2022-03-14",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-03-26",
+      "dlogq_pct": 11.223,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1848,
+      "near_db_jump": 0,
+      "near_share_ev": 3906,
+      "near_detail_rd": null,
+      "near_action": null
+     }
+    ]
+   },
+   "007690": {
+    "p99": 0.29086,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2021-07-08",
+      "dlogq_pct": 6.084,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 56,
+      "near_detail_rd": 46,
+      "near_action": 1
+     },
+     {
+      "date": "2021-08-20",
+      "dlogq_pct": 19.441,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 13,
+      "near_detail_rd": 3,
+      "near_action": 11
+     }
+    ]
+   },
+   "007720": {
+    "p99": 0.05916,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-07-14",
+      "dlogq_pct": 6.098,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 26,
+      "near_action": 109
+     }
+    ]
+   },
+   "008830": {
+    "p99": 0.54639,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2026-06-11",
+      "dlogq_pct": 17.259,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2599,
+      "near_db_jump": 0,
+      "near_share_ev": 61,
+      "near_detail_rd": 54,
+      "near_action": 1
+     },
+     {
+      "date": "2026-08-03",
+      "dlogq_pct": 26.236,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2652,
+      "near_db_jump": 0,
+      "near_share_ev": 8,
+      "near_detail_rd": 1,
+      "near_action": 19
+     }
+    ]
+   },
+   "008970": {
+    "p99": 0.18633,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-11-05",
+      "dlogq_pct": 9.589,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2503,
+      "near_db_jump": 0,
+      "near_share_ev": 52,
+      "near_detail_rd": null,
+      "near_action": 3
+     },
+     {
+      "date": "2025-10-27",
+      "dlogq_pct": 7.355,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 45,
+      "near_db_jump": 0,
+      "near_share_ev": 45,
+      "near_detail_rd": null,
+      "near_action": 3
+     }
+    ]
+   },
+   "009180": {
+    "p99": 0.17936,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-09-28",
+      "dlogq_pct": 16.476,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 54,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "009310": {
+    "p99": 4.0,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-11",
+      "dlogq_pct": 160.944,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 367,
+      "near_share_ev": 0,
+      "near_detail_rd": 31,
+      "near_action": 61
+     }
+    ]
+   },
+   "009730": {
+    "p99": 0.09817,
+    "n_days": 264,
+    "seg_start": "2025-07-18",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2026-04-27",
+      "dlogq_pct": 12.132,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 84,
+      "near_share_ev": 13,
+      "near_detail_rd": 56,
+      "near_action": 3
+     },
+     {
+      "date": "2026-07-20",
+      "dlogq_pct": 1.796,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 28,
+      "near_action": 2
+     }
+    ]
+   },
+   "009810": {
+    "p99": 0.15624,
+    "n_days": 1215,
+    "seg_start": "2021-08-27",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2024-07-04",
+      "dlogq_pct": 16.827,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 586,
+      "near_share_ev": 0,
+      "near_detail_rd": 1330,
+      "near_action": 21
+     }
+    ]
+   },
+   "011200": {
+    "p99": 0.12113,
+    "n_days": 2208,
+    "seg_start": "2017-08-11",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-11-02",
+      "dlogq_pct": 11.433,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 456,
+      "near_db_jump": 0,
+      "near_share_ev": 55,
+      "near_detail_rd": 441,
+      "near_action": 2
+     }
+    ]
+   },
+   "011300": {
+    "p99": 0.13285,
+    "n_days": 1085,
+    "seg_start": "2022-03-14",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2022-04-14",
+      "dlogq_pct": 12.151,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 406,
+      "near_db_jump": 0,
+      "near_share_ev": 291,
+      "near_detail_rd": 1026,
+      "near_action": 110
+     },
+     {
+      "date": "2025-02-27",
+      "dlogq_pct": 12.271,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 427,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 24,
+      "near_action": 6
+     }
+    ]
+   },
+   "012860": {
+    "p99": 0.17474,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-11-18",
+      "dlogq_pct": 16.074,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 56,
+      "near_detail_rd": null,
+      "near_action": 3
+     }
+    ]
+   },
+   "013720": {
+    "p99": 0.13263,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 87,
+    "steps": [
+     {
+      "date": "2017-07-07",
+      "dlogq_pct": 0.519,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1482,
+      "near_db_jump": 0,
+      "near_share_ev": 146,
+      "near_detail_rd": 1866,
+      "near_action": 1377
+     },
+     {
+      "date": "2017-07-31",
+      "dlogq_pct": 0.504,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1458,
+      "near_db_jump": 0,
+      "near_share_ev": 122,
+      "near_detail_rd": 1842,
+      "near_action": 1353
+     },
+     {
+      "date": "2017-08-17",
+      "dlogq_pct": 0.502,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1441,
+      "near_db_jump": 0,
+      "near_share_ev": 105,
+      "near_detail_rd": 1825,
+      "near_action": 1336
+     },
+     {
+      "date": "2017-08-18",
+      "dlogq_pct": 0.506,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1440,
+      "near_db_jump": 0,
+      "near_share_ev": 104,
+      "near_detail_rd": 1824,
+      "near_action": 1335
+     },
+     {
+      "date": "2017-08-29",
+      "dlogq_pct": 0.507,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1429,
+      "near_db_jump": 0,
+      "near_share_ev": 93,
+      "near_detail_rd": 1813,
+      "near_action": 1324
+     },
+     {
+      "date": "2017-10-10",
+      "dlogq_pct": 0.547,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1387,
+      "near_db_jump": 0,
+      "near_share_ev": 51,
+      "near_detail_rd": 1771,
+      "near_action": 1282
+     },
+     {
+      "date": "2017-11-17",
+      "dlogq_pct": 0.596,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1349,
+      "near_db_jump": 0,
+      "near_share_ev": 13,
+      "near_detail_rd": 1733,
+      "near_action": 1244
+     },
+     {
+      "date": "2017-11-27",
+      "dlogq_pct": 0.602,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1339,
+      "near_db_jump": 0,
+      "near_share_ev": 3,
+      "near_detail_rd": 1723,
+      "near_action": 1234
+     },
+     {
+      "date": "2017-11-30",
+      "dlogq_pct": 0.623,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1336,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 1720,
+      "near_action": 1231
+     },
+     {
+      "date": "2017-12-04",
+      "dlogq_pct": 0.61,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1332,
+      "near_db_jump": 0,
+      "near_share_ev": 4,
+      "near_detail_rd": 1716,
+      "near_action": 1227
+     },
+     {
+      "date": "2017-12-21",
+      "dlogq_pct": 0.577,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1315,
+      "near_db_jump": 0,
+      "near_share_ev": 21,
+      "near_detail_rd": 1699,
+      "near_action": 1210
+     },
+     {
+      "date": "2018-01-12",
+      "dlogq_pct": 0.521,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1293,
+      "near_db_jump": 0,
+      "near_share_ev": 43,
+      "near_detail_rd": 1677,
+      "near_action": 1188
+     },
+     {
+      "date": "2018-01-23",
+      "dlogq_pct": 0.548,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1282,
+      "near_db_jump": 0,
+      "near_share_ev": 54,
+      "near_detail_rd": 1666,
+      "near_action": 1177
+     },
+     {
+      "date": "2018-01-30",
+      "dlogq_pct": 0.518,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1275,
+      "near_db_jump": 0,
+      "near_share_ev": 61,
+      "near_detail_rd": 1659,
+      "near_action": 1170
+     },
+     {
+      "date": "2018-02-08",
+      "dlogq_pct": 0.519,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1266,
+      "near_db_jump": 0,
+      "near_share_ev": 70,
+      "near_detail_rd": 1650,
+      "near_action": 1161
+     },
+     {
+      "date": "2018-02-13",
+      "dlogq_pct": 0.548,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1261,
+      "near_db_jump": 0,
+      "near_share_ev": 75,
+      "near_detail_rd": 1645,
+      "near_action": 1156
+     },
+     {
+      "date": "2018-02-14",
+      "dlogq_pct": 0.548,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1260,
+      "near_db_jump": 0,
+      "near_share_ev": 76,
+      "near_detail_rd": 1644,
+      "near_action": 1155
+     },
+     {
+      "date": "2018-02-19",
+      "dlogq_pct": 0.558,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1255,
+      "near_db_jump": 0,
+      "near_share_ev": 81,
+      "near_detail_rd": 1639,
+      "near_action": 1150
+     },
+     {
+      "date": "2018-04-16",
+      "dlogq_pct": 0.64,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1199,
+      "near_db_jump": 0,
+      "near_share_ev": 137,
+      "near_detail_rd": 1583,
+      "near_action": 1094
+     },
+     {
+      "date": "2018-05-15",
+      "dlogq_pct": 0.571,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1170,
+      "near_db_jump": 0,
+      "near_share_ev": 166,
+      "near_detail_rd": 1554,
+      "near_action": 1065
+     },
+     {
+      "date": "2018-10-31",
+      "dlogq_pct": 0.51,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1001,
+      "near_db_jump": 0,
+      "near_share_ev": 335,
+      "near_detail_rd": 1385,
+      "near_action": 896
+     },
+     {
+      "date": "2018-11-01",
+      "dlogq_pct": 0.512,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1000,
+      "near_db_jump": 0,
+      "near_share_ev": 336,
+      "near_detail_rd": 1384,
+      "near_action": 895
+     },
+     {
+      "date": "2018-12-13",
+      "dlogq_pct": 0.555,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 958,
+      "near_db_jump": 0,
+      "near_share_ev": 378,
+      "near_detail_rd": 1342,
+      "near_action": 853
+     },
+     {
+      "date": "2018-12-18",
+      "dlogq_pct": 0.577,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 953,
+      "near_db_jump": 0,
+      "near_share_ev": 383,
+      "near_detail_rd": 1337,
+      "near_action": 848
+     },
+     {
+      "date": "2019-02-25",
+      "dlogq_pct": 0.548,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 884,
+      "near_db_jump": 0,
+      "near_share_ev": 452,
+      "near_detail_rd": 1268,
+      "near_action": 779
+     },
+     {
+      "date": "2019-03-21",
+      "dlogq_pct": 0.587,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 860,
+      "near_db_jump": 0,
+      "near_share_ev": 476,
+      "near_detail_rd": 1244,
+      "near_action": 755
+     },
+     {
+      "date": "2019-03-22",
+      "dlogq_pct": 0.588,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 859,
+      "near_db_jump": 0,
+      "near_share_ev": 477,
+      "near_detail_rd": 1243,
+      "near_action": 754
+     },
+     {
+      "date": "2019-04-03",
+      "dlogq_pct": 0.565,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 847,
+      "near_db_jump": 0,
+      "near_share_ev": 489,
+      "near_detail_rd": 1231,
+      "near_action": 742
+     },
+     {
+      "date": "2019-04-04",
+      "dlogq_pct": 0.575,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 846,
+      "near_db_jump": 0,
+      "near_share_ev": 490,
+      "near_detail_rd": 1230,
+      "near_action": 741
+     },
+     {
+      "date": "2019-04-08",
+      "dlogq_pct": 0.549,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 842,
+      "near_db_jump": 0,
+      "near_share_ev": 494,
+      "near_detail_rd": 1226,
+      "near_action": 737
+     },
+     {
+      "date": "2019-04-09",
+      "dlogq_pct": 0.536,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 841,
+      "near_db_jump": 0,
+      "near_share_ev": 495,
+      "near_detail_rd": 1225,
+      "near_action": 736
+     },
+     {
+      "date": "2019-04-10",
+      "dlogq_pct": 0.535,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 840,
+      "near_db_jump": 0,
+      "near_share_ev": 496,
+      "near_detail_rd": 1224,
+      "near_action": 735
+     },
+     {
+      "date": "2019-05-02",
+      "dlogq_pct": 0.533,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 818,
+      "near_db_jump": 0,
+      "near_share_ev": 518,
+      "near_detail_rd": 1202,
+      "near_action": 713
+     },
+     {
+      "date": "2019-05-15",
+      "dlogq_pct": 0.514,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 805,
+      "near_db_jump": 0,
+      "near_share_ev": 531,
+      "near_detail_rd": 1189,
+      "near_action": 700
+     },
+     {
+      "date": "2019-05-16",
+      "dlogq_pct": 0.522,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 804,
+      "near_db_jump": 0,
+      "near_share_ev": 532,
+      "near_detail_rd": 1188,
+      "near_action": 699
+     },
+     {
+      "date": "2019-05-17",
+      "dlogq_pct": 0.54,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 803,
+      "near_db_jump": 0,
+      "near_share_ev": 533,
+      "near_detail_rd": 1187,
+      "near_action": 698
+     },
+     {
+      "date": "2019-05-24",
+      "dlogq_pct": 0.558,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 796,
+      "near_db_jump": 0,
+      "near_share_ev": 540,
+      "near_detail_rd": 1180,
+      "near_action": 691
+     },
+     {
+      "date": "2019-06-05",
+      "dlogq_pct": 0.579,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 784,
+      "near_db_jump": 0,
+      "near_share_ev": 552,
+      "near_detail_rd": 1168,
+      "near_action": 679
+     },
+     {
+      "date": "2019-06-11",
+      "dlogq_pct": 0.57,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 778,
+      "near_db_jump": 0,
+      "near_share_ev": 558,
+      "near_detail_rd": 1162,
+      "near_action": 673
+     },
+     {
+      "date": "2019-06-12",
+      "dlogq_pct": 0.572,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 777,
+      "near_db_jump": 0,
+      "near_share_ev": 559,
+      "near_detail_rd": 1161,
+      "near_action": 672
+     },
+     {
+      "date": "2019-06-13",
+      "dlogq_pct": 0.572,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 776,
+      "near_db_jump": 0,
+      "near_share_ev": 560,
+      "near_detail_rd": 1160,
+      "near_action": 671
+     },
+     {
+      "date": "2019-07-18",
+      "dlogq_pct": 0.643,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 741,
+      "near_db_jump": 0,
+      "near_share_ev": 595,
+      "near_detail_rd": 1125,
+      "near_action": 636
+     },
+     {
+      "date": "2019-07-19",
+      "dlogq_pct": 0.643,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 740,
+      "near_db_jump": 0,
+      "near_share_ev": 596,
+      "near_detail_rd": 1124,
+      "near_action": 635
+     },
+     {
+      "date": "2019-07-22",
+      "dlogq_pct": 0.636,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 737,
+      "near_db_jump": 0,
+      "near_share_ev": 599,
+      "near_detail_rd": 1121,
+      "near_action": 632
+     },
+     {
+      "date": "2019-07-23",
+      "dlogq_pct": 0.638,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 736,
+      "near_db_jump": 0,
+      "near_share_ev": 600,
+      "near_detail_rd": 1120,
+      "near_action": 631
+     },
+     {
+      "date": "2019-07-24",
+      "dlogq_pct": 0.642,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 735,
+      "near_db_jump": 0,
+      "near_share_ev": 601,
+      "near_detail_rd": 1119,
+      "near_action": 630
+     },
+     {
+      "date": "2019-08-19",
+      "dlogq_pct": 0.672,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 709,
+      "near_db_jump": 0,
+      "near_share_ev": 627,
+      "near_detail_rd": 1093,
+      "near_action": 604
+     },
+     {
+      "date": "2019-08-23",
+      "dlogq_pct": 0.642,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 705,
+      "near_db_jump": 0,
+      "near_share_ev": 631,
+      "near_detail_rd": 1089,
+      "near_action": 600
+     },
+     {
+      "date": "2019-08-26",
+      "dlogq_pct": 0.643,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 702,
+      "near_db_jump": 0,
+      "near_share_ev": 634,
+      "near_detail_rd": 1086,
+      "near_action": 597
+     },
+     {
+      "date": "2019-08-29",
+      "dlogq_pct": 0.639,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 699,
+      "near_db_jump": 0,
+      "near_share_ev": 637,
+      "near_detail_rd": 1083,
+      "near_action": 594
+     },
+     {
+      "date": "2019-08-30",
+      "dlogq_pct": 0.636,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 698,
+      "near_db_jump": 0,
+      "near_share_ev": 638,
+      "near_detail_rd": 1082,
+      "near_action": 593
+     },
+     {
+      "date": "2019-09-10",
+      "dlogq_pct": 0.624,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 687,
+      "near_db_jump": 0,
+      "near_share_ev": 649,
+      "near_detail_rd": 1071,
+      "near_action": 582
+     },
+     {
+      "date": "2019-11-14",
+      "dlogq_pct": 0.647,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 622,
+      "near_db_jump": 0,
+      "near_share_ev": 622,
+      "near_detail_rd": 1006,
+      "near_action": 517
+     },
+     {
+      "date": "2019-11-15",
+      "dlogq_pct": 0.643,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 621,
+      "near_db_jump": 0,
+      "near_share_ev": 621,
+      "near_detail_rd": 1005,
+      "near_action": 516
+     },
+     {
+      "date": "2019-11-26",
+      "dlogq_pct": 0.666,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 610,
+      "near_db_jump": 0,
+      "near_share_ev": 610,
+      "near_detail_rd": 994,
+      "near_action": 505
+     },
+     {
+      "date": "2019-11-29",
+      "dlogq_pct": 0.666,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 607,
+      "near_db_jump": 0,
+      "near_share_ev": 607,
+      "near_detail_rd": 991,
+      "near_action": 502
+     },
+     {
+      "date": "2019-12-10",
+      "dlogq_pct": 0.666,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 596,
+      "near_db_jump": 0,
+      "near_share_ev": 596,
+      "near_detail_rd": 980,
+      "near_action": 491
+     },
+     {
+      "date": "2019-12-12",
+      "dlogq_pct": 0.659,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 594,
+      "near_db_jump": 0,
+      "near_share_ev": 594,
+      "near_detail_rd": 978,
+      "near_action": 489
+     },
+     {
+      "date": "2020-01-09",
+      "dlogq_pct": 0.663,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 566,
+      "near_db_jump": 0,
+      "near_share_ev": 566,
+      "near_detail_rd": 950,
+      "near_action": 461
+     },
+     {
+      "date": "2020-01-10",
+      "dlogq_pct": 0.65,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 565,
+      "near_db_jump": 0,
+      "near_share_ev": 565,
+      "near_detail_rd": 949,
+      "near_action": 460
+     },
+     {
+      "date": "2020-01-15",
+      "dlogq_pct": 0.57,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 560,
+      "near_db_jump": 0,
+      "near_share_ev": 560,
+      "near_detail_rd": 944,
+      "near_action": 455
+     },
+     {
+      "date": "2020-01-30",
+      "dlogq_pct": 0.586,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 545,
+      "near_db_jump": 0,
+      "near_share_ev": 545,
+      "near_detail_rd": 929,
+      "near_action": 440
+     },
+     {
+      "date": "2020-03-02",
+      "dlogq_pct": 0.664,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 513,
+      "near_db_jump": 0,
+      "near_share_ev": 513,
+      "near_detail_rd": 897,
+      "near_action": 408
+     },
+     {
+      "date": "2020-03-17",
+      "dlogq_pct": 0.531,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 498,
+      "near_db_jump": 0,
+      "near_share_ev": 498,
+      "near_detail_rd": 882,
+      "near_action": 393
+     },
+     {
+      "date": "2020-03-27",
+      "dlogq_pct": 0.899,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 488,
+      "near_db_jump": 0,
+      "near_share_ev": 488,
+      "near_detail_rd": 872,
+      "near_action": 383
+     },
+     {
+      "date": "2020-03-30",
+      "dlogq_pct": 0.882,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 485,
+      "near_db_jump": 0,
+      "near_share_ev": 485,
+      "near_detail_rd": 869,
+      "near_action": 380
+     },
+     {
+      "date": "2020-04-06",
+      "dlogq_pct": 0.533,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 478,
+      "near_db_jump": 0,
+      "near_share_ev": 478,
+      "near_detail_rd": 862,
+      "near_action": 373
+     },
+     {
+      "date": "2020-04-07",
+      "dlogq_pct": 0.531,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 477,
+      "near_db_jump": 0,
+      "near_share_ev": 477,
+      "near_detail_rd": 861,
+      "near_action": 372
+     },
+     {
+      "date": "2020-04-08",
+      "dlogq_pct": 0.539,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 476,
+      "near_db_jump": 0,
+      "near_share_ev": 476,
+      "near_detail_rd": 860,
+      "near_action": 371
+     },
+     {
+      "date": "2020-04-10",
+      "dlogq_pct": 0.733,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 474,
+      "near_db_jump": 0,
+      "near_share_ev": 474,
+      "near_detail_rd": 858,
+      "near_action": 369
+     },
+     {
+      "date": "2020-04-17",
+      "dlogq_pct": 0.502,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 467,
+      "near_db_jump": 0,
+      "near_share_ev": 467,
+      "near_detail_rd": 851,
+      "near_action": 362
+     },
+     {
+      "date": "2020-05-07",
+      "dlogq_pct": 0.689,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 447,
+      "near_db_jump": 0,
+      "near_share_ev": 447,
+      "near_detail_rd": 831,
+      "near_action": 342
+     },
+     {
+      "date": "2020-05-22",
+      "dlogq_pct": 0.662,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 432,
+      "near_db_jump": 0,
+      "near_share_ev": 432,
+      "near_detail_rd": 816,
+      "near_action": 327
+     },
+     {
+      "date": "2020-06-05",
+      "dlogq_pct": 0.69,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 418,
+      "near_db_jump": 0,
+      "near_share_ev": 418,
+      "near_detail_rd": 802,
+      "near_action": 313
+     },
+     {
+      "date": "2020-06-08",
+      "dlogq_pct": 0.707,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 415,
+      "near_db_jump": 0,
+      "near_share_ev": 415,
+      "near_detail_rd": 799,
+      "near_action": 310
+     },
+     {
+      "date": "2020-06-09",
+      "dlogq_pct": 0.71,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 414,
+      "near_db_jump": 0,
+      "near_share_ev": 414,
+      "near_detail_rd": 798,
+      "near_action": 309
+     },
+     {
+      "date": "2020-06-10",
+      "dlogq_pct": 0.709,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 413,
+      "near_db_jump": 0,
+      "near_share_ev": 413,
+      "near_detail_rd": 797,
+      "near_action": 308
+     },
+     {
+      "date": "2020-06-15",
+      "dlogq_pct": 0.525,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 408,
+      "near_db_jump": 0,
+      "near_share_ev": 408,
+      "near_detail_rd": 792,
+      "near_action": 303
+     },
+     {
+      "date": "2020-06-16",
+      "dlogq_pct": 0.784,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 407,
+      "near_db_jump": 0,
+      "near_share_ev": 407,
+      "near_detail_rd": 791,
+      "near_action": 302
+     },
+     {
+      "date": "2020-06-17",
+      "dlogq_pct": 0.517,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 406,
+      "near_db_jump": 0,
+      "near_share_ev": 406,
+      "near_detail_rd": 790,
+      "near_action": 301
+     },
+     {
+      "date": "2020-06-18",
+      "dlogq_pct": 0.749,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 405,
+      "near_db_jump": 0,
+      "near_share_ev": 405,
+      "near_detail_rd": 789,
+      "near_action": 300
+     },
+     {
+      "date": "2020-07-06",
+      "dlogq_pct": 0.511,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 387,
+      "near_db_jump": 0,
+      "near_share_ev": 387,
+      "near_detail_rd": 771,
+      "near_action": 282
+     },
+     {
+      "date": "2020-07-16",
+      "dlogq_pct": 0.553,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 377,
+      "near_db_jump": 0,
+      "near_share_ev": 377,
+      "near_detail_rd": 761,
+      "near_action": 272
+     },
+     {
+      "date": "2020-07-24",
+      "dlogq_pct": 0.507,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 369,
+      "near_db_jump": 0,
+      "near_share_ev": 369,
+      "near_detail_rd": 753,
+      "near_action": 264
+     },
+     {
+      "date": "2020-07-30",
+      "dlogq_pct": 0.627,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 363,
+      "near_db_jump": 0,
+      "near_share_ev": 363,
+      "near_detail_rd": 747,
+      "near_action": 258
+     },
+     {
+      "date": "2022-03-15",
+      "dlogq_pct": 17.022,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 150,
+      "near_share_ev": 3,
+      "near_detail_rd": 154,
+      "near_action": 27
+     },
+     {
+      "date": "2026-07-28",
+      "dlogq_pct": 2.585,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 15,
+      "near_action": 22
+     }
+    ]
+   },
+   "014190": {
+    "p99": 0.07079,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-09-06",
+      "dlogq_pct": 6.838,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 65,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "014830": {
+    "p99": 0.13484,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-11-28",
+      "dlogq_pct": 14.483,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 2678,
+      "near_action": 109
+     }
+    ]
+   },
+   "015260": {
+    "p99": 0.12782,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2018-01-09",
+      "dlogq_pct": 17.568,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1017,
+      "near_db_jump": 0,
+      "near_share_ev": 58,
+      "near_detail_rd": 1002,
+      "near_action": 1
+     },
+     {
+      "date": "2020-10-22",
+      "dlogq_pct": 10.275,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 15,
+      "near_action": 5
+     },
+     {
+      "date": "2020-10-28",
+      "dlogq_pct": 4.737,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 6,
+      "near_db_jump": 0,
+      "near_share_ev": 6,
+      "near_detail_rd": 21,
+      "near_action": 1
+     }
+    ]
+   },
+   "015750": {
+    "p99": 0.04979,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-05-09",
+      "dlogq_pct": 4.853,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 61,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "016670": {
+    "p99": 0.11354,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2020-06-03",
+      "dlogq_pct": 21.631,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1444,
+      "near_db_jump": 0,
+      "near_share_ev": 55,
+      "near_detail_rd": 1,
+      "near_action": 1
+     },
+     {
+      "date": "2024-05-17",
+      "dlogq_pct": 12.052,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 17,
+      "near_action": 17
+     }
+    ]
+   },
+   "016920": {
+    "p99": 0.08851,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-09-07",
+      "dlogq_pct": 8.474,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 64,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "017250": {
+    "p99": 0.07054,
+    "n_days": 2057,
+    "seg_start": "2018-03-29",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-07-18",
+      "dlogq_pct": 7.315,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 490,
+      "near_db_jump": 0,
+      "near_share_ev": 523,
+      "near_detail_rd": null,
+      "near_action": 1461
+     }
+    ]
+   },
+   "018620": {
+    "p99": 0.32162,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2017-12-22",
+      "dlogq_pct": 4.648,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 3072,
+      "near_db_jump": 0,
+      "near_share_ev": 52,
+      "near_detail_rd": 47,
+      "near_action": 17
+     },
+     {
+      "date": "2018-02-06",
+      "dlogq_pct": 9.499,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 3026,
+      "near_db_jump": 0,
+      "near_share_ev": 14,
+      "near_detail_rd": 1,
+      "near_action": 12
+     },
+     {
+      "date": "2019-01-03",
+      "dlogq_pct": 13.795,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2695,
+      "near_db_jump": 0,
+      "near_share_ev": 64,
+      "near_detail_rd": 330,
+      "near_action": 1
+     }
+    ]
+   },
+   "018680": {
+    "p99": 0.13735,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-11-17",
+      "dlogq_pct": 14.768,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 6,
+      "near_detail_rd": null,
+      "near_action": null
+     }
+    ]
+   },
+   "019490": {
+    "p99": 0.17496,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2023-11-01",
+      "dlogq_pct": 35.033,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 442,
+      "near_db_jump": 0,
+      "near_share_ev": 93,
+      "near_detail_rd": 317,
+      "near_action": 62
+     },
+     {
+      "date": "2025-01-16",
+      "dlogq_pct": 9.894,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 442,
+      "near_share_ev": 0,
+      "near_detail_rd": 759,
+      "near_action": 24
+     },
+     {
+      "date": "2025-01-22",
+      "dlogq_pct": 9.339,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 448,
+      "near_share_ev": 5,
+      "near_detail_rd": 765,
+      "near_action": 30
+     }
+    ]
+   },
+   "019570": {
+    "p99": 0.17311,
+    "n_days": 1980,
+    "seg_start": "2018-07-23",
+    "n_steps": 4,
+    "steps": [
+     {
+      "date": "2023-05-03",
+      "dlogq_pct": 8.794,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 20,
+      "near_action": 5
+     },
+     {
+      "date": "2024-09-24",
+      "dlogq_pct": 10.162,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 510,
+      "near_share_ev": 36,
+      "near_detail_rd": 530,
+      "near_action": 8
+     },
+     {
+      "date": "2026-02-13",
+      "dlogq_pct": 0.883,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 145,
+      "near_share_ev": 25,
+      "near_detail_rd": 125,
+      "near_action": 54
+     },
+     {
+      "date": "2026-07-08",
+      "dlogq_pct": 0.848,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 20,
+      "near_action": 41
+     }
+    ]
+   },
+   "019660": {
+    "p99": 0.16905,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-03-17",
+      "dlogq_pct": 18.437,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 67,
+      "near_share_ev": 42,
+      "near_detail_rd": 51,
+      "near_action": 3
+     }
+    ]
+   },
+   "020150": {
+    "p99": 0.03286,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-07-24",
+      "dlogq_pct": 3.235,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 57,
+      "near_detail_rd": null,
+      "near_action": 3
+     }
+    ]
+   },
+   "021650": {
+    "p99": 0.11721,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-11-08",
+      "dlogq_pct": 11.075,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 57,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "021820": {
+    "p99": 0.13108,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-12-20",
+      "dlogq_pct": 14.046,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": null,
+      "near_detail_rd": null,
+      "near_action": null
+     }
+    ]
+   },
+   "023530": {
+    "p99": 0.09071,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-10-30",
+      "dlogq_pct": 8.683,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": 10
+     }
+    ]
+   },
+   "023760": {
+    "p99": 0.122,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-10-01",
+      "dlogq_pct": 11.432,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 58,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "025000": {
+    "p99": 0.06014,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-12-24",
+      "dlogq_pct": 5.838,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": 27
+     }
+    ]
+   },
+   "025320": {
+    "p99": 0.01869,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 7,
+    "steps": [
+     {
+      "date": "2017-09-26",
+      "dlogq_pct": 1.834,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1980,
+      "near_share_ev": 1,
+      "near_detail_rd": 1982,
+      "near_action": 18
+     },
+     {
+      "date": "2023-02-27",
+      "dlogq_pct": 2.284,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 24,
+      "near_detail_rd": 2,
+      "near_action": 17
+     },
+     {
+      "date": "2023-02-28",
+      "dlogq_pct": 2.267,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 23,
+      "near_detail_rd": 1,
+      "near_action": 18
+     },
+     {
+      "date": "2023-12-27",
+      "dlogq_pct": 4.817,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 29,
+      "near_detail_rd": 2,
+      "near_action": 19
+     },
+     {
+      "date": "2023-12-28",
+      "dlogq_pct": 4.887,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 28,
+      "near_detail_rd": 1,
+      "near_action": 20
+     },
+     {
+      "date": "2025-12-29",
+      "dlogq_pct": 4.886,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 30,
+      "near_detail_rd": 3,
+      "near_action": 47
+     },
+     {
+      "date": "2025-12-30",
+      "dlogq_pct": 4.879,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 29,
+      "near_detail_rd": 2,
+      "near_action": 48
+     }
+    ]
+   },
+   "025560": {
+    "p99": 0.08368,
+    "n_days": 202,
+    "seg_start": "2025-10-22",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-07-28",
+      "dlogq_pct": 8.739,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 1,
+      "near_detail_rd": 393,
+      "near_action": 19
+     }
+    ]
+   },
+   "026150": {
+    "p99": 0.16177,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-09-03",
+      "dlogq_pct": 12.782,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 60,
+      "near_detail_rd": 1036,
+      "near_action": 3
+     },
+     {
+      "date": "2021-07-02",
+      "dlogq_pct": 2.198,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 59,
+      "near_detail_rd": 3,
+      "near_action": 1
+     }
+    ]
+   },
+   "027580": {
+    "p99": 0.1135,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-07-03",
+      "dlogq_pct": 10.762,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2512,
+      "near_db_jump": 0,
+      "near_share_ev": 16,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "027740": {
+    "p99": 0.05429,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2020-08-13",
+      "dlogq_pct": 6.053,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 448,
+      "near_db_jump": 0,
+      "near_share_ev": 60,
+      "near_detail_rd": 1,
+      "near_action": 1
+     },
+     {
+      "date": "2021-11-04",
+      "dlogq_pct": 0.917,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 6,
+      "near_action": 1
+     }
+    ]
+   },
+   "029460": {
+    "p99": 0.20002,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-12-05",
+      "dlogq_pct": 18.232,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": 176
+     }
+    ]
+   },
+   "029480": {
+    "p99": 0.08346,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-12-24",
+      "dlogq_pct": 8.659,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 857,
+      "near_db_jump": 0,
+      "near_share_ev": 22,
+      "near_detail_rd": 14,
+      "near_action": 3
+     }
+    ]
+   },
+   "032350": {
+    "p99": 0.10514,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-08-31",
+      "dlogq_pct": 9.993,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 739,
+      "near_db_jump": 0,
+      "near_share_ev": 3,
+      "near_detail_rd": 738,
+      "near_action": 1
+     }
+    ]
+   },
+   "032500": {
+    "p99": 0.03478,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-10-22",
+      "dlogq_pct": 3.417,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 200,
+      "near_db_jump": 0,
+      "near_share_ev": 66,
+      "near_detail_rd": 203,
+      "near_action": 3
+     }
+    ]
+   },
+   "032800": {
+    "p99": 0.09524,
+    "n_days": 341,
+    "seg_start": "2025-03-26",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-06",
+      "dlogq_pct": 10.008,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 23,
+      "near_action": 6
+     }
+    ]
+   },
+   "032940": {
+    "p99": 0.09474,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-02-23",
+      "dlogq_pct": 9.046,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 68,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "032960": {
+    "p99": 0.0143,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 0,
+    "steps": []
+   },
+   "033830": {
+    "p99": 0.0578,
+    "n_days": 917,
+    "seg_start": "2022-11-15",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-07-03",
+      "dlogq_pct": 5.619,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": null
+     }
+    ]
+   },
+   "034020": {
+    "p99": 0.30719,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2019-03-27",
+      "dlogq_pct": 14.75,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 63,
+      "near_detail_rd": null,
+      "near_action": 1
+     },
+     {
+      "date": "2020-10-15",
+      "dlogq_pct": 8.483,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 70,
+      "near_detail_rd": null,
+      "near_action": 1
+     },
+     {
+      "date": "2021-12-30",
+      "dlogq_pct": 3.542,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 64,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "035290": {
+    "p99": 0.06557,
+    "n_days": 527,
+    "seg_start": "2024-06-18",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-12-23",
+      "dlogq_pct": 6.217,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 13,
+      "near_action": 19
+     }
+    ]
+   },
+   "035620": {
+    "p99": 0.07692,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-06",
+      "dlogq_pct": 8.004,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 22,
+      "near_action": 29
+     }
+    ]
+   },
+   "036090": {
+    "p99": 0.03955,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-21",
+      "dlogq_pct": 3.828,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 21,
+      "near_action": 12
+     }
+    ]
+   },
+   "036530": {
+    "p99": 0.02463,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-12-27",
+      "dlogq_pct": 2.371,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 365,
+      "near_share_ev": 288,
+      "near_detail_rd": 4,
+      "near_action": null
+     }
+    ]
+   },
+   "036620": {
+    "p99": 0.05304,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-01-11",
+      "dlogq_pct": 7.919,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 289,
+      "near_share_ev": 2,
+      "near_detail_rd": null,
+      "near_action": 21
+     },
+     {
+      "date": "2018-10-31",
+      "dlogq_pct": 5.143,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 293,
+      "near_db_jump": 0,
+      "near_share_ev": 51,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "036630": {
+    "p99": 0.97564,
+    "n_days": 724,
+    "seg_start": "2023-08-24",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2024-05-17",
+      "dlogq_pct": 1.043,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 348,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 18,
+      "near_action": 50
+     },
+     {
+      "date": "2025-04-04",
+      "dlogq_pct": 8.083,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 26,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 18,
+      "near_action": 92
+     },
+     {
+      "date": "2025-11-12",
+      "dlogq_pct": 58.779,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 19,
+      "near_action": 93
+     }
+    ]
+   },
+   "037950": {
+    "p99": 0.08634,
+    "n_days": 1320,
+    "seg_start": "2021-03-30",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-08",
+      "dlogq_pct": 9.03,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 18,
+      "near_action": 15
+     }
+    ]
+   },
+   "038070": {
+    "p99": 0.01544,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 0,
+    "steps": []
+   },
+   "038620": {
+    "p99": 0.03064,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 7,
+    "steps": [
+     {
+      "date": "2017-12-27",
+      "dlogq_pct": 4.112,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 366,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 370,
+      "near_action": 349
+     },
+     {
+      "date": "2018-12-27",
+      "dlogq_pct": 4.292,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 27,
+      "near_detail_rd": 5,
+      "near_action": 16
+     },
+     {
+      "date": "2018-12-28",
+      "dlogq_pct": 4.876,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 26,
+      "near_detail_rd": 4,
+      "near_action": 17
+     },
+     {
+      "date": "2020-12-29",
+      "dlogq_pct": 4.418,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 24,
+      "near_detail_rd": 3,
+      "near_action": 15
+     },
+     {
+      "date": "2020-12-30",
+      "dlogq_pct": 4.865,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 23,
+      "near_detail_rd": 2,
+      "near_action": 16
+     },
+     {
+      "date": "2021-12-29",
+      "dlogq_pct": 4.463,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 15,
+      "near_detail_rd": 3,
+      "near_action": 14
+     },
+     {
+      "date": "2021-12-30",
+      "dlogq_pct": 4.879,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 16,
+      "near_detail_rd": 2,
+      "near_action": 15
+     }
+    ]
+   },
+   "039200": {
+    "p99": 0.03586,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-09-27",
+      "dlogq_pct": 3.519,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 64,
+      "near_detail_rd": 1,
+      "near_action": 1
+     }
+    ]
+   },
+   "039440": {
+    "p99": 0.07145,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-02-05",
+      "dlogq_pct": 6.899,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 74,
+      "near_detail_rd": null,
+      "near_action": 3
+     }
+    ]
+   },
+   "041960": {
+    "p99": 0.09517,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2018-12-27",
+      "dlogq_pct": 4.654,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 22,
+      "near_detail_rd": 5,
+      "near_action": 1
+     },
+     {
+      "date": "2018-12-28",
+      "dlogq_pct": 4.88,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 21,
+      "near_detail_rd": 4,
+      "near_action": 2
+     },
+     {
+      "date": "2019-08-06",
+      "dlogq_pct": 9.485,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 26,
+      "near_share_ev": 5,
+      "near_detail_rd": 25,
+      "near_action": 27
+     }
+    ]
+   },
+   "042500": {
+    "p99": 0.07044,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2024-04-16",
+      "dlogq_pct": 4.659,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 27,
+      "near_detail_rd": 1,
+      "near_action": 15
+     },
+     {
+      "date": "2025-09-18",
+      "dlogq_pct": 2.644,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 27,
+      "near_detail_rd": 1,
+      "near_action": 24
+     }
+    ]
+   },
+   "042940": {
+    "p99": 0.0384,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2024-10-15",
+      "dlogq_pct": 3.916,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 15,
+      "near_action": 56
+     }
+    ]
+   },
+   "043590": {
+    "p99": 0.09201,
+    "n_days": 696,
+    "seg_start": "2023-10-10",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2024-01-19",
+      "dlogq_pct": 8.735,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 24,
+      "near_action": 23
+     }
+    ]
+   },
+   "043650": {
+    "p99": 0.11243,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-05-04",
+      "dlogq_pct": 11.917,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": null,
+      "near_detail_rd": null,
+      "near_action": null
+     }
+    ]
+   },
+   "044380": {
+    "p99": 0.12859,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-10-31",
+      "dlogq_pct": 12.163,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 919,
+      "near_db_jump": 0,
+      "near_share_ev": 64,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "044490": {
+    "p99": 0.13643,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-04-27",
+      "dlogq_pct": 12.783,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 1937,
+      "near_detail_rd": null,
+      "near_action": null
+     }
+    ]
+   },
+   "045060": {
+    "p99": 0.12511,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-08-01",
+      "dlogq_pct": 11.778,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 68,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "048830": {
+    "p99": 0.09034,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-09-06",
+      "dlogq_pct": 8.647,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 63,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "049550": {
+    "p99": 0.13407,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-11-07",
+      "dlogq_pct": 12.577,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 39,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "049630": {
+    "p99": 0.08108,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-11-08",
+      "dlogq_pct": 7.745,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2730,
+      "near_db_jump": 0,
+      "near_share_ev": 60,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "049950": {
+    "p99": 1.0,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2020-03-19",
+      "dlogq_pct": 2.648,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 83,
+      "near_share_ev": 35,
+      "near_detail_rd": 79,
+      "near_action": null
+     },
+     {
+      "date": "2021-12-29",
+      "dlogq_pct": 1580.247,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 114,
+      "near_detail_rd": 2,
+      "near_action": null
+     }
+    ]
+   },
+   "050860": {
+    "p99": 0.01629,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2021-06-17",
+      "dlogq_pct": 1.626,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 19,
+      "near_detail_rd": 1,
+      "near_action": 14
+     }
+    ]
+   },
+   "051370": {
+    "p99": 0.07585,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2017-11-03",
+      "dlogq_pct": 2.247,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 31,
+      "near_db_jump": 0,
+      "near_share_ev": 68,
+      "near_detail_rd": null,
+      "near_action": 2
+     },
+     {
+      "date": "2017-12-04",
+      "dlogq_pct": 10.134,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 31,
+      "near_share_ev": 37,
+      "near_detail_rd": null,
+      "near_action": 2
+     }
+    ]
+   },
+   "052300": {
+    "p99": 0.24418,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-22",
+      "dlogq_pct": 21.799,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 473,
+      "near_db_jump": 0,
+      "near_share_ev": 36,
+      "near_detail_rd": 19,
+      "near_action": 28
+     }
+    ]
+   },
+   "052420": {
+    "p99": 0.0975,
+    "n_days": 1886,
+    "seg_start": "2018-12-10",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-09-29",
+      "dlogq_pct": 9.252,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1337,
+      "near_db_jump": 0,
+      "near_share_ev": 91,
+      "near_detail_rd": 1696,
+      "near_action": 188
+     }
+    ]
+   },
+   "052710": {
+    "p99": 0.12136,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2026-06-25",
+      "dlogq_pct": 1.909,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1217,
+      "near_db_jump": 0,
+      "near_share_ev": 1197,
+      "near_detail_rd": 50,
+      "near_action": 1
+     },
+     {
+      "date": "2026-08-13",
+      "dlogq_pct": 9.511,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1266,
+      "near_db_jump": 0,
+      "near_share_ev": 1246,
+      "near_detail_rd": 1,
+      "near_action": 14
+     }
+    ]
+   },
+   "053270": {
+    "p99": 0.05529,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-08-01",
+      "dlogq_pct": 5.361,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 61,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "054220": {
+    "p99": 0.01588,
+    "n_days": 552,
+    "seg_start": "2024-05-10",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-18",
+      "dlogq_pct": 1.601,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 1169,
+      "near_action": 528
+     }
+    ]
+   },
+   "054300": {
+    "p99": 0.12567,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-10-17",
+      "dlogq_pct": 11.778,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 3117,
+      "near_db_jump": 0,
+      "near_share_ev": 51,
+      "near_detail_rd": null,
+      "near_action": 4
+     }
+    ]
+   },
+   "054450": {
+    "p99": 0.0241,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-03-26",
+      "dlogq_pct": 2.435,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 15,
+      "near_detail_rd": 1,
+      "near_action": 3
+     }
+    ]
+   },
+   "056730": {
+    "p99": 0.11515,
+    "n_days": 1596,
+    "seg_start": "2020-02-17",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2020-10-23",
+      "dlogq_pct": 5.982,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 549,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 29,
+      "near_action": 3
+     },
+     {
+      "date": "2023-03-30",
+      "dlogq_pct": 6.252,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 339,
+      "near_db_jump": 0,
+      "near_share_ev": 6,
+      "near_detail_rd": 371,
+      "near_action": 169
+     }
+    ]
+   },
+   "057680": {
+    "p99": 0.06212,
+    "n_days": 427,
+    "seg_start": "2024-11-14",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-04-30",
+      "dlogq_pct": 6.413,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 17,
+      "near_action": 35
+     }
+    ]
+   },
+   "058110": {
+    "p99": 0.0573,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2020-04-02",
+      "dlogq_pct": 9.18,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 287,
+      "near_share_ev": 8,
+      "near_detail_rd": 334,
+      "near_action": 246
+     },
+     {
+      "date": "2021-01-14",
+      "dlogq_pct": 3.445,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 43,
+      "near_db_jump": 0,
+      "near_share_ev": 57,
+      "near_detail_rd": 47,
+      "near_action": 1
+     }
+    ]
+   },
+   "058820": {
+    "p99": 0.04875,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-06-13",
+      "dlogq_pct": 4.749,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 60,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "060230": {
+    "p99": 0.13895,
+    "n_days": 254,
+    "seg_start": "2025-08-01",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2025-11-04",
+      "dlogq_pct": 8.45,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 22,
+      "near_action": 54
+     },
+     {
+      "date": "2026-02-13",
+      "dlogq_pct": 6.782,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 35,
+      "near_share_ev": 0,
+      "near_detail_rd": 123,
+      "near_action": 22
+     }
+    ]
+   },
+   "060280": {
+    "p99": 0.03434,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-01-11",
+      "dlogq_pct": 3.374,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 60,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "060560": {
+    "p99": 0.13636,
+    "n_days": 1115,
+    "seg_start": "2022-01-24",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-01-20",
+      "dlogq_pct": 14.66,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 465,
+      "near_db_jump": 0,
+      "near_share_ev": 354,
+      "near_detail_rd": 25,
+      "near_action": 45
+     }
+    ]
+   },
+   "065370": {
+    "p99": 0.14819,
+    "n_days": 1803,
+    "seg_start": "2019-04-15",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-02-10",
+      "dlogq_pct": 14.066,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 387,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 388,
+      "near_action": 13
+     }
+    ]
+   },
+   "065440": {
+    "p99": 0.19899,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-08-02",
+      "dlogq_pct": 18.129,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 71,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "065500": {
+    "p99": 0.10523,
+    "n_days": 1532,
+    "seg_start": "2020-05-21",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2021-12-06",
+      "dlogq_pct": 9.991,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 5,
+      "near_action": 7
+     }
+    ]
+   },
+   "066410": {
+    "p99": 0.21031,
+    "n_days": 1715,
+    "seg_start": "2019-08-21",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2022-06-20",
+      "dlogq_pct": 15.458,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1236,
+      "near_share_ev": 2,
+      "near_detail_rd": 1277,
+      "near_action": 49
+     },
+     {
+      "date": "2022-10-11",
+      "dlogq_pct": 8.154,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1349,
+      "near_share_ev": 6,
+      "near_detail_rd": 1390,
+      "near_action": 15
+     }
+    ]
+   },
+   "066590": {
+    "p99": 0.13037,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-10-29",
+      "dlogq_pct": 13.969,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1583,
+      "near_share_ev": 15,
+      "near_detail_rd": null,
+      "near_action": 0
+     }
+    ]
+   },
+   "066980": {
+    "p99": 0.0484,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2021-03-26",
+      "dlogq_pct": 4.948,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 18,
+      "near_action": 64
+     }
+    ]
+   },
+   "067310": {
+    "p99": 0.46129,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 4,
+    "steps": [
+     {
+      "date": "2021-11-04",
+      "dlogq_pct": 4.019,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 55,
+      "near_detail_rd": 43,
+      "near_action": 1
+     },
+     {
+      "date": "2021-12-16",
+      "dlogq_pct": 18.141,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 13,
+      "near_detail_rd": 1,
+      "near_action": 10
+     },
+     {
+      "date": "2024-06-19",
+      "dlogq_pct": 1.728,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 62,
+      "near_detail_rd": 51,
+      "near_action": 1
+     },
+     {
+      "date": "2024-08-08",
+      "dlogq_pct": 13.953,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 12,
+      "near_detail_rd": 1,
+      "near_action": 14
+     }
+    ]
+   },
+   "067990": {
+    "p99": 0.01826,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-12-29",
+      "dlogq_pct": 1.802,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 5,
+      "near_detail_rd": null,
+      "near_action": null
+     }
+    ]
+   },
+   "068270": {
+    "p99": 0.01055,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 0,
+    "steps": []
+   },
+   "068940": {
+    "p99": 0.0392,
+    "n_days": 1473,
+    "seg_start": "2020-08-12",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-09-19",
+      "dlogq_pct": 3.999,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1792,
+      "near_share_ev": 20,
+      "near_detail_rd": null,
+      "near_action": 7
+     }
+    ]
+   },
+   "071200": {
+    "p99": 0.01513,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-01-21",
+      "dlogq_pct": 1.524,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": null,
+      "near_detail_rd": null,
+      "near_action": null
+     }
+    ]
+   },
+   "072020": {
+    "p99": 0.23479,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-06-01",
+      "dlogq_pct": 3.071,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 59,
+      "near_detail_rd": 48,
+      "near_action": 1
+     },
+     {
+      "date": "2018-07-18",
+      "dlogq_pct": 18.015,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 12,
+      "near_detail_rd": 1,
+      "near_action": 12
+     }
+    ]
+   },
+   "073570": {
+    "p99": 0.0396,
+    "n_days": 115,
+    "seg_start": "2026-03-03",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-20",
+      "dlogq_pct": 3.849,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 20,
+      "near_action": 78
+     }
+    ]
+   },
+   "078520": {
+    "p99": 0.04084,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-09-28",
+      "dlogq_pct": 4.001,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 103,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "078590": {
+    "p99": 0.01869,
+    "n_days": 451,
+    "seg_start": "2024-10-11",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-27",
+      "dlogq_pct": 1.887,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 27,
+      "near_action": 6
+     }
+    ]
+   },
+   "079190": {
+    "p99": 0.07213,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2021-10-06",
+      "dlogq_pct": 11.05,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1671,
+      "near_db_jump": 0,
+      "near_share_ev": 464,
+      "near_detail_rd": 1729,
+      "near_action": 428
+     },
+     {
+      "date": "2026-07-23",
+      "dlogq_pct": 3.565,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 22,
+      "near_action": 26
+     }
+    ]
+   },
+   "079810": {
+    "p99": 0.11274,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2020-03-19",
+      "dlogq_pct": 1.417,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1219,
+      "near_share_ev": 20,
+      "near_detail_rd": 1222,
+      "near_action": 138
+     },
+     {
+      "date": "2023-07-21",
+      "dlogq_pct": 10.659,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1219,
+      "near_db_jump": 0,
+      "near_share_ev": 66,
+      "near_detail_rd": 3,
+      "near_action": 1
+     }
+    ]
+   },
+   "079950": {
+    "p99": 0.34545,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2025-12-12",
+      "dlogq_pct": 4.281,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 22,
+      "near_action": 0
+     },
+     {
+      "date": "2025-12-26",
+      "dlogq_pct": 25.327,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 14,
+      "near_db_jump": 0,
+      "near_share_ev": 14,
+      "near_detail_rd": 36,
+      "near_action": 2
+     }
+    ]
+   },
+   "080530": {
+    "p99": 0.19866,
+    "n_days": 1954,
+    "seg_start": "2018-08-29",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-05-25",
+      "dlogq_pct": 18.121,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 670,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 686,
+      "near_action": 184
+     }
+    ]
+   },
+   "081000": {
+    "p99": 0.03604,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-06-27",
+      "dlogq_pct": 3.539,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 60,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "082660": {
+    "p99": 0.26262,
+    "n_days": 1568,
+    "seg_start": "2020-03-26",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2023-03-20",
+      "dlogq_pct": 2.033,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1246,
+      "near_share_ev": 25,
+      "near_detail_rd": 1329,
+      "near_action": 18
+     },
+     {
+      "date": "2023-04-28",
+      "dlogq_pct": 20.924,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1285,
+      "near_share_ev": 10,
+      "near_detail_rd": 1368,
+      "near_action": 21
+     },
+     {
+      "date": "2023-05-10",
+      "dlogq_pct": 7.507,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1297,
+      "near_share_ev": 1,
+      "near_detail_rd": 1380,
+      "near_action": 33
+     }
+    ]
+   },
+   "082740": {
+    "p99": 0.275,
+    "n_days": 1751,
+    "seg_start": "2019-07-01",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2022-06-24",
+      "dlogq_pct": 6.127,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1466,
+      "near_db_jump": 0,
+      "near_share_ev": 62,
+      "near_detail_rd": 48,
+      "near_action": 1
+     },
+     {
+      "date": "2022-08-10",
+      "dlogq_pct": 18.149,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1513,
+      "near_db_jump": 0,
+      "near_share_ev": 15,
+      "near_detail_rd": 1,
+      "near_action": 14
+     }
+    ]
+   },
+   "082920": {
+    "p99": 0.05152,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-06-11",
+      "dlogq_pct": 5.05,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 234,
+      "near_db_jump": 0,
+      "near_share_ev": 256,
+      "near_detail_rd": 235,
+      "near_action": 219
+     }
+    ]
+   },
+   "083640": {
+    "p99": 0.09334,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2020-10-05",
+      "dlogq_pct": 1.397,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 1038,
+      "near_action": 444
+     },
+     {
+      "date": "2025-05-16",
+      "dlogq_pct": 8.297,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 360,
+      "near_db_jump": 0,
+      "near_share_ev": 360,
+      "near_detail_rd": 21,
+      "near_action": 70
+     }
+    ]
+   },
+   "083790": {
+    "p99": 0.3207,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-05-15",
+      "dlogq_pct": 1.777,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1052,
+      "near_db_jump": 0,
+      "near_share_ev": 63,
+      "near_detail_rd": 57,
+      "near_action": 1
+     },
+     {
+      "date": "2018-07-10",
+      "dlogq_pct": 26.057,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 996,
+      "near_db_jump": 0,
+      "near_share_ev": 7,
+      "near_detail_rd": 1,
+      "near_action": 4
+     }
+    ]
+   },
+   "084110": {
+    "p99": 0.21038,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 5,
+    "steps": [
+     {
+      "date": "2017-12-27",
+      "dlogq_pct": 4.743,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 100,
+      "near_detail_rd": 4,
+      "near_action": 502
+     },
+     {
+      "date": "2018-12-27",
+      "dlogq_pct": 4.763,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 104,
+      "near_detail_rd": 4,
+      "near_action": 720
+     },
+     {
+      "date": "2019-12-27",
+      "dlogq_pct": 4.749,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 112,
+      "near_detail_rd": 4,
+      "near_action": 355
+     },
+     {
+      "date": "2020-12-29",
+      "dlogq_pct": 4.64,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 108,
+      "near_detail_rd": 2,
+      "near_action": 13
+     },
+     {
+      "date": "2021-12-29",
+      "dlogq_pct": 4.727,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 114,
+      "near_detail_rd": 2,
+      "near_action": 273
+     }
+    ]
+   },
+   "084990": {
+    "p99": 0.15253,
+    "n_days": 1158,
+    "seg_start": "2021-11-23",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2021-12-29",
+      "dlogq_pct": 9.492,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 23,
+      "near_detail_rd": 3,
+      "near_action": 13
+     },
+     {
+      "date": "2021-12-30",
+      "dlogq_pct": 9.531,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 22,
+      "near_detail_rd": 2,
+      "near_action": 14
+     },
+     {
+      "date": "2024-01-03",
+      "dlogq_pct": 16.511,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 735,
+      "near_share_ev": 13,
+      "near_detail_rd": 732,
+      "near_action": 12
+     }
+    ]
+   },
+   "086520": {
+    "p99": 0.01936,
+    "n_days": 860,
+    "seg_start": "2023-02-07",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-02-27",
+      "dlogq_pct": 1.916,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 308,
+      "near_db_jump": 0,
+      "near_share_ev": 57,
+      "near_detail_rd": null,
+      "near_action": 1211
+     }
+    ]
+   },
+   "086890": {
+    "p99": 0.05196,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-10-19",
+      "dlogq_pct": 5.063,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 55,
+      "near_detail_rd": null,
+      "near_action": 2
+     }
+    ]
+   },
+   "086900": {
+    "p99": 0.04143,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2020-04-20",
+      "dlogq_pct": 2.753,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 115,
+      "near_share_ev": 4,
+      "near_detail_rd": 111,
+      "near_action": 98
+     },
+     {
+      "date": "2020-09-03",
+      "dlogq_pct": 4.573,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 117,
+      "near_db_jump": 0,
+      "near_share_ev": 132,
+      "near_detail_rd": 119,
+      "near_action": 1
+     }
+    ]
+   },
+   "088800": {
+    "p99": 0.02639,
+    "n_days": 443,
+    "seg_start": "2024-10-23",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-05-09",
+      "dlogq_pct": 2.674,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 24,
+      "near_action": 57
+     }
+    ]
+   },
+   "090080": {
+    "p99": 0.11,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-06-27",
+      "dlogq_pct": 10.414,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 54,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "091580": {
+    "p99": 0.02711,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-05-16",
+      "dlogq_pct": 2.667,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 62,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "091970": {
+    "p99": 0.1796,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2019-09-25",
+      "dlogq_pct": 4.666,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1251,
+      "near_share_ev": 26,
+      "near_detail_rd": null,
+      "near_action": 182
+     },
+     {
+      "date": "2023-02-27",
+      "dlogq_pct": 15.158,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 4,
+      "near_detail_rd": null,
+      "near_action": 133
+     }
+    ]
+   },
+   "092870": {
+    "p99": 0.04544,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2024-06-03",
+      "dlogq_pct": 4.421,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1252,
+      "near_db_jump": 0,
+      "near_share_ev": 58,
+      "near_detail_rd": 1,
+      "near_action": 3
+     }
+    ]
+   },
+   "094480": {
+    "p99": 0.02781,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-03-19",
+      "dlogq_pct": 2.737,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 56,
+      "near_detail_rd": null,
+      "near_action": 3
+     }
+    ]
+   },
+   "094860": {
+    "p99": 0.38407,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2021-09-08",
+      "dlogq_pct": 13.947,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 880,
+      "near_db_jump": 0,
+      "near_share_ev": 64,
+      "near_detail_rd": 54,
+      "near_action": 1
+     },
+     {
+      "date": "2021-10-29",
+      "dlogq_pct": 18.157,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 829,
+      "near_db_jump": 0,
+      "near_share_ev": 13,
+      "near_detail_rd": 3,
+      "near_action": 1
+     }
+    ]
+   },
+   "094940": {
+    "p99": 0.02305,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2021-02-16",
+      "dlogq_pct": 2.324,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 21,
+      "near_detail_rd": 1,
+      "near_action": 21
+     }
+    ]
+   },
+   "095190": {
+    "p99": 0.11833,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-11-08",
+      "dlogq_pct": 11.175,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 56,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "095700": {
+    "p99": 0.37682,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2022-11-09",
+      "dlogq_pct": 5.895,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 78,
+      "near_detail_rd": 64,
+      "near_action": 1
+     },
+     {
+      "date": "2023-01-11",
+      "dlogq_pct": 26.078,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 15,
+      "near_detail_rd": 1,
+      "near_action": 14
+     }
+    ]
+   },
+   "095720": {
+    "p99": 0.25732,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-12-03",
+      "dlogq_pct": 21.466,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2720,
+      "near_db_jump": 0,
+      "near_share_ev": 59,
+      "near_detail_rd": 511,
+      "near_action": 3
+     },
+     {
+      "date": "2020-05-18",
+      "dlogq_pct": 1.498,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2188,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 21,
+      "near_action": 32
+     }
+    ]
+   },
+   "096350": {
+    "p99": 0.02193,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-05-25",
+      "dlogq_pct": 2.218,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 91,
+      "near_share_ev": 2,
+      "near_detail_rd": null,
+      "near_action": 26
+     }
+    ]
+   },
+   "097780": {
+    "p99": 0.06904,
+    "n_days": 695,
+    "seg_start": "2023-10-11",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2026-05-07",
+      "dlogq_pct": 5.921,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 40,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 17,
+      "near_action": 23
+     },
+     {
+      "date": "2026-06-16",
+      "dlogq_pct": 0.604,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 21,
+      "near_action": 5
+     }
+    ]
+   },
+   "097870": {
+    "p99": 0.02724,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-04-23",
+      "dlogq_pct": 2.756,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 25,
+      "near_detail_rd": 1,
+      "near_action": 14
+     }
+    ]
+   },
+   "100090": {
+    "p99": 0.09306,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-06-14",
+      "dlogq_pct": 8.891,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 20,
+      "near_detail_rd": null,
+      "near_action": 2
+     }
+    ]
+   },
+   "101140": {
+    "p99": 0.20171,
+    "n_days": 689,
+    "seg_start": "2023-10-19",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-01-10",
+      "dlogq_pct": 22.528,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 445,
+      "near_db_jump": 0,
+      "near_share_ev": 445,
+      "near_detail_rd": 475,
+      "near_action": 525
+     }
+    ]
+   },
+   "101240": {
+    "p99": 0.03233,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-07-22",
+      "dlogq_pct": 3.228,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 22,
+      "near_detail_rd": 1,
+      "near_action": 13
+     }
+    ]
+   },
+   "101360": {
+    "p99": 0.42145,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2020-07-30",
+      "dlogq_pct": 29.728,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1468,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 1406,
+      "near_action": 14
+     },
+     {
+      "date": "2024-06-04",
+      "dlogq_pct": 5.278,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 63,
+      "near_db_jump": 0,
+      "near_share_ev": 58,
+      "near_detail_rd": 1,
+      "near_action": 1
+     }
+    ]
+   },
+   "101400": {
+    "p99": 0.05731,
+    "n_days": 1318,
+    "seg_start": "2021-04-01",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-15",
+      "dlogq_pct": 5.902,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 31,
+      "near_action": 57
+     }
+    ]
+   },
+   "104540": {
+    "p99": 0.15974,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-04-06",
+      "dlogq_pct": 17.4,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 224,
+      "near_detail_rd": null,
+      "near_action": 211
+     }
+    ]
+   },
+   "106240": {
+    "p99": 0.027,
+    "n_days": 690,
+    "seg_start": "2023-10-18",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-28",
+      "dlogq_pct": 2.737,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1329,
+      "near_share_ev": 6,
+      "near_detail_rd": null,
+      "near_action": 141
+     }
+    ]
+   },
+   "109610": {
+    "p99": 0.25704,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2020-09-03",
+      "dlogq_pct": 9.364,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1295,
+      "near_db_jump": 0,
+      "near_share_ev": 5,
+      "near_detail_rd": 50,
+      "near_action": 1
+     },
+     {
+      "date": "2020-10-22",
+      "dlogq_pct": 13.509,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1344,
+      "near_db_jump": 0,
+      "near_share_ev": 1,
+      "near_detail_rd": 1,
+      "near_action": 1
+     }
+    ]
+   },
+   "109960": {
+    "p99": 0.03756,
+    "n_days": 565,
+    "seg_start": "2024-04-19",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-06-01",
+      "dlogq_pct": 3.661,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 26,
+      "near_action": 33
+     }
+    ]
+   },
+   "110020": {
+    "p99": 0.09084,
+    "n_days": 1073,
+    "seg_start": "2022-03-30",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2024-06-07",
+      "dlogq_pct": 9.523,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1327,
+      "near_share_ev": 11,
+      "near_detail_rd": 1326,
+      "near_action": 6
+     }
+    ]
+   },
+   "112610": {
+    "p99": 0.0538,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-12-22",
+      "dlogq_pct": 5.295,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 48,
+      "near_db_jump": 0,
+      "near_share_ev": 62,
+      "near_detail_rd": 49,
+      "near_action": 1
+     }
+    ]
+   },
+   "113810": {
+    "p99": 0.30648,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-05-14",
+      "dlogq_pct": 10.73,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 94,
+      "near_db_jump": 0,
+      "near_share_ev": 57,
+      "near_detail_rd": null,
+      "near_action": 3
+     },
+     {
+      "date": "2018-08-16",
+      "dlogq_pct": 36.598,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 94,
+      "near_share_ev": 37,
+      "near_detail_rd": null,
+      "near_action": 59
+     }
+    ]
+   },
+   "114810": {
+    "p99": 0.05234,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-10-31",
+      "dlogq_pct": 5.206,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1155,
+      "near_db_jump": 0,
+      "near_share_ev": 57,
+      "near_detail_rd": 1158,
+      "near_action": 1
+     }
+    ]
+   },
+   "115180": {
+    "p99": 0.43727,
+    "n_days": 690,
+    "seg_start": "2023-10-18",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2023-11-09",
+      "dlogq_pct": 10.003,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 398,
+      "near_db_jump": 0,
+      "near_share_ev": 56,
+      "near_detail_rd": 40,
+      "near_action": 1
+     },
+     {
+      "date": "2023-12-18",
+      "dlogq_pct": 26.253,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 437,
+      "near_db_jump": 0,
+      "near_share_ev": 17,
+      "near_detail_rd": 1,
+      "near_action": 0
+     }
+    ]
+   },
+   "115530": {
+    "p99": 0.04982,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-03-09",
+      "dlogq_pct": 3.89,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": 23
+     },
+     {
+      "date": "2022-04-26",
+      "dlogq_pct": 4.76,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1491,
+      "near_db_jump": 0,
+      "near_share_ev": 470,
+      "near_detail_rd": null,
+      "near_action": 483
+     }
+    ]
+   },
+   "123840": {
+    "p99": 0.075,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-01-16",
+      "dlogq_pct": 13.292,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2530,
+      "near_db_jump": 0,
+      "near_share_ev": 6,
+      "near_detail_rd": 3010,
+      "near_action": 1
+     },
+     {
+      "date": "2026-05-08",
+      "dlogq_pct": 7.796,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 24,
+      "near_action": 39
+     }
+    ]
+   },
+   "126340": {
+    "p99": 0.11946,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-09-23",
+      "dlogq_pct": 11.771,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 97,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 99,
+      "near_action": 12
+     }
+    ]
+   },
+   "128540": {
+    "p99": 0.38924,
+    "n_days": 1637,
+    "seg_start": "2019-12-13",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2022-04-15",
+      "dlogq_pct": 7.288,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 70,
+      "near_detail_rd": 60,
+      "near_action": 1
+     },
+     {
+      "date": "2022-06-13",
+      "dlogq_pct": 25.563,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 11,
+      "near_detail_rd": 1,
+      "near_action": 14
+     }
+    ]
+   },
+   "128820": {
+    "p99": 0.02703,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-05-29",
+      "dlogq_pct": 2.74,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 2834,
+      "near_detail_rd": 22,
+      "near_action": 78
+     }
+    ]
+   },
+   "136480": {
+    "p99": 0.12803,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-10-25",
+      "dlogq_pct": 12.041,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 58,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "136490": {
+    "p99": 0.09478,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-09-26",
+      "dlogq_pct": 9.055,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 208,
+      "near_db_jump": 0,
+      "near_share_ev": 63,
+      "near_detail_rd": 207,
+      "near_action": 1
+     }
+    ]
+   },
+   "137400": {
+    "p99": 0.0118,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-03-19",
+      "dlogq_pct": 1.039,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 317,
+      "near_share_ev": 20,
+      "near_detail_rd": 316,
+      "near_action": 331
+     }
+    ]
+   },
+   "138080": {
+    "p99": 0.2788,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2017-07-14",
+      "dlogq_pct": 18.161,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 14,
+      "near_detail_rd": 3,
+      "near_action": 10
+     },
+     {
+      "date": "2019-11-11",
+      "dlogq_pct": 2.315,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 60,
+      "near_detail_rd": 46,
+      "near_action": 0
+     },
+     {
+      "date": "2019-12-26",
+      "dlogq_pct": 22.267,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 15,
+      "near_detail_rd": 1,
+      "near_action": 14
+     }
+    ]
+   },
+   "138610": {
+    "p99": 0.14886,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-04-30",
+      "dlogq_pct": 13.871,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 36,
+      "near_detail_rd": null,
+      "near_action": 4
+     }
+    ]
+   },
+   "140520": {
+    "p99": 0.10101,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2017-07-19",
+      "dlogq_pct": 5.845,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 71,
+      "near_detail_rd": 61,
+      "near_action": 1
+     },
+     {
+      "date": "2017-09-15",
+      "dlogq_pct": 9.607,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 13,
+      "near_detail_rd": 3,
+      "near_action": 59
+     }
+    ]
+   },
+   "142210": {
+    "p99": 0.24854,
+    "n_days": 1320,
+    "seg_start": "2021-03-30",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2022-04-26",
+      "dlogq_pct": 4.419,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 768,
+      "near_db_jump": 0,
+      "near_share_ev": 65,
+      "near_detail_rd": 55,
+      "near_action": 1
+     },
+     {
+      "date": "2022-06-17",
+      "dlogq_pct": 17.779,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 820,
+      "near_db_jump": 0,
+      "near_share_ev": 13,
+      "near_detail_rd": 3,
+      "near_action": 14
+     }
+    ]
+   },
+   "142280": {
+    "p99": 0.21634,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-09-30",
+      "dlogq_pct": 19.579,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 57,
+      "near_detail_rd": null,
+      "near_action": 3
+     }
+    ]
+   },
+   "142760": {
+    "p99": 0.0223,
+    "n_days": 1188,
+    "seg_start": "2021-10-12",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-02-13",
+      "dlogq_pct": 2.255,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1964,
+      "near_share_ev": 9,
+      "near_detail_rd": 1963,
+      "near_action": 1
+     }
+    ]
+   },
+   "143540": {
+    "p99": 0.32012,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-12-27",
+      "dlogq_pct": 27.755,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 752,
+      "near_db_jump": 0,
+      "near_share_ev": 69,
+      "near_detail_rd": 751,
+      "near_action": 1
+     }
+    ]
+   },
+   "153460": {
+    "p99": 0.01566,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-02-03",
+      "dlogq_pct": 1.543,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 1133,
+      "near_detail_rd": null,
+      "near_action": 1160
+     }
+    ]
+   },
+   "160980": {
+    "p99": 0.05624,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-09-06",
+      "dlogq_pct": 5.471,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 51,
+      "near_db_jump": 0,
+      "near_share_ev": 65,
+      "near_detail_rd": 54,
+      "near_action": 1
+     }
+    ]
+   },
+   "161580": {
+    "p99": 0.04083,
+    "n_days": 2006,
+    "seg_start": "2018-06-15",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2023-07-14",
+      "dlogq_pct": 4.169,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1871,
+      "near_share_ev": 5,
+      "near_detail_rd": 1870,
+      "near_action": 731
+     }
+    ]
+   },
+   "170900": {
+    "p99": 0.49079,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 5,
+    "steps": [
+     {
+      "date": "2022-12-28",
+      "dlogq_pct": 67.403,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 114,
+      "near_detail_rd": 3,
+      "near_action": 911
+     },
+     {
+      "date": "2025-03-12",
+      "dlogq_pct": 1.939,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 37,
+      "near_detail_rd": 2,
+      "near_action": 1716
+     },
+     {
+      "date": "2025-03-13",
+      "dlogq_pct": 1.928,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 36,
+      "near_detail_rd": 1,
+      "near_action": 1717
+     },
+     {
+      "date": "2026-03-09",
+      "dlogq_pct": 4.792,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 11,
+      "near_detail_rd": 2,
+      "near_action": 2078
+     },
+     {
+      "date": "2026-03-10",
+      "dlogq_pct": 4.737,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 10,
+      "near_detail_rd": 1,
+      "near_action": 2079
+     }
+    ]
+   },
+   "178320": {
+    "p99": 0.08737,
+    "n_days": 2050,
+    "seg_start": "2018-04-09",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-06-19",
+      "dlogq_pct": 8.504,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 178,
+      "near_db_jump": 0,
+      "near_share_ev": 55,
+      "near_detail_rd": 181,
+      "near_action": 1
+     }
+    ]
+   },
+   "183190": {
+    "p99": 0.0172,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-12-27",
+      "dlogq_pct": 1.702,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1561,
+      "near_db_jump": 0,
+      "near_share_ev": 61,
+      "near_detail_rd": null,
+      "near_action": 0
+     }
+    ]
+   },
+   "185750": {
+    "p99": 0.01599,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 14,
+    "steps": [
+     {
+      "date": "2018-12-27",
+      "dlogq_pct": 4.764,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 32,
+      "near_detail_rd": 5,
+      "near_action": 14
+     },
+     {
+      "date": "2018-12-28",
+      "dlogq_pct": 4.879,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 31,
+      "near_detail_rd": 4,
+      "near_action": 15
+     },
+     {
+      "date": "2019-12-27",
+      "dlogq_pct": 4.822,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 3,
+      "near_db_jump": 0,
+      "near_share_ev": 27,
+      "near_detail_rd": 5,
+      "near_action": 15
+     },
+     {
+      "date": "2019-12-30",
+      "dlogq_pct": 4.879,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 3,
+      "near_share_ev": 24,
+      "near_detail_rd": 2,
+      "near_action": 18
+     },
+     {
+      "date": "2020-12-29",
+      "dlogq_pct": 4.718,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 22,
+      "near_detail_rd": 3,
+      "near_action": 12
+     },
+     {
+      "date": "2020-12-30",
+      "dlogq_pct": 4.879,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 21,
+      "near_detail_rd": 2,
+      "near_action": 13
+     },
+     {
+      "date": "2021-12-29",
+      "dlogq_pct": 4.652,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 27,
+      "near_detail_rd": 3,
+      "near_action": 20
+     },
+     {
+      "date": "2021-12-30",
+      "dlogq_pct": 4.877,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 26,
+      "near_detail_rd": 2,
+      "near_action": 21
+     },
+     {
+      "date": "2022-12-28",
+      "dlogq_pct": 4.626,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 28,
+      "near_detail_rd": 4,
+      "near_action": 20
+     },
+     {
+      "date": "2022-12-29",
+      "dlogq_pct": 4.879,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 27,
+      "near_detail_rd": 3,
+      "near_action": 21
+     },
+     {
+      "date": "2023-12-27",
+      "dlogq_pct": 4.673,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 28,
+      "near_detail_rd": 5,
+      "near_action": 13
+     },
+     {
+      "date": "2023-12-28",
+      "dlogq_pct": 4.879,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1,
+      "near_share_ev": 27,
+      "near_detail_rd": 4,
+      "near_action": 14
+     },
+     {
+      "date": "2024-12-27",
+      "dlogq_pct": 4.576,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 3,
+      "near_db_jump": 0,
+      "near_share_ev": 26,
+      "near_detail_rd": 5,
+      "near_action": 11
+     },
+     {
+      "date": "2024-12-30",
+      "dlogq_pct": 4.879,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 3,
+      "near_share_ev": 23,
+      "near_detail_rd": 2,
+      "near_action": 14
+     }
+    ]
+   },
+   "187790": {
+    "p99": 0.48924,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2018-02-12",
+      "dlogq_pct": 69.315,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 22,
+      "near_share_ev": 22,
+      "near_detail_rd": 1,
+      "near_action": 4
+     },
+     {
+      "date": "2018-05-15",
+      "dlogq_pct": 11.5,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 70,
+      "near_db_jump": 0,
+      "near_share_ev": 65,
+      "near_detail_rd": 91,
+      "near_action": 1
+     },
+     {
+      "date": "2025-05-21",
+      "dlogq_pct": 9.309,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 2633,
+      "near_db_jump": 0,
+      "near_share_ev": 623,
+      "near_detail_rd": 2654,
+      "near_action": 2526
+     }
+    ]
+   },
+   "187870": {
+    "p99": 0.04234,
+    "n_days": 1870,
+    "seg_start": "2019-01-04",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2019-12-27",
+      "dlogq_pct": 0.615,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 111,
+      "near_detail_rd": 4,
+      "near_action": 2296
+     },
+     {
+      "date": "2020-03-19",
+      "dlogq_pct": 3.693,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 83,
+      "near_share_ev": 28,
+      "near_detail_rd": 79,
+      "near_action": 2213
+     }
+    ]
+   },
+   "189690": {
+    "p99": 0.09316,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2017-06-29",
+      "dlogq_pct": 4.675,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1097,
+      "near_db_jump": 0,
+      "near_share_ev": 113,
+      "near_detail_rd": 1098,
+      "near_action": 1083
+     },
+     {
+      "date": "2018-06-28",
+      "dlogq_pct": 4.641,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 733,
+      "near_db_jump": 0,
+      "near_share_ev": 113,
+      "near_detail_rd": 734,
+      "near_action": 719
+     },
+     {
+      "date": "2019-06-27",
+      "dlogq_pct": 4.711,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 369,
+      "near_db_jump": 0,
+      "near_share_ev": 113,
+      "near_detail_rd": 370,
+      "near_action": 355
+     }
+    ]
+   },
+   "192080": {
+    "p99": 0.01595,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2024-01-17",
+      "dlogq_pct": 1.608,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 28,
+      "near_detail_rd": 1,
+      "near_action": 14
+     }
+    ]
+   },
+   "192410": {
+    "p99": 0.07406,
+    "n_days": 118,
+    "seg_start": "2026-02-25",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-06-23",
+      "dlogq_pct": 7.651,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 95,
+      "near_share_ev": 32,
+      "near_detail_rd": 784,
+      "near_action": 365
+     }
+    ]
+   },
+   "194700": {
+    "p99": 0.01693,
+    "n_days": 1652,
+    "seg_start": "2019-11-22",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-07-06",
+      "dlogq_pct": 1.775,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 43,
+      "near_db_jump": 0,
+      "near_share_ev": 57,
+      "near_detail_rd": 44,
+      "near_action": 1
+     }
+    ]
+   },
+   "198940": {
+    "p99": 0.40903,
+    "n_days": 618,
+    "seg_start": "2024-01-31",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2024-05-10",
+      "dlogq_pct": 15.926,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 477,
+      "near_db_jump": 0,
+      "near_share_ev": 63,
+      "near_detail_rd": 52,
+      "near_action": 1
+     },
+     {
+      "date": "2024-06-28",
+      "dlogq_pct": 18.278,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 526,
+      "near_db_jump": 0,
+      "near_share_ev": 14,
+      "near_detail_rd": 3,
+      "near_action": 10
+     }
+    ]
+   },
+   "200470": {
+    "p99": 0.05166,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-11-04",
+      "dlogq_pct": 5.287,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 11,
+      "near_detail_rd": 3,
+      "near_action": 2
+     }
+    ]
+   },
+   "203650": {
+    "p99": 0.06693,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-09-30",
+      "dlogq_pct": 6.343,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2241,
+      "near_db_jump": 0,
+      "near_share_ev": 57,
+      "near_detail_rd": 2242,
+      "near_action": 3
+     }
+    ]
+   },
+   "206400": {
+    "p99": 0.24896,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 4,
+    "steps": [
+     {
+      "date": "2017-11-07",
+      "dlogq_pct": 4.705,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 408,
+      "near_db_jump": 0,
+      "near_share_ev": 62,
+      "near_detail_rd": 43,
+      "near_action": 1
+     },
+     {
+      "date": "2017-12-19",
+      "dlogq_pct": 22.255,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 366,
+      "near_db_jump": 0,
+      "near_share_ev": 20,
+      "near_detail_rd": 1,
+      "near_action": 12
+     },
+     {
+      "date": "2018-12-20",
+      "dlogq_pct": 2.763,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 366,
+      "near_share_ev": 26,
+      "near_detail_rd": 365,
+      "near_action": 0
+     },
+     {
+      "date": "2025-01-15",
+      "dlogq_pct": 1.972,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1540,
+      "near_share_ev": 29,
+      "near_detail_rd": 2583,
+      "near_action": 180
+     }
+    ]
+   },
+   "207940": {
+    "p99": 0.0447,
+    "n_days": 840,
+    "seg_start": "2023-03-08",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-11-24",
+      "dlogq_pct": 4.373,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 1363,
+      "near_action": 94
+     }
+    ]
+   },
+   "208860": {
+    "p99": 0.07547,
+    "n_days": 1207,
+    "seg_start": "2021-09-08",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-07-07",
+      "dlogq_pct": 7.847,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1573,
+      "near_db_jump": 0,
+      "near_share_ev": 45,
+      "near_detail_rd": 2442,
+      "near_action": 51
+     }
+    ]
+   },
+   "211050": {
+    "p99": 0.12748,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-02-16",
+      "dlogq_pct": 11.746,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 126,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 127,
+      "near_action": 20
+     }
+    ]
+   },
+   "214270": {
+    "p99": 0.10267,
+    "n_days": 2236,
+    "seg_start": "2017-07-04",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-12-11",
+      "dlogq_pct": 10.833,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 535,
+      "near_share_ev": 32,
+      "near_detail_rd": null,
+      "near_action": 24
+     }
+    ]
+   },
+   "214390": {
+    "p99": 0.36289,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2024-12-30",
+      "dlogq_pct": 30.942,
+      "type": "stock_div",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": null,
+      "near_detail_rd": null,
+      "near_action": null
+     }
+    ],
+    "cf_stockdiv_cut": {
+     "n_days": 395,
+     "p99": 0.0
+    }
+   },
+   "215090": {
+    "p99": 0.075,
+    "n_days": 872,
+    "seg_start": "2023-01-18",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-05-09",
+      "dlogq_pct": 7.232,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 140,
+      "near_db_jump": 0,
+      "near_share_ev": 43,
+      "near_detail_rd": null,
+      "near_action": 64
+     }
+    ]
+   },
+   "217500": {
+    "p99": 0.07315,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-02-09",
+      "dlogq_pct": 7.587,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 98,
+      "near_detail_rd": null,
+      "near_action": 12
+     }
+    ]
+   },
+   "220100": {
+    "p99": 0.48085,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 4,
+    "steps": [
+     {
+      "date": "2020-06-23",
+      "dlogq_pct": 13.059,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 853,
+      "near_db_jump": 0,
+      "near_share_ev": 56,
+      "near_detail_rd": 43,
+      "near_action": 1
+     },
+     {
+      "date": "2020-08-04",
+      "dlogq_pct": 18.164,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 811,
+      "near_db_jump": 0,
+      "near_share_ev": 14,
+      "near_detail_rd": 1,
+      "near_action": 12
+     },
+     {
+      "date": "2022-09-02",
+      "dlogq_pct": 4.741,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 52,
+      "near_db_jump": 0,
+      "near_share_ev": 62,
+      "near_detail_rd": 53,
+      "near_action": 1
+     },
+     {
+      "date": "2026-07-15",
+      "dlogq_pct": 3.252,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1360,
+      "near_db_jump": 0,
+      "near_share_ev": 222,
+      "near_detail_rd": 65,
+      "near_action": 1
+     }
+    ]
+   },
+   "225570": {
+    "p99": 0.0121,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-05-09",
+      "dlogq_pct": 1.217,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": 408
+     }
+    ]
+   },
+   "225590": {
+    "p99": 0.01961,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2017-10-25",
+      "dlogq_pct": 1.98,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 3130,
+      "near_db_jump": 0,
+      "near_share_ev": 111,
+      "near_detail_rd": null,
+      "near_action": 8
+     }
+    ]
+   },
+   "226330": {
+    "p99": 0.19529,
+    "n_days": 1383,
+    "seg_start": "2020-12-23",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-11-06",
+      "dlogq_pct": 17.82,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 62,
+      "near_detail_rd": 2263,
+      "near_action": 1
+     }
+    ]
+   },
+   "226340": {
+    "p99": 0.17852,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-07-27",
+      "dlogq_pct": 14.961,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2861,
+      "near_db_jump": 0,
+      "near_share_ev": 94,
+      "near_detail_rd": null,
+      "near_action": 3
+     },
+     {
+      "date": "2025-04-15",
+      "dlogq_pct": 16.357,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 407,
+      "near_db_jump": 0,
+      "near_share_ev": 316,
+      "near_detail_rd": null,
+      "near_action": 475
+     }
+    ]
+   },
+   "227950": {
+    "p99": 0.22395,
+    "n_days": 1565,
+    "seg_start": "2020-03-31",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-10-26",
+      "dlogq_pct": 25.354,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 808,
+      "near_share_ev": 4,
+      "near_detail_rd": null,
+      "near_action": 215
+     }
+    ]
+   },
+   "229000": {
+    "p99": 0.31203,
+    "n_days": 588,
+    "seg_start": "2024-03-18",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-03-04",
+      "dlogq_pct": 37.401,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1093,
+      "near_share_ev": 37,
+      "near_detail_rd": 1092,
+      "near_action": 63
+     }
+    ]
+   },
+   "230240": {
+    "p99": 0.03672,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-07-27",
+      "dlogq_pct": 4.609,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 294,
+      "near_db_jump": 0,
+      "near_share_ev": 111,
+      "near_detail_rd": 840,
+      "near_action": 1
+     },
+     {
+      "date": "2020-11-12",
+      "dlogq_pct": 0.887,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 545,
+      "near_db_jump": 0,
+      "near_share_ev": 61,
+      "near_detail_rd": 1,
+      "near_action": 1
+     }
+    ]
+   },
+   "234100": {
+    "p99": 0.07586,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-06-08",
+      "dlogq_pct": 7.257,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1422,
+      "near_db_jump": 0,
+      "near_share_ev": 56,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "234300": {
+    "p99": 0.47978,
+    "n_days": 1881,
+    "seg_start": "2018-12-17",
+    "n_steps": 4,
+    "steps": [
+     {
+      "date": "2020-09-29",
+      "dlogq_pct": 9.655,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 59,
+      "near_detail_rd": 50,
+      "near_action": 1
+     },
+     {
+      "date": "2020-11-17",
+      "dlogq_pct": 17.753,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 10,
+      "near_detail_rd": 1,
+      "near_action": 12
+     },
+     {
+      "date": "2021-11-12",
+      "dlogq_pct": 2.421,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 60,
+      "near_detail_rd": 46,
+      "near_action": 1
+     },
+     {
+      "date": "2021-12-27",
+      "dlogq_pct": 9.339,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 15,
+      "near_detail_rd": 1,
+      "near_action": 4
+     }
+    ]
+   },
+   "238200": {
+    "p99": 0.02451,
+    "n_days": 1623,
+    "seg_start": "2020-01-07",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2024-10-02",
+      "dlogq_pct": 2.284,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1280,
+      "near_db_jump": 0,
+      "near_share_ev": 1258,
+      "near_detail_rd": 1279,
+      "near_action": 1296
+     }
+    ]
+   },
+   "241820": {
+    "p99": 0.19094,
+    "n_days": 1877,
+    "seg_start": "2018-12-21",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2023-07-14",
+      "dlogq_pct": 11.343,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 62,
+      "near_db_jump": 0,
+      "near_share_ev": 82,
+      "near_detail_rd": 63,
+      "near_action": 1
+     },
+     {
+      "date": "2025-10-17",
+      "dlogq_pct": 6.151,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 36,
+      "near_action": 98
+     }
+    ]
+   },
+   "242040": {
+    "p99": 0.05927,
+    "n_days": 2185,
+    "seg_start": "2017-09-14",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-08-24",
+      "dlogq_pct": 6.091,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 109,
+      "near_detail_rd": null,
+      "near_action": 3
+     }
+    ]
+   },
+   "244460": {
+    "p99": 0.13038,
+    "n_days": 419,
+    "seg_start": "2024-11-26",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-04-03",
+      "dlogq_pct": 13.97,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 155,
+      "near_share_ev": 14,
+      "near_detail_rd": 177,
+      "near_action": 6
+     }
+    ]
+   },
+   "246250": {
+    "p99": 0.10535,
+    "n_days": 2234,
+    "seg_start": "2017-07-06",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2023-10-20",
+      "dlogq_pct": 11.133,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 266,
+      "near_share_ev": 0,
+      "near_detail_rd": 269,
+      "near_action": 24
+     }
+    ]
+   },
+   "246710": {
+    "p99": 0.41603,
+    "n_days": 1642,
+    "seg_start": "2019-12-06",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2025-09-09",
+      "dlogq_pct": 16.5,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1253,
+      "near_db_jump": 0,
+      "near_share_ev": 62,
+      "near_detail_rd": 51,
+      "near_action": 1
+     },
+     {
+      "date": "2025-10-29",
+      "dlogq_pct": 18.241,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1303,
+      "near_db_jump": 0,
+      "near_share_ev": 12,
+      "near_detail_rd": 1,
+      "near_action": 13
+     }
+    ]
+   },
+   "246720": {
+    "p99": 0.05682,
+    "n_days": 2055,
+    "seg_start": "2018-04-02",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2018-06-27",
+      "dlogq_pct": 5.526,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 56,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "247540": {
+    "p99": 0.01182,
+    "n_days": 1580,
+    "seg_start": "2020-03-10",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-05-09",
+      "dlogq_pct": 1.454,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 49,
+      "near_db_jump": 0,
+      "near_share_ev": 59,
+      "near_detail_rd": 50,
+      "near_action": 3
+     }
+    ]
+   },
+   "256940": {
+    "p99": 0.14245,
+    "n_days": 2114,
+    "seg_start": "2018-01-04",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-05-15",
+      "dlogq_pct": 15.372,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 5,
+      "near_share_ev": 5,
+      "near_detail_rd": 6,
+      "near_action": 9
+     }
+    ]
+   },
+   "257370": {
+    "p99": 0.07623,
+    "n_days": 1348,
+    "seg_start": "2021-02-17",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2024-10-10",
+      "dlogq_pct": 7.929,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1704,
+      "near_db_jump": 0,
+      "near_share_ev": 132,
+      "near_detail_rd": null,
+      "near_action": 177
+     }
+    ]
+   },
+   "258790": {
+    "p99": 0.01804,
+    "n_days": 2027,
+    "seg_start": "2018-05-14",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2019-10-08",
+      "dlogq_pct": 2.7,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2424,
+      "near_db_jump": 0,
+      "near_share_ev": 83,
+      "near_detail_rd": null,
+      "near_action": 0
+     },
+     {
+      "date": "2025-08-05",
+      "dlogq_pct": 1.687,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 296,
+      "near_db_jump": 0,
+      "near_share_ev": 296,
+      "near_detail_rd": null,
+      "near_action": 2107
+     }
+    ]
+   },
+   "263050": {
+    "p99": 0.09129,
+    "n_days": 1624,
+    "seg_start": "2020-01-06",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-05-24",
+      "dlogq_pct": 8.733,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 49,
+      "near_db_jump": 0,
+      "near_share_ev": 58,
+      "near_detail_rd": 50,
+      "near_action": 1
+     }
+    ]
+   },
+   "264850": {
+    "p99": 0.08318,
+    "n_days": 2006,
+    "seg_start": "2018-06-15",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2018-09-19",
+      "dlogq_pct": 2.791,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 457,
+      "near_detail_rd": null,
+      "near_action": 1
+     },
+     {
+      "date": "2019-09-06",
+      "dlogq_pct": 8.667,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 105,
+      "near_detail_rd": null,
+      "near_action": 13
+     }
+    ]
+   },
+   "267260": {
+    "p99": 0.15876,
+    "n_days": 2022,
+    "seg_start": "2018-05-21",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-11-06",
+      "dlogq_pct": 14.732,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 348,
+      "near_db_jump": 0,
+      "near_share_ev": 54,
+      "near_detail_rd": 345,
+      "near_action": 1
+     }
+    ]
+   },
+   "267850": {
+    "p99": 0.0562,
+    "n_days": 1320,
+    "seg_start": "2021-03-30",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2021-07-16",
+      "dlogq_pct": 5.784,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 484,
+      "near_db_jump": 0,
+      "near_share_ev": null,
+      "near_detail_rd": null,
+      "near_action": 976
+     }
+    ]
+   },
+   "270520": {
+    "p99": 0.06553,
+    "n_days": 1950,
+    "seg_start": "2018-09-04",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-12-06",
+      "dlogq_pct": 6.293,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1438,
+      "near_db_jump": 0,
+      "near_share_ev": 94,
+      "near_detail_rd": 1439,
+      "near_action": 1
+     }
+    ]
+   },
+   "273060": {
+    "p99": 0.01223,
+    "n_days": 1960,
+    "seg_start": "2018-08-21",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-04-20",
+      "dlogq_pct": 1.212,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 107,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "275630": {
+    "p99": 0.0267,
+    "n_days": 1718,
+    "seg_start": "2019-08-16",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-04-22",
+      "dlogq_pct": 2.698,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 184,
+      "near_detail_rd": null,
+      "near_action": 1403
+     }
+    ]
+   },
+   "277880": {
+    "p99": 0.05073,
+    "n_days": 1907,
+    "seg_start": "2018-11-09",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-07-22",
+      "dlogq_pct": 4.948,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 230,
+      "near_action": 13
+     }
+    ]
+   },
+   "279600": {
+    "p99": 0.24258,
+    "n_days": 1898,
+    "seg_start": "2018-11-22",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2019-11-05",
+      "dlogq_pct": 8.673,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": 18
+     },
+     {
+      "date": "2025-06-02",
+      "dlogq_pct": 19.113,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 2036,
+      "near_db_jump": 0,
+      "near_share_ev": 1452,
+      "near_detail_rd": null,
+      "near_action": 2054
+     }
+    ]
+   },
+   "281740": {
+    "p99": 0.07963,
+    "n_days": 1876,
+    "seg_start": "2018-12-24",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-12-13",
+      "dlogq_pct": 7.644,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 101,
+      "near_detail_rd": null,
+      "near_action": 1
+     }
+    ]
+   },
+   "286750": {
+    "p99": 0.24113,
+    "n_days": 1320,
+    "seg_start": "2021-03-30",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2024-11-12",
+      "dlogq_pct": 3.881,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1049,
+      "near_share_ev": 41,
+      "near_detail_rd": 1046,
+      "near_action": 1
+     },
+     {
+      "date": "2025-07-07",
+      "dlogq_pct": 23.676,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1286,
+      "near_share_ev": 45,
+      "near_detail_rd": 1283,
+      "near_action": 17
+     }
+    ]
+   },
+   "290660": {
+    "p99": 0.12752,
+    "n_days": 1642,
+    "seg_start": "2019-12-06",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-09-29",
+      "dlogq_pct": 12.472,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 2095,
+      "near_db_jump": 0,
+      "near_share_ev": 39,
+      "near_detail_rd": 6,
+      "near_action": 1
+     }
+    ]
+   },
+   "294870": {
+    "p99": 0.07854,
+    "n_days": 1756,
+    "seg_start": "2019-06-24",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-01-31",
+      "dlogq_pct": 7.559,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 55,
+      "near_detail_rd": null,
+      "near_action": 2
+     }
+    ]
+   },
+   "298060": {
+    "p99": 0.31188,
+    "n_days": 1261,
+    "seg_start": "2021-06-23",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2023-07-11",
+      "dlogq_pct": 8.887,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1043,
+      "near_db_jump": 0,
+      "near_share_ev": 60,
+      "near_detail_rd": 69,
+      "near_action": 1
+     },
+     {
+      "date": "2023-09-15",
+      "dlogq_pct": 18.232,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 977,
+      "near_db_jump": 0,
+      "near_share_ev": 12,
+      "near_detail_rd": 3,
+      "near_action": 14
+     }
+    ]
+   },
+   "298690": {
+    "p99": 0.1663,
+    "n_days": 1176,
+    "seg_start": "2021-10-28",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2022-08-10",
+      "dlogq_pct": 1.574,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 2,
+      "near_action": 0
+     },
+     {
+      "date": "2022-08-11",
+      "dlogq_pct": 13.797,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1,
+      "near_db_jump": 0,
+      "near_share_ev": 1,
+      "near_detail_rd": 1,
+      "near_action": 1
+     }
+    ]
+   },
+   "299170": {
+    "p99": 0.08168,
+    "n_days": 1685,
+    "seg_start": "2019-10-07",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-08-14",
+      "dlogq_pct": 8.501,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 109,
+      "near_detail_rd": null,
+      "near_action": 13
+     }
+    ]
+   },
+   "302550": {
+    "p99": 0.02862,
+    "n_days": 1712,
+    "seg_start": "2019-08-26",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2019-12-06",
+      "dlogq_pct": 2.797,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1481,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": 14
+     }
+    ]
+   },
+   "307180": {
+    "p99": 0.08967,
+    "n_days": 1625,
+    "seg_start": "2020-01-03",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2026-03-04",
+      "dlogq_pct": 5.465,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 2347,
+      "near_share_ev": 22,
+      "near_detail_rd": null,
+      "near_action": 51
+     },
+     {
+      "date": "2026-03-06",
+      "dlogq_pct": 2.335,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 2349,
+      "near_share_ev": 20,
+      "near_detail_rd": null,
+      "near_action": 49
+     },
+     {
+      "date": "2026-03-09",
+      "dlogq_pct": 1.594,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 2352,
+      "near_share_ev": 17,
+      "near_detail_rd": null,
+      "near_action": 46
+     }
+    ]
+   },
+   "307280": {
+    "p99": 0.06761,
+    "n_days": 1637,
+    "seg_start": "2019-12-13",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-10-16",
+      "dlogq_pct": 6.92,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1683,
+      "near_db_jump": 0,
+      "near_share_ev": 116,
+      "near_detail_rd": null,
+      "near_action": 5
+     }
+    ]
+   },
+   "307870": {
+    "p99": 0.07931,
+    "n_days": 976,
+    "seg_start": "2022-08-18",
+    "n_steps": 3,
+    "steps": [
+     {
+      "date": "2023-09-01",
+      "dlogq_pct": 4.883,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 756,
+      "near_share_ev": 21,
+      "near_detail_rd": null,
+      "near_action": 11
+     },
+     {
+      "date": "2024-08-20",
+      "dlogq_pct": 2.66,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1110,
+      "near_share_ev": 12,
+      "near_detail_rd": null,
+      "near_action": 78
+     },
+     {
+      "date": "2025-07-10",
+      "dlogq_pct": 0.72,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1434,
+      "near_share_ev": 39,
+      "near_detail_rd": null,
+      "near_action": 3
+     }
+    ]
+   },
+   "308100": {
+    "p99": 0.0696,
+    "n_days": 1514,
+    "seg_start": "2020-06-16",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2025-06-04",
+      "dlogq_pct": 9.436,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 411,
+      "near_db_jump": 0,
+      "near_share_ev": 15,
+      "near_detail_rd": 49,
+      "near_action": 2
+     },
+     {
+      "date": "2026-07-20",
+      "dlogq_pct": 7.214,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 411,
+      "near_share_ev": 8,
+      "near_detail_rd": 362,
+      "near_action": 20
+     }
+    ]
+   },
+   "310210": {
+    "p99": 0.22093,
+    "n_days": 762,
+    "seg_start": "2023-06-30",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2023-07-21",
+      "dlogq_pct": 2.313,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 56,
+      "near_detail_rd": 55,
+      "near_action": 1
+     },
+     {
+      "date": "2023-09-13",
+      "dlogq_pct": 17.648,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 2,
+      "near_detail_rd": 1,
+      "near_action": 9
+     }
+    ]
+   },
+   "314130": {
+    "p99": 0.12756,
+    "n_days": 1623,
+    "seg_start": "2020-01-07",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2020-12-23",
+      "dlogq_pct": 12.0,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1322,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 1323,
+      "near_action": 13
+     }
+    ]
+   },
+   "317240": {
+    "p99": 0.02787,
+    "n_days": 408,
+    "seg_start": "2024-12-11",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-02-17",
+      "dlogq_pct": 2.827,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 444,
+      "near_db_jump": 0,
+      "near_share_ev": 199,
+      "near_detail_rd": 1022,
+      "near_action": 39
+     }
+    ]
+   },
+   "322510": {
+    "p99": 0.29788,
+    "n_days": 1387,
+    "seg_start": "2020-12-17",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2024-08-14",
+      "dlogq_pct": 8.086,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 77,
+      "near_detail_rd": 65,
+      "near_action": 1
+     },
+     {
+      "date": "2024-10-17",
+      "dlogq_pct": 17.928,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 13,
+      "near_detail_rd": 1,
+      "near_action": 15
+     }
+    ]
+   },
+   "323350": {
+    "p99": 0.30749,
+    "n_days": 1527,
+    "seg_start": "2020-05-28",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2024-02-16",
+      "dlogq_pct": 18.232,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 116,
+      "near_db_jump": 0,
+      "near_share_ev": 98,
+      "near_detail_rd": null,
+      "near_action": 2
+     },
+     {
+      "date": "2024-06-11",
+      "dlogq_pct": 18.51,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 116,
+      "near_share_ev": 0,
+      "near_detail_rd": null,
+      "near_action": 34
+     }
+    ]
+   },
+   "323990": {
+    "p99": 0.27869,
+    "n_days": 888,
+    "seg_start": "2022-12-26",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2023-09-20",
+      "dlogq_pct": 6.345,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 643,
+      "near_db_jump": 0,
+      "near_share_ev": 64,
+      "near_detail_rd": 54,
+      "near_action": 1
+     },
+     {
+      "date": "2023-11-10",
+      "dlogq_pct": 18.232,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 694,
+      "near_db_jump": 0,
+      "near_share_ev": 13,
+      "near_detail_rd": 3,
+      "near_action": 11
+     }
+    ]
+   },
+   "328130": {
+    "p99": 0.10472,
+    "n_days": 743,
+    "seg_start": "2023-07-27",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2023-09-22",
+      "dlogq_pct": 3.559,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 48,
+      "near_db_jump": 0,
+      "near_share_ev": 63,
+      "near_detail_rd": 49,
+      "near_action": 1
+     },
+     {
+      "date": "2026-03-18",
+      "dlogq_pct": 6.574,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 47,
+      "near_db_jump": 0,
+      "near_share_ev": 58,
+      "near_detail_rd": 49,
+      "near_action": 1
+     }
+    ]
+   },
+   "328380": {
+    "p99": 0.20849,
+    "n_days": 1464,
+    "seg_start": "2020-08-26",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-04-22",
+      "dlogq_pct": 23.382,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1481,
+      "near_db_jump": 0,
+      "near_share_ev": 122,
+      "near_detail_rd": null,
+      "near_action": 11
+     }
+    ]
+   },
+   "331520": {
+    "p99": 0.06883,
+    "n_days": 1418,
+    "seg_start": "2020-11-04",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-07-15",
+      "dlogq_pct": 7.131,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1385,
+      "near_db_jump": 0,
+      "near_share_ev": 108,
+      "near_detail_rd": null,
+      "near_action": 0
+     }
+    ]
+   },
+   "333050": {
+    "p99": 0.07722,
+    "n_days": 1416,
+    "seg_start": "2020-11-06",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-07-15",
+      "dlogq_pct": 7.97,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 1405,
+      "near_db_jump": 0,
+      "near_share_ev": 96,
+      "near_detail_rd": null,
+      "near_action": 2
+     }
+    ]
+   },
+   "336060": {
+    "p99": 0.155,
+    "n_days": 1396,
+    "seg_start": "2020-12-04",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2021-12-03",
+      "dlogq_pct": 16.842,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1707,
+      "near_db_jump": 0,
+      "near_share_ev": 132,
+      "near_detail_rd": null,
+      "near_action": 20
+     }
+    ]
+   },
+   "336370": {
+    "p99": 0.03771,
+    "n_days": 1425,
+    "seg_start": "2020-10-26",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-04-01",
+      "dlogq_pct": 3.69,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 647,
+      "near_db_jump": 0,
+      "near_share_ev": 59,
+      "near_detail_rd": 648,
+      "near_action": 1
+     }
+    ]
+   },
+   "348080": {
+    "p99": 0.03019,
+    "n_days": 521,
+    "seg_start": "2024-06-26",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-07-22",
+      "dlogq_pct": 2.956,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 20,
+      "near_action": 77
+     }
+    ]
+   },
+   "355150": {
+    "p99": 0.11675,
+    "n_days": 1195,
+    "seg_start": "2021-09-29",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-12-23",
+      "dlogq_pct": 11.0,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 406,
+      "near_db_jump": 0,
+      "near_share_ev": 101,
+      "near_detail_rd": null,
+      "near_action": 5
+     }
+    ]
+   },
+   "356860": {
+    "p99": 0.05377,
+    "n_days": 1138,
+    "seg_start": "2021-12-21",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2026-05-29",
+      "dlogq_pct": 5.325,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 48,
+      "near_db_jump": 0,
+      "near_share_ev": 59,
+      "near_detail_rd": 52,
+      "near_action": 1
+     }
+    ]
+   },
+   "357880": {
+    "p99": 0.11522,
+    "n_days": 915,
+    "seg_start": "2022-11-17",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2024-09-13",
+      "dlogq_pct": 19.908,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 55,
+      "near_db_jump": 0,
+      "near_share_ev": 63,
+      "near_detail_rd": 56,
+      "near_action": 1
+     },
+     {
+      "date": "2024-11-13",
+      "dlogq_pct": 12.217,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 6,
+      "near_share_ev": 2,
+      "near_detail_rd": 5,
+      "near_action": 5
+     }
+    ]
+   },
+   "358570": {
+    "p99": 0.20122,
+    "n_days": 572,
+    "seg_start": "2024-04-09",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2025-02-11",
+      "dlogq_pct": 8.794,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 389,
+      "near_db_jump": 0,
+      "near_share_ev": 58,
+      "near_detail_rd": 51,
+      "near_action": 1
+     },
+     {
+      "date": "2025-04-02",
+      "dlogq_pct": 9.524,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 439,
+      "near_db_jump": 0,
+      "near_share_ev": 8,
+      "near_detail_rd": 1,
+      "near_action": 2
+     }
+    ]
+   },
+   "365330": {
+    "p99": 0.2143,
+    "n_days": 420,
+    "seg_start": "2024-11-25",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2025-07-29",
+      "dlogq_pct": 9.912,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 58,
+      "near_detail_rd": 48,
+      "near_action": 1
+     },
+     {
+      "date": "2025-09-12",
+      "dlogq_pct": 9.444,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 13,
+      "near_detail_rd": 3,
+      "near_action": 11
+     }
+    ]
+   },
+   "365590": {
+    "p99": 0.05986,
+    "n_days": 1133,
+    "seg_start": "2021-12-28",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2022-05-12",
+      "dlogq_pct": 5.467,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 146,
+      "near_share_ev": 0,
+      "near_detail_rd": 1316,
+      "near_action": 44
+     },
+     {
+      "date": "2026-01-15",
+      "dlogq_pct": 0.708,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 28,
+      "near_action": 87
+     }
+    ]
+   },
+   "377030": {
+    "p99": 0.15794,
+    "n_days": 205,
+    "seg_start": "2025-10-17",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2026-02-24",
+      "dlogq_pct": 11.892,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 65,
+      "near_share_ev": 14,
+      "near_detail_rd": 43,
+      "near_action": 13
+     },
+     {
+      "date": "2026-04-30",
+      "dlogq_pct": 5.289,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 0,
+      "near_detail_rd": 22,
+      "near_action": 2
+     }
+    ]
+   },
+   "388790": {
+    "p99": 0.03972,
+    "n_days": 958,
+    "seg_start": "2022-09-15",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2022-10-28",
+      "dlogq_pct": 3.895,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": null,
+      "near_db_jump": 0,
+      "near_share_ev": 109,
+      "near_detail_rd": null,
+      "near_action": 10
+     }
+    ]
+   },
+   "415380": {
+    "p99": 0.0402,
+    "n_days": 362,
+    "seg_start": "2025-02-24",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-09-08",
+      "dlogq_pct": 4.105,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 4,
+      "near_detail_rd": 1,
+      "near_action": 12
+     }
+    ]
+   },
+   "417840": {
+    "p99": 0.04958,
+    "n_days": 677,
+    "seg_start": "2023-11-06",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-12-30",
+      "dlogq_pct": 5.085,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 0,
+      "near_share_ev": 24,
+      "near_detail_rd": 3,
+      "near_action": 12
+     }
+    ]
+   },
+   "900100": {
+    "p99": 0.12075,
+    "n_days": 2246,
+    "seg_start": "2017-06-20",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2017-12-28",
+      "dlogq_pct": 7.052,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 1252,
+      "near_share_ev": 16,
+      "near_detail_rd": null,
+      "near_action": 39
+     },
+     {
+      "date": "2022-09-26",
+      "dlogq_pct": 5.824,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 481,
+      "near_db_jump": 0,
+      "near_share_ev": 2,
+      "near_detail_rd": null,
+      "near_action": 335
+     }
+    ]
+   },
+   "900140": {
+    "p99": 0.48256,
+    "n_days": 1216,
+    "seg_start": "2021-08-26",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2023-01-16",
+      "dlogq_pct": 6.038,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 880,
+      "near_db_jump": 0,
+      "near_share_ev": 77,
+      "near_detail_rd": 53,
+      "near_action": 3
+     },
+     {
+      "date": "2023-03-09",
+      "dlogq_pct": 33.298,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 932,
+      "near_db_jump": 0,
+      "near_share_ev": 25,
+      "near_detail_rd": 1,
+      "near_action": 14
+     }
+    ]
+   },
+   "900260": {
+    "p99": 0.35971,
+    "n_days": 2233,
+    "seg_start": "2017-07-07",
+    "n_steps": 2,
+    "steps": [
+     {
+      "date": "2019-06-05",
+      "dlogq_pct": 11.778,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 62,
+      "near_db_jump": 0,
+      "near_share_ev": 64,
+      "near_detail_rd": null,
+      "near_action": 1
+     },
+     {
+      "date": "2019-08-06",
+      "dlogq_pct": 44.583,
+      "type": "event_residual",
+      "sd_share_match": null,
+      "near_recon_ev": 0,
+      "near_db_jump": 62,
+      "near_share_ev": 2,
+      "near_detail_rd": null,
+      "near_action": 29
+     }
+    ]
+   },
+   "950130": {
+    "p99": 0.16913,
+    "n_days": 969,
+    "seg_start": "2022-08-29",
+    "n_steps": 1,
+    "steps": [
+     {
+      "date": "2025-09-29",
+      "dlogq_pct": 15.605,
+      "type": "small_isolated",
+      "sd_share_match": null,
+      "near_recon_ev": 1503,
+      "near_db_jump": 0,
+      "near_share_ev": 228,
+      "near_detail_rd": null,
+      "near_action": 2236
+     }
+    ]
+   }
+  }
+ }
+}

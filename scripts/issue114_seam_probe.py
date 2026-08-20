@@ -34,6 +34,7 @@ SCOPE = f"{ROOT}/data/verification/issue114_survivor_scope.json"
 LEDGER = f"{ROOT}/data/verification/issue114_residual_classify_20260819.json"
 WARMUP = 252
 BIG_GAP, MATCH_TOL, WINDOW = 1.35, 1.4, 45
+V5 = "--v5" in sys.argv                     # v4.1 + 주식배당 detail (11차)
 
 
 def load(cur, t):
@@ -54,7 +55,8 @@ def load(cur, t):
 
 
 def v3_events_tagged(closes, shares, details):
-    """adj_reconstruct.v3_events(use_cr=False) 동일 로직 + provenance 태그."""
+    """adj_reconstruct.v3_events(use_cr=False, use_stkdp=V5) 동일 로직 +
+    provenance 태그. 수동 동기화 복사본 — 파이프라인 수정 시 함께 갱신할 것."""
     dates = [d for d, _ in closes]
     close_of = dict(closes)
     se = share_events(sorted(shares), shares)
@@ -88,6 +90,14 @@ def v3_events_tagged(closes, shares, details):
         ep = det.get("endpoint", "")
         if rd is None or ep == "crDecsn":
             continue
+        if ep == "stkdpDecsn":
+            if not V5 or not det.get("ratio") or det["ratio"] <= 0:
+                continue
+            rc = det.get("rcept_no") or ""
+            if rc[:8] > rd.strftime("%Y%m%d"):
+                continue                    # 기준일 후 접수 — 참조는 원공시로 조정
+            cands.append(("stkdp", rd, rc, det))
+            continue
         method = det.get("method") or ""
         if ep == "piicDecsn" and "주주" not in method:
             continue
@@ -106,17 +116,26 @@ def v3_events_tagged(closes, shares, details):
         if k == 0:
             continue
         ex = dates[k - 1]
-        if (rd - ex).days > 7:
+        if kind == "stkdp":
+            if (rd - ex).days > 7:          # 정지 스팬 = F2 동형(재개일 배치)
+                if k > len(dates) - 1:
+                    continue
+                ex = dates[k]
+            elif rd.month == 12 and rd.day >= 28:
+                if k < 2:
+                    continue
+                ex = dates[k - 2]           # 결산 락일 = 폐장일 직전 거래일
+        elif (rd - ex).days > 7:
             if k > len(dates) - 1:
                 continue
             ex = dates[k]
         if any(abs((ex - bd).days) <= 3 for bd in big_dates):
             continue
-        if kind == "fric":
+        if kind in ("fric", "stkdp"):
             alloc = det.get("ratio")
             if alloc is None or alloc <= 0:
                 continue
-            events.append((ex, 1.0 / (1.0 + float(alloc)), "fric"))
+            events.append((ex, 1.0 / (1.0 + float(alloc)), kind))
         else:
             prev_i = dates.index(ex) - 1
             if prev_i < 0:
@@ -350,9 +369,11 @@ def main() -> int:
         },
     }
 
-    out = {"generated": str(date.today()), "gate_replication": gate,
+    out = {"generated": str(date.today()), "version": "v5" if V5 else "v4.1",
+           "gate_replication": gate,
            "carveout_stockdiv": carveout, "onset": onset}
-    path = f"{ROOT}/data/verification/issue114_seam_probe_{date.today():%Y%m%d}.json"
+    path = (f"{ROOT}/data/verification/issue114_seam_probe_"
+            f"{'v5_' if V5 else ''}{date.today():%Y%m%d}.json")
     with open(path, "w") as fp:
         json.dump(out, fp, ensure_ascii=False, indent=1)
     print(json.dumps({"gate": gate, "onset_summary": {
