@@ -92,8 +92,9 @@ def main() -> int:
             closes, adj, shares, details, actions = load(cur, t)
             if not closes:
                 continue
-            events = v3_events(closes, shares, details)
-            for d, r in db_factor_jumps(closes, adj):
+            events = v3_events(closes, shares, details, use_stkdp=False)
+            for d, r in db_factor_jumps(closes, adj):        # 원장=v4.1 기준 봉인
+
                 if abs(r - 1) <= 0.30:
                     continue
                 hit = any(abs((d - ed).days) <= 3 and er > 0 and r > 0
@@ -108,7 +109,7 @@ def main() -> int:
             closes, adj, shares, details, actions = load(cur, t)
             if not closes:
                 continue
-            events = v3_events(closes, shares, details)
+            events = v3_events(closes, shares, details, use_stkdp=False)
             for ed, er in events:
                 fp_rows.append({"ticker": t, "date": ed.isoformat(),
                                 "ratio": round(er, 3),

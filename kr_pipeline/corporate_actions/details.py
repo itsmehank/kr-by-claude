@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from datetime import date, datetime
 
@@ -145,6 +146,59 @@ def parse_rights_record_date(text: str) -> date | None:
     seg = re.sub(r"<[^>]+>", " ", text[i:i + 500])
     dates = re.findall(r"\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일", seg)
     return parse_kr_date(dates[-1]) if dates else None
+
+
+def parse_stkdp(text: str) -> dict | None:
+    """주식배당결정 수시공시 원문 파싱 (v5, #114 11차).
+
+    반환 {record_date, ratio, div_total, outstanding, per_share} 또는 None.
+    ratio = 배당주식총수/발행주식총수 (KRX 기준가 조정 실측과 정합 — 자기주식
+    제외 효과 내재). 총수 미제공 시 1주당 배당주식수 fallback.
+    """
+    plain = re.sub(r"<[^>]+>", " ", text)
+    plain = re.sub(r"\s+", " ", plain)
+
+    def num_after(label: str) -> float | None:
+        i = plain.find(label)
+        if i < 0:
+            return None
+        m = re.search(r"보통주식\s*([\d,.]+)", plain[i:i + 200])
+        return parse_num(m.group(1)) if m else None
+
+    rd = None
+    i = plain.find("배당기준일")
+    if i >= 0:
+        seg = plain[i:i + 120]
+        m = re.search(r"(\d{4})-(\d{2})-(\d{2})", seg)
+        if m:
+            try:
+                rd = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            except ValueError:
+                rd = None
+        if rd is None:
+            rd = parse_kr_date(seg)
+    if rd is None:
+        return None
+    div_total = num_after("배당주식총수")
+    outstanding = num_after("발행주식총수")
+    per_share = num_after("1주당 배당주식수")
+    # 타당성 한계 — 기재정정 2단 표(변경 전/후)에서 라벨-값 오정렬로 발행총수가
+    # 비율 자리에 오는 실사례(ratio 1.0·7.48e6) 차단. 주식배당은 0 < r ≤ 0.5.
+    ps_ok = per_share is not None and 0 < per_share <= 0.5
+    tot_ok = (div_total is not None and outstanding is not None
+              and div_total >= 1 and outstanding >= 1000
+              and div_total < outstanding)
+    ratio = None
+    if tot_ok:
+        r = div_total / outstanding
+        if 0 < r <= 0.5 and (not ps_ok or abs(math.log(r / per_share)) < math.log(2)):
+            ratio = r                       # 총수 기반(자기주식 제외 효과 내재)
+    if ratio is None and ps_ok:
+        ratio = per_share                   # fallback — 자기주식 보정 없는 근사
+    if ratio is None:
+        return None
+    return {"record_date": rd, "ratio": ratio, "div_total": div_total,
+            "outstanding": outstanding, "per_share": per_share}
 
 
 def parse_new_share_count(text: str) -> float | None:

@@ -183,7 +183,8 @@ def v2_events(closes: list[tuple[date, float]], shares: dict[date, int],
 def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
               details: list[dict], *, big_gap: float = 1.35,
               match_tol: float = 1.4, window_days: int = 45,
-              use_cr: bool = False, cr_window: int = 90) -> list[tuple[date, float]]:
+              use_cr: bool = False, cr_window: int = 90,
+              use_stkdp: bool = True) -> list[tuple[date, float]]:
     """v3 — 대형은 v2(가격 갭+주식수), 증자류 소형은 DART 상세 직취 (경로B).
 
     details 항목: {endpoint, record_date, ratio, method} (corp_action_details).
@@ -191,6 +192,11 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
       배율 = 1/(1+1주당 배정수) — 정확.
     - 유상(piicDecsn): '주주배정'만 권리락 있음(3자배정·일반공모 제외 — FP 차단).
       배율 = 권리락일 raw 갭(발행가 미확정 대비 근사 — 당일 시장 수익률 잔차 포함).
+    - 주식배당(stkdpDecsn, v5 — use_stkdp): 결산 기준일(12/31, 비거래일)의
+      락일 = 폐장일 직전 거래일(T+2 — 폐장일 매수는 명부 미등재)
+      [measurement-based: 11차 잔여 조사 확증 스텝 186건 전부 폐장일-1 발생].
+      배율 = 1/(1+ratio), ratio = 배당주식총수/발행주식총수(자기주식 제외 효과
+      내재 — KRX 기준가 조정 실측과 정합, 1주당 배당주수 기반은 자기주식만큼 과대).
     - 대형 이벤트(±3일)와 겹치면 스킵(이중 계상 방지), 같은 기준일 중복 공시는 1건.
     """
     import bisect
@@ -241,6 +247,17 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
             cands.append(("cr", rd, det.get("rcept_no") or "",
                           {**det, "_r_evt": 1.0 / (1.0 - float(ratio))}))
             continue
+        if ep == "stkdpDecsn":
+            if not use_stkdp:               # v4.1 재현용(비교 측정 전용)
+                continue
+            ratio = det.get("ratio")
+            if ratio is None or ratio <= 0:
+                continue
+            rc = det.get("rcept_no") or ""
+            if rc[:8] > rd.strftime("%Y%m%d"):
+                continue                    # 기준일 후 접수(주총 정정·지연 결의):
+            cands.append(("stkdp", rd, rc, det))  # 참조는 원공시 비율로 락 조정
+            continue
         method = det.get("method") or ""
         if ep == "piicDecsn" and "주주" not in method:
             continue                        # 3자배정·일반공모 = 권리락 없음
@@ -260,7 +277,17 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
         if k == 0:
             continue
         ex = dates[k - 1]                   # 권리락일 = 기준일 직전 거래일
-        if (rd - ex).days > 7:              # 검토 F2: 정지 스팬 — 조정 반영은 재개일
+        if kind == "stkdp":
+            # 연말 결산 기준일(12/28~31): 락일 = 폐장일 직전 거래일(k-2 —
+            # 폐장일 매수는 명부 미등재, 186스텝 실측). 그 외 기준일 = 무상
+            # 동형(k-1). 정지 스팬은 스킵(미부여).
+            if (rd - ex).days > 7:
+                continue
+            if rd.month == 12 and rd.day >= 28:
+                if k < 2:
+                    continue
+                ex = dates[k - 2]
+        elif (rd - ex).days > 7:            # 검토 F2: 정지 스팬 — 조정 반영은 재개일
             if k > len(dates) - 1:
                 continue
             ex = dates[k]
@@ -272,7 +299,7 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
             if any(-7 <= (bd - rd).days <= cr_window for bd in big_dates):
                 continue
             r_evt = det["_r_evt"]           # 감자: 1/(1-비율)
-        elif kind == "fric":
+        elif kind in ("fric", "stkdp"):
             alloc = det.get("ratio")
             if alloc is None or alloc <= 0:
                 continue
