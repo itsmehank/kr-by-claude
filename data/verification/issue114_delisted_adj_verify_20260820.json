@@ -1,0 +1,59 @@
+{
+ "generated": "2026-08-20",
+ "tickers": [
+  {
+   "ticker": "008500",
+   "skip": "no closes/shares"
+  },
+  {
+   "ticker": "012510",
+   "skip": "no closes/shares"
+  },
+  {
+   "ticker": "032980",
+   "skip": "no closes/shares"
+  },
+  {
+   "ticker": "057050",
+   "skip": "no closes/shares"
+  },
+  {
+   "ticker": "060240",
+   "skip": "no closes/shares"
+  },
+  {
+   "ticker": "101390",
+   "skip": "no closes/shares"
+  },
+  {
+   "ticker": "106520",
+   "skip": "no closes/shares"
+  },
+  {
+   "ticker": "203690",
+   "skip": "no closes/shares"
+  },
+  {
+   "ticker": "222160",
+   "skip": "no closes/shares"
+  },
+  {
+   "ticker": "227100",
+   "skip": "no closes/shares"
+  },
+  {
+   "ticker": "230360",
+   "skip": "no closes/shares"
+  },
+  {
+   "ticker": "230980",
+   "skip": "no closes/shares"
+  }
+ ],
+ "summary": {
+  "n_legacy": 12,
+  "n_compared": 0,
+  "p99_le_1pct": 0,
+  "p99_values": []
+ }
+}

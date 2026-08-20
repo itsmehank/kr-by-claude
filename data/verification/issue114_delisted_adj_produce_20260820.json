@@ -1,0 +1,43 @@
+{
+ "generated": "2026-08-20",
+ "chain_version": "v5",
+ "tickers": 435,
+ "produced": 435,
+ "empty": [],
+ "rows": 503645,
+ "flags_census": {
+  "stkdp_unresolved": 5,
+  "has_gap_fallback": 194,
+  "has_piic_gap": 15
+ },
+ "provenance_census": {
+  "gap_share": 290,
+  "gap_fallback": 856,
+  "piic_gap": 15,
+  "stkdp": 14,
+  "fric": 5
+ },
+ "extreme_factors": [
+  {
+   "ticker": "057880",
+   "max_factor": 1.0,
+   "min_factor": 0.000566
+  },
+  {
+   "ticker": "152550",
+   "max_factor": 1.0,
+   "min_factor": 0.000759
+  },
+  {
+   "ticker": "263540",
+   "max_factor": 1.0,
+   "min_factor": 0.000177
+  },
+  {
+   "ticker": "268600",
+   "max_factor": 1.0,
+   "min_factor": 0.000615
+  }
+ ],
+ "coverage": 1.0
+}
