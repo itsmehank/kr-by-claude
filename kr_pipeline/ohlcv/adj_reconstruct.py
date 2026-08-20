@@ -181,11 +181,21 @@ def v2_events(closes: list[tuple[date, float]], shares: dict[date, int],
 
 
 def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
-              details: list[dict], *, big_gap: float = 1.35,
-              match_tol: float = 1.4, window_days: int = 45,
-              use_cr: bool = False, cr_window: int = 90,
-              use_stkdp: bool = True) -> list[tuple[date, float]]:
+              details: list[dict], **kw) -> list[tuple[date, float]]:
+    """v3_events_prov 의 wrapper — provenance 태그만 제거(동작 동일). 문서는 그쪽."""
+    return [(d, r) for d, r, _ in v3_events_prov(closes, shares, details, **kw)]
+
+
+def v3_events_prov(closes: list[tuple[date, float]], shares: dict[date, int],
+                   details: list[dict], *, big_gap: float = 1.35,
+                   match_tol: float = 1.4, window_days: int = 45,
+                   use_cr: bool = False, cr_window: int = 90,
+                   use_stkdp: bool = True) -> list[tuple[date, float, str]]:
     """v3 — 대형은 v2(가격 갭+주식수), 증자류 소형은 DART 상세 직취 (경로B).
+
+    반환 = [(이벤트일, 배율, provenance)] — provenance ∈ {gap_share(갭+주식수
+    정합), gap_fallback(갭 단독 — 비정밀), fric, piic_gap(유상 갭 — 비정밀),
+    cr, stkdp}. P0 품질 층화의 단일 소스(수동 복사 금지).
 
     details 항목: {endpoint, record_date, ratio, method} (corp_action_details).
     - 무상(fricDecsn·pifricDecsn): 권리락일 = 기준일 직전 거래일,
@@ -207,7 +217,7 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
     dates = [d for d, _ in closes]
     close_of = dict(closes)
     se = share_events(sorted(shares), shares)
-    events: list[tuple[date, float]] = []
+    events: list[tuple[date, float, str]] = []
     used: set[int] = set()
     for i in range(1, len(closes)):
         _, c_prev = closes[i - 1]
@@ -226,11 +236,11 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
                 best = (dist, j, rs)
         if best is not None:
             used.add(best[1])
-            events.append((d, best[2]))
+            events.append((d, best[2], "gap_share"))
         else:
-            events.append((d, g))
+            events.append((d, g, "gap_fallback"))
 
-    big_dates = [d for d, _ in events]
+    big_dates = [d for d, _, _ in events]
 
     # 후보 수집 → 정정 공시 클러스터 중복 제거(검토 F1): 같은 종류의 기준일이
     # ±14일 내로 몰린 복수 공시(기준일 변경 정정)는 최신 접수번호 1건만 채택.
@@ -318,6 +328,6 @@ def v3_events(closes: list[tuple[date, float]], shares: dict[date, int],
             r_evt = c_ex / c_prev
             if abs(math.log(r_evt)) < math.log(1.01):
                 continue                    # 유의미한 락 관측 없음 — 미부여
-        events.append((ex, r_evt))
+        events.append((ex, r_evt, "piic_gap" if kind == "piic" else kind))
     events.sort()
     return events
