@@ -1,0 +1,263 @@
+{
+ "generated": "2026-08-21",
+ "window": [
+  "2017-01-01",
+  "2026-06-30"
+ ],
+ "right_censor": {
+  "anchors_in_window": 494,
+  "no_13w": 5,
+  "no_26w": 18
+ },
+ "episodes": {
+  "total": 9198,
+  "delisted": 511,
+  "by_year": {
+   "2019": 798,
+   "2020": 1695,
+   "2023": 957,
+   "2017": 764,
+   "2021": 1104,
+   "2024": 887,
+   "2022": 871,
+   "2025": 1011,
+   "2026": 342,
+   "2018": 769
+  },
+  "delisted_by_year": {
+   "2021": 58,
+   "2022": 54,
+   "2018": 88,
+   "2019": 69,
+   "2020": 95,
+   "2017": 103,
+   "2025": 7,
+   "2023": 26,
+   "2024": 10,
+   "2026": 1
+  }
+ },
+ "recall": {
+  "judgment_input": "unbiased",
+  "unbiased": {
+   "headline": 0.16035455278001612,
+   "interval": [
+    0.15144596651445966,
+    0.2070015220700152
+   ],
+   "survivors": 8687,
+   "passed": 1393,
+   "delisted": 511
+  },
+  "live_gate": {
+   "headline": 0.1583976056175895,
+   "interval": [
+    0.14959773863883452,
+    0.20515329419439007
+   ],
+   "survivors": 8687,
+   "passed": 1376,
+   "delisted": 511
+  },
+  "gate_disagreements": [
+   {
+    "ticker": "000220",
+    "anchor": "2020-06-05",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "000860",
+    "anchor": "2021-01-08",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "006490",
+    "anchor": "2021-05-14",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "007690",
+    "anchor": "2021-01-08",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "008830",
+    "anchor": "2021-04-02",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "011500",
+    "anchor": "2020-07-31",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "035510",
+    "anchor": "2021-06-04",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "042420",
+    "anchor": "2020-08-28",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "047560",
+    "anchor": "2021-04-23",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "054210",
+    "anchor": "2021-05-14",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "060280",
+    "anchor": "2020-12-11",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "069730",
+    "anchor": "2021-06-11",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "083420",
+    "anchor": "2020-10-16",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "089890",
+    "anchor": "2021-02-05",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "093370",
+    "anchor": "2021-03-12",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "094360",
+    "anchor": "2020-07-24",
+    "direction": "unbiased_only"
+   },
+   {
+    "ticker": "291230",
+    "anchor": "2021-08-13",
+    "direction": "unbiased_only"
+   }
+  ],
+  "window_sensitivity_unbiased": {
+   "7": 0.09135004042037187,
+   "91": 0.24991366409577528
+  },
+  "unbiased_by_year": {
+   "2017": {
+    "passed": 64,
+    "n": 661,
+    "recall": 0.0968
+   },
+   "2018": {
+    "passed": 96,
+    "n": 681,
+    "recall": 0.141
+   },
+   "2019": {
+    "passed": 89,
+    "n": 729,
+    "recall": 0.1221
+   },
+   "2020": {
+    "passed": 282,
+    "n": 1600,
+    "recall": 0.1762
+   },
+   "2021": {
+    "passed": 235,
+    "n": 1046,
+    "recall": 0.2247
+   },
+   "2022": {
+    "passed": 87,
+    "n": 817,
+    "recall": 0.1065
+   },
+   "2023": {
+    "passed": 180,
+    "n": 931,
+    "recall": 0.1933
+   },
+   "2024": {
+    "passed": 131,
+    "n": 877,
+    "recall": 0.1494
+   },
+   "2025": {
+    "passed": 174,
+    "n": 1004,
+    "recall": 0.1733
+   },
+   "2026": {
+    "passed": 55,
+    "n": 341,
+    "recall": 0.1613
+   }
+  },
+  "audit_subwindow_2025plus": {
+   "passed": 229,
+   "n": 1345,
+   "recall": 0.1703
+  }
+ },
+ "reduction": {
+  "2017": {
+   "live_pct_of_judgeable": 5.36,
+   "unbiased_pct_of_judgeable": 5.37,
+   "unbiased_pct_of_all_traded": 4.71
+  },
+  "2018": {
+   "live_pct_of_judgeable": 7.78,
+   "unbiased_pct_of_judgeable": 7.83,
+   "unbiased_pct_of_all_traded": 6.99
+  },
+  "2019": {
+   "live_pct_of_judgeable": 5.9,
+   "unbiased_pct_of_judgeable": 5.91,
+   "unbiased_pct_of_all_traded": 5.34
+  },
+  "2020": {
+   "live_pct_of_judgeable": 9.84,
+   "unbiased_pct_of_judgeable": 10.04,
+   "unbiased_pct_of_all_traded": 9.15
+  },
+  "2021": {
+   "live_pct_of_judgeable": 13.31,
+   "unbiased_pct_of_judgeable": 13.62,
+   "unbiased_pct_of_all_traded": 12.54
+  },
+  "2022": {
+   "live_pct_of_judgeable": 3.46,
+   "unbiased_pct_of_judgeable": 3.47,
+   "unbiased_pct_of_all_traded": 3.22
+  },
+  "2023": {
+   "live_pct_of_judgeable": 7.56,
+   "unbiased_pct_of_judgeable": 7.58,
+   "unbiased_pct_of_all_traded": 7.05
+  },
+  "2024": {
+   "live_pct_of_judgeable": 6.19,
+   "unbiased_pct_of_judgeable": 6.2,
+   "unbiased_pct_of_all_traded": 5.84
+  },
+  "2025": {
+   "live_pct_of_judgeable": 8.09,
+   "unbiased_pct_of_judgeable": 8.12,
+   "unbiased_pct_of_all_traded": 7.85
+  },
+  "2026": {
+   "live_pct_of_judgeable": 6.29,
+   "unbiased_pct_of_judgeable": 6.3,
+   "unbiased_pct_of_all_traded": 6.25
+  }
+ }
+}
