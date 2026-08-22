@@ -1,0 +1,56 @@
+{
+ "generated": "2026-08-22",
+ "seed": 20260822,
+ "status": "진단 통계 — 합격 임계 없음. lift CI 가 1 포함 시 임계 조정 사이클 개시 전 원인 규명 강제 (6차 봉인)",
+ "recall_survivors": 0.1604,
+ "placebo_rate": 0.1141,
+ "placebo_draws": 43435,
+ "lift": 1.405,
+ "lift_ci95_cluster_bootstrap": [
+  1.303,
+  1.51
+ ],
+ "ci_includes_1": false,
+ "flow_by_year": {
+  "2017": {
+   "weekly_candidates_mean": 181.5,
+   "winners_caught": 64
+  },
+  "2018": {
+   "weekly_candidates_mean": 146.0,
+   "winners_caught": 96
+  },
+  "2019": {
+   "weekly_candidates_mean": 115.8,
+   "winners_caught": 89
+  },
+  "2020": {
+   "weekly_candidates_mean": 204.9,
+   "winners_caught": 282
+  },
+  "2021": {
+   "weekly_candidates_mean": 291.0,
+   "winners_caught": 235
+  },
+  "2022": {
+   "weekly_candidates_mean": 76.7,
+   "winners_caught": 87
+  },
+  "2023": {
+   "weekly_candidates_mean": 174.0,
+   "winners_caught": 180
+  },
+  "2024": {
+   "weekly_candidates_mean": 148.3,
+   "winners_caught": 131
+  },
+  "2025": {
+   "weekly_candidates_mean": 202.2,
+   "winners_caught": 174
+  },
+  "2026": {
+   "weekly_candidates_mean": 160.2,
+   "winners_caught": 55
+  }
+ }
+}
