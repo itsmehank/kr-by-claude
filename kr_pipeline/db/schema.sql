@@ -790,3 +790,16 @@ CREATE TABLE IF NOT EXISTS bt_rs_weekly (
   is_delisted   BOOLEAN NOT NULL,
   PRIMARY KEY (ticker, week_end_date)
 );
+
+-- (#118) 상폐 종목 게이트 지표 — 백테스트 전용 표면 (라이브 무접촉).
+-- 소스 = delisted_adj_prices(v5-d) + bt_rs_daily(c8). carve 종목은 c8 부재.
+CREATE TABLE IF NOT EXISTS bt_delisted_indicators (
+  ticker    VARCHAR(10) NOT NULL,
+  date      DATE NOT NULL,
+  c1 BOOLEAN, c2 BOOLEAN, c3 BOOLEAN, c4 BOOLEAN, c5 BOOLEAN,
+  c6 BOOLEAN, c7 BOOLEAN,
+  rs_gate   BOOLEAN,                -- rs_line_not_declining_7m (주봉→daily 미러)
+  c8        BOOLEAN,                -- bt_rs_daily.rs_rating >= 70
+  gate_pass BOOLEAN,                -- c1~c7 AND rs_gate AND c8
+  PRIMARY KEY (ticker, date)
+);

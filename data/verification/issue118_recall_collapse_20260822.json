@@ -1,0 +1,40 @@
+{
+ "snapshot_date": "2026-08-22",
+ "snapshot_note": "6차 ③ — 스냅샷 1회·일자 각인, 연속 갱신 없음",
+ "truncation_note": "말단 18~24개월(2025~26) 연도별 리콜은 상폐 지연 우측 절단 주석 상시 부착 대상",
+ "recall_final": {
+  "headline_label": "통합 승자 리콜 0.1589 (미판정 carve 에피소드 0건 — 구간 [0.1589, 0.1589])",
+  "judged": 9198,
+  "passed": 1462,
+  "survivors": {
+   "n": 8687,
+   "passed": 1393
+  },
+  "delisted": {
+   "n": 511,
+   "passed": 69,
+   "unjudged_carve": 0,
+   "recall": 0.135
+  }
+ },
+ "leadtime": {
+  "n_episodes": 9198,
+  "caught_any_in_[-28,+91]": 3960,
+  "caught_share": 0.4305,
+  "pre_onset": 1463,
+  "mid_run": 2497,
+  "lead_days_quantiles": {
+   "0.1": -25.0,
+   "0.25": -23.0,
+   "0.5": 28.0,
+   "0.75": 61.0,
+   "0.9": 83.0
+  },
+  "midrun_residual_excess": {
+   "n": 2497,
+   "median_pct": 5.81,
+   "share_ge_20pp": 0.304,
+   "share_ge_0": 0.6628
+  }
+ }
+}
