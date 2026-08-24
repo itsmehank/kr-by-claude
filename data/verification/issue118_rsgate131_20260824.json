@@ -1,0 +1,796 @@
+{
+ "generated": "2026-08-24",
+ "n": 131,
+ "census": {
+  "declining_false": 129,
+  "gap": 2
+ },
+ "rows": [
+  {
+   "ticker": "001120",
+   "anchor": "2026-01-02",
+   "eval_date": "2025-12-17",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "001740",
+   "anchor": "2026-02-27",
+   "eval_date": "2026-02-26",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "002220",
+   "anchor": "2021-03-12",
+   "eval_date": "2021-02-26",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "002990",
+   "anchor": "2026-01-30",
+   "eval_date": "2026-01-29",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "002990",
+   "anchor": "2026-04-03",
+   "eval_date": "2026-04-01",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "003010",
+   "anchor": "2026-05-15",
+   "eval_date": "2026-05-12",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "003030",
+   "anchor": "2021-04-02",
+   "eval_date": "2021-03-31",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "003570",
+   "anchor": "2023-08-11",
+   "eval_date": "2023-08-07",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "003720",
+   "anchor": "2025-10-24",
+   "eval_date": "2025-10-02",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "005290",
+   "anchor": "2025-11-21",
+   "eval_date": "2025-11-05",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "005290",
+   "anchor": "2026-03-27",
+   "eval_date": "2026-03-25",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "005440",
+   "anchor": "2025-11-28",
+   "eval_date": "2025-11-21",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "005940",
+   "anchor": "2025-11-21",
+   "eval_date": "2025-11-20",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "006260",
+   "anchor": "2026-01-23",
+   "eval_date": "2026-01-22",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "007370",
+   "anchor": "2018-01-12",
+   "eval_date": "2018-01-11",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "008060",
+   "anchor": "2026-01-23",
+   "eval_date": "2026-01-05",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "010060",
+   "anchor": "2025-10-02",
+   "eval_date": "2025-09-23",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "011560",
+   "anchor": "2026-01-30",
+   "eval_date": "2026-01-29",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "011690",
+   "anchor": "2026-01-16",
+   "eval_date": "2026-01-15",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "014470",
+   "anchor": "2020-12-30",
+   "eval_date": "2020-12-17",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "015860",
+   "anchor": "2026-02-06",
+   "eval_date": "2026-02-05",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "017890",
+   "anchor": "2026-01-23",
+   "eval_date": "2026-01-08",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "019010",
+   "anchor": "2026-01-09",
+   "eval_date": "2026-01-08",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "030210",
+   "anchor": "2017-11-10",
+   "eval_date": "2017-11-01",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "030210",
+   "anchor": "2020-11-27",
+   "eval_date": "2020-11-26",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "031330",
+   "anchor": "2025-10-10",
+   "eval_date": "2025-10-02",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "031510",
+   "anchor": "2017-08-25",
+   "eval_date": "2017-08-24",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "032190",
+   "anchor": "2025-11-21",
+   "eval_date": "2025-11-17",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "032830",
+   "anchor": "2026-03-06",
+   "eval_date": "2026-03-05",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "033160",
+   "anchor": "2021-01-29",
+   "eval_date": "2021-01-11",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "033160",
+   "anchor": "2025-09-19",
+   "eval_date": "2025-09-18",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "035810",
+   "anchor": "2025-11-28",
+   "eval_date": "2025-11-27",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "036010",
+   "anchor": "2026-02-27",
+   "eval_date": "2026-02-26",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "036690",
+   "anchor": "2021-03-19",
+   "eval_date": "2021-03-05",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "036800",
+   "anchor": "2026-04-03",
+   "eval_date": "2026-03-13",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "037350",
+   "anchor": "2026-01-02",
+   "eval_date": "2025-12-30",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "037460",
+   "anchor": "2025-12-05",
+   "eval_date": "2025-12-04",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "038070",
+   "anchor": "2020-11-13",
+   "eval_date": "2020-11-10",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "038070",
+   "anchor": "2020-12-24",
+   "eval_date": "2020-12-16",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "040160",
+   "anchor": "2026-02-13",
+   "eval_date": "2026-02-12",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "041460",
+   "anchor": "2021-05-21",
+   "eval_date": "2021-04-26",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "041830",
+   "anchor": "2026-01-02",
+   "eval_date": "2025-12-30",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "041960",
+   "anchor": "2026-05-22",
+   "eval_date": "2026-05-12",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "042370",
+   "anchor": "2025-10-17",
+   "eval_date": "2025-10-15",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "042370",
+   "anchor": "2026-01-16",
+   "eval_date": "2026-01-15",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "045100",
+   "anchor": "2026-01-02",
+   "eval_date": "2025-12-30",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "052460",
+   "anchor": "2026-04-30",
+   "eval_date": "2026-04-29",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "052860",
+   "anchor": "2026-01-23",
+   "eval_date": "2026-01-22",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "052900",
+   "anchor": "2026-02-27",
+   "eval_date": "2026-02-26",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "053280",
+   "anchor": "2021-04-23",
+   "eval_date": "2021-04-22",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "053610",
+   "anchor": "2025-10-17",
+   "eval_date": "2025-10-16",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "059090",
+   "anchor": "2026-03-06",
+   "eval_date": "2026-02-27",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "059100",
+   "anchor": "2021-02-05",
+   "eval_date": "2021-01-14",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "060370",
+   "anchor": "2026-02-06",
+   "eval_date": "2026-02-04",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "064480",
+   "anchor": "2021-01-15",
+   "eval_date": "2020-12-22",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "064850",
+   "anchor": "2026-01-16",
+   "eval_date": "2026-01-13",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "065660",
+   "anchor": "2025-11-07",
+   "eval_date": "2025-10-13",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "066130",
+   "anchor": "2021-01-08",
+   "eval_date": "2020-12-30",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "066570",
+   "anchor": "2026-02-06",
+   "eval_date": "2026-02-03",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "066670",
+   "anchor": "2021-03-05",
+   "eval_date": "2021-02-18",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "067000",
+   "anchor": "2021-05-21",
+   "eval_date": "2021-05-12",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "067290",
+   "anchor": "2026-03-27",
+   "eval_date": "2026-03-12",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "069960",
+   "anchor": "2026-03-13",
+   "eval_date": "2026-03-03",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "072950",
+   "anchor": "2025-10-10",
+   "eval_date": "2025-10-02",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "072950",
+   "anchor": "2026-01-30",
+   "eval_date": "2026-01-20",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "078160",
+   "anchor": "2025-08-14",
+   "eval_date": "2025-07-23",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "078930",
+   "anchor": "2026-05-08",
+   "eval_date": "2026-05-07",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "083450",
+   "anchor": "2025-10-31",
+   "eval_date": "2025-10-30",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "083500",
+   "anchor": "2026-02-20",
+   "eval_date": "2026-02-19",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "083650",
+   "anchor": "2021-02-05",
+   "eval_date": "2021-01-20",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "085670",
+   "anchor": "2017-08-18",
+   "eval_date": "2017-07-25",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "086670",
+   "anchor": "2026-01-30",
+   "eval_date": "2026-01-29",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "086960",
+   "anchor": "2021-01-15",
+   "eval_date": "2021-01-11",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "088130",
+   "anchor": "2026-01-09",
+   "eval_date": "2025-12-26",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "090350",
+   "anchor": "2021-01-29",
+   "eval_date": "2021-01-13",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "090470",
+   "anchor": "2026-01-30",
+   "eval_date": "2026-01-29",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "091580",
+   "anchor": "2017-10-20",
+   "eval_date": "2017-10-12",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "093370",
+   "anchor": "2026-03-13",
+   "eval_date": "2026-02-27",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "101160",
+   "anchor": "2026-01-16",
+   "eval_date": "2026-01-07",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "105330",
+   "anchor": "2026-02-27",
+   "eval_date": "2026-02-05",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "120110",
+   "anchor": "2025-12-26",
+   "eval_date": "2025-12-24",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "120240",
+   "anchor": "2020-02-07",
+   "eval_date": "2020-01-28",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "122640",
+   "anchor": "2025-12-19",
+   "eval_date": "2025-12-12",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "122640",
+   "anchor": "2026-03-27",
+   "eval_date": "2026-03-24",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "123570",
+   "anchor": "2021-04-23",
+   "eval_date": "2021-04-14",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "125210",
+   "anchor": "2025-10-31",
+   "eval_date": "2025-10-29",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "126730",
+   "anchor": "2026-02-27",
+   "eval_date": "2026-02-26",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "126730",
+   "anchor": "2026-05-15",
+   "eval_date": "2026-05-11",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "131970",
+   "anchor": "2025-09-05",
+   "eval_date": "2025-09-04",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "137400",
+   "anchor": "2021-05-14",
+   "eval_date": "2021-04-26",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "144960",
+   "anchor": "2025-11-14",
+   "eval_date": "2025-11-12",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "155660",
+   "anchor": "2021-06-11",
+   "eval_date": "2021-06-10",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "166090",
+   "anchor": "2025-10-31",
+   "eval_date": "2025-10-30",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "181710",
+   "anchor": "2026-02-13",
+   "eval_date": "2026-02-12",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "181710",
+   "anchor": "2026-05-15",
+   "eval_date": "2026-05-11",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "187870",
+   "anchor": "2026-01-16",
+   "eval_date": "2026-01-15",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "192250",
+   "anchor": "2021-05-07",
+   "eval_date": "2021-04-15",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "200710",
+   "anchor": "2017-08-11",
+   "eval_date": "2017-08-10",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "200780",
+   "anchor": "2018-01-12",
+   "eval_date": "2018-01-11",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "222800",
+   "anchor": "2021-05-07",
+   "eval_date": "2021-05-06",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "230360",
+   "anchor": "2020-02-07",
+   "eval_date": "2020-01-14",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "236200",
+   "anchor": "2026-01-30",
+   "eval_date": "2026-01-29",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "236200",
+   "anchor": "2026-05-08",
+   "eval_date": "2026-05-07",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "241710",
+   "anchor": "2026-02-20",
+   "eval_date": "2026-02-19",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "241710",
+   "anchor": "2026-05-08",
+   "eval_date": "2026-04-24",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "243840",
+   "anchor": "2026-01-02",
+   "eval_date": "2025-12-17",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "264450",
+   "anchor": "2025-12-26",
+   "eval_date": "2025-12-24",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "267260",
+   "anchor": "2025-08-01",
+   "eval_date": "2025-07-31",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "267270",
+   "anchor": "2026-01-30",
+   "eval_date": "2026-01-29",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "281820",
+   "anchor": "2026-03-13",
+   "eval_date": "2026-03-12",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "290550",
+   "anchor": "2021-03-05",
+   "eval_date": "2021-02-16",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "297890",
+   "anchor": "2023-04-28",
+   "eval_date": "2023-04-13",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "300720",
+   "anchor": "2020-12-30",
+   "eval_date": "2020-12-28",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "302430",
+   "anchor": "2020-03-20",
+   "eval_date": "2020-02-26",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "307180",
+   "anchor": "2021-04-09",
+   "eval_date": "2021-03-23",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "307930",
+   "anchor": "2026-03-06",
+   "eval_date": "2026-03-05",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "365340",
+   "anchor": "2026-01-09",
+   "eval_date": "2025-12-26",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "396300",
+   "anchor": "2026-03-06",
+   "eval_date": "2026-02-27",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "418420",
+   "anchor": "2026-02-13",
+   "eval_date": "2026-02-12",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "424760",
+   "anchor": "2025-10-31",
+   "eval_date": "2025-10-22",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "452430",
+   "anchor": "2026-02-13",
+   "eval_date": "2026-02-11",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "456010",
+   "anchor": "2025-11-21",
+   "eval_date": "2025-11-13",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "456010",
+   "anchor": "2026-01-16",
+   "eval_date": "2026-01-05",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "457190",
+   "anchor": "2025-10-31",
+   "eval_date": "2025-10-30",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "457190",
+   "anchor": "2026-01-16",
+   "eval_date": "2026-01-15",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "010600",
+   "anchor": "2017-09-08",
+   "eval_date": "2017-09-06",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "029960",
+   "anchor": "2017-01-06",
+   "eval_date": "2017-01-05",
+   "class": "gap"
+  },
+  {
+   "ticker": "119860",
+   "anchor": "2017-01-06",
+   "eval_date": "2017-01-05",
+   "class": "gap"
+  },
+  {
+   "ticker": "138490",
+   "anchor": "2025-12-26",
+   "eval_date": "2025-12-24",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "144620",
+   "anchor": "2017-10-27",
+   "eval_date": "2017-10-12",
+   "class": "declining_false"
+  },
+  {
+   "ticker": "220630",
+   "anchor": "2018-02-02",
+   "eval_date": "2018-01-26",
+   "class": "declining_false"
+  }
+ ]
+}
