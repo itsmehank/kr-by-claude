@@ -1,0 +1,127 @@
+{
+ "label": "r111-v2 (2017~24 고정·상폐 편입) — 대체 측정, 탐색 등급",
+ "supersedes": "data/backtest/issue111_minervini_transition_judge_20260818.json",
+ "expectation_sealed": "역효과 유지 또는 악화 (2026-08-24 사전 봉인)",
+ "expectation_met": false,
+ "generated": "2026-08-24",
+ "window": [
+  "2017-01-01",
+  "2024-12-31"
+ ],
+ "original_reference": {
+  "n": 39357,
+  "h20": {
+   "n": 39178,
+   "tickers": 2311,
+   "mean": -0.337,
+   "median": -3.247,
+   "ci95": [
+    -0.621,
+    -0.057
+   ]
+  },
+  "verdict": "역효과"
+ },
+ "combined": {
+  "n_transitions": 31521,
+  "h20": {
+   "n": 31495,
+   "tickers": 2356,
+   "mean": 0.333,
+   "median": -2.674,
+   "ci95": [
+    0.052,
+    0.636
+   ]
+  },
+  "verdict_h20": "유효",
+  "h40": {
+   "n": 31452,
+   "tickers": 2354,
+   "mean": 0.322,
+   "median": -4.224,
+   "ci95": [
+    -0.147,
+    0.799
+   ]
+  },
+  "h65": {
+   "n": 31393,
+   "tickers": 2340,
+   "mean": 0.691,
+   "median": -5.264,
+   "ci95": [
+    0.009,
+    1.386
+   ]
+  }
+ },
+ "survivors_only_window": {
+  "n_transitions": 29608,
+  "h20": {
+   "n": 29608,
+   "tickers": 2118,
+   "mean": 0.349,
+   "median": -2.68,
+   "ci95": [
+    0.054,
+    0.652
+   ]
+  },
+  "verdict_h20": "유효",
+  "h40": {
+   "n": 29608,
+   "tickers": 2118,
+   "mean": 0.39,
+   "median": -4.238,
+   "ci95": [
+    -0.091,
+    0.884
+   ]
+  },
+  "h65": {
+   "n": 29608,
+   "tickers": 2118,
+   "mean": 0.787,
+   "median": -5.277,
+   "ci95": [
+    0.092,
+    1.49
+   ]
+  }
+ },
+ "delisted_only": {
+  "n_transitions": 1913,
+  "h20": {
+   "n": 1887,
+   "tickers": 238,
+   "mean": 0.083,
+   "median": -2.488,
+   "ci95": [
+    -1.041,
+    1.277
+   ]
+  },
+  "verdict_h20": "미입증",
+  "h40": {
+   "n": 1844,
+   "tickers": 236,
+   "mean": -0.764,
+   "median": -4.06,
+   "ci95": [
+    -2.408,
+    0.9
+   ]
+  },
+  "h65": {
+   "n": 1785,
+   "tickers": 222,
+   "mean": -0.9,
+   "median": -4.946,
+   "ci95": [
+    -3.504,
+    1.693
+   ]
+  }
+ }
+}
