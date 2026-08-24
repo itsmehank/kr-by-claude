@@ -164,3 +164,18 @@ def test_build_spark_downsample_preserves_extremes():
     spark = build_spark(s, s[0][0], s[-1][0], cap=60)
     assert len(spark) <= 60
     assert 500.0 in spark and -500.0 in spark
+    assert spark[-1] == vals[-1]  # 마지막 인덱스(최신 가격) 보존 — 리뷰 지적 회귀 가드
+
+
+def test_build_spark_downsample_preserves_latest_price_off_grid():
+    # 극점·마지막 인덱스가 균등 스텝 그리드와 우연히 겹치지 않는 소수 길이(157) 입력.
+    # 다운샘플이 스텝 그리드만 쓰면 최신 가격(마지막 인덱스)이 드롭될 수 있다 — 반드시
+    # 강제 포함돼야 한다(리뷰 지적: 최신 가격점 보존 회귀).
+    vals = list(range(157))
+    vals[13] = 9999.0    # 최고점
+    vals[101] = -9999.0  # 최저점
+    s = [(date.fromordinal(738000 + i), float(v)) for i, v in enumerate(vals)]
+    spark = build_spark(s, s[0][0], s[-1][0], cap=60)
+    assert len(spark) <= 60
+    assert 9999.0 in spark and -9999.0 in spark
+    assert spark[-1] == vals[-1]

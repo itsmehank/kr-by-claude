@@ -173,24 +173,39 @@ def max_reach(series: list[tuple[date, float]], key_date: date,
 
 def build_spark(series: list[tuple[date, float]], anchor: date, end: date,
                 cap: int = 60) -> list[float]:
-    """anchor~end 를 최대 cap 개로 다운샘플. 균등 스텝 인덱스에 최고·최저점
-    인덱스를 강제 포함하되, 결과 길이는 cap 을 넘지 않도록 인접 인덱스를 치환한다
-    (단순 union 은 스텝 픽 60개 + 극점 2개로 cap 초과 가능 — TDD 로 발견/수정)."""
+    """anchor~end 를 최대 cap 개로 다운샘플.
+
+    보존 불변식(리뷰 지적으로 확정): (a) 최고점 (b) 최저점 (c) 마지막 인덱스
+    (최신 가격) 는 다운샘플 후에도 항상 포함된다. (d) 반환 길이는 cap 을 넘지
+    않는다. (e) 인덱스 오름차순으로 반환해 시간 순서를 유지한다.
+
+    그리드는 양끝(인덱스 0, len(vals)-1)을 항상 포함하는 endpoint-inclusive
+    선형 스텝(`round(i*(n-1)/(cap-1))`)으로 만들어 (c)·(e)를 구조적으로
+    보장한다. 그 후 최고·최저 인덱스가 그리드에 없으면, 여유가 있으면 추가하고
+    cap 이 꽉 찼으면(그 극점이 아닌) 가장 가까운 그리드 인덱스를 치환해 (a)(b)(d)를
+    동시에 만족시킨다. (첫 버전은 이 그리드 대신 단순 스텝+union 이라 극점 2개
+    추가만으로 cap 을 초과했고, 그 수정 과정에서 마지막 인덱스 강제 포함이 실수로
+    빠졌던 것 — 이번 구현은 둘 다 구조적으로 보장한다.)
+    """
     vals = [v for dt, v in series if anchor <= dt <= end]
-    if len(vals) <= cap:
+    n = len(vals)
+    if n <= cap:
         return vals
-    hi, lo = vals.index(max(vals)), vals.index(min(vals))
-    step = len(vals) / cap
-    picked = sorted({int(i * step) for i in range(cap)})
-    for extreme in (hi, lo):
+    if cap <= 1:
+        return [vals[-1]] if cap == 1 else []
+
+    hi, lo, last = vals.index(max(vals)), vals.index(min(vals)), n - 1
+    picked = sorted({round(i * (n - 1) / (cap - 1)) for i in range(cap)})
+
+    for extreme in (last, hi, lo):
         if extreme in picked:
             continue
         if len(picked) < cap:
             picked.append(extreme)
             picked.sort()
             continue
-        other = lo if extreme == hi else hi
-        candidates = [p for p in picked if p != other]
+        protected = {x for x in (last, hi, lo) if x != extreme}
+        candidates = [p for p in picked if p not in protected]
         nearest = min(candidates, key=lambda p: abs(p - extreme))
         picked.remove(nearest)
         picked.append(extreme)
