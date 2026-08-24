@@ -130,3 +130,99 @@ def derive_status(triggers: list[dict], t5_pct, t20_pct) -> str:
     if any(t["trigger_type"] == "promotion" for t in triggers):
         return "staging"
     return "미발동"
+
+
+_PRICES_SQL = """
+SELECT date, adj_close FROM daily_prices
+ WHERE ticker = %(symbol)s AND date >= %(start)s AND date <= %(end)s
+ ORDER BY date
+"""
+
+
+def fetch_price_series(conn: Connection, symbol: str, start: date, end: date
+                       ) -> list[tuple[date, float]]:
+    with conn.cursor() as cur:
+        cur.execute(_PRICES_SQL, {"symbol": symbol, "start": start, "end": end})
+        return [(r[0], float(r[1])) for r in cur.fetchall()]
+
+
+def chain_tn(series: list[tuple[date, float]], d: date, pivot_delta: float,
+             n: int) -> float | None:
+    """(1+pivot_delta) × adj(D+n거래일)/adj(D) − 1. 거래일 = 시리즈의 행."""
+    idx = {dt: i for i, (dt, _) in enumerate(series)}
+    if d not in idx or idx[d] + n >= len(series):
+        return None
+    base = series[idx[d]][1]
+    later = series[idx[d] + n][1]
+    if base <= 0:
+        return None
+    return (1.0 + pivot_delta) * (later / base) - 1.0
+
+
+def max_reach(series: list[tuple[date, float]], key_date: date,
+              next_key_date: date | None, pivot: float, *, today: date
+              ) -> float | None:
+    """창 = (key_date, t') — key_date 당일 제외(분석 입력), 연장 없음 (스펙 §1)."""
+    end = next_key_date if next_key_date is not None else today
+    window = [v for dt, v in series if key_date < dt < end] if next_key_date \
+        else [v for dt, v in series if key_date < dt <= end]
+    if not window or pivot <= 0:
+        return None
+    return max(window) / pivot - 1.0
+
+
+def build_spark(series: list[tuple[date, float]], anchor: date, end: date,
+                cap: int = 60) -> list[float]:
+    """anchor~end 를 최대 cap 개로 다운샘플. 균등 스텝 인덱스에 최고·최저점
+    인덱스를 강제 포함하되, 결과 길이는 cap 을 넘지 않도록 인접 인덱스를 치환한다
+    (단순 union 은 스텝 픽 60개 + 극점 2개로 cap 초과 가능 — TDD 로 발견/수정)."""
+    vals = [v for dt, v in series if anchor <= dt <= end]
+    if len(vals) <= cap:
+        return vals
+    hi, lo = vals.index(max(vals)), vals.index(min(vals))
+    step = len(vals) / cap
+    picked = sorted({int(i * step) for i in range(cap)})
+    for extreme in (hi, lo):
+        if extreme in picked:
+            continue
+        if len(picked) < cap:
+            picked.append(extreme)
+            picked.sort()
+            continue
+        other = lo if extreme == hi else hi
+        candidates = [p for p in picked if p != other]
+        nearest = min(candidates, key=lambda p: abs(p - extreme))
+        picked.remove(nearest)
+        picked.append(extreme)
+        picked.sort()
+    return [vals[i] for i in picked]
+
+
+_CORP_SQL = """
+SELECT DISTINCT ticker FROM corporate_actions
+ WHERE ticker = ANY(%(symbols)s) AND event_date BETWEEN %(min_kd)s AND %(today)s
+"""
+
+
+def corp_action_flags(conn: Connection, pairs: list[tuple[str, date]], *,
+                      today: date) -> set[tuple[str, date]]:
+    """(symbol, key_date) 별 event_date ∈ [key_date, today] 존재 여부.
+    상한이 '오늘'인 이유: 기업행위는 이전 전체 adj 이력을 rescale (스펙 §1)."""
+    if not pairs:
+        return set()
+    symbols = sorted({s for s, _ in pairs})
+    min_kd = min(kd for _, kd in pairs)
+    with conn.cursor() as cur:
+        cur.execute(_CORP_SQL, {"symbols": symbols, "min_kd": min_kd, "today": today})
+        hit_symbols = {r[0] for r in cur.fetchall()}
+    out: set[tuple[str, date]] = set()
+    for sym, kd in pairs:
+        if sym not in hit_symbols:
+            continue
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM corporate_actions WHERE ticker=%s "
+                "AND event_date BETWEEN %s AND %s LIMIT 1", (sym, kd, today))
+            if cur.fetchone():
+                out.add((sym, kd))
+    return out

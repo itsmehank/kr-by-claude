@@ -6,6 +6,9 @@ from api.services.review_builder import (
     fetch_analysis_rows, count_orphan_triggers, derive_status,
     first_breakout, first_promotion_d, BREAKOUT_TYPES,
 )
+from api.services.review_builder import (
+    fetch_price_series, chain_tn, max_reach, build_spark, corp_action_flags,
+)
 
 KST = timezone(timedelta(hours=9))
 
@@ -102,3 +105,62 @@ def test_derive_status_table():
     assert derive_status([promo, bfw], 0.02, 0.11) == "돌파-완료"
     assert first_breakout([promo, bfw])["trigger_type"] == "breakout_from_watch"
     assert first_promotion_d([promo, bfw]) == date(2026, 6, 2)
+
+
+# 시리즈는 (date, adj_close) 튜플 리스트 — DB 불필요한 순수 계산 테스트
+def _series(*pairs):
+    return [(date.fromisoformat(d), float(v)) for d, v in pairs]
+
+
+def test_chain_tn_renormalization_invariant():
+    # 돌파일 D=6/4, pivot_delta=+2% (스냅샷). T+2 종가가 D 대비 +10% 라면
+    # T+2 = 1.02 × 1.10 − 1 = +12.2%
+    s = _series(("2026-06-04", 100), ("2026-06-05", 104), ("2026-06-08", 110))
+    t2 = chain_tn(s, date(2026, 6, 4), 0.02, 2)
+    assert abs(t2 - 0.122) < 1e-9
+    # 기업행위 재정규화: 전체 시리즈가 1/5 로 rescale 돼도 값 불변 (스펙 §1 체인식)
+    s5 = [(d, v / 5) for d, v in s]
+    assert abs(chain_tn(s5, date(2026, 6, 4), 0.02, 2) - t2) < 1e-9
+
+
+def test_chain_tn_none_when_not_arrived():
+    s = _series(("2026-06-04", 100), ("2026-06-05", 104))
+    assert chain_tn(s, date(2026, 6, 4), 0.02, 5) is None
+
+
+def test_trading_day_counting_skips_calendar_holidays():
+    # 6/5(금) 다음 거래일 행이 6/9(화)라면 — 6/8(월, 대체공휴일 가정)은 행이 없어
+    # 자동 배제되고, 6/9 가 D+2 거래일이다.
+    s = _series(("2026-06-04", 100), ("2026-06-05", 102), ("2026-06-09", 108))
+    assert abs(chain_tn(s, date(2026, 6, 4), 0.0, 2) - 0.08) < 1e-9
+
+
+def test_max_reach_excludes_day_zero():
+    # key_date 당일(6/2, 120 — 분석의 입력)은 제외. 창 내 최고 110 → +10%
+    s = _series(("2026-06-02", 120), ("2026-06-03", 105), ("2026-06-04", 110))
+    r = max_reach(s, date(2026, 6, 2), None, 100.0, today=date(2026, 6, 30))
+    assert abs(r - 0.10) < 1e-9
+
+
+def test_max_reach_window_ends_at_next_key_date():
+    # t'=6/4 → 6/4 이후(포함) 가격 130 은 계상 금지 (연장 없음)
+    s = _series(("2026-06-02", 100), ("2026-06-03", 105), ("2026-06-04", 130))
+    r = max_reach(s, date(2026, 6, 2), date(2026, 6, 4), 100.0, today=date(2026, 6, 30))
+    assert abs(r - 0.05) < 1e-9
+
+
+def test_max_reach_zero_length_window_is_none():
+    s = _series(("2026-06-02", 100))
+    assert max_reach(s, date(2026, 6, 2), date(2026, 6, 2), 100.0,
+                     today=date(2026, 6, 30)) is None
+
+
+def test_build_spark_downsample_preserves_extremes():
+    vals = list(range(100))          # 0..99 오름차순
+    vals[37] = 500                   # 최고점
+    vals[71] = -500                  # 최저점
+    s = [(date(2026, 1, 1), 0.0)] * 0
+    s = [(date.fromordinal(738000 + i), float(v)) for i, v in enumerate(vals)]
+    spark = build_spark(s, s[0][0], s[-1][0], cap=60)
+    assert len(spark) <= 60
+    assert 500.0 in spark and -500.0 in spark
