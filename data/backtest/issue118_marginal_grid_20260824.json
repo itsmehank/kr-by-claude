@@ -1,0 +1,33 @@
+{
+ "generated": "2026-08-24",
+ "grade": "descriptive — 프록시 봉인 완결 조건(12차)",
+ "avoided_loss_mean": 4.889,
+ "cells": {
+  "hi40_vol1.25": {
+   "n": 6830,
+   "delay_cost_mean": 3.407,
+   "net_effect": 1.482
+  },
+  "hi40_vol2.0": {
+   "n": 6830,
+   "delay_cost_mean": 2.976,
+   "net_effect": 1.913
+  },
+  "hi60_vol1.5": {
+   "n": 6830,
+   "delay_cost_mean": 3.068,
+   "net_effect": 1.82
+  },
+  "hi90_vol1.25": {
+   "n": 6830,
+   "delay_cost_mean": 2.969,
+   "net_effect": 1.92
+  },
+  "hi90_vol2.0": {
+   "n": 6830,
+   "delay_cost_mean": 2.622,
+   "net_effect": 2.267
+  }
+ },
+ "all_cells_positive": true
+}

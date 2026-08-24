@@ -1,0 +1,39 @@
+# recent_transition_count_63d 자문 입력 — 변경 지점 맵 (12차 ④ 선제출)
+
+> 12차 채택 조건 이행: 구현은 **별도 사이클** — 본 맵 승인 후 착수.
+> 태그: design-judgment + **예측력 미확증(탐색 유래)**. 하드 게이트 승격
+> 재논의 시 순환성 가드 적용 병기.
+
+## 0. 정의 (계산 규약)
+
+- `recent_transition_count_63d` = 판정 기준일(as-of) 직전 63거래일 내
+  `minervini_pass` 의 False→True 전환 횟수 (당일 포함, look-ahead 금지 —
+  기준일 이후 행 접근 불가).
+- 소스 = `daily_indicators.minervini_pass` 시계열 (실전 지표 표면 — 판정
+  당시 라이브 값과 동일 계보).
+
+## 1. 변경 지점 (4곳 — 1버전 1변경 원칙으로 단독 배포)
+
+| # | 지점 | 파일 | 변경 내용 |
+|---|---|---|---|
+| 1 | 계산 | `kr_pipeline/llm_runner/compute/` 신규 순수 함수 (`tt_marginal.py` 병렬 관례) | pass 시계열 → 전환 카운트. 순수 함수 + 단위 테스트(경계: 63행 정확·기준일 포함·결측 행 무시) |
+| 2 | payload | `api/services/payload_builder.py` | A(analyze_chart) payload 에 `recent_transition_count_63d` 필드 추가 — `demotion_trigger` 인근 배치. 값 None 허용(이력 부족 시) |
+| 3 | 프롬프트 | `prompts/analyze_chart_v3.md` | **중립 노출(12차 ①)**: 정의 1문장 + 해석 프레임 1문장("경계 진동 = choppy 성격 신호 ↔ 매끈한 추세 선호 — TTLC 앵커")까지만. 지시어·가중치 문구 금지(LLM 재량). "예측력 미확증(탐색 유래)" 명기 |
+| 4 | 검증 | `tests/` (payload/프롬프트 정합) | 유령 입력 방지 관례: 프롬프트 언급 필드 = payload 실재 검증 테스트 확장 + sanity_warnings 무영향 확인. `weekly_classification` 스키마 변경 없음(자문 입력 — 저장 판정 구조 불변) |
+
+## 2. 비변경 확인 (범위 밖 명시)
+
+- 게이트·강등·트리거 로직 무변경(백스톱 원칙 비적용 — pocket_pivot_flag 전례
+  동형). `thresholds.py` 무접촉(의존성 맵 트리거 없음 — 신규 상수 없음, 63일
+  은 §0 정의 상수로 compute 모듈 내 지역 정의).
+- B(evaluate_pivot_trigger) payload 는 1차 범위 밖(1버전 1변경 — A 만).
+
+## 3. 관찰 규율 (12차 ②)
+
+- 배포 후 **전후 비교 재실행 무효** — 저장본 드리프트 관찰만(판정 아님):
+  weekend 분류의 watch_reason·confidence 분포를 기존 성과 관측 루틴에서
+  눈으로 추적. 관찰 창·판정 기준 없음(탐색 유래 자문 입력).
+
+## 4. 게이트
+
+- [ ] 13차(또는 사용자) 맵 승인 → 구현 사이클 착수(브랜치·TDD·PR 관례).
