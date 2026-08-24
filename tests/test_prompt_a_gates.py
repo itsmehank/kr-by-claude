@@ -43,16 +43,27 @@ def test_a_85_band_literals_match_ssot():
 
 
 def test_a_rtc63d_advisory_neutral_exposure():
-    """(rtc_63d, #118 12차 ①·13차 맵) 자문 입력 중립 노출 — 유령 입력 방지:
-    payload 실재 필드(recent_transition_count_63d)가 프롬프트에 정의·태그와 함께
-    존재해야 하고, '예측력 미확증(탐색 유래)' 태그 없이 노출되면 안 된다."""
+    """(rtc_63d, #118 12차 ①·14차 승인 자구) 자문 입력 중립 노출 — 유령 입력 방지:
+    payload 실재 필드(recent_transition_count_63d)가 프롬프트에 14차 승인 영문
+    태그('predictive power unverified, exploratory origin')와 함께 존재해야 하고,
+    귀속 앵커(HMMS pp.140-143 + Minervini VCP/TLSMW — TTLC 금지)가 유지돼야 한다."""
+    text = _a_text()
     m = re.search(
-        r"recent_transition_count_63d.{0,400}예측력 미확증.{0,40}탐색 유래",
-        _a_text(), re.S,
+        r"recent_transition_count_63d.{0,120}predictive power unverified"
+        r".{0,40}exploratory origin",
+        text, re.S,
     )
     assert m, (
-        "A 프롬프트에 recent_transition_count_63d 정의+'예측력 미확증(탐색 유래)' "
-        "태그 부재 — 중립 노출 조건(12차 ①) 위반 또는 유령/미태그 노출"
+        "A 프롬프트에 recent_transition_count_63d + 'predictive power unverified, "
+        "exploratory origin' 태그 부재 — 중립 노출 조건(12차 ①·14차 자구) 위반"
+    )
+    seg = re.search(r"recent_transition_count_63d.{0,700}", text, re.S).group(0)
+    assert re.search(r"HMMS pp\.\s*140-143", seg) and "TLSMW" in seg, (
+        "14차 귀속 조건 위반 — 승인 앵커(O'Neil HMMS pp.140-143 주 앵커 + "
+        "Minervini VCP/TLSMW 보조) 부재"
+    )
+    assert "TTLC" not in seg, (
+        "TTLC 귀속은 14차 반려됨(소스 미확인) — 장 단위 특정+재회부 전 병기 금지"
     )
 
 
