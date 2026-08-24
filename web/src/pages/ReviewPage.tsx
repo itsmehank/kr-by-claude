@@ -32,7 +32,9 @@ const PATTERNS: { value: string; label: string }[] = [
   { value: "", label: "전체" },
   { value: "cup_with_handle", label: "cup_with_handle" },
   { value: "cup_without_handle", label: "cup_without_handle" },
+  { value: "double_bottom", label: "double_bottom" },
   { value: "flat_base", label: "flat_base" },
+  { value: "vcp", label: "vcp" },
   { value: "none", label: "none" },
 ];
 
