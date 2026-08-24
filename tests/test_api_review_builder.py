@@ -167,6 +167,120 @@ def test_build_spark_downsample_preserves_extremes():
     assert spark[-1] == vals[-1]  # 마지막 인덱스(최신 가격) 보존 — 리뷰 지적 회귀 가드
 
 
+@pytest.fixture
+def corp_action_seed(db):
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM corporate_actions WHERE ticker LIKE 'RVCA%'")
+        cur.execute("DELETE FROM stocks WHERE ticker LIKE 'RVCA%'")
+        cur.execute(
+            """INSERT INTO stocks (ticker, name, market, sector, listed_at)
+               VALUES ('RVCA01','회고CA1','KOSPI','반도체','2020-01-01'),
+                      ('RVCA02','회고CA2','KOSPI','반도체','2020-01-01'),
+                      ('RVCA03','회고CA3','KOSPI','반도체','2020-01-01'),
+                      ('RVCA04','회고CA4','KOSPI','반도체','2020-01-01')"""
+        )
+        cur.execute(
+            """INSERT INTO corporate_actions (ticker, event_date, event_type)
+               VALUES
+                 ('RVCA01','2026-06-05','capital_reduction'),
+                 ('RVCA02','2026-07-15','capital_reduction'),
+                 ('RVCA03','2026-05-20','capital_reduction')"""
+        )
+        # RVCA04: 이벤트 없음
+    db.commit()
+    yield
+
+
+def test_corp_action_flags_four_cases(db, corp_action_seed):
+    """스펙 §1: event_date ∈ [key_date, 오늘] 이면 flag. 상한이 '오늘'이므로
+    성과 창(next_key_date)이 이미 끝난 뒤 발생한 이벤트도 flag 돼야 한다(연장된
+    rescale 영향권)."""
+    key_date = date(2026, 6, 2)
+    today = date(2026, 8, 1)
+    pairs = [
+        ("RVCA01", key_date),  # (a) key_date~오늘 창 안
+        ("RVCA02", key_date),  # (b) 성과 창(~6/30 상당) 종료 후·오늘 이전 — 그래도 flag
+        ("RVCA03", key_date),  # (c) key_date 이전(창 밖) — 미flag
+        ("RVCA04", key_date),  # (d) 이벤트 없음 — 미flag
+    ]
+    flags = corp_action_flags(db, pairs, today=today)
+    assert ("RVCA01", key_date) in flags
+    assert ("RVCA02", key_date) in flags
+    assert ("RVCA03", key_date) not in flags
+    assert ("RVCA04", key_date) not in flags
+
+
+@pytest.fixture
+def catchup_seed(db):
+    """캐치업 시나리오: 트리거 평가 배치가 토요일 새벽(KST)에 도는데, 그 배치가
+    실제로 평가한 거래일(analyzed_for_date)은 금요일이다. D 는 evaluated_at 의
+    날짜부분(토요일, 시장 미개장)이 아니라 analyzed_for_date(금요일)이어야 한다
+    (COALESCE 규칙, review_builder.py _TRIGGERS_SQL)."""
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol LIKE 'RVCU%'")
+        cur.execute("DELETE FROM weekly_classification WHERE symbol LIKE 'RVCU%'")
+        cur.execute("DELETE FROM daily_prices WHERE ticker LIKE 'RVCU%'")
+        cur.execute("DELETE FROM stocks WHERE ticker LIKE 'RVCU%'")
+        cur.execute(
+            """INSERT INTO stocks (ticker, name, market, sector, listed_at)
+               VALUES ('RVCU01','캐치업','KOSPI','반도체','2020-01-01')"""
+        )
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date)
+               VALUES
+                 ('RVCU01','2026-06-05 19:41:48+09','KOSPI','watch','flat_base',
+                  10000,'daily_delta','2026-06-05')"""
+        )
+        # evaluated_at = 토요일(6/6) 새벽 03:15 KST 캐치업 배치, 그러나
+        # analyzed_for_date = 금요일(6/5) — 실제 평가 대상 거래일.
+        cur.execute(
+            """INSERT INTO trigger_evaluation_log
+                 (symbol, evaluated_at, trigger_type, close, volume, pivot_price,
+                  decision, reasoning, prior_classification_at, analyzed_for_date)
+               VALUES
+                 ('RVCU01','2026-06-06 03:15:00+09','breakout_from_watch',10500,
+                  100000,10000,'wait','캐치업 돌파',
+                  '2026-06-05 19:41:48+09','2026-06-05')"""
+        )
+        cur.execute(
+            """INSERT INTO daily_prices (ticker, date, open, high, low, close,
+                                         adj_close, volume, value)
+               SELECT 'RVCU01', d::date, 1,1,1,1, v, 1000, 1000
+                 FROM (VALUES ('2026-06-05',10500.0),('2026-06-08',10600.0),
+                              ('2026-06-09',10700.0),('2026-06-10',10800.0),
+                              ('2026-06-11',10900.0),('2026-06-12',11550.0)
+                      ) AS t(d, v)"""
+        )
+    db.commit()
+    yield
+
+
+def test_catchup_trigger_d_uses_analyzed_for_date(db, catchup_seed):
+    rows = fetch_analysis_rows(
+        db, date_from=date(2026, 6, 1), date_to=date(2026, 6, 30),
+        classification=None, source=None, pattern=None, ticker="RVCU01",
+        include_pivot_null=True, limit=100, offset=0,
+    )
+    assert len(rows) == 1
+    fb = first_breakout(rows[0]["triggers"])
+    assert fb is not None
+    # D = analyzed_for_date(금요일 6/5) — evaluated_at 의 날짜부분(토요일 6/6) 아님
+    assert fb["d"] == date(2026, 6, 5)
+    assert fb["evaluated_at"].date() == date(2026, 6, 6)
+
+    # 체인 항등식이 그 D(금요일) 기준으로 성립하는지 확인: 토요일 앵커였다면
+    # series 에 6/6 행이 없어 chain_tn 이 None 을 반환했을 것이다.
+    series = fetch_price_series(db, "RVCU01", fb["d"], date(2026, 6, 30))
+    pivot_delta = (fb["close"] - fb["pivot_price"]) / fb["pivot_price"]
+    t5 = chain_tn(series, fb["d"], pivot_delta, 5)
+    assert t5 is not None
+    # pivot_delta=0.05, D+5(6/12) adj=11550, D(6/5) adj=10500 → 11550/10500=1.10
+    # t5 = 1.05 × 1.10 − 1 = 0.155
+    assert abs(t5 - 0.155) < 1e-9
+
+
 def test_build_spark_downsample_preserves_latest_price_off_grid():
     # 극점·마지막 인덱스가 균등 스텝 그리드와 우연히 겹치지 않는 소수 길이(157) 입력.
     # 다운샘플이 스텝 그리드만 쓰면 최신 가격(마지막 인덱스)이 드롭될 수 있다 — 반드시

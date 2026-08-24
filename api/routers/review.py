@@ -26,8 +26,8 @@ def list_analyses(
     pattern: str | None = None,
     ticker: str | None = None,
     include_pivot_null: bool = False,
-    limit: int = 200,
-    offset: int = 0,
+    limit: int = Query(default=200, ge=0),
+    offset: int = Query(default=0, ge=0),
     conn: Connection = Depends(get_conn),
 ):
     today = date.today()

@@ -87,6 +87,13 @@ def test_triggered_filter_and_limit_cap(client, seed):
     assert r2.status_code == 200   # limit 은 500 으로 캡 (에러 아님)
 
 
+def test_negative_limit_offset_rejected(client, seed):
+    r = client.get("/api/review/analyses?limit=-1")
+    assert r.status_code == 422
+    r2 = client.get("/api/review/analyses?offset=-1")
+    assert r2.status_code == 422
+
+
 def test_pivot_null_hidden_by_default(client, seed, db):
     with db.cursor() as cur:
         cur.execute(
