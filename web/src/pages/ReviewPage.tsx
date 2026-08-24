@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -20,6 +20,20 @@ const TRIGGERED_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "전체" },
   { value: "true", label: "발동" },
   { value: "false", label: "미발동" },
+];
+
+const CLASSIFICATIONS: { value: string; label: string }[] = [
+  { value: "", label: "전체" },
+  { value: "entry", label: "entry" },
+  { value: "watch", label: "watch" },
+];
+
+const PATTERNS: { value: string; label: string }[] = [
+  { value: "", label: "전체" },
+  { value: "cup_with_handle", label: "cup_with_handle" },
+  { value: "cup_without_handle", label: "cup_without_handle" },
+  { value: "flat_base", label: "flat_base" },
+  { value: "none", label: "none" },
 ];
 
 // 상태 셀 tone — TriggersPage 의 DecisionPill 톤 관례를 상태 축(§1)에 맞춰 복제.
@@ -153,7 +167,17 @@ export default function ReviewPage() {
   const to = sp.get("to") ?? todayKstISO();
   const triggered = sp.get("triggered") ?? "";
   const source = sp.get("source") ?? "";
+  const classification = sp.get("classification") ?? "";
+  const pattern = sp.get("pattern") ?? "";
+  const ticker = sp.get("ticker") ?? "";
   const includePivotNull = sp.get("include_pivot_null") === "true";
+
+  // 종목 입력은 매 키 입력마다 fetch 하지 않도록 local state + Enter/blur 시 URL 반영
+  // (TriggersPage.tsx:58-73 패턴 그대로).
+  const [tickerInput, setTickerInput] = useState(ticker);
+  useEffect(() => {
+    setTickerInput(ticker);
+  }, [ticker]);
 
   function updateParam(key: string, value: string) {
     const next = new URLSearchParams(sp);
@@ -162,12 +186,22 @@ export default function ReviewPage() {
     setSp(next);
   }
 
+  function commitTicker() {
+    if (tickerInput !== ticker) updateParam("ticker", tickerInput.trim());
+  }
+
   const q = useQuery<ReviewResponse>({
-    queryKey: ["review", { from, to, triggered, source, includePivotNull }],
+    queryKey: [
+      "review",
+      { from, to, triggered, source, classification, pattern, ticker, includePivotNull },
+    ],
     queryFn: () => {
       const p = new URLSearchParams({ from, to, limit: "500" });
       if (triggered) p.set("triggered", triggered);
       if (source) p.set("source", source);
+      if (classification) p.set("classification", classification);
+      if (pattern) p.set("pattern", pattern);
+      if (ticker) p.set("ticker", ticker);
       if (includePivotNull) p.set("include_pivot_null", "true");
       return api<ReviewResponse>(`/review/analyses?${p.toString()}`);
     },
@@ -221,6 +255,44 @@ export default function ReviewPage() {
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="caps block mb-1">분류</label>
+          <select
+            value={classification}
+            onChange={(e) => updateParam("classification", e.target.value)}
+            className="px-3 py-1.5 border border-hairline rounded-lg bg-cream text-data"
+          >
+            {CLASSIFICATIONS.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="caps block mb-1">패턴</label>
+          <select
+            value={pattern}
+            onChange={(e) => updateParam("pattern", e.target.value)}
+            className="px-3 py-1.5 border border-hairline rounded-lg bg-cream text-data"
+          >
+            {PATTERNS.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="caps block mb-1">종목</label>
+          <input
+            type="text"
+            value={tickerInput}
+            placeholder="예: 005930"
+            onChange={(e) => setTickerInput(e.target.value)}
+            onBlur={commitTicker}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitTicker();
+            }}
+            className="px-3 py-1.5 border border-hairline rounded-lg bg-cream text-data"
+          />
         </div>
         <div>
           <label className="flex items-center gap-1.5 cursor-pointer text-data-xs mb-2">
