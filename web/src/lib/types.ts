@@ -347,3 +347,44 @@ export interface ClassificationHistoryRow {
   confidence: number | null;
   reasoning: string | null;
 }
+
+export interface ReviewTrigger {
+  evaluated_at: string;
+  d: string;
+  trigger_type: string;
+  decision: TriggerDecision;
+  close: number | null;
+  pivot_price: number | null;
+  reasoning: string | null;
+}
+
+export interface ReviewRow {
+  symbol: string;
+  name: string | null;
+  market: string | null;
+  source: "weekend" | "daily_delta";
+  classified_at: string;
+  analyzed_for_date: string | null;
+  key_date: string;
+  classification: "entry" | "watch";
+  pattern: string | null;
+  pivot_price: number | null;
+  status: string;
+  first_breakout_at: string | null;
+  first_breakout_type: string | null;
+  first_breakout_decision: TriggerDecision | null;
+  promotion_at: string | null;
+  trigger_count: number;
+  t5_pct: number | null;
+  t20_pct: number | null;
+  max_reach_pct: number | null;
+  corp_action_flag: boolean;
+  spark: number[];
+  pivot_baseline: number | null;
+  triggers: ReviewTrigger[];
+}
+
+export interface ReviewResponse {
+  rows: ReviewRow[];
+  orphan_trigger_count: number;
+}
