@@ -16,6 +16,10 @@ from kr_pipeline.common.thresholds import (
     STATUS_FTD_RECENT_DAYS,
     TT_MARGINAL_DEMOTION_COUNT,
 )
+from kr_pipeline.llm_runner.compute.recent_transition import (
+    WINDOW_ROWS,
+    recent_transition_count_63d,
+)
 from kr_pipeline.llm_runner.compute.tt_marginal import tt_marginal_summary
 
 
@@ -190,7 +194,13 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
         "conditions_met": conditions_met,
         "conditions_detail": minervini,
         # (#23) §2/§3.5 정량 판정 입력 선계산 — 프롬프트 재계수 금지 규약의 대상
-        "conditions_summary": _conditions_summary(minervini),
+        # + (rtc_63d) 자문 입력 — demotion_trigger 인근 배치(맵 §1-2), None 허용
+        "conditions_summary": {
+            **_conditions_summary(minervini),
+            "recent_transition_count_63d": recent_transition_count_63d(
+                _fetch_minervini_pass_series(conn, ticker, on_date)
+            ),
+        },
         "market_direction_gate": _market_direction_gate(market_context),
         "rs_rating": rs_rating,
         "current_metrics": current,
@@ -199,6 +209,24 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
         "price_data_notes": price_data_notes,
         "climax_topping_gates": climax_topping_gates,
     }
+
+
+def _fetch_minervini_pass_series(conn: Connection, ticker: str, on_date: date) -> list[bool | None]:
+    """기준일 이하 최근 64행(창 63 + 창 시작 행 판정용 직전 1행)의 minervini_pass.
+
+    시간 오름차순 반환 — recent_transition_count_63d 입력 규약(마지막 행 = 기준일,
+    look-ahead 금지는 date <= on_date 로 보장). 거래일 = daily_indicators 행 존재일.
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT minervini_pass
+              FROM daily_indicators
+             WHERE ticker = %s AND date <= %s
+             ORDER BY date DESC
+             LIMIT %s
+        """, (ticker, on_date, WINDOW_ROWS + 1))
+        rows = cur.fetchall()
+    return [r[0] for r in reversed(rows)]
 
 
 def _build_current_metrics(conn: Connection, ticker: str, on_date: date) -> dict:

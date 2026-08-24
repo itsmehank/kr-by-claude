@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from api.services.payload_builder import build_payload
 
 
@@ -281,3 +281,37 @@ def test_fetch_indicators_recent_uses_adjusted_volume(db):
     out = _fetch_indicators_recent(db, "ADJI", date(2026,1,31), days=60)
     assert len(out) == 1
     assert out[0]["volume"] == 500   # i.volume(adj), raw=1000 이면 실패
+
+
+def _seed_pass_history(db, ticker, end, n_days, pass_pattern):
+    """end 이전 n_days 개 역일의 daily_indicators 시드 — minervini_pass 시계열용.
+
+    pass_pattern(date_index)-> bool|None. 거래일 = 행 존재일 규약이므로 역일 연속
+    시드로 충분(주말 스킵 불요).
+    """
+    with db.cursor() as cur:
+        for i in range(1, n_days + 1):
+            d = end - timedelta(days=i)
+            cur.execute(
+                """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass)
+                   VALUES (%s, %s, 1000, %s) ON CONFLICT DO NOTHING""",
+                (ticker, d, pass_pattern(i)),
+            )
+    db.commit()
+
+
+def test_recent_transition_count_none_on_short_history(db):
+    """(rtc_63d 확인 ②) 관측창 <63행 → None — 신규 상장 '안정 통과' 위장 방지."""
+    _seed_full(db, ticker="RTC1")
+    payload = build_payload(db, "RTC1", on_date=date(2026, 5, 17))
+    cs = payload["conditions_summary"]
+    assert "recent_transition_count_63d" in cs
+    assert cs["recent_transition_count_63d"] is None
+
+
+def test_recent_transition_count_counts_asof_transition(db):
+    """직전 63행 False + 기준일 True(시드) → 당일 F→T 1회 확정 계수."""
+    _seed_full(db, ticker="RTC2")
+    _seed_pass_history(db, "RTC2", date(2026, 5, 17), 63, lambda i: False)
+    payload = build_payload(db, "RTC2", on_date=date(2026, 5, 17))
+    assert payload["conditions_summary"]["recent_transition_count_63d"] == 1

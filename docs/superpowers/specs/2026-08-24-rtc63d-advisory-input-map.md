@@ -47,3 +47,25 @@
    경계 테스트(62행 → None / 63행 → 값) 포함. #125 가설(d) 접점.
 3. **프레임 자구 회부**: 프롬프트 해석 프레임 1문장은 **배포(머지) 전
    자구만 세션 회부**. 타 항목 재회부 불요.
+
+## 6. 14차 판정 봉인 (2026-08-24) — 구현·자구 최종
+
+- **이행 3건 승인**: 격자 §5.10 / 클로즈 색인(신규 해석 0) / rtc 구현
+  (확인 3건 충족 — #117 함수 직접 재사용·None 경계 "is True/is False
+  어느 쪽도 아님" 처리 정확 판정).
+- **프레임 자구: 조건부 반려 → 수정판 승인.**
+  - 반려 ① 귀속 오류: "매끈한 추세 선호(TTLC)" 소스 미확인. 검증 앵커 =
+    **O'Neil HMMS pp.140-143**(tight areas / wide-and-loose 실패 경향 —
+    wide_and_loose §5.2 기인용 앵커와 동일) + **Minervini VCP 타이트닝
+    (TLSMW)**. TTLC 병기 복원은 장 단위 직접 문구 특정 시에만(그 경우만
+    재회부).
+  - 반려 ② 언어 정합: analyze_chart_v3 = 영문 프롬프트 — 영문 자구 확정.
+  - **승인 자구(그대로 반영, 압축 시 귀속 유지 조건)**: "…(advisory input —
+    predictive power unverified, exploratory origin): number of
+    trend-template F→T transitions in the trailing 63 trading days. A high
+    count may indicate boundary-oscillating, choppy price character rather
+    than a smooth, orderly advance — contrast with the tight, orderly
+    action the source texts favor (O'Neil HMMS pp.140-143 tight areas /
+    wide-and-loose; Minervini's volatility contraction, TLSMW)."
+- **수정 반영 머지(배포) 승인.** 이후 저장본 드리프트 관찰만(§3 — 전후
+  비교 재실행 무효).
