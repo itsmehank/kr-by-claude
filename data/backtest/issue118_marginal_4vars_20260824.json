@@ -1,0 +1,100 @@
+{
+ "generated": "2026-08-24",
+ "grade": "탐색 (판정 기준 = 11차 봉인)",
+ "window": [
+  "2017-01-01",
+  "2024-12-31"
+ ],
+ "scope_note": "생존 한정 — marginal 장치는 실전 지표 표면(margin 원천값) 전용, 명기",
+ "n_events": 29608,
+ "mc_undetermined": 0,
+ "fire_rate": 0.4615,
+ "v1_net_effect": {
+  "avoided_loss_escaped": {
+   "n": 6833,
+   "mean": 4.889
+  },
+  "delay_cost_resolved": {
+   "n": 6830,
+   "mean": 3.068
+  },
+  "resolved_n": 6830,
+  "escaped_n": 6833,
+  "resolve_rate": 0.4999,
+  "net_effect": 1.821,
+  "drift_aux_mean": 10.149
+ },
+ "v2_blocked_triggers": {
+  "events_with_block": 3559,
+  "total_blocked": 10455
+ },
+ "v3_condition_mix": {
+  "counts": {
+   "c4": 13370,
+   "c1": 13001,
+   "c2": 12546,
+   "c3": 10149,
+   "c5": 5038,
+   "c8": 2408,
+   "c7": 1707,
+   "c6": 1457
+  },
+  "top_share": 0.224
+ },
+ "v4_stratification": {
+  "fire_rate_first": {
+   "n": 2118,
+   "mean": 0.78
+  },
+  "fire_rate_repeat": {
+   "n": 27490,
+   "mean": 0.437
+  },
+  "by_regime": {
+   "downtrend": {
+    "n": 4055,
+    "fire_rate": 0.5711,
+    "x20_mean": -0.584
+   },
+   "rally_attempt": {
+    "n": 9755,
+    "fire_rate": 0.3667,
+    "x20_mean": 0.505
+   },
+   "confirmed_uptrend": {
+    "n": 5743,
+    "fire_rate": 0.5436,
+    "x20_mean": 0.957
+   },
+   "correction": {
+    "n": 10055,
+    "fire_rate": 0.4623,
+    "x20_mean": 0.223
+   }
+  }
+ },
+ "adverse_selection": {
+  "diff_fired_minus_calm": 0.201,
+  "fired_x20": {
+   "n": 13663,
+   "mean": 0.456
+  },
+  "calm_x20": {
+   "n": 15945,
+   "mean": 0.255
+  },
+  "fired_ci": [
+   0.038,
+   0.879
+  ],
+  "calm_ci": [
+   -0.184,
+   0.687
+  ]
+ },
+ "proposal_check": {
+  "cond1_net_negative": false,
+  "cond2_first_concentration": true,
+  "routing": "mc_threshold"
+ }
+}
