@@ -42,6 +42,20 @@ def test_a_85_band_literals_match_ssot():
     assert float(hi.group(1)) == thresholds.PIVOT_EXTENDED_BAND_MULT
 
 
+def test_a_rtc63d_advisory_neutral_exposure():
+    """(rtc_63d, #118 12차 ①·13차 맵) 자문 입력 중립 노출 — 유령 입력 방지:
+    payload 실재 필드(recent_transition_count_63d)가 프롬프트에 정의·태그와 함께
+    존재해야 하고, '예측력 미확증(탐색 유래)' 태그 없이 노출되면 안 된다."""
+    m = re.search(
+        r"recent_transition_count_63d.{0,400}예측력 미확증.{0,40}탐색 유래",
+        _a_text(), re.S,
+    )
+    assert m, (
+        "A 프롬프트에 recent_transition_count_63d 정의+'예측력 미확증(탐색 유래)' "
+        "태그 부재 — 중립 노출 조건(12차 ①) 위반 또는 유령/미태그 노출"
+    )
+
+
 def test_a_35_normal_max_matches_ssot():
     m = re.search(r"≤\s*(\d+)\s*distribution days", _a_text())
     assert m, "§3.5 정상 진행 상한(≤ N distribution days)을 찾지 못함"
