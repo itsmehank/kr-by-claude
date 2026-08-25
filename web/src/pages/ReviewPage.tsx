@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import { nDaysAgoKstISO, todayKstISO } from "../lib/dates";
 import type { ReviewResponse, ReviewRow, ReviewTrigger, TriggerDecision } from "../lib/types";
 import Sparkline from "../components/Sparkline";
+import StockTimeline from "../components/StockTimeline";
 
 const pct = (v: number | null) =>
   v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
@@ -173,6 +174,9 @@ export default function ReviewPage() {
   const pattern = sp.get("pattern") ?? "";
   const ticker = sp.get("ticker") ?? "";
   const includePivotNull = sp.get("include_pivot_null") === "true";
+  // 종목 필터가 활성일 때만 노출되는 타임라인 뷰 토글 (issue #127).
+  const showTimelineToggle = Boolean(ticker);
+  const isTimelineView = showTimelineToggle && sp.get("view") === "timeline";
 
   // 종목 입력은 매 키 입력마다 fetch 하지 않도록 local state + Enter/blur 시 URL 반영
   // (TriggersPage.tsx:58-73 패턴 그대로).
@@ -307,6 +311,19 @@ export default function ReviewPage() {
             pivot 없는 분석 포함
           </label>
         </div>
+        {showTimelineToggle && (
+          <div>
+            <label className="flex items-center gap-1.5 cursor-pointer text-data-xs mb-2">
+              <input
+                type="checkbox"
+                checked={isTimelineView}
+                onChange={(e) => updateParam("view", e.target.checked ? "timeline" : "")}
+                className="accent-accent"
+              />
+              타임라인 보기
+            </label>
+          </div>
+        )}
       </div>
 
       {q.isLoading && <div className="text-muted">불러오는 중…</div>}
@@ -315,7 +332,13 @@ export default function ReviewPage() {
         <div className="text-muted">필터에 해당하는 분석 회고 행이 없습니다.</div>
       )}
 
-      {rows.length > 0 && (
+      {rows.length > 0 && isTimelineView && (
+        <section className="mb-6">
+          <StockTimeline rows={rows} />
+        </section>
+      )}
+
+      {rows.length > 0 && !isTimelineView && (
         <section className="mb-6 border border-hairline rounded-xl overflow-hidden">
           <table className="w-full text-data">
             <thead className="bg-paper/60 text-faint">
