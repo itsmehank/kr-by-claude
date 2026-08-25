@@ -1,0 +1,177 @@
+{
+  "classification_backfill_window": {
+    "e1_rows": 0,
+    "note": "백필은 실전 관측이 아니므로 주 분모 비합산(별도 병기 — 스펙 A2)",
+    "rows": 0
+  },
+  "e1_counter": {
+    "allowed_watch_reasons_code_fact": {
+      "e1_included": false,
+      "effect": "E1 사유는 ALLOWED_WATCH_REASONS 비포함 → breakout_from_watch 미발화, promotion 경로만(go_now 금지) — store.py:84-89",
+      "source": "kr_pipeline/llm_runner/compute/trigger_gate.py:45-47",
+      "values": [
+        "marginal_tt",
+        "unfavorable_market",
+        "valid_base_awaiting_breakout"
+      ]
+    },
+    "denominator_llm_rows_window": 354,
+    "numerator_rows_window": 2,
+    "numerator_source_filter": [
+      "weekend",
+      "daily_delta"
+    ],
+    "rate": 0.00565,
+    "reference_denominator_d_climax": {
+      "e1_rows_pattern_unmatched": 0,
+      "note": "E1 prereg §2 패턴(reasoning 내 climax 논의 행) — 3.4~20% proxy 구간과 분모 호환 보완용 참고 지표(판정 아님)",
+      "numerator_e1_in_d_climax": 2,
+      "numerator_subset_note": "분자는 D_climax 분모 집합의 부분집합(동일 source·패턴 제약) — 분자⊄분모(이론상 1.0 초과) 결함 봉쇄",
+      "pattern": "climax|클라이맥스|수직 급등|blow-off|블로우오프",
+      "rate_vs_d_climax": 0.022727,
+      "rows": 88
+    },
+    "registered_formula": {
+      "denominator_all_rows_window": 468,
+      "note": "stage3 prereg §7-1 등록식 그대로(source 무제한 — system_disqualify 포함). 주 지표의 LLM-only 분모는 등록식으로부터의 명시적 이탈(사유: 비-LLM 결정론 경로는 watch_reason 생성 불가)",
+      "numerator_rows_window_any_source": 2,
+      "rate": 0.004274
+    },
+    "rows": [
+      {
+        "analyzed_for_date": "2026-08-14",
+        "classification": "watch",
+        "classified_at": "2026-08-15 09:11:02.586643+09",
+        "source": "weekend",
+        "symbol": "181710",
+        "verdict_original": "watch",
+        "watch_reason": "suspected_climax_stage_indeterminate"
+      },
+      {
+        "analyzed_for_date": "2026-08-21",
+        "classification": "watch",
+        "classified_at": "2026-08-22 09:18:18.334761+09",
+        "source": "weekend",
+        "symbol": "241710",
+        "verdict_original": "watch",
+        "watch_reason": "suspected_climax_stage_indeterminate"
+      }
+    ],
+    "watch_reason": "suspected_climax_stage_indeterminate",
+    "weekly_breakdown_kst_monday": [
+      {
+        "e1_rows": 0,
+        "llm_rows": 63,
+        "week_kst": "2026-07-27"
+      },
+      {
+        "e1_rows": 0,
+        "llm_rows": 95,
+        "week_kst": "2026-08-03"
+      },
+      {
+        "e1_rows": 1,
+        "llm_rows": 127,
+        "week_kst": "2026-08-10"
+      },
+      {
+        "e1_rows": 1,
+        "llm_rows": 47,
+        "week_kst": "2026-08-17"
+      },
+      {
+        "e1_rows": 0,
+        "llm_rows": 22,
+        "week_kst": "2026-08-24"
+      }
+    ]
+  },
+  "generated_at": "2026-08-25T09:21:46.071798+00:00",
+  "issue": 59,
+  "population": {
+    "by_source": {
+      "daily_delta": {
+        "distinct_analyzed_dates": 16,
+        "llm_model_rows": 234,
+        "max_analyzed_for_date": "2026-08-24",
+        "max_classified_at": "2026-08-24 20:39:46.097463+09",
+        "min_analyzed_for_date": "2026-07-27",
+        "min_classified_at": "2026-07-28 00:07:46.933532+09",
+        "rows": 234,
+        "watch_reason_rows": 218
+      },
+      "system_disqualify": {
+        "distinct_analyzed_dates": 16,
+        "llm_model_rows": 0,
+        "max_analyzed_for_date": "2026-08-24",
+        "max_classified_at": "2026-08-24 18:35:49.013157+09",
+        "min_analyzed_for_date": "2026-07-27",
+        "min_classified_at": "2026-07-27 20:56:40.579025+09",
+        "rows": 114,
+        "watch_reason_rows": 0
+      },
+      "weekend": {
+        "distinct_analyzed_dates": 3,
+        "llm_model_rows": 120,
+        "max_analyzed_for_date": "2026-08-21",
+        "max_classified_at": "2026-08-22 09:20:35.422591+09",
+        "min_analyzed_for_date": "2026-08-07",
+        "min_classified_at": "2026-08-08 09:17:29.522458+09",
+        "rows": 120,
+        "watch_reason_rows": 118
+      }
+    },
+    "llm_rows": 354,
+    "llm_sources": [
+      "weekend",
+      "daily_delta"
+    ],
+    "non_llm_exclusion_rationale": "system_disqualify 는 비-LLM 결정론 경로(llm_model NULL·watch_reason NULL, gates.py 미통과)라 shadow 발화·E1 이 구조적으로 불가능 — 분모 제외, 전수 병기",
+    "non_llm_rows_excluded_from_denominators": {
+      "system_disqualify": 114
+    },
+    "weekend_runs": [
+      {
+        "analyzed_for_date": "2026-08-07",
+        "rows": 28
+      },
+      {
+        "analyzed_for_date": "2026-08-14",
+        "rows": 65
+      },
+      {
+        "analyzed_for_date": "2026-08-21",
+        "rows": 27
+      }
+    ]
+  },
+  "prereg_refs": [
+    "docs/superpowers/specs/2026-07-20-issue44-e1-indeterminacy-prereg.md",
+    "docs/superpowers/specs/2026-07-21-issue44-stage3-verification-prereg.md",
+    "docs/superpowers/specs/2026-07-21-issue44-62-mismatch-readout.md"
+  ],
+  "purpose": "§6.2 topping shadow 1차 실전 관측창 집계 — 활성화 판정 보류(사용자 결정), 판독 문서 docs/superpowers/specs/2026-08-25-issue59-shadow-readout.md 의 원자료",
+  "shadow": {
+    "all_time_topping_like_classification_backfill": 0,
+    "all_time_topping_like_weekly_classification": 0,
+    "fired_equals_would_force_note": "gates.py:117-121 이 classification != 'ignore' 일 때만 기록하므로 production 로그에서 발화 행 = would_force 행(동일 집합)",
+    "fired_rows_window": 0,
+    "fired_rows_window_any_source": 0,
+    "fired_rows_window_any_source_note": "source 필터 없는 방어 카운트(분자 아님) — 분자는 분모와 동일한 LLM source 필터를 적용한 fired_rows_window",
+    "fired_rows_window_source_filter": [
+      "weekend",
+      "daily_delta"
+    ],
+    "force_rate_vs_llm_population": 0.0,
+    "force_share_within_fired": null,
+    "force_share_within_fired_note": "산정 불능(분모 0 — 관측창 발화 0건)",
+    "rule": "6_2_topping_shadow",
+    "would_force_rows_window": 0
+  },
+  "window": {
+    "first_classified_at": "2026-07-27 20:56:40.579025+09",
+    "last_classified_at": "2026-08-24 20:39:46.097463+09",
+    "start_kst": "2026-07-25 00:00:00+09",
+    "start_rationale": "실전 전환 첫 주말 분류일(이슈 #59 deployed 기준)"
+  }
+}
