@@ -21,7 +21,7 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 /** 종목 최근 묶음 상태 pill(스펙 §5) — 진행중/닫힘·사유, 절단·백필 배지. */
-function LatestStatusCell({ latest }: { latest: StockLatest }) {
+export function LatestStatusCell({ latest }: { latest: StockLatest }) {
   const isOpen = latest.status === "open";
   const closedLabel = latest.closed_by ? CLOSED_BY_LABEL[latest.closed_by] ?? latest.closed_by : null;
   const tone = isOpen
@@ -49,7 +49,7 @@ function LatestStatusCell({ latest }: { latest: StockLatest }) {
 }
 
 /** 성과 셀(스펙 §2·§5) — stage 별 표시. */
-function PerformanceCell({ latest }: { latest: StockLatest }) {
+export function PerformanceCell({ latest }: { latest: StockLatest }) {
   if (latest.stage === "breakout") {
     return (
       <span className="num">
@@ -90,7 +90,7 @@ function recentPivot(row: StockRow): number | null {
   return null;
 }
 
-function StreakHeader({ streak }: { streak: Streak }) {
+export function StreakHeader({ streak }: { streak: Streak }) {
   const closedLabel = streak.closed_by ? CLOSED_BY_LABEL[streak.closed_by] ?? streak.closed_by : null;
   return (
     <div className="flex items-center gap-2 flex-wrap text-data-xs text-muted mb-1.5">
