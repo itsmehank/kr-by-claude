@@ -2,7 +2,9 @@
 
 production DB(kr_pipeline)에서 SELECT 만 수행한다(서버측 read-only 세션 강제).
 LLM 재실행 0회 — 저장본 집계만. 결과는 JSON 으로 저장하며, 동일 DB 상태에서
-재실행 시 generated_at 제외 바이트 동일(결정론: sort_keys + 고정 반올림).
+재실행 시 generated_at 제외 바이트 동일(결정론: sort_keys + 고정 반올림 + 세션
+TimeZone=Asia/Seoul 고정 — 실행 환경 TZ 무관). 출력 파일명은 실행일 날짜로
+파생되므로 다른 날 재실행하면 새 파일이 생성돼 기존 기준선 파일이 보존된다.
 
 정의 출처:
 - 발화·would_force: kr_pipeline/llm_runner/gates.py:117-121 (6_2_topping_shadow 는
@@ -19,7 +21,7 @@ LLM 재실행 0회 — 저장본 집계만. 결과는 JSON 으로 저장하며, 
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import psycopg
@@ -27,7 +29,7 @@ from psycopg.rows import dict_row
 
 DSN = "postgresql://localhost/kr_pipeline"
 OUT_PATH = Path(__file__).resolve().parents[1] / "data" / "verification" / (
-    "issue59_shadow_readout_20260825.json"
+    f"issue59_shadow_readout_{date.today():%Y%m%d}.json"
 )
 
 # 관측창 시작 = 실전 전환 첫 주말 분류일(이슈 #59 deployed 기준, 스펙 A1)
@@ -82,6 +84,7 @@ def collect(conn: psycopg.Connection) -> dict:
 
     llm_rows = sum(by_source.get(s, {}).get("rows", 0) for s in LLM_SOURCES)
     non_llm = {s: r["rows"] for s, r in by_source.items() if s not in LLM_SOURCES}
+    total_rows = llm_rows + sum(non_llm.values())  # 등록식(§7-1) 분모: source 무제한
 
     # weekend 실행일 상세(사전 확인 실측 대조용)
     cur.execute(
@@ -96,10 +99,12 @@ def collect(conn: psycopg.Connection) -> dict:
     weekend_runs = cur.fetchall()
 
     # --- shadow 발화(= would_force, gates.py 구조상 동일 집합) ---
+    # 분자는 분모(LLM 모수)와 동일한 source 필터를 명시 — 분자⊄분모 결함 봉쇄.
+    # any_source 는 필터 밖 발화 잔여 검출용 방어 카운트(분자 아님).
     cur.execute(
         """
-        SELECT count(*) AS n,
-               count(*) FILTER (WHERE source = ANY(%(llm)s)) AS n_llm_sources
+        SELECT count(*) FILTER (WHERE source = ANY(%(llm)s)) AS n,
+               count(*) AS n_any_source
         FROM weekly_classification
         WHERE classified_at >= %(ws)s::timestamptz
           AND triggered_rules ? %(rule)s
@@ -120,7 +125,7 @@ def collect(conn: psycopg.Connection) -> dict:
     )
     backfill_topping = cur.fetchone()["n"]
 
-    # --- E1 카운터 (stage3 prereg §7 분모 정의: 관측창 LLM 분류 행) ---
+    # --- E1 카운터 (주 지표 분모 = 관측창 LLM 분류 행 — 분자에 동일 source 필터) ---
     cur.execute(
         """
         SELECT symbol, classified_at::text AS classified_at,
@@ -128,18 +133,30 @@ def collect(conn: psycopg.Connection) -> dict:
                source, classification, verdict_original, watch_reason
         FROM weekly_classification
         WHERE classified_at >= %(ws)s::timestamptz AND watch_reason = %(r)s
+          AND source = ANY(%(llm)s)
         ORDER BY classified_at, symbol
+        """,
+        {"ws": WINDOW_START, "r": E1_REASON, "llm": list(LLM_SOURCES)},
+    )
+    e1_rows = cur.fetchall()
+
+    # 등록식(stage3 prereg §7-1) 분자 — source 무제한(등록식 문언 그대로)
+    cur.execute(
+        """
+        SELECT count(*) AS n FROM weekly_classification
+        WHERE classified_at >= %(ws)s::timestamptz AND watch_reason = %(r)s
         """,
         {"ws": WINDOW_START, "r": E1_REASON},
     )
-    e1_rows = cur.fetchall()
+    e1_any_source = cur.fetchone()["n"]
 
     # 주 단위 분해 — 주 경계 = KST 기준 ISO 주(월요일 시작), 스펙 리뷰 ④
     cur.execute(
         """
         SELECT date_trunc('week', classified_at AT TIME ZONE 'Asia/Seoul')::date::text AS week_kst,
                count(*) FILTER (WHERE source = ANY(%(llm)s)) AS llm_rows,
-               count(*) FILTER (WHERE watch_reason = %(r)s) AS e1_rows
+               count(*) FILTER (WHERE watch_reason = %(r)s
+                                AND source = ANY(%(llm)s)) AS e1_rows
         FROM weekly_classification
         WHERE classified_at >= %(ws)s::timestamptz
         GROUP BY week_kst ORDER BY week_kst
@@ -160,6 +177,26 @@ def collect(conn: psycopg.Connection) -> dict:
         {"ws": WINDOW_START, "llm": list(LLM_SOURCES), "pat": D_CLIMAX_PATTERN},
     )
     d_climax = cur.fetchone()["n"]
+
+    # rate_vs_d_climax 분자 = D_climax 분모 집합의 부분집합(동일 source·패턴 제약)
+    # — 분자⊄분모(이론상 1.0 초과) 결함 봉쇄. 패턴 비매칭 E1 은 별도 보고.
+    cur.execute(
+        """
+        SELECT count(*) AS n
+        FROM weekly_classification
+        WHERE classified_at >= %(ws)s::timestamptz
+          AND source = ANY(%(llm)s)
+          AND watch_reason = %(r)s
+          AND reasoning ~* %(pat)s
+        """,
+        {
+            "ws": WINDOW_START,
+            "llm": list(LLM_SOURCES),
+            "r": E1_REASON,
+            "pat": D_CLIMAX_PATTERN,
+        },
+    )
+    e1_in_d_climax = cur.fetchone()["n"]
 
     # classification_backfill 관측창 병기(주 분모 비합산 — 스펙 A2)
     cur.execute(
@@ -213,7 +250,12 @@ def collect(conn: psycopg.Connection) -> dict:
         "shadow": {
             "rule": SHADOW_RULE,
             "fired_rows_window": n_fired,
-            "fired_rows_window_llm_sources": fired["n_llm_sources"],
+            "fired_rows_window_source_filter": list(LLM_SOURCES),
+            "fired_rows_window_any_source": fired["n_any_source"],
+            "fired_rows_window_any_source_note": (
+                "source 필터 없는 방어 카운트(분자 아님) — 분자는 분모와 동일한 "
+                "LLM source 필터를 적용한 fired_rows_window"
+            ),
             "fired_equals_would_force_note": (
                 "gates.py:117-121 이 classification != 'ignore' 일 때만 기록하므로 "
                 "production 로그에서 발화 행 = would_force 행(동일 집합)"
@@ -230,14 +272,32 @@ def collect(conn: psycopg.Connection) -> dict:
         "e1_counter": {
             "watch_reason": E1_REASON,
             "numerator_rows_window": len(e1_rows),
+            "numerator_source_filter": list(LLM_SOURCES),
             "denominator_llm_rows_window": llm_rows,
             "rate": _rate(len(e1_rows), llm_rows),
+            "registered_formula": {
+                "numerator_rows_window_any_source": e1_any_source,
+                "denominator_all_rows_window": total_rows,
+                "rate": _rate(e1_any_source, total_rows),
+                "note": (
+                    "stage3 prereg §7-1 등록식 그대로(source 무제한 — "
+                    "system_disqualify 포함). 주 지표의 LLM-only 분모는 등록식"
+                    "으로부터의 명시적 이탈(사유: 비-LLM 결정론 경로는 "
+                    "watch_reason 생성 불가)"
+                ),
+            },
             "rows": e1_rows,
             "weekly_breakdown_kst_monday": weekly,
             "reference_denominator_d_climax": {
                 "pattern": D_CLIMAX_PATTERN,
                 "rows": d_climax,
-                "rate_vs_d_climax": _rate(len(e1_rows), d_climax),
+                "numerator_e1_in_d_climax": e1_in_d_climax,
+                "numerator_subset_note": (
+                    "분자는 D_climax 분모 집합의 부분집합(동일 source·패턴 제약) — "
+                    "분자⊄분모(이론상 1.0 초과) 결함 봉쇄"
+                ),
+                "e1_rows_pattern_unmatched": len(e1_rows) - e1_in_d_climax,
+                "rate_vs_d_climax": _rate(e1_in_d_climax, d_climax),
                 "note": (
                     "E1 prereg §2 패턴(reasoning 내 climax 논의 행) — 3.4~20% proxy 구간과 "
                     "분모 호환 보완용 참고 지표(판정 아님)"
@@ -266,6 +326,10 @@ def main() -> None:
     with psycopg.connect(
         DSN, autocommit=True, options="-c default_transaction_read_only=on"
     ) as conn:
+        # TimeZone 고정: timestamptz ::text 렌더링을 실행 환경(TZ/PGTZ 환경변수·
+        # 서버 기본값)과 무관하게 KST 로 결정론화(byte 동일 보장). 접속 후 SET 이
+        # startup 파라미터보다 뒤에 적용되므로 환경변수를 확실히 이긴다.
+        conn.execute("SET TIME ZONE 'Asia/Seoul'")
         payload = collect(conn)
 
     payload["generated_at"] = datetime.now(timezone.utc).isoformat()

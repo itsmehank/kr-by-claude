@@ -17,12 +17,25 @@
     },
     "denominator_llm_rows_window": 354,
     "numerator_rows_window": 2,
+    "numerator_source_filter": [
+      "weekend",
+      "daily_delta"
+    ],
     "rate": 0.00565,
     "reference_denominator_d_climax": {
+      "e1_rows_pattern_unmatched": 0,
       "note": "E1 prereg §2 패턴(reasoning 내 climax 논의 행) — 3.4~20% proxy 구간과 분모 호환 보완용 참고 지표(판정 아님)",
+      "numerator_e1_in_d_climax": 2,
+      "numerator_subset_note": "분자는 D_climax 분모 집합의 부분집합(동일 source·패턴 제약) — 분자⊄분모(이론상 1.0 초과) 결함 봉쇄",
       "pattern": "climax|클라이맥스|수직 급등|blow-off|블로우오프",
       "rate_vs_d_climax": 0.022727,
       "rows": 88
+    },
+    "registered_formula": {
+      "denominator_all_rows_window": 468,
+      "note": "stage3 prereg §7-1 등록식 그대로(source 무제한 — system_disqualify 포함). 주 지표의 LLM-only 분모는 등록식으로부터의 명시적 이탈(사유: 비-LLM 결정론 경로는 watch_reason 생성 불가)",
+      "numerator_rows_window_any_source": 2,
+      "rate": 0.004274
     },
     "rows": [
       {
@@ -73,7 +86,7 @@
       }
     ]
   },
-  "generated_at": "2026-08-25T06:57:43.643138+00:00",
+  "generated_at": "2026-08-25T09:21:46.071798+00:00",
   "issue": 59,
   "population": {
     "by_source": {
@@ -143,7 +156,12 @@
     "all_time_topping_like_weekly_classification": 0,
     "fired_equals_would_force_note": "gates.py:117-121 이 classification != 'ignore' 일 때만 기록하므로 production 로그에서 발화 행 = would_force 행(동일 집합)",
     "fired_rows_window": 0,
-    "fired_rows_window_llm_sources": 0,
+    "fired_rows_window_any_source": 0,
+    "fired_rows_window_any_source_note": "source 필터 없는 방어 카운트(분자 아님) — 분자는 분모와 동일한 LLM source 필터를 적용한 fired_rows_window",
+    "fired_rows_window_source_filter": [
+      "weekend",
+      "daily_delta"
+    ],
     "force_rate_vs_llm_population": 0.0,
     "force_share_within_fired": null,
     "force_share_within_fired_note": "산정 불능(분모 0 — 관측창 발화 0건)",
