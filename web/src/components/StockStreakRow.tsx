@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, memo, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { Streak, StockLatest, StockRow } from "../lib/types";
@@ -21,7 +21,7 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 /** 종목 최근 묶음 상태 pill(스펙 §5) — 진행중/닫힘·사유, 절단·백필 배지. */
-function LatestStatusCell({ latest }: { latest: StockLatest }) {
+export function LatestStatusCell({ latest }: { latest: StockLatest }) {
   const isOpen = latest.status === "open";
   const closedLabel = latest.closed_by ? CLOSED_BY_LABEL[latest.closed_by] ?? latest.closed_by : null;
   const tone = isOpen
@@ -49,7 +49,7 @@ function LatestStatusCell({ latest }: { latest: StockLatest }) {
 }
 
 /** 성과 셀(스펙 §2·§5) — stage 별 표시. */
-function PerformanceCell({ latest }: { latest: StockLatest }) {
+export function PerformanceCell({ latest }: { latest: StockLatest }) {
   if (latest.stage === "breakout") {
     return (
       <span className="num">
@@ -90,7 +90,7 @@ function recentPivot(row: StockRow): number | null {
   return null;
 }
 
-function StreakHeader({ streak }: { streak: Streak }) {
+export function StreakHeader({ streak }: { streak: Streak }) {
   const closedLabel = streak.closed_by ? CLOSED_BY_LABEL[streak.closed_by] ?? streak.closed_by : null;
   return (
     <div className="flex items-center gap-2 flex-wrap text-data-xs text-muted mb-1.5">
@@ -105,33 +105,61 @@ function StreakHeader({ streak }: { streak: Streak }) {
   );
 }
 
-export default function StockStreakRow({ row, to }: { row: StockRow; to: string }) {
+function StockStreakRow({
+  row,
+  to,
+  selected,
+  onSelect,
+}: {
+  row: StockRow;
+  to: string;
+  selected: boolean;
+  onSelect: (symbol: string) => void;
+}) {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
 
-  const streaks = row.streaks.map((s) => ({
-    start: s.start,
-    end: s.end,
-    closed_by: (s.closed_by as "ignore" | "disqualify" | null) ?? null,
-    censored: s.censored,
-    backfilled: s.backfilled,
-    has_gap: s.has_gap,
-  }));
-  const triggers = row.streaks.flatMap((s) =>
-    s.analyses.flatMap((a) => a.triggers.map((t) => ({ d: t.d, trigger_type: t.trigger_type }))),
+  const streaks = useMemo(
+    () =>
+      row.streaks.map((s) => ({
+        start: s.start,
+        end: s.end,
+        closed_by: (s.closed_by as "ignore" | "disqualify" | null) ?? null,
+        censored: s.censored,
+        backfilled: s.backfilled,
+        has_gap: s.has_gap,
+      })),
+    [row],
+  );
+  const triggers = useMemo(
+    () =>
+      row.streaks.flatMap((s) =>
+        s.analyses.flatMap((a) => a.triggers.map((t) => ({ d: t.d, trigger_type: t.trigger_type }))),
+      ),
+    [row],
   );
 
   return (
     <Fragment>
+      {/* 행 클릭 = 상세 패널 선택. 펼침은 chevron 버튼 전용(설계 v3 §2). */}
       <tr
-        onClick={() => setIsOpen((v) => !v)}
+        onClick={() => onSelect(row.symbol)}
         className="border-t border-hairline align-top hover:bg-paper/40 cursor-pointer"
       >
-        <td className="px-3 py-1.5">
+        {/* 선택 표시는 배경이 아닌 좌측 인디케이터 — hover 배경과 축 분리(검토 #16) */}
+        <td className={`px-3 py-1.5 border-l-2 ${selected ? "border-l-accent" : "border-l-transparent"}`}>
           <div className="flex items-center gap-1.5">
-            <span className="text-faint shrink-0">
+            <button
+              type="button"
+              aria-label={isOpen ? "묶음 타임라인 접기" : "묶음 타임라인 펼치기"}
+              className="text-faint shrink-0 hover:text-ink"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen((v) => !v);
+              }}
+            >
               {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            </span>
+            </button>
             <span
               className="font-semibold hover:underline"
               onClick={(e) => {
@@ -175,3 +203,6 @@ export default function StockStreakRow({ row, to }: { row: StockRow; to: string 
     </Fragment>
   );
 }
+
+// memo: 선택 변경 시 다른 행(최대 500개)의 buildChart 재실행을 막는다(검토 #7).
+export default memo(StockStreakRow);

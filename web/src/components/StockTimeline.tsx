@@ -98,7 +98,8 @@ function TriggerCard({
           <span className="shrink-0 mt-0.5">
             {isOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
           </span>
-          <span className={isOpen ? "whitespace-pre-wrap" : "truncate max-w-md"}>{t.reasoning}</span>
+          {/* min-w-0: 좁은 컬럼(상세 패널 우측)에서도 truncate 가 가로 오버플로우 없이 동작 */}
+          <span className={isOpen ? "whitespace-pre-wrap" : "min-w-0 flex-1 truncate"}>{t.reasoning}</span>
         </button>
       )}
     </div>
