@@ -42,3 +42,65 @@ class ReviewRowOut(BaseModel):
 class ReviewResponse(BaseModel):
     rows: list[ReviewRowOut]
     orphan_trigger_count: int
+
+
+class StreakAnalysisOut(BaseModel):
+    symbol: str
+    key_date: date
+    classified_at: datetime
+    source: str
+    classification: str
+    pattern: str | None = None
+    pivot_price: float | None = None
+    backfilled: bool
+    triggers: list[ReviewTriggerOut] = []
+
+
+class StreakMetricsOut(BaseModel):
+    stage: str
+    t5_pct: float | None = None
+    t20_pct: float | None = None
+    max_reach_pct: float | None = None
+    corp_action_flag: bool = False
+    first_breakout_at: date | None = None
+
+
+class StreakOut(BaseModel):
+    start: date
+    end: date | None = None
+    closed_by: str | None = None
+    censored: bool
+    backfilled: bool
+    has_gap: bool
+    stage: str
+    analyses: list[StreakAnalysisOut] = []
+    metrics: StreakMetricsOut
+
+
+class StockLatestOut(BaseModel):
+    status: str
+    closed_by: str | None = None
+    stage: str
+    t5_pct: float | None = None
+    t20_pct: float | None = None
+    max_reach_pct: float | None = None
+    corp_action_flag: bool = False
+    first_breakout_at: date | None = None
+    censored: bool
+    backfilled: bool
+    streak_count: int
+
+
+class StockRowOut(BaseModel):
+    symbol: str
+    name: str | None = None
+    market: str | None = None
+    latest: StockLatestOut
+    streaks: list[StreakOut] = []
+    series: list[tuple[date, float]] = []
+    pivot_steps: list[tuple[date, date | None, float]] = []
+
+
+class StockRowsResponse(BaseModel):
+    rows: list[StockRowOut]
+    orphan_trigger_count: int
