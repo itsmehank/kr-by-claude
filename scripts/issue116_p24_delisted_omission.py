@@ -15,7 +15,9 @@ FROZEN_SAMPLE 멤버십과 대조해 누락 비율·추첨 기대 누락 수(카
 - RS 축 차이: c8/rs_gate 는 bt_rs(무편향 — 상폐 포함 유니버스) 기준으로,
   production daily_indicators 의 생존 한정 rs_rating 과 축이 다르다.
 - build_frame 의 adj_low IS NULL 제외 조건은 상폐 표면에 대응물이 없어 비적용.
-- carve 종목은 c8 부재 → gate_pass NULL → IS TRUE 에서 제외(평가 불능 수 별도 보고).
+- carve 종목은 c8 부재 시에도 producer(issue118_delisted_gate.py)가 gate_pass 를
+  Python bool 로 기록해 항상 non-NULL(FALSE) → IS TRUE 에서 제외. 평가 불능은
+  gate_pass FALSE ∧ c1~c7·rs_gate 전부 TRUE ∧ c8 NULL 로 식별해 별도 보고.
 - frame 은 현재 DB 재계산치 — 추첨 시점 풀과 소폭 드리프트 가능(B 추첨 시점
   풀 1730 은 문서 기록, cf. frozen_sample_b.py docstring).
 """
@@ -56,7 +58,7 @@ CARVE_SQL = """
     SELECT COUNT(DISTINCT ticker) FROM bt_delisted_indicators
      WHERE date BETWEEN %s AND %s
        AND EXTRACT(DOW FROM date) = 5
-       AND gate_pass IS NULL
+       AND gate_pass IS FALSE
        AND c1 AND c2 AND c3 AND c4 AND c5 AND c6 AND c7 AND rs_gate
        AND c8 IS NULL
 """
@@ -86,7 +88,9 @@ def main() -> int:
             "RS 축 차이: c8/rs_gate 는 bt_rs 무편향(상폐 포함) 축 — production "
             "생존 한정 rs_rating 과 상이",
             "build_frame 의 adj_low IS NULL 제외 조건 비적용(상폐 표면 대응물 없음)",
-            "carve 종목 c8 부재 → gate_pass NULL → 평가 불능(별도 카운트)",
+            "carve 종목 c8 부재여도 gate_pass 는 producer Python bool 로 항상 "
+            "non-NULL(FALSE) — 평가 불능은 FALSE ∧ c1~c7·rs_gate TRUE ∧ "
+            "c8 NULL 로 식별(별도 카운트)",
             "frame 은 현재 DB 재계산치 — 추첨 시점 풀과 소폭 드리프트 가능",
         ],
         "samples": {},

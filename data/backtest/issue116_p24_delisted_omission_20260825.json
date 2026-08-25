@@ -7,7 +7,7 @@
   "limitations": [
     "RS 축 차이: c8/rs_gate 는 bt_rs 무편향(상폐 포함) 축 — production 생존 한정 rs_rating 과 상이",
     "build_frame 의 adj_low IS NULL 제외 조건 비적용(상폐 표면 대응물 없음)",
-    "carve 종목 c8 부재 → gate_pass NULL → 평가 불능(별도 카운트)",
+    "carve 종목 c8 부재여도 gate_pass 는 producer Python bool 로 항상 non-NULL(FALSE) — 평가 불능은 FALSE ∧ c1~c7·rs_gate TRUE ∧ c8 NULL 로 식별(별도 카운트)",
     "frame 은 현재 DB 재계산치 — 추첨 시점 풀과 소폭 드리프트 가능"
   ],
   "samples": {
@@ -314,7 +314,7 @@
       "delisted_tickers_in_window": 295,
       "delisted_pass_tickers": 160,
       "delisted_pass_friday_events": 2255,
-      "carve_indeterminate_tickers": 0,
+      "carve_indeterminate_tickers": 1,
       "omission_rate_pct": 8.84,
       "expected_omitted_in_draw100": 8.84,
       "checks": {
