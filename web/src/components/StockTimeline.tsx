@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { ReviewRow, TriggerDecision } from "../lib/types";
-import { buildStockTimeline, type TimelineAnalysisEvent, type TimelineTriggerEvent } from "../lib/stockTimeline";
+import type { TriggerDecision } from "../lib/types";
+import {
+  buildStockTimeline,
+  type TimelineAnalysisEvent,
+  type TimelineRow,
+  type TimelineTriggerEvent,
+} from "../lib/stockTimeline";
 
 // ReviewPage.tsx 의 DecisionPill 을 로컬 복제 — 이 코드베이스의 확립된 관례
 // (TriggersPage.tsx:261, ReviewPage.tsx 모두 페이지/컴포넌트별 로컬 복제, export 공유 아님).
@@ -100,7 +105,7 @@ function TriggerCard({
   );
 }
 
-export default function StockTimeline({ rows }: { rows: ReviewRow[] }) {
+export default function StockTimeline({ rows }: { rows: TimelineRow[] }) {
   const [openReasoning, setOpenReasoning] = useState<Set<string>>(new Set());
   const toggle = (key: string) =>
     setOpenReasoning((prev) => {

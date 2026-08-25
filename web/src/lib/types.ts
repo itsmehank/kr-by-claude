@@ -388,3 +388,67 @@ export interface ReviewResponse {
   rows: ReviewRow[];
   orphan_trigger_count: number;
 }
+
+/** 종목 행(streak) 뷰 — Task 4 `StockRowsResponse` 1:1 미러(스펙 §4). */
+
+export interface StreakAnalysis {
+  symbol: string;
+  key_date: string;
+  classified_at: string;
+  source: string;
+  classification: string;
+  pattern: string | null;
+  pivot_price: number | null;
+  backfilled: boolean;
+  triggers: ReviewTrigger[];
+}
+
+export interface StreakMetrics {
+  stage: string;
+  t5_pct: number | null;
+  t20_pct: number | null;
+  max_reach_pct: number | null;
+  corp_action_flag: boolean;
+  first_breakout_at: string | null;
+}
+
+export interface Streak {
+  start: string;
+  end: string | null;
+  closed_by: string | null;
+  censored: boolean;
+  backfilled: boolean;
+  has_gap: boolean;
+  stage: string;
+  analyses: StreakAnalysis[];
+  metrics: StreakMetrics;
+}
+
+export interface StockLatest {
+  status: string;
+  closed_by: string | null;
+  stage: string;
+  t5_pct: number | null;
+  t20_pct: number | null;
+  max_reach_pct: number | null;
+  corp_action_flag: boolean;
+  first_breakout_at: string | null;
+  censored: boolean;
+  backfilled: boolean;
+  streak_count: number;
+}
+
+export interface StockRow {
+  symbol: string;
+  name: string | null;
+  market: string | null;
+  latest: StockLatest;
+  streaks: Streak[];
+  series: [string, number][];
+  pivot_steps: [string, string | null, number][];
+}
+
+export interface StockRowsResponse {
+  rows: StockRow[];
+  orphan_trigger_count: number;
+}

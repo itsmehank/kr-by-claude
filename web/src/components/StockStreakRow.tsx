@@ -1,0 +1,177 @@
+import { Fragment, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import type { Streak, StockLatest, StockRow } from "../lib/types";
+import StreakChart from "./StreakChart";
+import StockTimeline from "./StockTimeline";
+
+const pct = (v: number | null) =>
+  v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
+
+const CLOSED_BY_LABEL: Record<string, string> = {
+  ignore: "ignore",
+  disqualify: "실격",
+};
+
+const STAGE_LABEL: Record<string, string> = {
+  breakout: "breakout",
+  staging: "staging",
+  watching: "watching",
+  base_forming: "base_forming",
+};
+
+/** 종목 최근 묶음 상태 pill(스펙 §5) — 진행중/닫힘·사유, 절단·백필 배지. */
+function LatestStatusCell({ latest }: { latest: StockLatest }) {
+  const isOpen = latest.status === "open";
+  const closedLabel = latest.closed_by ? CLOSED_BY_LABEL[latest.closed_by] ?? latest.closed_by : null;
+  const tone = isOpen
+    ? { bg: "bg-tint-blue", text: "text-accent", dot: "bg-accent" }
+    : { bg: "bg-tint-stone", text: "text-muted", dot: "bg-gray-400" };
+  return (
+    <div className="flex flex-col gap-1">
+      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded w-fit ${tone.bg} ${tone.text}`}>
+        <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+        {isOpen ? "진행중" : `닫힘${closedLabel ? ` · ${closedLabel}` : ""}`}
+      </span>
+      <div className="flex items-center gap-1 flex-wrap">
+        {latest.censored && (
+          <span
+            className="chip bg-amber-soft text-amber text-data-xs"
+            title="묶음 시작이 관측 하한 근처 — 그 이전 이력은 알 수 없음"
+          >
+            관찰 시작=시스템 시작
+          </span>
+        )}
+        {latest.backfilled && <span className="chip bg-tint-stone text-muted text-data-xs">백필</span>}
+      </div>
+    </div>
+  );
+}
+
+/** 성과 셀(스펙 §2·§5) — stage 별 표시. */
+function PerformanceCell({ latest }: { latest: StockLatest }) {
+  if (latest.stage === "breakout") {
+    return (
+      <span className="num">
+        T+5 {pct(latest.t5_pct)} · T+20 {pct(latest.t20_pct)}
+      </span>
+    );
+  }
+  if (latest.stage === "staging" || latest.stage === "watching") {
+    return (
+      <span className="num">
+        최고 {pct(latest.max_reach_pct)}
+        {latest.corp_action_flag && (
+          <span
+            className="ml-1.5 chip bg-amber-soft text-amber text-data-xs"
+            title="구간 내 기업행위 발생 — 가격 왜곡 가능"
+          >
+            ⚠ 기업행위
+          </span>
+        )}
+      </span>
+    );
+  }
+  return <span className="text-muted">베이스 형성 중</span>;
+}
+
+function latestStreak(row: StockRow): Streak | undefined {
+  return row.streaks[row.streaks.length - 1];
+}
+
+/** 최근 pivot — 최근 묶음의 마지막 pivot 값(스펙 §5 "최근 pivot" 컬럼). */
+function recentPivot(row: StockRow): number | null {
+  const streak = latestStreak(row);
+  if (!streak) return null;
+  for (let i = streak.analyses.length - 1; i >= 0; i--) {
+    const p = streak.analyses[i].pivot_price;
+    if (p != null) return p;
+  }
+  return null;
+}
+
+function StreakHeader({ streak }: { streak: Streak }) {
+  const closedLabel = streak.closed_by ? CLOSED_BY_LABEL[streak.closed_by] ?? streak.closed_by : null;
+  return (
+    <div className="flex items-center gap-2 flex-wrap text-data-xs text-muted mb-1.5">
+      <span className="num">
+        {streak.start} ~ {streak.end ?? "진행중"}
+      </span>
+      {closedLabel && <span className="chip bg-tint-stone text-muted text-data-xs">{closedLabel}</span>}
+      <span className="chip bg-tint-violet text-muted text-data-xs">{STAGE_LABEL[streak.stage] ?? streak.stage}</span>
+      {streak.censored && <span className="chip bg-amber-soft text-amber text-data-xs">절단</span>}
+      {streak.backfilled && <span className="chip bg-tint-stone text-muted text-data-xs">백필</span>}
+    </div>
+  );
+}
+
+export default function StockStreakRow({ row, to }: { row: StockRow; to: string }) {
+  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(false);
+
+  const streaks = row.streaks.map((s) => ({
+    start: s.start,
+    end: s.end,
+    closed_by: (s.closed_by as "ignore" | "disqualify" | null) ?? null,
+    censored: s.censored,
+    backfilled: s.backfilled,
+    has_gap: s.has_gap,
+  }));
+  const triggers = row.streaks.flatMap((s) =>
+    s.analyses.flatMap((a) => a.triggers.map((t) => ({ d: t.d, trigger_type: t.trigger_type }))),
+  );
+
+  return (
+    <Fragment>
+      <tr
+        onClick={() => setIsOpen((v) => !v)}
+        className="border-t border-hairline align-top hover:bg-paper/40 cursor-pointer"
+      >
+        <td className="px-3 py-1.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-faint shrink-0">
+              {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            </span>
+            <span
+              className="font-semibold hover:underline"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/chart/${row.symbol}`);
+              }}
+            >
+              {row.symbol}
+            </span>
+            <span className="text-muted">{row.name}</span>
+          </div>
+        </td>
+        <td className="px-3 py-1.5">
+          <LatestStatusCell latest={row.latest} />
+        </td>
+        <td className="px-3 py-1.5 text-right num">{row.latest.streak_count}</td>
+        <td className="px-3 py-1.5 text-right num">
+          {recentPivot(row) != null ? recentPivot(row)!.toLocaleString() : "—"}
+        </td>
+        <td className="px-3 py-1.5">
+          <PerformanceCell latest={row.latest} />
+        </td>
+        <td className="px-3 py-1.5">
+          <StreakChart to={to} series={row.series} pivotSteps={row.pivot_steps} streaks={streaks} triggers={triggers} />
+        </td>
+      </tr>
+      {isOpen && (
+        <tr className="border-t border-hairline bg-cream/50">
+          <td colSpan={6} className="px-6 py-3">
+            <div className="flex flex-col gap-4">
+              {row.streaks.map((streak, i) => (
+                <div key={`${row.symbol}-${streak.start}-${i}`}>
+                  <StreakHeader streak={streak} />
+                  <StockTimeline rows={streak.analyses} />
+                </div>
+              ))}
+            </div>
+          </td>
+        </tr>
+      )}
+    </Fragment>
+  );
+}

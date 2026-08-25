@@ -4,12 +4,15 @@ from fastapi import APIRouter, Depends, Query
 from psycopg import Connection
 
 from api.deps import get_conn
-from api.schemas.review import ReviewResponse, ReviewRowOut, ReviewTriggerOut
+from api.schemas.review import (
+    ReviewResponse, ReviewRowOut, ReviewTriggerOut, StockRowsResponse,
+)
 from api.services.review_builder import (
     BREAKOUT_TYPES, build_spark, chain_tn, corp_action_flags,
     count_orphan_triggers, derive_status, fetch_analysis_rows,
     fetch_price_series, first_breakout, first_promotion_d, max_reach,
 )
+from api.services.review_streaks import build_stock_rows
 
 router = APIRouter(prefix="/api/review", tags=["review"])
 
@@ -96,3 +99,32 @@ def list_analyses(
         out = [r for r in out if r.first_breakout_at is None]
     orphans = count_orphan_triggers(conn, date_from=date_from, date_to=date_to)
     return ReviewResponse(rows=out, orphan_trigger_count=orphans)
+
+
+@router.get("/stocks", response_model=StockRowsResponse)
+def list_stocks(
+    from_: date | None = Query(default=None, alias="from"),
+    to: date | None = None,
+    source: str | None = None,
+    ticker: str | None = None,
+    status: str | None = None,
+    limit: int = Query(default=200, ge=0),
+    offset: int = Query(default=0, ge=0),
+    conn: Connection = Depends(get_conn),
+):
+    today = date.today()
+    date_to = to or today
+    date_from = from_ or (date_to - timedelta(days=28))
+    limit = min(limit, 500)
+    result = build_stock_rows(conn, date_from=date_from, date_to=date_to,
+                              source=source, ticker=ticker, status=status,
+                              limit=limit, offset=offset, today=today)
+    names = {}
+    if result["rows"]:
+        with conn.cursor() as cur:
+            cur.execute("SELECT ticker, name FROM stocks WHERE ticker = ANY(%s)",
+                        ([r["symbol"] for r in result["rows"]],))
+            names = dict(cur.fetchall())
+    for r in result["rows"]:
+        r["name"] = names.get(r["symbol"])
+    return StockRowsResponse(**result)
