@@ -4,7 +4,7 @@ import pytest
 
 from api.services.review_streaks import (
     REVIEW_COVERAGE_START, fetch_scoped_rows, find_period_symbols,
-    segment_streaks, intersect_period,
+    segment_streaks, intersect_period, attach_triggers, derive_stage, compute_metrics,
 )
 
 KST = timezone(timedelta(hours=9))
@@ -106,3 +106,71 @@ def test_find_period_symbols_filters(db, seed):
     assert "RVSTK01" not in find_period_symbols(
         db, date_from=date(2026, 6, 1), date_to=date(2026, 6, 30),
         source="daily_delta", ticker=None)
+
+
+def _trig(d, ttype, close=None, pivot=None):
+    return {"d": date.fromisoformat(d), "trigger_type": ttype, "decision": "wait",
+            "close": close, "pivot_price": pivot, "reasoning": None,
+            "evaluated_at": datetime(2026, 6, 1, 21, tzinfo=KST)}
+
+
+def _streak(analyses, triggers_by_idx=None):
+    for i, a in enumerate(analyses):
+        a["triggers"] = (triggers_by_idx or {}).get(i, [])
+    return {"symbol": "A", "start": analyses[0]["key_date"], "end": None,
+            "closed_by": None, "censored": False, "backfilled": False,
+            "has_gap": False, "analyses": analyses}
+
+
+def test_derive_stage_four_buckets():
+    a_pivot = _row("A", "2026-06-05", "watch", "weekend", 100.0)
+    a_nopivot = _row("A", "2026-06-05", "watch", "weekend", None)
+    assert derive_stage(_streak([dict(a_pivot)], {0: [_trig("2026-06-10", "breakout_from_watch", 102, 100)]})) == "breakout"
+    assert derive_stage(_streak([dict(a_pivot)], {0: [_trig("2026-06-10", "promotion")]})) == "staging"
+    assert derive_stage(_streak([dict(a_pivot)])) == "watching"
+    assert derive_stage(_streak([dict(a_nopivot)])) == "base_forming"
+    # invalidation만 있으면 staging 아님 → watching(pivot 있음)
+    assert derive_stage(_streak([dict(a_pivot)], {0: [_trig("2026-06-10", "invalidation")]})) == "watching"
+
+
+def test_compute_metrics_breakout_chain_and_watching_reach():
+    series = [(date(2026, 6, 10), 100.0), (date(2026, 6, 11), 104.0),
+              (date(2026, 6, 12), 108.0), (date(2026, 6, 15), 112.0),
+              (date(2026, 6, 16), 116.0), (date(2026, 6, 17), 120.0)]
+    a = _row("A", "2026-06-05", "watch", "weekend", 100.0)
+    st = _streak([dict(a)], {0: [_trig("2026-06-10", "breakout_from_watch", close=102.0, pivot=100.0)]})
+    m = compute_metrics(st, series, today=date(2026, 6, 30), corp_flagged=False)
+    # pivot_delta=2%; T+5 = 1.02×120/100−1 = 0.224
+    assert m["stage"] == "breakout" and abs(m["t5_pct"] - 0.224) < 1e-9
+    assert m["t20_pct"] is None and m["first_breakout_at"] == date(2026, 6, 10)
+    st2 = _streak([dict(a)])
+    m2 = compute_metrics(st2, series, today=date(2026, 6, 30), corp_flagged=True)
+    # watching: 마지막 pivot(100), 창 (06-05, 오늘] → max 120 → +20%
+    assert m2["stage"] == "watching" and abs(m2["max_reach_pct"] - 0.20) < 1e-9
+    assert m2["corp_action_flag"] is True and m2["t5_pct"] is None
+
+
+@pytest.fixture
+def seed_trigger(db, seed):
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol LIKE 'RVSTK%'")
+        cur.execute(
+            """INSERT INTO trigger_evaluation_log
+                 (symbol, evaluated_at, trigger_type, close, volume, pivot_price,
+                  decision, reasoning, prior_classification_at, analyzed_for_date)
+               VALUES ('RVSTK01','2026-06-08 21:00:00+09','promotion',98,1000,100,
+                       'wait','접근','2026-06-06 10:00:00+09','2026-06-08')""")
+    db.commit()
+    yield
+
+
+def test_attach_triggers_nested_by_prior(db, seed_trigger):
+    rows = fetch_scoped_rows(db, symbols=["RVSTK01"])
+    streaks = segment_streaks(rows)
+    attach_triggers(db, streaks)
+    a0 = streaks[0]["analyses"][0]           # 06-05 라이브 분석
+    assert len(a0["triggers"]) == 1
+    assert a0["triggers"][0]["trigger_type"] == "promotion"
+    assert a0["triggers"][0]["d"] == date(2026, 6, 8)
+    # 백필 분석(06-19)에는 트리거 없음
+    assert streaks[0]["analyses"][1]["triggers"] == []

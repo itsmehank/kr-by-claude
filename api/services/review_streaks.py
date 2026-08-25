@@ -12,6 +12,10 @@ from datetime import date, timedelta
 from psycopg import Connection
 from psycopg.rows import dict_row
 
+from api.services.review_builder import (
+    BREAKOUT_TYPES, chain_tn, corp_action_flags, first_breakout, max_reach,
+)
+
 REVIEW_COVERAGE_START = date(2026, 5, 18)  # 라이브 weekly_classification 최초 key_date
 _CENSOR_WINDOW = timedelta(days=7)
 _GAP_DAYS = 10
@@ -124,3 +128,79 @@ def segment_streaks(rows: list[dict]) -> list[dict]:
 def intersect_period(streaks: list[dict], date_from: date, date_to: date) -> list[dict]:
     return [s for s in streaks
             if s["start"] <= date_to and (s["end"] is None or s["end"] >= date_from)]
+
+
+_TRIGGERS_SQL = """
+SELECT t.symbol, t.prior_classification_at, t.evaluated_at, t.trigger_type,
+       t.decision, t.close, t.pivot_price, t.reasoning,
+       COALESCE(t.analyzed_for_date,
+                (t.evaluated_at AT TIME ZONE 'UTC')::date) AS d
+  FROM trigger_evaluation_log t
+  JOIN unnest(%(syms)s::text[], %(ats)s::timestamptz[]) AS k(symbol, classified_at)
+    ON t.symbol = k.symbol AND t.prior_classification_at = k.classified_at
+ ORDER BY d, t.evaluated_at
+"""
+
+
+def attach_triggers(conn: Connection, streaks: list[dict]) -> None:
+    """prior_classification_at 직접 조인 — 분석별 중첩 (review_builder 와 동일 규칙.
+    SQL 을 복제하는 이유: review_builder 무수정 계약(스펙 §4) — 사설 상수 import 회피."""
+    index: dict[tuple, dict] = {}
+    for s in streaks:
+        for a in s["analyses"]:
+            a["triggers"] = []
+            index[(a["symbol"], a["classified_at"])] = a
+    if not index:
+        return
+    syms = [k[0] for k in index]
+    ats = [k[1] for k in index]
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(_TRIGGERS_SQL, {"syms": syms, "ats": ats})
+        for t in cur.fetchall():
+            t["close"] = float(t["close"]) if t["close"] is not None else None
+            t["pivot_price"] = float(t["pivot_price"]) if t["pivot_price"] is not None else None
+            index[(t["symbol"], t["prior_classification_at"])]["triggers"].append(t)
+
+
+def _streak_triggers(streak: dict) -> list[dict]:
+    return [t for a in streak["analyses"] for t in a["triggers"]]
+
+
+def derive_stage(streak: dict) -> str:
+    trigs = _streak_triggers(streak)
+    if any(t["trigger_type"] in BREAKOUT_TYPES for t in trigs):
+        return "breakout"
+    if any(t["trigger_type"] == "promotion" for t in trigs):
+        return "staging"
+    if any(a["pivot_price"] is not None for a in streak["analyses"]):
+        return "watching"
+    return "base_forming"
+
+
+def _last_pivot_analysis(streak: dict) -> dict | None:
+    for a in reversed(streak["analyses"]):
+        if a["pivot_price"] is not None:
+            return a
+    return None
+
+
+def compute_metrics(streak: dict, series: list[tuple[date, float]], *,
+                    today: date, corp_flagged: bool) -> dict:
+    stage = derive_stage(streak)
+    out = {"stage": stage, "t5_pct": None, "t20_pct": None, "max_reach_pct": None,
+           "corp_action_flag": False, "first_breakout_at": None}
+    if stage == "breakout":
+        fb = first_breakout(_streak_triggers(streak))
+        out["first_breakout_at"] = fb["d"]
+        if fb["close"] and fb["pivot_price"]:
+            delta = (fb["close"] - fb["pivot_price"]) / fb["pivot_price"]
+            out["t5_pct"] = chain_tn(series, fb["d"], delta, 5)
+            out["t20_pct"] = chain_tn(series, fb["d"], delta, 20)
+    elif stage in ("staging", "watching"):
+        anchor = _last_pivot_analysis(streak)
+        if anchor is not None:
+            out["max_reach_pct"] = max_reach(
+                series, anchor["key_date"], streak["end"], anchor["pivot_price"],
+                today=today)
+            out["corp_action_flag"] = corp_flagged
+    return out
