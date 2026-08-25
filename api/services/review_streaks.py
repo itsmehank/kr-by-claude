@@ -1,4 +1,4 @@
-"""/review 종목 행(streak) 뷰 조립 — 스펙 docs/superpowers/specs/2026-08-25-….md 가 원본.
+"""/review 종목 행(streak) 뷰 조립 — 스펙 docs/superpowers/specs/2026-08-25-review-stock-streak-view-design.md 가 원본.
 
 핵심 규칙:
 - 전역 하한 REVIEW_COVERAGE_START(라이브·백필 모두) — 이전 행은 산발 표본이라 제외.
@@ -290,7 +290,10 @@ def build_stock_rows(conn: Connection, *, date_from: date, date_to: date,
             corp = anchor is not None and (d["symbol"], anchor["key_date"]) in flags
             s["metrics"] = compute_metrics(s, series, today=today, corp_flagged=corp)
             s["stage"] = s["metrics"]["stage"]
-        latest = max(streaks, key=lambda s: s["start"])
+        # streaks 는 시간순(segment_streaks 출력 순서, intersect_period 도 순서 보존) —
+        # max(key=start) 는 동일 시작일 중 '첫' 묶음을 고르므로(당일 종결-재개 시 과거
+        # 묶음 선택) 대신 마지막 원소로 프론트(streaks[length-1])와 규칙을 맞춘다.
+        latest = streaks[-1]
         out_rows.append({
             "symbol": d["symbol"], "market": d["market"],
             "latest": {
