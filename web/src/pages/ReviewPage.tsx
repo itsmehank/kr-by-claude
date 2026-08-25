@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -13,6 +13,7 @@ import type {
 } from "../lib/types";
 import Sparkline from "../components/Sparkline";
 import StockStreakRow from "../components/StockStreakRow";
+import StockDetailPanel from "../components/StockDetailPanel";
 
 const pct = (v: number | null) =>
   v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
@@ -242,6 +243,12 @@ export default function ReviewPage() {
 
   const rows = analysisQuery.data?.rows ?? [];
   const stockRows = stockQuery.data?.rows ?? [];
+
+  // 상세 패널 선택 — derive 방식(설계 v3 §1): 필터 변경으로 목록에서 빠지면 첫 행 폴백.
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const selectedRow =
+    stockRows.find((r) => r.symbol === selectedSymbol) ?? stockRows[0] ?? null;
+  const handleSelect = useCallback((symbol: string) => setSelectedSymbol(symbol), []);
   const activeQuery = isAnalysisView ? analysisQuery : stockQuery;
   const orphanCount = isAnalysisView
     ? analysisQuery.data?.orphan_trigger_count
@@ -393,6 +400,8 @@ export default function ReviewPage() {
         <div className="text-muted">필터에 해당하는 분석 회고 행이 없습니다.</div>
       )}
 
+      {!isAnalysisView && selectedRow && <StockDetailPanel row={selectedRow} to={to} />}
+
       {!isAnalysisView && stockRows.length > 0 && (
         <section className="mb-6 border border-hairline rounded-xl overflow-hidden">
           <table className="w-full text-data">
@@ -408,7 +417,13 @@ export default function ReviewPage() {
             </thead>
             <tbody>
               {stockRows.map((row) => (
-                <StockStreakRow key={row.symbol} row={row} to={to} />
+                <StockStreakRow
+                  key={row.symbol}
+                  row={row}
+                  to={to}
+                  selected={selectedRow?.symbol === row.symbol}
+                  onSelect={handleSelect}
+                />
               ))}
             </tbody>
           </table>
