@@ -4,9 +4,15 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { api } from "../lib/api";
 import { nDaysAgoKstISO, todayKstISO } from "../lib/dates";
-import type { ReviewResponse, ReviewRow, ReviewTrigger, TriggerDecision } from "../lib/types";
+import type {
+  ReviewResponse,
+  ReviewRow,
+  ReviewTrigger,
+  StockRowsResponse,
+  TriggerDecision,
+} from "../lib/types";
 import Sparkline from "../components/Sparkline";
-import StockTimeline from "../components/StockTimeline";
+import StockStreakRow from "../components/StockStreakRow";
 
 const pct = (v: number | null) =>
   v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
@@ -37,6 +43,13 @@ const PATTERNS: { value: string; label: string }[] = [
   { value: "flat_base", label: "flat_base" },
   { value: "vcp", label: "vcp" },
   { value: "none", label: "none" },
+];
+
+// 상태(묶음 종결 여부) — 종목 행 뷰 전용 필터(스펙 §5).
+const STOCK_STATUSES: { value: string; label: string }[] = [
+  { value: "", label: "전체" },
+  { value: "open", label: "진행중" },
+  { value: "closed", label: "닫힘" },
 ];
 
 // 상태 셀 tone — TriggersPage 의 DecisionPill 톤 관례를 상태 축(§1)에 맞춰 복제.
@@ -174,9 +187,10 @@ export default function ReviewPage() {
   const pattern = sp.get("pattern") ?? "";
   const ticker = sp.get("ticker") ?? "";
   const includePivotNull = sp.get("include_pivot_null") === "true";
-  // 종목 필터가 활성일 때만 노출되는 타임라인 뷰 토글 (issue #127).
-  const showTimelineToggle = Boolean(ticker);
-  const isTimelineView = showTimelineToggle && sp.get("view") === "timeline";
+  const status = sp.get("status") ?? "";
+  // 기본 뷰 = 종목 행. view=analysis 만 분석 단위 표로 전환하고, 구 view=timeline 을 포함한
+  // 그 외 값은 전부 기본(종목 행) 뷰로 떨어진다 — 에러 없음(스펙 §5, 결정 5).
+  const isAnalysisView = sp.get("view") === "analysis";
 
   // 종목 입력은 매 키 입력마다 fetch 하지 않도록 local state + Enter/blur 시 URL 반영
   // (TriggersPage.tsx:58-73 패턴 그대로).
@@ -196,7 +210,7 @@ export default function ReviewPage() {
     if (tickerInput !== ticker) updateParam("ticker", tickerInput.trim());
   }
 
-  const q = useQuery<ReviewResponse>({
+  const analysisQuery = useQuery<ReviewResponse>({
     queryKey: [
       "review",
       { from, to, triggered, source, classification, pattern, ticker, includePivotNull },
@@ -211,9 +225,27 @@ export default function ReviewPage() {
       if (includePivotNull) p.set("include_pivot_null", "true");
       return api<ReviewResponse>(`/review/analyses?${p.toString()}`);
     },
+    enabled: isAnalysisView,
   });
 
-  const rows = q.data?.rows ?? [];
+  const stockQuery = useQuery<StockRowsResponse>({
+    queryKey: ["review-stocks", { from, to, source, ticker, status }],
+    queryFn: () => {
+      const p = new URLSearchParams({ from, to, limit: "500" });
+      if (source) p.set("source", source);
+      if (ticker) p.set("ticker", ticker);
+      if (status) p.set("status", status);
+      return api<StockRowsResponse>(`/review/stocks?${p.toString()}`);
+    },
+    enabled: !isAnalysisView,
+  });
+
+  const rows = analysisQuery.data?.rows ?? [];
+  const stockRows = stockQuery.data?.rows ?? [];
+  const activeQuery = isAnalysisView ? analysisQuery : stockQuery;
+  const orphanCount = isAnalysisView
+    ? analysisQuery.data?.orphan_trigger_count
+    : stockQuery.data?.orphan_trigger_count;
 
   return (
     <div className="px-8 py-6">
@@ -250,42 +282,48 @@ export default function ReviewPage() {
             ))}
           </select>
         </div>
-        <div>
-          <label className="caps block mb-1">발동 여부</label>
-          <select
-            value={triggered}
-            onChange={(e) => updateParam("triggered", e.target.value)}
-            className="px-3 py-1.5 border border-hairline rounded-lg bg-cream text-data"
-          >
-            {TRIGGERED_OPTIONS.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="caps block mb-1">분류</label>
-          <select
-            value={classification}
-            onChange={(e) => updateParam("classification", e.target.value)}
-            className="px-3 py-1.5 border border-hairline rounded-lg bg-cream text-data"
-          >
-            {CLASSIFICATIONS.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="caps block mb-1">패턴</label>
-          <select
-            value={pattern}
-            onChange={(e) => updateParam("pattern", e.target.value)}
-            className="px-3 py-1.5 border border-hairline rounded-lg bg-cream text-data"
-          >
-            {PATTERNS.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
-        </div>
+        {isAnalysisView && (
+          <div>
+            <label className="caps block mb-1">발동 여부</label>
+            <select
+              value={triggered}
+              onChange={(e) => updateParam("triggered", e.target.value)}
+              className="px-3 py-1.5 border border-hairline rounded-lg bg-cream text-data"
+            >
+              {TRIGGERED_OPTIONS.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {isAnalysisView && (
+          <div>
+            <label className="caps block mb-1">분류</label>
+            <select
+              value={classification}
+              onChange={(e) => updateParam("classification", e.target.value)}
+              className="px-3 py-1.5 border border-hairline rounded-lg bg-cream text-data"
+            >
+              {CLASSIFICATIONS.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {isAnalysisView && (
+          <div>
+            <label className="caps block mb-1">패턴</label>
+            <select
+              value={pattern}
+              onChange={(e) => updateParam("pattern", e.target.value)}
+              className="px-3 py-1.5 border border-hairline rounded-lg bg-cream text-data"
+            >
+              {PATTERNS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="caps block mb-1">종목</label>
           <input
@@ -300,45 +338,84 @@ export default function ReviewPage() {
             className="px-3 py-1.5 border border-hairline rounded-lg bg-cream text-data"
           />
         </div>
-        <div>
-          <label className="flex items-center gap-1.5 cursor-pointer text-data-xs mb-2">
-            <input
-              type="checkbox"
-              checked={includePivotNull}
-              onChange={(e) => updateParam("include_pivot_null", e.target.checked ? "true" : "")}
-              className="accent-accent"
-            />
-            pivot 없는 분석 포함
-          </label>
-        </div>
-        {showTimelineToggle && (
+        {!isAnalysisView && (
+          <div>
+            <label className="caps block mb-1">상태</label>
+            <select
+              value={status}
+              onChange={(e) => updateParam("status", e.target.value)}
+              className="px-3 py-1.5 border border-hairline rounded-lg bg-cream text-data"
+            >
+              {STOCK_STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {isAnalysisView && (
           <div>
             <label className="flex items-center gap-1.5 cursor-pointer text-data-xs mb-2">
               <input
                 type="checkbox"
-                checked={isTimelineView}
-                onChange={(e) => updateParam("view", e.target.checked ? "timeline" : "")}
+                checked={includePivotNull}
+                onChange={(e) => updateParam("include_pivot_null", e.target.checked ? "true" : "")}
                 className="accent-accent"
               />
-              타임라인 보기
+              pivot 없는 분석 포함
             </label>
           </div>
         )}
+        <div className="flex items-center gap-1 rounded-lg border border-hairline overflow-hidden text-data-xs mb-0.5">
+          <button
+            type="button"
+            onClick={() => updateParam("view", "")}
+            className={`px-3 py-1.5 ${!isAnalysisView ? "bg-accent text-white" : "bg-cream text-muted hover:text-ink"}`}
+          >
+            종목 행 보기
+          </button>
+          <button
+            type="button"
+            onClick={() => updateParam("view", "analysis")}
+            className={`px-3 py-1.5 ${isAnalysisView ? "bg-accent text-white" : "bg-cream text-muted hover:text-ink"}`}
+          >
+            분석 단위 보기
+          </button>
+        </div>
       </div>
 
-      {q.isLoading && <div className="text-muted">불러오는 중…</div>}
-      {q.isError && <div className="text-danger">불러오기 실패</div>}
-      {q.data && rows.length === 0 && (
+      {activeQuery.isLoading && <div className="text-muted">불러오는 중…</div>}
+      {activeQuery.isError && <div className="text-danger">불러오기 실패</div>}
+
+      {!isAnalysisView && stockQuery.data && stockRows.length === 0 && (
+        <div className="text-muted">필터에 해당하는 종목이 없습니다.</div>
+      )}
+      {isAnalysisView && analysisQuery.data && rows.length === 0 && (
         <div className="text-muted">필터에 해당하는 분석 회고 행이 없습니다.</div>
       )}
 
-      {rows.length > 0 && isTimelineView && (
-        <section className="mb-6">
-          <StockTimeline rows={rows} />
+      {!isAnalysisView && stockRows.length > 0 && (
+        <section className="mb-6 border border-hairline rounded-xl overflow-hidden">
+          <table className="w-full text-data">
+            <thead className="bg-paper/60 text-faint">
+              <tr>
+                <th className="text-left px-3 py-1.5">종목</th>
+                <th className="text-left px-3 py-1.5">최근 묶음 상태</th>
+                <th className="text-right px-3 py-1.5">묶음 수</th>
+                <th className="text-right px-3 py-1.5">최근 pivot</th>
+                <th className="text-left px-3 py-1.5">성과</th>
+                <th className="text-left px-3 py-1.5">그래프</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stockRows.map((row) => (
+                <StockStreakRow key={row.symbol} row={row} to={to} />
+              ))}
+            </tbody>
+          </table>
         </section>
       )}
 
-      {rows.length > 0 && !isTimelineView && (
+      {isAnalysisView && rows.length > 0 && (
         <section className="mb-6 border border-hairline rounded-xl overflow-hidden">
           <table className="w-full text-data">
             <thead className="bg-paper/60 text-faint">
@@ -436,9 +513,9 @@ export default function ReviewPage() {
         </section>
       )}
 
-      {q.data && q.data.orphan_trigger_count > 0 && (
+      {orphanCount != null && orphanCount > 0 && (
         <div className="text-data-xs text-muted mt-2">
-          귀속 불가 트리거 {q.data.orphan_trigger_count}건 (재분석으로 대체된 기록)
+          귀속 불가 트리거 {orphanCount}건 (재분석으로 대체된 기록)
         </div>
       )}
     </div>
