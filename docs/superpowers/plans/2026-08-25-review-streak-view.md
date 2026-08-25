@@ -301,7 +301,7 @@ def intersect_period(streaks: list[dict], date_from: date, date_to: date) -> lis
 - [ ] **Step 4: 통과 확인**
 
 Run: `uv run pytest tests/test_api_review_streaks.py -v`
-Expected: 6 passed
+Expected: 5 passed
 
 - [ ] **Step 5: 커밋**
 
@@ -491,7 +491,7 @@ def compute_metrics(streak: dict, series: list[tuple[date, float]], *,
 - [ ] **Step 4: 통과 확인**
 
 Run: `uv run pytest tests/test_api_review_streaks.py -v`
-Expected: 전부 passed (Task 1 포함 10개)
+Expected: 전부 passed (Task 1 포함 누적 8개)
 
 - [ ] **Step 5: 커밋**
 
@@ -568,10 +568,36 @@ def test_build_stock_rows_end_to_end(db, seed_prices):
     assert row["streaks"][0]["analyses"][1]["backfilled"] is True
     assert row["series"][0][0] == date(2026, 5, 20)     # 클램프된 창 시작
     assert row["pivot_steps"][0][2] == 100.0
+    # (I1) 표시 클램프: 응답 series·analyses 는 to(06-30) 이하만
+    assert row["series"][-1][0] <= date(2026, 6, 30)
+    assert all(a["key_date"] <= date(2026, 6, 30)
+               for s in row["streaks"] for a in s["analyses"])
+    # (I2) metrics 는 오늘(08-20)까지의 데이터 사용 — 6월 말까지의 도달률(~+30%)로는
+    # 불가능한 값이어야 함 (가격이 하루 +1 씩 8월까지 상승하는 픽스처)
+    assert row["latest"]["max_reach_pct"] > 0.5
     # status 필터: open 만 → 포함 / closed → 제외
     assert build_stock_rows(db, date_from=date(2026, 6, 1), date_to=date(2026, 6, 30),
                             source=None, ticker="RVSTK01", status="closed",
                             limit=200, offset=0, today=date(2026, 8, 20))["rows"] == []
+
+
+def test_display_clamp_keeps_closed_by(db, seed_prices):
+    # 닫는 행(ignore)을 to 이후(07-10)에 심으면: end 는 to 로 절단되되 status 는 closed
+    with db.cursor() as cur:
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date)
+               VALUES ('RVSTK01','2026-07-10 10:00:00+09','KOSPI','ignore',NULL,
+                       NULL,'weekend','2026-07-10')""")
+    db.commit()
+    got = build_stock_rows(db, date_from=date(2026, 6, 1), date_to=date(2026, 6, 30),
+                           source=None, ticker="RVSTK01", status=None,
+                           limit=200, offset=0, today=date(2026, 8, 20))
+    row = got["rows"][0]
+    assert row["latest"]["status"] == "closed"                      # 원본 기준
+    assert row["streaks"][0]["closed_by"] == "ignore"               # 유지
+    assert row["streaks"][0]["end"] == date(2026, 6, 30)            # 표시 절단
 ```
 
 - [ ] **Step 2: 실패 확인**
@@ -601,6 +627,18 @@ def chart_window_start(conn: Connection, symbol: str, earliest_start: date) -> d
         cur.execute(_FIRST_ROW_SQL, {"symbol": symbol})
         first = cur.fetchone()[0]
     return first or earliest_start
+
+
+def _clamp_display(streak: dict, date_to: date) -> dict:
+    """(I1) 표시용 to 절단 — 스펙 §1. metrics·closed_by 는 원본 유지."""
+    s = dict(streak)
+    s["analyses"] = [
+        dict(a, triggers=[t for t in a["triggers"] if t["d"] <= date_to])
+        for a in streak["analyses"] if a["key_date"] <= date_to
+    ]
+    if s["end"] is not None and s["end"] > date_to:
+        s["end"] = date_to          # closed_by 는 그대로 (스펙 §1)
+    return s
 
 
 def build_pivot_steps(streaks: list[dict]) -> list[tuple[date, date | None, float]]:
@@ -647,7 +685,9 @@ def build_stock_rows(conn: Connection, *, date_from: date, date_to: date,
         streaks = d["streaks"]
         earliest = min(s["start"] for s in streaks)
         w_start = chart_window_start(conn, d["symbol"], earliest)
-        series = fetch_price_series(conn, d["symbol"], w_start, date_to)
+        # (I2) metrics 창은 "오늘까지"(스펙 §2) — 과거 to 조회에서도 도달률이
+        # 과소평가되지 않도록 오늘까지 fetch. 응답 series 는 아래 클램프에서 to 로 슬라이스.
+        series = fetch_price_series(conn, d["symbol"], w_start, max(date_to, today))
         for s in streaks:
             anchor = _last_pivot_analysis(s)
             corp = anchor is not None and (d["symbol"], anchor["key_date"]) in flags
@@ -667,6 +707,12 @@ def build_stock_rows(conn: Connection, *, date_from: date, date_to: date,
             "_sort_key": latest["start"],
         })
 
+    for r in out_rows:  # (I1) 표시 클램프 — 스펙 §1 "to 절단": 응답의 analyses/트리거/end/
+        # pivot_steps 는 date_to 로 자르되 closed_by·status·metrics 는 원본(오늘 기준) 유지
+        r["streaks"] = [_clamp_display(s, date_to) for s in r["streaks"]]
+        r["pivot_steps"] = build_pivot_steps(r["streaks"])
+        r["series"] = [p for p in r["series"] if p[0] <= date_to]
+
     if status:  # 원본 종결 기준 (스펙 §4) — 전체 계산 후 Python 필터
         out_rows = [r for r in out_rows if r["latest"]["status"] == status]
     out_rows.sort(key=lambda r: r["_sort_key"], reverse=True)
@@ -683,7 +729,7 @@ def build_stock_rows(conn: Connection, *, date_from: date, date_to: date,
 - [ ] **Step 4: 통과 확인**
 
 Run: `uv run pytest tests/test_api_review_streaks.py -v`
-Expected: 전부 passed (누적 14개)
+Expected: 전부 passed (누적 12개 — Task 3 은 클램프 테스트 포함 4개 추가)
 
 - [ ] **Step 5: 커밋**
 
@@ -713,11 +759,48 @@ git commit -m "묶음 시계열 창·pivot 계단·종목 행 응답 조립을 �
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
-`tests/test_api_review_stocks_router.py` — client/override 패턴은 `tests/test_api_review_router.py` 와 동일. seed 는 Task 3 의 `seed_prices` 조합을 복제(프리픽스 `RVSAPI`)하되 promotion 트리거 + 가격 시리즈 포함:
+`tests/test_api_review_stocks_router.py` — client/override 패턴은 `tests/test_api_review_router.py` 와 동일. ⚠️ **날짜는 10월대 사용** — 6월(`test_api_review_builder.py` 의 RVTEST02 고아 6/4 커밋 지뢰)·7월 초중순(기존 라우터 테스트)·7/21·7/24(트리거 게이트 테스트) 구간은 다른 픽스처가 커밋을 남겨 오염됨. 완전한 seed:
 
 ```python
+@pytest.fixture
+def seed(db):
+    def override():
+        yield db
+    app.dependency_overrides[get_conn] = override
+    with db.cursor() as cur:
+        for tbl, col in [("trigger_evaluation_log", "symbol"),
+                         ("weekly_classification", "symbol"),
+                         ("daily_prices", "ticker"), ("stocks", "ticker")]:
+            cur.execute(f"DELETE FROM {tbl} WHERE {col} LIKE 'RVSAPI%'")
+        cur.execute("""INSERT INTO stocks (ticker, name, market, sector, listed_at)
+                       VALUES ('RVSAPI01','에이피','KOSPI','반도체','2020-01-01')""")
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date)
+               VALUES ('RVSAPI01','2026-10-05 10:00:00+09','KOSPI','watch',
+                       'cup_with_handle', 100, 'weekend', '2026-10-05')""")
+        cur.execute(
+            """INSERT INTO trigger_evaluation_log
+                 (symbol, evaluated_at, trigger_type, close, volume, pivot_price,
+                  decision, reasoning, prior_classification_at, analyzed_for_date)
+               VALUES ('RVSAPI01','2026-10-07 21:00:00+09','promotion',
+                       98, 1000, 100, 'wait', '접근',
+                       '2026-10-05 10:00:00+09', '2026-10-07')""")
+        cur.execute(
+            """INSERT INTO daily_prices (ticker, date, open, high, low, close,
+                                         adj_close, volume, value)
+               SELECT 'RVSAPI01', d::date, 1,1,1,1,
+                      90 + row_number() OVER (), 1000, 1000
+                 FROM generate_series('2026-09-28'::date, '2026-10-30', '1 day') d
+                WHERE extract(isodow FROM d) < 6""")
+    db.commit()
+    yield
+    app.dependency_overrides.pop(get_conn, None)
+
+
 def test_stocks_endpoint_shape_and_filters(client, seed):
-    r = client.get("/api/review/stocks?from=2026-06-01&to=2026-06-30&ticker=RVSAPI01")
+    r = client.get("/api/review/stocks?from=2026-10-01&to=2026-10-31&ticker=RVSAPI01")
     assert r.status_code == 200
     body = r.json()
     assert body["orphan_trigger_count"] == 0
@@ -728,7 +811,7 @@ def test_stocks_endpoint_shape_and_filters(client, seed):
     assert row["pivot_steps"][0][2] == 100.0
     # status·음수 방어
     assert client.get("/api/review/stocks?status=closed&ticker=RVSAPI01"
-                      "&from=2026-06-01&to=2026-06-30").json()["rows"] == []
+                      "&from=2026-10-01&to=2026-10-31").json()["rows"] == []
     assert client.get("/api/review/stocks?limit=-1").status_code == 422
     assert client.get("/api/review/stocks?limit=9999").status_code == 200
 ```
@@ -844,7 +927,7 @@ describe("buildChart", () => {
   it("가격 폴리라인은 5점, x 는 인덱스 등간격", () => {
     const out = buildChart(base);
     expect(out.pricePoints.split(" ")).toHaveLength(5);
-    expect(out.pricePoints.startsWith("0,")).toBe(true);
+    expect(out.pricePoints.startsWith("0.0,")).toBe(true); // toFixed(1) → "0.0"
   });
   it("계단·띠·점의 x 범위가 날짜에 대응하고 닫힘 마커가 붙는다", () => {
     const out = buildChart(base);
@@ -861,6 +944,11 @@ describe("buildChart", () => {
     expect(out.bands[0].marker).toBeNull();
     expect(out.bands[0].dashed).toBe(true);       // has_gap → 점선
     expect(out.bands[0].censored).toBe(true);
+    const closed = buildChart({ ...base,
+      streaks: [{ start: "2026-06-02", end: "2026-06-04",
+                  closed_by: "disqualify" as const,
+                  censored: false, backfilled: false, has_gap: false }] });
+    expect(closed.bands[0].marker).toBe("x");     // 실격 → ✕ (스펙 §3 회귀 가드)
   });
 });
 ```
@@ -986,7 +1074,7 @@ export default function StreakChart(props: Omit<ChartIn, "width" | "height">) {
 
 - [ ] **Step 3: StockStreakRow.tsx** — 컬럼(스펙 §5): 종목(클릭→`/chart/<symbol>`) | 최근 묶음 상태(진행중/닫힘·사유 pill + censored "관찰 시작=시스템 시작" 배지 + backfilled "백필" 배지) | 묶음 수 | 최근 pivot | 성과(stage 별: breakout→`T+5 x% · T+20 y%`, staging/watching→`최고 +z%`(corp_action_flag 시 "⚠ 기업행위"), base_forming→"베이스 형성 중") | `<StreakChart …/>`. 행 클릭 → 펼침: 묶음별 헤더(기간·closed_by·stage) + `<StockTimeline rows={streak.analyses} />` (#127 재사용 — analyses 가 TimelineRow 충족).
 
-- [ ] **Step 4: stockTimeline 타입 완화** — `stockTimeline.ts` 에 `export interface TimelineRow { symbol: string; key_date: string; source: string; classification: string; pattern: string | null; pivot_price: number | null; triggers: ReviewTrigger[]; }` 추가, `buildStockTimeline(rows: TimelineRow[])` 및 `StockTimeline` props 를 `TimelineRow[]` 로 변경(ReviewRow 는 구조적으로 충족 — 기존 호출부 무수정). 기존 stockTimeline.test.ts 그대로 통과해야 함.
+- [ ] **Step 4: stockTimeline 타입 완화** — `stockTimeline.ts` 에 `export interface TimelineRow { symbol: string; key_date: string; **classified_at: string;** source: string; classification: string; pattern: string | null; pivot_price: number | null; triggers: ReviewTrigger[]; }` 추가(⚠️ `classified_at` 필수 — 기존 `StockTimeline.tsx:123` 이 React key 로 사용, 빠지면 tsc 실패), `buildStockTimeline(rows: TimelineRow[])` 및 `StockTimeline` props 를 `TimelineRow[]` 로 변경(ReviewRow 는 구조적으로 충족 — 기존 호출부 무수정). 기존 stockTimeline.test.ts 그대로 통과해야 함.
 
 - [ ] **Step 5: ReviewPage 통합** — `view = sp.get("view")`; `view === "analysis"` → 기존 분석 표(현행 코드 유지), 그 외(기본·구 timeline 값 포함) → 종목 행 뷰(`useQuery` → `/review/stocks`, 필터: 기간·유형·종목·상태). 토글 UI: "종목 행 보기 | 분석 단위 보기". 기존 타임라인 토글 체크박스 제거.
 
