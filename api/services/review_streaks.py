@@ -14,6 +14,7 @@ from psycopg.rows import dict_row
 
 from api.services.review_builder import (
     BREAKOUT_TYPES, chain_tn, corp_action_flags, first_breakout, max_reach,
+    count_orphan_triggers, fetch_price_series,
 )
 
 REVIEW_COVERAGE_START = date(2026, 5, 18)  # 라이브 weekly_classification 최초 key_date
@@ -204,3 +205,117 @@ def compute_metrics(streak: dict, series: list[tuple[date, float]], *,
                 today=today)
             out["corp_action_flag"] = corp_flagged
     return out
+
+
+_WINDOW_SQL = """
+SELECT date FROM daily_prices
+ WHERE ticker = %(symbol)s AND date < %(before)s
+ ORDER BY date DESC OFFSET 119 LIMIT 1
+"""
+_FIRST_ROW_SQL = "SELECT min(date) FROM daily_prices WHERE ticker = %(symbol)s"
+
+
+def chart_window_start(conn: Connection, symbol: str, earliest_start: date) -> date:
+    with conn.cursor() as cur:
+        cur.execute(_WINDOW_SQL, {"symbol": symbol, "before": earliest_start})
+        r = cur.fetchone()
+        if r:
+            return r[0]
+        cur.execute(_FIRST_ROW_SQL, {"symbol": symbol})
+        first = cur.fetchone()[0]
+    return first or earliest_start
+
+
+def _clamp_display(streak: dict, date_to: date) -> dict:
+    """(I1) 표시용 to 절단 — 스펙 §1. metrics·closed_by 는 원본 유지."""
+    s = dict(streak)
+    s["analyses"] = [
+        dict(a, triggers=[t for t in a["triggers"] if t["d"] <= date_to])
+        for a in streak["analyses"] if a["key_date"] <= date_to
+    ]
+    if s["end"] is not None and s["end"] > date_to:
+        s["end"] = date_to          # closed_by 는 그대로 (스펙 §1)
+    return s
+
+
+def build_pivot_steps(streaks: list[dict]) -> list[tuple[date, date | None, float]]:
+    steps: list[tuple[date, date | None, float]] = []
+    for s in streaks:
+        analyses = s["analyses"]
+        for i, a in enumerate(analyses):
+            if a["pivot_price"] is None:
+                continue
+            if i + 1 < len(analyses):
+                boundary: date | None = analyses[i + 1]["key_date"]
+            else:
+                boundary = s["end"]          # 닫는 행 kd, 진행중이면 None (스펙 §3 ②)
+            steps.append((a["key_date"], boundary, a["pivot_price"]))
+    return steps
+
+
+def build_stock_rows(conn: Connection, *, date_from: date, date_to: date,
+                     source: str | None, ticker: str | None, status: str | None,
+                     limit: int, offset: int, today: date) -> dict:
+    symbols = find_period_symbols(conn, date_from=date_from, date_to=date_to,
+                                  source=source, ticker=ticker)
+    all_rows = fetch_scoped_rows(conn, symbols=symbols)
+    by_symbol: dict[str, list[dict]] = {}
+    for r in all_rows:
+        by_symbol.setdefault(r["symbol"], []).append(r)
+
+    displayed: list[dict] = []
+    for sym, rows in by_symbol.items():
+        streaks = intersect_period(segment_streaks(rows), date_from, date_to)
+        if streaks:
+            displayed.append({"symbol": sym, "market": rows[0]["market"],
+                              "streaks": streaks})
+    flat = [s for d in displayed for s in d["streaks"]]
+    attach_triggers(conn, flat)
+    flags = corp_action_flags(
+        conn,
+        [(s["symbol"], a["key_date"]) for s in flat
+         for a in ([_last_pivot_analysis(s)] if _last_pivot_analysis(s) else [])],
+        today=today)
+
+    out_rows = []
+    for d in displayed:
+        streaks = d["streaks"]
+        earliest = min(s["start"] for s in streaks)
+        w_start = chart_window_start(conn, d["symbol"], earliest)
+        # (I2) metrics 창은 "오늘까지"(스펙 §2) — 과거 to 조회에서도 도달률이
+        # 과소평가되지 않도록 오늘까지 fetch. 응답 series 는 아래 클램프에서 to 로 슬라이스.
+        series = fetch_price_series(conn, d["symbol"], w_start, max(date_to, today))
+        for s in streaks:
+            anchor = _last_pivot_analysis(s)
+            corp = anchor is not None and (d["symbol"], anchor["key_date"]) in flags
+            s["metrics"] = compute_metrics(s, series, today=today, corp_flagged=corp)
+            s["stage"] = s["metrics"]["stage"]
+        latest = max(streaks, key=lambda s: s["start"])
+        out_rows.append({
+            "symbol": d["symbol"], "market": d["market"],
+            "latest": {
+                "status": "open" if latest["closed_by"] is None else "closed",
+                "closed_by": latest["closed_by"], **latest["metrics"],
+                "censored": latest["censored"], "backfilled": latest["backfilled"],
+                "streak_count": len(streaks),
+            },
+            "streaks": streaks, "series": series,
+            "pivot_steps": build_pivot_steps(streaks),
+            "_sort_key": latest["start"],
+        })
+
+    for r in out_rows:  # (I1) 표시 클램프 — 스펙 §1 "to 절단": 응답의 analyses/트리거/end/
+        # pivot_steps 는 date_to 로 자르되 closed_by·status·metrics 는 원본(오늘 기준) 유지
+        r["streaks"] = [_clamp_display(s, date_to) for s in r["streaks"]]
+        r["pivot_steps"] = build_pivot_steps(r["streaks"])
+        r["series"] = [p for p in r["series"] if p[0] <= date_to]
+
+    if status:  # 원본 종결 기준 (스펙 §4) — 전체 계산 후 Python 필터
+        out_rows = [r for r in out_rows if r["latest"]["status"] == status]
+    out_rows.sort(key=lambda r: r["_sort_key"], reverse=True)
+    out_rows = out_rows[offset:offset + limit]
+    for r in out_rows:
+        r.pop("_sort_key")
+
+    orphans = count_orphan_triggers(conn, date_from=date_from, date_to=date_to)
+    return {"rows": out_rows, "orphan_trigger_count": orphans}

@@ -5,6 +5,7 @@ import pytest
 from api.services.review_streaks import (
     REVIEW_COVERAGE_START, fetch_scoped_rows, find_period_symbols,
     segment_streaks, intersect_period, attach_triggers, derive_stage, compute_metrics,
+    build_pivot_steps, build_stock_rows, chart_window_start,
 )
 
 KST = timezone(timedelta(hours=9))
@@ -64,6 +65,7 @@ def seed(db):
     with db.cursor() as cur:
         cur.execute("DELETE FROM weekly_classification WHERE symbol LIKE 'RVSTK%'")
         cur.execute("DELETE FROM classification_backfill WHERE symbol LIKE 'RVSTK%'")
+        cur.execute("DELETE FROM daily_prices WHERE ticker LIKE 'RVSTK%'")
         cur.execute("DELETE FROM stocks WHERE ticker LIKE 'RVSTK%'")
         cur.execute("""INSERT INTO stocks (ticker, name, market, sector, listed_at)
                        VALUES ('RVSTK01','스톡1','KOSPI','반도체','2020-01-01')""")
@@ -174,3 +176,85 @@ def test_attach_triggers_nested_by_prior(db, seed_trigger):
     assert a0["triggers"][0]["d"] == date(2026, 6, 8)
     # 백필 분석(06-19)에는 트리거 없음
     assert streaks[0]["analyses"][1]["triggers"] == []
+
+
+def test_build_pivot_steps_cuts_at_streak_close():
+    a1 = _row("A", "2026-06-05", "watch", "weekend", 100.0)
+    a2 = _row("A", "2026-06-12", "watch", "weekend", 110.0)
+    a3 = _row("A", "2026-07-11", "watch", "weekend", None)     # pivot 없음
+    a4 = _row("A", "2026-07-18", "watch", "weekend", 130.0)
+    s1 = _streak([a1, a2]); s1["end"] = date(2026, 6, 20); s1["closed_by"] = "ignore"
+    s2 = _streak([a3, a4])
+    steps = build_pivot_steps([s1, s2])
+    assert steps == [
+        (date(2026, 6, 5), date(2026, 6, 12), 100.0),
+        (date(2026, 6, 12), date(2026, 6, 20), 110.0),   # 닫는 행에서 끊김 (07-11 아님)
+        (date(2026, 7, 18), None, 130.0),                 # 진행중 → to_kd None
+    ]
+
+
+@pytest.fixture
+def seed_prices(db, seed_trigger):
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM daily_prices WHERE ticker LIKE 'RVSTK%'")
+        cur.execute(
+            """INSERT INTO daily_prices (ticker, date, open, high, low, close,
+                                         adj_close, volume, value)
+               SELECT 'RVSTK01', d::date, 1,1,1,1, 100 + row_number() OVER (), 1000, 1000
+                 FROM generate_series('2026-05-20'::date, '2026-08-20', '1 day') d
+                WHERE extract(isodow FROM d) < 6""")
+    db.commit()
+    yield
+    # Clean up after test
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM daily_prices WHERE ticker LIKE 'RVSTK%'")
+    db.commit()
+
+
+def test_chart_window_start_offset_and_clamp(db, seed_prices):
+    # 06-05 직전 120거래일이 없으면(5/20 시작) 최초 행으로 클램프
+    assert chart_window_start(db, "RVSTK01", date(2026, 6, 5)) == date(2026, 5, 20)
+    assert chart_window_start(db, "NOROWS", date(2026, 6, 5)) == date(2026, 6, 5)
+
+
+def test_build_stock_rows_end_to_end(db, seed_prices):
+    got = build_stock_rows(db, date_from=date(2026, 6, 1), date_to=date(2026, 6, 30),
+                           source=None, ticker="RVSTK01", status=None,
+                           limit=200, offset=0, today=date(2026, 8, 20))
+    assert len(got["rows"]) == 1
+    row = got["rows"][0]
+    assert row["latest"]["stage"] == "staging"          # promotion 만 존재
+    assert row["latest"]["streak_count"] == 1
+    assert row["streaks"][0]["analyses"][1]["backfilled"] is True
+    assert row["series"][0][0] == date(2026, 5, 20)     # 클램프된 창 시작
+    assert row["pivot_steps"][0][2] == 100.0
+    # (I1) 표시 클램프: 응답 series·analyses 는 to(06-30) 이하만
+    assert row["series"][-1][0] <= date(2026, 6, 30)
+    assert all(a["key_date"] <= date(2026, 6, 30)
+               for s in row["streaks"] for a in s["analyses"])
+    # (I2) metrics 는 오늘(08-20)까지의 데이터 사용 — 6월 말까지의 도달률(~+30%)로는
+    # 불가능한 값이어야 함 (가격이 하루 +1 씩 8월까지 상승하는 픽스처)
+    assert row["latest"]["max_reach_pct"] > 0.5
+    # status 필터: open 만 → 포함 / closed → 제외
+    assert build_stock_rows(db, date_from=date(2026, 6, 1), date_to=date(2026, 6, 30),
+                            source=None, ticker="RVSTK01", status="closed",
+                            limit=200, offset=0, today=date(2026, 8, 20))["rows"] == []
+
+
+def test_display_clamp_keeps_closed_by(db, seed_prices):
+    # 닫는 행(ignore)을 to 이후(07-10)에 심으면: end 는 to 로 절단되되 status 는 closed
+    with db.cursor() as cur:
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date)
+               VALUES ('RVSTK01','2026-07-10 10:00:00+09','KOSPI','ignore',NULL,
+                       NULL,'weekend','2026-07-10')""")
+    db.commit()
+    got = build_stock_rows(db, date_from=date(2026, 6, 1), date_to=date(2026, 6, 30),
+                           source=None, ticker="RVSTK01", status=None,
+                           limit=200, offset=0, today=date(2026, 8, 20))
+    row = got["rows"][0]
+    assert row["latest"]["status"] == "closed"                      # 원본 기준
+    assert row["streaks"][0]["closed_by"] == "ignore"               # 유지
+    assert row["streaks"][0]["end"] == date(2026, 6, 30)            # 표시 절단
