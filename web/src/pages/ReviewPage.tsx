@@ -478,15 +478,17 @@ export default function ReviewPage() {
                       </td>
                       <td className="px-3 py-1.5">
                         <div className="num">{row.key_date}</div>
-                        <span className="chip bg-tint-stone text-muted text-data-xs">{row.source}</span>
-                        {row.backfilled && (
-                          <span
-                            className="ml-1 chip bg-tint-stone text-muted text-data-xs"
-                            title="백필 — 현재 프롬프트로 재생성된 합성 이력(당시 실전 실행 아님)"
-                          >
-                            백필
-                          </span>
-                        )}
+                        {/* backfilled ⇔ source==='backfill' — 칩 중복 대신 단일 칩을 '백필'로 치환 */}
+                        <span
+                          className="chip bg-tint-stone text-muted text-data-xs"
+                          title={
+                            row.backfilled
+                              ? "백필 — 현재 프롬프트로 재생성된 합성 이력(당시 실전 실행 아님·트리거 이력 없음 → 상태는 항상 미발동)"
+                              : undefined
+                          }
+                        >
+                          {row.backfilled ? "백필" : row.source}
+                        </span>
                       </td>
                       <td className="px-3 py-1.5">
                         <div>{row.classification}</div>

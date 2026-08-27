@@ -41,7 +41,8 @@
   잡는다. 백필 테이블의 하한 이전 행(2024-01~2026-05 산발 백테스트 표본, 321행 중 317행)은
   제외 — 합치면 종목마다 조각 묶음이 생기고 절단 판정이 틀어진다. 하한 이후의 백필 행
   (현재 4행)은 유입되며 `backfilled` 표식을 받는다.
-- `REVIEW_COVERAGE_START = date(2026, 5, 18)` — `api/services/review_streaks.py` 상단
+- `REVIEW_COVERAGE_START = date(2026, 5, 18)` — 정의는 `api/services/review_builder.py`
+  (#132 에서 이동, `review_streaks.py` 는 re-export)
   명시 상수. **라이브 weekly_classification 의 최초 key_date**(2026-05-18, 이전 행 0건
   실측). 이보다 이전을 백필하게 되면 이 상수만 옮긴다.
 - 중복: 같은 (symbol, key_date)에 라이브·백필 둘 다 있으면 **라이브 우선**

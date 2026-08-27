@@ -22,13 +22,17 @@
 - 멱등: PK `(symbol, analyzed_for_date)` + 실행 시 기적재 종목 자동 제외
   (`_already_backfilled`) — 같은 명령 재실행 = 이어하기.
 - 병렬: `--concurrency N` (기본 `BACKFILL_CONCURRENCY` env 또는 4).
-- freeze 미저장, 트리거 이력 미생성(이슈 §5 — 범위 밖).
+- `--limit N` 은 **토요일(앵커)별** 후보 상한(`candidates[:limit]`)이지 전체 총량이 아니다.
+- `--tickers A,B` 는 backfill 전용 종목 한정. `--force` 는 파서가 받긴 하나
+  backfill 모드에선 **무시**된다(`backfill.run()` 미소비) — 쓰지 말 것.
+- freeze 미저장, 트리거 이력 미생성(이슈 §5 — 범위 밖). **따라서 백필 행은 /review
+  에서 상태가 항상 "미발동"** — 발동률 통계는 유형 필터로 실전만 분리해 읽을 것.
 
 **앵커 변환표** (금요일 기준일 → 실행할 토요일 as_of):
 
 | 이슈 앵커(금) | 실행 토요일 as_of | 후보 지표일 | 예상 표본* |
 |---|---|---|---|
-| 2026-06-19 | 2026-06-20 | 06-19 | 43 |
+| 2026-06-19 | 2026-06-20 | 06-19 | 43 (기적재 1 스킵 → 실제 42)‡ |
 | 2026-06-26 | 2026-06-27 | 06-26 | 23 |
 | 2026-07-03 | 2026-07-04 | 07-03 | 22 |
 | 2026-07-17 | 2026-07-18 | 07-16† | 21 |
@@ -37,12 +41,17 @@
 
 *2026-08-27 production 실측(§3 쿼리). 이슈 본문 추정(90/78/44)보다 작다 — 현재
 `daily_indicators` 기준 minervini_pass ∧ rs_line_not_declining_7m ∧ 미정지 ∧ 미상폐
-조건의 실측값이며, **실행 직전 §3 쿼리로 재확인**할 것. 합계 ≈ 139콜(+실패 재시도 여유).
+조건의 실측값이며, **실행 직전 §3 쿼리로 재확인**할 것. 합계 139(기적재 1 스킵 →
+실제 약 138콜)+실패 재시도 여유.
 †07-17(금) 지표 행이 없어 07-16 로 폴백된다(`MAX(date) <= as_of`) — 도구가 자동 처리.
 
 **제외**: 07-11(토)은 라이브 weekend 실행(analyzed_for_date=07-10)이 존재 — 백필하지
 않는다. 그래서 아래는 한 번의 `--start 06-20 --end 08-01` 이 아니라 **토요일별 6개 명령**이다.
-(참고: 06-20 에는 과거 테스트 유래 백필 1행이 이미 있다 — 멱등 스킵되므로 무해.)
+
+‡06-20 앵커는 2026-08-27 21:39/21:41 에 `--tickers 000660` 단일 종목 시운전이 이미
+실행돼(pipeline_runs llm_backfill success 2건) `000660/2026-06-20/watch` 1행이 적재돼
+있다 — 멱등 스킵되므로 본 실행은 무해하나, 이 행을 현행대로 둘지/지우고 재생성할지는
+실행 전 사용자 판단(§1 ⑤).
 
 ## 1. 실행 전 체크 (전부 통과해야 시작)
 
@@ -59,6 +68,16 @@ pgrep -fl "llm_runner" ; pgrep -fl "backfill" ; pgrep -fl "claude -p"
 
 # ④ 작업 디렉토리 = 리포 main(코드 파트 머지 반영본), .env 의 DATABASE_URL = production.
 cd /Users/hank.es/git/personal/kr-by-claude && git pull --ff-only && git log --oneline -1
+
+# ⑤ 하한(2026-05-18) 이상 기존 백필 행 확인 — 기대 5행:
+#    000660 05-23 ignore / 298040 05-23 watch / 000660 05-30 ignore /
+#    298040 05-30 watch / 000660 06-20 watch(08-27 시운전, 위 ‡).
+#    05-23·05-30 4행은 계획 앵커 밖 날짜에서 LEAD 경계로 작동한다(라이브 구간을 끊음)
+#    — 지울지 둘지 사용자 판단 후 진행(지운다면 아래 DELETE 를 날짜·심볼 명시로).
+psql "$DATABASE_URL" -c "
+  SELECT symbol, analyzed_for_date, classification
+    FROM classification_backfill
+   WHERE analyzed_for_date >= '2026-05-18' ORDER BY analyzed_for_date, symbol;"
 ```
 
 원하면 최소 비용 리허설(LLM 미호출 dry-run — 후보 수 로그만 확인):
@@ -111,6 +130,12 @@ psql "$DATABASE_URL" -c "
     FROM pipeline_runs WHERE pipeline='llm_backfill'
    ORDER BY started_at DESC LIMIT 8;"
 ```
+
+**의도된 사후 변화(놀라지 말 것)**: 백필 적재 후 인접 **라이브** 행의 성과 구간(t′)이
+백필 key_date 에서 끊긴다 — 예: 06-16 라이브 watch 의 창이 07-10까지(24일)에서
+06-20까지(4일)로 줄어 `max_reach_pct`·스파크라인이 **하향 변경**될 수 있다. 이는 #132
+설계 의도(결손 구간을 실제 분석 밀도로 복원)이며, 되돌리려면 해당 앵커 DELETE(§4).
+검증 시 06-16·07-10·08-07 라이브 행의 도달률 변화를 눈으로 확인해 둘 것.
 
 **/review 화면 확인**: `/review?view=analysis&from=2026-06-15&to=2026-08-05` 에서
 결손 구간(06-16~08-07 사이)에 `backfill` source + **백필** 배지 행이 채워졌는지,

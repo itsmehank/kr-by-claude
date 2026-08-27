@@ -39,7 +39,7 @@
 - Test: `tests/test_api_review_streaks.py`
 
 **Interfaces:**
-- Produces: `REVIEW_COVERAGE_START: date`
+- Produces: `REVIEW_COVERAGE_START: date` (#132 이후 정의는 `review_builder.py`, 여기선 re-export)
 - Produces: `fetch_scoped_rows(conn, *, symbols: list[str]) -> list[dict]` — 스코프드 UNION(라이브 우선 dedup) 전 이력, dict 키: `symbol, key_date(date), classified_at(datetime), market, source, classification, pattern, pivot_price(float|None), backfilled(bool)`
 - Produces: `find_period_symbols(conn, *, date_from: date, date_to: date, source: str|None, ticker: str|None) -> list[str]` — 기간 내 유효 행 보유 종목
 - Produces: `segment_streaks(rows: list[dict]) -> list[dict]` — 입력은 한 종목의 정렬된 전 이력. 반환 streak dict: `symbol, start(date), end(date|None), closed_by("ignore"|"disqualify"|None), censored(bool), backfilled(bool — 유효 행 중 하나라도), has_gap(bool — 연속 유효 kd 간격>10일), analyses(list[dict] — 유효 행들, 각각 "triggers": [] 초기화)`

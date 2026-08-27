@@ -13,6 +13,8 @@ from psycopg import Connection
 from psycopg.rows import dict_row
 
 from api.services.review_builder import (
+    # REVIEW_COVERAGE_START: #132 에서 정의를 review_builder 로 이동 —
+    # 기존 import 경로(review_streaks) 호환을 위한 re-export.
     BREAKOUT_TYPES, REVIEW_COVERAGE_START, chain_tn, corp_action_flags,
     first_breakout, max_reach, count_orphan_triggers, fetch_price_series,
 )

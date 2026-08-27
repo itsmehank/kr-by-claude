@@ -49,15 +49,17 @@ function AnalysisCard({ event }: { event: TimelineAnalysisEvent }) {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="num text-data-xs text-muted">{row.key_date}</span>
-          <span className="chip bg-tint-stone text-muted text-data-xs">{row.source}</span>
-          {row.backfilled && (
-            <span
-              className="chip bg-tint-stone text-muted text-data-xs"
-              title="백필 — 현재 프롬프트로 재생성된 합성 이력(당시 실전 실행 아님)"
-            >
-              백필
-            </span>
-          )}
+          {/* backfilled ⇔ source==='backfill' — 칩 중복 대신 단일 칩을 '백필'로 치환 */}
+          <span
+            className="chip bg-tint-stone text-muted text-data-xs"
+            title={
+              row.backfilled
+                ? "백필 — 현재 프롬프트로 재생성된 합성 이력(당시 실전 실행 아님·트리거 이력 없음)"
+                : undefined
+            }
+          >
+            {row.backfilled ? "백필" : row.source}
+          </span>
           <span className="font-semibold">{row.classification}</span>
           {row.pattern && <span className="text-muted text-data-xs">{row.pattern}</span>}
         </div>

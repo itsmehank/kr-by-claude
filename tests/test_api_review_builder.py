@@ -18,6 +18,8 @@ def seed(db):
     with db.cursor() as cur:
         cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol LIKE 'RVTEST%'")
         cur.execute("DELETE FROM weekly_classification WHERE symbol LIKE 'RVTEST%'")
+        # #132 이후 _ROWS_SQL 이 classification_backfill 도 읽는다 — 잔여 행 격리
+        cur.execute("DELETE FROM classification_backfill WHERE symbol LIKE 'RVTEST%'")
         cur.execute("DELETE FROM stocks WHERE ticker LIKE 'RVTEST%'")
         cur.execute(
             """INSERT INTO stocks (ticker, name, market, sector, listed_at)
