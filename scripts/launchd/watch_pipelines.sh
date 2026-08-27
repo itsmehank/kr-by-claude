@@ -46,7 +46,14 @@ if [ -n "$LAST_WAKE" ]; then
 fi
 
 # ── 1. failed (24h 창 — 자정 롤오버 대응. 키에 시각 포함으로 재알림 방지)
-q "SELECT id||' '||pipeline||'/'||mode||' '||to_char(started_at,'MM-DD HH24:MI') FROM pipeline_runs WHERE status='failed' AND started_at >= now() - interval '24 hours'" \
+#    #132 백필 캠페인 가동/직후(로그 mtime 24h 이내)엔 llm_backfill failed 제외 —
+#    한도 트립이 루프의 정상 동작이라 알림 폭주·라이브 실패 은폐 방지. §2 stuck 은 불변.
+BF132_LOG="$HOME/.kr-by-claude/backfill_132.log"
+BF_EXCL=""
+if [ -f "$BF132_LOG" ] && [ $(( $(date +%s) - $(stat -f %m "$BF132_LOG") )) -lt 86400 ]; then
+  BF_EXCL="AND pipeline <> 'llm_backfill'"
+fi
+q "SELECT id||' '||pipeline||'/'||mode||' '||to_char(started_at,'MM-DD HH24:MI') FROM pipeline_runs WHERE status='failed' AND started_at >= now() - interval '24 hours' $BF_EXCL" \
 | while read -r line; do
   [ -n "$line" ] && alert "failed.$(echo "$line" | awk '{print $1}')" "실행 실패: $line"
 done
