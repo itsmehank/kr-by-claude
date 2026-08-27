@@ -281,6 +281,102 @@ def test_catchup_trigger_d_uses_analyzed_for_date(db, catchup_seed):
     assert abs(t5 - 0.155) < 1e-9
 
 
+@pytest.fixture
+def backfill_seed(db):
+    """#132 — classification_backfill UNION 소비. streak 뷰(_SCOPED_SQL) 규약과 동일:
+    backfilled 플래그·라이브 우선 dedup·전역 하한(REVIEW_COVERAGE_START)."""
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM classification_backfill WHERE symbol LIKE 'RVBF%'")
+        cur.execute("DELETE FROM weekly_classification WHERE symbol LIKE 'RVBF%'")
+        cur.execute("DELETE FROM stocks WHERE ticker LIKE 'RVBF%'")
+        cur.execute(
+            """INSERT INTO stocks (ticker, name, market, sector, listed_at)
+               VALUES ('RVBF01','백필1','KOSPI','반도체','2020-01-01'),
+                      ('RVBF02','백필2','KOSDAQ','제약','2020-01-01')"""
+        )
+        # RVBF01: 라이브 06-16 → (결손) → 라이브 08-07. 백필 06-20 이 사이를 채운다.
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date)
+               VALUES
+                 ('RVBF01','2026-06-17 06:10:00+09','KOSPI','watch','flat_base',
+                  10000,'weekend','2026-06-16'),
+                 ('RVBF01','2026-08-08 06:10:00+09','KOSPI','watch','flat_base',
+                  11000,'weekend','2026-08-07'),
+                 -- RVBF02: 라이브와 백필이 같은 key_date(06-20) — 라이브 우선
+                 ('RVBF02','2026-06-20 19:41:00+09','KOSDAQ','watch','vcp',
+                  5000,'daily_delta','2026-06-20')"""
+        )
+        cur.execute(
+            """INSERT INTO classification_backfill
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date)
+               VALUES
+                 ('RVBF01','2026-08-30 12:00:00+09','KOSPI','watch','flat_base',
+                  10500,'backfill','2026-06-20'),
+                 -- 전역 하한 이전(2024) 백테스트 유래 합성 행 — /review 에 나오면 안 됨
+                 ('RVBF01','2026-08-30 12:00:00+09','KOSPI','watch','cup_with_handle',
+                  8000,'backfill','2024-06-01'),
+                 -- RVBF02: 같은 key_date 에 라이브 존재 → dedup 으로 제외
+                 ('RVBF02','2026-08-30 12:00:00+09','KOSDAQ','watch','vcp',
+                  5100,'backfill','2026-06-20')"""
+        )
+    db.commit()
+    yield
+
+
+def _fetch_bf(db, ticker, **kw):
+    args = dict(date_from=date(2024, 1, 1), date_to=date(2026, 12, 31),
+                classification=None, source=None, pattern=None, ticker=ticker,
+                include_pivot_null=True, limit=100, offset=0)
+    args.update(kw)
+    return fetch_analysis_rows(db, **args)
+
+
+def test_backfill_row_included_with_flag(db, backfill_seed):
+    rows = _fetch_bf(db, "RVBF01")
+    by_kd = {r["key_date"]: r for r in rows}
+    assert date(2026, 6, 20) in by_kd
+    bf = by_kd[date(2026, 6, 20)]
+    assert bf["backfilled"] is True
+    assert bf["source"] == "backfill"
+    assert bf["pivot_price"] == 10500.0
+    # 라이브 행은 backfilled=False
+    assert by_kd[date(2026, 6, 16)]["backfilled"] is False
+
+
+def test_backfill_floor_excludes_pre_coverage_rows(db, backfill_seed):
+    rows = _fetch_bf(db, "RVBF01")
+    # 2024-06-01 백테스트 유래 행은 전역 하한(REVIEW_COVERAGE_START) 이전 — 제외
+    assert date(2024, 6, 1) not in {r["key_date"] for r in rows}
+
+
+def test_backfill_deduped_when_live_exists_same_key_date(db, backfill_seed):
+    rows = _fetch_bf(db, "RVBF02")
+    assert len(rows) == 1
+    assert rows[0]["backfilled"] is False
+    assert rows[0]["source"] == "daily_delta"
+    assert rows[0]["pivot_price"] == 5000.0   # 라이브 값 (백필 5100 아님)
+
+
+def test_lead_crosses_live_and_backfill(db, backfill_seed):
+    rows = _fetch_bf(db, "RVBF01")
+    by_kd = {r["key_date"]: r for r in rows}
+    # 라이브 06-16 의 구간(t')은 백필 06-20 에서 끊긴다
+    assert by_kd[date(2026, 6, 16)]["next_key_date"] == date(2026, 6, 20)
+    # 백필 06-20 의 구간은 라이브 08-07 에서 끊긴다 (역방향)
+    assert by_kd[date(2026, 6, 20)]["next_key_date"] == date(2026, 8, 7)
+
+
+def test_source_filter_separates_live_and_backfill(db, backfill_seed):
+    only_bf = _fetch_bf(db, "RVBF01", source="backfill")
+    assert [r["key_date"] for r in only_bf] == [date(2026, 6, 20)]
+    only_weekend = _fetch_bf(db, "RVBF01", source="weekend")
+    assert all(r["backfilled"] is False for r in only_weekend)
+    assert {r["key_date"] for r in only_weekend} == {date(2026, 6, 16), date(2026, 8, 7)}
+
+
 def test_build_spark_downsample_preserves_latest_price_off_grid():
     # 극점·마지막 인덱스가 균등 스텝 그리드와 우연히 겹치지 않는 소수 길이(157) 입력.
     # 다운샘플이 스텝 그리드만 쓰면 최신 가격(마지막 인덱스)이 드롭될 수 있다 — 반드시

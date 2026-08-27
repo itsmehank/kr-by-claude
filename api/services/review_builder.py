@@ -1,12 +1,16 @@
 """분석 회고(/review) 조립 — 스펙 docs/superpowers/specs/2026-08-22-….md 가 규칙 원본.
 
 핵심 규칙 (스펙 §1):
-- 회고 행 = weekly_classification 에서 source∈(weekend,daily_delta) AND
+- 회고 행 = weekly_classification ∪ classification_backfill(#132, 합성 이력 —
+  backfilled 플래그로 세대 표기)에서 source∈(weekend,daily_delta,backfill) AND
   classification∈(entry,watch).
+- 백필 병합 규약 = streak 뷰(review_streaks._SCOPED_SQL)와 동일: 라이브 우선
+  dedup(같은 symbol+key_date 에 라이브 있으면 백필 제외) + 전역 하한
+  REVIEW_COVERAGE_START(이전 백필 행은 백테스트 유래 산발 표본이라 제외).
 - 트리거 귀속 = (symbol, prior_classification_at) 직접 조인. 시간창 추측 금지
   (backdate 로 최대 24/142 오귀속 실증).
-- 구간 끝 next_key_date = LEAD(...) — 반드시 필터 **전** 전체 행에 적용
-  (ignore·disqualify 가 구간을 끝낸다).
+- 구간 끝 next_key_date = LEAD(...) — 반드시 필터 **전** 전체 행(라이브+백필
+  병합 후)에 적용 (ignore·disqualify 가 구간을 끝내고, 백필 행도 구간을 끊는다).
 """
 from __future__ import annotations
 
@@ -17,22 +21,39 @@ from psycopg.rows import dict_row
 
 BREAKOUT_TYPES = frozenset({"breakout", "breakout_from_watch"})
 
+# 라이브 weekly_classification 최초 key_date — /review 전역 하한.
+# streak 뷰(review_streaks)와 공유 (#132 에서 정의를 이곳으로 이동).
+REVIEW_COVERAGE_START = date(2026, 5, 18)
+
 _ROWS_SQL = """
-WITH ordered AS (
+WITH live AS (
     SELECT symbol, classified_at, market, source, classification, pattern,
            pivot_price, analyzed_for_date,
            COALESCE(analyzed_for_date, classified_at::date) AS key_date,
-           LEAD(COALESCE(analyzed_for_date, classified_at::date)) OVER (
-               PARTITION BY symbol
-               ORDER BY COALESCE(analyzed_for_date, classified_at::date), classified_at
-           ) AS next_key_date
+           false AS backfilled
       FROM weekly_classification
+), bf AS (
+    SELECT b.symbol, b.classified_at, b.market, b.source, b.classification,
+           b.pattern, b.pivot_price, b.analyzed_for_date,
+           b.analyzed_for_date AS key_date, true AS backfilled
+      FROM classification_backfill b
+     WHERE b.analyzed_for_date >= %(floor)s
+       -- 라이브 우선 dedup: 같은 (symbol, key_date)에 라이브가 있으면 백필 제외
+       AND NOT EXISTS (SELECT 1 FROM live l
+                        WHERE l.symbol = b.symbol AND l.key_date = b.analyzed_for_date)
+), ordered AS (
+    SELECT u.*,
+           LEAD(u.key_date) OVER (
+               PARTITION BY u.symbol ORDER BY u.key_date, u.classified_at
+           ) AS next_key_date
+      FROM (SELECT * FROM live UNION ALL SELECT * FROM bf) u
 )
 SELECT o.symbol, s.name, o.market, o.source, o.classified_at, o.analyzed_for_date,
-       o.key_date, o.next_key_date, o.classification, o.pattern, o.pivot_price
+       o.key_date, o.next_key_date, o.classification, o.pattern, o.pivot_price,
+       o.backfilled
   FROM ordered o
   LEFT JOIN stocks s ON s.ticker = o.symbol
- WHERE o.source IN ('weekend', 'daily_delta')
+ WHERE o.source IN ('weekend', 'daily_delta', 'backfill')
    AND o.classification IN ('entry', 'watch')
    AND o.key_date BETWEEN %(date_from)s AND %(date_to)s
    AND (%(classification)s::text IS NULL OR o.classification = %(classification)s)
@@ -74,6 +95,7 @@ def fetch_analysis_rows(conn: Connection, *, date_from: date, date_to: date,
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(_ROWS_SQL, {
             "date_from": date_from, "date_to": date_to,
+            "floor": REVIEW_COVERAGE_START,
             "classification": classification, "source": source,
             "pattern": pattern, "ticker": ticker,
             "include_pivot_null": include_pivot_null,

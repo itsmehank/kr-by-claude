@@ -24,6 +24,8 @@ class ReviewRowOut(BaseModel):
     classification: str
     pattern: str | None = None
     pivot_price: float | None = None
+    # #132 — 합성 이력(classification_backfill, 현재 프롬프트 재생성) 여부. 세대 표기.
+    backfilled: bool = False
     status: str
     first_breakout_at: date | None = None
     first_breakout_type: str | None = None

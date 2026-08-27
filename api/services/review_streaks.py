@@ -13,11 +13,9 @@ from psycopg import Connection
 from psycopg.rows import dict_row
 
 from api.services.review_builder import (
-    BREAKOUT_TYPES, chain_tn, corp_action_flags, first_breakout, max_reach,
-    count_orphan_triggers, fetch_price_series,
+    BREAKOUT_TYPES, REVIEW_COVERAGE_START, chain_tn, corp_action_flags,
+    first_breakout, max_reach, count_orphan_triggers, fetch_price_series,
 )
-
-REVIEW_COVERAGE_START = date(2026, 5, 18)  # 라이브 weekly_classification 최초 key_date
 _CENSOR_WINDOW = timedelta(days=7)
 _GAP_DAYS = 10
 _VALID_SOURCES = ("weekend", "daily_delta", "backfill")
