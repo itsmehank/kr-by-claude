@@ -22,6 +22,7 @@ const SOURCES: { value: string; label: string }[] = [
   { value: "", label: "전체" },
   { value: "weekend", label: "weekend" },
   { value: "daily_delta", label: "daily_delta" },
+  { value: "backfill", label: "backfill(백필)" },
 ];
 
 const TRIGGERED_OPTIONS: { value: string; label: string }[] = [
@@ -478,6 +479,14 @@ export default function ReviewPage() {
                       <td className="px-3 py-1.5">
                         <div className="num">{row.key_date}</div>
                         <span className="chip bg-tint-stone text-muted text-data-xs">{row.source}</span>
+                        {row.backfilled && (
+                          <span
+                            className="ml-1 chip bg-tint-stone text-muted text-data-xs"
+                            title="백필 — 현재 프롬프트로 재생성된 합성 이력(당시 실전 실행 아님)"
+                          >
+                            백필
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-1.5">
                         <div>{row.classification}</div>

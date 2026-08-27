@@ -27,6 +27,7 @@ function row(key_date: string, over: Partial<ReviewRow> = {}): ReviewRow {
     classification: "watch",
     pattern: "cup_with_handle",
     pivot_price: 10000,
+    backfilled: false,
     status: "미발동",
     first_breakout_at: null,
     first_breakout_type: null,

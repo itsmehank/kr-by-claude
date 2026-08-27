@@ -362,13 +362,15 @@ export interface ReviewRow {
   symbol: string;
   name: string | null;
   market: string | null;
-  source: "weekend" | "daily_delta";
+  source: "weekend" | "daily_delta" | "backfill";
   classified_at: string;
   analyzed_for_date: string | null;
   key_date: string;
   classification: "entry" | "watch";
   pattern: string | null;
   pivot_price: number | null;
+  /** #132 — 합성 이력(classification_backfill, 현재 프롬프트 재생성) 여부. */
+  backfilled: boolean;
   status: string;
   first_breakout_at: string | null;
   first_breakout_type: string | null;

@@ -50,6 +50,14 @@ function AnalysisCard({ event }: { event: TimelineAnalysisEvent }) {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="num text-data-xs text-muted">{row.key_date}</span>
           <span className="chip bg-tint-stone text-muted text-data-xs">{row.source}</span>
+          {row.backfilled && (
+            <span
+              className="chip bg-tint-stone text-muted text-data-xs"
+              title="백필 — 현재 프롬프트로 재생성된 합성 이력(당시 실전 실행 아님)"
+            >
+              백필
+            </span>
+          )}
           <span className="font-semibold">{row.classification}</span>
           {row.pattern && <span className="text-muted text-data-xs">{row.pattern}</span>}
         </div>
