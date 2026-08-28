@@ -29,7 +29,8 @@
 set -u
 
 REPO_MAIN="/Users/hank.es/git/personal/kr-by-claude"
-RUN_DIR="${KR_BF132_RUN_DIR:-$HOME/git/personal/kr-by-claude-worktrees/bf132-run}"
+DEFAULT_RUN_DIR="$HOME/git/personal/kr-by-claude-worktrees/bf132-run"
+RUN_DIR="${KR_BF132_RUN_DIR:-$DEFAULT_RUN_DIR}"
 STATE_DIR="$HOME/.kr-by-claude"
 LOG="$STATE_DIR/backfill_132.log"
 STATE="$STATE_DIR/backfill_132.state"           # key=value: head_hash / campaign_start
@@ -302,12 +303,13 @@ cmd_loop() {
 # ══════════════════════════════ start / stop ══════════════════════════════
 cmd_start() {
   # 검증 #5: 테스트 훅이 export 된 셸에서 실전 start 하면 가드가 꺼진 채 상속·가동됨 —
-  # 기본 RUN_DIR(실전)에서는 훅이 하나라도 설정돼 있으면 거부. 오버라이드(스모크)에선 허용.
-  if [ -z "${KR_BF132_RUN_DIR:-}" ]; then
+  # 실전 판정은 env 유무가 아니라 **경로**(픽스 리뷰 LOW#1: 실전 경로를 명시 export 해도
+  # 우회 불가). 실전 RUN_DIR 에서는 훅이 하나라도 설정돼 있으면 거부(값 무관 — unset 필요).
+  if [ "$RUN_DIR" = "$DEFAULT_RUN_DIR" ]; then
     local v
     for v in BF132_TEST_CMD BF132_SKIP_GUARDS BF132_FAST; do
       if [ -n "$(eval echo "\${$v:-}")" ]; then
-        echo "✗ 테스트 훅 $v 가 설정된 채 실전 start 금지 — unset 후 재시도"; exit 1
+        echo "✗ 테스트 훅 $v 가 설정된 채 실전 start 금지 — 값 무관, unset $v 후 재시도"; exit 1
       fi
     done
   fi
