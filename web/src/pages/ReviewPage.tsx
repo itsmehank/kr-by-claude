@@ -14,6 +14,7 @@ import type {
 import Sparkline from "../components/Sparkline";
 import StockStreakRow from "../components/StockStreakRow";
 import StockDetailPanel from "../components/StockDetailPanel";
+import { SourceChip } from "../components/SourceChip";
 
 const pct = (v: number | null) =>
   v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
@@ -478,17 +479,7 @@ export default function ReviewPage() {
                       </td>
                       <td className="px-3 py-1.5">
                         <div className="num">{row.key_date}</div>
-                        {/* backfilled ⇔ source==='backfill' — 칩 중복 대신 단일 칩을 '백필'로 치환 */}
-                        <span
-                          className="chip bg-tint-stone text-muted text-data-xs"
-                          title={
-                            row.backfilled
-                              ? "백필 — 현재 프롬프트로 재생성된 합성 이력(당시 실전 실행 아님·트리거 이력 없음 → 상태는 항상 미발동)"
-                              : undefined
-                          }
-                        >
-                          {row.backfilled ? "백필" : row.source}
-                        </span>
+                        <SourceChip backfilled={row.backfilled} source={row.source} />
                       </td>
                       <td className="px-3 py-1.5">
                         <div>{row.classification}</div>
