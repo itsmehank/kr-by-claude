@@ -100,6 +100,45 @@ def test_fetch_scoped_rows_global_floor_and_live_first_dedup(db, seed):
     assert rows[0]["pivot_price"] == 100.0                # 999(백필) 아님
 
 
+@pytest.fixture
+def week_seed(db):
+    """PR #138 리뷰 — 주 단위 라이브 우선 dedup (공유 조각 MERGED_ROWS_CTES).
+    백필 key_date=토요일 vs 라이브 주말 key_date=금요일: 정확 일치 dedup 은
+    같은 주 이중 행을 못 막는다 → 같은 ISO 주 라이브 존재 시 백필 억제."""
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM classification_backfill WHERE symbol LIKE 'RVSWK%'")
+        cur.execute("DELETE FROM weekly_classification WHERE symbol LIKE 'RVSWK%'")
+        cur.execute("DELETE FROM stocks WHERE ticker LIKE 'RVSWK%'")
+        cur.execute("""INSERT INTO stocks (ticker, name, market, sector, listed_at)
+                       VALUES ('RVSWK01','주스톡1','KOSPI','반도체','2020-01-01')""")
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date)
+               VALUES ('RVSWK01','2026-07-11 06:10:00+09','KOSPI','watch',NULL,
+                       100,'weekend','2026-07-10')""")
+        cur.execute(
+            """INSERT INTO classification_backfill
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date)
+               VALUES
+                 -- 토 07-11: 라이브 07-10(금)과 같은 ISO 주 → 억제
+                 ('RVSWK01','2026-08-30 12:00:00+09','KOSPI','watch',NULL,
+                  101,'backfill','2026-07-11'),
+                 -- 토 07-18: 라이브 없는 주 → 유지
+                 ('RVSWK01','2026-08-30 12:00:00+09','KOSPI','watch',NULL,
+                  102,'backfill','2026-07-18')""")
+    db.commit()
+    yield
+
+
+def test_scoped_rows_week_dedup_live_friday_vs_backfill_saturday(db, week_seed):
+    rows = fetch_scoped_rows(db, symbols=["RVSWK01"])
+    kds = [(r["key_date"], r["backfilled"]) for r in rows]
+    assert kds == [(date(2026, 7, 10), False),    # 라이브 유지, 07-11 백필 억제
+                   (date(2026, 7, 18), True)]     # 라이브 없는 주 백필 유지
+
+
 def test_find_period_symbols_filters(db, seed):
     assert find_period_symbols(db, date_from=date(2026, 6, 1), date_to=date(2026, 6, 30),
                                source=None, ticker=None).count("RVSTK01") == 1

@@ -4,9 +4,9 @@
 - 회고 행 = weekly_classification ∪ classification_backfill(#132, 합성 이력 —
   backfilled 플래그로 세대 표기)에서 source∈(weekend,daily_delta,backfill) AND
   classification∈(entry,watch).
-- 백필 병합 규약 = streak 뷰(review_streaks._SCOPED_SQL)와 동일: 라이브 우선
-  dedup(같은 symbol+key_date 에 라이브 있으면 백필 제외) + 전역 하한
-  REVIEW_COVERAGE_START(이전 백필 행은 백테스트 유래 산발 표본이라 제외).
+- 백필 병합 규약(주 단위 라이브 우선 dedup + 전역 하한 REVIEW_COVERAGE_START)은
+  공유 SQL 조각 MERGED_ROWS_CTES 가 단일 정의 — _ROWS_SQL 과 streak 뷰
+  (review_streaks._SCOPED_SQL)가 같은 조각을 조합한다.
 - 트리거 귀속 = (symbol, prior_classification_at) 직접 조인. 시간창 추측 금지
   (backdate 로 최대 24/142 오귀속 실증).
 - 구간 끝 next_key_date = LEAD(...) — 반드시 필터 **전** 전체 행(라이브+백필
@@ -25,23 +25,48 @@ BREAKOUT_TYPES = frozenset({"breakout", "breakout_from_watch"})
 # streak 뷰(review_streaks)와 공유 (#132 에서 정의를 이곳으로 이동).
 REVIEW_COVERAGE_START = date(2026, 5, 18)
 
-_ROWS_SQL = """
-WITH live AS (
+# ── 공유 SQL 조각: 라이브+백필 병합 규약의 단일 정의 (#132 / PR #138 리뷰) ──
+# _ROWS_SQL(분석 행)과 review_streaks._SCOPED_SQL(streak 뷰)이 이 조각 하나를
+# 조합한다 — 병합 규약의 parity 를 주석이 아니라 구조로 보장.
+#
+# - 전역 하한 %(floor)s(REVIEW_COVERAGE_START)는 라이브·백필 양쪽에 적용
+#   (이전 라이브 행은 커버리지 밖, 이전 백필 행은 백테스트 유래 산발 표본).
+# - 주 단위 라이브 우선 dedup: 백필 행 key_date=토요일(as_of)인데 라이브 주말
+#   행 key_date=금요일(analyzed_for_date)이라, (symbol, key_date) 정확 일치로는
+#   같은 주의 라이브·백필이 하루 차이로 둘 다 남는다. 백필은 주당 1앵커
+#   설계이므로 "같은 ISO 주(date_trunc('week'))에 라이브 행 존재"가 의미상
+#   정확한 기준. NOT EXISTS 는 materialized CTE 재스캔 대신
+#   weekly_classification 베이스 테이블에 직접 correlate(인덱스 활용).
+# - live-first 귀결(의도): 그 주의 라이브가 disqualify/ignore 만 남긴 경우에도
+#   백필 행은 억제된다 → 해당 주 분석 행은 표시되지 않는다(라이브 판단 우선).
+# - %(symbols)s: 종목 범위 한정(streak 뷰), NULL 이면 전 종목(분석 행).
+MERGED_ROWS_CTES = """\
+live AS (
     SELECT symbol, classified_at, market, source, classification, pattern,
            pivot_price, analyzed_for_date,
            COALESCE(analyzed_for_date, classified_at::date) AS key_date,
            false AS backfilled
       FROM weekly_classification
+     WHERE COALESCE(analyzed_for_date, classified_at::date) >= %(floor)s
+       AND (%(symbols)s::text[] IS NULL OR symbol = ANY(%(symbols)s::text[]))
 ), bf AS (
     SELECT b.symbol, b.classified_at, b.market, b.source, b.classification,
            b.pattern, b.pivot_price, b.analyzed_for_date,
            b.analyzed_for_date AS key_date, true AS backfilled
       FROM classification_backfill b
      WHERE b.analyzed_for_date >= %(floor)s
-       -- 라이브 우선 dedup: 같은 (symbol, key_date)에 라이브가 있으면 백필 제외
-       AND NOT EXISTS (SELECT 1 FROM live l
-                        WHERE l.symbol = b.symbol AND l.key_date = b.analyzed_for_date)
-), ordered AS (
+       AND (%(symbols)s::text[] IS NULL OR b.symbol = ANY(%(symbols)s::text[]))
+       AND NOT EXISTS (
+           SELECT 1 FROM weekly_classification l
+            WHERE l.symbol = b.symbol
+              AND date_trunc('week', COALESCE(l.analyzed_for_date,
+                                              l.classified_at::date))
+                  = date_trunc('week', b.analyzed_for_date)
+       )
+)"""
+
+_ROWS_SQL = f"""
+WITH {MERGED_ROWS_CTES}, ordered AS (
     SELECT u.*,
            LEAD(u.key_date) OVER (
                PARTITION BY u.symbol ORDER BY u.key_date, u.classified_at
@@ -95,7 +120,7 @@ def fetch_analysis_rows(conn: Connection, *, date_from: date, date_to: date,
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(_ROWS_SQL, {
             "date_from": date_from, "date_to": date_to,
-            "floor": REVIEW_COVERAGE_START,
+            "floor": REVIEW_COVERAGE_START, "symbols": None,  # 전 종목
             "classification": classification, "source": source,
             "pattern": pattern, "ticker": ticker,
             "include_pivot_null": include_pivot_null,

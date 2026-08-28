@@ -285,8 +285,8 @@ def test_catchup_trigger_d_uses_analyzed_for_date(db, catchup_seed):
 
 @pytest.fixture
 def backfill_seed(db):
-    """#132 — classification_backfill UNION 소비. streak 뷰(_SCOPED_SQL) 규약과 동일:
-    backfilled 플래그·라이브 우선 dedup·전역 하한(REVIEW_COVERAGE_START)."""
+    """#132 — classification_backfill UNION 소비 (공유 조각 MERGED_ROWS_CTES):
+    backfilled 플래그·주 단위 라이브 우선 dedup·전역 하한(REVIEW_COVERAGE_START)."""
     with db.cursor() as cur:
         cur.execute("DELETE FROM classification_backfill WHERE symbol LIKE 'RVBF%'")
         cur.execute("DELETE FROM weekly_classification WHERE symbol LIKE 'RVBF%'")
@@ -296,7 +296,9 @@ def backfill_seed(db):
                VALUES ('RVBF01','백필1','KOSPI','반도체','2020-01-01'),
                       ('RVBF02','백필2','KOSDAQ','제약','2020-01-01')"""
         )
-        # RVBF01: 라이브 06-16 → (결손) → 라이브 08-07. 백필 06-20 이 사이를 채운다.
+        # RVBF01: 라이브 06-16 → (결손) → 라이브 08-07. 백필 06-27(토, 라이브 없는
+        # 주)이 사이를 채운다. (06-20 은 라이브 06-16 과 같은 ISO 주라 주 단위
+        # dedup 으로 억제됨 — 주 단위 억제 자체는 week_dedup_seed 쪽 테스트가 검증.)
         cur.execute(
             """INSERT INTO weekly_classification
                  (symbol, classified_at, market, classification, pattern,
@@ -316,7 +318,7 @@ def backfill_seed(db):
                   pivot_price, source, analyzed_for_date)
                VALUES
                  ('RVBF01','2026-08-30 12:00:00+09','KOSPI','watch','flat_base',
-                  10500,'backfill','2026-06-20'),
+                  10500,'backfill','2026-06-27'),
                  -- 전역 하한 이전(2024) 백테스트 유래 합성 행 — /review 에 나오면 안 됨
                  ('RVBF01','2026-08-30 12:00:00+09','KOSPI','watch','cup_with_handle',
                   8000,'backfill','2024-06-01'),
@@ -339,8 +341,8 @@ def _fetch_bf(db, ticker, **kw):
 def test_backfill_row_included_with_flag(db, backfill_seed):
     rows = _fetch_bf(db, "RVBF01")
     by_kd = {r["key_date"]: r for r in rows}
-    assert date(2026, 6, 20) in by_kd
-    bf = by_kd[date(2026, 6, 20)]
+    assert date(2026, 6, 27) in by_kd
+    bf = by_kd[date(2026, 6, 27)]
     assert bf["backfilled"] is True
     assert bf["source"] == "backfill"
     assert bf["pivot_price"] == 10500.0
@@ -355,6 +357,7 @@ def test_backfill_floor_excludes_pre_coverage_rows(db, backfill_seed):
 
 
 def test_backfill_deduped_when_live_exists_same_key_date(db, backfill_seed):
+    # 같은 key_date = 같은 ISO 주의 특수형 — 주 단위 dedup 에서도 당연히 억제
     rows = _fetch_bf(db, "RVBF02")
     assert len(rows) == 1
     assert rows[0]["backfilled"] is False
@@ -365,18 +368,88 @@ def test_backfill_deduped_when_live_exists_same_key_date(db, backfill_seed):
 def test_lead_crosses_live_and_backfill(db, backfill_seed):
     rows = _fetch_bf(db, "RVBF01")
     by_kd = {r["key_date"]: r for r in rows}
-    # 라이브 06-16 의 구간(t')은 백필 06-20 에서 끊긴다
-    assert by_kd[date(2026, 6, 16)]["next_key_date"] == date(2026, 6, 20)
-    # 백필 06-20 의 구간은 라이브 08-07 에서 끊긴다 (역방향)
-    assert by_kd[date(2026, 6, 20)]["next_key_date"] == date(2026, 8, 7)
+    # 라이브 06-16 의 구간(t')은 백필 06-27 에서 끊긴다
+    assert by_kd[date(2026, 6, 16)]["next_key_date"] == date(2026, 6, 27)
+    # 백필 06-27 의 구간은 라이브 08-07 에서 끊긴다 (역방향)
+    assert by_kd[date(2026, 6, 27)]["next_key_date"] == date(2026, 8, 7)
 
 
 def test_source_filter_separates_live_and_backfill(db, backfill_seed):
     only_bf = _fetch_bf(db, "RVBF01", source="backfill")
-    assert [r["key_date"] for r in only_bf] == [date(2026, 6, 20)]
+    assert [r["key_date"] for r in only_bf] == [date(2026, 6, 27)]
     only_weekend = _fetch_bf(db, "RVBF01", source="weekend")
     assert all(r["backfilled"] is False for r in only_weekend)
     assert {r["key_date"] for r in only_weekend} == {date(2026, 6, 16), date(2026, 8, 7)}
+
+
+@pytest.fixture
+def week_dedup_seed(db):
+    """PR #138 리뷰 — 주 단위 라이브 우선 dedup. 백필 행 key_date=토요일(as_of),
+    라이브 주말 행 key_date=금요일(analyzed_for_date)이라 (symbol, key_date) 정확
+    일치로는 같은 주의 라이브·백필이 하루 차이로 둘 다 남는다(이중 행 결함).
+    기준 = 같은 ISO 주에 라이브 행 존재 여부."""
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM classification_backfill WHERE symbol LIKE 'RVWK%'")
+        cur.execute("DELETE FROM weekly_classification WHERE symbol LIKE 'RVWK%'")
+        cur.execute("DELETE FROM stocks WHERE ticker LIKE 'RVWK%'")
+        cur.execute(
+            """INSERT INTO stocks (ticker, name, market, sector, listed_at)
+               VALUES ('RVWK01','주중복1','KOSPI','반도체','2020-01-01'),
+                      ('RVWK02','주중복2','KOSPI','반도체','2020-01-01')"""
+        )
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date)
+               VALUES
+                 -- 라이브 weekend: 금 07-10 (ISO 주 07-06~07-12)
+                 ('RVWK01','2026-07-11 06:10:00+09','KOSPI','watch','flat_base',
+                  10000,'weekend','2026-07-10'),
+                 -- 전역 하한(05-18) 이전 라이브 행 — streak 뷰와 동일하게 제외돼야
+                 ('RVWK02','2026-05-09 06:10:00+09','KOSPI','watch','flat_base',
+                  8000,'weekend','2026-05-08'),
+                 ('RVWK02','2026-07-11 06:10:00+09','KOSPI','watch','flat_base',
+                  9000,'weekend','2026-07-10')"""
+        )
+        cur.execute(
+            """INSERT INTO classification_backfill
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date)
+               VALUES
+                 -- 토 07-11 — 라이브 07-10(금)과 같은 ISO 주 → 억제 (이중 행 금지)
+                 ('RVWK01','2026-08-30 12:00:00+09','KOSPI','watch','flat_base',
+                  10100,'backfill','2026-07-11'),
+                 -- 토 07-18 — 그 주(07-13~07-19)에 라이브 없음 → 표시 유지
+                 ('RVWK01','2026-08-30 12:00:00+09','KOSPI','watch','flat_base',
+                  10200,'backfill','2026-07-18')"""
+        )
+    db.commit()
+    yield
+
+
+def test_week_dedup_suppresses_backfill_saturday_next_to_live_friday(db, week_dedup_seed):
+    """① 라이브 07-10(금) + 백필 07-11(토) → 같은 ISO 주 — 백필 억제, 이중 행 없음."""
+    rows = _fetch_bf(db, "RVWK01")
+    kds = {r["key_date"] for r in rows}
+    assert date(2026, 7, 11) not in kds          # 억제
+    assert date(2026, 7, 10) in kds              # 라이브 유지
+    assert all(r["backfilled"] is False for r in rows if r["key_date"] == date(2026, 7, 10))
+
+
+def test_week_dedup_keeps_backfill_in_live_free_week(db, week_dedup_seed):
+    """② 라이브 없는 주(07-13~07-19)의 백필 행은 표시 유지."""
+    rows = _fetch_bf(db, "RVWK01")
+    by_kd = {r["key_date"]: r for r in rows}
+    assert date(2026, 7, 18) in by_kd
+    assert by_kd[date(2026, 7, 18)]["backfilled"] is True
+
+
+def test_live_rows_preserved_and_floor_applied_without_backfill(db, week_dedup_seed):
+    """③ 백필 0행 종목: 라이브 결과 완전 보존 + 전역 하한은 라이브에도 적용(parity)."""
+    rows = _fetch_bf(db, "RVWK02")
+    assert {r["key_date"] for r in rows} == {date(2026, 7, 10)}   # 05-08 은 하한 이전
+    assert all(r["backfilled"] is False for r in rows)
+    assert rows[0]["pivot_price"] == 9000.0
 
 
 def test_build_spark_downsample_preserves_latest_price_off_grid():

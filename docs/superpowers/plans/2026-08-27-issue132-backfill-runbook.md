@@ -16,9 +16,10 @@
 - `backfill.run()` 은 `--start`~`--end` 범위의 **토요일**(weekday=5)만 열거한다
   (`_enumerate_saturdays`). 각 토요일 as_of 에 대해 `get_qualifying_tickers` 가
   `MAX(daily_indicators.date) <= as_of` — 즉 **직전 거래일(금요일) 지표**로 후보를 뽑는다.
-- 적재 행의 `analyzed_for_date` = **토요일 as_of** (금요일 아님). 라이브 weekend 행의
-  key_date(금요일)와 충돌하지 않으므로 /review 의 라이브 우선 dedup 은 발동하지 않고,
-  날짜순으로 결손 구간 사이에 삽입된다.
+- 적재 행의 `analyzed_for_date` = **토요일 as_of** (금요일 아님). /review 의 라이브
+  우선 dedup 은 **주 단위**다(같은 ISO 주에 라이브 행이 있으면 백필 억제 —
+  PR #138 리뷰로 격상, `review_builder.MERGED_ROWS_CTES` 단일 정의). 라이브가
+  없는 주의 앵커만 날짜순으로 결손 구간 사이에 삽입된다.
 - 멱등: PK `(symbol, analyzed_for_date)` + 실행 시 기적재 종목 자동 제외
   (`_already_backfilled`) — 같은 명령 재실행 = 이어하기.
 - 병렬: `--concurrency N` (기본 `BACKFILL_CONCURRENCY` env 또는 4).
@@ -46,7 +47,12 @@
 †07-17(금) 지표 행이 없어 07-16 로 폴백된다(`MAX(date) <= as_of`) — 도구가 자동 처리.
 
 **제외**: 07-11(토)은 라이브 weekend 실행(analyzed_for_date=07-10)이 존재 — 백필하지
-않는다. 그래서 아래는 한 번의 `--start 06-20 --end 08-01` 이 아니라 **토요일별 6개 명령**이다.
+않는다. 이 제외는 이제 산문 규칙이 아니라 **코드 가드**다: /review 의 주 단위
+라이브 우선 dedup(`review_builder.MERGED_ROWS_CTES`)이 같은 ISO 주에 라이브가 있는
+백필 행을 표시에서 억제하므로, 실수로 07-11 을 백필하거나 한 방
+`--start 06-20 --end 08-01` 로 돌려도 이중 행은 생기지 않는다(표시 안전).
+그래도 아래는 **토요일별 6개 명령**을 유지한다 — 억제될 주(07-11)에 LLM 호출
+~수십 건을 낭비하지 않고, 앵커별 표본 재확인 흐름을 지키기 위해서다.
 
 ‡06-20 앵커는 2026-08-27 21:39/21:41 에 `--tickers 000660` 단일 종목 시운전이 이미
 실행돼(pipeline_runs llm_backfill success 2건) `000660/2026-06-20/watch` 1행이 적재돼
