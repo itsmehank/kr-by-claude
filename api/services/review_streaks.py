@@ -103,6 +103,7 @@ def segment_streaks(rows: list[dict]) -> list[dict]:
             if kind and cur is not None:
                 cur["end"] = row["key_date"]
                 cur["closed_by"] = kind
+                cur["closed_reason"] = row.get("reasoning")
                 streaks.append(cur)
                 cur = None
             # 닫는 행인데 열린 묶음 없음 → 무시 (스펙 §6: 닫는 행만 있는 종목은 행 아님)

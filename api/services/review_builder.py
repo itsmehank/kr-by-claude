@@ -43,7 +43,7 @@ REVIEW_COVERAGE_START = date(2026, 5, 18)
 MERGED_ROWS_CTES = """\
 live AS (
     SELECT symbol, classified_at, market, source, classification, pattern,
-           pivot_price, analyzed_for_date,
+           pivot_price, analyzed_for_date, reasoning,
            COALESCE(analyzed_for_date, classified_at::date) AS key_date,
            false AS backfilled
       FROM weekly_classification
@@ -51,7 +51,7 @@ live AS (
        AND (%(symbols)s::text[] IS NULL OR symbol = ANY(%(symbols)s::text[]))
 ), bf AS (
     SELECT b.symbol, b.classified_at, b.market, b.source, b.classification,
-           b.pattern, b.pivot_price, b.analyzed_for_date,
+           b.pattern, b.pivot_price, b.analyzed_for_date, b.reasoning,
            b.analyzed_for_date AS key_date, true AS backfilled
       FROM classification_backfill b
      WHERE b.analyzed_for_date >= %(floor)s

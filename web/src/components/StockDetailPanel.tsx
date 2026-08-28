@@ -9,6 +9,7 @@ import {
   type ChartIn,
 } from "../lib/streakChart";
 import StockTimeline from "./StockTimeline";
+import StreakClosedCard from "./StreakClosedCard";
 import { LatestStatusCell, PerformanceCell, StreakHeader } from "./StockStreakRow";
 
 // viewBox 좌표계(검토 #1): 종횡비 고정 + 단일 배율. 콘텐츠는 (PAD_X, PAD_Y) 로 평행이동.
@@ -245,9 +246,10 @@ export default function StockDetailPanel({ row, to }: { row: StockRow; to: strin
           <PerformanceCell latest={row.latest} />
         </div>
         {row.streaks.map((streak, i) => (
-          <div key={`${row.symbol}-${streak.start}-${i}`}>
+          <div key={`${row.symbol}-${streak.start}-${i}`} className="flex flex-col gap-2">
             <StreakHeader streak={streak} />
             <StockTimeline rows={streak.analyses} />
+            <StreakClosedCard streak={streak} />
           </div>
         ))}
       </div>
