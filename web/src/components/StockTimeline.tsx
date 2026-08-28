@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { TriggerDecision } from "../lib/types";
+import { SourceChip } from "./SourceChip";
 import {
   buildStockTimeline,
   type TimelineAnalysisEvent,
@@ -49,7 +50,7 @@ function AnalysisCard({ event }: { event: TimelineAnalysisEvent }) {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="num text-data-xs text-muted">{row.key_date}</span>
-          <span className="chip bg-tint-stone text-muted text-data-xs">{row.source}</span>
+          <SourceChip backfilled={row.backfilled} source={row.source} />
           <span className="font-semibold">{row.classification}</span>
           {row.pattern && <span className="text-muted text-data-xs">{row.pattern}</span>}
         </div>

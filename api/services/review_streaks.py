@@ -13,33 +13,20 @@ from psycopg import Connection
 from psycopg.rows import dict_row
 
 from api.services.review_builder import (
-    BREAKOUT_TYPES, chain_tn, corp_action_flags, first_breakout, max_reach,
-    count_orphan_triggers, fetch_price_series,
+    # REVIEW_COVERAGE_START: #132 에서 정의를 review_builder 로 이동 —
+    # 기존 import 경로(review_streaks) 호환을 위한 re-export.
+    BREAKOUT_TYPES, MERGED_ROWS_CTES, REVIEW_COVERAGE_START, chain_tn,
+    corp_action_flags, first_breakout, max_reach, count_orphan_triggers,
+    fetch_price_series,
 )
-
-REVIEW_COVERAGE_START = date(2026, 5, 18)  # 라이브 weekly_classification 최초 key_date
 _CENSOR_WINDOW = timedelta(days=7)
 _GAP_DAYS = 10
 _VALID_SOURCES = ("weekend", "daily_delta", "backfill")
 
-_SCOPED_SQL = """
-WITH live AS (
-    SELECT symbol, classified_at, market, source, classification, pattern, pivot_price,
-           COALESCE(analyzed_for_date, classified_at::date) AS key_date,
-           false AS backfilled
-      FROM weekly_classification
-     WHERE symbol = ANY(%(symbols)s)
-       AND COALESCE(analyzed_for_date, classified_at::date) >= %(floor)s
-), bf AS (
-    SELECT b.symbol, b.classified_at, b.market, b.source, b.classification, b.pattern,
-           b.pivot_price, b.analyzed_for_date AS key_date, true AS backfilled
-      FROM classification_backfill b
-     WHERE b.symbol = ANY(%(symbols)s)
-       AND b.analyzed_for_date >= %(floor)s
-       -- 라이브 우선 dedup: 같은 (symbol, key_date)에 라이브가 있으면 백필 제외
-       AND NOT EXISTS (SELECT 1 FROM live l
-                        WHERE l.symbol = b.symbol AND l.key_date = b.analyzed_for_date)
-)
+# 병합 규약(전역 하한·주 단위 라이브 우선 dedup)은 공유 조각 MERGED_ROWS_CTES
+# (review_builder)가 단일 정의 — 분석 행 뷰(_ROWS_SQL)와 구조적으로 동일.
+_SCOPED_SQL = f"""
+WITH {MERGED_ROWS_CTES}
 SELECT * FROM live UNION ALL SELECT * FROM bf
 ORDER BY symbol, key_date, classified_at
 """

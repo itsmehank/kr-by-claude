@@ -78,7 +78,7 @@ def list_analyses(
             source=r["source"], classified_at=r["classified_at"],
             analyzed_for_date=r["analyzed_for_date"], key_date=r["key_date"],
             classification=r["classification"], pattern=r["pattern"],
-            pivot_price=r["pivot_price"], status=status,
+            pivot_price=r["pivot_price"], backfilled=r["backfilled"], status=status,
             first_breakout_at=fb["d"] if fb else None,
             first_breakout_type=fb["trigger_type"] if fb else None,
             first_breakout_decision=fb["decision"] if fb else None,

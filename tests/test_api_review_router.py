@@ -28,6 +28,7 @@ def seed(db):
     with db.cursor() as cur:
         for tbl, col in [("trigger_evaluation_log", "symbol"),
                          ("weekly_classification", "symbol"),
+                         ("classification_backfill", "symbol"),
                          ("daily_prices", "ticker"), ("stocks", "ticker")]:
             cur.execute(f"DELETE FROM {tbl} WHERE {col} LIKE 'RVAPI%'")
         cur.execute("""INSERT INTO stocks (ticker, name, market, sector, listed_at)
@@ -92,6 +93,34 @@ def test_negative_limit_offset_rejected(client, seed):
     assert r.status_code == 422
     r2 = client.get("/api/review/analyses?offset=-1")
     assert r2.status_code == 422
+
+
+def test_backfilled_field_and_source_filter(client, seed, db):
+    """#132 — /analyses 가 classification_backfill 행을 backfilled=true 로 노출하고,
+    source 필터로 실전/백필 분리 집계가 가능해야 한다."""
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM classification_backfill WHERE symbol = 'RVAPI01'")
+        cur.execute(
+            """INSERT INTO classification_backfill
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date)
+               VALUES ('RVAPI01','2026-08-30 12:00:00+09','KOSPI','watch',
+                       'flat_base', 9500, 'backfill', '2026-07-08')""")
+    db.commit()
+    r = client.get("/api/review/analyses?from=2026-06-25&to=2026-07-15&ticker=RVAPI01")
+    assert r.status_code == 200
+    rows = r.json()["rows"]
+    by_kd = {row["key_date"]: row for row in rows}
+    assert by_kd["2026-07-08"]["backfilled"] is True
+    assert by_kd["2026-07-08"]["source"] == "backfill"
+    assert by_kd["2026-06-29"]["backfilled"] is False
+    # 분리 집계: source=weekend 는 백필 제외, source=backfill 은 백필만
+    r_live = client.get("/api/review/analyses?from=2026-06-25&to=2026-07-15"
+                        "&ticker=RVAPI01&source=weekend")
+    assert all(row["backfilled"] is False for row in r_live.json()["rows"])
+    r_bf = client.get("/api/review/analyses?from=2026-06-25&to=2026-07-15"
+                      "&ticker=RVAPI01&source=backfill")
+    assert [row["key_date"] for row in r_bf.json()["rows"]] == ["2026-07-08"]
 
 
 def test_pivot_null_hidden_by_default(client, seed, db):

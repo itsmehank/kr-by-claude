@@ -12,6 +12,8 @@ export interface TimelineRow {
   classification: string;
   pattern: string | null;
   pivot_price: number | null;
+  /** #132 — 백필(합성 이력) 여부. `ReviewRow`·`StreakAnalysis` 모두 required 로 보유. */
+  backfilled: boolean;
   triggers: ReviewTrigger[];
 }
 

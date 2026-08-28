@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import type { Streak, StockLatest, StockRow } from "../lib/types";
 import StreakChart from "./StreakChart";
 import StockTimeline from "./StockTimeline";
+import { BACKFILL_TOOLTIP } from "./SourceChip";
 
 const pct = (v: number | null) =>
   v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
@@ -42,7 +43,11 @@ export function LatestStatusCell({ latest }: { latest: StockLatest }) {
             관찰 시작=시스템 시작
           </span>
         )}
-        {latest.backfilled && <span className="chip bg-tint-stone text-muted text-data-xs">백필</span>}
+        {latest.backfilled && (
+          <span className="chip bg-tint-stone text-muted text-data-xs" title={BACKFILL_TOOLTIP}>
+            백필
+          </span>
+        )}
       </div>
     </div>
   );
@@ -100,7 +105,11 @@ export function StreakHeader({ streak }: { streak: Streak }) {
       {closedLabel && <span className="chip bg-tint-stone text-muted text-data-xs">{closedLabel}</span>}
       <span className="chip bg-tint-violet text-muted text-data-xs">{STAGE_LABEL[streak.stage] ?? streak.stage}</span>
       {streak.censored && <span className="chip bg-amber-soft text-amber text-data-xs">절단</span>}
-      {streak.backfilled && <span className="chip bg-tint-stone text-muted text-data-xs">백필</span>}
+      {streak.backfilled && (
+        <span className="chip bg-tint-stone text-muted text-data-xs" title={BACKFILL_TOOLTIP}>
+          백필
+        </span>
+      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import type {
 import Sparkline from "../components/Sparkline";
 import StockStreakRow from "../components/StockStreakRow";
 import StockDetailPanel from "../components/StockDetailPanel";
+import { SourceChip } from "../components/SourceChip";
 
 const pct = (v: number | null) =>
   v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
@@ -22,6 +23,7 @@ const SOURCES: { value: string; label: string }[] = [
   { value: "", label: "전체" },
   { value: "weekend", label: "weekend" },
   { value: "daily_delta", label: "daily_delta" },
+  { value: "backfill", label: "backfill(백필)" },
 ];
 
 const TRIGGERED_OPTIONS: { value: string; label: string }[] = [
@@ -477,7 +479,7 @@ export default function ReviewPage() {
                       </td>
                       <td className="px-3 py-1.5">
                         <div className="num">{row.key_date}</div>
-                        <span className="chip bg-tint-stone text-muted text-data-xs">{row.source}</span>
+                        <SourceChip backfilled={row.backfilled} source={row.source} />
                       </td>
                       <td className="px-3 py-1.5">
                         <div>{row.classification}</div>
