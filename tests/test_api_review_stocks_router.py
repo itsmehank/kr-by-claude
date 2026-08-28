@@ -62,3 +62,22 @@ def test_stocks_endpoint_shape_and_filters(client, seed):
                       "&from=2026-10-01&to=2026-10-31").json()["rows"] == []
     assert client.get("/api/review/stocks?limit=-1").status_code == 422
     assert client.get("/api/review/stocks?limit=9999").status_code == 200
+
+
+def test_stocks_endpoint_exposes_closed_reason(client, seed, db):
+    # 닫는 행(system_disqualify)의 reasoning 이 응답 JSON 의 streaks[].closed_reason 으로
+    # 노출되는지(#139).
+    with db.cursor() as cur:
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date, reasoning)
+               VALUES ('RVSAPI01','2026-10-12 22:02:00+09','KOSPI','disqualified',NULL,
+                       NULL,'system_disqualify','2026-10-12',
+                       'minervini_pass=false — 미너비니 자격 상실(시스템 강등)')""")
+    db.commit()
+    r = client.get("/api/review/stocks?from=2026-10-01&to=2026-10-31&ticker=RVSAPI01")
+    assert r.status_code == 200
+    streak = r.json()["rows"][0]["streaks"][0]
+    assert streak["closed_by"] == "disqualify"
+    assert streak["closed_reason"] == "minervini_pass=false — 미너비니 자격 상실(시스템 강등)"

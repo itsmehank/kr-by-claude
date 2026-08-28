@@ -71,6 +71,7 @@ class StreakOut(BaseModel):
     start: date
     end: date | None = None
     closed_by: str | None = None
+    closed_reason: str | None = None
     censored: bool
     backfilled: bool
     has_gap: bool

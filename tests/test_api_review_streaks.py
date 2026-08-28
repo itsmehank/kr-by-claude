@@ -11,13 +11,14 @@ from api.services.review_streaks import (
 KST = timezone(timedelta(hours=9))
 
 
-def _row(symbol, kd, cls, source, pivot=None, hour=10):
+def _row(symbol, kd, cls, source, pivot=None, hour=10, reasoning=None):
     return {
         "symbol": symbol, "key_date": date.fromisoformat(kd),
         "classified_at": datetime(2026, 1, 1, hour, tzinfo=KST).replace(
             year=int(kd[:4]), month=int(kd[5:7]), day=int(kd[8:10])),
         "market": "KOSPI", "source": source, "classification": cls,
         "pattern": None, "pivot_price": pivot, "backfilled": source == "backfill",
+        "reasoning": reasoning,
     }
 
 
@@ -27,18 +28,21 @@ def test_segment_closes_on_ignore_and_disqualify_and_continues_over_gap():
         _row("A", "2026-06-12", "watch", "weekend", 110.0),
         # 20일 공백(>10일) — 이어짐 + has_gap
         _row("A", "2026-07-02", "entry", "daily_delta", 120.0),
-        _row("A", "2026-07-04", "ignore", "weekend"),          # 닫힘 1
+        _row("A", "2026-07-04", "ignore", "weekend"),          # 닫힘 1(사유 없음)
         _row("A", "2026-07-11", "watch", "weekend", 130.0),     # 새 묶음
-        _row("A", "2026-07-15", "disqualified", "system_disqualify"),  # 닫힘 2
+        _row("A", "2026-07-15", "disqualified", "system_disqualify",
+             reasoning="minervini_pass=false — 미너비니 자격 상실"),  # 닫힘 2(사유 있음)
     ]
     s = segment_streaks(rows)
     assert len(s) == 2
     assert s[0]["start"] == date(2026, 6, 5)
     assert s[0]["end"] == date(2026, 7, 4) and s[0]["closed_by"] == "ignore"
     assert s[0]["has_gap"] is True and len(s[0]["analyses"]) == 3
+    assert s[0]["closed_reason"] is None     # ignore 행에 reasoning 없음 → None
     assert s[1]["start"] == date(2026, 7, 11)
     assert s[1]["end"] == date(2026, 7, 15) and s[1]["closed_by"] == "disqualify"
     assert s[1]["has_gap"] is False
+    assert s[1]["closed_reason"] == "minervini_pass=false — 미너비니 자격 상실"
 
 
 def test_segment_open_streak_and_censored_badge():
@@ -47,6 +51,7 @@ def test_segment_open_streak_and_censored_badge():
     s = segment_streaks(rows)
     assert s[0]["end"] is None and s[0]["closed_by"] is None
     assert s[0]["censored"] is True          # 시작 ≤ COVERAGE_START+7d
+    assert s[0].get("closed_reason") is None  # 진행중 묶음 — 사유 없음
     late = [_row("B", "2026-08-01", "watch", "weekend", 50.0)]
     assert segment_streaks(late)[0]["censored"] is False
 
@@ -297,3 +302,25 @@ def test_display_clamp_keeps_closed_by(db, seed_prices):
     assert row["latest"]["status"] == "closed"                      # 원본 기준
     assert row["streaks"][0]["closed_by"] == "ignore"               # 유지
     assert row["streaks"][0]["end"] == date(2026, 6, 30)            # 표시 절단
+
+
+def test_scoped_rows_and_end_to_end_expose_closed_reason(db, seed_prices):
+    # 닫는 행(system_disqualify)의 reasoning 이 fetch_scoped_rows → segment_streaks →
+    # _clamp_display → build_stock_rows 전 경로를 관통해 보존되는지(#139).
+    with db.cursor() as cur:
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date, reasoning)
+               VALUES ('RVSTK01','2026-08-19 22:02:00+09','KOSPI','disqualified',NULL,
+                       NULL,'system_disqualify','2026-08-19',
+                       'minervini_pass=false — 미너비니 자격 상실(시스템 강등)')""")
+    db.commit()
+    rows = fetch_scoped_rows(db, symbols=["RVSTK01"])
+    assert any(r["reasoning"] is not None for r in rows)             # DC-1
+    got = build_stock_rows(db, date_from=date(2026, 6, 1), date_to=date(2026, 8, 20),
+                           source=None, ticker="RVSTK01", status=None,
+                           limit=200, offset=0, today=date(2026, 8, 20))
+    streak = got["rows"][0]["streaks"][0]
+    assert streak["closed_by"] == "disqualify"
+    assert streak["closed_reason"] == "minervini_pass=false — 미너비니 자격 상실(시스템 강등)"
