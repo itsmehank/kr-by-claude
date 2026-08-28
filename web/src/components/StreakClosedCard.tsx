@@ -2,6 +2,8 @@ import type { Streak } from "../lib/types";
 
 // 실격 = 차트 밴드·ClassificationHistoryTable 의 disqualified 톤(danger/rose)과 통일.
 // ignore = 기존 회색 chip 관례(bg-tint-stone text-muted, StockStreakRow CLOSED_BY_LABEL).
+// ⚠ closed_by 도메인은 review_streaks._closer_kind 의 ignore|disqualify 뿐 — 새 kind 를
+// 추가하면 이 두 매핑도 함께 갱신할 것(미지 값은 회색 톤 + 원문 라벨로 조용히 폴백됨).
 const CLOSED_TONE: Record<string, string> = {
   disqualify: "border-danger/25 bg-rose-50 text-danger",
   ignore: "border-hairline bg-tint-stone text-muted",
