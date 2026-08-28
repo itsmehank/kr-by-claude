@@ -410,10 +410,25 @@ export default function ReviewPage() {
             <thead className="bg-paper/60 text-faint">
               <tr>
                 <th className="text-left px-3 py-1.5">종목</th>
-                <th className="text-left px-3 py-1.5">최근 묶음 상태</th>
-                <th className="text-right px-3 py-1.5">묶음 수</th>
+                <th
+                  className="text-left px-3 py-1.5"
+                  title="가장 최근 관찰 묶음이 진행중인지, 닫혔는지(닫힌 사유: ignore·실격)"
+                >
+                  최근 묶음 상태
+                </th>
+                <th
+                  className="text-right px-3 py-1.5"
+                  title="조회 기간과 겹치는 관찰 묶음(연속 유효 분석 구간) 개수"
+                >
+                  묶음 수
+                </th>
                 <th className="text-right px-3 py-1.5">최근 pivot</th>
-                <th className="text-left px-3 py-1.5">성과</th>
+                <th
+                  className="text-left px-3 py-1.5"
+                  title="돌파=돌파 후 T+5/T+20 수익률 · 관찰/대기=pivot 대비 최고 도달률 · 베이스 형성 중=pivot 미확정(숫자 없음)"
+                >
+                  성과
+                </th>
                 <th className="text-left px-3 py-1.5">그래프</th>
               </tr>
             </thead>

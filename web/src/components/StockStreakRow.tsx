@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import type { Streak, StockLatest, StockRow } from "../lib/types";
 import StreakChart from "./StreakChart";
 import StockTimeline from "./StockTimeline";
+import StreakClosedCard from "./StreakClosedCard";
 import { BACKFILL_TOOLTIP } from "./SourceChip";
 
 const pct = (v: number | null) =>
@@ -200,9 +201,10 @@ function StockStreakRow({
           <td colSpan={6} className="px-6 py-3">
             <div className="flex flex-col gap-4">
               {row.streaks.map((streak, i) => (
-                <div key={`${row.symbol}-${streak.start}-${i}`}>
+                <div key={`${row.symbol}-${streak.start}-${i}`} className="flex flex-col gap-2">
                   <StreakHeader streak={streak} />
                   <StockTimeline rows={streak.analyses} />
+                  <StreakClosedCard streak={streak} />
                 </div>
               ))}
             </div>

@@ -418,6 +418,7 @@ export interface Streak {
   start: string;
   end: string | null;
   closed_by: string | null;
+  closed_reason: string | null;
   censored: boolean;
   backfilled: boolean;
   has_gap: boolean;
