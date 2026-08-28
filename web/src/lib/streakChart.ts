@@ -23,10 +23,31 @@ export interface ChartIn { width: number; height: number; to: string;
               close?: number | null; pivot_price?: number | null }[]; }
 export interface ChartOut {
   pricePoints: string;
-  steps: { x1: number; x2: number; y: number }[];
+  steps: { x1: number; x2: number; y: number;
+           from: string; to: string | null; pivot: number }[];
   bands: { x1: number; x2: number; dashed: boolean;
-           marker: "x" | "o" | null; censored: boolean }[];
-  dots: { x: number; y: number; color: string }[]; }
+           marker: "x" | "o" | null; censored: boolean;
+           start: string; end: string | null;
+           closed_by: "ignore" | "disqualify" | null }[];
+  dots: { x: number; y: number; color: string;
+          d: string; trigger_type: string }[]; }
+
+/** 브라우저 client 좌표 → viewBox 콘텐츠 좌표. rect 가 viewBox 종횡비와 다르면
+ *  preserveAspectRatio 기본값(xMidYMid meet)의 letterbox 여백까지 반영해 역변환한다
+ *  — rect 종횡비를 가정한 단일 배율 공식은 flex 가 svg 를 눌렀을 때 hit 이 어긋난다. */
+export function mapClientToChart(
+  vb: { vbW: number; vbH: number; padX: number; padY: number },
+  rect: { left: number; top: number; width: number; height: number },
+  clientX: number, clientY: number,
+): { mx: number; my: number } {
+  const scale = Math.min(rect.width / vb.vbW, rect.height / vb.vbH);
+  const ox = (rect.width - vb.vbW * scale) / 2;
+  const oy = (rect.height - vb.vbH * scale) / 2;
+  return {
+    mx: (clientX - rect.left - ox) / scale - vb.padX,
+    my: (clientY - rect.top - oy) / scale - vb.padY,
+  };
+}
 
 export type ChartHit =
   | { kind: "dot"; date: string; trigger_type: string; decision: string | null;
@@ -69,21 +90,27 @@ export function buildChart(input: ChartIn): ChartOut {
   const pricePoints = series
     .map(([, v], i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   const steps = input.pivotSteps.map(([from, to, pivot]) => ({
-    x1: x(idx(from)), x2: to == null ? width : x(idx(to)), y: y(pivot) }));
+    x1: x(idx(from)), x2: to == null ? width : x(idx(to)), y: y(pivot),
+    from, to, pivot }));
   const bands = input.streaks.map((s) => ({
     x1: x(idx(s.start)),
     x2: s.end == null ? width : x(idx(s.end)),
     dashed: s.has_gap || s.backfilled,
     marker: s.closed_by == null ? null : s.closed_by === "disqualify" ? "x" as const : "o" as const,
-    censored: s.censored }));
+    censored: s.censored,
+    start: s.start, end: s.end, closed_by: s.closed_by }));
   const dots = input.triggers.map((t) => ({
-    x: x(idx(t.d)), y: y(series[idx(t.d)][1]), color: triggerColor(t.trigger_type) }));
+    x: x(idx(t.d)), y: y(series[idx(t.d)][1]), color: triggerColor(t.trigger_type),
+    d: t.d, trigger_type: t.trigger_type }));
   return { pricePoints, steps, bands, dots };
 }
 
 const DOT_RADIUS = 8;
 const STEP_TOLERANCE = 6;
 const BAND_TOLERANCE = 8;
+// 닫힘 마커(✕/○) 글리프는 band 끝(x2)에서 우측으로 그려진다 — 글리프 위에서도
+// band 툴팁이 잡히도록, 닫힌 band 에 한해 hit 범위를 이만큼 우측으로 확장.
+const MARKER_EXTENT = 10;
 
 /** viewBox 좌표 (mx, my) 에서 무엇 위에 있는지 판정 — 우선순위 dot > step > band > price.
  *  범위 밖·데이터 부족(n<2)은 null (툴팁·크로스헤어 숨김). */
@@ -112,7 +139,8 @@ export function hitTest(input: ChartIn, mx: number, my: number): ChartHit | null
   }
   for (const s of input.streaks) {
     const x1 = x(idx(s.start)), x2 = s.end == null ? width : x(idx(s.end));
-    if (mx >= x1 && mx <= x2 && Math.abs(my - bandY) <= BAND_TOLERANCE) {
+    const hitX2 = s.closed_by == null ? x2 : x2 + MARKER_EXTENT;
+    if (mx >= x1 && mx <= hitX2 && Math.abs(my - bandY) <= BAND_TOLERANCE) {
       return { kind: "band", start: s.start, end: s.end, closed_by: s.closed_by, x1, x2 };
     }
   }
