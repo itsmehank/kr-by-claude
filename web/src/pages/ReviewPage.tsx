@@ -12,7 +12,7 @@ import type {
   TriggerDecision,
 } from "../lib/types";
 import Sparkline from "../components/Sparkline";
-import ChartLegend from "../components/ChartLegend";
+import { LegendGuide } from "../components/ChartLegend";
 import { InfoTooltip } from "../components/InfoTooltip";
 import StockStreakRow from "../components/StockStreakRow";
 import StockDetailPanel from "../components/StockDetailPanel";
@@ -122,7 +122,7 @@ const PERFORMANCE_HELP = (
 const GRAPH_HELP = (
   <div className="space-y-2">
     <div className="font-semibold text-ink">그래프 읽는 법</div>
-    <ChartLegend />
+    <LegendGuide />
     <div className="text-muted">
       위 상세 패널의 큰 차트와 같은 기호를 씁니다. 그래프의 각 요소에 마우스를 올리면 값과
       설명이 뜹니다.
@@ -510,7 +510,7 @@ export default function ReviewPage() {
                 </th>
                 <th className="text-left px-3 py-1.5">
                   그래프
-                  <InfoTooltip>{GRAPH_HELP}</InfoTooltip>
+                  <InfoTooltip width={440}>{GRAPH_HELP}</InfoTooltip>
                 </th>
               </tr>
             </thead>

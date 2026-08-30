@@ -16,7 +16,7 @@ interface Props {
 export function InfoTooltip({ children, width = 360 }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [pos, setPos] = useState({ top: 0, left: 0, maxHeight: 0 });
 
   function show() {
     const r = ref.current?.getBoundingClientRect();
@@ -26,7 +26,9 @@ export function InfoTooltip({ children, width = 360 }: Props) {
     let left = r.left;
     if (left + width + margin > vw) left = vw - width - margin;
     if (left < margin) left = margin;
-    setPos({ top: r.bottom + 6, left });
+    const top = r.bottom + 6;
+    // 내용이 뷰포트 아래로 넘치면 잘려서 도달 불가 — 남은 높이로 제한하고 스크롤.
+    setPos({ top, left, maxHeight: window.innerHeight - top - margin });
     setOpen(true);
   }
 
@@ -50,8 +52,8 @@ export function InfoTooltip({ children, width = 360 }: Props) {
       {open && (
         <div
           role="tooltip"
-          className="fixed z-50 bg-paper border border-hairline shadow-bento-hover rounded-xl px-4 py-3 text-data text-ink"
-          style={{ top: pos.top, left: pos.left, width }}
+          className="fixed z-50 bg-paper border border-hairline shadow-bento-hover rounded-xl px-4 py-3 text-data text-ink overflow-y-auto"
+          style={{ top: pos.top, left: pos.left, width, maxHeight: pos.maxHeight }}
         >
           {children}
         </div>

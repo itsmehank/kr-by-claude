@@ -114,6 +114,29 @@ describe("hitTest", () => {
     expect(hitTest(input, 82, 46)).toMatchObject({
       kind: "band", start: "2026-06-02", closed_by: "ignore" });
   });
+  it("마커 확장 영역이 바로 뒤 band 의 실제 구간을 가로채지 않는다", () => {
+    // A(닫힘) 06-01~06-02(x2=25), B 06-03~06-05 시작 x1=50. A 확장은 35까지지만
+    // 그와 무관하게, B 구간 내부(mx=50)는 반드시 B 가 잡혀야 한다.
+    const twoBands = { ...input,
+      streaks: [
+        { start: "2026-06-01", end: "2026-06-02", closed_by: "disqualify" as const,
+          censored: false, backfilled: false, has_gap: false },
+        { start: "2026-06-03", end: "2026-06-05", closed_by: "ignore" as const,
+          censored: false, backfilled: false, has_gap: false },
+      ] };
+    expect(hitTest(twoBands, 50, 46)).toMatchObject({
+      kind: "band", start: "2026-06-03", closed_by: "ignore" });
+    // 인접 극단: A 확장 구간과 B 실제 구간이 겹치면 실제 구간(B)이 우선한다.
+    const adjacent = { ...input,
+      streaks: [
+        { start: "2026-06-01", end: "2026-06-02", closed_by: "disqualify" as const,
+          censored: false, backfilled: false, has_gap: false },
+        { start: "2026-06-02", end: "2026-06-05", closed_by: null,
+          censored: false, backfilled: false, has_gap: false },
+      ] };
+    expect(hitTest(adjacent, 30, 46)).toMatchObject({
+      kind: "band", start: "2026-06-02", closed_by: null });
+  });
   it("진행중(닫힘 마커 없음) band 는 끝 우측으로 확장되지 않는다", () => {
     const open = { ...input,
       streaks: [{ start: "2026-06-02", end: "2026-06-03", closed_by: null,

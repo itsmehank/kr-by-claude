@@ -11,7 +11,7 @@ import {
 } from "../lib/streakChart";
 import StockTimeline from "./StockTimeline";
 import StreakClosedCard from "./StreakClosedCard";
-import ChartLegend, { CLOSED_DESC } from "./ChartLegend";
+import ChartLegend, { CLOSED_DESC, TRIGGER_CONDITION, TRIGGER_LABEL } from "./ChartLegend";
 import { LatestStatusCell, PerformanceCell, StreakHeader } from "./StockStreakRow";
 
 // viewBox 좌표계(검토 #1): 종횡비 고정 + 단일 배율. 콘텐츠는 (PAD_X, PAD_Y) 로 평행이동.
@@ -22,21 +22,6 @@ const PAD_Y = 10;
 const CHART_W = 900;
 const CHART_H = 300;
 const TOOLTIP_W = 220;
-
-const TRIGGER_LABEL: Record<string, string> = {
-  breakout: "돌파",
-  breakout_from_watch: "돌파",
-  promotion: "승격",
-  invalidation: "무효화",
-};
-
-// 트리거 유형별 한 줄 설명 — trigger_gate.py 의 발동 조건을 사람 말로 풀어쓴 것.
-const TRIGGER_DESC: Record<string, string> = {
-  breakout: "종가가 pivot(돌파 기준가) 위로 마감했습니다.",
-  breakout_from_watch: "watch 종목의 종가가 pivot(돌파 기준가) 위로 처음 마감했습니다.",
-  promotion: "watch 종목이 pivot 에 근접해 entry 승격을 검토한 날입니다.",
-  invalidation: "손절선 이탈·50일선 아래 마감 — 베이스 훼손이 의심됩니다.",
-};
 
 const DECISION_LABEL: Record<string, string> = {
   go_now: "go_now (즉시 진입)",
@@ -66,8 +51,8 @@ function TooltipBody({ hit, to }: { hit: ChartHit; to: string }) {
           </span>
           <span className="num text-data-xs text-muted">{hit.date}</span>
         </div>
-        {TRIGGER_DESC[hit.trigger_type] && (
-          <div className="text-data-xs text-muted">{TRIGGER_DESC[hit.trigger_type]}</div>
+        {TRIGGER_CONDITION[hit.trigger_type] && (
+          <div className="text-data-xs text-muted">{TRIGGER_CONDITION[hit.trigger_type]}</div>
         )}
         <div className="text-data-xs">
           판정 {hit.decision != null ? DECISION_LABEL[hit.decision] ?? hit.decision : "—"}

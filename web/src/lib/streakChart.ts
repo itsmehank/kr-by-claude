@@ -137,12 +137,20 @@ export function hitTest(input: ChartIn, mx: number, my: number): ChartHit | null
       return { kind: "step", from, to, pivot, y: sy };
     }
   }
-  for (const s of input.streaks) {
-    const x1 = x(idx(s.start)), x2 = s.end == null ? width : x(idx(s.end));
-    const hitX2 = s.closed_by == null ? x2 : x2 + MARKER_EXTENT;
-    if (mx >= x1 && mx <= hitX2 && Math.abs(my - bandY) <= BAND_TOLERANCE) {
-      return { kind: "band", start: s.start, end: s.end, closed_by: s.closed_by, x1, x2 };
+  // 1차: 실제 구간 [x1, x2] 매치. 2차(폴백): 닫힌 band 의 마커 글리프 확장 구간
+  // (x2, x2+MARKER_EXTENT] — 확장이 바로 뒤 band 의 실제 구간을 가로채지 않게 분리.
+  let markerHit: ChartHit | null = null;
+  if (Math.abs(my - bandY) <= BAND_TOLERANCE) {
+    for (const s of input.streaks) {
+      const x1 = x(idx(s.start)), x2 = s.end == null ? width : x(idx(s.end));
+      if (mx >= x1 && mx <= x2) {
+        return { kind: "band", start: s.start, end: s.end, closed_by: s.closed_by, x1, x2 };
+      }
+      if (markerHit == null && s.closed_by != null && mx > x2 && mx <= x2 + MARKER_EXTENT) {
+        markerHit = { kind: "band", start: s.start, end: s.end, closed_by: s.closed_by, x1, x2 };
+      }
     }
+    if (markerHit) return markerHit;
   }
   const i = Math.min(n - 1, Math.max(0, Math.round((mx / width) * (n - 1))));
   return { kind: "price", date: series[i][0], close: series[i][1], x: x(i), y: y(series[i][1]) };

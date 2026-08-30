@@ -1,12 +1,5 @@
 import { buildChart, type ChartIn } from "../lib/streakChart";
-import { CLOSED_DESC, MARK_DESC } from "./ChartLegend";
-
-const DOT_DESC: Record<string, string> = {
-  breakout: MARK_DESC.dotBreakout,
-  breakout_from_watch: MARK_DESC.dotBreakout,
-  promotion: MARK_DESC.dotPromotion,
-  invalidation: MARK_DESC.dotInvalidation,
-};
+import { CLOSED_DESC, MARK_DESC, TRIGGER_DOT_DESC } from "./ChartLegend";
 
 export default function StreakChart(props: Omit<ChartIn, "width" | "height">) {
   const width = 420, height = 64, bandY = height + 6;
@@ -31,14 +24,15 @@ export default function StreakChart(props: Omit<ChartIn, "width" | "height">) {
             <text x={b.x1} y={bandY + 4} fontSize={9} fill="#b45309">
               <title>{MARK_DESC.censored}</title>⟵</text>)}
           {b.marker && (
-            <text x={b.x2} y={bandY + 4} fontSize={10}
+            /* 구간 끝에서 닫히면 x2=width — svg 밖으로 잘리지 않게 클램프(큰 차트와 동일) */
+            <text x={Math.min(b.x2, width - 10)} y={bandY + 4} fontSize={10}
                   fill={b.marker === "x" ? "#dc2626" : "#6b7280"}>
               <title>{b.marker === "x" ? MARK_DESC.closedX : MARK_DESC.closedO}</title>
               {b.marker === "x" ? "✕" : "○"}</text>)}
         </g>))}
       {out.dots.map((d, i) => (
         <circle key={`d${i}`} cx={d.x} cy={d.y} r={3} fill={d.color}>
-          <title>{`${DOT_DESC[d.trigger_type] ?? d.trigger_type} (${d.d})`}</title>
+          <title>{`${TRIGGER_DOT_DESC[d.trigger_type] ?? d.trigger_type} (${d.d})`}</title>
         </circle>))}
     </svg>
   );
