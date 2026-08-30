@@ -12,6 +12,8 @@ import type {
   TriggerDecision,
 } from "../lib/types";
 import Sparkline from "../components/Sparkline";
+import { LegendGuide } from "../components/ChartLegend";
+import { InfoTooltip } from "../components/InfoTooltip";
 import StockStreakRow from "../components/StockStreakRow";
 import StockDetailPanel from "../components/StockDetailPanel";
 import { SourceChip } from "../components/SourceChip";
@@ -47,6 +49,86 @@ const PATTERNS: { value: string; label: string }[] = [
   { value: "vcp", label: "vcp" },
   { value: "none", label: "none" },
 ];
+
+// ── 종목 행 표 컬럼 도움말 — TriggersPage 의 InfoTooltip 헤더 관례를 따른다. ──
+
+const STREAK_STATUS_HELP = (
+  <div className="space-y-2">
+    <div className="font-semibold text-ink">최근 묶음 상태</div>
+    <div className="text-muted">
+      가장 최근 관찰 묶음(같은 셋업을 이어서 관찰한 분석 구간)이 지금 어떤 상태인지 표시합니다.
+    </div>
+    <ul className="space-y-1.5">
+      <li>
+        <span className="font-semibold text-accent">진행중</span> — 묶음이 아직 열려 있어 계속 관찰 중.
+      </li>
+      <li>
+        <span className="font-semibold">닫힘 · 실격</span> — 미너비니 조건 미달 등으로 관찰 자격을 잃어 종료.
+      </li>
+      <li>
+        <span className="font-semibold">닫힘 · ignore</span> — LLM 이 분석 제외(클라이맥스 등)로 판정해 종료.
+      </li>
+      <li>
+        <span className="font-semibold">관찰 시작=시스템 시작</span> 배지 — 묶음 시작이 관측 하한과 겹쳐 그 이전 이력은 알 수 없음.
+      </li>
+      <li>
+        <span className="font-semibold">백필</span> 배지 — 과거 데이터를 나중에 채워 넣은 분석이 섞여 있음.
+      </li>
+    </ul>
+  </div>
+);
+
+const STREAK_COUNT_HELP = (
+  <div className="space-y-2">
+    <div className="font-semibold text-ink">묶음 수</div>
+    <div className="text-muted">
+      조회 기간과 겹치는 관찰 묶음의 개수입니다. 관찰 묶음은 같은 셋업을 끊기지 않고 이어서
+      관찰한 분석 구간으로, 셋업이 무너지면(실격·ignore) 닫히고 새 셋업이 잡히면 새 묶음이
+      시작됩니다. 수가 많을수록 이 기간에 셋업이 여러 번 만들어졌다 무너졌다는 뜻입니다.
+    </div>
+  </div>
+);
+
+const RECENT_PIVOT_HELP = (
+  <div className="space-y-2">
+    <div className="font-semibold text-ink">최근 pivot (돌파 기준가)</div>
+    <div className="text-muted">
+      가장 최근 관찰 묶음에서 LLM 이 마지막으로 제시한 매수 판단 기준 가격입니다. 종가가 이
+      가격 위로 마감하면 돌파로 봅니다. — 는 아직 pivot 이 확정되지 않았다는 뜻(베이스 형성
+      중)입니다.
+    </div>
+  </div>
+);
+
+const PERFORMANCE_HELP = (
+  <div className="space-y-2">
+    <div className="font-semibold text-ink">성과</div>
+    <div className="text-muted">최근 묶음의 진행 단계(stage)에 따라 다른 숫자를 보여줍니다.</div>
+    <ul className="space-y-1.5">
+      <li>
+        <span className="font-semibold">돌파(breakout)</span> — 돌파일 이후 T+5 / T+20 거래일 수익률.
+      </li>
+      <li>
+        <span className="font-semibold">관찰·대기(watching/staging)</span> — pivot 대비 최고
+        도달률(최고가가 pivot 을 얼마나 넘었었나).
+      </li>
+      <li>
+        <span className="font-semibold">베이스 형성 중</span> — pivot 미확정이라 표시할 숫자 없음.
+      </li>
+    </ul>
+  </div>
+);
+
+const GRAPH_HELP = (
+  <div className="space-y-2">
+    <div className="font-semibold text-ink">그래프 읽는 법</div>
+    <LegendGuide />
+    <div className="text-muted">
+      위 상세 패널의 큰 차트와 같은 기호를 씁니다. 그래프의 각 요소에 마우스를 올리면 값과
+      설명이 뜹니다.
+    </div>
+  </div>
+);
 
 // 상태(묶음 종결 여부) — 종목 행 뷰 전용 필터(스펙 §5).
 const STOCK_STATUSES: { value: string; label: string }[] = [
@@ -410,26 +492,26 @@ export default function ReviewPage() {
             <thead className="bg-paper/60 text-faint">
               <tr>
                 <th className="text-left px-3 py-1.5">종목</th>
-                <th
-                  className="text-left px-3 py-1.5"
-                  title="가장 최근 관찰 묶음이 진행중인지, 닫혔는지(닫힌 사유: ignore·실격)"
-                >
+                <th className="text-left px-3 py-1.5">
                   최근 묶음 상태
+                  <InfoTooltip>{STREAK_STATUS_HELP}</InfoTooltip>
                 </th>
-                <th
-                  className="text-right px-3 py-1.5"
-                  title="조회 기간과 겹치는 관찰 묶음(연속 유효 분석 구간) 개수"
-                >
+                <th className="text-right px-3 py-1.5">
                   묶음 수
+                  <InfoTooltip>{STREAK_COUNT_HELP}</InfoTooltip>
                 </th>
-                <th className="text-right px-3 py-1.5">최근 pivot</th>
-                <th
-                  className="text-left px-3 py-1.5"
-                  title="돌파=돌파 후 T+5/T+20 수익률 · 관찰/대기=pivot 대비 최고 도달률 · 베이스 형성 중=pivot 미확정(숫자 없음)"
-                >
+                <th className="text-right px-3 py-1.5">
+                  최근 pivot
+                  <InfoTooltip>{RECENT_PIVOT_HELP}</InfoTooltip>
+                </th>
+                <th className="text-left px-3 py-1.5">
                   성과
+                  <InfoTooltip>{PERFORMANCE_HELP}</InfoTooltip>
                 </th>
-                <th className="text-left px-3 py-1.5">그래프</th>
+                <th className="text-left px-3 py-1.5">
+                  그래프
+                  <InfoTooltip width={440}>{GRAPH_HELP}</InfoTooltip>
+                </th>
               </tr>
             </thead>
             <tbody>
