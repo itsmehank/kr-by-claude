@@ -41,29 +41,37 @@ export const TRIGGER_DOT_DESC: Record<string, string> = Object.fromEntries(
   ]),
 );
 
+/** censored(이전 이력 불명) 설명의 단일 정의(#144 F8) — 배지 title·범례·도움말 공유. */
+export const CENSORED_DESC =
+  "구간의 시작이 이 화면이 다루는 관측 시작일과 맞물려 있어, " +
+  "그 이전에도 watch 이상이었는지는 알 수 없습니다.";
+
+/** "watch 이상 구간" 정의의 단일 문장(#144 F8) — 컬럼 도움말·범례·툴팁 공유. */
+export const STREAK_DEF =
+  "watch 이상 구간 = LLM 분류가 watch 또는 entry(매수 후보)로 유지된 연속 기간. " +
+  "ignore(분석 제외)나 실격 판정이 나오면 닫히고, 다시 watch 이상으로 분류되면 새 구간이 시작됩니다.";
+
 /** 트리거 외 기호별 긴 설명 — 범례 hover·차트 툴팁·스파크라인 <title> 이 공유. */
 export const MARK_DESC = {
-  price: "일별 종가의 흐름입니다.",
+  price:
+    "일별 종가의 흐름입니다. 상세 차트에서는 캔들을 불러오기 전이나 캔들이 없을 때 선으로 표시됩니다.",
   candle:
     "하루의 가격 캔들 — 몸통은 시가↔종가, 위·아래 심지는 고가↔저가입니다. " +
-    "빨강=상승(종가≥시가), 파랑=하락. 시·고·저가가 없는 날(거래정지 등)은 종가 위치의 짧은 가로 틱으로만 표시합니다.",
+    "초록=상승(종가≥시가), 빨강=하락(차트 페이지와 동일한 관례). " +
+    "시·고·저가가 없는 날(거래정지 등)은 종가 위치의 짧은 가로 틱으로만 표시합니다.",
   band:
-    "watch 이상 구간 — LLM 분류가 watch 또는 entry(매수 후보)로 유지된 연속 기간입니다. " +
-    "ignore(분석 제외)나 실격 판정이 나오면 닫히고, 다시 watch 이상으로 분류되면 새 구간이 시작됩니다. " +
-    "점선이면 중간에 분석 공백이 있거나 백필로 채운 기록이 섞여 있습니다.",
+    STREAK_DEF + " 점선이면 중간에 분석 공백이 있거나 백필로 채운 기록이 섞여 있습니다.",
   tint: "연초록 배경 — watch 이상 구간이 이어진 기간을 차트 위에 직접 칠한 것입니다.",
   pivot:
     "pivot(돌파 기준가) — LLM 분석이 제시한 매수 판단 기준 가격입니다. " +
     "종가가 이 선 위로 마감하면 돌파로 봅니다. 기준가가 유효했던 기간만 선으로 표시합니다.",
   closedX:
     "실격으로 구간 종료 — 미너비니 조건 미달 등으로 관찰 자격을 잃어 구간이 닫힌 지점입니다. " +
-    "차트에는 그 날짜에 붉은 수직 점선으로도 표시됩니다.",
+    "상세 차트에는 그 날짜에 붉은 수직 점선으로도 표시됩니다.",
   closedO:
     "ignore 판정으로 구간 종료 — LLM이 분석 제외(클라이맥스 등)로 판정해 구간이 닫힌 지점입니다. " +
-    "차트에는 그 날짜에 회색 수직 점선으로도 표시됩니다.",
-  censored:
-    "구간의 시작이 이 화면이 다루는 관측 시작일과 맞물려 있어, " +
-    "그 이전에도 watch 이상이었는지는 알 수 없습니다.",
+    "상세 차트에는 그 날짜에 회색 수직 점선으로도 표시됩니다.",
+  censored: CENSORED_DESC,
 } as const;
 
 /** 닫힘 사유(closed_by)별 한 줄 설명 — 차트 band 툴팁과 범례가 공유. */
@@ -72,30 +80,37 @@ export const CLOSED_DESC: Record<"disqualify" | "ignore", string> = {
   ignore: "ignore 판정으로 종료 — LLM이 분석 제외(클라이맥스 등)로 판정",
 };
 
+type Surface = "detail" | "spark";
+
 interface LegendItem {
   label: string;
   desc: string;
   swatch: ReactNode;
+  /** 이 기호가 그려지는 곳 — 스파크라인 도움말(LegendGuide)이 자기 기호만 싣게(#144 F6). */
+  surfaces: Surface[];
 }
 
 const ITEMS: LegendItem[] = [
   {
     label: "종가",
+    surfaces: ["detail", "spark"],
     desc: MARK_DESC.price,
     swatch: <span className="inline-block w-4 border-t-2" style={{ borderColor: "#2563eb" }} />,
   },
   {
     label: "캔들",
     desc: MARK_DESC.candle,
+    surfaces: ["detail"],
     swatch: (
       <span className="inline-flex items-end gap-0.5">
-        <span className="inline-block w-1.5 h-3" style={{ background: "#dc2626" }} />
-        <span className="inline-block w-1.5 h-2" style={{ background: "#2563eb" }} />
+        <span className="inline-block w-1.5 h-3" style={{ background: "#16a34a" }} />
+        <span className="inline-block w-1.5 h-2" style={{ background: "#dc2626" }} />
       </span>
     ),
   },
   {
     label: "pivot 기준가",
+    surfaces: ["detail", "spark"],
     desc: MARK_DESC.pivot,
     swatch: (
       <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: "#9ca3af" }} />
@@ -103,33 +118,38 @@ const ITEMS: LegendItem[] = [
   },
   {
     label: "watch 이상 구간",
+    surfaces: ["detail", "spark"],
     desc: MARK_DESC.band,
     swatch: <span className="inline-block w-4 h-1 rounded-sm" style={{ background: "#16a34a" }} />,
   },
   {
     label: "구간 배경",
+    surfaces: ["detail"],
     desc: MARK_DESC.tint,
     swatch: (
       <span className="inline-block w-4 h-3 rounded-sm"
             style={{ background: "rgba(22,163,74,0.15)" }} />
     ),
   },
-  { label: "실격 닫힘", desc: MARK_DESC.closedX, swatch: <span style={{ color: "#dc2626" }}>✕</span> },
-  { label: "ignore 닫힘", desc: MARK_DESC.closedO, swatch: <span style={{ color: "#6b7280" }}>○</span> },
-  { label: "이전 이력 불명", desc: MARK_DESC.censored, swatch: <span style={{ color: "#b45309" }}>⟵</span> },
+  { label: "실격 닫힘", surfaces: ["detail", "spark"], desc: MARK_DESC.closedX, swatch: <span style={{ color: "#dc2626" }}>✕</span> },
+  { label: "ignore 닫힘", surfaces: ["detail", "spark"], desc: MARK_DESC.closedO, swatch: <span style={{ color: "#6b7280" }}>○</span> },
+  { label: "이전 이력 불명", surfaces: ["detail", "spark"], desc: MARK_DESC.censored, swatch: <span style={{ color: "#b45309" }}>⟵</span> },
   // 라벨("돌파" 등)이 바로 옆에 보이므로 desc 는 접두사 없는 조건 문구를 그대로 쓴다.
   {
     label: "돌파",
+    surfaces: ["detail", "spark"],
     desc: TRIGGER_CONDITION.breakout,
     swatch: <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#16a34a" }} />,
   },
   {
     label: "승격",
+    surfaces: ["detail", "spark"],
     desc: TRIGGER_CONDITION.promotion,
     swatch: <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#f59e0b" }} />,
   },
   {
     label: "무효화",
+    surfaces: ["detail", "spark"],
     desc: TRIGGER_CONDITION.invalidation,
     swatch: <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#9ca3af" }} />,
   },
@@ -150,11 +170,12 @@ export default function ChartLegend() {
 }
 
 /** 설명이 항상 보이는 정적 범례 목록 — InfoTooltip 내부처럼 hover 를 쓸 수 없는
- * 곳용(툴팁 위로 마우스를 옮기면 닫히므로 hover 설명은 도달 불가). */
+ * 곳용(툴팁 위로 마우스를 옮기면 닫히므로 hover 설명은 도달 불가).
+ * 스파크라인 컬럼 도움말이므로 스파크라인에 실제로 그려지는 기호만 싣는다(#144 F6). */
 export function LegendGuide() {
   return (
     <ul className="space-y-1.5">
-      {ITEMS.map((it) => (
+      {ITEMS.filter((it) => it.surfaces.includes("spark")).map((it) => (
         <li key={it.label} className="flex items-baseline gap-2">
           <span className="shrink-0 w-5 text-center">{it.swatch}</span>
           <span>

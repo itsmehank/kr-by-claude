@@ -10,7 +10,7 @@ from api.schemas.review import (
 )
 from api.services.review_builder import (
     BREAKOUT_TYPES, build_spark, chain_tn, corp_action_flags,
-    count_orphan_triggers, derive_status, fetch_analysis_rows,
+    count_orphan_triggers, derive_status, fetch_analysis_rows, fetch_candles,
     fetch_price_series, first_breakout, first_promotion_d, max_reach,
 )
 from api.services.review_streaks import build_stock_rows
@@ -102,13 +102,6 @@ def list_analyses(
     return ReviewResponse(rows=out, orphan_trigger_count=orphans)
 
 
-_CANDLES_SQL = """
-SELECT date, adj_open, adj_high, adj_low, adj_close FROM daily_prices
- WHERE ticker = %(symbol)s AND date >= %(start)s AND date <= %(end)s
- ORDER BY date
-"""
-
-
 @router.get("/stocks/{symbol}/candles", response_model=CandlesResponse)
 def stock_candles(
     symbol: str,
@@ -117,18 +110,8 @@ def stock_candles(
     conn: Connection = Depends(get_conn),
 ):
     """상세 패널 캔들(#143) — 행 선택 시에만 호출되는 경량 조회.
-    /stocks 응답의 series 와 같은 테이블·날짜축이라 정렬이 보장된다."""
-    with conn.cursor() as cur:
-        cur.execute(_CANDLES_SQL, {"symbol": symbol, "start": from_, "end": to})
-        candles = [
-            (r[0],
-             float(r[1]) if r[1] is not None else None,
-             float(r[2]) if r[2] is not None else None,
-             float(r[3]) if r[3] is not None else None,
-             float(r[4]))
-            for r in cur.fetchall()
-        ]
-    return CandlesResponse(candles=candles)
+    날짜축 정합·null 정책은 fetch_candles(review_builder) 참조."""
+    return CandlesResponse(candles=fetch_candles(conn, symbol, from_, to))
 
 
 @router.get("/stocks", response_model=StockRowsResponse)

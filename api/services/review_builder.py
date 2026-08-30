@@ -193,6 +193,32 @@ def fetch_price_series(conn: Connection, symbol: str, start: date, end: date
         return [(r[0], float(r[1])) for r in cur.fetchall()]
 
 
+# _PRICES_SQL 과 같은 테이블·조건·정렬 — 캔들과 series 의 날짜축 정합을 구조로 보장
+# (#144 리뷰 F7: 라우터 복제 대신 여기 단일 정의). indicators.py 와 달리 COALESCE
+# (adj, raw)를 쓰지 않는 것은 의도 — 이 축은 adj 기준이라 raw 혼입이 왜곡을 만들고,
+# o/h/l 미백필은 null 그대로 내려 프론트가 종가 틱으로 폴백한다.
+_CANDLES_SQL = """
+SELECT date, adj_open, adj_high, adj_low, adj_close FROM daily_prices
+ WHERE ticker = %(symbol)s AND date >= %(start)s AND date <= %(end)s
+ ORDER BY date
+"""
+
+
+def fetch_candles(
+    conn: Connection, symbol: str, start: date, end: date,
+) -> list[tuple[date, float | None, float | None, float | None, float]]:
+    with conn.cursor() as cur:
+        cur.execute(_CANDLES_SQL, {"symbol": symbol, "start": start, "end": end})
+        return [
+            (r[0],
+             float(r[1]) if r[1] is not None else None,
+             float(r[2]) if r[2] is not None else None,
+             float(r[3]) if r[3] is not None else None,
+             float(r[4]))
+            for r in cur.fetchall()
+        ]
+
+
 def chain_tn(series: list[tuple[date, float]], d: date, pivot_delta: float,
              n: int) -> float | None:
     """(1+pivot_delta) × adj(D+n거래일)/adj(D) − 1. 거래일 = 시리즈의 행."""

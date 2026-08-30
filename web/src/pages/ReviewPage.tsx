@@ -12,7 +12,8 @@ import type {
   TriggerDecision,
 } from "../lib/types";
 import Sparkline from "../components/Sparkline";
-import { LegendGuide } from "../components/ChartLegend";
+import { LegendGuide, STREAK_DEF } from "../components/ChartLegend";
+import { CENSORED_DESC } from "../components/ChartLegend";
 import { InfoTooltip } from "../components/InfoTooltip";
 import StockStreakRow from "../components/StockStreakRow";
 import StockDetailPanel from "../components/StockDetailPanel";
@@ -52,10 +53,8 @@ const PATTERNS: { value: string; label: string }[] = [
 
 // ── 종목 행 표 컬럼 도움말 — TriggersPage 의 InfoTooltip 헤더 관례를 따른다. ──
 
-// "watch 이상 구간" 정의는 도움말마다 반복해 쓴다 — 이 표가 처음 보는 화면이라는 전제.
-const STREAK_DEF =
-  "watch 이상 구간 = LLM 분류가 watch 또는 entry(매수 후보)로 유지된 연속 기간. " +
-  "ignore(분석 제외)나 실격 판정이 나오면 닫히고, 다시 watch 이상으로 분류되면 새 구간이 시작됩니다.";
+// "watch 이상 구간" 정의는 ChartLegend 의 STREAK_DEF 단일 문장을 도움말마다 반복해
+// 쓴다(#144 F8) — 이 표가 처음 보는 화면이라는 전제.
 
 const STREAK_STATUS_HELP = (
   <div className="space-y-2">
@@ -80,8 +79,7 @@ const STREAK_STATUS_HELP = (
     </div>
     <ul className="space-y-1.5">
       <li>
-        <span className="font-semibold">이전 이력 불명</span> — 구간의 시작이 이 화면이 다루는
-        관측 시작일과 맞물려 있어, 그 이전에도 watch 이상이었는지 알 수 없음.
+        <span className="font-semibold">이전 이력 불명</span> — {CENSORED_DESC}
       </li>
       <li>
         <span className="font-semibold">백필</span> — 실시간 분석이 아니라 나중에 과거 데이터를

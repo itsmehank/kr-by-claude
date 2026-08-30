@@ -15,7 +15,9 @@ export function triggerColor(triggerType: string): string {
 
 export interface StreakBandIn { start: string; end: string | null;
   closed_by: "ignore" | "disqualify" | null; censored: boolean;
-  backfilled: boolean; has_gap: boolean; }
+  backfilled: boolean; has_gap: boolean;
+  /** end 가 조회 종료일로 표시 절단됨(#144 F1) — 실제 닫힘일은 범위 밖. */
+  end_clamped?: boolean; }
 /** [date, adj_open, adj_high, adj_low, adj_close] — o/h/l 은 미백필(null) 가능. */
 export type Candle = [string, number | null, number | null, number | null, number];
 
@@ -32,11 +34,11 @@ export interface ChartOut {
   bands: { x1: number; x2: number; dashed: boolean;
            marker: "x" | "o" | null; censored: boolean;
            start: string; end: string | null;
-           closed_by: "ignore" | "disqualify" | null }[];
+           closed_by: "ignore" | "disqualify" | null;
+           end_clamped: boolean }[];
   dots: { x: number; y: number; color: string;
           d: string; trigger_type: string }[];
-  candleMarks: { x: number; date: string;
-                 o: number | null; h: number | null; l: number | null; c: number;
+  candleMarks: { x: number;
                  yO: number | null; yH: number | null; yL: number | null; yC: number;
                  up: boolean | null }[];
   yTicks: { v: number; y: number }[];
@@ -59,18 +61,21 @@ export function mapClientToChart(
   };
 }
 
+export type ChartScale = ReturnType<typeof computeScale>;
+
 export type ChartHit =
   | { kind: "dot"; date: string; trigger_type: string; decision: string | null;
       close: number | null; pivot_price: number | null; x: number; y: number }
   | { kind: "step"; from: string; to: string | null; pivot: number; y: number }
   | { kind: "band"; start: string; end: string | null;
-      closed_by: "ignore" | "disqualify" | null; x1: number; x2: number }
-  | { kind: "closure"; date: string; closed_by: "ignore" | "disqualify"; x: number }
+      closed_by: "ignore" | "disqualify" | null; end_clamped?: boolean;
+      x1: number; x2: number }
+  | { kind: "closure"; date: string; closed_by: "ignore" | "disqualify" }
   | { kind: "price"; date: string; close: number; x: number; y: number };
 
 // buildChart 와 hitTest 가 좌표 공식을 공유한다 — 한쪽만 바뀌면 점 위치와
 // 히트 영역이 어긋나므로 반드시 이 헬퍼를 통해서만 스케일을 계산할 것.
-function computeScale(input: ChartIn) {
+export function computeScale(input: ChartIn) {
   const { width, height, series } = input;
   const n = series.length;
   if (n < 2) return null;
@@ -122,21 +127,24 @@ export function buildChart(input: ChartIn): ChartOut {
     dashed: s.has_gap || s.backfilled,
     marker: s.closed_by == null ? null : s.closed_by === "disqualify" ? "x" as const : "o" as const,
     censored: s.censored,
-    start: s.start, end: s.end, closed_by: s.closed_by }));
+    start: s.start, end: s.end, closed_by: s.closed_by,
+    end_clamped: s.end_clamped ?? false }));
   const dots = input.triggers.map((t) => ({
     x: x(idx(t.d)), y: y(series[idx(t.d)][1]), color: triggerColor(t.trigger_type),
     d: t.d, trigger_type: t.trigger_type }));
   const candleMarks = (input.candles ?? []).map(([d, o, h, l, c]) => ({
-    x: x(idx(d)), date: d, o, h, l, c,
+    x: x(idx(d)),
     yO: o == null ? null : y(o), yH: h == null ? null : y(h),
     yL: l == null ? null : y(l), yC: y(c),
-    up: o == null ? null : c >= o }));
-  // y 눈금 4개 = 도메인 [min, max] 등분. 라벨 포맷은 컴포넌트 몫.
-  const span = max - min || 1;
-  const yTicks = [0, 1, 2, 3].map((k) => {
-    const v = min + (span * k) / 3;
-    return { v, y: y(v) };
-  });
+    up: o == null || h == null || l == null ? null : c >= o }));
+  // y 눈금 = 도메인 [min, max] 4등분. flat 도메인(min==max)은 눈금 1개 —
+  // span 폴백(1)이 실존하지 않는 가격·중복 라벨을 만들지 않게(#144 F5a).
+  const yTicks = max === min
+    ? [{ v: min, y: y(min) }]
+    : [0, 1, 2, 3].map((k) => {
+        const v = min + ((max - min) * k) / 3;
+        return { v, y: y(v) };
+      });
   // x 눈금: 시작점 + 월 경계 우선, 부족하면 등간격 보충, 많으면 솎아냄.
   const tickSet = new Set<number>([0]);
   for (let i = 1; i < n; i++) {
@@ -147,8 +155,12 @@ export function buildChart(input: ChartIn): ChartOut {
   }
   let tickIdx = [...tickSet].sort((a, b) => a - b);
   if (tickIdx.length > MAX_X_TICKS) {
-    const step = Math.ceil(tickIdx.length / MAX_X_TICKS);
-    tickIdx = tickIdx.filter((_, i) => i % step === 0);
+    // 양끝 포함 균등 선택 — modulo 솎아내기는 위상에 따라 마지막(최신) 경계를
+    // 떨어뜨린다(#144 F5b).
+    tickIdx = [...new Set(
+      Array.from({ length: MAX_X_TICKS },
+        (_, i) => tickIdx[Math.round((i * (tickIdx.length - 1)) / (MAX_X_TICKS - 1))]),
+    )];
   }
   const xTicks = tickIdx.map((i) => ({ label: series[i][0].slice(5), x: x(i) }));
   return { pricePoints, steps, bands, dots, candleMarks, yTicks, xTicks };
@@ -165,8 +177,10 @@ const MARKER_EXTENT = 10;
 
 /** viewBox 좌표 (mx, my) 에서 무엇 위에 있는지 판정 — 우선순위 dot > step > band > price.
  *  범위 밖·데이터 부족(n<2)은 null (툴팁·크로스헤어 숨김). */
-export function hitTest(input: ChartIn, mx: number, my: number): ChartHit | null {
-  const scale = computeScale(input);
+export function hitTest(input: ChartIn, mx: number, my: number,
+                        precomputed?: ChartScale): ChartHit | null {
+  // 렌더가 이미 계산한 scale 을 받아 mousemove 마다 재계산하지 않는다(#144 F9).
+  const scale = precomputed ?? computeScale(input);
   if (!scale) return null;
   const { width, height, series } = input;
   const { n, x, y, idx } = scale;
@@ -191,10 +205,11 @@ export function hitTest(input: ChartIn, mx: number, my: number): ChartHit | null
   // 닫힘 수직 점선(차트 영역 전체 높이) — 닫힌 band 의 end 날짜 위치.
   if (my >= 0 && my <= height) {
     for (const s of input.streaks) {
-      if (s.end == null || s.closed_by == null) continue;
+      // end_clamped 는 절단일이지 닫힘일이 아님 — 점선·closure 단정 금지(#144 F1).
+      if (s.end == null || s.closed_by == null || s.end_clamped) continue;
       const cx = x(idx(s.end));
       if (Math.abs(mx - cx) <= CLOSURE_TOLERANCE) {
-        return { kind: "closure", date: s.end, closed_by: s.closed_by, x: cx };
+        return { kind: "closure", date: s.end, closed_by: s.closed_by };
       }
     }
   }
@@ -205,10 +220,12 @@ export function hitTest(input: ChartIn, mx: number, my: number): ChartHit | null
     for (const s of input.streaks) {
       const x1 = x(idx(s.start)), x2 = s.end == null ? width : x(idx(s.end));
       if (mx >= x1 && mx <= x2) {
-        return { kind: "band", start: s.start, end: s.end, closed_by: s.closed_by, x1, x2 };
+        return { kind: "band", start: s.start, end: s.end, closed_by: s.closed_by,
+                 end_clamped: s.end_clamped ?? false, x1, x2 };
       }
       if (markerHit == null && s.closed_by != null && mx > x2 && mx <= x2 + MARKER_EXTENT) {
-        markerHit = { kind: "band", start: s.start, end: s.end, closed_by: s.closed_by, x1, x2 };
+        markerHit = { kind: "band", start: s.start, end: s.end, closed_by: s.closed_by,
+                      end_clamped: s.end_clamped ?? false, x1, x2 };
       }
     }
     if (markerHit) return markerHit;

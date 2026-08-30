@@ -221,7 +221,10 @@ def _clamp_display(streak: dict, date_to: date) -> dict:
         dict(a, triggers=[t for t in a["triggers"] if t["d"] <= date_to])
         for a in streak["analyses"] if a["key_date"] <= date_to
     ]
-    if s["end"] is not None and s["end"] > date_to:
+    # (#144 리뷰 F1) 절단 여부를 표시층에 전달 — end 만 보고는 "그 날짜에 닫힘"과
+    # "to 로 잘림"을 구분할 수 없어, 프론트의 닫힘 수직 점선·날짜 툴팁이 오정보가 됨.
+    s["end_clamped"] = s["end"] is not None and s["end"] > date_to
+    if s["end_clamped"]:
         s["end"] = date_to          # closed_by 는 그대로 (스펙 §1)
     return s
 

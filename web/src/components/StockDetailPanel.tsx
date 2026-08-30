@@ -6,6 +6,7 @@ import type { StockRow } from "../lib/types";
 import {
   BAND_OFFSET,
   buildChart,
+  computeScale,
   hitTest,
   mapClientToChart,
   type Candle,
@@ -21,15 +22,23 @@ import { LatestStatusCell, PerformanceCell, StreakHeader } from "./StockStreakRo
 // PAD_X 는 y축 가격 라벨 공간(#143). 마우스 역변환은 mapClientToChart 가 흡수.
 const VB_W = 940;
 const VB_H = 360;
-const PAD_X = 52;
+const PAD_X = 60;
 const PAD_Y = 10;
-const CHART_W = 872;
+const CHART_W = 864;
 const CHART_H = 300;
 const X_LABEL_Y = 332; // 하단 띠(306~311) 아래 날짜 라벨 기준선
 const TOOLTIP_W = 220;
 
-const CANDLE_UP = "#dc2626";   // 국내 관례: 상승 = 빨강
-const CANDLE_DOWN = "#2563eb"; // 하락 = 파랑
+// 캔들 색은 ChartPage(PriceChart)와 동일 관례 — 그 화면의 색 언어(초록=긍정 신호,
+// 빨강=경고·stop)와 충돌하지 않게 상승=초록/하락=빨강로 통일(#144 F4).
+const CANDLE_UP = "#16a34a";
+const CANDLE_DOWN = "#dc2626";
+
+// y축 가격 라벨 — 7자리부터는 여백(PAD_X)을 넘치므로 만 단위로 축약(#144 F3).
+function priceLabel(v: number): string {
+  if (v >= 1_000_000) return `${Math.round(v / 10_000).toLocaleString()}만`;
+  return Math.round(v).toLocaleString();
+}
 
 const DECISION_LABEL: Record<string, string> = {
   go_now: "go_now (즉시 진입)",
@@ -124,7 +133,11 @@ function TooltipBody({ hit, to, candleByDate }: {
         {hit.start} ~ {hit.end ?? ongoingLabel(to)}
       </span>
       <span className="text-data-xs text-muted">
-        {hit.closed_by == null ? ongoingLabel(to) : CLOSED_DESC[hit.closed_by]}
+        {hit.closed_by == null
+          ? ongoingLabel(to)
+          : hit.end_clamped
+            ? `${CLOSED_DESC[hit.closed_by]} · 실제 닫힘일은 조회 종료일 이후(범위 밖)`
+            : CLOSED_DESC[hit.closed_by]}
       </span>
     </div>
   );
@@ -162,6 +175,7 @@ export default function StockDetailPanel({ row, to }: { row: StockRow; to: strin
       streaks: row.streaks.map((s) => ({
         start: s.start,
         end: s.end,
+        end_clamped: s.end_clamped ?? false,
         closed_by: (s.closed_by as "ignore" | "disqualify" | null) ?? null,
         censored: s.censored,
         backfilled: s.backfilled,
@@ -182,6 +196,8 @@ export default function StockDetailPanel({ row, to }: { row: StockRow; to: strin
     [row, to, candles],
   );
   const out = useMemo(() => buildChart(chartIn), [chartIn]);
+  // mousemove 마다 재계산하지 않도록 hitTest 에 넘길 scale 을 메모(#144 F9).
+  const scale = useMemo(() => computeScale(chartIn), [chartIn]);
   const bandY = CHART_H + BAND_OFFSET;
 
   // 검토 #2: series 0~1점이면 buildChart 가 빈 ChartOut — 핸들러 미부착 플레이스홀더.
@@ -205,7 +221,7 @@ export default function StockDetailPanel({ row, to }: { row: StockRow; to: strin
     // 범례가 세로 공간을 나눠 쓰면서 flex 가 svg 를 누를 수 있다 — letterbox 대응 역변환.
     const { mx, my } = mapClientToChart(
       { vbW: VB_W, vbH: VB_H, padX: PAD_X, padY: PAD_Y }, rect, e.clientX, e.clientY);
-    const hit = hitTest(chartIn, mx, my);
+    const hit = hitTest(chartIn, mx, my, scale);
     if (!hit) {
       setHover(null);
       return;
@@ -253,7 +269,7 @@ export default function StockDetailPanel({ row, to }: { row: StockRow; to: strin
                         stroke="#e5e7eb" strokeWidth={1} />
                   <text x={-8} y={t.y + 4} textAnchor="end" fontSize={11}
                         fill="#6b7280" className="num">
-                    {Math.round(t.v).toLocaleString()}
+                    {priceLabel(t.v)}
                   </text>
                 </g>
               ))}
@@ -262,7 +278,7 @@ export default function StockDetailPanel({ row, to }: { row: StockRow; to: strin
                       stroke="#9ca3af" strokeDasharray="6 5" strokeWidth={1.6} />
               ))}
               {/* 구간 닫힘 시점 수직 점선(#143) — 실격=붉은, ignore=회색 */}
-              {out.bands.filter((b) => b.closed_by != null).map((b, i) => (
+              {out.bands.filter((b) => b.closed_by != null && !b.end_clamped).map((b, i) => (
                 <line key={`c${i}`} x1={b.x2} x2={b.x2} y1={0} y2={CHART_H}
                       stroke={b.closed_by === "disqualify" ? "#dc2626" : "#6b7280"}
                       strokeDasharray="5 4" strokeWidth={1.3} opacity={0.65} />

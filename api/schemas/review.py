@@ -70,6 +70,8 @@ class StreakMetricsOut(BaseModel):
 class StreakOut(BaseModel):
     start: date
     end: date | None = None
+    # end 가 date_to 로 표시 절단됐는지(#144 F1) — True 면 실제 닫힘일은 조회 범위 밖.
+    end_clamped: bool = False
     closed_by: str | None = None
     closed_reason: str | None = None
     censored: bool

@@ -417,6 +417,8 @@ export interface StreakMetrics {
 export interface Streak {
   start: string;
   end: string | null;
+  // end 가 조회 종료일로 표시 절단됐는지(#144 F1)
+  end_clamped?: boolean;
   closed_by: string | null;
   closed_reason: string | null;
   censored: boolean;

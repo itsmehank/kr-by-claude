@@ -6,6 +6,7 @@ import StreakChart from "./StreakChart";
 import StockTimeline from "./StockTimeline";
 import StreakClosedCard from "./StreakClosedCard";
 import { BACKFILL_TOOLTIP } from "./SourceChip";
+import { CENSORED_DESC } from "./ChartLegend";
 
 const pct = (v: number | null) =>
   v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
@@ -39,7 +40,7 @@ export function LatestStatusCell({ latest }: { latest: StockLatest }) {
         {latest.censored && (
           <span
             className="chip bg-amber-soft text-amber text-data-xs"
-            title="구간의 시작이 이 화면의 관측 시작일과 맞물려 있어, 그 이전에도 watch 이상이었는지 알 수 없음"
+            title={CENSORED_DESC}
           >
             이전 이력 불명
           </span>
@@ -108,7 +109,7 @@ export function StreakHeader({ streak }: { streak: Streak }) {
       {streak.censored && (
         <span
           className="chip bg-amber-soft text-amber text-data-xs"
-          title="구간 시작이 관측 시작일과 맞물림 — 그 이전 이력은 알 수 없음"
+          title={CENSORED_DESC}
         >
           이전 이력 불명
         </span>
@@ -141,6 +142,7 @@ function StockStreakRow({
       row.streaks.map((s) => ({
         start: s.start,
         end: s.end,
+        end_clamped: s.end_clamped ?? false,
         closed_by: (s.closed_by as "ignore" | "disqualify" | null) ?? null,
         censored: s.censored,
         backfilled: s.backfilled,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildChart, hitTest, mapClientToChart, triggerColor } from "./streakChart";
+import { buildChart, computeScale, hitTest, mapClientToChart, triggerColor } from "./streakChart";
 
 const series: [string, number][] = [
   ["2026-06-01", 100], ["2026-06-02", 102], ["2026-06-03", 101],
@@ -82,6 +82,28 @@ describe("buildChart — 캔들·축(#143)", () => {
     expect(out.candleMarks[0]).toMatchObject({ yH: null, yL: null, yO: null, up: null });
     expect(out.candleMarks[0].yC).not.toBeNull();
   });
+  it("o/h/l 중 하나라도 null 이면 up=null — 부분 결측이 가짜 심지를 만들지 않게(F2)", () => {
+    const out = buildChart({ ...base,
+      candles: [["2026-06-02", 101, null, 99, 102]] });   // h 만 null
+    expect(out.candleMarks[0].up).toBeNull();
+  });
+  it("flat 도메인(min==max)은 yTicks 1개 — 허구 가격·중복 라벨 방지(F5a)", () => {
+    const flat: [string, number][] = [
+      ["2026-06-01", 5000], ["2026-06-02", 5000], ["2026-06-03", 5000]];
+    const out = buildChart({ ...base, series: flat });
+    expect(out.yTicks).toHaveLength(1);
+    expect(out.yTicks[0].v).toBe(5000);
+  });
+  it("xTicks 솎아내기는 양끝 포함 균등 선택 — 최신 월 경계가 살아남는다(F5b)", () => {
+    // 8개월 경계(+시작점) → 후보 8개 초과 상황을 월 경계로 구성
+    const months = ["01", "02", "03", "04", "05", "06", "07", "08"];
+    const long: [string, number][] = months.flatMap((m, i) => [
+      [`2026-${m}-01`, 100 + i], [`2026-${m}-15`, 101 + i]] as [string, number][]);
+    const out = buildChart({ ...base, series: long, to: "2026-08-15" });
+    expect(out.xTicks.length).toBeLessThanOrEqual(6);
+    expect(out.xTicks[out.xTicks.length - 1].label).toBe("08-01"); // 마지막 후보 보존
+    expect(out.xTicks[0].label).toBe("01-01");
+  });
   it("yTicks 는 도메인 최소~최대를 4개 눈금으로 등분한 값·좌표", () => {
     const out = buildChart(base);               // 도메인 [100, 110]
     expect(out.yTicks).toHaveLength(4);
@@ -161,6 +183,19 @@ describe("hitTest", () => {
       streaks: [{ start: "2026-06-02", end: null, closed_by: null,
                   censored: false, backfilled: false, has_gap: false }] };
     expect(hitTest(open, 77, 10)).toMatchObject({ kind: "price" });
+  });
+  it("end_clamped band 는 closure 로 잡히지 않는다 — 절단일을 닫힘일로 단정 금지(F1)", () => {
+    const clamped = { ...input,
+      streaks: [{ start: "2026-06-02", end: "2026-06-04", closed_by: "ignore" as const,
+                  end_clamped: true,
+                  censored: false, backfilled: false, has_gap: false }] };
+    expect(hitTest(clamped, 77, 10)).toMatchObject({ kind: "price" });
+    // band 자체는 여전히 잡히고 end_clamped 가 전달된다(툴팁 문구용)
+    expect(hitTest(clamped, 60, 46)).toMatchObject({ kind: "band", end_clamped: true });
+  });
+  it("사전 계산된 scale 을 넘기면 재계산 없이 동일 결과(F9)", () => {
+    const scale = computeScale(input);
+    expect(hitTest(input, 52, 33, scale)).toEqual(hitTest(input, 52, 33));
   });
   it("닫힘 마커 글리프 영역(x2 우측 근접)도 band 로 잡힌다", () => {
     // band x2 = 75, ✕/○ 글리프는 x2 에서 우측으로 그려짐 → x2+10 까지 band 판정
