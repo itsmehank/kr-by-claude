@@ -17,7 +17,7 @@ export default function StreakChart(props: Omit<ChartIn, "width" | "height">) {
         <g key={`b${i}`}>
           <line x1={b.x1} x2={b.x2} y1={bandY} y2={bandY} stroke="#16a34a"
                 strokeWidth={4} strokeDasharray={b.dashed ? "6 4" : undefined}>
-            <title>{`관찰 묶음 ${b.start} ~ ${b.end ?? "진행중"}${
+            <title>{`watch 이상 구간 ${b.start} ~ ${b.end ?? "진행중"}${
               b.closed_by == null ? "" : `\n${CLOSED_DESC[b.closed_by]}`}`}</title>
           </line>
           {b.censored && (

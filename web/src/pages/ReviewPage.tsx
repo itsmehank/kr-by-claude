@@ -52,27 +52,40 @@ const PATTERNS: { value: string; label: string }[] = [
 
 // ── 종목 행 표 컬럼 도움말 — TriggersPage 의 InfoTooltip 헤더 관례를 따른다. ──
 
+// "watch 이상 구간" 정의는 도움말마다 반복해 쓴다 — 이 표가 처음 보는 화면이라는 전제.
+const STREAK_DEF =
+  "watch 이상 구간 = LLM 분류가 watch 또는 entry(매수 후보)로 유지된 연속 기간. " +
+  "ignore(분석 제외)나 실격 판정이 나오면 닫히고, 다시 watch 이상으로 분류되면 새 구간이 시작됩니다.";
+
 const STREAK_STATUS_HELP = (
   <div className="space-y-2">
-    <div className="font-semibold text-ink">최근 묶음 상태</div>
+    <div className="font-semibold text-ink">최근 구간 상태</div>
     <div className="text-muted">
-      가장 최근 관찰 묶음(같은 셋업을 이어서 관찰한 분석 구간)이 지금 어떤 상태인지 표시합니다.
+      가장 최근 watch 이상 구간이 지금 어떤 상태인지 표시합니다. {STREAK_DEF}
+    </div>
+    <div className="text-muted">상태는 아래 둘 중 하나입니다:</div>
+    <ul className="space-y-1.5">
+      <li>
+        <span className="font-semibold text-accent">진행중</span> — 구간이 아직 열려 있어 계속 관찰 중.
+      </li>
+      <li>
+        <span className="font-semibold">닫힘 · 실격</span> 또는{" "}
+        <span className="font-semibold">닫힘 · ignore</span> — 실격(미너비니 조건 미달 등 자격
+        상실) 또는 ignore(LLM 이 클라이맥스 등으로 분석 제외 판정)로 구간이 끝남.
+      </li>
+    </ul>
+    <div className="text-muted">
+      그 아래 붙는 <span className="font-semibold">배지</span>는 별도의 상태가 아니라, 위
+      상태에 덧붙는 보조 표식입니다:
     </div>
     <ul className="space-y-1.5">
       <li>
-        <span className="font-semibold text-accent">진행중</span> — 묶음이 아직 열려 있어 계속 관찰 중.
+        <span className="font-semibold">이전 이력 불명</span> — 구간의 시작이 이 화면이 다루는
+        관측 시작일과 맞물려 있어, 그 이전에도 watch 이상이었는지 알 수 없음.
       </li>
       <li>
-        <span className="font-semibold">닫힘 · 실격</span> — 미너비니 조건 미달 등으로 관찰 자격을 잃어 종료.
-      </li>
-      <li>
-        <span className="font-semibold">닫힘 · ignore</span> — LLM 이 분석 제외(클라이맥스 등)로 판정해 종료.
-      </li>
-      <li>
-        <span className="font-semibold">관찰 시작=시스템 시작</span> 배지 — 묶음 시작이 관측 하한과 겹쳐 그 이전 이력은 알 수 없음.
-      </li>
-      <li>
-        <span className="font-semibold">백필</span> 배지 — 과거 데이터를 나중에 채워 넣은 분석이 섞여 있음.
+        <span className="font-semibold">백필</span> — 실시간 분석이 아니라 나중에 과거 데이터를
+        소급 분석해 채운 기록이 섞여 있음.
       </li>
     </ul>
   </div>
@@ -80,11 +93,13 @@ const STREAK_STATUS_HELP = (
 
 const STREAK_COUNT_HELP = (
   <div className="space-y-2">
-    <div className="font-semibold text-ink">묶음 수</div>
+    <div className="font-semibold text-ink">watch 이상 구간 수</div>
     <div className="text-muted">
-      조회 기간과 겹치는 관찰 묶음의 개수입니다. 관찰 묶음은 같은 셋업을 끊기지 않고 이어서
-      관찰한 분석 구간으로, 셋업이 무너지면(실격·ignore) 닫히고 새 셋업이 잡히면 새 묶음이
-      시작됩니다. 수가 많을수록 이 기간에 셋업이 여러 번 만들어졌다 무너졌다는 뜻입니다.
+      조회 기간과 겹치는 watch 이상 구간의 개수입니다. {STREAK_DEF}
+    </div>
+    <div className="text-muted">
+      수가 많을수록 이 기간에 후보로 올랐다가(watch 이상) 탈락하기를(닫힘) 여러 번
+      반복했다는 뜻입니다.
     </div>
   </div>
 );
@@ -93,9 +108,9 @@ const RECENT_PIVOT_HELP = (
   <div className="space-y-2">
     <div className="font-semibold text-ink">최근 pivot (돌파 기준가)</div>
     <div className="text-muted">
-      가장 최근 관찰 묶음에서 LLM 이 마지막으로 제시한 매수 판단 기준 가격입니다. 종가가 이
-      가격 위로 마감하면 돌파로 봅니다. — 는 아직 pivot 이 확정되지 않았다는 뜻(베이스 형성
-      중)입니다.
+      가장 최근 watch 이상 구간에서 LLM 이 마지막으로 제시한 매수 판단 기준 가격입니다.
+      종가가 이 가격 위로 마감하면 돌파로 봅니다. <span className="num">—</span> 는 표시할
+      값이 없다는 뜻으로, 여기서는 pivot 이 아직 확정되지 않은 경우(베이스 형성 중)입니다.
     </div>
   </div>
 );
@@ -103,17 +118,26 @@ const RECENT_PIVOT_HELP = (
 const PERFORMANCE_HELP = (
   <div className="space-y-2">
     <div className="font-semibold text-ink">성과</div>
-    <div className="text-muted">최근 묶음의 진행 단계(stage)에 따라 다른 숫자를 보여줍니다.</div>
+    <div className="text-muted">
+      최근 구간의 진행 단계에 따라 셀에 다른 형식의 값이 표시됩니다. 실제로 보게 되는
+      형식은 아래 세 가지입니다:
+    </div>
     <ul className="space-y-1.5">
       <li>
-        <span className="font-semibold">돌파(breakout)</span> — 돌파일 이후 T+5 / T+20 거래일 수익률.
+        <span className="num font-semibold">T+5 +3.1% · T+20 —</span> — 돌파가 발생한 종목.
+        돌파일로부터 5거래일 뒤(T+5)·20거래일 뒤(T+20)의 수익률입니다.{" "}
+        <span className="num">—</span> 는 그 거래일이 아직 지나지 않아 계산할 수 없다는 뜻.
       </li>
       <li>
-        <span className="font-semibold">관찰·대기(watching/staging)</span> — pivot 대비 최고
-        도달률(최고가가 pivot 을 얼마나 넘었었나).
+        <span className="num font-semibold">최고 +2.0%</span> — 아직 돌파 전(관찰·승격 검토)
+        종목. 그동안의 <span className="font-semibold">종가 기준</span> 최고가가 pivot 을
+        얼마나 넘었었는지입니다(장중 고가는 반영하지 않음 — 캔들 위꼬리가 pivot 을 넘어도 이
+        값은 안 움직일 수 있음). <span className="num">최고 —</span> 는 분석 다음 거래일
+        데이터가 아직 없어 계산 전이라는 뜻.
       </li>
       <li>
-        <span className="font-semibold">베이스 형성 중</span> — pivot 미확정이라 표시할 숫자 없음.
+        <span className="font-semibold">베이스 형성 중</span> — pivot 이 확정되지 않아
+        성과를 잴 기준가가 없는 상태.
       </li>
     </ul>
   </div>
@@ -130,7 +154,7 @@ const GRAPH_HELP = (
   </div>
 );
 
-// 상태(묶음 종결 여부) — 종목 행 뷰 전용 필터(스펙 §5).
+// 상태(구간 종결 여부) — 종목 행 뷰 전용 필터(스펙 §5).
 const STOCK_STATUSES: { value: string; label: string }[] = [
   { value: "", label: "전체" },
   { value: "open", label: "진행중" },
@@ -493,11 +517,11 @@ export default function ReviewPage() {
               <tr>
                 <th className="text-left px-3 py-1.5">종목</th>
                 <th className="text-left px-3 py-1.5">
-                  최근 묶음 상태
+                  최근 구간 상태
                   <InfoTooltip>{STREAK_STATUS_HELP}</InfoTooltip>
                 </th>
                 <th className="text-right px-3 py-1.5">
-                  묶음 수
+                  watch 이상 구간 수
                   <InfoTooltip>{STREAK_COUNT_HELP}</InfoTooltip>
                 </th>
                 <th className="text-right px-3 py-1.5">

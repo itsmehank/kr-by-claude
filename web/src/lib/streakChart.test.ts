@@ -59,6 +59,47 @@ describe("buildChart", () => {
   });
 });
 
+describe("buildChart — 캔들·축(#143)", () => {
+  const base = { width: 100, height: 40, to: "2026-06-05", series,
+    pivotSteps: [] as [string, string | null, number][],
+    streaks: [], triggers: [] };
+
+  it("캔들 고가/저가가 y 도메인에 포함된다(심지 잘림 방지)", () => {
+    // 도메인 = [90, 120] → y(v) = 40 − (v−90)/30×40
+    const out = buildChart({ ...base,
+      candles: [["2026-06-01", 101, 120, 90, 102]] });
+    const m = out.candleMarks[0];
+    expect(m.yH).toBeCloseTo(0);
+    expect(m.yL).toBeCloseTo(40);
+    expect(m.yC).toBeCloseTo(40 - ((102 - 90) / 30) * 40);
+    expect(m.up).toBe(true);                       // c ≥ o → 상승
+    expect(out.yTicks[out.yTicks.length - 1].v).toBe(120);
+    expect(out.yTicks[0].v).toBe(90);
+  });
+  it("o/h/l null 캔들은 up=null(종가 틱 폴백 신호)", () => {
+    const out = buildChart({ ...base,
+      candles: [["2026-06-02", null, null, null, 102]] });
+    expect(out.candleMarks[0]).toMatchObject({ yH: null, yL: null, yO: null, up: null });
+    expect(out.candleMarks[0].yC).not.toBeNull();
+  });
+  it("yTicks 는 도메인 최소~최대를 4개 눈금으로 등분한 값·좌표", () => {
+    const out = buildChart(base);               // 도메인 [100, 110]
+    expect(out.yTicks).toHaveLength(4);
+    expect(out.yTicks[0].v).toBe(100);
+    expect(out.yTicks[3].v).toBe(110);
+    expect(out.yTicks[0].y).toBeCloseTo(40);
+    expect(out.yTicks[3].y).toBeCloseTo(0);
+  });
+  it("xTicks 는 월 경계를 우선으로 잡는다", () => {
+    const cross: [string, number][] = [
+      ["2026-06-29", 100], ["2026-06-30", 101], ["2026-07-01", 102],
+      ["2026-07-02", 103], ["2026-07-03", 104]];
+    const out = buildChart({ ...base, series: cross, to: "2026-07-03" });
+    expect(out.xTicks.some((t) => t.label === "07-01")).toBe(true);
+    expect(out.xTicks[0].label).toBe("06-29");   // 시작점 포함
+  });
+});
+
 describe("mapClientToChart", () => {
   const vb = { vbW: 940, vbH: 360, padX: 20, padY: 10 };
 
@@ -108,6 +149,18 @@ describe("hitTest", () => {
     expect(hitTest(input, 60, 46)).toMatchObject({
       kind: "band", start: "2026-06-02", end: "2026-06-04", closed_by: "ignore",
     });
+  });
+  it("닫힘 수직선(±4) hover 는 closure — 차트 중앙 높이에서도 잡힌다", () => {
+    // 닫힌 band x2 = 75. 차트 중간(my=10, dot·step 비근접)에서 x=77 hover.
+    expect(hitTest(input, 77, 10)).toMatchObject({
+      kind: "closure", date: "2026-06-04", closed_by: "ignore" });
+    // 우선순위: step(±6, y=24) 이 closure 보다 먼저 — (75, 24) 는 step.
+    expect(hitTest(input, 75, 24)).toMatchObject({ kind: "step" });
+    // 진행중 band(end null) 는 수직선 없음 → price 폴백.
+    const open = { ...input,
+      streaks: [{ start: "2026-06-02", end: null, closed_by: null,
+                  censored: false, backfilled: false, has_gap: false }] };
+    expect(hitTest(open, 77, 10)).toMatchObject({ kind: "price" });
   });
   it("닫힘 마커 글리프 영역(x2 우측 근접)도 band 로 잡힌다", () => {
     // band x2 = 75, ✕/○ 글리프는 x2 에서 우측으로 그려짐 → x2+10 까지 band 판정

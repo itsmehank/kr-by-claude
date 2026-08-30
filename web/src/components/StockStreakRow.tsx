@@ -22,7 +22,7 @@ const STAGE_LABEL: Record<string, string> = {
   base_forming: "base_forming",
 };
 
-/** 종목 최근 묶음 상태 pill(스펙 §5) — 진행중/닫힘·사유, 절단·백필 배지. */
+/** 종목 최근 구간 상태 pill(스펙 §5) — 진행중/닫힘·사유 + 보조 표식(배지). */
 export function LatestStatusCell({ latest }: { latest: StockLatest }) {
   const isOpen = latest.status === "open";
   const closedLabel = latest.closed_by ? CLOSED_BY_LABEL[latest.closed_by] ?? latest.closed_by : null;
@@ -39,9 +39,9 @@ export function LatestStatusCell({ latest }: { latest: StockLatest }) {
         {latest.censored && (
           <span
             className="chip bg-amber-soft text-amber text-data-xs"
-            title="묶음 시작이 관측 하한 근처 — 그 이전 이력은 알 수 없음"
+            title="구간의 시작이 이 화면의 관측 시작일과 맞물려 있어, 그 이전에도 watch 이상이었는지 알 수 없음"
           >
-            관찰 시작=시스템 시작
+            이전 이력 불명
           </span>
         )}
         {latest.backfilled && (
@@ -85,7 +85,7 @@ function latestStreak(row: StockRow): Streak | undefined {
   return row.streaks[row.streaks.length - 1];
 }
 
-/** 최근 pivot — 최근 묶음의 마지막 pivot 값(스펙 §5 "최근 pivot" 컬럼). */
+/** 최근 pivot — 최근 구간의 마지막 pivot 값(스펙 §5 "최근 pivot" 컬럼). */
 function recentPivot(row: StockRow): number | null {
   const streak = latestStreak(row);
   if (!streak) return null;
@@ -105,7 +105,14 @@ export function StreakHeader({ streak }: { streak: Streak }) {
       </span>
       {closedLabel && <span className="chip bg-tint-stone text-muted text-data-xs">{closedLabel}</span>}
       <span className="chip bg-tint-violet text-muted text-data-xs">{STAGE_LABEL[streak.stage] ?? streak.stage}</span>
-      {streak.censored && <span className="chip bg-amber-soft text-amber text-data-xs">절단</span>}
+      {streak.censored && (
+        <span
+          className="chip bg-amber-soft text-amber text-data-xs"
+          title="구간 시작이 관측 시작일과 맞물림 — 그 이전 이력은 알 수 없음"
+        >
+          이전 이력 불명
+        </span>
+      )}
       {streak.backfilled && (
         <span className="chip bg-tint-stone text-muted text-data-xs" title={BACKFILL_TOOLTIP}>
           백필
@@ -161,7 +168,7 @@ function StockStreakRow({
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              aria-label={isOpen ? "묶음 타임라인 접기" : "묶음 타임라인 펼치기"}
+              aria-label={isOpen ? "구간 타임라인 접기" : "구간 타임라인 펼치기"}
               className="text-faint shrink-0 hover:text-ink"
               onClick={(e) => {
                 e.stopPropagation();
