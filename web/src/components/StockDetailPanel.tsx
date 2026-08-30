@@ -15,7 +15,7 @@ import {
 } from "../lib/streakChart";
 import StockTimeline from "./StockTimeline";
 import StreakClosedCard from "./StreakClosedCard";
-import ChartLegend, { CLOSED_DESC, TRIGGER_CONDITION, TRIGGER_LABEL } from "./ChartLegend";
+import ChartLegend, { CLOSED_DESC, TRIGGER_CONDITION, TRIGGER_LABEL, TRIGGER_MEANING } from "./ChartLegend";
 import { LatestStatusCell, PerformanceCell, StreakHeader } from "./StockStreakRow";
 
 // viewBox 좌표계(검토 #1): 종횡비 고정. 콘텐츠는 (PAD_X, PAD_Y) 로 평행이동 —
@@ -95,8 +95,11 @@ function TooltipBody({ hit, to, candleByDate }: {
           </span>
           <span className="num text-data-xs text-muted">{hit.date}</span>
         </div>
+        {TRIGGER_MEANING[hit.trigger_type] && (
+          <div className="text-data-xs text-muted">{TRIGGER_MEANING[hit.trigger_type]}</div>
+        )}
         {TRIGGER_CONDITION[hit.trigger_type] && (
-          <div className="text-data-xs text-muted">{TRIGGER_CONDITION[hit.trigger_type]}</div>
+          <div className="text-data-xs text-muted">발동 조건 — {TRIGGER_CONDITION[hit.trigger_type]}</div>
         )}
         <div className="text-data-xs">
           판정 {hit.decision != null ? DECISION_LABEL[hit.decision] ?? hit.decision : "—"}
@@ -342,7 +345,7 @@ export default function StockDetailPanel({ row, to }: { row: StockRow; to: strin
             가격 계열 없음 — 조회 기간에 표시할 시세가 없습니다
           </div>
         )}
-        {hasChart && <ChartLegend />}
+        {hasChart && <ChartLegend mode={out.candleMarks.length ? "candle" : "line"} />}
         {hover && (
           <div
             className="absolute pointer-events-none bg-paper border border-hairline shadow-bento-hover rounded-xl px-3 py-2.5 z-10 w-[220px]"

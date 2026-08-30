@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   GATE_BREAKOUT_VOL_MULT,
@@ -31,6 +32,19 @@ export const TRIGGER_CONDITION: Record<string, string> = {
     `watch 종목의 종가가 pivot 의 ${Math.round(GATE_PROMOTION_PRICE_RATIO * 100)}% ` +
     "이상까지 근접하고 거래량이 50일 평균 이상 — entry 승격을 검토한 날입니다.",
   invalidation: "손절선 이탈 또는 50일선 아래 마감 — 베이스 훼손이 의심된 날입니다.",
+};
+
+/** 트리거 유형별 '의미' 한 줄 — 조건(TRIGGER_CONDITION)과 별도로, 이 이벤트가
+ * 무엇을 뜻하는지 초보자 눈높이로 설명(#144 후속). */
+export const TRIGGER_MEANING: Record<string, string> = {
+  breakout:
+    "매수 기준가(pivot)를 실제로 넘어선 날 — LLM 이 즉시 매수 여부(go_now/wait/abort)를 판정하는 이벤트입니다.",
+  breakout_from_watch:
+    "watch(지켜보는 등급) 종목이 매수 기준가(pivot)를 처음 넘어선 날 — LLM 이 즉시 매수 여부를 판정하는 이벤트입니다.",
+  promotion:
+    "'승격'은 watch(지켜보는 등급) 종목을 entry(매수 후보 등급)로 올릴지 검토하는 이벤트입니다 — 아직 매수 신호가 아닙니다.",
+  invalidation:
+    "'무효화'는 차트 흐름이 무너져 지금까지의 관찰 전제(베이스)가 깨졌는지 재검토하는 이벤트입니다.",
 };
 
 /** 트리거 점 툴팁 문구(라벨 + 조건) — 스파크라인 <title>·범례가 공유. */
@@ -138,32 +152,77 @@ const ITEMS: LegendItem[] = [
   {
     label: "돌파",
     surfaces: ["detail", "spark"],
-    desc: TRIGGER_CONDITION.breakout,
+    desc: `${TRIGGER_MEANING.breakout} 발동 조건 — ${TRIGGER_CONDITION.breakout}`,
     swatch: <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#16a34a" }} />,
   },
   {
     label: "승격",
     surfaces: ["detail", "spark"],
-    desc: TRIGGER_CONDITION.promotion,
+    desc: `${TRIGGER_MEANING.promotion} 발동 조건 — ${TRIGGER_CONDITION.promotion}`,
     swatch: <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#f59e0b" }} />,
   },
   {
     label: "무효화",
     surfaces: ["detail", "spark"],
-    desc: TRIGGER_CONDITION.invalidation,
+    desc: `${TRIGGER_MEANING.invalidation} 발동 조건 — ${TRIGGER_CONDITION.invalidation}`,
     swatch: <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#9ca3af" }} />,
   },
 ];
 
-/** 차트 아래 범례 행 — 각 항목에 마우스를 올리면 자세한 설명이 뜬다. */
-export default function ChartLegend() {
+const HINT_W = 300;
+
+/** 범례 항목 — hover 즉시 뜨는 설명 카드(기본 title 은 1초 대기·표시 없음이라 발견 불가).
+ * 점선 밑줄 = 설명 존재 표시(PipelinePage 등 기존 관례). */
+function Item({ it }: { it: LegendItem }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  function show() {
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return;
+    const margin = 8;
+    let left = r.left;
+    if (left + HINT_W + margin > window.innerWidth) left = window.innerWidth - HINT_W - margin;
+    if (left < margin) left = margin;
+    setPos({ top: r.bottom + 6, left });
+  }
+  return (
+    <>
+      <span
+        ref={ref}
+        onMouseEnter={show}
+        onMouseLeave={() => setPos(null)}
+        className="inline-flex items-center gap-1.5 cursor-help"
+      >
+        {it.swatch}
+        <span className="underline decoration-dotted decoration-faint underline-offset-2">
+          {it.label}
+        </span>
+      </span>
+      {pos && (
+        <div
+          className="fixed z-50 bg-paper border border-hairline shadow-bento-hover rounded-xl px-3 py-2.5 text-data-xs text-ink"
+          style={{ top: pos.top, left: pos.left, width: HINT_W }}
+        >
+          <div className="font-semibold mb-1">{it.label}</div>
+          <div className="text-muted">{it.desc}</div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** 차트 아래 범례 행 — 각 항목 hover 즉시 설명 카드가 뜬다.
+ * mode: 지금 차트가 캔들인지 선인지 — 실제로 그려지지 않는 기호는 숨긴다(#144 후속). */
+export default function ChartLegend({ mode }: { mode?: "candle" | "line" }) {
+  const items = ITEMS.filter((it) => {
+    if (mode === "candle" && it.label === "종가") return false;
+    if (mode === "line" && it.label === "캔들") return false;
+    return true;
+  });
   return (
     <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-data-xs text-muted">
-      {ITEMS.map((it) => (
-        <span key={it.label} className="inline-flex items-center gap-1.5 cursor-help" title={it.desc}>
-          {it.swatch}
-          <span>{it.label}</span>
-        </span>
+      {items.map((it) => (
+        <Item key={it.label} it={it} />
       ))}
     </div>
   );
