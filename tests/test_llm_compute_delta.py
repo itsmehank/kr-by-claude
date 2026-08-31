@@ -58,3 +58,68 @@ def test_old_classification_does_not_block(db):
 
     new = find_new_tickers(db, as_of=today)
     assert "OLD" in new
+
+
+def test_disqualify_row_does_not_block(db):
+    """(#145) 최근 행이 실격(system_disqualify)뿐인 종목은 다시 신규 후보 —
+    가드의 취지는 'LLM 을 최근에 실행했나'인데 실격 행은 LLM 미호출."""
+    today = date(2026, 5, 20)
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stocks (ticker, name, market) VALUES ('DQ', 'D', 'KOSPI') ON CONFLICT DO NOTHING"
+        )
+        cur.execute(
+            """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass)
+               VALUES ('DQ', %s, 100, TRUE) ON CONFLICT DO NOTHING""",
+            (today,),
+        )
+        # 8일 전 LLM 분류(창 밖) + 어제 실격(창 안, LLM 미호출)
+        cur.execute(
+            """INSERT INTO weekly_classification
+               (symbol, classified_at, market, classification, source)
+               VALUES ('DQ', %s, 'KOSPI', 'watch', 'daily_delta')""",
+            (today - timedelta(days=8),),
+        )
+        cur.execute(
+            """INSERT INTO weekly_classification
+               (symbol, classified_at, market, classification, source)
+               VALUES ('DQ', %s, 'KOSPI', 'disqualified', 'system_disqualify')""",
+            (today - timedelta(days=1),),
+        )
+    db.commit()
+
+    from kr_pipeline.llm_runner.compute.delta import find_new_tickers
+
+    assert "DQ" in find_new_tickers(db, as_of=today)
+
+
+def test_recent_llm_row_still_blocks_even_with_disqualify(db):
+    """(#145) 창 안에 LLM 분류 행이 있으면 실격 행 유무와 무관하게 여전히 제외 —
+    조정 후에도 반복 호출은 종목당 7일 1회로 막힌다는 상한의 근거."""
+    today = date(2026, 5, 20)
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO stocks (ticker, name, market) VALUES ('LB', 'L', 'KOSPI') ON CONFLICT DO NOTHING"
+        )
+        cur.execute(
+            """INSERT INTO daily_indicators (ticker, date, adj_close, minervini_pass)
+               VALUES ('LB', %s, 100, TRUE) ON CONFLICT DO NOTHING""",
+            (today,),
+        )
+        cur.execute(
+            """INSERT INTO weekly_classification
+               (symbol, classified_at, market, classification, source)
+               VALUES ('LB', %s, 'KOSPI', 'watch', 'daily_delta')""",
+            (today - timedelta(days=2),),
+        )
+        cur.execute(
+            """INSERT INTO weekly_classification
+               (symbol, classified_at, market, classification, source)
+               VALUES ('LB', %s, 'KOSPI', 'disqualified', 'system_disqualify')""",
+            (today - timedelta(days=1),),
+        )
+    db.commit()
+
+    from kr_pipeline.llm_runner.compute.delta import find_new_tickers
+
+    assert "LB" not in find_new_tickers(db, as_of=today)

@@ -32,9 +32,13 @@ def find_new_tickers(conn: Connection, as_of: date | None = None) -> list[str]:
                -- NOTE: 이 7일 가드는 "최근에 LLM을 실행했나"(실행 비용 절약)를 보는 것이라
                --       의도적으로 classified_at 을 쓴다. 데이터 기준 최신성(analyzed_for_date)
                --       으로 바꾸지 않는다. (sub-project ① 설계 결정)
+               -- (#145) system_disqualify 행은 LLM 미호출 기록이라 가드에서 제외 —
+               --       실격 직후 재통과 종목이 취지(비용 절약) 밖에서 막히지 않게 한다.
+               --       반복 호출 상한은 LLM 분류 행 가드 + 실격 멱등이 구조로 보장(≤7일 1회).
                AND NOT EXISTS (
                  SELECT 1 FROM weekly_classification wc
                   WHERE wc.symbol = i.ticker
+                    AND wc.source <> 'system_disqualify'
                     AND wc.classified_at >= %s
                )
              ORDER BY i.ticker
