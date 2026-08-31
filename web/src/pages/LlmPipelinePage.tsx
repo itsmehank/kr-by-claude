@@ -100,9 +100,9 @@ const STAGES: PipelineStage[] = [
     inputs: ["daily_indicators", "daily_prices", "weekly_indicators", "market_context_daily"],
     outputs: ["weekly_classification"],
     deterministicSummary:
-      "1차 필터는 weekend 와 동일 — **[[minervini_pass]] = TRUE** (= Trend Template 8 조건 모두 통과).\n\n추가로 *신규성* 조건: 최근 7일 안에 분류된 적이 없는 종목만 (이미 weekend 나 다른 daily_delta 에서 분류된 종목은 제외).\n\n7일 cool-down 으로 같은 종목 반복 분석 방지.",
+      "1차 필터는 weekend 와 동일 — **[[minervini_pass]] = TRUE** (= Trend Template 8 조건 모두 통과).\n\n추가로 *신규성* 조건: 최근 7일 안에 **LLM 분류**(weekend·daily_delta)된 적이 없는 종목만. 실격(system_disqualify) 기록은 LLM 호출이 아니라 세지 않음 — 실격 직후 재통과 종목은 다시 후보 (#145).\n\n7일 cool-down 으로 같은 종목 반복 분석 방지.",
     deterministicDetail:
-      "SQL 조건:\n  WHERE minervini_pass = TRUE\n    AND NOT EXISTS (\n        SELECT 1 FROM weekly_classification\n         WHERE symbol = ticker\n           AND classified_at >= today - INTERVAL '7 days'\n    )\n\n기준 행: 오늘자 daily_indicators.\n\n💡 minervini_pass 의 의미는 weekend 카드의 '8 조건 모두 보기' fold 참조.",
+      "SQL 조건:\n  WHERE minervini_pass = TRUE\n    AND NOT EXISTS (\n        SELECT 1 FROM weekly_classification\n         WHERE symbol = ticker\n           AND source IN ('weekend', 'daily_delta')  -- LLM 기록만 (#145)\n           AND classified_at >= today - INTERVAL '7 days'\n    )\n\n기준 행: 오늘자 daily_indicators.\n\n💡 minervini_pass 의 의미는 weekend 카드의 '8 조건 모두 보기' fold 참조.",
     llmSummary:
       "weekend 와 정확히 같은 prompt (analyze_chart_v3.md) + 같은 ZIP 13 파일. 차이는 source 컬럼 ('daily_delta' vs 'weekend') 과 입력 풀의 신규성 필터.",
     llmShowsLists: {
