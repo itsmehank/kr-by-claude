@@ -1,27 +1,44 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../lib/api";
 import type { StockRow } from "../lib/types";
 import {
   BAND_OFFSET,
   buildChart,
+  computeScale,
   hitTest,
   mapClientToChart,
+  type Candle,
   type ChartHit,
   type ChartIn,
 } from "../lib/streakChart";
 import StockTimeline from "./StockTimeline";
 import StreakClosedCard from "./StreakClosedCard";
-import ChartLegend, { CLOSED_DESC, TRIGGER_CONDITION, TRIGGER_LABEL } from "./ChartLegend";
+import ChartLegend, { CLOSED_DESC, TRIGGER_CONDITION, TRIGGER_LABEL, TRIGGER_MEANING } from "./ChartLegend";
 import { LatestStatusCell, PerformanceCell, StreakHeader } from "./StockStreakRow";
 
-// viewBox 좌표계(검토 #1): 종횡비 고정 + 단일 배율. 콘텐츠는 (PAD_X, PAD_Y) 로 평행이동.
+// viewBox 좌표계(검토 #1): 종횡비 고정. 콘텐츠는 (PAD_X, PAD_Y) 로 평행이동 —
+// PAD_X 는 y축 가격 라벨 공간(#143). 마우스 역변환은 mapClientToChart 가 흡수.
 const VB_W = 940;
 const VB_H = 360;
-const PAD_X = 20;
+const PAD_X = 60;
 const PAD_Y = 10;
-const CHART_W = 900;
+const CHART_W = 864;
 const CHART_H = 300;
+const X_LABEL_Y = 332; // 하단 띠(306~311) 아래 날짜 라벨 기준선
 const TOOLTIP_W = 220;
+
+// 캔들 색은 ChartPage(PriceChart)와 동일 관례 — 그 화면의 색 언어(초록=긍정 신호,
+// 빨강=경고·stop)와 충돌하지 않게 상승=초록/하락=빨강로 통일(#144 F4).
+const CANDLE_UP = "#16a34a";
+const CANDLE_DOWN = "#dc2626";
+
+// y축 가격 라벨 — 7자리부터는 여백(PAD_X)을 넘치므로 만 단위로 축약(#144 F3).
+function priceLabel(v: number): string {
+  if (v >= 1_000_000) return `${Math.round(v / 10_000).toLocaleString()}만`;
+  return Math.round(v).toLocaleString();
+}
 
 const DECISION_LABEL: Record<string, string> = {
   go_now: "go_now (즉시 진입)",
@@ -33,12 +50,39 @@ function ongoingLabel(to: string) {
   return `진행중(~${to} 기준)`;
 }
 
-function TooltipBody({ hit, to }: { hit: ChartHit; to: string }) {
+function TooltipBody({ hit, to, candleByDate }: {
+  hit: ChartHit; to: string; candleByDate?: Map<string, Candle>;
+}) {
   if (hit.kind === "price") {
+    const c = candleByDate?.get(hit.date);
+    if (c && c[1] != null && c[2] != null && c[3] != null) {
+      return (
+        <div className="flex flex-col gap-1">
+          <span className="num text-data-xs text-muted">{hit.date}</span>
+          <div className="num text-data-xs">
+            시 {c[1].toLocaleString()} · 고 {c[2].toLocaleString()}
+          </div>
+          <div className="num text-data-xs">
+            저 {c[3].toLocaleString()} · 종 {c[4].toLocaleString()}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex items-baseline justify-between">
         <span className="num text-data-xs text-muted">{hit.date}</span>
         <span className="num">종가 {hit.close.toLocaleString()}</span>
+      </div>
+    );
+  }
+  if (hit.kind === "closure") {
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex items-baseline justify-between">
+          <span className="font-semibold">구간 닫힘</span>
+          <span className="num text-data-xs text-muted">{hit.date}</span>
+        </div>
+        <span className="text-data-xs text-muted">{CLOSED_DESC[hit.closed_by]}</span>
       </div>
     );
   }
@@ -51,8 +95,11 @@ function TooltipBody({ hit, to }: { hit: ChartHit; to: string }) {
           </span>
           <span className="num text-data-xs text-muted">{hit.date}</span>
         </div>
+        {TRIGGER_MEANING[hit.trigger_type] && (
+          <div className="text-data-xs text-muted">{TRIGGER_MEANING[hit.trigger_type]}</div>
+        )}
         {TRIGGER_CONDITION[hit.trigger_type] && (
-          <div className="text-data-xs text-muted">{TRIGGER_CONDITION[hit.trigger_type]}</div>
+          <div className="text-data-xs text-muted">발동 조건 — {TRIGGER_CONDITION[hit.trigger_type]}</div>
         )}
         <div className="text-data-xs">
           판정 {hit.decision != null ? DECISION_LABEL[hit.decision] ?? hit.decision : "—"}
@@ -81,15 +128,19 @@ function TooltipBody({ hit, to }: { hit: ChartHit; to: string }) {
   }
   return (
     <div className="flex flex-col gap-1">
-      <span className="font-semibold">관찰 묶음</span>
+      <span className="font-semibold">watch 이상 구간</span>
       <span className="text-data-xs text-muted">
-        같은 셋업을 이어서 관찰한 분석 구간입니다.
+        LLM 분류가 watch 또는 entry(매수 후보)로 유지된 연속 기간입니다.
       </span>
       <span className="num text-data-xs text-muted">
         {hit.start} ~ {hit.end ?? ongoingLabel(to)}
       </span>
       <span className="text-data-xs text-muted">
-        {hit.closed_by == null ? ongoingLabel(to) : CLOSED_DESC[hit.closed_by]}
+        {hit.closed_by == null
+          ? ongoingLabel(to)
+          : hit.end_clamped
+            ? `${CLOSED_DESC[hit.closed_by]} · 실제 닫힘일은 조회 종료일 이후(범위 밖)`
+            : CLOSED_DESC[hit.closed_by]}
       </span>
     </div>
   );
@@ -102,16 +153,32 @@ export default function StockDetailPanel({ row, to }: { row: StockRow; to: strin
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<{ hit: ChartHit; left: number; top: number; mx: number } | null>(null);
 
+  // 캔들은 행 선택 시에만 fetch(#143) — /stocks 응답 비대화 방지. 실패·로딩 중엔
+  // 종가 선으로 폴백하므로 에러를 따로 표시하지 않는다.
+  const seriesFrom = row.series[0]?.[0];
+  const seriesTo = row.series[row.series.length - 1]?.[0];
+  const candlesQuery = useQuery<{ candles: Candle[] }>({
+    queryKey: ["review-candles", row.symbol, seriesFrom, seriesTo],
+    queryFn: () =>
+      api<{ candles: Candle[] }>(
+        `/review/stocks/${row.symbol}/candles?from=${seriesFrom}&to=${seriesTo}`),
+    enabled: Boolean(seriesFrom && seriesTo),
+    staleTime: 5 * 60 * 1000,
+  });
+  const candles = candlesQuery.data?.candles;
+
   const chartIn: ChartIn = useMemo(
     () => ({
       width: CHART_W,
       height: CHART_H,
       to,
       series: row.series,
+      candles,
       pivotSteps: row.pivot_steps,
       streaks: row.streaks.map((s) => ({
         start: s.start,
         end: s.end,
+        end_clamped: s.end_clamped ?? false,
         closed_by: (s.closed_by as "ignore" | "disqualify" | null) ?? null,
         censored: s.censored,
         backfilled: s.backfilled,
@@ -129,24 +196,25 @@ export default function StockDetailPanel({ row, to }: { row: StockRow; to: strin
         ),
       ),
     }),
-    [row, to],
+    [row, to, candles],
   );
   const out = useMemo(() => buildChart(chartIn), [chartIn]);
+  // mousemove 마다 재계산하지 않도록 hitTest 에 넘길 scale 을 메모(#144 F9).
+  const scale = useMemo(() => computeScale(chartIn), [chartIn]);
   const bandY = CHART_H + BAND_OFFSET;
 
   // 검토 #2: series 0~1점이면 buildChart 가 빈 ChartOut — 핸들러 미부착 플레이스홀더.
   const hasChart = out.pricePoints !== "";
 
-  // y축 라벨용 min/max — computeScale 과 동일 정의(series ∪ pivot).
-  const yDomain = useMemo(() => {
-    if (!hasChart) return null;
-    const values = row.series.map(([, v]) => v);
-    const pivots = row.pivot_steps.map(([, , p]) => p);
-    return {
-      min: Math.min(...values, ...(pivots.length ? pivots : [Infinity])),
-      max: Math.max(...values, ...(pivots.length ? pivots : [-Infinity])),
-    };
-  }, [hasChart, row]);
+  // 툴팁의 시·고·저·종 조회용 — 날짜 → 캔들.
+  const candleByDate = useMemo(
+    () => new Map((candles ?? []).map((c) => [c[0], c])),
+    [candles],
+  );
+  // 캔들 몸통 폭 — 일수에 맞춰 좁히되 1.5~8 로 클램프.
+  const candleW = out.candleMarks.length
+    ? Math.max(1.5, Math.min(8, (CHART_W / out.candleMarks.length) * 0.6))
+    : 0;
 
   function onMouseMove(e: React.MouseEvent) {
     const svg = svgRef.current;
@@ -156,7 +224,7 @@ export default function StockDetailPanel({ row, to }: { row: StockRow; to: strin
     // 범례가 세로 공간을 나눠 쓰면서 flex 가 svg 를 누를 수 있다 — letterbox 대응 역변환.
     const { mx, my } = mapClientToChart(
       { vbW: VB_W, vbH: VB_H, padX: PAD_X, padY: PAD_Y }, rect, e.clientX, e.clientY);
-    const hit = hitTest(chartIn, mx, my);
+    const hit = hitTest(chartIn, mx, my, scale);
     if (!hit) {
       setHover(null);
       return;
@@ -192,11 +260,55 @@ export default function StockDetailPanel({ row, to }: { row: StockRow; to: strin
             className="block"
           >
             <g transform={`translate(${PAD_X},${PAD_Y})`}>
+              {/* watch 이상 구간 배경 틴트(#143) — 기간을 차트 위에서 바로 읽게 */}
+              {out.bands.map((b, i) => (
+                <rect key={`t${i}`} x={b.x1} width={Math.max(b.x2 - b.x1, 1)}
+                      y={0} height={CHART_H} fill="#16a34a" opacity={0.08} />
+              ))}
+              {/* y축: 수평 그리드 + 좌측 가격 라벨 */}
+              {out.yTicks.map((t, i) => (
+                <g key={`y${i}`}>
+                  <line x1={0} x2={CHART_W} y1={t.y} y2={t.y}
+                        stroke="#e5e7eb" strokeWidth={1} />
+                  <text x={-8} y={t.y + 4} textAnchor="end" fontSize={11}
+                        fill="#6b7280" className="num">
+                    {priceLabel(t.v)}
+                  </text>
+                </g>
+              ))}
               {out.steps.map((s, i) => (
                 <line key={`s${i}`} x1={s.x1} x2={s.x2} y1={s.y} y2={s.y}
                       stroke="#9ca3af" strokeDasharray="6 5" strokeWidth={1.6} />
               ))}
-              <polyline points={out.pricePoints} fill="none" stroke="#2563eb" strokeWidth={2} />
+              {/* 구간 닫힘 시점 수직 점선(#143) — 실격=붉은, ignore=회색 */}
+              {out.bands.filter((b) => b.closed_by != null && !b.end_clamped).map((b, i) => (
+                <line key={`c${i}`} x1={b.x2} x2={b.x2} y1={0} y2={CHART_H}
+                      stroke={b.closed_by === "disqualify" ? "#dc2626" : "#6b7280"}
+                      strokeDasharray="5 4" strokeWidth={1.3} opacity={0.65} />
+              ))}
+              {out.candleMarks.length > 0 ? (
+                out.candleMarks.map((m, i) => (
+                  <g key={`k${i}`}>
+                    {m.up == null ? (
+                      /* 시·고·저 미백필 → 종가 위치의 짧은 가로 틱으로 폴백 */
+                      <line x1={m.x - candleW / 2} x2={m.x + candleW / 2}
+                            y1={m.yC} y2={m.yC} stroke="#6b7280" strokeWidth={1.6} />
+                    ) : (
+                      <>
+                        <line x1={m.x} x2={m.x} y1={m.yH!} y2={m.yL!}
+                              stroke={m.up ? CANDLE_UP : CANDLE_DOWN} strokeWidth={1} />
+                        <rect x={m.x - candleW / 2}
+                              y={Math.min(m.yO!, m.yC)}
+                              width={candleW}
+                              height={Math.max(Math.abs(m.yO! - m.yC), 1)}
+                              fill={m.up ? CANDLE_UP : CANDLE_DOWN} />
+                      </>
+                    )}
+                  </g>
+                ))
+              ) : (
+                <polyline points={out.pricePoints} fill="none" stroke="#2563eb" strokeWidth={2} />
+              )}
               {crossX != null && (
                 <line x1={crossX} x2={crossX} y1={0} y2={bandY + 8}
                       stroke="#9ca3af" strokeWidth={1} strokeDasharray="3 3" />
@@ -219,12 +331,13 @@ export default function StockDetailPanel({ row, to }: { row: StockRow; to: strin
               {out.dots.map((d, i) => (
                 <circle key={`d${i}`} cx={d.x} cy={d.y} r={4.5} fill={d.color} />
               ))}
-              {yDomain && (
-                <g fill="#6b7280" fontSize={11} className="num">
-                  <text x={4} y={12}>{yDomain.max.toLocaleString()}</text>
-                  <text x={4} y={CHART_H - 4}>{yDomain.min.toLocaleString()}</text>
-                </g>
-              )}
+              {/* x축: 날짜 라벨(월 경계 우선) */}
+              {out.xTicks.map((t, i) => (
+                <text key={`x${i}`} x={t.x} y={X_LABEL_Y} textAnchor="middle"
+                      fontSize={11} fill="#6b7280" className="num">
+                  {t.label}
+                </text>
+              ))}
             </g>
           </svg>
         ) : (
@@ -232,13 +345,13 @@ export default function StockDetailPanel({ row, to }: { row: StockRow; to: strin
             가격 계열 없음 — 조회 기간에 표시할 시세가 없습니다
           </div>
         )}
-        {hasChart && <ChartLegend />}
+        {hasChart && <ChartLegend mode={out.candleMarks.length ? "candle" : "line"} />}
         {hover && (
           <div
             className="absolute pointer-events-none bg-paper border border-hairline shadow-bento-hover rounded-xl px-3 py-2.5 z-10 w-[220px]"
             style={{ left: hover.left, top: hover.top }}
           >
-            <TooltipBody hit={hover.hit} to={to} />
+            <TooltipBody hit={hover.hit} to={to} candleByDate={candleByDate} />
           </div>
         )}
       </div>

@@ -70,6 +70,8 @@ class StreakMetricsOut(BaseModel):
 class StreakOut(BaseModel):
     start: date
     end: date | None = None
+    # end 가 date_to 로 표시 절단됐는지(#144 F1) — True 면 실제 닫힘일은 조회 범위 밖.
+    end_clamped: bool = False
     closed_by: str | None = None
     closed_reason: str | None = None
     censored: bool
@@ -107,3 +109,9 @@ class StockRowOut(BaseModel):
 class StockRowsResponse(BaseModel):
     rows: list[StockRowOut]
     orphan_trigger_count: int
+
+
+class CandlesResponse(BaseModel):
+    """상세 패널 캔들(#143) — [date, adj_open, adj_high, adj_low, adj_close].
+    o/h/l 은 미백필(null) 가능, close 는 항상 존재."""
+    candles: list[tuple[date, float | None, float | None, float | None, float]]

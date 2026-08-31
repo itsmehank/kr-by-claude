@@ -5,11 +5,12 @@ from psycopg import Connection
 
 from api.deps import get_conn
 from api.schemas.review import (
-    ReviewResponse, ReviewRowOut, ReviewTriggerOut, StockRowsResponse,
+    CandlesResponse, ReviewResponse, ReviewRowOut, ReviewTriggerOut,
+    StockRowsResponse,
 )
 from api.services.review_builder import (
     BREAKOUT_TYPES, build_spark, chain_tn, corp_action_flags,
-    count_orphan_triggers, derive_status, fetch_analysis_rows,
+    count_orphan_triggers, derive_status, fetch_analysis_rows, fetch_candles,
     fetch_price_series, first_breakout, first_promotion_d, max_reach,
 )
 from api.services.review_streaks import build_stock_rows
@@ -99,6 +100,18 @@ def list_analyses(
         out = [r for r in out if r.first_breakout_at is None]
     orphans = count_orphan_triggers(conn, date_from=date_from, date_to=date_to)
     return ReviewResponse(rows=out, orphan_trigger_count=orphans)
+
+
+@router.get("/stocks/{symbol}/candles", response_model=CandlesResponse)
+def stock_candles(
+    symbol: str,
+    from_: date = Query(alias="from"),
+    to: date = Query(),
+    conn: Connection = Depends(get_conn),
+):
+    """상세 패널 캔들(#143) — 행 선택 시에만 호출되는 경량 조회.
+    날짜축 정합·null 정책은 fetch_candles(review_builder) 참조."""
+    return CandlesResponse(candles=fetch_candles(conn, symbol, from_, to))
 
 
 @router.get("/stocks", response_model=StockRowsResponse)

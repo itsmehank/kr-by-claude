@@ -14,7 +14,7 @@ const CLOSED_LABEL: Record<string, string> = {
   ignore: "ignore",
 };
 
-/** 닫는 행 카드(#139) — 묶음이 언제·왜 닫혔는지 타임라인 끝에 표시.
+/** 닫는 행 카드(#139) — 구간이 언제·왜 닫혔는지 타임라인 끝에 표시.
  * StockStreakRow(펼침 행)·StockDetailPanel(상세 패널) 양쪽이 이 컴포넌트를 공유해
  * 닫는 행 표시가 두 곳에서 갈라지지 않게 한다. 백필 유래 ignore 등 reasoning 이
  * 없는 경우 사유 없이 날짜+라벨만 표시(스펙 §1 "제안하는 해결 방법" 3항). */
@@ -26,7 +26,7 @@ export default function StreakClosedCard({ streak }: { streak: Streak }) {
     <div className={`rounded-lg border px-3 py-2 ${tone}`}>
       <div className="flex items-center gap-2 flex-wrap text-data-xs">
         <span className="num text-muted">{streak.end}</span>
-        <span className="font-semibold">묶음 닫힘 · {label}</span>
+        <span className="font-semibold">구간 닫힘 · {label}</span>
       </div>
       {streak.closed_reason && (
         <div className="mt-1 text-data-xs whitespace-pre-wrap">{streak.closed_reason}</div>

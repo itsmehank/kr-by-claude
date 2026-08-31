@@ -302,6 +302,17 @@ def test_display_clamp_keeps_closed_by(db, seed_prices):
     assert row["latest"]["status"] == "closed"                      # 원본 기준
     assert row["streaks"][0]["closed_by"] == "ignore"               # 유지
     assert row["streaks"][0]["end"] == date(2026, 6, 30)            # 표시 절단
+    # (#144 리뷰 F1) 절단 사실을 표시층에 전달 — 프론트가 "그 날짜에 닫혔다"고
+    # 단정(수직 점선·날짜 툴팁)하지 않도록 하는 신호.
+    assert row["streaks"][0]["end_clamped"] is True
+
+    # 절단이 없으면(원본 end ≤ to) end_clamped=False
+    got2 = build_stock_rows(db, date_from=date(2026, 6, 1), date_to=date(2026, 8, 20),
+                            source=None, ticker="RVSTK01", status=None,
+                            limit=200, offset=0, today=date(2026, 8, 20))
+    s2 = got2["rows"][0]["streaks"][0]
+    assert s2["end"] == date(2026, 7, 10)
+    assert s2["end_clamped"] is False
 
 
 def test_scoped_rows_and_end_to_end_expose_closed_reason(db, seed_prices):

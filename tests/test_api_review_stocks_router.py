@@ -81,3 +81,26 @@ def test_stocks_endpoint_exposes_closed_reason(client, seed, db):
     streak = r.json()["rows"][0]["streaks"][0]
     assert streak["closed_by"] == "disqualify"
     assert streak["closed_reason"] == "minervini_pass=false — 미너비니 자격 상실(시스템 강등)"
+
+
+def test_candles_endpoint_returns_adj_ohlc_in_range(client, seed, db):
+    # 캔들 엔드포인트(#143): adj open/high/low/close 를 날짜순으로 반환하고,
+    # o/h/l 미백필(null)인 날은 null 을 그대로 내려 프론트가 종가 틱으로 폴백한다.
+    with db.cursor() as cur:
+        cur.execute(
+            """UPDATE daily_prices
+                  SET adj_open = 95, adj_high = 105, adj_low = 94
+                WHERE ticker = 'RVSAPI01' AND date = '2026-10-06'""")
+    db.commit()
+    r = client.get("/api/review/stocks/RVSAPI01/candles"
+                   "?from=2026-10-06&to=2026-10-07")
+    assert r.status_code == 200
+    candles = r.json()["candles"]
+    assert [c[0] for c in candles] == ["2026-10-06", "2026-10-07"]
+    assert candles[0][1:] == [95.0, 105.0, 94.0, 97.0]   # adj_close = 90+row_number
+    assert candles[1][1] is None and candles[1][2] is None and candles[1][3] is None
+    assert isinstance(candles[1][4], float)              # adj_close 는 항상 존재
+    # 범위 밖 날짜는 포함되지 않는다
+    r2 = client.get("/api/review/stocks/RVSAPI01/candles"
+                    "?from=2026-10-06&to=2026-10-06")
+    assert [c[0] for c in r2.json()["candles"]] == ["2026-10-06"]
