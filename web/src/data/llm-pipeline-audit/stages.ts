@@ -80,7 +80,7 @@ SELECT i.ticker, s.market
     num: 2,
     label: "daily_delta stage",
     schedule: "평일 20:00 (KST), `llm-full-daily` 1단계",
-    inputFilter: `신규 후보 — 오늘 결정론 통과 + 최근 7일 분류 없음 (compute/delta.py:22-37):
+    inputFilter: `신규 후보 — 오늘 결정론 통과 + 최근 7일 LLM 분류 없음 (compute/delta.py:30-51):
 
 SELECT i.ticker
   FROM daily_indicators i
@@ -91,11 +91,14 @@ SELECT i.ticker
    AND NOT EXISTS (
      SELECT 1 FROM weekly_classification wc
       WHERE wc.symbol = i.ticker
+        AND wc.source IN ('weekend', 'daily_delta')  -- LLM 실행 기록만 (#145)
         AND wc.classified_at >= %s
    )
  ORDER BY i.ticker
 
-상수: RECENT_WINDOW_DAYS = 7 (compute/delta.py:12)`,
+상수: RECENT_WINDOW_DAYS = 7 (compute/delta.py:18)
+주: system_disqualify(실격) 행은 LLM 미호출 기록이라 세지 않음 — 실격 직후
+재통과한 종목은 다시 신규 후보가 된다 (#145).`,
     inputFilterCodeRef: "kr_pipeline/llm_runner/compute/delta.py:find_new_tickers",
     deterministicLogic: null,
     promptFile: "prompts/analyze_chart_v3.md (weekend 와 동일)",
