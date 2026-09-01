@@ -105,7 +105,10 @@ export function TriggerHistoryTable({ ticker, limit = 20 }: Props) {
                     ? `${t.pivot_delta_pct >= 0 ? "+" : ""}${t.pivot_delta_pct.toFixed(2)}%`
                     : "—"}
                 </td>
-                <td className="py-1.5 text-muted">
+                {/* w-full max-w-0: auto 레이아웃 표에서 잔여 폭은 차지하되 nowrap
+                    콘텐츠가 컬럼 폭을 카드 밖으로 밀어내지 못하게(#147 잘림 수리) —
+                    truncate 는 폭이 bounded 여야 ellipsis 가 생긴다. */}
+                <td className="py-1.5 text-muted w-full max-w-0">
                   {t.reasoning ? (
                     <button
                       type="button"
@@ -119,8 +122,10 @@ export function TriggerHistoryTable({ ticker, limit = 20 }: Props) {
                           <ChevronRight size={12} />
                         )}
                       </span>
+                      {/* min-w-0: flex 아이템 기본 min-width:auto 가 수축을 막아
+                          truncate 를 무력화하는 것 방지 */}
                       <span
-                        className={isOpen ? "whitespace-pre-wrap" : "truncate"}
+                        className={isOpen ? "whitespace-pre-wrap" : "truncate min-w-0"}
                       >
                         {t.reasoning}
                       </span>
