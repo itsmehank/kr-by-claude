@@ -332,8 +332,8 @@ def test_classification_history_unions_live_and_backfill(client, db):
             cur.execute("""INSERT INTO weekly_classification (symbol, classified_at, analyzed_for_date, market, classification, source)
                            VALUES ('HST1', %s, %s, 'KOSPI', 'watch', 'weekend')""",
                         (datetime(2025, 2, 2, tzinfo=timezone.utc), date(2025, 2, 1)))
-            cur.execute("""INSERT INTO classification_backfill (symbol, classified_at, analyzed_for_date, market, classification, source)
-                           VALUES ('HST1', %s, %s, 'KOSPI', 'ignore', 'backfill')""",
+            cur.execute("""INSERT INTO classification_backfill (symbol, classified_at, analyzed_for_date, market, classification, source, pivot_price)
+                           VALUES ('HST1', %s, %s, 'KOSPI', 'ignore', 'backfill', 500)""",
                         (datetime(2025, 1, 5, tzinfo=timezone.utc), date(2025, 1, 4)))
             cur.execute("""INSERT INTO classification_backfill (symbol, classified_at, analyzed_for_date, market, classification, source)
                            VALUES ('HST1', %s, %s, 'KOSPI', 'entry', 'backfill')""",
@@ -347,6 +347,8 @@ def test_classification_history_unions_live_and_backfill(client, db):
             ("2025-01-04", "ignore"),
             ("2025-02-01", "watch"),
         ]
+        # (#149) backfill 팔의 pivot 도 응답에 실린다
+        assert rows[0]["pivot_price"] == 500.0
     finally:
         with db.cursor() as cur:
             cur.execute("DELETE FROM weekly_classification WHERE symbol='HST1'")
@@ -386,9 +388,9 @@ def test_classification_history_includes_detail_fields(client, db):
             cur.execute(
                 """INSERT INTO weekly_classification
                      (symbol, classified_at, analyzed_for_date, market, classification,
-                      pattern, confidence, reasoning, source)
+                      pattern, confidence, reasoning, source, pivot_price)
                    VALUES ('HSTD1', %s, %s, 'KOSPI', 'watch',
-                           'cup_with_handle', 0.72, '핸들 형성 중 — 관찰 유지', 'weekend')""",
+                           'cup_with_handle', 0.72, '핸들 형성 중 — 관찰 유지', 'weekend', 13390.1)""",
                 (datetime(2025, 2, 2, tzinfo=timezone.utc), date(2025, 2, 1)),
             )
             cur.execute(
@@ -407,7 +409,9 @@ def test_classification_history_includes_detail_fields(client, db):
         assert watch["pattern"] == "cup_with_handle"
         assert watch["confidence"] == 0.72
         assert watch["reasoning"] == "핸들 형성 중 — 관찰 유지"
+        assert watch["pivot_price"] == 13390.1          # (#149) 분석별 pivot 노출
         disq = rows[1]
+        assert disq["pivot_price"] is None              # 실격 행은 pivot 없음
         assert disq["classification"] == "disqualified"
         assert disq["pattern"] is None
         assert disq["confidence"] is None

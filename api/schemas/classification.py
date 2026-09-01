@@ -34,3 +34,5 @@ class ClassificationHistoryRow(BaseModel):
     pattern: str | None = None       # disqualified/구형 행은 NULL
     confidence: float | None = None
     reasoning: str | None = None
+    # 그 분석이 제시한 pivot(돌파 기준가) — 실격/미확정 행은 NULL (#149)
+    pivot_price: float | None = None
