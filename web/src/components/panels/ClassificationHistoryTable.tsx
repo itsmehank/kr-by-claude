@@ -51,6 +51,9 @@ export function ClassificationHistoryTable({ rows, loading }: Props) {
             <th className="text-left py-1.5 pr-3">분류</th>
             <th className="text-left py-1.5 pr-3">패턴</th>
             <th className="text-right py-1.5 pr-4">확신도</th>
+            <th className="text-right py-1.5 pr-4" title="구간 마지막 분석이 제시한 pivot(돌파 기준가)">
+              최근 pivot
+            </th>
             <th className="text-left py-1.5">분석</th>
           </tr>
         </thead>
@@ -82,6 +85,7 @@ function FragmentRow({
   open: boolean;
   onToggle: () => void;
 }) {
+  const latestPivot = s.weeks[s.weeks.length - 1]?.pivot_price;
   // 창-잘림 구간: 시작일을 전환일로 단정하지 않음 (스펙 §4)
   const period = s.truncatedStart
     ? `기간 이전부터 ~ ${s.endDate}`
@@ -105,11 +109,15 @@ function FragmentRow({
         <td className="py-2 pr-4 num text-right">
           {s.confidence != null ? s.confidence.toFixed(2) : "—"}
         </td>
+        {/* 구간 내 재분석으로 pivot 이 조정될 수 있어 마지막 분석 값을 대표로(#149) */}
+        <td className="py-2 pr-4 num text-right">
+          {latestPivot != null ? latestPivot.toLocaleString() : "—"}
+        </td>
         <td className="py-2 text-data-xs text-faint">{s.weeks.length}주 분석</td>
       </tr>
       {open && (
         <tr className="bg-cream/40">
-          <td colSpan={5} className="px-4 py-3">
+          <td colSpan={6} className="px-4 py-3">
             <div className="text-data-xs leading-relaxed mb-2">
               <span className="caps text-faint mr-2">
                 사유{s.truncatedStart && " (기간 내 첫 기록 기준)"}
@@ -123,6 +131,7 @@ function FragmentRow({
                   <th className="text-left py-1 pr-3">분류</th>
                   <th className="text-left py-1 pr-3">패턴</th>
                   <th className="text-right py-1 pr-4">conf</th>
+                  <th className="text-right py-1 pr-4">pivot</th>
                   <th className="text-left py-1">출처</th>
                 </tr>
               </thead>
@@ -134,6 +143,9 @@ function FragmentRow({
                     <td className="py-1 pr-3 text-muted">{w.pattern ?? "—"}</td>
                     <td className="py-1 pr-4 num text-right">
                       {w.confidence != null ? w.confidence.toFixed(2) : "—"}
+                    </td>
+                    <td className="py-1 pr-4 num text-right">
+                      {w.pivot_price != null ? w.pivot_price.toLocaleString() : "—"}
                     </td>
                     <td className="py-1 text-faint">{w.source}</td>
                   </tr>

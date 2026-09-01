@@ -346,6 +346,8 @@ export interface ClassificationHistoryRow {
   pattern: string | null;
   confidence: number | null;
   reasoning: string | null;
+  // 그 분석이 제시한 pivot(돌파 기준가) — 실격/미확정 행은 null (#149)
+  pivot_price?: number | null;
 }
 
 export interface ReviewTrigger {

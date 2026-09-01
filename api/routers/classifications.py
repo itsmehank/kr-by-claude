@@ -131,20 +131,21 @@ def get_classification_history(
     sql = """
         WITH combined AS (
           SELECT COALESCE(analyzed_for_date, classified_at::date) AS d,
-                 classification, pattern, confidence, reasoning,
+                 classification, pattern, confidence, reasoning, pivot_price,
                  classified_at, 0 AS source_rank, 'live' AS src
             FROM weekly_classification
            WHERE symbol = %(ticker)s
              AND COALESCE(analyzed_for_date, classified_at::date) BETWEEN %(start)s AND %(end)s
           UNION ALL
           SELECT analyzed_for_date AS d,
-                 classification, pattern, confidence, reasoning,
+                 classification, pattern, confidence, reasoning, pivot_price,
                  classified_at, 1 AS source_rank, 'backfill' AS src
             FROM classification_backfill
            WHERE symbol = %(ticker)s
              AND analyzed_for_date BETWEEN %(start)s AND %(end)s
         )
-        SELECT DISTINCT ON (d) d, classification, src, pattern, confidence, reasoning
+        SELECT DISTINCT ON (d) d, classification, src, pattern, confidence, reasoning,
+               pivot_price
           FROM combined
          ORDER BY d ASC, source_rank ASC, classified_at DESC
     """
@@ -158,6 +159,7 @@ def get_classification_history(
             pattern=r[3],
             confidence=float(r[4]) if r[4] is not None else None,
             reasoning=r[5],
+            pivot_price=float(r[6]) if r[6] is not None else None,
         )
         for r in rows
     ]
