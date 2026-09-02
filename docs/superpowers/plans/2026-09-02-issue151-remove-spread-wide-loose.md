@@ -20,7 +20,27 @@
   book-mandated 거래량 확대 원칙과의 **상충의 존재 근거일 뿐, 비용 크기의 근거가 아님**.
 
 **사전등록**: 이 변경의 성과 효과는 현 표본(n=17)으로 판정하지 않는다. P0 재수집 완료 후
-별도 holdout 사전등록으로만 평가한다.
+별도 holdout 사전등록으로만 평가한다. **(A3)** 결정적 변경(decisive change)이므로 LLM
+비결정성 하에서 before/after 재실행 비교를 시도하지 않는다(리포 기존 "재실행 비교 금지"
+규율과 동일) — 판정은 봉인된 사전등록 경로만.
+
+**(A1) 삭제된 정의 원문 보존** — 과거 freeze/저장본의 `spread_ratio_vs_avg` 값을 사후
+해석할 때 필요(상수 삭제로 코드에서 소실됨):
+
+> 대상 = 돌파(평가) 당일 일봉, 분자 = high−low, 분모 = 직전 19거래행(오늘 제외, 최소
+> 5행) high−low 단순평균(SPREAD_AVG_WINDOW_DAYS=19·SPREAD_AVG_MIN_ROWS=5),
+> 임계 = 1.5×(SPREAD_WIDE_LOOSE_MULT) — spread_wide_loose = spread_ratio > 1.5.
+
+**(A2) 잔여 go_now 조건의 "돌파 강도" 축 — 사실 기록(조정 지시 아님)**: 제거 후 go_now
+4조건 중 돌파 강도를 정량 판정하는 게이트 축은 **거래량(volume_band=="pass") 단독**이다.
+price_above_pivot 은 이진 통과(하한)이고 상한은 별도 extended 인터셉트(pivot×1.05)가
+담당하며 강도 게이트가 아니다. close_upper_third 는 일중 마감 위치(질적 보조),
+no_dist_3d 는 최근 이력이다. LLM 입력에는 연속값(volume_ratio·close_range_pos)이
+남아 있어 재량 참고는 가능하나 게이트는 아니다.
+
+**(승인 확정) D3 재량 결정 승인 — 근거 보강**: spread_ratio_vs_avg 는 저장 OHLC 에서
+재계산 가능한 파생값이므로 기록 제거에 정보 손실이 없다. 일반 규약으로 승격 —
+governance.md G1(파생값 제거 가능 / 재계산 불가 원시 관측은 기록 보존).
 
 ## 제거 판정 기준 4조건 (전문가 확정, 코드로 재확인)
 
