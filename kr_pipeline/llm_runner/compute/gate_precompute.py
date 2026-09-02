@@ -10,7 +10,7 @@ null 규약: 입력 결측 → 해당 게이트 None. 프롬프트 규약상 go_
 게이트가 None 이면 go_now 금지(보수). distribution_day_flag None(미산출)은
 분배일로 세지 않는다 — 기존 §3 규약(handle_quality COALESCE)과 동일.
 
-소스 규약: 일중값(range 위치·spread·저가)은 20d 리스트 마지막 행, close/volume/
+소스 규약: 일중값(range 위치·저가)은 20d 리스트 마지막 행, close/volume/
 sma 게이트는 current_metrics — halt 직후 두 소스의 날짜가 다를 수 있어(#35 리뷰)
 `ohlcv_last_date` 로 노출한다.
 """
@@ -23,9 +23,6 @@ from kr_pipeline.common.thresholds import (
     BREAKOUT_VOL_WAIT_FLOOR,
     MARKET_DIST_DEMOTION_COUNT_25S,
     SMA50_BREACH_RATIO,
-    SPREAD_AVG_MIN_ROWS,
-    SPREAD_AVG_WINDOW_DAYS,
-    SPREAD_WIDE_LOOSE_MULT,
     STOCK_DISTRIBUTION_ABORT_COUNT,
     STOCK_DISTRIBUTION_ABORT_WINDOW_CAL_CAP,
     STOCK_DISTRIBUTION_ABORT_WINDOW_DAYS,
@@ -102,7 +99,7 @@ def compute_gates(
         close < sma_21 if close is not None and sma_21 is not None else None
     )
 
-    # --- 일중 range 위치 / spread (20d 마지막 행 소스) ---
+    # --- 일중 range 위치 (20d 마지막 행 소스) ---
     close_range_pos = None
     close_upper_third = None
     close_middle_third = None
@@ -127,15 +124,9 @@ def compute_gates(
                 close_upper_third = False
                 close_middle_third = False
 
-    spread_ratio = None
-    spread_wide_loose = None
-    if last is not None:
-        prev = ohlcv_20d[:-1][-SPREAD_AVG_WINDOW_DAYS:]
-        if len(prev) >= SPREAD_AVG_MIN_ROWS:
-            avg_range = sum(r["high"] - r["low"] for r in prev) / len(prev)
-            if avg_range > 0:
-                spread_ratio = (last["high"] - last["low"]) / avg_range
-                spread_wide_loose = spread_ratio > SPREAD_WIDE_LOOSE_MULT
+    # spread(돌파 당일 봉 폭) 게이트는 #151 에서 제거 — 책의 wide-and-loose 는
+    # 베이스 구간 개념(A 프롬프트 wide_and_loose 담당)이고, 돌파 당일 봉 감점은
+    # 책 근거 없는 design-judgment + 돌파일 거래량 확대 원칙과 방향 충돌.
 
     # --- 분배일 창 (20d 리스트 소스, flag None=미계수) ---
     dist_3 = _dist_count(
@@ -199,10 +190,6 @@ def compute_gates(
         ),
         "close_upper_third": close_upper_third,
         "close_middle_third": close_middle_third,
-        "spread_ratio_vs_avg": (
-            round(spread_ratio, 4) if spread_ratio is not None else None
-        ),
-        "spread_wide_loose": spread_wide_loose,
         "dist_days_last_3": dist_3,
         "no_dist_3d": (dist_3 == 0) if dist_3 is not None else None,
         "dist_days_last_5": dist_5,

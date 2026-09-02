@@ -117,16 +117,8 @@ BREAKOUT_VOL_WAIT_FLOOR: Final[float] = 1.2
 """B wait 밴드 하한 (50일 평균 배수). 1.2~BREAKOUT_VOL_FLOOR(1.4) 구간 = wait 후보.
 시스템 설계 — 기존 evaluate_pivot_trigger_v1 §3.1 wait 문구의 SSOT 승격."""
 
-SPREAD_WIDE_LOOSE_MULT: Final[float] = 1.5
-"""일중 spread(high−low) 의 wide-and-loose 판정 배수 (직전 평균 range 대비).
-개념: O'Neil wide-and-loose. 배수 1.5×는 시스템 설계 (기존 프롬프트 문구 승격).
-평균 창은 SPREAD_AVG_WINDOW_DAYS — 기존 프롬프트는 창 미정의(LLM 재량)였음."""
-
-SPREAD_AVG_WINDOW_DAYS: Final[int] = 19
-"""spread 평균 range 계산 창 (오늘 제외 직전 거래행 수 — 5b payload 20d 리스트 기준)."""
-
-SPREAD_AVG_MIN_ROWS: Final[int] = 5
-"""spread 평균 range 최소 표본 행 수. 미만이면 null(미산출)."""
+# SPREAD_WIDE_LOOSE_MULT·SPREAD_AVG_* 는 #151 에서 제거 — 돌파 당일 봉 spread
+# 감점은 책 근거 없는 design-judgment 판정(베이스 구간 검사는 A wide_and_loose 담당).
 
 SMA50_BREACH_RATIO: Final[float] = 0.98
 """B abort 의 sma_50 명확 이탈 비율 (close < sma_50 × 0.98).
