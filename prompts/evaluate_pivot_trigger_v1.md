@@ -15,9 +15,6 @@
 - BREAKOUT_VOL_FLOOR = 1.4
 - GATE_PROMOTION_PRICE_RATIO = 0.95
 - BREAKOUT_VOL_WAIT_FLOOR = 1.2
-- SPREAD_WIDE_LOOSE_MULT = 1.5
-- SPREAD_AVG_WINDOW_DAYS = 19
-- SPREAD_AVG_MIN_ROWS = 5
 - SMA50_BREACH_RATIO = 0.98
 - STOCK_DISTRIBUTION_CLEAN_WINDOW_DAYS = 3
 - STOCK_DISTRIBUTION_CLEAN_WINDOW_CAL_CAP = 14
@@ -48,7 +45,6 @@
   - `close_range_pos`, `close_upper_third`, `close_middle_third` (일중 range 내 종가 위치.
     range 0 인 단일가 잠금 봉(상한가/하한가 lock)은 전일 종가 대비 방향으로 확정 —
     상한가=상단 마감·하한가=하단 마감·전일 부재/보합 잠금=null)
-  - `spread_ratio_vs_avg`, `spread_wide_loose` (직전 SPREAD_AVG_WINDOW_DAYS 거래행 평균 range 대비, > SPREAD_WIDE_LOOSE_MULT = wide)
   - `dist_days_last_3`, `no_dist_3d`, `dist_days_last_5`, `dist_3plus_5d` (종목 분배일 창 카운트 —
     창·캘린더 상한은 STOCK_DISTRIBUTION_* 상수 — 상한은 정기 연휴(최장 10일 휴장)를 통과하도록 설정. halt 로 상한 밖까지 늘어진 stale 행은 미계수)
   - `low_below_base_low` (저가 기준), `close_below_base_low` (종가 기준), `close_below_sma50_breach` (close < sma_50 × SMA50_BREACH_RATIO), `close_below_sma21`
@@ -60,7 +56,7 @@
 
 ## 3. Decision Logic
 
-**게이트 판정 규약 (#22)**: 정량 게이트(가격·거래량·종가 위치·spread·분배일 카운트·이평선
+**게이트 판정 규약 (#22)**: 정량 게이트(가격·거래량·종가 위치·분배일 카운트·이평선
 이격·시장/TT 회복)는 `computed_gates` 가 **authoritative** — OHLCV·지표·flag 로 직접
 재계산하지 말 것(analyze_chart_v3 §6 의 column-is-authoritative 관례와 동일. 결정론 코드
 산출값 — LLM 자체 기준 사용 금지). per-row `distribution_day_flag` 와 원시 OHLCV 는
@@ -75,13 +71,11 @@ reasoning 서술의 참고용(reference-only)이며 게이트 재판정에 사�
 - `price_above_pivot == true` (결정론 게이트 이미 확인. 재확인)
 - `volume_band == "pass"` (책 근거: O'Neil HTMMIS Ch.2 "Volume Percent Change")
 - `close_upper_third == true` (no intraday weakness)
-- `spread_wide_loose == false` (wide-and-loose 아님)
 - `no_dist_3d == true` (최근 3일 distribution day 없음)
 
 `wait` 조건:
 - `volume_band == "wait_band"` (부족하지만 abort 까지는 아님)
 - `close_middle_third == true` (weak finish)
-- `spread_ratio_vs_avg` 가 wide 임계 부근 경계 (borderline wide — 재량 판단)
 
 `abort` 조건:
 - `low_below_base_low == true` (base_low 이탈)
@@ -90,8 +84,7 @@ reasoning 서술의 참고용(reference-only)이며 게이트 재판정에 사�
 - **돌파 직후 20일선 가드 위반** (Minervini *TTLC* Ch.1 "WATCH THE 20-DAY LINE
   SOON AFTER A BASE BREAKOUT"): `days_since_classification` 이 작아 "돌파
   직후 (soon after)" 로 판단되고 (대략 분류 후 4주 이내), `close_below_sma21
-  == true` + 거래량 동반/추가 위반 (예: `dist_days_last_5` 누적,
-  `spread_wide_loose == true` 등). **단독 sma_21 이탈은 wait 로** — 책이 "단독으론
+  == true` + 거래량 동반/추가 위반 (예: `dist_days_last_5` 누적 등). **단독 sma_21 이탈은 wait 로** — 책이 "단독으론
   의미 없다 (not significant on its own)" 명시.
 
 ### 3.2 trigger_type = "invalidation"
@@ -148,7 +141,6 @@ abort 시 다음 중 하나로 정형화:
 - `base_depth_exceeded` — base_depth_pct > 33%
 - `distribution_pattern_clear` — 최근 5일 distribution 3+
 - `volume_insufficient_intraday_weak` — 오늘 거래량 부족 + 일중 약세
-- `spread_wide_loose` — spread wide-and-loose
 - `consecutive_weak_days` — 연속 약세 (단일 일시적 아님)
 
 위 외의 사유는 위 키워드 중 가장 가까운 것 선택. 새 키워드 만들지 말 것.
@@ -165,7 +157,6 @@ pivot fresh 돌파가 발생한 경우. 기존엔 promotion 으로만 잡혀 토
 - `price_above_pivot == true` (게이트 fresh_cross 이미 확인. 재확인)
 - `volume_band == "pass"` (O'Neil HTMMIS Ch.2)
 - `close_upper_third == true` (no intraday weakness)
-- `spread_wide_loose == false`
 - `no_dist_3d == true`
 
 **회복 게이트 (사유-독립 — watch_reason 무관, `go_now` 는 항상 둘 다 충족 필수):**

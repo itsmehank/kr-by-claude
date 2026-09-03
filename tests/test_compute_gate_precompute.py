@@ -161,27 +161,14 @@ def test_flat_bar_direction_unknown_is_null():
     assert g2["close_upper_third"] is None
 
 
-# ---- spread ----
+# ---- spread (제거됨 — #151) ----
 
-def test_spread_ratio_and_wide_loose():
-    rows = _rows()
-    # 직전 19행 range=4.0 고정, 오늘 range 를 7.0 으로 (ratio 1.75 > 1.5)
-    rows[-1]["high"] = rows[-1]["low"] + 7.0
-    g = _gates(ohlcv_20d=rows)
-    assert g["spread_ratio_vs_avg"] == pytest.approx(7.0 / 4.0)
-    assert g["spread_wide_loose"] is True
-
-
-def test_spread_not_wide_when_normal():
+def test_spread_keys_removed_from_gates():
+    """(#151) 돌파 당일 봉 spread 감점은 책 근거 없는 design-judgment 로 판정돼
+    제거됨 — computed_gates 에 spread 키가 다시 생기면 회귀."""
     g = _gates()
-    assert g["spread_ratio_vs_avg"] == pytest.approx(1.0)
-    assert g["spread_wide_loose"] is False
-
-
-def test_spread_null_when_too_few_rows():
-    g = _gates(ohlcv_20d=_rows(n=4))
-    assert g["spread_ratio_vs_avg"] is None
-    assert g["spread_wide_loose"] is None
+    assert "spread_ratio_vs_avg" not in g
+    assert "spread_wide_loose" not in g
 
 
 # ---- distribution windows ----

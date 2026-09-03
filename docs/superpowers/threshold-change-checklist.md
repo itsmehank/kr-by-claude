@@ -16,7 +16,7 @@
 
 추가 — **연동되는 prompt 임계 텍스트**: prompt (.md) 는 thresholds.py 를 코드로 import 하지 않고 *수동 동기화* 하지만, thresholds.py 값과 *연동되는 prompt 의 임계 텍스트* (예: §6.1 breakout 1.4×) 를 바꾸는 작업도 이 체크리스트 대상.
 
-이유: "이건 임계 변경 아닌데?" 오판 방지. P2-1a 도 "FTD 임계 하나 바꾼 줄 알았는데 파생 신호 (last_ftd_date) 를 건드려 룰 3 까지 영향" — 주관 분류로는 안 걸렸을 케이스. "thresholds.py 또는 그 소비처를 건드렸나" 라는 *사실* 로 걸린다.
+이유: "이건 임계 변경 아닌데?" 오판 방지. 세션/외부 문서의 방법론 판정은 이 사실 트리거를 면제하지 못한다(governance.md G2 — #151 사례). P2-1a 도 "FTD 임계 하나 바꾼 줄 알았는데 파생 신호 (last_ftd_date) 를 건드려 룰 3 까지 영향" — 주관 분류로는 안 걸렸을 케이스. "thresholds.py 또는 그 소비처를 건드렸나" 라는 *사실* 로 걸린다.
 
 ---
 
@@ -116,3 +116,4 @@ risk flag 는 티어 자격 박탈 + `_FLAG_MULT` 배수의 **이중 작용이 �
 - 2026-07-22: #25 책-충실성 검토 후속 — 프롬프트 귀속·태그 문구 정비 7건 (**동작 중립 의도** — operative 임계·규칙 문장 불변, 출처/태그 텍스트만): §5.2 "1.5–2.5× 책에 없음" 사실 오류 정정(HMMS 원문 실재 — 의도적 대체로 재서술), reverse-split O'Neil 귀속 철회(데이터 무결성 design-judgment 명시), §4.5 "≥6주" design-judgment 재태깅(TLOND 비명시), 컵 깊이 50% 캡·핸들 5일 floor·flat_base 출처·컵 기간 병기. 근거 = docs/superpowers/2026-07-22-issue25-book-fidelity-review.md. 게이트: P2-1d(2026-05-27) 동작 중립 전례 — 의존성 맵 생략, 단 프롬프트 산문은 LLM 입력이므로 분류 표류 여부는 실전 주간 분류에서 자연 관측(재실행 비교 금지 규율 유지). PP 10일 창 TLOND 단서는 기문서화 확인(thresholds.py:70 — 변경 없음).
 - 2026-07-24: #80 — 사이징 flag 이중 작용(티어 강등+배수)을 **의도로 확정·명문화** (동작 중립 — 값 변경 0, 주석·가이드·web 설명만). 역할 분리(완화)는 수익성 입증+#74 F1~F4 첫 판독 후 재개봉 조건부 동결. 기준선 실측(현행 3.2~3.3pp vs 분리안 4.9~5.3pp, 갈림 91~93%) = specs/2026-07-24-issue80-flag-double-penalty-decision.md §4.
 - 2026-08-30: #145 daily_delta 7일 가드에서 system_disqualify 행 제외 — RECENT_CLASSIFICATION_WINDOW_DAYS **값 불변**, 소비 로직(find_new_tickers)의 세는 행 종류만 축소(취지 "LLM 실행 여부"와 조건 일치화). 의존성 맵 = docs/superpowers/plans/2026-08-30-issue145-delta-guard-exclude-disqualify.md. 방향 = 편입 확대(실격뿐인 종목 재편입, 종목당 ≤7일 1회 상한은 LLM 행 가드+실격 멱등으로 구조 보장). B-수치 = 적용 후 daily_delta 처리 건수·실격발 재편입 건수 관측.
+- 2026-09-02: #151 spread_wide_loose 게이트 제거 — SPREAD_WIDE_LOOSE_MULT·SPREAD_AVG_* 상수 3종 삭제 + gate_precompute 산출 + evaluate_pivot 프롬프트 9곳. 사유 = book-fidelity 오귀속 2건(베이스 구조 개념의 돌파 당일봉 전용 / 매도 도메인 규칙의 매수 도메인 전용) — **성과 근거 아님**. 저장본 측정(53%·corr +0.578·n=17)은 거래량 원칙과의 상충 존재 근거일 뿐 비용 크기 근거 아님. go_now 조건 5→4 완화의 성과 효과는 P0 재수집 후 holdout 사전등록으로만 평가. 베이스 구간 wide_and_loose(A §5.2·entry_params stop/사이징 소비)는 불변. 의존성 맵 = plans/2026-09-02-issue151-remove-spread-wide-loose.md.
