@@ -224,6 +224,70 @@ def compute_climax_gates(weekly: list[dict], daily_20d: list[dict], anchor: dict
     }
 
 
+_DAILY_KEYS = ("t5_daily_max_up_now", "t6_daily_max_spread_now", "ta_d_daily_max_decline_now")
+
+
+def compute_daily_extremes(daily_hist: list[dict] | None, baseline_start: str | None,
+                           anchor: dict) -> dict:
+    """(항목 ① 2026-09-07) 일간 climax/topping 극값 신호 3종 — 순수 함수.
+
+    daily_hist: [{date(ISO), open, high, low, close, volume}, ...] 오름차순, zero-bar 제외.
+        anchored 모드에서는 baseline 첫날의 prev_close 를 공급하기 위해 baseline_start
+        **직전 1행**을 포함해 넘긴다(payload_builder._fetch_daily_since 규약).
+    baseline_start: baseline 첫 거래일(ISO) — anchor 주 첫 거래일(W-SUN 그룹 min(date),
+        Q-1 판정 B). None 이면 전체 이력(no_transition 모드, Q-3).
+    anchor: find_anchor(weekly) 반환 dict — 3모드를 주간 게이트와 동일 적용.
+
+    정의(전문가 확정 사양, 분모 전부 prev_close — Q-2):
+    - T5  t5_daily_max_up_now      = 오늘이 상승일(close>prev) AND up_pct >= baseline 상승일 max
+          up_pct = (close−prev_close)/prev_close. [HMMS Ch.10 Climax Tops #1 + TTLC Ch.9]
+    - T6  t6_daily_max_spread_now  = 오늘 spread_pct >= baseline 전 거래일 max
+          spread_pct = (high−low)/prev_close. [TTLC Ch.9 단독 — HMMS 는 주간판만]
+    - TA-d ta_d_daily_max_decline_now = 오늘이 하락일(close<prev) AND down_pct >= baseline 하락일 max
+          down_pct = (prev_close−close)/prev_close. [TTLC Ch.9 + TLSMW Ch.5]
+
+    규약: 동률 >= (기존 P2/T1/T-A 관례 — 가격제한 동률 실재, 노출 축소 방향). 오늘이
+    상승일/하락일 아니면 T5/TA-d 는 False(자격 없음 — T-A 관례, None 아님).
+    left_censored → 전부 None(발화 금지). 비교 가능한 행(prev_close 보유·양수) 이
+    baseline 안에 없거나 오늘이 baseline 밖이면 None(결측).
+    """
+    if anchor["left_censored"] or not daily_hist or len(daily_hist) < 2:
+        return dict.fromkeys(_DAILY_KEYS)
+
+    ups: list[float] = []
+    spreads: list[float] = []
+    downs: list[float] = []
+    today: tuple[float | None, float, float | None] | None = None  # (up_pct, spread_pct, down_pct)
+    last_idx = len(daily_hist) - 1
+    for i in range(1, len(daily_hist)):
+        row = daily_hist[i]
+        if baseline_start is not None and row["date"] < baseline_start:
+            continue
+        prev = daily_hist[i - 1]["close"]
+        if prev is None or prev <= 0 or row["close"] is None:
+            continue
+        chg = (row["close"] - prev) / prev * 100
+        spread_pct = (row["high"] - row["low"]) / prev * 100
+        up = chg if chg > 0 else None
+        down = -chg if chg < 0 else None
+        spreads.append(spread_pct)
+        if up is not None:
+            ups.append(up)
+        if down is not None:
+            downs.append(down)
+        if i == last_idx:
+            today = (up, spread_pct, down)
+
+    if today is None:
+        return dict.fromkeys(_DAILY_KEYS)
+    up_t, sp_t, down_t = today
+    return {
+        "t5_daily_max_up_now": up_t is not None and up_t >= max(ups),
+        "t6_daily_max_spread_now": sp_t >= max(spreads),
+        "ta_d_daily_max_decline_now": down_t is not None and down_t >= max(downs),
+    }
+
+
 def compute_topping_gates(weekly: list[dict], dist_count_25s: int | None, anchor: dict) -> dict:
     """(#44 Task 4) §6.2 topping 게이트 산술 — 순수 함수.
 

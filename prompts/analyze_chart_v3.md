@@ -409,7 +409,8 @@ current week, **anchor week itself included** — not "the week after the anchor
 104주 창의 왼쪽 끝을 새로운 move-start 로 재해석하지 말 것):**
 - `left_censored=True` (이력이 CLIMAX_ANCHOR_VOL_AVG_WEEKS(50)주 이하 — anchor 탐색 자체가
   불가능한 진짜 결측): §6.1 의 모든 필드가 `null`(`maturity_ok`·`p2_*`·`t1_max_spread_now`·
-  `t2_max_volume_now`·`scope_active`·`quality_flag_climax` 포함) — climax_run 을 발화하지
+  `t2_max_volume_now`·`t5_daily_max_up_now`·`t6_daily_max_spread_now`·`scope_active`·
+  `quality_flag_climax` 포함) — climax_run 을 발화하지
   말 것(전제 판정 불능 = 미충족과 동일 취급). §6.2 의 anchor 비의존 게이트(아래 참조)는
   이 모드에서도 정상 계산된다. 예외: `supporting_ext_sma200_pct` 는 anchor 와 무관한
   일봉 지표(SMA-200 이격)라 이 모드에서도 값이 공급될 수 있다 — supporting 은 어차피
@@ -433,8 +434,9 @@ recompute):
   (**동률 허용** — 코드는 `>=` 로 판정해 동률도 "steepest"로 인정, 책 문언보다 엄격=보수
   방향).
 
-Triggers (≥1 — `climax_topping_gates` 필드가 authoritative, 이미 ENTIRE advance since
-the anchor 기준으로 계산됨):
+Triggers (**T1~T6 중 ≥1** — 평면 OR, 필수·보조 구분 없음(HMMS Ch.10 평면 구조);
+`climax_topping_gates` 필드가 authoritative, 이미 ENTIRE advance since the anchor 기준으로
+계산됨):
 - T1 `t1_max_spread_now` — Largest weekly high-low spread since the advance began
 - T2 `t2_max_volume_now` — Heaviest weekly volume since the advance began
 - T3 `t3_gap_up_today` — daily 마지막 행 open > 직전 행 high 인지 여부의 **사실 플래그만**
@@ -444,6 +446,16 @@ the anchor 기준으로 계산됨):
   trailing window length in CLIMAX_UP_DAYS_WINDOW_MIN–CLIMAX_UP_DAYS_WINDOW_MAX (7–15)
   days, window END-POINT fixed at today's session (max over all lengths 7–15, not a
   single fixed length — 2026-07-21 확정).
+- T5 `t5_daily_max_up_now` — Largest single-day price run-up since the advance began:
+  today is an up day AND (close−prev_close)/prev_close ≥ every up day's run-up in the
+  baseline (anchor 주 **첫 거래일**부터 오늘까지의 일봉, 동률 허용). (O'Neil HMMS Ch.10
+  Climax Tops #1; Minervini TTLC Ch.9.)
+- T6 `t6_daily_max_spread_now` — Widest single-day spread since the advance began:
+  (high−low)/prev_close today ≥ every trading day's spread ratio in the same daily
+  baseline (동률 허용). (**Minervini TTLC Ch.9 단독 출처** — O'Neil HMMS 는 주간판(T1)만
+  기술함.)
+  ※ T5/T6 의 baseline 은 T3/T4 의 20-거래일 창이 아니라 anchor 이후 **전 일봉**이다(코드
+  별도 경로). left_censored 면 `null`, no_transition 이면 전 일봉 이력 기준.
 Supporting (strengthens, never sufficient alone): `supporting_ext_sma200_pct` — code
 supplies ONLY the numeric SMA-200 extension % (value, not a verdict). **The "≥70% above
 SMA-200" pass/fail judgment itself remains a prompt-resident call**: treat
@@ -489,6 +501,11 @@ Force-ignore (emit topping_distribution) if G0 holds AND ANY ONE of:
 - T-A `ta_max_decline_now` — Largest weekly price DECLINE since the advance began
       (§6.1 anchor, baseline anchor-week-inclusive). (Minervini TTLC Ch.9; O'Neil HMMS
       p.268 #2.)
+- TA-d `ta_d_daily_max_decline_now` — Largest single-DAY price decline since the advance
+      began: today is a down day AND (prev_close−close)/prev_close ≥ every down day's
+      decline in the daily baseline (anchor 주 첫 거래일부터, 동률 허용). T-A 의 일간판 —
+      T-A 와 동일하게 취급(G0 하에서 단독 충분). (Minervini TTLC Ch.9; TLSMW Ch.5 "Stage 2
+      상승 시작 이래".)
 - T-B `tb_ok` (echo: `tb_weeks_below_10w`) — Lived below the 10-week SMA for ≥
       TOPPING_BELOW_10W_WEEKS (8) consecutive weeks without a weekly close back above.
       (O'Neil HMMS p.269.) NOTE: a SINGLE weekly close below the 10-week line is a
@@ -503,9 +520,9 @@ Force-ignore (emit topping_distribution) if G0 holds AND ANY ONE of:
 **anchor 비의존 게이트(항상 계산 — left_censored 여부와 무관)**: `g0_below_10w`,
 `tb_weeks_below_10w`/`tb_ok`, `td_dist_ok`, `tc_sma40_turndown` 는 anchor 탐색 성패와
 무관하게 항상 계산된다. **anchor 의존 게이트**: `ta_max_decline_now`,
-`td_max_down_volume_now` 는 `left_censored=True` 면 `null`(발화 금지); `no_transition=True`
-면 anchor 없이 전체 이력 기준으로 계산된다(baseline 은 §6.1 과 동일하게 anchor 주 포함
-또는 전체 이력).
+`td_max_down_volume_now`, `ta_d_daily_max_decline_now` 는 `left_censored=True` 면
+`null`(발화 금지); `no_transition=True` 면 anchor 없이 전체 이력 기준으로 계산된다(baseline
+은 §6.1 과 동일하게 anchor 주 포함 또는 전체 이력 — 일간판은 anchor 주 첫 거래일부터).
 
 `quality_flag_climax`/`quality_flag_topping`(입력 주봉에 close≤0/None 결측 존재)은 진단
 echo 값 — **그 효과는 이미 개별 게이트의 `null` 로 반영돼 있으므로**(quality_flag=True 일

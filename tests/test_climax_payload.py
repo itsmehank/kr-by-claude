@@ -214,3 +214,117 @@ def test_dist_count_25s_counts_true_over_last_25():
     last_25 = rows[-25:]
     expected = sum(1 for r in last_25 if r["distribution_day_flag"] is True)
     assert _dist_count_25s(rows) == expected
+
+
+# ===== 항목 ① (2026-09-07): 일간 극값 신호 T5·T6·TA-d payload 통합 =====
+
+from api.services.payload_builder import _anchor_baseline_start, _fetch_daily_since  # noqa: E402
+from kr_pipeline.llm_runner.compute.climax_topping import compute_daily_extremes  # noqa: E402
+
+
+def _seed_daily_prices(db, ticker, rows: list[tuple[date, float, float, float, int]]):
+    """(date, high, low, close, volume) — open=close 로 시드. volume=0 이고 high=low=0 이면
+    zero-bar(거래정지) 행."""
+    with db.cursor() as cur:
+        for d, h, l, c, v in rows:
+            o = c if c else 0.0
+            cur.execute(
+                """INSERT INTO daily_prices
+                     (ticker, date, open, high, low, close, adj_close, volume, value)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT DO NOTHING""",
+                (ticker, d, o, h, l, c, c, v, int(v * c)),
+            )
+    db.commit()
+
+
+def test_anchor_baseline_start_is_iso_week_monday():
+    assert _anchor_baseline_start("2018-04-06") == date(2018, 4, 2)   # 금요일 → 월요일
+    assert _anchor_baseline_start("2018-04-05") == date(2018, 4, 2)   # 목요일(금 휴장) → 같은 월요일
+    assert _anchor_baseline_start("2018-04-02") == date(2018, 4, 2)   # 월요일 자기 자신
+
+
+def test_fetch_daily_since_includes_one_prior_row_and_skips_zero_bar(db):
+    ticker = "CLPD5"
+    _seed_stock(db, ticker)
+    d0 = date(2020, 3, 2)  # 월
+    rows = [
+        (d0 - timedelta(days=7), 101.0, 99.0, 100.0, 1000),   # 전주 월 — 직전 1행 후보(더 오래됨)
+        (d0 - timedelta(days=3), 103.0, 101.0, 102.0, 1000),  # 전주 금 — 직전 1행(채택)
+        (d0, 0.0, 0.0, 0.0, 0),                                # 월 zero-bar → 제외
+        (d0 + timedelta(days=1), 110.0, 104.0, 108.0, 1000),  # 화 = baseline 첫 실거래일
+        (d0 + timedelta(days=2), 111.0, 107.0, 109.0, 1000),
+        (d0 + timedelta(days=9), 120.0, 110.0, 119.0, 1000),  # on_date 이후 → look-ahead 제외
+    ]
+    _seed_daily_prices(db, ticker, rows)
+    got = _fetch_daily_since(db, ticker, d0, on_date=d0 + timedelta(days=2))
+    assert [r["date"] for r in got] == [
+        (d0 - timedelta(days=3)).isoformat(),
+        (d0 + timedelta(days=1)).isoformat(),
+        (d0 + timedelta(days=2)).isoformat(),
+    ]
+    assert got[0]["close"] == 102.0
+
+
+def test_build_payload_daily_extremes_anchored_matches_direct_compute(db):
+    """anchored: payload 의 T5/T6/TA-d 가 (anchor 주 월요일 이후 일봉 + 직전 1행) 을
+    compute_daily_extremes 에 직접 넣은 결과와 일치. 기존 T3/T4 입력(마지막 20행) 불변."""
+    ticker = "CLPD6"
+    _seed_stock(db, ticker)
+    start = date(2018, 1, 5)
+    wrows = _drift(65, 1000.0, 980.0) + [(1100.0, 260_000)] \
+        + [(1100.0 + 15 * i, 110_000) for i in range(1, 20)]
+    weekly = _weekly_rows(wrows, start)
+    _seed_weekly(db, ticker, weekly)
+    on_date = weekly[-1]["week_end"]
+    anchor_week = find_anchor([{**w, "week_end": w["week_end"].isoformat()} for w in weekly])
+    assert anchor_week["anchor_week"] == weekly[65]["week_end"].isoformat()
+
+    # anchor 주 월요일 −5일 ~ on_date 까지 연속 일봉(주말 포함 — 날짜 비교만 쓰임).
+    # anchor 주 첫날(월) +20% 돌파일, 이후 완만 상승, 오늘 +5%.
+    monday = _anchor_baseline_start(anchor_week["anchor_week"])
+    days = [(monday - timedelta(days=5 - k)) for k in range(5)] + \
+           [monday + timedelta(days=k) for k in range((on_date - monday).days + 1)]
+    closes = []
+    c = 1000.0
+    for i, d in enumerate(days):
+        if d == monday:
+            c *= 1.20
+        elif d == on_date:
+            c *= 1.05
+        elif i > 0:
+            c *= 1.002
+        closes.append(c)
+    drows = [(d, c * 1.01, c * 0.99, c, 100_000) for d, c in zip(days, closes)]
+    _seed_daily_prices(db, ticker, drows)
+    # td_dist 입력용 지표 25행(daily_prices 는 ON CONFLICT 로 기존 행 유지)
+    _seed_daily_indicators(db, ticker, on_date, 25, [False] * 25)
+
+    payload = build_payload(db, ticker, on_date=on_date)
+    gates = payload["climax_topping_gates"]
+    assert gates["baseline"] == "anchored"
+
+    hist = _fetch_daily_since(db, ticker, monday, on_date)
+    expected = compute_daily_extremes(hist, monday.isoformat(), anchor_week)
+    for k in ("t5_daily_max_up_now", "t6_daily_max_spread_now", "ta_d_daily_max_decline_now"):
+        assert gates[k] == expected[k], k
+    # 돌파일(+20%) 이 baseline 에 포함되므로 오늘 +5% 는 최대가 아님
+    assert gates["t5_daily_max_up_now"] is False
+    assert gates["ta_d_daily_max_decline_now"] is False
+    # 기존 T3/T4 는 마지막 20행 경로 그대로(연속 상승 → t4 up 비율 100%)
+    assert gates["t4_up_days_pct_max"] == 100.0
+    assert len(payload["daily_ohlcv_recent_60d"]) <= 60
+
+
+def test_build_payload_daily_extremes_none_when_left_censored(db):
+    ticker = "CLPD7"
+    _seed_stock(db, ticker)
+    weekly = _weekly_rows(_drift(40, 1000.0, 980.0), date(2019, 1, 4))
+    _seed_weekly(db, ticker, weekly)
+    on_date = weekly[-1]["week_end"]
+    _seed_daily_indicators(db, ticker, on_date, 25, [False] * 25)
+    gates = build_payload(db, ticker, on_date=on_date)["climax_topping_gates"]
+    assert gates["left_censored"] is True
+    assert gates["t5_daily_max_up_now"] is None
+    assert gates["t6_daily_max_spread_now"] is None
+    assert gates["ta_d_daily_max_decline_now"] is None

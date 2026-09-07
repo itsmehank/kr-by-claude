@@ -7,6 +7,7 @@ from api.services.corporate_actions_builder import build_corporate_actions
 from api.services.minervini_detail_builder import build_minervini_detail
 from kr_pipeline.llm_runner.compute.climax_topping import (
     compute_climax_gates,
+    compute_daily_extremes,
     compute_topping_gates,
     find_anchor,
 )
@@ -161,9 +162,21 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
     anchor = find_anchor(weekly_full)
     climax = compute_climax_gates(weekly_full, daily_ohlcv[-20:], anchor)
     topping = compute_topping_gates(weekly_full, _dist_count_25s(indicators_60d), anchor)
+    # (항목 ① 2026-09-07) 일간 극값 신호 T5·T6·TA-d — anchor 이후 전 일봉 별도 경로.
+    # 기존 T3/T4 입력(daily_ohlcv[-20:], 60일 조회)은 불변. left_censored 는 조회 생략.
+    if anchor["left_censored"]:
+        daily_ext = compute_daily_extremes(None, None, anchor)
+    elif anchor["no_transition"]:
+        daily_ext = compute_daily_extremes(
+            _fetch_daily_since(conn, ticker, None, on_date), None, anchor)
+    else:
+        bl_start = _anchor_baseline_start(anchor["anchor_week"])
+        daily_ext = compute_daily_extremes(
+            _fetch_daily_since(conn, ticker, bl_start, on_date), bl_start.isoformat(), anchor)
     climax_topping_gates = {
         **climax,
         **topping,
+        **daily_ext,
         "anchor_week": anchor["anchor_week"],
         "left_censored": anchor["left_censored"],
         "no_transition": anchor["no_transition"],
@@ -291,6 +304,60 @@ def _fetch_daily_ohlcv(conn: Connection, ticker: str, on_date: date, days: int =
             "volume": int(round(float(r[5]))),
         }
         for r in reversed(rows)
+    ]
+
+
+def _anchor_baseline_start(anchor_week: str) -> date:
+    """(항목 ① Q-1 판정 B) anchor 주의 첫 거래일 탐색 시작점 = 그 ISO 주(월~일, weekly
+    transform 의 W-SUN 그룹과 동일)의 월요일. week_end_date 는 그 주 max(date) 이므로
+    weekday() 만큼 되돌리면 월요일. 실제 첫 거래일은 _fetch_daily_since 가 이 날짜 이상의
+    첫 비-zero-bar 행으로 결정한다(월요일 휴장이면 자연히 화요일)."""
+    we = date.fromisoformat(anchor_week)
+    return we - timedelta(days=we.weekday())
+
+
+def _fetch_daily_since(conn: Connection, ticker: str, start: date | None, on_date: date) -> list:
+    """(항목 ①) start 이후(포함) ~ on_date 의 일봉 전부 + start 직전 비-zero-bar 1행(baseline
+    첫날의 prev_close 공급용). start=None 이면 전 이력(no_transition 모드). 규약은
+    _fetch_daily_ohlcv 와 동일: COALESCE(adj_*, raw)·zero-bar 제외·date <= on_date."""
+    cols = """COALESCE(adj_open,  open)   AS o,
+                   COALESCE(adj_high,  high)   AS h,
+                   COALESCE(adj_low,   low)    AS l,
+                   COALESCE(adj_close, close)  AS c,
+                   COALESCE(adj_volume,volume) AS v"""
+    zero_bar = "NOT (open = 0 AND high = 0 AND low = 0 AND volume = 0)"
+    with conn.cursor() as cur:
+        if start is None:
+            cur.execute(f"""
+                SELECT date, {cols}
+                  FROM daily_prices
+                 WHERE ticker = %s AND date <= %s AND {zero_bar}
+                 ORDER BY date ASC
+            """, (ticker, on_date))
+        else:
+            cur.execute(f"""
+                (SELECT date, {cols}
+                   FROM daily_prices
+                  WHERE ticker = %s AND date < %s AND {zero_bar}
+                  ORDER BY date DESC LIMIT 1)
+                UNION ALL
+                (SELECT date, {cols}
+                   FROM daily_prices
+                  WHERE ticker = %s AND date >= %s AND date <= %s AND {zero_bar}
+                  ORDER BY date ASC)
+                ORDER BY date ASC
+            """, (ticker, start, ticker, start, on_date))
+        rows = cur.fetchall()
+    return [
+        {
+            "date": r[0].isoformat(),
+            "open": float(r[1]),
+            "high": float(r[2]),
+            "low": float(r[3]),
+            "close": float(r[4]),
+            "volume": int(round(float(r[5]))),
+        }
+        for r in rows
     ]
 
 

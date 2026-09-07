@@ -207,3 +207,101 @@ def test_climax_gates_anchor_at_last_week_conservative():
     assert g["maturity_ok"] is False
     assert g["p2_accel_ok"] is not True
     assert g["p2_is_steepest"] is not True
+
+
+# ===== 항목 ①: compute_daily_extremes (T5·T6·TA-d 일간 극값) =====
+
+from kr_pipeline.llm_runner.compute.climax_topping import compute_daily_extremes  # noqa: E402
+
+_ANCHORED = {"anchor_week": "2020-01-10", "left_censored": False, "no_transition": False, "weeks_since": 20}
+_NO_TRANS = {"anchor_week": None, "left_censored": False, "no_transition": True, "weeks_since": None}
+_CENSORED = {"anchor_week": None, "left_censored": True, "no_transition": False, "weeks_since": None}
+
+
+def _mk_daily(closes: list[float], start="2020-01-02", spreads: list[float] | None = None) -> list[dict]:
+    """연속 거래일 합성 일봉(주말 무시 — 날짜 비교만 쓰인다). spreads[i] 는 high-low
+    절대폭(기본 close 의 2%)."""
+    from datetime import date, timedelta
+    d0 = date.fromisoformat(start)
+    out = []
+    for i, c in enumerate(closes):
+        sp = spreads[i] if spreads is not None else c * 0.02
+        out.append({"date": str(d0 + timedelta(days=i)), "open": c, "high": c + sp / 2,
+                    "low": c - sp / 2, "close": c, "volume": 100_000})
+    return out
+
+
+def test_daily_extremes_t5_fires_on_largest_up_day():
+    # baseline 상승률: +2%, +3%, (−1%), 오늘 +5% → 최대 → T5 True. 하락일 아님 → TA-d False.
+    closes = [100.0, 102.0, 105.06, 104.0, 109.2]
+    g = compute_daily_extremes(_mk_daily(closes), "2020-01-02", _ANCHORED)
+    assert g["t5_daily_max_up_now"] is True
+    assert g["ta_d_daily_max_decline_now"] is False
+
+
+def test_daily_extremes_t5_silent_when_earlier_day_larger():
+    closes = [100.0, 110.0, 111.0, 112.0, 115.0]  # 첫 +10% 가 최대, 오늘 +2.7%
+    g = compute_daily_extremes(_mk_daily(closes), "2020-01-02", _ANCHORED)
+    assert g["t5_daily_max_up_now"] is False
+
+
+def test_daily_extremes_tie_fires_with_gte():
+    # 상한가 동률: +30% 가 두 번(과거·오늘) — 책 문언 "larger than" 대신 >= (노출 축소 방향)
+    closes = [100.0, 130.0, 130.0, 100.0, 130.0]
+    g = compute_daily_extremes(_mk_daily(closes), "2020-01-02", _ANCHORED)
+    assert g["t5_daily_max_up_now"] is True
+
+
+def test_daily_extremes_t6_spread_ratio_uses_prev_close():
+    # 절대폭 동일(4.0)이지만 prev_close 가 커진 뒤라 비율은 작아짐 → 오늘 미발화.
+    closes = [100.0, 100.0, 200.0, 200.0]
+    spreads = [4.0, 4.0, 4.0, 4.0]
+    g = compute_daily_extremes(_mk_daily(closes, spreads=spreads), "2020-01-02", _ANCHORED)
+    assert g["t6_daily_max_spread_now"] is False
+    # 오늘 절대폭 8.0 → 비율 4% = 첫 baseline 일(4/100) 과 동률 → >= 발화
+    spreads2 = [4.0, 4.0, 4.0, 8.0]
+    g2 = compute_daily_extremes(_mk_daily(closes, spreads=spreads2), "2020-01-02", _ANCHORED)
+    assert g2["t6_daily_max_spread_now"] is True
+
+
+def test_daily_extremes_ta_d_fires_on_largest_decline():
+    closes = [100.0, 98.0, 99.0, 97.0, 90.0]  # −2%, −2.02%, 오늘 −7.2% 최대
+    g = compute_daily_extremes(_mk_daily(closes), "2020-01-02", _ANCHORED)
+    assert g["ta_d_daily_max_decline_now"] is True
+    assert g["t5_daily_max_up_now"] is False  # 상승일 아님 → 자격 없음(False, None 아님)
+
+
+def test_daily_extremes_left_censored_all_none():
+    g = compute_daily_extremes(_mk_daily([100.0, 110.0, 120.0]), "2020-01-02", _CENSORED)
+    assert g == {"t5_daily_max_up_now": None, "t6_daily_max_spread_now": None,
+                 "ta_d_daily_max_decline_now": None}
+
+
+def test_daily_extremes_no_transition_uses_full_history():
+    # baseline_start=None(전체 이력): 이력 앞쪽 +20% 가 오늘 +5% 를 이김 → False
+    closes = [100.0, 120.0, 121.0, 122.0, 128.1]
+    g = compute_daily_extremes(_mk_daily(closes), None, _NO_TRANS)
+    assert g["t5_daily_max_up_now"] is False
+
+
+def test_daily_extremes_baseline_start_includes_anchor_week_first_day():
+    # 행 0 은 baseline 이전(prev_close 공급용). 행 1(=anchor 주 첫 거래일) +20% 가 포함되어야
+    # 오늘 +5% 는 미발화. 시작일을 행 2 로 옮기면(첫 거래일 배제) 오늘이 최대 → 발화.
+    closes = [100.0, 120.0, 121.0, 122.0, 128.1]
+    rows = _mk_daily(closes)
+    assert compute_daily_extremes(rows, rows[1]["date"], _ANCHORED)["t5_daily_max_up_now"] is False
+    assert compute_daily_extremes(rows, rows[2]["date"], _ANCHORED)["t5_daily_max_up_now"] is True
+
+
+def test_daily_extremes_first_baseline_day_uses_prior_row_prev_close():
+    # baseline 첫날(행 1)의 상승률은 행 0(baseline 이전) 종가 대비로 계산돼야 한다.
+    closes = [100.0, 130.0, 131.0]  # 행1 +30%(prev=행0), 오늘 +0.8%
+    rows = _mk_daily(closes)
+    assert compute_daily_extremes(rows, rows[1]["date"], _ANCHORED)["t5_daily_max_up_now"] is False
+
+
+def test_daily_extremes_insufficient_rows_none():
+    assert compute_daily_extremes([], "2020-01-02", _ANCHORED)["t5_daily_max_up_now"] is None
+    assert compute_daily_extremes(None, "2020-01-02", _ANCHORED)["t6_daily_max_spread_now"] is None
+    one = _mk_daily([100.0])
+    assert compute_daily_extremes(one, one[0]["date"], _ANCHORED)["ta_d_daily_max_decline_now"] is None
