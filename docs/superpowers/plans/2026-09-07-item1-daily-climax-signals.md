@@ -107,3 +107,30 @@ analyze_chart_v3.md §6.1 트리거 OR(T5·T6) / §6.2 T-A 옆 OR(TA-d) — 유�
 
 - **#156** "§6.1 T1 주간 스프레드 절대값 → 비율 전환 검토" — 사유 D-4 동일·P2/T-A 척도 불일치.
   tag design-judgment 후보. 순서는 사용자 결정(전문가 권고: ① 직후, ② 전).
+
+## 7. 로컬 코드리뷰 반영(2026-09-07, PR #157 머지 전)
+
+**단독 수리(명명·문구·테스트 구조·중복 — 임계·분기 무영향)**:
+- 프롬프트 §6.1 baseline 문장(L404)·no_transition 모드 항목(L420)에 T5/T6/TA-d 일간 baseline 명시
+  (left_censored 항목만 갱신돼 형제 열거가 빠졌던 것).
+- §6.1 트리거 헤더 "필수·보조 구분 없음"을 **T1~T6 사이**로 한정하고 "Supporting 은 트리거가
+  아니다(7번째 OR 분지 아님)" 명시 — supporting_ext_sma200_pct 단독 발화 오독 차단.
+- payload_builder 일봉 조회 SQL 조각(`_DAILY_OHLCV_COLS`·`_DAILY_NOT_ZERO_BAR`·`_daily_row`)을
+  `_fetch_daily_ohlcv`/`_fetch_daily_since` 공유로 단일화(바 집합 분기 방지). ISO-월요일 식의
+  공용 helper 승격(weekly/store.py·modes.py 사본)은 범위 밖 — 사실만 기록.
+- anchored 통합 테스트를 시드 유도 기대값(T5 False·T6 True·TA-d False)으로 교체 — 구현 helper
+  재호출 동어반복 제거. 월요일-vs-anchor_week 시작·직전 1행 누락이 각각 T5 를 뒤집도록 구성.
+
+**사실 기록(변경 없음)**:
+- `scripts/stage3_replay_climax_topping.py`(#44 사전등록 측정)는 §6.1 트리거를 t1~t4 로 고정 —
+  **4-트리거 정의에 동결된 측정**이며 T5/T6 를 반영하지 않는다(편집 금지 대상). 발화 집합 확대
+  크기 측정은 본 문서 §5-3 저장본 집계로만 한다.
+- no_transition 경로 비용 실측: 005930 전 일봉 2,508행 조회 9.5ms, build_payload 전체 17ms —
+  집계 SQL 전환 불요.
+- daily_prices 비정지 행의 adj_high/adj_low NULL = **0행**(2026-09-07 실측) — T6 척도 혼입은 현
+  데이터에서 미발현. 스키마상 NULL 허용이라 구조 노출은 존재(아래 Q-7).
+
+**전문가 질의(분기 조건 — 원칙 2-2, 회신 전 현 구현 유지)**: Q-5 quality_flag 시 일간 신호
+null 여부 / Q-6 정지 재개 갭의 prev_close 처리 / Q-7 adj_high·adj_low NULL 행 처리 /
+Q-8 no_transition 전체 일봉 baseline 의 관성(전환 없는 종목 3,821/4,252=89.9%에서 과거 상한가
+1회가 T5 를 영구 False 로 고정) — 회신 본문 참조.

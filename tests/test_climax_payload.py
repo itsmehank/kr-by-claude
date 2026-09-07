@@ -219,7 +219,6 @@ def test_dist_count_25s_counts_true_over_last_25():
 # ===== 항목 ① (2026-09-07): 일간 극값 신호 T5·T6·TA-d payload 통합 =====
 
 from api.services.payload_builder import _anchor_baseline_start, _fetch_daily_since  # noqa: E402
-from kr_pipeline.llm_runner.compute.climax_topping import compute_daily_extremes  # noqa: E402
 
 
 def _seed_daily_prices(db, ticker, rows: list[tuple[date, float, float, float, int]]):
@@ -295,7 +294,9 @@ def test_build_payload_daily_extremes_anchored_matches_direct_compute(db):
         elif i > 0:
             c *= 1.002
         closes.append(c)
-    drows = [(d, c * 1.01, c * 0.99, c, 100_000) for d, c in zip(days, closes)]
+    # 오늘만 스프레드를 ±10% 로 넓혀 T6 발화 조건을 만든다(다른 날은 ±1%).
+    drows = [(d, c * (1.10 if d == on_date else 1.01), c * (0.90 if d == on_date else 0.99),
+              c, 100_000) for d, c in zip(days, closes)]
     _seed_daily_prices(db, ticker, drows)
     # td_dist 입력용 지표 25행(daily_prices 는 ON CONFLICT 로 기존 행 유지)
     _seed_daily_indicators(db, ticker, on_date, 25, [False] * 25)
@@ -304,12 +305,14 @@ def test_build_payload_daily_extremes_anchored_matches_direct_compute(db):
     gates = payload["climax_topping_gates"]
     assert gates["baseline"] == "anchored"
 
-    hist = _fetch_daily_since(db, ticker, monday, on_date)
-    expected = compute_daily_extremes(hist, monday.isoformat(), anchor_week)
-    for k in ("t5_daily_max_up_now", "t6_daily_max_spread_now", "ta_d_daily_max_decline_now"):
-        assert gates[k] == expected[k], k
-    # 돌파일(+20%) 이 baseline 에 포함되므로 오늘 +5% 는 최대가 아님
+    # 시드에서 직접 도출한 기대값(구현 helper 재호출 아님 — 동어반복 방지):
+    # - T5 False: 돌파일(월, +20%) 이 baseline 에 포함되고 그 prev_close 가 baseline 이전 행
+    #   에서 공급되어야만 성립. anchor_week(금) 를 시작일로 쓰거나 직전 1행을 빠뜨리면
+    #   +20% 가 빠져 오늘 +5% 가 최대 → True 로 뒤집힌다.
+    # - T6 True: 오늘 스프레드 20%×1.05 vs 돌파일 2%×1.2 — 오늘이 최대.
+    # - TA-d False: 오늘은 상승일.
     assert gates["t5_daily_max_up_now"] is False
+    assert gates["t6_daily_max_spread_now"] is True
     assert gates["ta_d_daily_max_decline_now"] is False
     # 기존 T3/T4 는 마지막 20행 경로 그대로(연속 상승 → t4 up 비율 100%)
     assert gates["t4_up_days_pct_max"] == 100.0

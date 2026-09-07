@@ -278,87 +278,81 @@ def _build_current_metrics(conn: Connection, ticker: str, on_date: date) -> dict
     }
 
 
-def _fetch_daily_ohlcv(conn: Connection, ticker: str, on_date: date, days: int = 60) -> list:
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT date,
+# 일봉 조회 공통 조각 — _fetch_daily_ohlcv(T3/T4·LLM 노출 60행)와 _fetch_daily_since(항목 ①
+# T5/T6/TA-d baseline)가 같은 바 집합·같은 adj 규약을 보도록 한 곳에 둔다(사본 분기 방지).
+_DAILY_OHLCV_COLS = """date,
                    COALESCE(adj_open,  open)   AS o,
                    COALESCE(adj_high,  high)   AS h,
                    COALESCE(adj_low,   low)    AS l,
                    COALESCE(adj_close, close)  AS c,
-                   COALESCE(adj_volume,volume) AS v
+                   COALESCE(adj_volume,volume) AS v"""
+# 거래정지/무거래일(OHLV·volume 0) 제외: 0-저가/0-거래량 바 LLM 노출·산술 오염 방지
+_DAILY_NOT_ZERO_BAR = "NOT (open = 0 AND high = 0 AND low = 0 AND volume = 0)"
+
+
+def _daily_row(r) -> dict:
+    return {
+        "date": r[0].isoformat(),
+        "open": float(r[1]),
+        "high": float(r[2]),
+        "low": float(r[3]),
+        "close": float(r[4]),
+        "volume": int(round(float(r[5]))),
+    }
+
+
+def _fetch_daily_ohlcv(conn: Connection, ticker: str, on_date: date, days: int = 60) -> list:
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT {_DAILY_OHLCV_COLS}
               FROM daily_prices
              WHERE ticker = %s AND date <= %s
-               -- 거래정지/무거래일(OHLV·volume 0) 제외: 0-저가/0-거래량 바 LLM 노출 방지
-               AND NOT (open = 0 AND high = 0 AND low = 0 AND volume = 0)
+               AND {_DAILY_NOT_ZERO_BAR}
              ORDER BY date DESC LIMIT %s
         """, (ticker, on_date, days))
         rows = cur.fetchall()
-    return [
-        {
-            "date": r[0].isoformat(),
-            "open": float(r[1]),
-            "high": float(r[2]),
-            "low": float(r[3]),
-            "close": float(r[4]),
-            "volume": int(round(float(r[5]))),
-        }
-        for r in reversed(rows)
-    ]
+    return [_daily_row(r) for r in reversed(rows)]
 
 
 def _anchor_baseline_start(anchor_week: str) -> date:
     """(항목 ① Q-1 판정 B) anchor 주의 첫 거래일 탐색 시작점 = 그 ISO 주(월~일, weekly
     transform 의 W-SUN 그룹과 동일)의 월요일. week_end_date 는 그 주 max(date) 이므로
     weekday() 만큼 되돌리면 월요일. 실제 첫 거래일은 _fetch_daily_since 가 이 날짜 이상의
-    첫 비-zero-bar 행으로 결정한다(월요일 휴장이면 자연히 화요일)."""
+    첫 비-zero-bar 행으로 결정한다(월요일 휴장이면 자연히 화요일).
+    ※ 같은 ISO-월요일 식이 kr_pipeline/weekly/store.py·llm_runner/modes.py 에도 있음 —
+    공용 helper 승격은 별건(리뷰 지적, 범위 밖). _fetch_weekly_ohlcv 의 week_start
+    (week_end−4일) 는 표기용 근사로 이 함수와 무관."""
     we = date.fromisoformat(anchor_week)
     return we - timedelta(days=we.weekday())
 
 
 def _fetch_daily_since(conn: Connection, ticker: str, start: date | None, on_date: date) -> list:
     """(항목 ①) start 이후(포함) ~ on_date 의 일봉 전부 + start 직전 비-zero-bar 1행(baseline
-    첫날의 prev_close 공급용). start=None 이면 전 이력(no_transition 모드). 규약은
-    _fetch_daily_ohlcv 와 동일: COALESCE(adj_*, raw)·zero-bar 제외·date <= on_date."""
-    cols = """COALESCE(adj_open,  open)   AS o,
-                   COALESCE(adj_high,  high)   AS h,
-                   COALESCE(adj_low,   low)    AS l,
-                   COALESCE(adj_close, close)  AS c,
-                   COALESCE(adj_volume,volume) AS v"""
-    zero_bar = "NOT (open = 0 AND high = 0 AND low = 0 AND volume = 0)"
+    첫날의 prev_close 공급용). start=None 이면 전 이력(no_transition 모드). 바 집합·adj 규약은
+    _fetch_daily_ohlcv 와 동일 조각(_DAILY_OHLCV_COLS·_DAILY_NOT_ZERO_BAR)을 공유한다."""
     with conn.cursor() as cur:
         if start is None:
             cur.execute(f"""
-                SELECT date, {cols}
+                SELECT {_DAILY_OHLCV_COLS}
                   FROM daily_prices
-                 WHERE ticker = %s AND date <= %s AND {zero_bar}
+                 WHERE ticker = %s AND date <= %s AND {_DAILY_NOT_ZERO_BAR}
                  ORDER BY date ASC
             """, (ticker, on_date))
         else:
             cur.execute(f"""
-                (SELECT date, {cols}
+                (SELECT {_DAILY_OHLCV_COLS}
                    FROM daily_prices
-                  WHERE ticker = %s AND date < %s AND {zero_bar}
+                  WHERE ticker = %s AND date < %s AND {_DAILY_NOT_ZERO_BAR}
                   ORDER BY date DESC LIMIT 1)
                 UNION ALL
-                (SELECT date, {cols}
+                (SELECT {_DAILY_OHLCV_COLS}
                    FROM daily_prices
-                  WHERE ticker = %s AND date >= %s AND date <= %s AND {zero_bar}
+                  WHERE ticker = %s AND date >= %s AND date <= %s AND {_DAILY_NOT_ZERO_BAR}
                   ORDER BY date ASC)
                 ORDER BY date ASC
             """, (ticker, start, ticker, start, on_date))
         rows = cur.fetchall()
-    return [
-        {
-            "date": r[0].isoformat(),
-            "open": float(r[1]),
-            "high": float(r[2]),
-            "low": float(r[3]),
-            "close": float(r[4]),
-            "volume": int(round(float(r[5]))),
-        }
-        for r in rows
-    ]
+    return [_daily_row(r) for r in rows]
 
 
 def _fetch_weekly_ohlcv(conn: Connection, ticker: str, on_date: date, weeks: int = 104) -> list:

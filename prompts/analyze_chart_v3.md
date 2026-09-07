@@ -402,7 +402,9 @@ the "entire advance" baseline below — base counting for E1/late_stage_base is 
 judgment anchored at `climax_topping_gates.anchor_week`, not a separate re-derivation.
 
 Baseline window for P2/T1/T2/scope (and §6.2's T-A/T-D) = `anchor_week` **through** the
-current week, **anchor week itself included** — not "the week after the anchor".
+current week, **anchor week itself included** — not "the week after the anchor". The DAILY
+baseline for T5/T6 (and §6.2's TA-d) = anchor 주 **첫 거래일** through today's session — the
+daily counterpart of the same anchor-week-inclusive window.
 
 **결측 모드 (전 이력 기준 — anchor 탐색은 payload 의 104주보다 넓은 DB 전체 이력에서
 수행됨; 아래 두 모드는 이미 코드가 전 이력을 본 뒤 정리한 결과이므로, 프롬프트 레벨에서
@@ -418,7 +420,8 @@ current week, **anchor week itself included** — not "the week after the anchor
 - `no_transition=True` (이력은 충분하나(>50주) 전 이력에 Stage 1→2 전환 조건을 만족하는
   주가 전무 — 예: 줄곧 Stage 2 상승): `anchor_week=null` 이지만 게이트 거부가 아니다. P1
   은 충족 간주로 이미 공급됨(`maturity_ok=True`), P2/T1/T2/scope 극값은 anchor 없이 **전체
-  이력** 기준으로 계산됨(`baseline="no_transition"`).
+  이력** 기준으로 계산됨(`baseline="no_transition"`). 일간 극값 T5/T6(및 §6.2 TA-d)도 같은
+  모드 — anchor 없이 **전체 일봉 이력** 기준으로 계산되어 값이 공급된다(null 아님).
 
 Preconditions (ALL must hold — consume the `climax_topping_gates` fields, do not
 recompute):
@@ -434,7 +437,8 @@ recompute):
   (**동률 허용** — 코드는 `>=` 로 판정해 동률도 "steepest"로 인정, 책 문언보다 엄격=보수
   방향).
 
-Triggers (**T1~T6 중 ≥1** — 평면 OR, 필수·보조 구분 없음(HMMS Ch.10 평면 구조);
+Triggers (**T1~T6 중 ≥1** — 여섯 트리거 사이에 필수·보조 구분 없는 평면 OR(HMMS Ch.10
+평면 구조). 아래 **Supporting 은 트리거가 아니다** — 7번째 OR 분지로 세지 말 것;
 `climax_topping_gates` 필드가 authoritative, 이미 ENTIRE advance since the anchor 기준으로
 계산됨):
 - T1 `t1_max_spread_now` — Largest weekly high-low spread since the advance began
