@@ -424,8 +424,9 @@ CLIMAX_ANCHOR_FLAT_BAND_PCT: Final[float] = 2.0
 시스템 설계."""
 
 CLIMAX_ANCHOR_TURNUP_WEEKS: Final[int] = 4
-"""[EXTENDS] climax anchor 상향추세 확보 윈도우(주). advance-start 4주 이상 상향지속 요구.
-시스템 설계."""
+"""[EXTENDS] climax anchor 40주 SMA 기울기 판정 창(주) — C2 평탄/하락 판정의 lookback.
+시스템 설계. (#158 Fix α 2026-09-07: 구 C4 "30/40주 SMA 4주 전 대비 상승" 소비처는 제거됨 —
+값·이름 불변, C2 가 계속 사용.)"""
 
 CLIMAX_ANCHOR_STAGE1_MIN_WEEKS: Final[int] = 4
 """[EXTENDS] climax anchor stage-1 최소 기간(주). base 형성 초기 climax 배제 요구.
