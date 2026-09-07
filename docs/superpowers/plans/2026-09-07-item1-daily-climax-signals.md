@@ -134,3 +134,30 @@ analyze_chart_v3.md §6.1 트리거 OR(T5·T6) / §6.2 T-A 옆 OR(TA-d) — 유�
 null 여부 / Q-6 정지 재개 갭의 prev_close 처리 / Q-7 adj_high·adj_low NULL 행 처리 /
 Q-8 no_transition 전체 일봉 baseline 의 관성(전환 없는 종목 3,821/4,252=89.9%에서 과거 상한가
 1회가 T5 를 영구 False 로 고정) — 회신 본문 참조.
+
+## 8. 전문가 판정 반영(Q-5~Q-8, 2026-09-07 — governance 추가 없음)
+
+| 질의 | 판정 | 구현 |
+|---|---|---|
+| Q-5 quality_flag | **(A) 강등** — anchor 의존 게이트 관례 | `compute_daily_extremes(..., quality_flag=climax["quality_flag"])` → 3신호 None. build_payload 는 조회 생략 |
+| Q-6 정지 갭 | **(C) 연속 세션만** — prev↔today 사이 zero-bar 존재 시 쌍 제외(baseline·today 양쪽), today 가 재개일이면 3신호 None | `_fetch_daily_since` 가 zero-bar 행을 제외하지 않고 `zero_bar=True` 로 표시, compute 가 gap 추적 |
+| Q-7 조정 기준 혼합 | **(A) 행 제외** — high·low·prev_close 가 같은 조정 기준일 때만 T6 산출(규칙 신설 아님, 공식 유효성 조건) | `adj_hl`(adj_high·adj_low 둘 다 non-NULL) False 행은 스프레드 후보 제외, today 가 그런 행이면 T6 만 None. prev_close=adj_close 는 NOT NULL 이라 "전부 raw" 조합은 발생 불가 |
+| Q-8 no_transition | **None**(left_censored 동일 처리) — 책 정의 "since the beginning of the move" 는 식별된 시작점 전제 | compute·build_payload 모두 no_transition → None, 조회 생략. 프롬프트 §6.1·§6.2 에 "null 이면 해당 트리거 미평가, 나머지로만 판정" 추가. 전 필드 null(left_censored) 규칙 불변 |
+
+**관례 불일치 명기(Q-8)**: no_transition 모드에서 **주간** P2/T1/T2/T-A/T-D 는 전체 이력 기준
+값을 공급하고(기존 관례), **일간** T5/T6/TA-d 는 null 이다. 두 관례가 병존한다 — 해소는 별도
+이슈(#158, find_anchor 커버리지) 착수 시.
+
+**관측 사실(Q-6 파생, 수정 금지)**: 주간 T-A(`ta_max_decline_now`)도 zero-bar 주 제외 후 직전
+주를 prev 로 쓰므로 정지 재개 주의 점프가 baseline 극값을 점유할 수 있다 — 동일 노출. **#156
+(T1 척도) 검토 시 함께 볼 항목**으로 표기. 이번 변경에서 주간 코드는 건드리지 않았다.
+
+**사전등록 §5-3 관측 보완(전문가 지시)**: 배포 후 집계 시 anchor 모드별 분리 기록 —
+anchored / no_transition(null) / left_censored(null) / quality(null) 각 행 수 + anchored 모드의
+T5·T6·TA-d 발화 횟수. 데이터 소스: `climax_topping_gates` 는 DB 컬럼으로 저장되지 않으나
+분류별 freeze 아티팩트(`save_freeze` — inline_input.md 의 payload.json)에 전 필드가 보존되므로
+사후 집계 가능. 관측만 — 판정 아님.
+
+**테스트 추가(Q 반영)**: quality_flag None / zero-bar 사이 쌍 제외 / 재개일 None / 혼합 행 T6
+제외·today 혼합 시 T6 만 None / no_transition None(단위+payload) / `_fetch_daily_since` 의
+zero_bar·adj_hl 플래그 / 프롬프트 null-미평가 문장·left_censored 규칙 불변 가드.

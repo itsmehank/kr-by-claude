@@ -277,11 +277,64 @@ def test_daily_extremes_left_censored_all_none():
                  "ta_d_daily_max_decline_now": None}
 
 
-def test_daily_extremes_no_transition_uses_full_history():
-    # baseline_start=None(전체 이력): 이력 앞쪽 +20% 가 오늘 +5% 를 이김 → False
+def test_daily_extremes_no_transition_is_none():
+    # Q-8 판정: 시작점 부재 → 신호 미정의(left_censored 와 동일 처리). 주간 관례(전체 이력)와 다름.
     closes = [100.0, 120.0, 121.0, 122.0, 128.1]
     g = compute_daily_extremes(_mk_daily(closes), None, _NO_TRANS)
-    assert g["t5_daily_max_up_now"] is False
+    assert g == {"t5_daily_max_up_now": None, "t6_daily_max_spread_now": None,
+                 "ta_d_daily_max_decline_now": None}
+
+
+def test_daily_extremes_quality_flag_all_none():
+    # Q-5 판정: 주봉 quality_flag(close<=0/None) → anchor 의존 게이트 관례대로 None 강등.
+    closes = [100.0, 102.0, 105.0, 104.0, 109.2]
+    g = compute_daily_extremes(_mk_daily(closes), "2020-01-02", _ANCHORED, quality_flag=True)
+    assert g == {"t5_daily_max_up_now": None, "t6_daily_max_spread_now": None,
+                 "ta_d_daily_max_decline_now": None}
+
+
+def test_daily_extremes_zero_bar_between_excludes_pair():
+    # Q-6 판정(C): prev↔today 사이에 zero-bar(거래정지) 가 있으면 그 쌍은 baseline 극값에서 제외.
+    # 행1 +60%(재개일, 직전 행0 이 zero-bar) 는 제외 → 오늘 +5% 가 최대 → True.
+    closes = [100.0, 160.0, 161.0, 162.0, 170.1]
+    rows = _mk_daily(closes)
+    rows.insert(1, {"date": "2020-01-02T", "open": 0.0, "high": 0.0, "low": 0.0, "close": 0.0,
+                    "volume": 0, "zero_bar": True})
+    # insert 후 날짜 정렬 유지: zero-bar 를 행0 과 행1 사이에 두기 위해 날짜만 사이값으로 조정
+    rows[1]["date"] = "2020-01-02x"  # '2020-01-02' < '2020-01-02x' < '2020-01-03' (문자열 비교)
+    g = compute_daily_extremes(rows, "2020-01-02", _ANCHORED)
+    assert g["t5_daily_max_up_now"] is True
+    # 같은 이력에서 zero-bar 가 없으면 +60% 가 baseline 최대 → False (대조)
+    assert compute_daily_extremes(_mk_daily(closes), "2020-01-02", _ANCHORED)["t5_daily_max_up_now"] is False
+
+
+def test_daily_extremes_today_is_resumption_day_all_none():
+    # Q-6: 오늘이 재개일(직전 행이 zero-bar) 이면 3신호 None.
+    closes = [100.0, 102.0, 103.0]
+    rows = _mk_daily(closes)
+    rows.insert(2, {"date": "2020-01-03x", "open": 0.0, "high": 0.0, "low": 0.0, "close": 0.0,
+                    "volume": 0, "zero_bar": True})
+    g = compute_daily_extremes(rows, "2020-01-02", _ANCHORED)
+    assert g == {"t5_daily_max_up_now": None, "t6_daily_max_spread_now": None,
+                 "ta_d_daily_max_decline_now": None}
+
+
+def test_daily_extremes_mixed_adjustment_row_excluded_from_t6_only():
+    # Q-7 판정(A): high·low 가 raw 대체(adj_hl=False) 인 행은 T6 공식 유효성 미충족 → 스프레드
+    # 후보 제외. T5/TA-d(종가만 사용) 는 영향 없음.
+    closes = [100.0, 101.0, 102.0, 103.0]
+    spreads = [2.0, 40.0, 2.0, 3.0]  # 행1 은 분할 전 raw 폭(10×) 혼입 가정
+    rows = _mk_daily(closes, spreads=spreads)
+    rows[1]["adj_hl"] = False
+    g = compute_daily_extremes(rows, "2020-01-02", _ANCHORED)
+    assert g["t6_daily_max_spread_now"] is True   # 혼합 행 제외 → 오늘 3/102 가 최대
+    assert g["t5_daily_max_up_now"] is False      # 행1 +1% > 오늘 +0.98% — 종가 판정은 유지
+    rows[1]["adj_hl"] = True
+    assert compute_daily_extremes(rows, "2020-01-02", _ANCHORED)["t6_daily_max_spread_now"] is False
+    # 오늘 자체가 혼합 행이면 T6 만 None
+    rows[-1]["adj_hl"] = False
+    g3 = compute_daily_extremes(rows, "2020-01-02", _ANCHORED)
+    assert g3["t6_daily_max_spread_now"] is None and g3["t5_daily_max_up_now"] is False
 
 
 def test_daily_extremes_baseline_start_includes_anchor_week_first_day():

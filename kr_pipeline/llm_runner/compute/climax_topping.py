@@ -228,62 +228,84 @@ _DAILY_KEYS = ("t5_daily_max_up_now", "t6_daily_max_spread_now", "ta_d_daily_max
 
 
 def compute_daily_extremes(daily_hist: list[dict] | None, baseline_start: str | None,
-                           anchor: dict) -> dict:
+                           anchor: dict, quality_flag: bool = False) -> dict:
     """(항목 ① 2026-09-07) 일간 climax/topping 극값 신호 3종 — 순수 함수.
 
-    daily_hist: [{date(ISO), open, high, low, close, volume}, ...] 오름차순, zero-bar 제외.
-        anchored 모드에서는 baseline 첫날의 prev_close 를 공급하기 위해 baseline_start
-        **직전 1행**을 포함해 넘긴다(payload_builder._fetch_daily_since 규약).
-    baseline_start: baseline 첫 거래일(ISO) — anchor 주 첫 거래일(W-SUN 그룹 min(date),
-        Q-1 판정 B). None 이면 전체 이력(no_transition 모드, Q-3).
-    anchor: find_anchor(weekly) 반환 dict — 3모드를 주간 게이트와 동일 적용.
+    daily_hist: [{date(ISO), open, high, low, close, volume, zero_bar?, adj_hl?}, ...] 오름차순.
+        zero-bar(거래정지) 행도 **포함**해 넘긴다(zero_bar=True) — 연속 세션 판정에 쓰이고
+        값 자체는 쓰지 않는다. adj_hl(기본 True) = high·low 가 adj 소스인지(payload_builder
+        _fetch_daily_since 규약). anchored 모드에서는 baseline 첫날의 prev_close 를 공급하기
+        위해 baseline_start **직전 1행**(zero-bar 여부 무관, 최신 1행)을 포함해 넘긴다.
+    baseline_start: baseline 첫 거래일(ISO) — anchor 주 첫 거래일(W-SUN 그룹 min(date), Q-1 B).
+    anchor: find_anchor(weekly) 반환 dict.
+    quality_flag: 주봉 quality_flag(close<=0/None 존재). True 면 anchor 의존 게이트 관례대로
+        전부 None(Q-5 판정 A).
 
     정의(전문가 확정 사양, 분모 전부 prev_close — Q-2):
-    - T5  t5_daily_max_up_now      = 오늘이 상승일(close>prev) AND up_pct >= baseline 상승일 max
+    - T5  t5_daily_max_up_now      = 오늘 상승일(close>prev) AND up_pct >= baseline 상승일 max
           up_pct = (close−prev_close)/prev_close. [HMMS Ch.10 Climax Tops #1 + TTLC Ch.9]
     - T6  t6_daily_max_spread_now  = 오늘 spread_pct >= baseline 전 거래일 max
           spread_pct = (high−low)/prev_close. [TTLC Ch.9 단독 — HMMS 는 주간판만]
-    - TA-d ta_d_daily_max_decline_now = 오늘이 하락일(close<prev) AND down_pct >= baseline 하락일 max
+    - TA-d ta_d_daily_max_decline_now = 오늘 하락일(close<prev) AND down_pct >= baseline 하락일 max
           down_pct = (prev_close−close)/prev_close. [TTLC Ch.9 + TLSMW Ch.5]
 
-    규약: 동률 >= (기존 P2/T1/T-A 관례 — 가격제한 동률 실재, 노출 축소 방향). 오늘이
-    상승일/하락일 아니면 T5/TA-d 는 False(자격 없음 — T-A 관례, None 아님).
-    left_censored → 전부 None(발화 금지). 비교 가능한 행(prev_close 보유·양수) 이
-    baseline 안에 없거나 오늘이 baseline 밖이면 None(결측).
+    규약:
+    - 동률 >= (기존 P2/T1/T-A 관례 — 가격제한 동률 실재, 노출 축소 방향). 오늘이 상승일/
+      하락일 아니면 T5/TA-d 는 False(자격 없음 — T-A 관례, None 아님).
+    - **결측 모드**: left_censored → None. **no_transition → None**(Q-8 판정: 책 정의 "since
+      the beginning of the move" 는 식별된 시작점을 전제 — 시작점 부재 시 신호 미정의. 주간
+      P2/T1/T2/T-A 의 no_transition 관례(전체 이력)와 **다름** — plan 문서 명기). quality_flag
+      → None(Q-5).
+    - **연속 세션만**(Q-6 판정 C): prev 행과 해당 행 사이에 zero-bar 가 있으면 그 쌍은 baseline
+      극값·오늘 판정 양쪽에서 제외. 오늘이 재개일(직전 zero-bar) 이면 3신호 None.
+    - **T6 공식 유효성 조건**(Q-7 판정 A — 규칙 신설 아님): (high−low)/prev_close 는 세 값이
+      같은 조정 기준일 때만 정의된다. prev_close 는 daily_prices.adj_close(NOT NULL) 로 항상
+      adj 이므로, high·low 가 raw 대체된 행(adj_hl=False) 은 스프레드 후보에서 제외. 오늘이
+      그런 행이면 T6 만 None(T5/TA-d 는 종가만 쓰므로 유지).
+    - 비교 가능한 행이 baseline 안에 없거나 오늘을 판정할 수 없으면 None(결측).
     """
-    if anchor["left_censored"] or not daily_hist or len(daily_hist) < 2:
+    if (anchor["left_censored"] or anchor["no_transition"] or quality_flag
+            or not daily_hist or len(daily_hist) < 2):
         return dict.fromkeys(_DAILY_KEYS)
 
     ups: list[float] = []
     spreads: list[float] = []
     downs: list[float] = []
-    today: tuple[float | None, float, float | None] | None = None  # (up_pct, spread_pct, down_pct)
+    today: tuple[float | None, float | None, float | None] | None = None  # (up, spread, down)
     last_idx = len(daily_hist) - 1
-    for i in range(1, len(daily_hist)):
-        row = daily_hist[i]
-        if baseline_start is not None and row["date"] < baseline_start:
+    prev_close: float | None = None
+    gap = False  # 직전 비-zero-bar 행 이후 zero-bar 를 지났는가
+    for i, row in enumerate(daily_hist):
+        if row.get("zero_bar"):
+            gap = True
             continue
-        prev = daily_hist[i - 1]["close"]
-        if prev is None or prev <= 0 or row["close"] is None:
-            continue
-        chg = (row["close"] - prev) / prev * 100
-        spread_pct = (row["high"] - row["low"]) / prev * 100
-        up = chg if chg > 0 else None
-        down = -chg if chg < 0 else None
-        spreads.append(spread_pct)
-        if up is not None:
-            ups.append(up)
-        if down is not None:
-            downs.append(down)
-        if i == last_idx:
-            today = (up, spread_pct, down)
+        close = row["close"]
+        in_baseline = baseline_start is None or row["date"] >= baseline_start
+        computable = (prev_close is not None and prev_close > 0 and close is not None
+                      and in_baseline and not gap)
+        if computable:
+            chg = (close - prev_close) / prev_close * 100
+            up = chg if chg > 0 else None
+            down = -chg if chg < 0 else None
+            spread_pct = ((row["high"] - row["low"]) / prev_close * 100
+                          if row.get("adj_hl", True) else None)
+            if up is not None:
+                ups.append(up)
+            if down is not None:
+                downs.append(down)
+            if spread_pct is not None:
+                spreads.append(spread_pct)
+            if i == last_idx:
+                today = (up, spread_pct, down)
+        prev_close = close
+        gap = False
 
-    if today is None:
+    if today is None:  # 오늘이 zero-bar·재개일·baseline 밖·prev 부재 → 판정 불능
         return dict.fromkeys(_DAILY_KEYS)
     up_t, sp_t, down_t = today
     return {
         "t5_daily_max_up_now": up_t is not None and up_t >= max(ups),
-        "t6_daily_max_spread_now": sp_t >= max(spreads),
+        "t6_daily_max_spread_now": None if sp_t is None else sp_t >= max(spreads),
         "ta_d_daily_max_decline_now": down_t is not None and down_t >= max(downs),
     }
 

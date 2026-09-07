@@ -164,11 +164,10 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
     topping = compute_topping_gates(weekly_full, _dist_count_25s(indicators_60d), anchor)
     # (항목 ① 2026-09-07) 일간 극값 신호 T5·T6·TA-d — anchor 이후 전 일봉 별도 경로.
     # 기존 T3/T4 입력(daily_ohlcv[-20:], 60일 조회)은 불변. left_censored 는 조회 생략.
-    if anchor["left_censored"]:
-        daily_ext = compute_daily_extremes(None, None, anchor)
-    elif anchor["no_transition"]:
-        daily_ext = compute_daily_extremes(
-            _fetch_daily_since(conn, ticker, None, on_date), None, anchor)
+    # Q-5 quality_flag → None / Q-8 no_transition → None(시작점 부재 = 미정의; 주간 관례와 다름)
+    # → 두 결측 모드·left_censored 는 조회 자체를 생략한다.
+    if anchor["left_censored"] or anchor["no_transition"] or climax["quality_flag"]:
+        daily_ext = compute_daily_extremes(None, None, anchor, quality_flag=climax["quality_flag"])
     else:
         bl_start = _anchor_baseline_start(anchor["anchor_week"])
         daily_ext = compute_daily_extremes(
@@ -326,33 +325,33 @@ def _anchor_baseline_start(anchor_week: str) -> date:
     return we - timedelta(days=we.weekday())
 
 
-def _fetch_daily_since(conn: Connection, ticker: str, start: date | None, on_date: date) -> list:
-    """(항목 ①) start 이후(포함) ~ on_date 의 일봉 전부 + start 직전 비-zero-bar 1행(baseline
-    첫날의 prev_close 공급용). start=None 이면 전 이력(no_transition 모드). 바 집합·adj 규약은
-    _fetch_daily_ohlcv 와 동일 조각(_DAILY_OHLCV_COLS·_DAILY_NOT_ZERO_BAR)을 공유한다."""
+def _fetch_daily_since(conn: Connection, ticker: str, start: date, on_date: date) -> list:
+    """(항목 ①) start 이후(포함) ~ on_date 의 일봉 전부 + start 직전 1행(baseline 첫날의
+    prev_close 공급용 — zero-bar 여부 무관 최신 1행). 컬럼·adj 규약은 _fetch_daily_ohlcv 와
+    동일 조각을 공유하되 두 가지가 다르다(compute_daily_extremes 규약):
+    - zero-bar(거래정지) 행을 **제외하지 않고** `zero_bar=True` 로 표시해 넘긴다 — Q-6 판정
+      (연속 세션만: prev↔today 사이 zero-bar 존재 시 쌍 제외, 재개일 today → None).
+    - `adj_hl` = adj_high·adj_low 둘 다 존재(high·low 가 adj 소스) — Q-7 판정(T6 공식
+      유효성: high·low·prev_close 가 같은 조정 기준일 때만 산출; prev_close=adj_close 는
+      NOT NULL 이라 항상 adj)."""
+    cols = f"""{_DAILY_OHLCV_COLS},
+                   (open = 0 AND high = 0 AND low = 0 AND volume = 0) AS zero_bar,
+                   (adj_high IS NOT NULL AND adj_low IS NOT NULL)     AS adj_hl"""
     with conn.cursor() as cur:
-        if start is None:
-            cur.execute(f"""
-                SELECT {_DAILY_OHLCV_COLS}
-                  FROM daily_prices
-                 WHERE ticker = %s AND date <= %s AND {_DAILY_NOT_ZERO_BAR}
-                 ORDER BY date ASC
-            """, (ticker, on_date))
-        else:
-            cur.execute(f"""
-                (SELECT {_DAILY_OHLCV_COLS}
-                   FROM daily_prices
-                  WHERE ticker = %s AND date < %s AND {_DAILY_NOT_ZERO_BAR}
-                  ORDER BY date DESC LIMIT 1)
-                UNION ALL
-                (SELECT {_DAILY_OHLCV_COLS}
-                   FROM daily_prices
-                  WHERE ticker = %s AND date >= %s AND date <= %s AND {_DAILY_NOT_ZERO_BAR}
-                  ORDER BY date ASC)
-                ORDER BY date ASC
-            """, (ticker, start, ticker, start, on_date))
+        cur.execute(f"""
+            (SELECT {cols}
+               FROM daily_prices
+              WHERE ticker = %s AND date < %s
+              ORDER BY date DESC LIMIT 1)
+            UNION ALL
+            (SELECT {cols}
+               FROM daily_prices
+              WHERE ticker = %s AND date >= %s AND date <= %s
+              ORDER BY date ASC)
+            ORDER BY date ASC
+        """, (ticker, start, ticker, start, on_date))
         rows = cur.fetchall()
-    return [_daily_row(r) for r in rows]
+    return [{**_daily_row(r), "zero_bar": bool(r[6]), "adj_hl": bool(r[7])} for r in rows]
 
 
 def _fetch_weekly_ohlcv(conn: Connection, ticker: str, on_date: date, weeks: int = 104) -> list:

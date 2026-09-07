@@ -31,6 +31,18 @@ def test_prompt_61_trigger_count_is_t1_to_t6():
     assert "- T5 `t5_daily_max_up_now`" in s61
     assert "- T6 `t6_daily_max_spread_now`" in s61
     assert "TTLC Ch.9 단독 출처" in s61  # D-2: Minervini 단독 출처 병기 필수
+    # Q-8: null 트리거 미평가 규칙 + no_transition 모드에서 일간 극값 null 명시
+    assert "T5·T6 이 `null` 이면 해당 트리거는 미평가" in s61
+    assert "일간 극값 T5/T6(및 §6.2 TA-d)은 이\n  모드에서 `null`" in s61
+
+
+def test_prompt_null_rule_scoped_and_left_censored_rule_intact():
+    text = _prompt()
+    s61 = text[text.index("#### 6.1 climax_run"):text.index("#### 6.2 topping_distribution")]
+    # 전 필드 null(left_censored) 규칙 불변 — 발화 금지 문장 유지
+    assert "climax_run 을 발화하지" in s61 and "`left_censored=True`" in s61
+    # Supporting 은 트리거 아님(7번째 OR 분지 금지) 문장 유지
+    assert "Supporting 은 트리거가 아니다" in s61
 
 
 def test_prompt_62_has_ta_d_beside_ta():
@@ -40,5 +52,6 @@ def test_prompt_62_has_ta_d_beside_ta():
     i_tad = s62.index("- TA-d `ta_d_daily_max_decline_now`")
     i_tb = s62.index("- T-B `tb_ok`")
     assert i_ta < i_tad < i_tb
-    # anchor 의존 게이트 목록에도 등재
-    assert "`ta_d_daily_max_decline_now` 는 `left_censored=True` 면" in s62
+    # anchor 의존 게이트 목록: 일간판은 left_censored·no_transition 모두 null (Q-8)
+    assert "`ta_d_daily_max_decline_now` 는 `left_censored` **와 `no_transition` 모두**" in s62
+    assert "`null` 이면 미평가 — 나머지(T-A/T-B/T-C/T-D)로만 판정" in s62
