@@ -15,11 +15,15 @@ null 규약(보수): 이력이 CLIMAX_ANCHOR_VOL_AVG_WEEKS(50)주 이하 = 탐�
 좁히면 n=W+1(=51) 부근에서 유효한 i=W 후보를 건너뛰어 no_transition 으로 폴스루하는
 회귀가 발생한다(라운드 2 리뷰 N2 발견).
 
-anchor 판정(가장 최근 주 w, index i):
-- Stage1 재형성: 직전 CLIMAX_ANCHOR_STAGE1_MIN_WEEKS(4)주 연속 close < 그 주의 40주 SMA
-- 40주 SMA 의 TURNUP_WEEKS(4)주 기울기 ≤ +CLIMAX_ANCHOR_FLAT_BAND_PCT(2.0)% (평탄/하락)
-- w 에서 volume ≥ BREAKOUT_VOL_FLOOR × 50주 평균 거래량 (돌파 거래량)
-- s30/s40 이 TURNUP_WEEKS(4)주 전 대비 상승 AND close > s30, s40 (턴업 확정)
+anchor 판정(가장 최근 주 w, index i) — 네 조건 동일 주 동시 성립(#158 Fix α, 2026-09-07):
+- C1 Stage1 재형성: 직전 CLIMAX_ANCHOR_STAGE1_MIN_WEEKS(4)주 연속 close < 그 주의 40주 SMA
+- C2 40주 SMA 의 TURNUP_WEEKS(4)주 기울기 ≤ +CLIMAX_ANCHOR_FLAT_BAND_PCT(2.0)% (평탄/하락)
+- C3 w 에서 volume ≥ BREAKOUT_VOL_FLOOR × 50주 평균 거래량 (돌파 거래량)
+- C5 close > s30 AND close > s40 (Stage 2 = 이평 위)
+구 C4(s30/s40 이 4주 전 대비 상승, [EXTENDS]) 는 #158 에서 제거 — Stage 1 직후 돌파 주에서
+SMA 가 아직 하락 중이라 C1 과 같은 주에 양립 불가, O'Neil 돌파 정의·Minervini 전환 기준에
+"돌파 주 동시 성립" 근거 없음. 재진입(옛 돌파 → Stage 1 재형성 → 재돌파) 시 앵커는 재돌파
+주로 이동한다(현 사이클의 시작 = 책의 "beginning of the move").
 """
 from __future__ import annotations
 
@@ -71,20 +75,21 @@ def find_anchor(weekly: list[dict]) -> dict:
     s1 = CLIMAX_ANCHOR_STAGE1_MIN_WEEKS
     for i in range(n - 1, W - 1, -1):  # i=W(=50) 포함 — n=51 폴스루가 no_transition(P1 간주)으로 새는 회귀 방지(라운드 2 N2)
         s30, s40 = _sma(closes, i, 30), _sma(closes, i, 40)
-        s30p, s40p = _sma(closes, i - k, 30), _sma(closes, i - k, 40)
         v_avg = sum(vols[i - W : i]) / W
-        if None in (s30, s40, s30p, s40p) or v_avg <= 0:
+        if None in (s30, s40) or v_avg <= 0:
             continue
-        # Stage1 재형성: 직전 s1(4)주 연속 close < 그 주의 40주 SMA (검토 중6)
+        # C1 Stage1 재형성: 직전 s1(4)주 연속 close < 그 주의 40주 SMA (검토 중6)
         stage1 = all(
             (sm := _sma(closes, j, 40)) is not None and closes[j] < sm
             for j in range(i - s1, i))
+        # C2 40주 SMA 평탄/하락: 직전 주 기준 k(4)주 기울기 ≤ +FLAT_BAND
         prev_s40, prev_s40k = _sma(closes, i - 1, 40), _sma(closes, i - 1 - k, 40)
         slope_ok = (prev_s40 and prev_s40k
                     and (prev_s40 - prev_s40k) / prev_s40k * 100 <= CLIMAX_ANCHOR_FLAT_BAND_PCT)
-        if (stage1 and slope_ok and vols[i] >= BREAKOUT_VOL_FLOOR * v_avg
-                and s30 > s30p and s40 > s40p
-                and closes[i] > s30 and closes[i] > s40):
+        # (#158 Fix α) 구 C4 "s30/s40 이 k주 전 대비 상승" 은 제거 — Stage 1 직후 돌파 주와
+        # 시간적으로 양립 불가한 [EXTENDS] 조건(책 근거 없음)이라 전환 89.9% 를 차단했다.
+        if (stage1 and slope_ok and vols[i] >= BREAKOUT_VOL_FLOOR * v_avg      # C3
+                and closes[i] > s30 and closes[i] > s40):                        # C5
             return {"anchor_week": weekly[i]["week_end"], "left_censored": False,
                     "no_transition": False, "weeks_since": n - 1 - i}
     return {"anchor_week": None, "left_censored": False,

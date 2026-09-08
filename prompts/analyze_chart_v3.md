@@ -395,9 +395,11 @@ fields below AS-IS, do NOT recompute them from OHLCV** (same column-is-authorita
 convention as §2/§3.5's `market_direction_gate`/§6's `distribution_day_flag`, above).
 The code searches the stock's FULL DB weekly history
 (wider than the 104-week window in this payload) for `anchor_week` — the most recent
-Stage 1→2 transition (Stage 1 flat/declining 40-week SMA → breakout on volume ≥
-BREAKOUT_VOL_FLOOR of the 50-week average → 30/40-week lines turn up with price above
-them). This one anchor week is the SAME origin used for base-count (= base #1) and for
+Stage 1→2 transition (Stage 1 = ≥4 weeks of closes below a flat/declining 40-week SMA →
+breakout week on volume ≥ BREAKOUT_VOL_FLOOR of the 50-week average with the close above
+the 30/40-week lines — all in the SAME week; a later re-entry into Stage 1 followed by a
+new breakout moves the anchor to that new breakout, i.e. the current advance's start).
+This one anchor week is the SAME origin used for base-count (= base #1) and for
 the "entire advance" baseline below — base counting for E1/late_stage_base is an LLM
 judgment anchored at `climax_topping_gates.anchor_week`, not a separate re-derivation.
 

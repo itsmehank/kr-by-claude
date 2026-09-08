@@ -358,3 +358,70 @@ def test_daily_extremes_insufficient_rows_none():
     assert compute_daily_extremes(None, "2020-01-02", _ANCHORED)["t6_daily_max_spread_now"] is None
     one = _mk_daily([100.0])
     assert compute_daily_extremes(one, one[0]["date"], _ANCHORED)["ta_d_daily_max_decline_now"] is None
+
+
+# ===== #158 Fix α: find_anchor 결합식에서 C4(30/40주 SMA 턴업) 제거 =====
+
+from kr_pipeline.llm_runner.compute.climax_topping import _sma  # noqa: E402
+
+def _fixture_reentry():
+    """옛 사이클(돌파 idx65) → 60주 하락 드리프트(SMA40 아래·평탄/하락) → 재돌파(2.6×vol,
+    close>SMA30/40) → 10주 상승. Phase B 179행 패턴: 재돌파 주에 C1∧C2∧C3∧C5 는 성립하나
+    C4(SMA30/40 이 4주 전보다 높음) 는 하락 직후라 불성립."""
+    rows = _drift(65, 1000.0, 980.0) + [(1100.0, 260_000)] \
+         + [(1100.0 + 15 * i, 110_000) for i in range(1, 20)] \
+         + _drift(60, 1000.0, 800.0) \
+         + [(950.0, 260_000)] \
+         + [(950.0 + 10 * i, 110_000) for i in range(1, 11)]
+    return _mk_weeks(rows), 65, 65 + 20 + 60  # (weekly, old_anchor_idx, reentry_idx)
+
+
+def test_anchor_reentry_moves_to_current_cycle():
+    wk, old_idx, re_idx = _fixture_reentry()
+    r = find_anchor(wk)
+    assert r["anchor_week"] == wk[re_idx]["week_end"]
+    assert r["weeks_since"] == len(wk) - 1 - re_idx
+    # 재돌파 주에서 C4 는 실제로 불성립(하락 직후 SMA30/40 이 4주 전보다 낮음) — Fix α 로만 잡힘
+    closes = [w["close"] for w in wk]
+    s30, s30p = _sma(closes, re_idx, 30), _sma(closes, re_idx - 4, 30)
+    assert s30 <= s30p
+
+
+def test_anchor_unchanged_without_reentry():
+    # 252행 패턴: 옛 돌파 이후 Stage 1 재진입이 없으면 앵커 불변
+    wk = _fixture_single_transition()
+    assert find_anchor(wk)["anchor_week"] == wk[65]["week_end"]
+
+
+def test_anchor_never_moves_earlier_as_history_extends():
+    # 선행 이동 불가 가드: 이력을 뒤로 늘려도 앵커 week_end 는 단조 비감소
+    wk, old_idx, re_idx = _fixture_reentry()
+    last = None
+    for cut in range(old_idx + 1, len(wk) + 1):
+        a = find_anchor(wk[:cut])
+        if a["anchor_week"] is None:
+            continue
+        assert last is None or a["anchor_week"] >= last
+        last = a["anchor_week"]
+    assert find_anchor(wk[:old_idx + 5])["anchor_week"] == wk[old_idx]["week_end"]
+    assert last == wk[re_idx]["week_end"]
+
+
+def test_anchor_catches_breakout_where_c4_fails():
+    # 65주 급한 하락(1000→700) 직후 돌파 800(2.6×vol): C1(4주 연속 <SMA40)·C2(평탄/하락)·
+    # C3(거래량)·C5(close>SMA30/40) 성립, C4 불성립 → Fix α 앵커 = 돌파 주
+    rows = _drift(65, 1000.0, 700.0) + [(800.0, 260_000)] + [(800.0 + 5 * i, 110_000) for i in range(1, 6)]
+    wk = _mk_weeks(rows)
+    closes = [w["close"] for w in wk]
+    i = 65
+    assert closes[i] > _sma(closes, i, 30) and closes[i] > _sma(closes, i, 40)   # C5
+    assert _sma(closes, i, 30) <= _sma(closes, i - 4, 30)                          # C4 불성립
+    r = find_anchor(wk)
+    assert r["anchor_week"] == wk[i]["week_end"] and r["no_transition"] is False
+
+
+def test_anchor_three_modes_regression_after_fix_alpha():
+    assert find_anchor(_mk_weeks(_drift(40, 1000.0, 980.0)))["left_censored"] is True
+    assert find_anchor(_mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)]))["no_transition"] is True
+    a = find_anchor(_fixture_single_transition())
+    assert a["left_censored"] is False and a["no_transition"] is False and a["weeks_since"] == 19
