@@ -18,6 +18,8 @@ class SignalOut(BaseModel):
     expected_target_pct: float | None = None
     risk_reward_ratio: float | None = None
     position_size_pct: float | None = None
+    position_size_full_pct: float | None = None   # (#153) full 사이즈
+    sizing_method: str | None = None
     known_warnings: list[str] = []
     notes: str | None = None
 

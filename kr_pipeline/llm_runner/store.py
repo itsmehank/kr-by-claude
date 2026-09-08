@@ -13,7 +13,6 @@ from kr_pipeline.common.thresholds import (
     ENTRY_STOP_PCT_FROM_PIVOT_FLOOR,
     ENTRY_TARGET_PCT_MIN,
     ENTRY_TARGET_PCT_MAX,
-    ENTRY_WEIGHT_PCT_MIN,
     ENTRY_WEIGHT_PCT_MAX,
     ENTRY_TRIGGER_BUFFER_MAX,
     GATE_PROMOTION_PRICE_RATIO,
@@ -677,7 +676,16 @@ def _normalize_entry_params(result: dict) -> dict:
         "expected_target_pct": result["expected_target_pct"],
         "risk_reward_ratio": rr,
         "position_size_pct": result["suggested_weight_pct"],
-        "position_size_basis": None,
+        # (#153) 리스크 역산 메타 — §9 확장 필드(구 LLM 출력엔 없으므로 optional)
+        "position_size_full_pct": result.get("suggested_weight_full_pct"),
+        "sizing_method": result.get("sizing_method"),
+        "sizing_risk_pct": result.get("sizing_risk_pct"),
+        "position_size_basis": (
+            f"{result.get('sizing_method')}: R {result.get('sizing_risk_pct')}% / "
+            f"stop {abs(result['stop_loss_pct_from_pivot'])}% -> full "
+            f"{result.get('suggested_weight_full_pct')}% x pilot"
+            if result.get("sizing_method") else None
+        ),
         "pattern_basis": result["pattern_basis"],
         "entry_window_days": result["entry_window_days"],
         "max_chase_pct_from_pivot": result["max_chase_pct_from_pivot"],
@@ -739,7 +747,7 @@ def _validate_entry_params_sanity(n: dict) -> dict:
     if tp is not None and not (ENTRY_TARGET_PCT_MIN <= tp <= ENTRY_TARGET_PCT_MAX):
         warns.append("sanity_target_pct_out_of_book_range")
     wt = n.get("position_size_pct")
-    if wt is not None and not (ENTRY_WEIGHT_PCT_MIN <= wt <= ENTRY_WEIGHT_PCT_MAX):
+    if wt is not None and not (0.0 < wt <= ENTRY_WEIGHT_PCT_MAX):  # (#153) 하한 3.0 폐기 → >0
         warns.append("sanity_weight_out_of_book_range")
     piv, trg = n.get("pivot_price"), n.get("trigger_price")
     if piv is not None and trg is not None and not (piv < trg <= piv * ENTRY_TRIGGER_BUFFER_MAX):
@@ -783,6 +791,7 @@ def insert_entry_params(
                stop_loss, stop_loss_pct_from_pivot, stop_loss_pct_from_current_price, stop_loss_basis,
                expected_target_price, expected_target_pct, risk_reward_ratio,
                position_size_pct, position_size_basis,
+               position_size_full_pct, sizing_method, sizing_risk_pct,
                pattern_basis, entry_window_days, max_chase_pct_from_pivot,
                breakout_volume_requirement, observed_breakout_volume_ratio,
                known_warnings, other_warnings, notes,
@@ -793,6 +802,7 @@ def insert_entry_params(
                     %s, %s, %s, %s,
                     %s, %s, %s,
                     %s, %s,
+                    %s, %s, %s,
                     %s, %s, %s,
                     %s, %s,
                     %s, %s, %s,
@@ -806,6 +816,7 @@ def insert_entry_params(
                 n["stop_loss"], n["stop_loss_pct_from_pivot"], n["stop_loss_pct_from_current_price"], n["stop_loss_basis"],
                 n["expected_target_price"], n["expected_target_pct"], n["risk_reward_ratio"],
                 n["position_size_pct"], n["position_size_basis"],
+                n["position_size_full_pct"], n["sizing_method"], n["sizing_risk_pct"],
                 n["pattern_basis"], n["entry_window_days"], n["max_chase_pct_from_pivot"],
                 n["breakout_volume_requirement"], n["observed_breakout_volume_ratio"],
                 json.dumps(n["known_warnings"]), n["other_warnings"], n["notes"],

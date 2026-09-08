@@ -63,3 +63,18 @@ no_handle·ENTRY_WEIGHT_PCT_MIN·confidence ×0.7·§7 티어 승격 금지 규�
   신설 flag 기본값+재개봉 참조
 - `threshold-change-checklist.md` — flag 신설 가이드 1줄 + 적용 이력
 - web `entry-params-fields.ts` suggested_weight_pct 설명 — 이중 작용 명시
+
+## 6. Superseded (2026-09-08, #153 — 동결 해제가 아니라 **대체**)
+
+production 사이징이 티어×배수 구조에서 **리스크 역산**(Minervini TTLC Ch.8, 백테스트와 동일:
+R 1.25% ÷ stop 8% → full 15.625%, 파일럿 50%)으로 교체되어 본 문서의 이중 작용 구조 자체가
+소멸했다. 근거(#153 Phase A 실측):
+- go_now 0건 → 이 구조는 production 에서 한 번도 실행되지 않았다.
+- trigger_evaluation_log 121행 가정 계산에서 3.0pp 바닥 포화 80%(97/121) → 이중 작용의 실효 없음.
+- 수량은 positions 수동 입력(`--qty`) → 시스템이 사이징을 강제하지 않았다.
+- 백테스트는 이미 리스크 역산 사용 → 방법론 불일치.
+
+§3 재개봉 조건(수익성 판독·#74 F1~F4 첫 판독)은 이 구조에 대한 것이므로 **소멸**. #74 F1~F3
+발화 시 제재 "사이징 ×0.5" 는 "해당 코호트 R × 0.5(0.625%)" 로 재매핑(#74 spec §7 부록).
+구 정의 원문(티어·배수·바닥·absolute/logical/sma50 스탑)은
+docs/superpowers/plans/2026-09-08-issue153-risk-backed-sizing.md §2 에 보존. 이슈 #80 클로즈.

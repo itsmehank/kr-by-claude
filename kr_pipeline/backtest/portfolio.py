@@ -29,6 +29,10 @@ from kr_pipeline.backtest.trigger_sim import (
 from kr_pipeline.common.thresholds import (
     PILOT_CONSEC_STOP_LOCK, PILOT_OFF_HIGH_MAX_PCT, PILOT_OFF_HIGH_MIN_PCT,
     STATUS_DIST_COUNT_FOR_FTD_INVALIDATION,
+    ENTRY_WEIGHT_PCT_MAX,
+    SIZING_PILOT_FRAC,
+    SIZING_RISK_PER_TRADE,
+    TRADE_STOP_INITIAL_PCT,
 )
 from kr_pipeline.llm_runner.compute.trigger_gate import evaluate as gate_evaluate
 
@@ -63,14 +67,14 @@ class PortfolioConfig:
     exclude_down_phases: bool = False   # v2 레거시 별칭 (= gate_mode "legacy")
     gate_mode: str | None = None    # v3.1: None|"legacy"|"prod"|"variant"
     pilot_mode: bool = False        # v4: bottoming 파일럿 경로 (gate=prod 전제)
-    pilot_frac: float = 0.5         # 파일럿 = 정상 목표의 50% (prereg v4.2)
+    pilot_frac: float = SIZING_PILOT_FRAC   # 파일럿 = 정상 목표의 50% (prereg v4.2; SSOT #153)
     pilot_stop_pct: float = 0.06    # 파일럿 초기 스톱 6%
     pilot_retry_cap: int = 2        # (종목, 에피소드)당 최대 진입
     pilot54_mode: bool = False      # Arm-54: rally_attempt 3중 필터 파일럿 (gate=a53 전제)
     pilot_consec_lock: int = PILOT_CONSEC_STOP_LOCK   # E5 전역 잠금 임계
-    risk_pct: float = 0.0125        # 계좌 리스크/건 (TTLC §8)
-    max_position_pct: float = 0.25
-    fixed_stop_pct: float = 0.08    # v2: 매수가 기준 초기 스톱 (O'Neil 7-8% 상단)
+    risk_pct: float = SIZING_RISK_PER_TRADE          # 계좌 리스크/건 (TTLC §8; SSOT #153)
+    max_position_pct: float = ENTRY_WEIGHT_PCT_MAX / 100.0   # 0.25 (SSOT #153)
+    fixed_stop_pct: float = TRADE_STOP_INITIAL_PCT   # v2: 매수가 기준 초기 스톱 (O'Neil 7-8% 상단; SSOT #153)
     max_stop_pct: float = 0.10      # uncle point — 불변식으로만 사용 (v2.2)
     armed_gain_cap: float = 0.20    # armed = min(3R, +20%) (HMMS 20% 룰)
     max_chase_pct: float = 5.0

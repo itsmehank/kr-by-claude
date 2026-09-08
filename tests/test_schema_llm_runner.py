@@ -55,6 +55,7 @@ def test_entry_params_schema(db):
         "stop_loss_pct_from_current_price", "stop_loss_basis",
         "expected_target_price", "expected_target_pct", "risk_reward_ratio",
         "position_size_pct", "position_size_basis",
+        "position_size_full_pct", "sizing_method", "sizing_risk_pct",  # (#153)
         "breakout_volume_requirement", "observed_breakout_volume_ratio",
         "known_warnings", "other_warnings", "notes",
     }

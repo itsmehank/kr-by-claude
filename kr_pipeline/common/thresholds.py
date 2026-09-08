@@ -99,10 +99,26 @@ ENTRY_TARGET_PCT_MAX: Final[float] = 50.0
 """기대 목표수익 % 클램프 (프롬프트 §4). 책: O'Neil 20-25% 표준 익절 ±
 패턴별 가감 — 시스템 채택 범위 [15, 50]. store sanity SOFT 경계."""
 
-ENTRY_WEIGHT_PCT_MIN: Final[float] = 3.0
 ENTRY_WEIGHT_PCT_MAX: Final[float] = 25.0
-"""제안 비중 % 최종 클램프 (프롬프트 §3). 책: O'Neil 집중 포트폴리오
-(최대 1/4) 상한 25, 하한 3 은 시스템 채택. store sanity SOFT 경계."""
+"""제안 비중 % 상한 = 포지션 최대 비중. 책: O'Neil 집중 포트폴리오(최대 1/4) 상한 25.
+(#153 2026-09-08) 리스크 역산 사이징의 MAX 이자 backtest PortfolioConfig.max_position_pct(/100)
+의 SSOT. 구 하한 ENTRY_WEIGHT_PCT_MIN(3.0, 시스템 채택 바닥)은 티어·배수 사이징과 함께 폐기.
+store sanity SOFT 경계(0 < size ≤ MAX)."""
+
+# ===== 리스크 역산 사이징 (#153, 2026-09-08 — production·backtest 단일 정의) =====
+# 산식: full = min(SIZING_RISK_PER_TRADE / TRADE_STOP_INITIAL_PCT, ENTRY_WEIGHT_PCT_MAX/100)
+#       = min(0.0125/0.08, 0.25) = 0.15625 → pilot = full × SIZING_PILOT_FRAC = 0.078125.
+# 소비처: llm_runner/compute/entry_params_calc.py(production C) · backtest/portfolio.py
+# PortfolioConfig 기본값. 스탑 = TRADE_STOP_INITIAL_PCT(아래) — 규칙 동일, 앵커만 다름
+# (production 산출 = pivot 기준 예상 매입가, 관리 단계 = 평균매입가).
+
+SIZING_RISK_PER_TRADE: Final[float] = 0.0125
+"""[PRESERVES/design] 거래당 최대 리스크(자본 비율). 책: Minervini TTLC Ch.8 "backing into
+risk" — 1.25~2.5%(경험 적으면 이하). 하한 1.25 선택은 시스템 결정(trading-rules-book-verified §3)."""
+
+SIZING_PILOT_FRAC: Final[float] = 0.5
+"""[design-judgment] 파일럿(첫 진입) = 정상 사이즈의 50%. 책: Minervini TTLC Ch.8 "입증 전
+5~10% 시작" 의 구현 — backtest prereg v4.2 와 동일 값."""
 
 ENTRY_TRIGGER_BUFFER_MAX: Final[float] = 1.005
 """trigger_price 상한 = pivot × 이 값 (프롬프트 §1.3). IBD 운용 관행
@@ -186,7 +202,9 @@ double_bottom). 시스템 관례 (책의 '10 cents above' 관행의 KRW 적용).
 TRADE_STOP_INITIAL_PCT: Final[float] = 0.08
 """초기 손절폭 (평균매입가 대비, 1층). 책: O'Neil HMMS '7% to 8% is your absolute
 loss limit' — 7~8% 범위 중 8 선택은 시스템 결정(대장 §1 D등급: 종가 판정 보상).
-백테스트 stop_variant 시뮬로 검증(2026-07-06)."""
+백테스트 stop_variant 시뮬로 검증(2026-07-06).
+(#153 2026-09-08) production entry_params 의 stop_pct(pivot 기준 −8%)·backtest
+PortfolioConfig.fixed_stop_pct 도 이 상수 — 규칙 하나, 앵커만 다름(예상 매입가 vs 평균매입가)."""
 
 TRADE_BREAKEVEN_TRIGGER_PCT: Final[float] = 0.20
 """본전 래치 장전식 min(3R, 이 값)의 **상한** (2층. R = 초기 손절폭 — 기본 8% 에선
