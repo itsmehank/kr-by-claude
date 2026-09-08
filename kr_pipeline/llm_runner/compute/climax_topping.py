@@ -109,7 +109,10 @@ def _roll_gain(closes: list[float], t: int, k: int, start_idx: int) -> float | N
 def compute_climax_gates(weekly: list[dict], daily_20d: list[dict], anchor: dict) -> dict:
     """(#44 Task 3) §6.1 climax 게이트 산술 — 순수 함수.
 
-    weekly: [{week_end, open, high, low, close, volume}, ...] (오름차순, find_anchor 와 동일 입력)
+    weekly: [{week_end, open, high, low, close, volume, gap_before?, adj_hl?}, ...] (오름차순,
+        find_anchor 와 동일 입력 — zero-bar 주 제외). gap_before(기본 False) = 직전 행과의 사이에
+        zero-bar 주가 있었음, adj_hl(기본 True) = high·low 가 adj 소스(payload_builder
+        _fetch_weekly_full 규약). 둘 다 T1 유효성에만 쓰인다(#156).
     daily_20d: [{date, open, high, low, close, volume}, ...] (오름차순, 최근 거래일 꼬리)
     anchor: find_anchor(weekly) 의 반환 dict.
 
@@ -169,10 +172,21 @@ def compute_climax_gates(weekly: list[dict], daily_20d: list[dict], anchor: dict
         p2_accel_ok = bool(p2_is_steepest and best_now is not None
                             and best_now >= CLIMAX_GAIN_PCT)
 
-        # T1/T2: 마지막 주의 (high-low)/volume 이 baseline 구간 최대인가
-        spreads = [w["high"] - w["low"] for w in weekly]
+        # T1 (#156, 2026-09-08): 마지막 주 스프레드 **비율** (high−low)/prev_week_close 가
+        # baseline(anchor 주 포함, 각 주의 prev = 직전 주 종가) 최대인가 — 반로그 척도(HMMS
+        # Ch.10 #4), 일간 T6 과 동일 분모. 유효성(①의 Q-6·Q-7 준용): 직전 주와의 사이에
+        # zero-bar 주가 있으면 그 쌍 제외(gap_before), high·low 가 adj 소스가 아닌 주 제외
+        # (adj_hl=False — prev_close=adj_close 는 NOT NULL). 오늘이 그런 주면 T1=None.
+        # T2 는 책 정의대로 거래량 절대값(불변).
+        sp: dict[int, float] = {}
+        for i in range(max(start_idx, 1), n):
+            w = weekly[i]
+            prev = closes[i - 1]
+            if prev is None or prev <= 0 or w.get("gap_before") or not w.get("adj_hl", True):
+                continue
+            sp[i] = (w["high"] - w["low"]) / prev * 100
+        t1_max_spread_now = None if last_idx not in sp else sp[last_idx] >= max(sp.values())
         vols = [w["volume"] or 0 for w in weekly]
-        t1_max_spread_now = spreads[last_idx] >= max(spreads[start_idx:n])
         t2_max_volume_now = vols[last_idx] >= max(vols[start_idx:n])
 
         # scope: 고점 주(baseline 구간 종가 최대, 동률 시 최신 우선) 경과 ≤2주

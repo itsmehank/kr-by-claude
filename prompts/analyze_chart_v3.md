@@ -445,7 +445,11 @@ Triggers (**T1~T6 중 ≥1** — 여섯 트리거 사이에 필수·보조 구�
 평면 구조). 아래 **Supporting 은 트리거가 아니다** — 7번째 OR 분지로 세지 말 것;
 `climax_topping_gates` 필드가 authoritative, 이미 ENTIRE advance since the anchor 기준으로
 계산됨):
-- T1 `t1_max_spread_now` — Largest weekly high-low spread since the advance began
+- T1 `t1_max_spread_now` — Largest weekly high-low spread since the advance began,
+  measured as a **ratio** (week_high − week_low) / prev_week_close (반로그 척도 — HMMS Ch.10
+  #4; 일간 T6 과 동일 분모, 2026-09-08 #156). 동률 허용. `null` 이면 미평가(이번 주가 거래정지
+  재개 주이거나 high·low 가 adj 소스가 아님 — T5/T6 과 같은 유효성 규약). T2 는 거래량 절대값
+  그대로.
 - T2 `t2_max_volume_now` — Heaviest weekly volume since the advance began
 - T3 `t3_gap_up_today` — daily 마지막 행 open > 직전 행 high 인지 여부의 **사실 플래그만**
   (daily 20-거래일 창). "소진(exhaustion)"이라는 *해석*은 LLM 몫 — 이 값 자체는 갭업 발생
