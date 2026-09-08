@@ -20,7 +20,8 @@ from datetime import date
 
 from psycopg import Connection
 
-from kr_pipeline.llm_runner.slack import notify_stop_triggered
+from kr_pipeline.llm_runner.slack import notify_sell_into_strength, notify_stop_triggered
+from kr_pipeline.trade_management.held_climax import compute_held_climax
 from kr_pipeline.trade_management.stop_stack import evaluate_stop
 from kr_pipeline.trade_management.store import get_open_positions
 
@@ -38,7 +39,11 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
     """open 포지션 전체를 as_of 종가로 평가. 멱등: (position_id, eval_date).
 
     as_of 미지정 → daily_prices 최신 날짜(일봉 체인 완료 후 cron 실행 규약).
-    반환: {"as_of", "evaluated", "triggered", "skipped": [{symbol, reason}]}.
+    반환: {"as_of", "evaluated", "triggered", "climax_fired", "skipped": [{symbol, reason}]}.
+
+    (항목 ③) 스탑 미발동(not triggered) 포지션에 한해 held_climax(§6.1 결정론 결합식 +
+    8주 억제)를 평가·기록(position_climax_evaluations, 멱등)하고 발화 시 강세 매도 권고
+    Slack — 스탑 우선(같은 날 triggered 면 climax 미평가), 자동 청산 없음.
     """
     if as_of is None:
         as_of = _latest_bar_date(conn)
@@ -47,6 +52,7 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
 
     evaluated = 0
     triggered = 0
+    climax_fired = 0
     skipped: list[dict] = []
 
     for p in get_open_positions(conn):
@@ -152,6 +158,41 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
                     "[stop-triggered] %s close %.0f < stop %.0f (%s)",
                     p["symbol"], close, d.effective_stop, d.binding,
                 )
+            continue  # 스탑 우선 — 같은 날 climax 미평가
+
+        # ---- (항목 ③) 보유 종목 climax 강세 매도 판정 — 스탑 미발동 분기 ----
+        try:
+            hc = compute_held_climax(conn, p["symbol"], as_of, p["entry_date"])
+        except Exception as e:  # 산술 입력 결함은 스탑 경로를 막지 않는다(fail-soft, 로그)
+            log.warning("[held-climax] %s %s: %s", p["symbol"], as_of, e)
+            continue
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO position_climax_evaluations
+                  (position_id, eval_date, fired, suppressed, hold_days, triggers, anchor_week,
+                   weeks_since, maturity_ok, p2_accel_ok, scope_active, mode)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (position_id, eval_date) DO NOTHING
+                """,
+                (p["id"], as_of, hc.fired, hc.suppressed, hc.hold_days,
+                 json.dumps(list(hc.triggers)), hc.anchor_week, hc.weeks_since,
+                 hc.maturity_ok, hc.p2_accel_ok, hc.scope_active, hc.mode),
+            )
+            hc_inserted = cur.rowcount == 1
+        if hc.fired:
+            climax_fired += 1
+            if hc_inserted:  # 멱등 재실행의 중복 알림 방지
+                with conn.cursor() as cur:
+                    cur.execute("SELECT name FROM stocks WHERE ticker = %s", (p["symbol"],))
+                    nrow = cur.fetchone()
+                notify_sell_into_strength(
+                    symbol=p["symbol"], name=nrow[0] if nrow else p["symbol"], close=close,
+                    triggers=list(hc.triggers), anchor_week=hc.anchor_week,
+                    weeks_since=hc.weeks_since, hold_days=hc.hold_days, eval_date=as_of,
+                )
+                log.warning("[held-climax] %s fired %s (anchor %s, +%s주, hold %d일)",
+                            p["symbol"], hc.triggers, hc.anchor_week, hc.weeks_since, hc.hold_days)
 
     return {"as_of": as_of, "evaluated": evaluated, "triggered": triggered,
-            "skipped": skipped}
+            "climax_fired": climax_fired, "skipped": skipped}
