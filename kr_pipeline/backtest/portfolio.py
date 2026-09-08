@@ -33,8 +33,12 @@ from kr_pipeline.common.thresholds import (
     SIZING_PILOT_FRAC,
     SIZING_RISK_PER_TRADE,
     TRADE_STOP_INITIAL_PCT,
+    TRADE_HOLD_MIN_DAYS,
 )
 from kr_pipeline.llm_runner.compute.trigger_gate import evaluate as gate_evaluate
+from kr_pipeline.trade_management.held_climax import (
+    evaluate_held_climax, fetch_daily_flagged, gates_from_series, slice_upto,
+)
 
 START, END = date(2021, 1, 1), date(2025, 6, 30)   # 매매 윈도(신호는 ~2024 분류)
 WATCH_START, WATCH_END = date(2021, 1, 1), date(2024, 12, 31)
@@ -56,6 +60,10 @@ class TickerData:
     pilot54_flags_by_date: dict = field(default_factory=dict)  # (mp, rs, band) 성분별
     mkt_dist_by_date: dict = field(default_factory=dict)       # 시장 분배일 카운트 (E1)
     ftd_event_by_date: dict = field(default_factory=dict)      # FTD 이벤트 당일 (E5 해제)
+    # (항목 ③) 보유 climax 매도용 전 이력 — 주봉(zero-bar 제외+플래그)·일봉(플래그 포함),
+    # 날짜별 절단은 held_climax.slice_upto. 비어 있으면 left_censored → 미발화(합성 테스트 호환).
+    weekly_full: list = field(default_factory=list)
+    daily_flagged: list = field(default_factory=list)
 
 
 @dataclass
@@ -64,6 +72,8 @@ class PortfolioConfig:
     max_positions: int = 5
     pyramiding: bool = False        # S2·S3
     sell_half: bool = False         # S3
+    climax_sell: bool = True        # (항목 ③) 보유 climax 강세 매도 — production 과 동일 동작, 기본 ON
+    hold_min_days: int = TRADE_HOLD_MIN_DAYS   # 8주 면제 + climax 억제 공유 상수(SSOT)
     exclude_down_phases: bool = False   # v2 레거시 별칭 (= gate_mode "legacy")
     gate_mode: str | None = None    # v3.1: None|"legacy"|"prod"|"variant"
     pilot_mode: bool = False        # v4: bottoming 파일럿 경로 (gate=prod 전제)
@@ -202,12 +212,22 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
             if bar.close < stop_level:
                 _full_exit(pos, bar.close, d, stop_reason)
                 continue
+            # (항목 ③) 보유 climax 강세 매도 — 스탑 이후·미청산 포지션. production 러너와
+            # 같은 판정 함수(held_climax). 발화 시 당일 종가 전량 청산 reason=climax.
+            if cfg.climax_sell:
+                td_ = data[t]
+                wk_, dl_ = slice_upto(td_.weekly_full, td_.daily_flagged, d)
+                hc = evaluate_held_climax(gates_from_series(wk_, dl_), pos.t1_date, d,
+                                          cfg.hold_min_days)
+                if hc.fired:
+                    _full_exit(pos, bar.close, d, "climax")
+                    continue
             # +20% 최초 도달: 8주 면제 판정(전 시나리오) + 5B 분기(S3)
             if pos.hit20_date is None and bar.close >= avg * 1.20:
                 pos.hit20_date = d
                 within3w = (d - pos.t1_date).days <= 21
                 if within3w:
-                    pos.exempt_until = pos.t1_date + timedelta(days=56)
+                    pos.exempt_until = pos.t1_date + timedelta(days=cfg.hold_min_days)
                 if cfg.sell_half and not pos.sold_half:
                     if within3w:
                         pos.half_pending_w8 = True
@@ -215,7 +235,7 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
                         _sell_half(pos, bar.close, d)
             # 5B 8주차 처분 (진입+56일 후 첫 거래일)
             if (cfg.sell_half and pos.half_pending_w8 and not pos.half_expired
-                    and (d - pos.t1_date).days > 56):
+                    and (d - pos.t1_date).days > cfg.hold_min_days):
                 if bar.close >= pos.avg_price * 1.20:
                     _sell_half(pos, bar.close, d)
                 else:
@@ -555,8 +575,12 @@ def load_ticker_data(conn, tickers: list[str] | None = None, *,
                    <= PILOT_OFF_HIGH_MAX_PCT)
             for r in rows}
         pilot54_ok = {d: all(f) for d, f in pilot54_flags.items()}
+        # (항목 ③) climax 매도용 전 이력(≤ end) — 날짜별 절단은 시뮬 루프에서
+        from api.services.payload_builder import _fetch_weekly_full
+        weekly_full = _fetch_weekly_full(conn, ticker, end)
+        daily_flagged = fetch_daily_flagged(conn, ticker, end)
         out[ticker] = TickerData(
-            market=market, bars=bars,
+            market=market, bars=bars, weekly_full=weekly_full, daily_flagged=daily_flagged,
             watch_rows=load_watchlist(conn, ticker, watch_start, watch_end,
                                       table=BT_TABLE),
             rs_by_date=rs, phase_by_date=phase_by_date,

@@ -27,6 +27,9 @@ def test_position_tables_exist(db, table, cols):
 def _cleanup(db, symbols):
     with db.cursor() as cur:
         cur.execute(
+            "DELETE FROM position_climax_evaluations WHERE position_id IN "
+            "(SELECT id FROM positions WHERE symbol = ANY(%s))", (symbols,))  # (항목 ③) FK
+        cur.execute(
             "DELETE FROM position_stop_evaluations WHERE position_id IN "
             "(SELECT id FROM positions WHERE symbol = ANY(%s))", (symbols,))
         cur.execute("DELETE FROM positions WHERE symbol = ANY(%s)", (symbols,))

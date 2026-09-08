@@ -50,6 +50,17 @@ def notify_stop_triggered(*, symbol: str, name: str, close: float,
     _post({"text": text})
 
 
+def notify_sell_into_strength(*, symbol: str, name: str, close: float, triggers: list[str],
+                              anchor_week: str | None, weeks_since: int | None,
+                              hold_days: int, eval_date=None) -> None:
+    """(항목 ③) 보유 종목 climax 강세 매도 권고 — 전량 매도(수동 체결 모델). 자동 청산 없음."""
+    when = f" ({eval_date})" if eval_date else ""
+    text = (f"🔶 *강세 매도 권고(climax)*{when} `{symbol}` {name}\n"
+            f"종가 ₩{close:,.0f} · 전량 매도 검토 — §6.1 P1∧P2∧scope + 트리거 {', '.join(triggers)}\n"
+            f"앵커 {anchor_week or 'n/a'} · 앵커 후 {weeks_since if weeks_since is not None else 'n/a'}주 · 보유 {hold_days}일")
+    _post({"text": text})
+
+
 def notify_weekend_digest(*, entry_count: int, watch_count: int, ignore_count: int) -> None:
     """주말 (5) batch 다이제스트."""
     text = (

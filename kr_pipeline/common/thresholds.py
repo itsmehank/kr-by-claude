@@ -218,6 +218,13 @@ TRADE_STOP_MAX_PCT: Final[float] = 0.10
 """손절폭 절대 상한 (uncle point). 책: O'Neil HMMS / Minervini TLSMW Ch.13 — 10%.
 evaluate_stop 의 initial_stop_pct 인자 검증(fail-closed) — 이 값 초과 손절폭 금지."""
 
+TRADE_HOLD_MIN_DAYS: Final[int] = 56
+"""[PRESERVES] HMMS 8주 규칙(진입 후 8주 = 56 달력일). 소비처 2곳(항목 ③, 2026-09-08):
+- backtest portfolio.py: 21일 내 +20% 도달 시 교체 면제 기간(exempt_until = t1 + 56일) — 구 리터럴 56 승격.
+- trade_management held_climax·backtest climax_sell: 보유 climax 매도 **억제 기간**
+  (as_of − entry_date < 56일이면 미발화) — §6.1 E1(리더십 배제, LLM 전용)의 결정론 대용
+  [design-judgment: book 규칙의 대용 적용]. 두 소비처가 같은 상수를 공유한다."""
+
 # ===== Distribution Day - 종목 레벨 (kr_pipeline/indicators/compute/volume.py) =====
 
 STOCK_DISTRIBUTION_VOL_MULT: Final[float] = 1.0
