@@ -225,6 +225,24 @@ TRADE_HOLD_MIN_DAYS: Final[int] = 56
   (as_of − entry_date < 56일이면 미발화) — §6.1 E1(리더십 배제, LLM 전용)의 결정론 대용
   [design-judgment: book 규칙의 대용 적용]. 두 소비처가 같은 상수를 공유한다."""
 
+# ===== 이익목표 절반매도(5B) — #166 파리티 이식(플래그 OFF), backtest·production 단일 정의 =====
+SELL_HALF_ENABLED: Final[bool] = False
+"""[플래그] 이익목표 절반매도(5B) 활성화 — backtest PortfolioConfig.sell_half 기본값과 production
+runner 가 **둘 다** 이 값을 참조(한쪽만 ON 불가). book-permitted(의무 아님): HMMS 20~25% 일부 실현 /
+TTLC 절반매도. 프로젝트는 백테스트 측정("꼬리 절단 비용" — CAGR 반토막↔MDD 개선,
+docs/trading-rules-book-verified.md §3)으로 OFF 선택. ON 전환은 별도 사전등록 대상이며 결정문에
+그 측정을 알고 켜는 것임을 명기해야 한다."""
+
+EARLY_GAIN_DAYS: Final[int] = 21
+"""[B] HMMS 8주 규칙의 예외 창 상한 — 진입 후 "1~3주" 안에 +20% 도달 = 큰 승자 후보. 5B 에서는
+이 창 안의 도달은 즉시 절반매도 대신 TRADE_HOLD_MIN_DAYS(56) 후 재판정으로 미룬다.
+구 backtest 리터럴 21 승격(#166)."""
+
+SELL_HALF_GAIN_PCT: Final[float] = 0.20
+"""[B 범위 20~25% / D: 20 선택] 5B 절반매도 이익목표(평균매입가 대비). 본전 래치 트리거
+TRADE_BREAKEVEN_TRIGGER_PCT(0.20)·backtest armed_gain_cap 과 **값은 같지만 역할이 다르므로 별도
+상수 — 결합 금지**. 구 backtest 리터럴 1.20 승격(#166)."""
+
 # ===== Distribution Day - 종목 레벨 (kr_pipeline/indicators/compute/volume.py) =====
 
 STOCK_DISTRIBUTION_VOL_MULT: Final[float] = 1.0

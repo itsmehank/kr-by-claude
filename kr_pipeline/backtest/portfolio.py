@@ -34,11 +34,13 @@ from kr_pipeline.common.thresholds import (
     SIZING_RISK_PER_TRADE,
     TRADE_STOP_INITIAL_PCT,
     TRADE_HOLD_MIN_DAYS,
+    SELL_HALF_ENABLED,
 )
 from kr_pipeline.llm_runner.compute.trigger_gate import evaluate as gate_evaluate
 from kr_pipeline.trade_management.held_climax import (
     evaluate_held_climax, fetch_daily_flagged, gates_from_series, slice_upto,
 )
+from kr_pipeline.trade_management.sell_half import SellHalfState, evaluate_sell_half
 
 START, END = date(2021, 1, 1), date(2025, 6, 30)   # 매매 윈도(신호는 ~2024 분류)
 WATCH_START, WATCH_END = date(2021, 1, 1), date(2024, 12, 31)
@@ -71,7 +73,7 @@ class PortfolioConfig:
     initial_capital: float = 100_000_000.0
     max_positions: int = 5
     pyramiding: bool = False        # S2·S3
-    sell_half: bool = False         # S3
+    sell_half: bool = SELL_HALF_ENABLED   # S3 — (#166) SSOT 플래그가 기본값(production 과 동일 출처)
     climax_sell: bool = True        # (항목 ③) 보유 climax 강세 매도 — production 과 동일 동작, 기본 ON
     hold_min_days: int = TRADE_HOLD_MIN_DAYS   # 8주 면제 + climax 억제 공유 상수(SSOT)
     exclude_down_phases: bool = False   # v2 레거시 별칭 (= gate_mode "legacy")
@@ -222,25 +224,22 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
                 if hc.fired:
                     _full_exit(pos, bar.close, d, "climax")
                     continue
-            # +20% 최초 도달: 8주 면제 판정(전 시나리오) + 5B 분기(S3)
-            if pos.hit20_date is None and bar.close >= avg * 1.20:
+            # +20% 최초 도달(8주 면제 판정, 전 시나리오) + 5B 절반매도(S3) — (#166) production 과
+            # 같은 순수 함수 sell_half.evaluate_sell_half 로 판정. hit20/면제는 플래그와 무관하게 갱신,
+            # 절반 매도 집행·대기·소멸 상태는 cfg.sell_half 일 때만 반영(구 동작과 동일).
+            sh = evaluate_sell_half(
+                entry_date=pos.t1_date, entry_price=avg, close=bar.close, as_of=d,
+                state=SellHalfState(pos.hit20_date, pos.half_pending_w8, pos.sold_half, pos.half_expired),
+                hold_min_days=cfg.hold_min_days)
+            if sh.hit20_new:
                 pos.hit20_date = d
-                within3w = (d - pos.t1_date).days <= 21
-                if within3w:
+                if sh.within_early:
                     pos.exempt_until = pos.t1_date + timedelta(days=cfg.hold_min_days)
-                if cfg.sell_half and not pos.sold_half:
-                    if within3w:
-                        pos.half_pending_w8 = True
-                    else:
-                        _sell_half(pos, bar.close, d)
-            # 5B 8주차 처분 (진입+56일 후 첫 거래일)
-            if (cfg.sell_half and pos.half_pending_w8 and not pos.half_expired
-                    and (d - pos.t1_date).days > cfg.hold_min_days):
-                if bar.close >= pos.avg_price * 1.20:
+            if cfg.sell_half:
+                if sh.fire:
                     _sell_half(pos, bar.close, d)
-                else:
-                    pos.half_pending_w8 = False
-                    pos.half_expired = True
+                pos.half_pending_w8 = sh.state.half_pending
+                pos.half_expired = sh.state.half_expired
 
         # 당일 시세 기준 계좌가치 (매수 전 — 매수는 구성만 바꿈)
         equity = cash + sum(p.qty * last_close.get(p.ticker, p.avg_price)

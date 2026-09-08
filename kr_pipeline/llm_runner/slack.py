@@ -61,6 +61,17 @@ def notify_sell_into_strength(*, symbol: str, name: str, close: float, triggers:
     _post({"text": text})
 
 
+def notify_sell_half(*, symbol: str, name: str, close: float, entry_price: float,
+                     hit20_date, hold_days: int, basis: str, eval_date=None) -> None:
+    """(#166) 이익목표 절반매도(5B) 권고 — 플래그 ON 시에만 호출. 수량 변경 없음(전량 모델)."""
+    when = f" ({eval_date})" if eval_date else ""
+    gain = (close / entry_price - 1) * 100
+    text = (f"🔷 *절반 매도 권고(5B)*{when} `{symbol}` {name}\n"
+            f"종가 ₩{close:,.0f} (매입가 대비 {gain:+.1f}%) · +20% 도달일 {hit20_date} · 보유 {hold_days}일\n"
+            f"근거: {basis} — HMMS 20~25% 일부 실현 / 8주 규칙")
+    _post({"text": text})
+
+
 def notify_weekend_digest(*, entry_count: int, watch_count: int, ignore_count: int) -> None:
     """주말 (5) batch 다이제스트."""
     text = (

@@ -56,7 +56,8 @@ def get_open_positions(conn: Connection) -> list[dict]:
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT id, symbol, entry_date, entry_price, quantity, breakeven_armed, note
+            SELECT id, symbol, entry_date, entry_price, quantity, breakeven_armed, note,
+                   hit20_date, half_pending, half_fired_at, half_expired
               FROM positions
              WHERE status = 'open'
              ORDER BY entry_date, id
@@ -68,6 +69,30 @@ def get_open_positions(conn: Connection) -> list[dict]:
             "id": r[0], "symbol": r[1], "entry_date": r[2],
             "entry_price": float(r[3]), "quantity": r[4],
             "breakeven_armed": bool(r[5]), "note": r[6],
+            # (#166) 5B 상태
+            "hit20_date": r[7], "half_pending": bool(r[8]),
+            "half_fired_at": r[9], "half_expired": bool(r[10]),
         }
         for r in rows
     ]
+
+
+def update_sell_half_state(conn: Connection, *, position_id: int, hit20_date, half_pending: bool,
+                           half_fired_at, half_expired: bool) -> bool:
+    """(#166) 5B 상태 영속. half_fired_at 은 **최초 1회만** 기록(이미 있으면 유지) — 발화 멱등.
+    반환: 이번 호출로 half_fired_at 이 새로 기록됐는가(알림 발송 조건)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE positions
+               SET hit20_date   = COALESCE(hit20_date, %s),
+                   half_pending = %s,
+                   half_fired_at = COALESCE(half_fired_at, %s),
+                   half_expired = %s
+             WHERE id = %s
+         RETURNING (half_fired_at IS NOT NULL AND half_fired_at = %s)
+            """,
+            (hit20_date, half_pending, half_fired_at, half_expired, position_id, half_fired_at),
+        )
+        row = cur.fetchone()
+    return bool(row and row[0]) if half_fired_at is not None else False
