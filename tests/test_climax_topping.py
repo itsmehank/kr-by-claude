@@ -425,3 +425,78 @@ def test_anchor_three_modes_regression_after_fix_alpha():
     assert find_anchor(_mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)]))["no_transition"] is True
     a = find_anchor(_fixture_single_transition())
     assert a["left_censored"] is False and a["no_transition"] is False and a["weeks_since"] == 19
+
+
+# ===== #156: T1 주간 스프레드 절대값 → 비율((high−low)/prev_week_close) =====
+
+def _t1_abs(weekly, start_idx):
+    """구 정의(절대값) 재현 — 픽스처가 구 정의에서 발화함을 테스트 안에서 확인하기 위한 보조."""
+    spreads = [w["high"] - w["low"] for w in weekly]
+    return spreads[-1] >= max(spreads[start_idx:])
+
+
+def test_t1_ratio_silent_where_absolute_fires():
+    # 마지막 주 절대폭 78(1950×4%) 이 baseline 최대(절대값 정의 → True) 이지만, 저가 구간의
+    # 60/1100=5.45% 가 마지막 주 78/1700=4.59% 보다 크므로 비율 정의 → False (후반부 자동 발화 제거).
+    wk = _fixture_climax_run()
+    wk[66]["high"], wk[66]["low"] = 1145.0, 1085.0
+    a = find_anchor(wk); start_idx = len(wk) - 1 - a["weeks_since"]
+    assert _t1_abs(wk, start_idx) is True
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), a)
+    assert g["t1_max_spread_now"] is False
+    assert g["t2_max_volume_now"] is True  # T2 절대값 불변
+
+
+def test_t1_ratio_fires_and_tie_gte():
+    wk = _fixture_climax_run()  # 마지막 주 4.59% 가 baseline 최대 → True
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    assert g["t1_max_spread_now"] is True
+    # 동률(>=): 66주 비율 275/1100 = 25% (이진 정확), 마지막 주 425/1700 = 25% → 발화
+    wk2 = _fixture_climax_run()
+    wk2[66]["high"], wk2[66]["low"] = wk2[66]["close"] + 137.5, wk2[66]["close"] - 137.5
+    wk2[-1]["high"], wk2[-1]["low"] = wk2[-1]["close"] + 212.5, wk2[-1]["close"] - 212.5
+    assert (wk2[66]["high"] - wk2[66]["low"]) / wk2[65]["close"] == (wk2[-1]["high"] - wk2[-1]["low"]) / wk2[-2]["close"]
+    g2 = compute_climax_gates(wk2, _mk_daily_updays(10, up=8), find_anchor(wk2))
+    assert g2["t1_max_spread_now"] is True
+    # 마지막 주를 한 틱 좁히면 미발화 (엄격 비교가 아니라 >= 임을 양방향으로 고정)
+    wk2[-1]["high"] -= 1.0
+    assert compute_climax_gates(wk2, _mk_daily_updays(10, up=8), find_anchor(wk2))["t1_max_spread_now"] is False
+
+
+def test_t1_none_when_today_is_resumption_week():
+    wk = _fixture_climax_run()
+    wk[-1]["gap_before"] = True  # 직전에 zero-bar 주(거래정지) 존재 → prev_close 불연속
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    assert g["t1_max_spread_now"] is None
+    assert g["t2_max_volume_now"] is True and g["p2_accel_ok"] is True  # 다른 게이트 무영향
+
+
+def test_t1_gap_pair_inside_baseline_excluded():
+    # baseline 안의 재개 주(66) 가 거대 비율이어도 쌍 제외 → 마지막 주가 최대로 발화
+    wk = _fixture_climax_run()
+    wk[66]["high"], wk[66]["low"], wk[66]["gap_before"] = 1300.0, 900.0, True
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    assert g["t1_max_spread_now"] is True
+
+
+def test_t1_mixed_adjustment_week_excluded():
+    wk = _fixture_climax_run()
+    wk[66]["high"], wk[66]["low"], wk[66]["adj_hl"] = 1300.0, 900.0, False  # raw 대체 주 → 제외
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    assert g["t1_max_spread_now"] is True
+    wk[-1]["adj_hl"] = False  # 오늘이 혼합 주 → T1 만 None
+    g2 = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    assert g2["t1_max_spread_now"] is None and g2["t2_max_volume_now"] is True
+
+
+def test_t1_three_modes_regression():
+    lc = compute_climax_gates(_mk_weeks(_drift(40, 1000.0, 980.0)), _mk_daily_updays(10, up=5),
+                              find_anchor(_mk_weeks(_drift(40, 1000.0, 980.0))))
+    assert lc["t1_max_spread_now"] is None
+    nt_wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)])
+    nt = compute_climax_gates(nt_wk, _mk_daily_updays(10, up=5), find_anchor(nt_wk))
+    # 전체 이력: 비율 = 0.04p/prev 가 p 상승률 둔화로 감소 → 마지막 주 미발화(값은 bool)
+    assert nt["baseline"] == "no_transition" and nt["t1_max_spread_now"] is False
+    wk = _fixture_climax_run(); wk[-1]["close"] = 0.0
+    q = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    assert q["quality_flag"] is True and q["t1_max_spread_now"] is None

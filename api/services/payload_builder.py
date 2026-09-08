@@ -387,11 +387,12 @@ def _fetch_weekly_ohlcv(conn: Connection, ticker: str, on_date: date, weeks: int
 def _fetch_weekly_full(conn: Connection, ticker: str, on_date: date) -> list:
     """(#44 Task 5) climax/topping anchor 탐색용 — 주봉 전 이력, LIMIT 없음, 오름차순.
 
-    _fetch_weekly_ohlcv(:216) 와 동일 소스·adj 정합 규약이나: LIMIT 없이 전 이력을
-    가져오고(anchor 는 임의 시점 이전 이력을 뒤로 거슬러 탐색해야 하므로 104주로
-    자를 수 없음), zero-bar(거래정지/무거래주) 제외 규약을 daily(:199)와 동일하게
-    추가한다(주봉은 daily 와 달리 이 규약이 없었음 — climax/topping SMA 산술에
-    0-바가 섞이면 오염).
+    _fetch_weekly_ohlcv 와 동일 소스·adj 정합 규약이나: LIMIT 없이 전 이력을 가져오고(anchor 는
+    임의 시점 이전 이력을 뒤로 거슬러 탐색해야 하므로 104주로 자를 수 없음), zero-bar(거래정지/
+    무거래주) 는 **반환 목록에서 제외**한다(climax/topping SMA 산술 오염 방지 — 기존 규약).
+    (#156) 대신 각 행에 두 플래그를 싣는다:
+    - `gap_before` = 이 주와 직전 반환 행 사이에 zero-bar 주가 있었음(T1 비율의 prev_close 불연속).
+    - `adj_hl` = adj_high·adj_low 둘 다 존재(high·low 가 adj 소스; T1 (high−low)/adj_close 유효성).
     """
     with conn.cursor() as cur:
         cur.execute("""
@@ -400,27 +401,32 @@ def _fetch_weekly_full(conn: Connection, ticker: str, on_date: date) -> list:
                    COALESCE(adj_high,  high)   AS h,
                    COALESCE(adj_low,   low)    AS l,
                    COALESCE(adj_close, close)  AS c,
-                   COALESCE(adj_volume,volume) AS v
+                   COALESCE(adj_volume,volume) AS v,
+                   (open = 0 AND high = 0 AND low = 0 AND volume = 0) AS zero_bar,
+                   (adj_high IS NOT NULL AND adj_low IS NOT NULL)     AS adj_hl
               FROM weekly_prices
              WHERE ticker = %s AND week_end_date <= %s
-               -- 거래정지/무거래주(OHLV·volume 0) 제외: daily(:199)와 동일 규약
-               AND NOT (open = 0 AND high = 0 AND low = 0 AND volume = 0)
              ORDER BY week_end_date ASC
         """, (ticker, on_date))
         rows = cur.fetchall()
-    return [
-        {
+    out = []
+    gap = False
+    for r in rows:
+        if r[6]:
+            gap = True
+            continue
+        out.append({
             "week_end": r[0].isoformat(),
             "open": float(r[1]),
             "high": float(r[2]),
             "low": float(r[3]),
             "close": float(r[4]),
             "volume": int(round(float(r[5]))) if r[5] is not None else None,
-        }
-        for r in rows
-    ]
-
-
+            "gap_before": gap,
+            "adj_hl": bool(r[7]),
+        })
+        gap = False
+    return out
 def _fetch_indicators_recent(conn: Connection, ticker: str, on_date: date, days: int = 60) -> list:
     """daily_prices(가격·거래량) + daily_indicators(지표) JOIN → 최근 N일 series."""
     with conn.cursor() as cur:

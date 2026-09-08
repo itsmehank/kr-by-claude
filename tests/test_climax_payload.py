@@ -33,17 +33,21 @@ def _weekly_rows(rows: list[tuple[float, int]], start: date) -> list[dict]:
     ]
 
 
-def _seed_weekly(db, ticker, rows: list[dict]):
+def _seed_weekly(db, ticker, rows: list[dict], adj_hl: bool = True):
+    """production 과 같이 adj_high/adj_low 도 채운다(adj_hl=False 면 NULL → raw 대체 주, #156).
+    zero-bar 주(open=high=low=0, volume=0) 는 adj_* NULL."""
     with db.cursor() as cur:
         for r in rows:
+            zb = r["high"] == 0 and r["low"] == 0 and r["volume"] == 0
+            ah, al = (r["high"], r["low"]) if (adj_hl and not zb) else (None, None)
             cur.execute(
                 """INSERT INTO weekly_prices
-                     (ticker, week_end_date, open, high, low, close, adj_close,
+                     (ticker, week_end_date, open, high, low, close, adj_close, adj_high, adj_low,
                       volume, value, trading_days)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,5)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,5)
                    ON CONFLICT DO NOTHING""",
                 (ticker, r["week_end"], r["open"], r["high"], r["low"], r["close"],
-                 r["close"], r["volume"], r["volume"] * r["close"]),
+                 r["close"], ah, al, r["volume"], r["volume"] * r["close"]),
             )
     db.commit()
 
@@ -355,3 +359,22 @@ def test_build_payload_daily_extremes_none_when_left_censored(db):
     assert gates["t5_daily_max_up_now"] is None
     assert gates["t6_daily_max_spread_now"] is None
     assert gates["ta_d_daily_max_decline_now"] is None
+
+
+# ===== #156: _fetch_weekly_full 의 gap_before / adj_hl 플래그 =====
+
+from api.services.payload_builder import _fetch_weekly_full  # noqa: E402
+
+
+def test_fetch_weekly_full_flags_gap_and_adj_hl(db):
+    ticker = "CLPD9"
+    _seed_stock(db, ticker)
+    start = date(2020, 1, 3)
+    rows = _weekly_rows([(100.0, 1000), (101.0, 1000), (0.0, 0), (103.0, 1000), (104.0, 1000)], start)
+    rows[2].update({"open": 0.0, "high": 0.0, "low": 0.0, "close": 0.0})  # zero-bar 주
+    _seed_weekly(db, ticker, rows[:4])
+    _seed_weekly(db, ticker, rows[4:], adj_hl=False)  # 마지막 주 adj_high/low NULL
+    got = _fetch_weekly_full(db, ticker, on_date=rows[-1]["week_end"])
+    assert [w["week_end"] for w in got] == [r["week_end"].isoformat() for r in rows if r["close"] != 0.0]
+    assert [w["gap_before"] for w in got] == [False, False, True, False]
+    assert [w["adj_hl"] for w in got] == [True, True, True, False]
