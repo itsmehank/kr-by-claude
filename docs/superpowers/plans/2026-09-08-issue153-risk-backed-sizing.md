@@ -70,8 +70,8 @@ calculate_entry_params_v2_0.md(동결 아카이브, 값 유지).
 | `web/src/data/...` | entry-params-fields(사이징 4필드·스탑 서술)·prompt-explanations keyRules·stages 서술·thresholds.generated.ts 재생성 |
 | 테스트 | test_entry_params_calc(사이징·스탑 기대값 전면 교체 +산식·플래그 무관·confidence 무관), test_schema_llm_runner(+3 컬럼) |
 
-**미변경**: evaluate_pivot 프롬프트(사이징 서술 없음 — grep 0), analyze_chart_v3 §7 통합표는 "C 단계
-사이징 감액" 언급 2곳(§4 cup_without_handle·§8.5 base_forming) — 아래 §7 참조. 은퇴 프롬프트
+**미변경**: evaluate_pivot 프롬프트(사이징 서술 없음 — grep 0). analyze_chart_v3 §4·§8.5 의 "C 단계
+사이징 감액" 언급 2곳은 Q-2 판정 B 로 삭제(§8). 은퇴 프롬프트
 calculate_entry_params_v2_0.md 는 동결 아카이브(값 유지, drift 비감시). #44 replay 등 과거 스크립트 불변.
 
 ## 4. 백테스트 회귀
@@ -95,7 +95,8 @@ store sanity, backtest/portfolio.py, trade_management/stop_stack.py(initial 8%),
 | ENTRY_WEIGHT_PCT_MAX=25 (cap) | 불변 | **미미** — 15.625 < 25 라 현 값에서 비활성. stop ≤ 5% 가 되면 활성 | PRESERVES(HMMS 1/4) | **모니터링** — 근거: #161(구조 스탑) 착수 전 cap 도달 경로 없음 |
 | SIZING_PILOT_FRAC=0.5 | 가능 | **있음** — 출력 사이즈 선형 | design(TTLC Ch.8 5~10% 시작) | holdout |
 | TRADE_STOP_MAX_PCT=0.10 (uncle point) | 불변 | **없음** — 8% < 10% | PRESERVES | 없음 |
-| stop_distance 경고 임계 7.5% | — | **있음(경고만)** — stop −8% > 7.5 라 current≈pivot 정상 케이스에서 항상 발행 | 시스템 값 | **Q-1 회신 대기**(현 동작 유지) |
+| stop_distance 경고 임계 = TRADE_STOP_INITIAL_PCT(8%, Q-1 판정 B — 구 7.5 폐기) | 불가(경고) | **미미** — current > pivot(추격) 에서만 발행, 게이트·사이징 비소비 | 시스템 값(책 8% 한계 준용) | **모니터링** — 근거: 소비처 없음(known_warnings 기록 전용) |
+| A 프롬프트 §4·§8.5 서술(Q-2 판정 B — 사이징 감액 언급 삭제) | 해당 없음 | **미미** — 판정 규칙·필드 불변, LLM 입력 텍스트만 변경 | — | **모니터링** — 근거: 사이징은 C 단계 결정론이라 A 텍스트가 사이징에 닿을 경로 없음. **분류 변동 귀속 후보로 별도 행 기록(§8)** |
 | §4 target(no_flags·conf·wide·unfav)·§5 window/chase | 불변 | **없음** — 사이징과 분리, 규칙 불변 | PRESERVES | 없음 |
 | trade_management stop_stack | 불변 | **없음** — entry_params 미참조(#162 참조 연결은 별건) | PRESERVES | 없음 |
 | gates.py·evaluate_pivot 게이트 | 불변 | **없음** — 플래그의 진입 억제 역할 그대로 | — | 없음 |
@@ -128,3 +129,15 @@ store sanity, backtest/portfolio.py, trade_management/stop_stack.py(initial 8%),
   판정에 영향 없으나 사실과 어긋남 — 이번 사양의 프롬프트 범위(§7 통합표·evaluate_pivot §3)에 없어
   미수정, Q-2 로 질의.
 - **#80** 클로즈(superseded, 결정문 §6). **#74** F1~F3 제재 = 코호트 R×0.5(spec §7 부록).
+
+## 8. 전문가 판정 반영(Q-1·Q-2, 2026-09-08 — 머지 전)
+
+| 질의 | 판정 | 구현 |
+|---|---|---|
+| Q-1 stop_distance 경고 임계 | **(B) 임계 = TRADE_STOP_INITIAL_PCT(8%)** | `abs(stop_from_current) > TRADE_STOP_INITIAL_PCT*100`. current > pivot(추격) 케이스만 발행, current == pivot 은 정확히 −8.0 → 미발행. happy-path 테스트 "Q-1 대기" 해제, 3케이스(추격/동일/하회) 테스트 |
+| Q-2 A 프롬프트 문구 | **(B) "사이징 감액" 언급 삭제**, strict 1.5× 거래량 게이트 서술만 유지 | §4 cup_without_handle 진입 규율 문구·§8.5 base_forming 각주 수정 |
+
+**별도 행 — A 프롬프트 §4·§8.5 문구 변경(향후 분류 변동 귀속 후보)**: 두 문구는 분류 판정 근거
+서술이며 출력 필드·게이트와 무관하나, LLM 입력 텍스트가 바뀌었으므로 이 시점(2026-09-08, PR #163)
+이후 cup_without_handle·base_forming 분류 빈도에 변동이 관측되면 귀속 후보로 검토한다. 판정 아님.
+§5 의존성 맵 보강: | A 프롬프트 §4·§8.5 서술 | 해당 없음 | **미미** — 판정 규칙·필드 불변, 서술만 | — | **모니터링** — 근거: 사이징은 C 단계 결정론이라 A 텍스트가 사이징에 닿을 경로 없음; 분류 빈도 변동 시 귀속 후보로만 기록 |

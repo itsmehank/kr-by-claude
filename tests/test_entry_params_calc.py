@@ -65,10 +65,9 @@ def test_standard_flat_base_happy_path_full_schema():
     assert r["breakout_volume_requirement"] == "ge_1.5x_50day_avg"
     assert r["observed_breakout_volume_ratio"] == 1.6
     assert 50 <= len(r["notes"]) <= 600
-    # (#153 Q-1 회신 대기) stop −8% > 경고 임계 7.5% 라 current≈pivot 인 정상 케이스에서도
-    # stop_distance 경고가 발행된다 — 임계 정합(8%=TRADE_STOP_INITIAL_PCT) 여부는 전문가 판정 대상.
-    # 판정 전까지 현 동작(7.5 유지)을 고정한다.
-    assert r["known_warnings"] == ["stop_distance_from_current_price_exceeds_book_limit"]
+    # (#153 Q-1 판정 B) 경고 임계 = TRADE_STOP_INITIAL_PCT(8%) — current(192.30) < pivot 인 정상
+    # 케이스는 |stop_from_current| = 7.9 < 8 → 미발행.
+    assert r["known_warnings"] == []
     assert r["other_warnings"] == []
     # 저장 계약(§9 17필드) — _normalize 가 예외 없이 통과해야 한다
     _normalize_entry_params(dict(r))
@@ -193,11 +192,17 @@ def test_wide_and_loose_keeps_guards_but_not_sizing_or_stop():
     assert r["expected_target_pct"] == 15.0              # target 규칙 불변
     assert r["entry_window_days"] == 1                   # window 가드 불변
 
-def test_stop_distance_from_current_warning():
-    # current 를 pivot 대비 높게 → from_current 확대
+def test_stop_distance_from_current_warning_only_when_chasing():
+    # (#153 Q-1 B) current > pivot(추격) 이면 |from_current| > 8 → 발행; current == pivot 이면
+    # 정확히 −8.0 → 미발행; current < pivot 이면 미발행.
     r = calculate_entry_params(_payload(current_state={"close": 208.0, "volume": 1_600_000, "avg_volume_50d": 1_000_000}))
-    assert abs(r["stop_loss_pct_from_current_price"]) > 7.5
+    assert abs(r["stop_loss_pct_from_current_price"]) > 8.0
     assert "stop_distance_from_current_price_exceeds_book_limit" in r["known_warnings"]
+    r_eq = calculate_entry_params(_payload(current_state={"close": 192.5, "volume": 1_600_000, "avg_volume_50d": 1_000_000}))
+    assert r_eq["stop_loss_pct_from_current_price"] == -8.0
+    assert "stop_distance_from_current_price_exceeds_book_limit" not in r_eq["known_warnings"]
+    r_lo = calculate_entry_params(_payload(current_state={"close": 190.0, "volume": 1_600_000, "avg_volume_50d": 1_000_000}))
+    assert "stop_distance_from_current_price_exceeds_book_limit" not in r_lo["known_warnings"]
 
 
 # ---------- §3 size ----------

@@ -156,7 +156,9 @@ def calculate_entry_params(payload: dict) -> dict:
     stop_price = _r2(pivot * (1 - TRADE_STOP_INITIAL_PCT))
     binding = "risk_backed"
     stop_from_current = _r1((stop_price - current) / current * 100)
-    if abs(stop_from_current) > 7.5:
+    # (#153 Q-1 판정 B) 책 한계 = TRADE_STOP_INITIAL_PCT(8%). current > pivot(추격) 일 때만 초과.
+    # current == pivot 이면 정확히 −8.0 → 미발행. 구 임계 7.5 는 −7 스탑 시대의 값.
+    if abs(stop_from_current) > TRADE_STOP_INITIAL_PCT * 100:
         known.append("stop_distance_from_current_price_exceeds_book_limit")
 
     # ---- §3 size (#153 리스크 역산, Minervini TTLC Ch.8 "backing into risk") ----

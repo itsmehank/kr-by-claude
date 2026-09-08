@@ -139,7 +139,7 @@ Examine weekly OHLCV (104 weeks available) and the weekly chart image if provide
 |---|---|---|
 | `flat_base` | 5+ weeks sideways; ≤15% correction from high to low; prior uptrend ≥20% from previous base | O'Neil, *HMMS* Ch.2 (수치 원전; 구 Minervini 표기는 오귀속 — 2026-07-22 정정) |
 | `cup_with_handle` | U-shape (not V); 7–45 weeks; depth ≤33% (up to 50% if forming during/after bear market recovery, per O'Neil); handle forms in upper half of cup on lower volume; handle ≥1 week | O'Neil *HMMS* Ch.2 7–65w / Minervini *TLSMW* Ch.10 3–45w — 시스템 교집합 7–45w (design judgment) |
-| `cup_without_handle` | 컵 기준은 cup_with_handle 과 **완전 동일**(U-shape not V; 7–45w; depth ≤33%/베어 회복 50%; 선행상승 ≥30%) — 핸들 요소만 없음. **우측 회복 완료** 필요: 컵 바닥 이후 우측 구간의 **최고 종가 ≥ cup high × 0.90** (도달치 기준 래칫 — 한번 완성이면 이후 조정으로 밀려도 완성 유지, 현재가 위치는 §8.5 밴드가 담당) + U자 바닥 rounding 완성. pivot = **컵 내 절대 고점**(§4.7). 진입 규율: 돌파 거래량 strict 1.5×(§8 각주·B 게이트) + 사이징 감액(shakeout 부재 보수화 — C 단계 자동) | O'Neil *HMMS* 5대 모델 장 — cup-without-handle 명명·승자 사례 실재 (book-mandated). 0.90 회복 경계·보수 장치는 design judgment (#74) |
+| `cup_without_handle` | 컵 기준은 cup_with_handle 과 **완전 동일**(U-shape not V; 7–45w; depth ≤33%/베어 회복 50%; 선행상승 ≥30%) — 핸들 요소만 없음. **우측 회복 완료** 필요: 컵 바닥 이후 우측 구간의 **최고 종가 ≥ cup high × 0.90** (도달치 기준 래칫 — 한번 완성이면 이후 조정으로 밀려도 완성 유지, 현재가 위치는 §8.5 밴드가 담당) + U자 바닥 rounding 완성. pivot = **컵 내 절대 고점**(§4.7). 진입 규율: 돌파 거래량 strict 1.5×(§8 각주·B 게이트 — shakeout 부재 보수화; 사이징은 #153 리스크 역산으로 flag 무관) | O'Neil *HMMS* 5대 모델 장 — cup-without-handle 명명·승자 사례 실재 (book-mandated). 0.90 회복 경계·보수 장치는 design judgment (#74) |
 | `vcp` | Successive price contractions (each tighter, typically ~half the prior); volume contracting with each contraction; 2–6 contractions (typically 2–4) | Minervini, *TLSMW* Ch.10 |
 | `double_bottom` | Two lows near the same level; second undercuts first (W-shape, shakeout); 7+ weeks total duration; pivot at middle peak of W | O'Neil, *HMMS* Ch.2 |
 | `none` | No structure matching above. Use for climax runs, early-stage, wide-and-loose action, or ambiguous structure. |
@@ -590,7 +590,7 @@ LLM 정밀판정으로 넘길지(`breakout_from_watch`) 여부를 가른다.
 
 | watch_reason | 판정 기준 |
 |---|---|
-| `base_forming` | **pivot 정의 요소 미완성** → pivot 미확정. 예: **cup 우측 회복 미완**(컵 바닥 이후 최고 종가 < cup high × 0.90 — 우측 벽 미완 = base 미완성. 회복 완료 + 핸들 <5일이면 `cup_without_handle` 로 pivot 확정 — §4 Gate3, #74), VCP 최종 수축(final-T) 미완, flat base 옆걸음 확장 중, double_bottom 중앙 peak 미확정. *shakeout 부재 리스크는 배제가 아니라 보수 장치(§8 각주 strict 1.5×·C 단계 사이징 감액)로 흡수한다.* |
+| `base_forming` | **pivot 정의 요소 미완성** → pivot 미확정. 예: **cup 우측 회복 미완**(컵 바닥 이후 최고 종가 < cup high × 0.90 — 우측 벽 미완 = base 미완성. 회복 완료 + 핸들 <5일이면 `cup_without_handle` 로 pivot 확정 — §4 Gate3, #74), VCP 최종 수축(final-T) 미완, flat base 옆걸음 확장 중, double_bottom 중앙 peak 미확정. *shakeout 부재 리스크는 배제가 아니라 보수 장치(§8 각주 strict 1.5× 거래량 게이트)로 흡수한다.* |
 | `extended` | pivot 정의 요소는 완성이나 current 가 이미 진입 구간 위로 extended(돌파 후 추격 구간 / `extended_from_ma`). |
 | `unfavorable_market` | 종목 셋업은 entry 급이나 §3.5 시장 방향(downtrend/correction/미확인 rally_attempt 또는 dist≥5)이 entry 를 watch 로 강등시킴. |
 | `marginal_tt` | Trend Template 통과가 marginal(§2: 3개 이상 조건이 <3% 마진) — 추가 확인 필요. |
