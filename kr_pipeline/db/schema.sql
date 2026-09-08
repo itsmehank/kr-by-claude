@@ -428,6 +428,10 @@ ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS pivot_price NUMERIC(12,4);
 ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS current_price NUMERIC(12,4);
 ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS pattern_basis VARCHAR(30);
 ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS entry_window_days SMALLINT;
+-- (#153 2026-09-08) 리스크 역산 사이징 메타: full(정상) 사이즈·방법·거래당 리스크 %
+ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS position_size_full_pct NUMERIC(5,2);
+ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS sizing_method VARCHAR(30);
+ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS sizing_risk_pct NUMERIC(5,3);
 ALTER TABLE entry_params ADD COLUMN IF NOT EXISTS max_chase_pct_from_pivot NUMERIC(6,2);
 
 -- rerun-idempotency: 데이터 날짜(as_of) — wall-clock(signal_at)과 분리한 dedup 키.

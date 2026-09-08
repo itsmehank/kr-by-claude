@@ -140,6 +140,8 @@ export interface Signal {
   expected_target_pct: number | null;
   risk_reward_ratio: number | null;
   position_size_pct: number | null;
+  position_size_full_pct: number | null; // (#153) full 사이즈, 파일럿 = position_size_pct
+  sizing_method: string | null;          // (#153) 'risk_backed'
   known_warnings: string[];
   notes: string | null;
 }

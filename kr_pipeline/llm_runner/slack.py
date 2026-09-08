@@ -26,9 +26,12 @@ def _post(payload: dict) -> None:
         log.warning("Slack post failed: %s", e)
 
 
-def notify_signal(*, symbol: str, name: str, entry_price: float, stop_loss: float) -> None:
-    """매수 시그널 알림 (entry_params 생성 시)."""
+def notify_signal(*, symbol: str, name: str, entry_price: float, stop_loss: float,
+                  size_pct: float | None = None) -> None:
+    """매수 시그널 알림 (entry_params 생성 시). (#153) 비중 = 리스크 역산 파일럿 %."""
     text = f"🟢 *매수 시그널* `{symbol}` {name}\n진입가 ₩{entry_price:,.0f} · 손절가 ₩{stop_loss:,.0f}"
+    if size_pct is not None:
+        text += f" · 비중 {size_pct:.1f}%(파일럿)"
     _post({"text": text})
 
 

@@ -252,10 +252,9 @@ dual stop_loss reporting (prompt §2.1-2.4):
 - 모두 floor -10.0 으로 clamp
 
 position_size_pct (prompt §3.1-3.3):
-- Base tier (pattern + entry_mode 별 5-15%)
-- Risk flag multipliers (cumulative): 대부분 × 0.7, unfavorable_market_context × 0.5
-- confidence < 0.7 시 × 0.7
-- 최종 clamp [3.0, 25.0]`,
+- (#153 2026-09-08) 리스크 역산: full = min(R 1.25% / stop 8%, 25%) = 15.625%
+- 출력 = 파일럿 full × 0.5 = 7.8125% (entry_mode·flag·confidence·패턴 무관)
+- 스탑 = pivot × 0.92 고정 (구 절대/logical/sma50 후보·티어·배수·3.0 바닥 폐기)`,
     outputTable: "entry_params (kr_pipeline/db/schema.sql:321)",
     outputColumns: `17 필드:
 1. entry_mode (pivot_breakout / pocket_pivot)
@@ -264,12 +263,12 @@ position_size_pct (prompt §3.1-3.3):
 4. stop_loss (절대 가격)
 5. stop_loss_pct_from_pivot
 6. stop_loss_pct_from_current_price
-7. stop_loss_basis (logical / absolute / sma50)
+7. stop_loss_basis (#153 이후 미사용 — NULL)
 8. expected_target_price
 9. expected_target_pct
 10. risk_reward_ratio
-11. position_size_pct (3-25%)
-12. position_size_basis
+11. position_size_pct (파일럿 7.81%; #153) + position_size_full_pct 15.63 / sizing_method / sizing_risk_pct 1.25
+12. position_size_basis (산식 텍스트)
 13. breakout_volume_requirement (ge_1.3x / 1.4x / 1.5x_50day_avg / 1.5x_strict(#74) / pocket_pivot_signature)
 14. observed_breakout_volume_ratio
 15. known_warnings (JSONB 15 화이트리스트)

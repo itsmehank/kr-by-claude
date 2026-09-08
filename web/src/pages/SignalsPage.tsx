@@ -179,7 +179,11 @@ function SignalCard({ signal }: SignalCardProps) {
             <div className="num text-data-lg font-bold text-ink">
               {signal.position_size_pct.toFixed(1)}%
             </div>
-            <div className="text-data-xs text-faint mt-1">포지션 비중</div>
+            <div className="text-data-xs text-faint mt-1">
+              {signal.sizing_method === "risk_backed" && signal.position_size_full_pct != null
+                ? `파일럿 (full ${signal.position_size_full_pct.toFixed(1)}%, R 1.25%/stop 8%)`
+                : "포지션 비중"}
+            </div>
           </div>
         )}
       </div>

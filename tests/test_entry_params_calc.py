@@ -54,17 +54,21 @@ def test_standard_flat_base_happy_path_full_schema():
     assert r["trigger_price"] == round(192.50 * 1.001, 2)
     assert r["trigger_price"] > r["pivot_price"]
     assert r["current_price"] == 192.30
-    # logical = (178*0.995 - 192.5)/192.5*100 = -8.02.. → max(-7, -8.02) = -7 (absolute binding)
-    assert r["stop_loss_pct_from_pivot"] == -7.0
-    assert r["stop_loss_price"] == round(192.50 * (1 + -7.0 / 100), 2)  # 모듈 공식과 동일 경로(부동소수 표기 차 방지)
-    assert r["suggested_weight_pct"] == 10.0            # 표준 티어, 무flag
+    # (#153) 리스크 역산: stop = pivot×0.92, size = pilot 7.8125 (full 15.625)
+    assert r["stop_loss_pct_from_pivot"] == -8.0
+    assert r["stop_loss_price"] == round(192.50 * (1 - 0.08), 2)  # 모듈 공식과 동일 경로(부동소수 표기 차 방지)
+    assert r["suggested_weight_pct"] == 7.8125
+    assert r["suggested_weight_full_pct"] == 15.625 and r["sizing_method"] == "risk_backed"
     assert r["expected_target_pct"] == 20.0
     assert r["entry_window_days"] == 3
     assert r["max_chase_pct_from_pivot"] == 5.0
     assert r["breakout_volume_requirement"] == "ge_1.5x_50day_avg"
     assert r["observed_breakout_volume_ratio"] == 1.6
     assert 50 <= len(r["notes"]) <= 600
-    assert r["known_warnings"] == []
+    # (#153 Q-1 회신 대기) stop −8% > 경고 임계 7.5% 라 current≈pivot 인 정상 케이스에서도
+    # stop_distance 경고가 발행된다 — 임계 정합(8%=TRADE_STOP_INITIAL_PCT) 여부는 전문가 판정 대상.
+    # 판정 전까지 현 동작(7.5 유지)을 고정한다.
+    assert r["known_warnings"] == ["stop_distance_from_current_price_exceeds_book_limit"]
     assert r["other_warnings"] == []
     # 저장 계약(§9 17필드) — _normalize 가 예외 없이 통과해야 한다
     _normalize_entry_params(dict(r))
@@ -119,19 +123,20 @@ def test_pocket_pivot_mode_pivot_is_pp_day_close():
     assert r["expected_target_pct"] <= 18.0              # pocket cap
     assert r["entry_window_days"] <= 2
     assert r["max_chase_pct_from_pivot"] == 3.0
-    assert -8.0 <= r["stop_loss_pct_from_pivot"] <= -4.0  # pocket clamp
-    assert r["suggested_weight_pct"] == 7.0              # pocket 표준 티어(flat_base 무flag)
+    assert r["stop_loss_pct_from_pivot"] == -8.0         # (#153) entry_mode 무관 −8%
+    assert r["suggested_weight_pct"] == 7.8125            # (#153) 리스크 역산 파일럿(모드 무관)
     # §6.2: ratio 는 PP '당일' volume/50일평균 — current_state(오늘 1.6x)가 아니라 PP일 2.1x
     assert r["observed_breakout_volume_ratio"] == 2.1
 
 
-def test_pocket_pivot_wide_and_loose_floors_size_3():
-    # §7 표: wide_and_loose → size base 3.0 floor (pocket pivot)
+def test_pocket_pivot_wide_and_loose_does_not_change_size():
+    # (#153) 구 §7 표의 wide_and_loose → 3.0 floor 폐기 — 플래그는 사이징 비참여
     r = calculate_entry_params(_pp_payload(prior_analysis={
         "reasoning": "pocket_pivot_entry within flat base", "confidence": 0.8,
         "risk_flags": ["wide_and_loose"]}))
     assert r["entry_mode"] == "pocket_pivot"
-    assert r["suggested_weight_pct"] == 3.0
+    assert r["suggested_weight_pct"] == 7.8125
+    assert r["entry_window_days"] == 1                   # 진입 가드(window) 역할은 불변
 
 
 def test_pp_field_name_mention_does_not_trigger_pp_mode():
@@ -161,34 +166,32 @@ def test_pocket_pivot_claimed_but_no_flag_falls_back_standard():
     assert r["pivot_price"] == 192.50                    # prior pivot 복귀
 
 
-def test_pocket_pivot_sma50_binding_emits_warning():
-    # sma50_buffered = 191.0*0.995 = 190.045 → pct = (190.045-192)/192*100 = -1.018 → clamp -4.0
+def test_pocket_pivot_sma50_no_longer_a_stop_candidate():
+    # (#153) sma50 스탑 후보 폐기 — SMA50 이 pivot 바로 아래여도 스탑은 pivot×0.92
     p = _pp_payload()
     p["recent_daily_indicators"][-1]["sma_50"] = 191.0
     r = calculate_entry_params(p)
-    assert "stop_at_50day_ma_for_pocket_pivot" in r["known_warnings"]
-    assert r["stop_loss_pct_from_pivot"] == -4.0         # pocket 상한 클램프
+    assert "stop_at_50day_ma_for_pocket_pivot" not in r["known_warnings"]
+    assert r["stop_loss_pct_from_pivot"] == -8.0
+    assert r["stop_loss_price"] == round(192.0 * 0.92, 2)
 
 
 # ---------- §2 stop ----------
 
-def test_logical_stop_binds_when_shallow_base():
-    # base_low 188 → logical = (188*0.995-192.5)/192.5*100 = -2.83 → max(-7,-2.83) = -2.83 → clamp -5.0
-    r = calculate_entry_params(_payload(prior_analysis={"base_low": 188.0}))
-    assert r["stop_loss_pct_from_pivot"] == -5.0
+def test_stop_is_fixed_8pct_from_pivot_regardless_of_base_low():
+    # (#153) logical(base_low×0.995) 후보 폐기 — 얕은 베이스도 깊은 베이스도 pivot×0.92
+    for bl in (188.0, 150.0):
+        r = calculate_entry_params(_payload(prior_analysis={"base_low": bl}))
+        assert r["stop_loss_pct_from_pivot"] == -8.0
+        assert r["stop_loss_price"] == round(192.5 * 0.92, 2)
+        assert "absolute_stop_used_due_to_wide_handle" not in r["known_warnings"]
 
-def test_wide_and_loose_tightens_absolute_and_more():
+def test_wide_and_loose_keeps_guards_but_not_sizing_or_stop():
     r = calculate_entry_params(_payload(prior_analysis={"risk_flags": ["wide_and_loose"], "base_low": 150.0}))
-    assert r["stop_loss_pct_from_pivot"] == -5.5         # absolute 강화 binding
-    assert r["suggested_weight_pct"] == 5.0              # risky 티어
-    assert r["expected_target_pct"] == 15.0
-    assert r["entry_window_days"] == 1
-
-def test_logical_exceeds_floor_warning():
-    # base_low 아주 깊음 → logical < -10 → clamp & 경고
-    r = calculate_entry_params(_payload(prior_analysis={"base_low": 150.0}))
-    assert r["stop_loss_pct_from_pivot"] == -7.0         # absolute binding (logical worse than -10)
-    assert "absolute_stop_used_due_to_wide_handle" in r["known_warnings"]
+    assert r["stop_loss_pct_from_pivot"] == -8.0         # (#153) 스탑 강화(−5.5) 폐기
+    assert r["suggested_weight_pct"] == 7.8125            # (#153) risky 티어 5.0 폐기
+    assert r["expected_target_pct"] == 15.0              # target 규칙 불변
+    assert r["entry_window_days"] == 1                   # window 가드 불변
 
 def test_stop_distance_from_current_warning():
     # current 를 pivot 대비 높게 → from_current 확대
@@ -199,28 +202,35 @@ def test_stop_distance_from_current_warning():
 
 # ---------- §3 size ----------
 
-def test_vcp_top_tier_and_target_25():
+def test_vcp_top_tier_gone_but_target_25_kept():
     r = calculate_entry_params(_payload(prior_analysis={"pattern": "vcp", "pivot_basis": "final_T_high", "confidence": 0.9}))
-    assert r["suggested_weight_pct"] == 15.0
-    assert r["expected_target_pct"] == 25.0
+    assert r["suggested_weight_pct"] == 7.8125            # (#153) top-tier 15 폐기
+    assert r["expected_target_pct"] == 25.0              # §4 target 규칙 불변(no_flags 는 target 전용)
     assert r["max_chase_pct_from_pivot"] == 3.0          # D3(a) VCP 일괄
 
-def test_flag_multipliers_cumulative_and_floor():
+def test_risk_backed_sizing_fields_and_arithmetic():
+    # full = min(1.25/8, 25) = 15.625 → 15.625(2dp); pilot = 7.8125 → 7.81; risk = 1.25
+    r = calculate_entry_params(_payload())
+    assert r["suggested_weight_full_pct"] == 15.625
+    assert r["suggested_weight_pct"] == 7.8125
+    assert r["sizing_method"] == "risk_backed"
+    assert r["sizing_risk_pct"] == 1.25
+    assert r["stop_loss_pct_from_pivot"] == -8.0
+    assert r["stop_loss_price"] == round(192.5 * 0.92, 2)
+    assert "risk_backed binding" in r["notes"] and "pilot 0.5 of full 15.625%" in r["notes"]
+
+def test_flags_do_not_touch_sizing_anymore():
     flags = ["late_stage_base", "narrow_base", "extended_from_ma", "reverse_split_distortion"]
     r = calculate_entry_params(_payload(prior_analysis={"risk_flags": flags}))
-    # base 7(폴백? flat_base+flags → 표준 티어 아님) → 10? 티어 조건 '무flag' 위반 → 폴백 7
-    # 7 × 0.7×0.7×0.7 × 0.5 = 1.2 → floor 3.0
-    assert r["suggested_weight_pct"] == 3.0
-    assert "size_floored_due_to_multiple_flags" in r["known_warnings"]
-    assert "size_reduced_due_to_late_stage" in r["known_warnings"]
+    assert r["suggested_weight_pct"] == 7.8125            # 구 3.0 바닥 포화 → 폐기
+    for w in ("size_floored_due_to_multiple_flags", "size_reduced_due_to_late_stage"):
+        assert w not in r["known_warnings"]
+    assert "not applied to sizing" in r["notes"]
 
-def test_confidence_override():
-    r = calculate_entry_params(_payload(prior_analysis={"confidence": 0.65}))
-    assert r["suggested_weight_pct"] == 7.0              # 10 × 0.7
-
-def test_confidence_zero_is_not_none():
-    r = calculate_entry_params(_payload(prior_analysis={"confidence": 0.0}))
-    assert r["suggested_weight_pct"] == 7.0              # 0.0 < 0.7 → override 적용
+def test_confidence_does_not_touch_sizing():
+    for conf in (0.65, 0.0, None):
+        r = calculate_entry_params(_payload(prior_analysis={"confidence": conf}))
+        assert r["suggested_weight_pct"] == 7.8125        # 구 ×0.7 감액 폐기
 
 
 # ---------- §7 watch 예외 ----------
@@ -233,11 +243,11 @@ def test_breakout_from_watch_ignores_stale_unfavorable():
         prior_analysis={"risk_flags": ["unfavorable_market_context"]},
         trigger_evaluation={"trigger_type": "breakout_from_watch", "decision": "go_now"},
     ))
-    assert r["suggested_weight_pct"] == 7.0              # ×0.5 미적용, but 티어 승격도 없음
+    assert r["suggested_weight_pct"] == 7.8125           # (#153) 사이징은 예외·flag 무관 고정
     assert r["expected_target_pct"] == 20.0              # cap 15 미적용
     assert r["entry_window_days"] == 3                   # window=1 미적용
     assert r["max_chase_pct_from_pivot"] == 2.0          # 예외 열거 밖 — 유지
-    assert r["stop_loss_pct_from_pivot"] == -7.0         # stop 강화 미적용
+    assert r["stop_loss_pct_from_pivot"] == -8.0         # (#153) 스탑 고정
     assert "size_reduced_due_to_unfavorable_market" not in r["known_warnings"]
 
 
@@ -248,17 +258,17 @@ def test_breakout_from_watch_does_not_upgrade_vcp_to_top_tier():
                         "risk_flags": ["unfavorable_market_context"]},
         trigger_evaluation={"trigger_type": "breakout_from_watch", "decision": "go_now"},
     ))
-    assert r["suggested_weight_pct"] == 7.0              # top-tier 15 승격 금지 → 폴백
-    assert r["expected_target_pct"] == 20.0              # 25 승격 금지
+    assert r["suggested_weight_pct"] == 7.8125            # (#153) 사이징은 flag·watch 예외 무관
+    assert r["expected_target_pct"] == 20.0              # 25 승격 금지(target 규칙 불변)
 
 def test_breakout_trigger_applies_unfavorable():
     r = calculate_entry_params(_payload(prior_analysis={"risk_flags": ["unfavorable_market_context"]}))
-    assert r["suggested_weight_pct"] == 3.5              # 폴백7 × 0.5
-    assert r["expected_target_pct"] == 15.0
-    assert r["entry_window_days"] == 1
-    assert r["max_chase_pct_from_pivot"] == 2.0
-    assert r["stop_loss_pct_from_pivot"] == -5.5
-    assert "size_reduced_due_to_unfavorable_market" in r["known_warnings"]
+    assert r["suggested_weight_pct"] == 7.8125            # (#153) ×0.5 폐기
+    assert r["expected_target_pct"] == 15.0              # target cap 불변
+    assert r["entry_window_days"] == 1                   # window 불변
+    assert r["max_chase_pct_from_pivot"] == 2.0          # chase 불변
+    assert r["stop_loss_pct_from_pivot"] == -8.0         # (#153) 스탑 강화 폐기
+    assert "size_reduced_due_to_unfavorable_market" not in r["known_warnings"]
 
 
 # ---------- §5/§6 기타 ----------
@@ -274,9 +284,9 @@ def test_volume_below_preferred_and_below_requirement():
     r2 = calculate_entry_params(_payload(current_state={"close": 192.3, "volume": 1_000_000, "avg_volume_50d": 1_000_000}))
     assert "breakout_volume_below_requirement" in r2["known_warnings"]
 
-def test_climax_run_clamps_minimums_with_other_warning():
+def test_climax_run_clamps_target_window_not_size_with_other_warning():
     r = calculate_entry_params(_payload(prior_analysis={"risk_flags": ["climax_run"]}))
-    assert r["suggested_weight_pct"] == 3.0
+    assert r["suggested_weight_pct"] == 7.8125            # (#153) size 는 모순 flag 에도 고정
     assert r["expected_target_pct"] == 15.0
     assert r["entry_window_days"] == 1
     assert any("climax_run" in w for w in r["other_warnings"])
@@ -290,46 +300,47 @@ def test_volume_zero_emits_below_requirement():
 
 def test_warnings_never_silently_truncated():
     # §8.3 ≤6 은 LLM 출력 예산이었음 — 결정론 경로는 의무(auto-emit) 경고를 삭제하지 않는다.
-    # 이 조합은 known 8건: mult 3 + absolute_stop_used + size_floored + extended +
-    # stop_distance + below_requirement. 구 예산 절단이면 하위 2건이 조용히 사라졌다.
+    # (#153) 사이징·스탑 후보 경고 6종은 발행 지점 소멸 — 이 조합의 known 은 3건:
+    # extended_from_pivot_already + stop_distance + below_requirement. 전부 남아야 한다.
     flags = ["late_stage_base", "thin_liquidity_us_only", "unfavorable_market_context", "wide_and_loose"]
     r = calculate_entry_params(_payload(
         prior_analysis={"risk_flags": flags, "confidence": 0.5, "base_low": 150.0},
         current_state={"close": 208.0, "volume": 900_000, "avg_volume_50d": 1_000_000},
     ))
-    assert len(r["known_warnings"]) == 8
+    assert len(r["known_warnings"]) == 3
     assert "extended_from_pivot_already" in r["known_warnings"]
     assert "stop_distance_from_current_price_exceeds_book_limit" in r["known_warnings"]
 
 
 # ---------- (#74) cup_without_handle 보수 장치 ----------
 
-def test_no_handle_flag_injected_and_sized_4_9pp():
-    """pattern=cup_without_handle → flag 결정론 주입: fallback 7.0 × 0.7 = 4.9pp.
-
-    준거: specs/2026-07-24-issue74-cup-without-handle.md §4 (이중 페널티 수용,
-    실효 4.9 — _STANDARD_PATTERNS 비등재는 dead code 사유).
-    """
+def test_no_handle_flag_injected_but_sizing_unchanged():
+    """pattern=cup_without_handle → flag 결정론 주입은 유지(진입 게이트·strict 거래량 표기),
+    (#153) 사이징 감액(구 4.9pp)은 폐기 — F1~F3 제재는 코호트 R×0.5 로 재매핑(plan §6)."""
     r = calculate_entry_params(_payload(prior_analysis={
         "pattern": "cup_without_handle", "pivot_basis": "cup_high"}))
-    assert r["suggested_weight_pct"] == 4.9
-    assert "size_reduced_due_to_no_handle_shakeout" in r["known_warnings"]
+    assert r["suggested_weight_pct"] == 7.8125
+    assert "size_reduced_due_to_no_handle_shakeout" not in r["known_warnings"]
     assert r["breakout_volume_requirement"] == "ge_1.5x_strict"
+    assert "no_handle_shakeout_absent" in r["notes"]     # flag 주입 사실은 notes 에 남는다
 
 
 def test_no_handle_flag_injection_idempotent():
-    """flag 가 이미 있어도(재실행·수동 포함) 배수 1회만 — 멱등."""
-    r = calculate_entry_params(_payload(prior_analysis={
+    """flag 가 이미 있어도(재실행·수동 포함) 출력 동일 — 멱등."""
+    a = calculate_entry_params(_payload(prior_analysis={
+        "pattern": "cup_without_handle", "pivot_basis": "cup_high"}))
+    b = calculate_entry_params(_payload(prior_analysis={
         "pattern": "cup_without_handle", "pivot_basis": "cup_high",
         "risk_flags": ["no_handle_shakeout_absent"]}))
-    assert r["suggested_weight_pct"] == 4.9
+    assert a["suggested_weight_pct"] == b["suggested_weight_pct"] == 7.8125
+    assert a["breakout_volume_requirement"] == b["breakout_volume_requirement"]
 
 
 def test_no_handle_other_patterns_untouched():
-    """타 패턴엔 flag 미주입 — 기존 vol_req·티어 불변."""
+    """타 패턴엔 flag 미주입 — 기존 vol_req 불변, 사이징은 전 패턴 동일."""
     r = calculate_entry_params(_payload())
     assert r["breakout_volume_requirement"] == "ge_1.5x_50day_avg"
-    assert r["suggested_weight_pct"] == 10.0
+    assert r["suggested_weight_pct"] == 7.8125
 
 
 def test_cup_high_pivot_basis_in_store_tick_validation():

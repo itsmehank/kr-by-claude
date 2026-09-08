@@ -128,6 +128,7 @@ def _process_one(conn, symbol, eval_at, prior_at, *, dry_run, as_of):
     # 알림용 값은 insert 전에 캡처 — _normalize 가 §9 키를 리네임할 수 있음
     _ntf_entry = float(result["trigger_price"])
     _ntf_stop = float(result["stop_loss_price"])
+    _ntf_size = float(result["suggested_weight_pct"])
 
     insert_entry_params(
         conn,
@@ -150,4 +151,5 @@ def _process_one(conn, symbol, eval_at, prior_at, *, dry_run, as_of):
         name=payload.get("name") or symbol,
         entry_price=_ntf_entry,
         stop_loss=_ntf_stop,
+        size_pct=_ntf_size,
     )

@@ -8,20 +8,25 @@
   D3(a) VCP chase 는 일괄 3.0 (final-T 측정 폐기, 보수 방향).
 §8.3 의 ≤6 경고 예산은 LLM 출력 억제용이었고 저장 계층에 상한이 없다 — 결정론 경로는
 의무(auto-emit) 경고를 절단하지 않는다(발행 지점이 코드 경로상 각 1회로 유한).
-책 근거 값(티어/배수/absolute stop)은 아래 모듈 상수가 정의 — 출처는 은퇴한 프롬프트
-(RETIRED 배너본)와 01편. SSOT 승격은 소비처가 2곳 이상 생기면(checklist 맵 예약).
+(#153 2026-09-08) §2 stop·§3 size 는 **리스크 역산(Minervini TTLC Ch.8)** 으로 교체 —
+stop = pivot × (1 − TRADE_STOP_INITIAL_PCT), full = min(SIZING_RISK_PER_TRADE / stop, MAX),
+size = full × SIZING_PILOT_FRAC. entry_mode·flag·confidence·패턴 무관(플래그는 사이징에서
+완전 제거 — 진입 게이트 역할은 불변). 구 티어(_SIZE_*)·배수(_FLAG_MULT)·no_flags 자격·
+confidence ×0.7·3.0 바닥·absolute/logical/sma50 스탑 후보·클램프는 폐기(#80 superseded).
+정의 원문 보존 = docs/superpowers/plans/2026-09-08-issue153-risk-backed-sizing.md §2.
 """
 from __future__ import annotations
 
 from kr_pipeline.common.thresholds import (
     BREAKOUT_VOL_FLOOR,
     BREAKOUT_VOL_PREFERRED,
-    ENTRY_STOP_PCT_FROM_PIVOT_FLOOR,
     ENTRY_TARGET_PCT_MAX,
     ENTRY_TARGET_PCT_MIN,
     ENTRY_TRIGGER_BUFFER_MAX,
     ENTRY_WEIGHT_PCT_MAX,
-    ENTRY_WEIGHT_PCT_MIN,
+    SIZING_PILOT_FRAC,
+    SIZING_RISK_PER_TRADE,
+    TRADE_STOP_INITIAL_PCT,
 )
 
 CALC_VERSION = "deterministic:entry_params_calc/v1"  # entry_params.llm_model 컬럼 표기
@@ -29,52 +34,20 @@ CALC_VERSION = "deterministic:entry_params_calc/v1"  # entry_params.llm_model �
 _STANDARD_PATTERNS = {"flat_base", "cup_with_handle", "double_bottom"}
 _PP_BASE_PATTERNS = {"flat_base", "cup_with_handle", "vcp", "double_bottom"}
 
-# §2 absolute stop (구 프롬프트 §2.1/§2.3 — wide/unfav/3c 시 강화)
-_ABS_STOP_STD, _ABS_STOP_STD_TIGHT = -7.0, -5.5
-_ABS_STOP_PP, _ABS_STOP_PP_TIGHT = -5.5, -4.5
-_STOP_RANGE_PP = (-8.0, -4.0)
-# §3.1/§3.2 base size 티어 (구 프롬프트 표)
-_SIZE_TOP_STD, _SIZE_STANDARD_STD, _SIZE_RISKY, _SIZE_FALLBACK_STD = 15.0, 10.0, 5.0, 7.0
-_SIZE_TOP_PP, _SIZE_STANDARD_PP, _SIZE_FALLBACK_PP = 10.0, 7.0, 5.0
-_SIZE_PP_WIDE_FLOOR = 3.0  # §7: wide_and_loose → 3.0 floor (pocket pivot)
-
-# §3.3 배수 (책 근거: Minervini pilot buy 보수화 — 구 프롬프트 §3.3 표)
-_FLAG_MULT = {
-    # (#74) cup_without_handle 결정론 주입 flag — shakeout 부재 보수화.
-    # 실효 = fallback 7.0 × 0.7 = 4.9pp (이중 페널티 수용 — 사용자 결정 07-24,
-    # 구조 재검토는 #80). specs/2026-07-24-issue74-cup-without-handle.md §4.
-    "no_handle_shakeout_absent": 0.7,
-    "late_stage_base": 0.7,
-    "narrow_base": 0.7,
-    "thin_liquidity_us_only": 0.7,
-    "extended_from_ma": 0.7,
-    "low_volume_breakout": 0.7,
-    "volume_contraction_on_advance": 0.7,
-    "faulty_pivot": 0.7,
-    "unfavorable_market_context": 0.5,
-    "reverse_split_distortion": 0.5,
-}
-_MULT_WARNING = {
-    "no_handle_shakeout_absent": "size_reduced_due_to_no_handle_shakeout",
-    "late_stage_base": "size_reduced_due_to_late_stage",
-    "thin_liquidity_us_only": "size_reduced_due_to_thin_liquidity",
-    "unfavorable_market_context": "size_reduced_due_to_unfavorable_market",
-}
+# §2/§3 (#153) 리스크 역산 — 상수는 전부 thresholds.py SSOT(SIZING_*·TRADE_STOP_INITIAL_PCT·
+# ENTRY_WEIGHT_PCT_MAX). 모듈 사설 상수 없음.
+_SIZING_METHOD = "risk_backed"
 
 # §8 정렬용 우선순위 (앞일수록 중요 — 표시 순서만 결정, 절단 없음).
 # 구 화이트리스트 16종 중 4종은 결정론 경로에서 발행 지점 자체가 없어 목록에서 제외:
 #   pattern_refined_to_3c_cheat(D1a 세분 포기) · pattern_basis_inferred_from_data(D2a 거부)
 #   · breakout_volume_requirement_relaxed(ge_1.3x 폐기) · stop_buffer_increased_for_
-#   shake_protection(LLM 재량 항목). 이 목록은 '발생 가능 코드 전수'다.
+#   shake_protection(LLM 재량 항목). (#153) 스탑 후보·티어·배수 경고 6종(stop_at_50day_ma_
+#   for_pocket_pivot · absolute_stop_used_due_to_wide_handle · size_floored_due_to_multiple_
+#   flags · size_reduced_due_to_{unfavorable_market,no_handle_shakeout,late_stage,thin_
+#   liquidity}) 도 발행 지점 소멸. 이 목록은 '발생 가능 코드 전수'다.
 _WARNING_PRIORITY = [
     "entry_mode_pocket_pivot",
-    "stop_at_50day_ma_for_pocket_pivot",
-    "absolute_stop_used_due_to_wide_handle",
-    "size_floored_due_to_multiple_flags",
-    "size_reduced_due_to_unfavorable_market",
-    "size_reduced_due_to_no_handle_shakeout",
-    "size_reduced_due_to_late_stage",
-    "size_reduced_due_to_thin_liquidity",
     "breakout_volume_below_requirement",
     "breakout_volume_below_preferred_50pct",
     "extended_from_pivot_already",
@@ -176,99 +149,26 @@ def calculate_entry_params(payload: dict) -> dict:
     wide = "wide_and_loose" in eff_flags
     unfav = "unfavorable_market_context" in eff_flags
 
-    # ---- §2 stop ----
-    binding = "absolute"
-    if entry_mode == "pocket_pivot":
-        absolute = _ABS_STOP_PP_TIGHT if (wide or unfav) else _ABS_STOP_PP
-        candidates = {"absolute": absolute}
-        pp_low = pp_row.get("low")
-        if pp_low:
-            candidates["logical"] = (float(pp_low) * 0.995 - pivot) / pivot * 100
-        sma50 = (rdi[-1].get("sma_50") if rdi else None)
-        if sma50:
-            sma50_buf = float(sma50) * 0.995
-            if pivot >= sma50_buf:  # pivot < SMA-50 이면 후보 제외(fall through)
-                candidates["sma50"] = (sma50_buf - pivot) / pivot * 100
-        # 동률 시 sma50 우선 — §2.3 "sma50 binding 이면 경고 발행" 조문 보존
-        # (max 는 첫 최대값 유지 → 우선순위 순서로 순회)
-        order = [k for k in ("sma50", "logical", "absolute") if k in candidates]
-        binding = max(order, key=lambda k: candidates[k])
-        stop_pct = candidates[binding]
-        lo, hi = _STOP_RANGE_PP
-        if binding == "sma50":
-            known.append("stop_at_50day_ma_for_pocket_pivot")
-    else:
-        absolute = _ABS_STOP_STD_TIGHT if (wide or unfav or is_3c) else _ABS_STOP_STD
-        base_low = pa.get("base_low")
-        logical = (
-            (float(base_low) * 0.995 - pivot) / pivot * 100 if base_low else None
-        )  # v2.1: final_contraction_low = base_low
-        if logical is not None and logical > absolute:
-            binding, stop_pct = "logical", logical
-        else:
-            binding, stop_pct = "absolute", absolute
-            if logical is not None and logical < ENTRY_STOP_PCT_FROM_PIVOT_FLOOR:
-                known.append("absolute_stop_used_due_to_wide_handle")
-        # §2.2 의 logical_stop_exceeded_absolute_floor 는 발행 지점이 없다(의도):
-        # logical < floor(−10) < absolute 면 위 분기가 항상 absolute 를 택하므로
-        # 'logical 이 −10 으로 clamp 된 경우' 자체가 도달 불능 — max() 선택 구조의 귀결.
-        lo, hi = ENTRY_STOP_PCT_FROM_PIVOT_FLOOR, -5.0
-
-    stop_clamped = not (lo <= stop_pct <= hi)  # notes 라벨용 — binding 값이 clamp 로 대체됨
-    stop_pct = _r1(min(max(stop_pct, lo), hi))
-    stop_price = _r2(pivot * (1 + stop_pct / 100))
+    # ---- §2 stop (#153 리스크 역산) ----
+    # stop = 예상 매입가(pivot) × (1 − TRADE_STOP_INITIAL_PCT). entry_mode 구분 없음.
+    # 관리 단계(trade_management)는 같은 8% 를 평균매입가 앵커로 적용 — 규칙 하나, 앵커만 다름.
+    stop_pct = _r1(-TRADE_STOP_INITIAL_PCT * 100)
+    stop_price = _r2(pivot * (1 - TRADE_STOP_INITIAL_PCT))
+    binding = "risk_backed"
     stop_from_current = _r1((stop_price - current) / current * 100)
     if abs(stop_from_current) > 7.5:
         known.append("stop_distance_from_current_price_exceeds_book_limit")
 
-    # ---- §3 size ----
-    # 티어 조건 "no risk flags" 는 raw 기준 — §7 watch 예외는 완화 4효과 미적용까지만
-    # 허용하고 티어 '승격'(15/25)은 허용하지 않는다.
+    # ---- §3 size (#153 리스크 역산, Minervini TTLC Ch.8 "backing into risk") ----
+    # full = min(R / |stop|, MAX) = min(0.0125/0.08, 0.25) = 15.625%; 출력 = pilot = full × 0.5.
+    # flag·confidence·패턴·entry_mode 는 사이징에 관여하지 않는다(플래그 = 진입 게이트 전용).
+    # 반올림하지 않는다(15.625 / 7.8125 — 사양 원문값). DB NUMERIC(5,2) 저장 시 15.63/7.81.
+    full_size = min(SIZING_RISK_PER_TRADE / TRADE_STOP_INITIAL_PCT, ENTRY_WEIGHT_PCT_MAX / 100.0) * 100
+    size = full_size * SIZING_PILOT_FRAC
+    risk_pct = SIZING_RISK_PER_TRADE * 100
+    # 아래 두 값은 §4 target(VCP 25% 조건) 전용 — 사이징 비참여
     no_flags = not raw_flags
-    # (#80 확정, 2026-07-24) flag 의 이중 작용은 **의도된 2층 보수 장치**다:
-    # ① 위 no_flags 로 티어 자격 박탈(standard 10→fallback 7) + ② _FLAG_MULT
-    # 배수 감액 — 문면 ×0.7 보다 항상 더 깎인다(예: late_stage 단독 10→7→4.9pp).
-    # 신설 flag 도 이중 작용이 기본값(단일 의도면 명시적 예외를 설계하고 그
-    # 사유를 기록할 것 — threshold-change-checklist 가이드). 역할 분리(완화)는
-    # 수익성 입증 + #74 F1~F4 첫 판독 이후에만 재검토 —
-    # specs/2026-07-24-issue80-flag-double-penalty-decision.md
-    # confidence None(레거시 행): 승격 조건(≥0.8/0.85) 불충족 처리 + <0.7 감산도 미적용 —
-    # '모름'은 보수(승격 없음) 쪽으로만 작용하고 벌점 근거로는 쓰지 않는다.
     conf = pa.get("confidence")
-    if entry_mode == "pocket_pivot":
-        if wide:
-            size, tier = _SIZE_PP_WIDE_FLOOR, "pocket wide floor"  # §7 표
-        elif pattern == "vcp" and conf is not None and conf >= 0.85 and no_flags:
-            size, tier = _SIZE_TOP_PP, "pocket top-tier"
-        elif pattern in _STANDARD_PATTERNS and no_flags:
-            size, tier = _SIZE_STANDARD_PP, "pocket standard tier"
-        else:
-            size, tier = _SIZE_FALLBACK_PP, "pocket fallback tier"
-    else:
-        if pattern == "vcp" and conf is not None and conf >= 0.8 and no_flags:
-            size, tier = _SIZE_TOP_STD, "top-tier"
-        elif pattern in _STANDARD_PATTERNS and no_flags:
-            size, tier = _SIZE_STANDARD_STD, "standard tier"
-        elif is_3c or wide:
-            size, tier = _SIZE_RISKY, "risky tier"
-        else:
-            size, tier = _SIZE_FALLBACK_STD, "fallback tier"
-
-    mults = []
-    for f in sorted(eff_flags):
-        m = _FLAG_MULT.get(f)
-        if m:
-            size *= m
-            mults.append(f"{f}×{m}")
-            w = _MULT_WARNING.get(f)
-            if w:
-                known.append(w)
-    if conf is not None and conf < 0.7:
-        size *= 0.7
-        mults.append(f"confidence {conf}×0.7")
-    if size < ENTRY_WEIGHT_PCT_MIN:
-        known.append("size_floored_due_to_multiple_flags")
-    size = _r1(min(max(size, ENTRY_WEIGHT_PCT_MIN), ENTRY_WEIGHT_PCT_MAX))
 
     # ---- §4 target ----
     if (pattern == "vcp" and conf is not None and conf >= 0.85 and no_flags
@@ -340,12 +240,13 @@ def calculate_entry_params(payload: dict) -> dict:
                 known.append("breakout_volume_below_preferred_50pct")
 
     # ---- §7 SHOULD-NOT-REACH flags ----
+    # (#153) size 는 리스크 역산 고정 — 모순 flag 도 사이징을 바꾸지 않는다(target/window 만).
     if "climax_run" in eff_flags:
-        size, target_pct, window = ENTRY_WEIGHT_PCT_MIN, 15.0, 1
+        target_pct, window = 15.0, 1
         target_price = _r2(pivot * (1 + target_pct / 100))
         other.append("climax_run with classification=entry — contradiction")
     if "etf_methodology_mismatch" in eff_flags:
-        size, target_pct, window = ENTRY_WEIGHT_PCT_MIN, ENTRY_TARGET_PCT_MIN, 1
+        target_pct, window = ENTRY_TARGET_PCT_MIN, 1
         target_price = _r2(pivot * (1 + target_pct / 100))
         other.append("etf_methodology_mismatch reached entry params — upstream filter breach")
 
@@ -354,14 +255,14 @@ def calculate_entry_params(payload: dict) -> dict:
     # 의무(auto-emit) 경고를 조용히 삭제하지 않는다.
     known.sort(key=lambda w: _WARNING_PRIORITY.index(w) if w in _WARNING_PRIORITY else 99)
 
-    # ---- notes (§10: 50–600자, entry_mode·binding·tier·양 stop_pct·auto-warnings 필수) ----
+    # ---- notes (§10: 50–600자, entry_mode·binding·사이징 산식·양 stop_pct·auto-warnings 필수) ----
     notes = (
         f"{pattern} ({entry_mode}); pivot {pivot} -> trigger {trigger}. "
-        f"Stop {stop_price}: {stop_pct}% from pivot ({binding} binding"
-        + (", clamped" if stop_clamped else "")
-        + f"), {stop_from_current}% from current {current}. "
-        f"Size {size}% ({tier}"
-        + (f"; multipliers: {', '.join(mults)}" if mults else "")
+        f"Stop {stop_price}: {stop_pct}% from pivot ({binding} binding), "
+        f"{stop_from_current}% from current {current}. "
+        f"Size {size}% (pilot {SIZING_PILOT_FRAC:g} of full {full_size}% = "
+        f"R {risk_pct}% / stop {abs(stop_pct)}%, cap {ENTRY_WEIGHT_PCT_MAX:g}%; "
+        f"flags {sorted(raw_flags) if raw_flags else 'none'} not applied to sizing"
         + f"). Target {target_pct}%. Volume req {vol_req}, observed "
         + (f"{ratio}x." if ratio is not None else "n/a.")
         + (f" Auto-warnings: {', '.join(known)}." if known else " No auto-warnings.")
@@ -377,6 +278,9 @@ def calculate_entry_params(payload: dict) -> dict:
         "stop_loss_pct_from_pivot": stop_pct,
         "stop_loss_pct_from_current_price": stop_from_current,
         "suggested_weight_pct": size,
+        "suggested_weight_full_pct": full_size,
+        "sizing_method": _SIZING_METHOD,
+        "sizing_risk_pct": risk_pct,
         "expected_target_price": target_price,
         "expected_target_pct": target_pct,
         "pattern_basis": pattern,
