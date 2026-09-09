@@ -36,6 +36,7 @@ from kr_pipeline.llm_runner.compute.climax_topping import (
     _DAILY_KEYS,
     compute_climax_gates,
     compute_daily_extremes,
+    compute_topping_gates,
     find_anchor,
 )
 
@@ -90,8 +91,10 @@ def slice_upto(weekly: list[dict], daily: list[dict], as_of: date) -> tuple[list
 
 
 def gates_from_series(weekly: list[dict], daily: list[dict]) -> dict:
-    """§6.1 산술 전부(anchor·P1·P2·T1~T6·scope) — payload_builder.build_payload 의
-    climax 부분과 같은 입력 구성으로 재현. 반환에 anchor 3모드 키 포함."""
+    """§6.1 산술 전부(anchor·P1·P2·T1~T6·scope) + (#164) §6.2 주간 T-A `ta_max_decline_now`
+    — payload_builder.build_payload 의 climax/topping 부분과 같은 입력 구성으로 재현.
+    반환에 anchor 3모드 키 포함. T-A 는 compute_topping_gates 에서 그 키만 가져온다(분배일
+    카운트 입력 None — 보유 판정은 anchor 의존 하락 극값만 소비, td_dist_ok 미사용)."""
     anchor = find_anchor(weekly)
     daily20 = [d for d in daily if not d.get("zero_bar")][-_DAILY_TAIL:]
     climax = compute_climax_gates(weekly, daily20, anchor)
@@ -103,9 +106,18 @@ def gates_from_series(weekly: list[dict], daily: list[dict]) -> dict:
         prior = [d for d in daily if d["date"] < bl_iso][-1:]
         hist = prior + [d for d in daily if d["date"] >= bl_iso]
         ext = compute_daily_extremes(hist, bl_iso, anchor, quality_flag=climax["quality_flag"])
-    return {**climax, **ext, "anchor_week": anchor["anchor_week"],
+    ta = (None if anchor["left_censored"]
+          else compute_topping_gates(weekly, None, anchor)["ta_max_decline_now"])
+    return {**climax, **ext, "ta_max_decline_now": ta, "anchor_week": anchor["anchor_week"],
             "left_censored": anchor["left_censored"], "no_transition": anchor["no_transition"],
             "weeks_since": anchor["weeks_since"]}
+
+
+def compute_held_gates(conn: Connection, symbol: str, as_of: date) -> dict:
+    """production 편의 함수: DB 조회 → gates_from_series. (#164) 러너가 하루 1회 호출해 climax·
+    decline 두 결합식에 같은 gates 를 공급한다(조회 1회)."""
+    weekly, daily = fetch_series(conn, symbol, as_of)
+    return gates_from_series(weekly, daily)
 
 
 def evaluate_held_climax(gates: dict, entry_date: date, as_of: date,

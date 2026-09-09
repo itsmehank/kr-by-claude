@@ -74,7 +74,7 @@ def _seed(db, symbol, entry_date, entry_price=P):
 
 def _cleanup(db, symbol):
     with db.cursor() as cur:
-        for tbl in ("position_climax_evaluations", "position_stop_evaluations"):
+        for tbl in ("position_decline_evaluations", "position_climax_evaluations", "position_stop_evaluations"):
             cur.execute(f"DELETE FROM {tbl} WHERE position_id IN (SELECT id FROM positions WHERE symbol=%s)", (symbol,))
         cur.execute("DELETE FROM positions WHERE symbol=%s", (symbol,))
         cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (symbol,))
@@ -93,10 +93,11 @@ def _bar(db, symbol, d, close):
 
 
 def _no_climax(mocker, runner):
-    from kr_pipeline.trade_management.held_climax import HeldClimaxDecision
-    return mocker.patch.object(runner, "compute_held_climax", return_value=HeldClimaxDecision(
-        fired=False, suppressed=False, hold_days=30, triggers=(), mode="anchored", anchor_week="2025-06-06",
-        weeks_since=30, maturity_ok=True, p2_accel_ok=False, scope_active=True))
+    # (#164) 러너는 gates 를 1회 조회해 decline·climax 를 평가 — P2 False·하락 신호 False 인 gates
+    return mocker.patch.object(runner, "compute_held_gates", return_value={
+        "left_censored": False, "no_transition": False, "quality_flag": False, "anchor_week": "2025-06-06",
+        "weeks_since": 30, "maturity_ok": True, "p2_accel_ok": False, "scope_active": True,
+        "ta_max_decline_now": False, "ta_d_daily_max_decline_now": False})
 
 
 def test_runner_off_does_nothing(db, mocker):
@@ -160,7 +161,8 @@ def test_runner_priority_stop_and_climax_before_half(db, mocker):
     from kr_pipeline.trade_management.held_climax import HeldClimaxDecision
     mocker.patch.object(runner, "SELL_HALF_ENABLED", True)
     pid = _seed(db, "SH4", date(2026, 5, 1))
-    mocker.patch.object(runner, "compute_held_climax", return_value=HeldClimaxDecision(
+    _no_climax(mocker, runner)  # gates 공급(decline 미발화)
+    mocker.patch.object(runner, "evaluate_held_climax", return_value=HeldClimaxDecision(
         fired=True, suppressed=False, hold_days=40, triggers=("t2_max_volume_now",), mode="anchored",
         anchor_week="2025-06-06", weeks_since=30, maturity_ok=True, p2_accel_ok=True, scope_active=True))
     mocker.patch.object(runner, "notify_sell_into_strength"); mocker.patch.object(runner, "notify_stop_triggered")

@@ -61,6 +61,24 @@ def notify_sell_into_strength(*, symbol: str, name: str, close: float, triggers:
     _post({"text": text})
 
 
+def notify_sell_on_weakness(*, symbol: str, name: str, close: float, signals: list[str],
+                            today_decline_pct: float | None, baseline_max_daily_decline_pct: float | None,
+                            week_decline_pct: float | None, baseline_max_weekly_decline_pct: float | None,
+                            anchor_week: str | None, weeks_since: int | None, hold_days: int,
+                            climax_also: bool = False, eval_date=None) -> None:
+    """(#164) 보유 종목 약세 매도 권고 — 전량 매도(수동 체결 모델). 자동 청산 없음.
+    앵커 이후 최대 하락일(TA-d) / 최대 하락주(T-A). 억제 없음(하락 신호에 리더십 예외 없음)."""
+    when = f" ({eval_date})" if eval_date else ""
+    pct = lambda v: "n/a" if v is None else f"{v:.1f}%"  # noqa: E731
+    also = " · climax 동시 성립(병기)" if climax_also else ""
+    text = (f"🔻 *약세 매도 권고(decline)*{when} `{symbol}` {name}\n"
+            f"종가 ₩{close:,.0f} · 전량 매도 검토 — P1 ∧ 신호 {', '.join(signals)}{also}\n"
+            f"당일 하락 {pct(today_decline_pct)} (baseline 최대 {pct(baseline_max_daily_decline_pct)}) · "
+            f"당주 하락 {pct(week_decline_pct)} (baseline 최대 {pct(baseline_max_weekly_decline_pct)})\n"
+            f"앵커 {anchor_week or 'n/a'} · 앵커 후 {weeks_since if weeks_since is not None else 'n/a'}주 · 보유 {hold_days}일")
+    _post({"text": text})
+
+
 def notify_sell_half(*, symbol: str, name: str, close: float, entry_price: float,
                      hit20_date, hold_days: int, basis: str, eval_date=None) -> None:
     """(#166) 이익목표 절반매도(5B) 권고 — 플래그 ON 시에만 호출. 수량 변경 없음(전량 모델)."""

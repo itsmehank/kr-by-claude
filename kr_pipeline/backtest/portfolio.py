@@ -40,6 +40,7 @@ from kr_pipeline.llm_runner.compute.trigger_gate import evaluate as gate_evaluat
 from kr_pipeline.trade_management.held_climax import (
     evaluate_held_climax, fetch_daily_flagged, gates_from_series, slice_upto,
 )
+from kr_pipeline.trade_management.held_decline import evaluate_held_decline
 from kr_pipeline.trade_management.sell_half import SellHalfState, evaluate_sell_half
 
 START, END = date(2021, 1, 1), date(2025, 6, 30)   # 매매 윈도(신호는 ~2024 분류)
@@ -75,6 +76,7 @@ class PortfolioConfig:
     pyramiding: bool = False        # S2·S3
     sell_half: bool = SELL_HALF_ENABLED   # S3 — (#166) SSOT 플래그가 기본값(production 과 동일 출처)
     climax_sell: bool = True        # (항목 ③) 보유 climax 강세 매도 — production 과 동일 동작, 기본 ON
+    decline_sell: bool = True       # (#164) 보유 약세 매도(P1 ∧ (T-A ∨ TA-d), 억제 없음) — 기본 ON
     hold_min_days: int = TRADE_HOLD_MIN_DAYS   # 8주 면제 + climax 억제 공유 상수(SSOT)
     exclude_down_phases: bool = False   # v2 레거시 별칭 (= gate_mode "legacy")
     gate_mode: str | None = None    # v3.1: None|"legacy"|"prod"|"variant"
@@ -157,7 +159,8 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
     ftd_events_all = sorted({dd for td_ in data.values()
                              for dd, ev in td_.ftd_event_by_date.items() if ev})
 
-    def _full_exit(pos: Position, close: float, d: date, reason: str):
+    def _full_exit(pos: Position, close: float, d: date, reason: str, also: tuple = ()):
+        """also: 같은 날 함께 성립한 하위 우선순위 사유(#164 병기 — 라벨은 앞선 것)."""
         nonlocal cash
         cash += _sell_value(pos.qty, close, d)
         pnl_pct_ = round((close / pos.avg_price - 1) * 100, 2)
@@ -175,6 +178,7 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
         stats["exits"].append({"ticker": pos.ticker, "date": str(d),
                                "t1_date": str(pos.t1_date),
                                "reason": reason,
+                               "also": list(also),
                                "pnl_pct": round((close / pos.avg_price - 1) * 100, 2),
                                "premium_pct": round(pos.premium_pct, 2),
                                "n_fills": pos.n_fills,
@@ -214,14 +218,22 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
             if bar.close < stop_level:
                 _full_exit(pos, bar.close, d, stop_reason)
                 continue
-            # (항목 ③) 보유 climax 강세 매도 — 스탑 이후·미청산 포지션. production 러너와
-            # 같은 판정 함수(held_climax). 발화 시 당일 종가 전량 청산 reason=climax.
-            if cfg.climax_sell:
+            # (항목 ③·#164) 보유 약세/강세 매도 — 스탑 이후·미청산 포지션. production 러너와
+            # 같은 판정 함수(held_decline·held_climax), 같은 gates(절단 1회). 우선순위 스탑 >
+            # 약세(decline) > 강세(climax): 발화 시 당일 종가 전량 청산, 같은 날 복수 성립은
+            # 라벨=앞선 것 + also 병기.
+            if cfg.decline_sell or cfg.climax_sell:
                 td_ = data[t]
                 wk_, dl_ = slice_upto(td_.weekly_full, td_.daily_flagged, d)
-                hc = evaluate_held_climax(gates_from_series(wk_, dl_), pos.t1_date, d,
-                                          cfg.hold_min_days)
-                if hc.fired:
+                gates_ = gates_from_series(wk_, dl_)
+                hd = evaluate_held_decline(gates_, pos.t1_date, d) if cfg.decline_sell else None
+                hc = (evaluate_held_climax(gates_, pos.t1_date, d, cfg.hold_min_days)
+                      if cfg.climax_sell else None)
+                if hd is not None and hd.fired:
+                    _full_exit(pos, bar.close, d, "decline",
+                               also=("climax",) if (hc is not None and hc.fired) else ())
+                    continue
+                if hc is not None and hc.fired:
                     _full_exit(pos, bar.close, d, "climax")
                     continue
             # +20% 최초 도달(8주 면제 판정, 전 시나리오) + 5B 절반매도(S3) — (#166) production 과

@@ -22,9 +22,12 @@ from psycopg import Connection
 
 from kr_pipeline.common.thresholds import SELL_HALF_ENABLED
 from kr_pipeline.llm_runner.slack import (
-    notify_sell_half, notify_sell_into_strength, notify_stop_triggered,
+    notify_sell_half, notify_sell_into_strength, notify_sell_on_weakness, notify_stop_triggered,
 )
-from kr_pipeline.trade_management.held_climax import compute_held_climax
+from kr_pipeline.trade_management.held_climax import (
+    compute_held_gates, evaluate_held_climax, fetch_series,
+)
+from kr_pipeline.trade_management.held_decline import decline_metrics, evaluate_held_decline
 from kr_pipeline.trade_management.sell_half import SellHalfState, evaluate_sell_half
 from kr_pipeline.trade_management.stop_stack import evaluate_stop
 from kr_pipeline.trade_management.store import get_open_positions, update_sell_half_state
@@ -43,11 +46,14 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
     """open 포지션 전체를 as_of 종가로 평가. 멱등: (position_id, eval_date).
 
     as_of 미지정 → daily_prices 최신 날짜(일봉 체인 완료 후 cron 실행 규약).
-    반환: {"as_of", "evaluated", "triggered", "climax_fired", "half_fired", "skipped": [{symbol, reason}]}.
+    반환: {"as_of", "evaluated", "triggered", "decline_fired", "climax_fired", "half_fired",
+           "skipped": [{symbol, reason}]}.
 
-    (항목 ③) 스탑 미발동(not triggered) 포지션에 한해 held_climax(§6.1 결정론 결합식 +
-    8주 억제)를 평가·기록(position_climax_evaluations, 멱등)하고 발화 시 강세 매도 권고
-    Slack — 스탑 우선(같은 날 triggered 면 climax 미평가), 자동 청산 없음.
+    (항목 ③·#164) 스탑 미발동(not triggered) 포지션에 한해 같은 gates(조회 1회)로
+    held_decline(#164 약세: P1 ∧ (T-A ∨ TA-d), 억제 없음) → held_climax(§6.1 결합식 + 8주 억제)
+    를 평가·기록(position_decline_evaluations / position_climax_evaluations, 멱등). 우선순위
+    스탑 > 약세 > 강세 > 5B — 같은 날 복수 성립 시 알림은 앞선 것 하나, 나머지는 기록에 병기
+    (decline 행의 climax_also_fired). 자동 청산 없음.
     """
     if as_of is None:
         as_of = _latest_bar_date(conn)
@@ -56,6 +62,7 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
 
     evaluated = 0
     triggered = 0
+    decline_fired = 0
     climax_fired = 0
     half_fired = 0
     skipped: list[dict] = []
@@ -163,14 +170,54 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
                     "[stop-triggered] %s close %.0f < stop %.0f (%s)",
                     p["symbol"], close, d.effective_stop, d.binding,
                 )
-            continue  # 스탑 우선 — 같은 날 climax 미평가
+            continue  # 스탑 우선 — 같은 날 decline·climax 미평가
 
-        # ---- (항목 ③) 보유 종목 climax 강세 매도 판정 — 스탑 미발동 분기 ----
+        # ---- (항목 ③·#164) 보유 종목 약세/강세 매도 판정 — 스탑 미발동 분기, gates 조회 1회 ----
         try:
-            hc = compute_held_climax(conn, p["symbol"], as_of, p["entry_date"])
+            gates = compute_held_gates(conn, p["symbol"], as_of)
         except Exception as e:  # 산술 입력 결함은 스탑 경로를 막지 않는다(fail-soft, 로그)
-            log.warning("[held-climax] %s %s: %s", p["symbol"], as_of, e)
+            log.warning("[held-gates] %s %s: %s", p["symbol"], as_of, e)
             continue
+        hd = evaluate_held_decline(gates, p["entry_date"], as_of)
+        hc = evaluate_held_climax(gates, p["entry_date"], as_of)
+
+        # (#164) 약세 매도 — 스탑 다음 우선. 기록은 항상, 알림은 발화 ∧ 신규 INSERT 시.
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO position_decline_evaluations
+                  (position_id, eval_date, fired, hold_days, signals, anchor_week, weeks_since,
+                   maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode,
+                   climax_also_fired)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (position_id, eval_date) DO NOTHING
+                """,
+                (p["id"], as_of, hd.fired, hd.hold_days, json.dumps(list(hd.signals)),
+                 hd.anchor_week, hd.weeks_since, hd.maturity_ok, hd.ta_max_decline_now,
+                 hd.ta_d_daily_max_decline_now, hd.mode, bool(hc.fired)),
+            )
+            hd_inserted = cur.rowcount == 1
+        if hd.fired:
+            decline_fired += 1
+            if hd_inserted:
+                dm = decline_metrics(*fetch_series(conn, p["symbol"], as_of), gates.get("anchor_week"))
+                with conn.cursor() as cur:
+                    cur.execute("SELECT name FROM stocks WHERE ticker = %s", (p["symbol"],))
+                    nrow = cur.fetchone()
+                notify_sell_on_weakness(
+                    symbol=p["symbol"], name=nrow[0] if nrow else p["symbol"], close=close,
+                    signals=list(hd.signals), today_decline_pct=dm.today_decline_pct,
+                    baseline_max_daily_decline_pct=dm.baseline_max_daily_decline_pct,
+                    week_decline_pct=dm.week_decline_pct,
+                    baseline_max_weekly_decline_pct=dm.baseline_max_weekly_decline_pct,
+                    anchor_week=hd.anchor_week, weeks_since=hd.weeks_since,
+                    hold_days=hd.hold_days, climax_also=bool(hc.fired), eval_date=as_of,
+                )
+                log.warning("[held-decline] %s fired %s (anchor %s, +%s주, hold %d일, climax_also=%s)",
+                            p["symbol"], hd.signals, hd.anchor_week, hd.weeks_since, hd.hold_days,
+                            bool(hc.fired))
+
+        # (항목 ③) 강세 매도 — 기록은 항상(병기), 알림은 decline 미발화일에만.
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -185,6 +232,8 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
                  hc.maturity_ok, hc.p2_accel_ok, hc.scope_active, hc.mode),
             )
             hc_inserted = cur.rowcount == 1
+        if hd.fired:
+            continue  # 우선순위: 약세 > 강세 > 5B — decline 발화일엔 climax 알림·5B 미평가(기록만)
         if hc.fired:
             climax_fired += 1
             if hc_inserted:  # 멱등 재실행의 중복 알림 방지
@@ -225,4 +274,5 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
                             p["symbol"], sh.reason, close, sh.state.hit20_date)
 
     return {"as_of": as_of, "evaluated": evaluated, "triggered": triggered,
-            "climax_fired": climax_fired, "half_fired": half_fired, "skipped": skipped}
+            "decline_fired": decline_fired, "climax_fired": climax_fired, "half_fired": half_fired,
+            "skipped": skipped}
