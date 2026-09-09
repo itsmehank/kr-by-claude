@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # KRX 접촉 패턴 구조 수리 Implementation Plan
 
 > **소유 이슈: [#92](https://github.com/itsmehank/kr-by-claude/issues/92)** — #88(launchd 이전, 완료)에서 분리, #91(Open API 전환 검토)과 병행.

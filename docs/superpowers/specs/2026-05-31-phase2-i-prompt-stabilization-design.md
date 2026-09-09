@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # Phase 2 (i) — prompt 안정화 (cup-shape 결정론화 + 3층 분해)
 
 > **재개 순서상 최우선** (2026-05-31). Phase 1 2-A 프로덕션 검증이 발견한 *gate inert* 병의 주 치료.

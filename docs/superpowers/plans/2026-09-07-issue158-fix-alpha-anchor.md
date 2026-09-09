@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # #158 — find_anchor Fix α(C4 제거): Phase A 원인 분해 · Phase B 측정 · Phase C 적용
 
 > 트리거: `climax_topping.py`(CLIMAX_ANCHOR_*·BREAKOUT_VOL_FLOOR 소비처)의 anchor 결합식 변경

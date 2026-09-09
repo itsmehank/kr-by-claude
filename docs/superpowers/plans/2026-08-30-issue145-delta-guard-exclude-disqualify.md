@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # #145 — daily_delta 7일 가드에서 system_disqualify 행 제외: 의존성 맵 (2축 판정)
 
 > 트리거: `RECENT_CLASSIFICATION_WINDOW_DAYS`(thresholds.py:28) **소비 로직**

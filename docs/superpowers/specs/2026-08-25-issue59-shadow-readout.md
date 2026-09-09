@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # §6.2 topping shadow 1차 실전 관측 판독 — 활성화 판정 보류 (#59)
 
 2026-08-25. 읽기 전용 분석 — LLM 재실행 0회, production DB(`kr_pipeline`)는 SELECT 만.

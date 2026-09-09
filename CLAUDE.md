@@ -15,6 +15,11 @@ psycopg, pandas) + React (web/).
 무효화 룰과 충돌) 을 일으킨다. "임계 변경인가?" 주관 판단이 아니라 "thresholds.py
 또는 소비처를 건드렸나" 사실로 트리거.
 
+## 규약 문서
+
+프로젝트 공통 규약은 `docs/superpowers/governance.md`(원칙 1~4, 절 ID). 임계·상수 절차는
+`docs/superpowers/threshold-change-checklist.md`. plan·spec·이슈는 규칙을 재기술하지 않고 governance 절 ID로 인용한다(4-5).
+
 ## SSOT 패턴
 
 책-유래 임계는 `kr_pipeline/common/thresholds.py` 가 단일 정의. Python 은 import,
@@ -33,3 +38,16 @@ pykrx import 시 로그인 요청이 나가지 않게 한다(pop 이 아니라 �
 `load_dotenv()` 가 "키가 없을 때만" 복원하므로). 실제 KRX 를 타는 테스트는 `krx` 마커로
 분리돼 `addopts` 가 기본 제외하며(그것이 위 1 deselected), 돌려야 할 때만
 `KR_ALLOW_KRX=1 uv run pytest -m krx` 로 명시 실행한다. **차단 대응 기간에는 실행 금지.**
+
+## 운영 규칙 (#155 승격, 2026-09-09 — 발단 사고 병기)
+
+1. **브랜치 먼저** — 첫 편집 전 `git checkout -b <branch> main`, 커밋 전 `git branch --show-current` 로 main 이 아님을 확인, push 는 브랜치명 명시.
+   발단: 2026-09-08 항목 ③ 커밋이 main 에 직접 푸시 → force-with-lease 복구.
+2. **git add 는 명시 경로만** — `-A`/`-a` 금지, 커밋 전 `git status -s | grep "^A"` 로 의도 밖 신규 파일 확인.
+   발단: 2026-07-11 PR #32 SEALED 파일 포함 +18,435줄 오커밋.
+3. **suite 판정 전 `pgrep -f pytest`** — 동시 실행 시 conftest 리셋이 서로를 밟아 가짜 대량 실패.
+   발단: 2026-07-20 #52 세션 경합 61 failed.
+4. **schema.sql 변경은 kr_pipeline·kr_test 양쪽 DB 에 수동 적용**(psql) — 자동 반영 없음.
+   발단: 미적용 시 INSERT/테스트 실패 전례(specs/2026-06-23 §140).
+5. **작업 기간 KRX 실 접촉 0** — 위 테스트 격리에 더해 차단 대응·백필 기간에는 코드 경로 전체가 접촉 0, 신규 테스트는 monkeypatch.
+   발단: 2026-08-04 #92 차단, #132 캠페인 규약.

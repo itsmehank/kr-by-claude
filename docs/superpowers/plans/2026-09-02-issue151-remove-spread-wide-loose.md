@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # #151 — spread_wide_loose 게이트 제거: 의존성 맵(2축 판정) + 변경 이력
 
 > 트리거: thresholds.py 상수 3종(SPREAD_WIDE_LOOSE_MULT·SPREAD_AVG_WINDOW_DAYS·

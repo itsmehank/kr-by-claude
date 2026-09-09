@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # #153 — production 사이징을 리스크 역산으로 교체: 판정·정의 원문·의존성 맵·사전등록
 
 > 트리거: thresholds.py 상수 **추가**(SIZING_RISK_PER_TRADE·SIZING_PILOT_FRAC)·**삭제**

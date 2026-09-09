@@ -91,8 +91,8 @@ def calculate_entry_params(payload: dict) -> dict:
     current = float(current)
 
     raw_flags = list(pa.get("risk_flags") or [])
-    # (#74) cup_without_handle → 결정론 flag 주입(멱등, LLM 재량 아님) — 티어
-    # no_flags 판정과 _FLAG_MULT 둘 다에 작용(이중 페널티 수용, 실효 4.9pp)
+    # (#74) cup_without_handle → 결정론 flag 주입(멱등, LLM 재량 아님).
+    # 사이징 효과는 #153 리스크 역산으로 대체됨 — 수치는 trading-rules 참조.
     if pa.get("pattern") == "cup_without_handle" \
             and "no_handle_shakeout_absent" not in raw_flags:
         raw_flags.append("no_handle_shakeout_absent")

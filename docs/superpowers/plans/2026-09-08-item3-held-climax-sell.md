@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # 항목 ③ — 보유 종목 climax 강세 매도(백테스트·production 동시): 판정·결합식·의존성 맵·사전등록
 
 > 트리거: thresholds.py 상수 **추가**(TRADE_HOLD_MIN_DAYS=56, 백테스트 리터럴 승격) + CLIMAX_*

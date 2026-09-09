@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # 항목 ① — 일간 climax/topping 신호 3종 신설(T5·T6·TA-d): 사양·의존성 맵·사전등록
 
 > 트리거: `kr_pipeline/llm_runner/compute/climax_topping.py`(CLIMAX_* 상수 소비처)에 산출

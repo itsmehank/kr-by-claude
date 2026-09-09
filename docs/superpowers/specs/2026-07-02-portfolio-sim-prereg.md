@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # 포트폴리오 단위 시뮬레이션 — 사전등록 (2026-07-02)
 
 트레이드 단위 백테스트(`backtest-profitability-results.md`)의 후속: "1억을 넣고

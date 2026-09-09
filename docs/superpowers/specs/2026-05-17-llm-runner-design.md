@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # #4 LLM Analysis Runner — 설계 명세
 
 > **⚠️ 시점 스냅샷 (2026-05-17~18)** — 본 문서의 LLM runner cron 시각 `30 16 * * 1-5` (16:30) 은 옛 설계. 현행은 `0 20 * * 1-5` (20:00, `kr_pipeline/llm_runner/pipeline_specs.py:181`). 문서 본문의 16:30 표기는 역사적 기록으로 유지.

@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # Issue #21 — C(entry params) 결정론 함수 대체 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans (인라인 실행). 결정 조합(사용자 확정): **D1(a)** 3c_cheat 세분 포기 · **D2(a)** none 거부(fail-loud) · **D3(a)** VCP 추격한도 일괄 3% · **D4(a)** 단위테스트 전수 + 신규 표본 parity 대조.
