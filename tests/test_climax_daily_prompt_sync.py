@@ -31,9 +31,11 @@ def test_prompt_61_trigger_count_is_t1_to_t6():
     assert "- T5 `t5_daily_max_up_now`" in s61
     assert "- T6 `t6_daily_max_spread_now`" in s61
     assert "TTLC Ch.9 단독 출처" in s61  # D-2: Minervini 단독 출처 병기 필수
-    # Q-8: null 트리거 미평가 규칙 + no_transition 모드에서 일간 극값 null 명시
+    # Q-8: null 트리거 미평가 규칙 + (#169) no_transition 모드에서 anchor 의존 필드 전부 null 명시
     assert "T5·T6 이 `null` 이면 해당 트리거는 미평가" in s61
-    assert "일간 극값 T5/T6(및 §6.2 TA-d)은 이\n  모드에서 `null`" in s61
+    assert "**anchor 의존 필드는 left_censored\n  와 동일하게 전부 `null`**" in s61
+    assert "climax_run 은 발화 불가**\n  (left_censored 와 동일)" in s61
+    assert "전체 이력** 기준으로 계산됨" not in s61  # 구 #44 규약 문구 잔존 금지
 
 
 def test_prompt_null_rule_scoped_and_left_censored_rule_intact():
@@ -52,6 +54,14 @@ def test_prompt_62_has_ta_d_beside_ta():
     i_tad = s62.index("- TA-d `ta_d_daily_max_decline_now`")
     i_tb = s62.index("- T-B `tb_ok`")
     assert i_ta < i_tad < i_tb
-    # anchor 의존 게이트 목록: 일간판은 left_censored·no_transition 모두 null (Q-8)
-    assert "`ta_d_daily_max_decline_now` 는 `left_censored` **와 `no_transition` 모두**" in s62
+    # anchor 의존 게이트 목록: 주간 T-A/T-D 거래량·일간 TA-d 모두 left_censored·no_transition 에서 null (#169)
+    assert ("`td_max_down_volume_now`, 일간판 `ta_d_daily_max_decline_now` 는 `left_censored` **와\n"
+            "`no_transition` 모두** `null`") in s62
     assert "`null` 이면 미평가 — 나머지(T-A/T-B/T-C/T-D)로만 판정" in s62
+    assert "anchor 없이 전체 이력 기준으로 계산된다" not in s62  # 구 #44 규약 문구 잔존 금지
+
+
+def test_prompt_top_ssot_declaration():
+    # (#169 / #170 Q-2 B) governance 4-6 — 프롬프트 상단 SSOT 자기 선언
+    first = _prompt().splitlines()[0]
+    assert first.startswith("<!-- SSOT:") and "governance.md 4-6" in first

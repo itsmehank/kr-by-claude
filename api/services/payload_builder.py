@@ -164,8 +164,8 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
     topping = compute_topping_gates(weekly_full, _dist_count_25s(indicators_60d), anchor)
     # (항목 ① 2026-09-07) 일간 극값 신호 T5·T6·TA-d — anchor 이후 전 일봉 별도 경로.
     # 기존 T3/T4 입력(daily_ohlcv[-20:], 60일 조회)은 불변. left_censored 는 조회 생략.
-    # Q-5 quality_flag → None / Q-8 no_transition → None(시작점 부재 = 미정의; 주간 관례와 다름)
-    # → 두 결측 모드·left_censored 는 조회 자체를 생략한다.
+    # Q-5 quality_flag → None / Q-8 no_transition → None(시작점 부재 = 미정의; #169 부터 주간
+    # anchor 의존 신호도 동일 규약) → 두 결측 모드·left_censored 는 조회 자체를 생략한다.
     if anchor["left_censored"] or anchor["no_transition"] or climax["quality_flag"]:
         daily_ext = compute_daily_extremes(None, None, anchor, quality_flag=climax["quality_flag"])
     else:

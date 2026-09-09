@@ -115,10 +115,47 @@ def test_climax_gates_all_none_when_left_censored():
     assert g["maturity_ok"] is None and g["p2_accel_ok"] is None and g["baseline"] is None
 
 
-def test_climax_gates_no_transition_presumes_p1():
+_ANCHOR_DEP_CLIMAX = ("maturity_weeks", "maturity_ok", "p2_best_roll_pct", "p2_is_steepest",
+                      "p2_accel_ok", "t1_max_spread_now", "t2_max_volume_now", "scope_active")
+
+
+def test_climax_gates_no_transition_anchor_fields_none():
+    # (#169) 시작점 부재 = anchor 의존 필드 전부 None(구 #44 규약 P1 간주·전체 이력 극값 폐기)
     wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)])
-    g = compute_climax_gates(wk, _mk_daily_updays(10, up=5), find_anchor(wk))
-    assert g["baseline"] == "no_transition" and g["maturity_ok"] is True  # 간주(원 규칙)
+    anchor = find_anchor(wk)
+    assert anchor["no_transition"] is True
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), anchor)
+    assert g["baseline"] == "no_transition"  # 모드 기록은 유지
+    assert all(g[k] is None for k in _ANCHOR_DEP_CLIMAX)
+
+
+def test_climax_gates_no_transition_keeps_non_anchor_fields():
+    # (#169) anchor 비의존 T3/T4 는 anchored 와 같은 산술로 계산된다(daily 만 입력)
+    wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)])
+    daily = _mk_daily_updays(10, up=8)
+    g = compute_climax_gates(wk, daily, find_anchor(wk))
+    ref = compute_climax_gates(_fixture_climax_run(), daily, find_anchor(_fixture_climax_run()))
+    assert g["t4_ok"] is True and g["t4_up_days_pct_max"] == ref["t4_up_days_pct_max"]
+    assert g["t3_gap_up_today"] == ref["t3_gap_up_today"]
+    assert g["quality_flag"] is False
+
+
+def test_climax_gates_no_transition_equals_left_censored_on_anchor_fields():
+    # (#169) anchor 의존 필드는 두 결측 모드가 동일 출력(None)
+    nt_wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)])
+    lc_wk = _mk_weeks(_drift(40, 1000.0, 980.0))
+    daily = _mk_daily_updays(10, up=5)
+    nt = compute_climax_gates(nt_wk, daily, find_anchor(nt_wk))
+    lc = compute_climax_gates(lc_wk, daily, find_anchor(lc_wk))
+    assert {k: nt[k] for k in _ANCHOR_DEP_CLIMAX} == {k: lc[k] for k in _ANCHOR_DEP_CLIMAX}
+    # §6.2 anchor 의존 필드도 동일(None); anchor 비의존 G0/T-B/T-C/td_dist 는 계산됨
+    tn = compute_topping_gates(nt_wk, 5, find_anchor(nt_wk))
+    tl = compute_topping_gates(lc_wk, 5, find_anchor(lc_wk))
+    assert tn["ta_max_decline_now"] is None and tn["td_max_down_volume_now"] is None
+    assert tn["tc_prolonged_ok"] is None
+    assert (tn["ta_max_decline_now"], tn["td_max_down_volume_now"]) == \
+        (tl["ta_max_decline_now"], tl["td_max_down_volume_now"])
+    assert tn["g0_below_10w"] is False and tn["td_dist_ok"] is True and tn["tb_ok"] is False
 
 
 def test_climax_gates_quality_flag_on_bad_weekly():
@@ -140,16 +177,18 @@ def test_climax_gates_quality_flag_on_bad_weekly():
 def test_topping_g0_tb_fire():
     # 40주 완만 상승(1000→1390) + 12주 드리프트-다운(1400→1220): 손계산 검증
     # (10주 SMA 를 매 주 재계산해 대조) 결과 tb=9 연속(≥TOPPING_BELOW_10W_WEEKS=8).
-    # no_transition(연속 상승 후 하락이라 Stage1 재형성 없음) — baseline=전체 이력.
+    # no_transition(연속 상승 후 하락이라 Stage1 재형성 없음) — anchor 비의존 G0/T-B 는 계산되고
+    # anchor 의존 T-A/T-D 거래량은 None(#169).
     up = [(1000.0 + 10 * i, 100_000) for i in range(40)]
     down = _drift(12, 1400.0, 1220.0, 100_000)
     wk = _mk_weeks(up + down)
     anchor = find_anchor(wk)
-    assert anchor["no_transition"] is True  # 전제 확인(baseline=전체 이력 분기 근거)
+    assert anchor["no_transition"] is True  # 전제 확인
     g = compute_topping_gates(wk, dist_count_25s=1, anchor=anchor)
     assert g["g0_below_10w"] is True
     assert g["tb_weeks_below_10w"] == 9
     assert g["tb_ok"] is True  # 9 ≥ TOPPING_BELOW_10W_WEEKS(8)
+    assert g["ta_max_decline_now"] is None and g["td_max_down_volume_now"] is None  # #169
 
 
 def test_topping_silent_without_g0():
@@ -495,8 +534,8 @@ def test_t1_three_modes_regression():
     assert lc["t1_max_spread_now"] is None
     nt_wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)])
     nt = compute_climax_gates(nt_wk, _mk_daily_updays(10, up=5), find_anchor(nt_wk))
-    # 전체 이력: 비율 = 0.04p/prev 가 p 상승률 둔화로 감소 → 마지막 주 미발화(값은 bool)
-    assert nt["baseline"] == "no_transition" and nt["t1_max_spread_now"] is False
+    # (#169) no_transition 은 anchor 의존 → None(구: 전체 이력 기준 bool)
+    assert nt["baseline"] == "no_transition" and nt["t1_max_spread_now"] is None
     wk = _fixture_climax_run(); wk[-1]["close"] = 0.0
     q = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
     assert q["quality_flag"] is True and q["t1_max_spread_now"] is None
