@@ -186,6 +186,7 @@ go_now에 필요한 게이트가 null이면 go_now 금지. 결측 트리거는 �
 - 상수·태그([PRESERVES]/[EXTENDS]/[design-judgment]/[heuristic]) = `kr_pipeline/common/thresholds.py` docstring
 
 governance는 이들을 재기술하지 않으며, 각 문서는 본 절을 인용해 자신이 SSOT임을 상단에 명시한다.
+(프롬프트 2건의 상단 선언은 #170 시점 프롬프트 diff 0 요구로 미삽입 — 다음 프롬프트 수정 시 동반 삽입, 전문가 판정 Q-2(B).)
 
 발단: #155 A2 D18·D19·U12·U13·T 영역 — governance 원칙에 속하지 않는 도메인 규칙 그룹. 원천: 본 절.
 
