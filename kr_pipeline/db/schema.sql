@@ -661,6 +661,11 @@ CREATE INDEX IF NOT EXISTS idx_positions_open ON positions (status, symbol);
 -- 종목당 open 포지션 1개 (전량 매도 신호 모델 — 이중 등록 시 이중 평가·이중 알림 방지)
 CREATE UNIQUE INDEX IF NOT EXISTS uq_positions_open_symbol
   ON positions (symbol) WHERE status = 'open';
+-- (#166 2026-09-08) 이익목표 절반매도(5B) 상태 — 포지션당 1회 발화, 러너가 영속(멱등)
+ALTER TABLE positions ADD COLUMN IF NOT EXISTS hit20_date     DATE;      -- +20% 최초 도달일
+ALTER TABLE positions ADD COLUMN IF NOT EXISTS half_pending   BOOLEAN NOT NULL DEFAULT FALSE;  -- 21일 내 도달 → 8주차 대기
+ALTER TABLE positions ADD COLUMN IF NOT EXISTS half_fired_at  DATE;      -- 절반매도 권고 발화일 (NULL=미발화)
+ALTER TABLE positions ADD COLUMN IF NOT EXISTS half_expired   BOOLEAN NOT NULL DEFAULT FALSE;  -- 8주차 미달 → 소멸
 
 -- 일일 손절 평가 로그 — 멱등 (position_id, eval_date). warnings: no_bar/halt 는
 -- 행 미생성(skip)이고, 여기 남는 것은 평가는 수행하되 주의가 필요한 경우

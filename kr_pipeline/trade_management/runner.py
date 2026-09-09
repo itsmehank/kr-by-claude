@@ -20,10 +20,14 @@ from datetime import date
 
 from psycopg import Connection
 
-from kr_pipeline.llm_runner.slack import notify_sell_into_strength, notify_stop_triggered
+from kr_pipeline.common.thresholds import SELL_HALF_ENABLED
+from kr_pipeline.llm_runner.slack import (
+    notify_sell_half, notify_sell_into_strength, notify_stop_triggered,
+)
 from kr_pipeline.trade_management.held_climax import compute_held_climax
+from kr_pipeline.trade_management.sell_half import SellHalfState, evaluate_sell_half
 from kr_pipeline.trade_management.stop_stack import evaluate_stop
-from kr_pipeline.trade_management.store import get_open_positions
+from kr_pipeline.trade_management.store import get_open_positions, update_sell_half_state
 
 log = logging.getLogger("kr_pipeline.trade_management")
 
@@ -39,7 +43,7 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
     """open 포지션 전체를 as_of 종가로 평가. 멱등: (position_id, eval_date).
 
     as_of 미지정 → daily_prices 최신 날짜(일봉 체인 완료 후 cron 실행 규약).
-    반환: {"as_of", "evaluated", "triggered", "climax_fired", "skipped": [{symbol, reason}]}.
+    반환: {"as_of", "evaluated", "triggered", "climax_fired", "half_fired", "skipped": [{symbol, reason}]}.
 
     (항목 ③) 스탑 미발동(not triggered) 포지션에 한해 held_climax(§6.1 결정론 결합식 +
     8주 억제)를 평가·기록(position_climax_evaluations, 멱등)하고 발화 시 강세 매도 권고
@@ -53,6 +57,7 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
     evaluated = 0
     triggered = 0
     climax_fired = 0
+    half_fired = 0
     skipped: list[dict] = []
 
     for p in get_open_positions(conn):
@@ -193,6 +198,31 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
                 )
                 log.warning("[held-climax] %s fired %s (anchor %s, +%s주, hold %d일)",
                             p["symbol"], hc.triggers, hc.anchor_week, hc.weeks_since, hc.hold_days)
+            continue  # 우선순위: 스탑 > climax > 절반매도 — climax 발화일엔 5B 미평가
+
+        # ---- (#166) 이익목표 절반매도(5B) — 플래그 OFF 면 블록 진입 없음 ----
+        if not SELL_HALF_ENABLED:
+            continue
+        sh = evaluate_sell_half(
+            entry_date=p["entry_date"], entry_price=p["entry_price"], close=close, as_of=as_of,
+            state=SellHalfState(p["hit20_date"], p["half_pending"], p["half_fired_at"] is not None,
+                                p["half_expired"]))
+        newly = update_sell_half_state(
+            conn, position_id=p["id"], hit20_date=sh.state.hit20_date, half_pending=sh.state.half_pending,
+            half_fired_at=(as_of if sh.fire else None), half_expired=sh.state.half_expired)
+        if sh.fire:
+            half_fired += 1
+            if newly:  # 포지션당 1회 — 재실행 중복 알림 없음
+                with conn.cursor() as cur:
+                    cur.execute("SELECT name FROM stocks WHERE ticker = %s", (p["symbol"],))
+                    nrow = cur.fetchone()
+                notify_sell_half(
+                    symbol=p["symbol"], name=nrow[0] if nrow else p["symbol"], close=close,
+                    entry_price=p["entry_price"], hit20_date=sh.state.hit20_date,
+                    hold_days=(as_of - p["entry_date"]).days, basis=sh.reason or "", eval_date=as_of,
+                )
+                log.warning("[sell-half] %s fired (%s) close %.0f hit20 %s",
+                            p["symbol"], sh.reason, close, sh.state.hit20_date)
 
     return {"as_of": as_of, "evaluated": evaluated, "triggered": triggered,
-            "climax_fired": climax_fired, "skipped": skipped}
+            "climax_fired": climax_fired, "half_fired": half_fired, "skipped": skipped}
