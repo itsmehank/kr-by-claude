@@ -1,4 +1,4 @@
-"""책 임계의 SSOT (Single Source of Truth).
+"""책 임계의 SSOT (Single Source of Truth). (governance 4-6 — 상수·태그 [PRESERVES]/[EXTENDS]/[design-judgment]/[heuristic] 의 단일 출처)
 
 모든 책-유래 임계의 단일 정의. 변경 시 영향:
 - Python 코드: 자동 (이 모듈 import 참조)

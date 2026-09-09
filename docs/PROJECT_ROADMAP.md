@@ -89,7 +89,7 @@
 추가 백로그:
 - **(γ) Finalized 가드** (pipeline_runs.finished_at 기반 진짜 freshness) — 동일-partial
   모드 재발 시 강화 (§5).
-- **즉시 격리 권고** (Step 5 §6-D): Phase 1 룰 강화 완료 + 005850 재분류 확정 전까지
+- **즉시 격리 권고** (Step 5 §6-D) — **완료·소멸(2026-07-21 실전 전환, #21 결정론 대체; #155 C8)**: Phase 1 룰 강화 완료 + 005850 재분류 확정 전까지
   *entry_params 사이클 보류*. 005850 (entry, conf=0.62, `extended_from_ma`) 가 다음
   사이클에서 잘못된 진입 파라미터로 진행되는 것 방지.
 

@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # #68 2단계 — DART 실적 적재 파이프라인 스펙 (2026-07-22)
 
 > 준거: 1단계 조사(docs/superpowers/2026-07-22-issue68-stage1-dart-feasibility.md) +

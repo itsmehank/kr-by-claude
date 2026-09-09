@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # kr-by-claude — 수정 Action Plan (LLM 분석 파이프라인) — 개정판 v2
 
 > 본 문서는 Phase 1 + Phase 1.5 + Phase 2 + Turn 1 + 표본검증 A응답 + UI 정합성 감사 + Turn 2 의

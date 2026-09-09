@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # w52 수정 고가/저가 — threshold-change-checklist (2026-06-04)
 
 > 트리거: `kr_pipeline/indicators/compute/high_low.py` 와 `modes.py` 수정.

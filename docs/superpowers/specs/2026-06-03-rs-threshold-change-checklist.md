@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # RS 지표 개선 — threshold-change-checklist (2026-06-03)
 
 > 트리거: `kr_pipeline/indicators/rs_rating.py`·`rs_line.py`·`modes.py` 의 계산 로직 변경(RS Rating 입력 교체, RS Line 분모 KOSPI 단일화, 파생 boolean 재정의) + `kr_pipeline/common/thresholds.py` 에 신규 상수 추출.

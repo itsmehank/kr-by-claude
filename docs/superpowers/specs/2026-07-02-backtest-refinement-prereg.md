@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # 백테스트 개선 1~3 — 사전등록 (2026-07-02)
 
 수익성·강건성 백테스트(`2026-06-23-profitability-robustness-backtest-design.md`) 1차 결과

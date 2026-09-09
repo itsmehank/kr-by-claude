@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # #156 — §6.1 T1 주간 스프레드 절대값 → 비율: 판정·측정·의존성 맵·사전등록
 
 > 트리거: `climax_topping.py`(CLIMAX_* 소비처) T1 산술 변경 + `analyze_chart_v3.md` §6.1 T1

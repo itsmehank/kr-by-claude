@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # 이슈 #55 — 분배일 정의 잔여 보강: 의존성 맵 (2축 판정)
 
 > 트리거 사실: `kr_pipeline/common/thresholds.py` 상수 신설

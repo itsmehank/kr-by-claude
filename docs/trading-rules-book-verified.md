@@ -1,5 +1,7 @@
 # 책-검증 매매 규칙 대장 (Minervini / O'Neil)
 
+> **SSOT** — 매매 규칙(손절·사이징·포트폴리오)의 단일 출처(governance 4-6). 다른 문서는 본 문서를 재기술하지 않고 인용한다.
+
 전문 에이전트와의 문답(2026-07-02, 총 5라운드)으로 원문 검증된 규칙의 단일 대장.
 태그: **[B]** = book-mandated(원문 근거), **[D]** = design-judgment(책 범위 내 수치화),
 **[C]** = community-approximation(IBD 관례 등).
@@ -12,7 +14,7 @@
 
 | 규칙 | 값 | 태그 | 근거 |
 |---|---|---|---|
-| 초기 손절 anchor | **매수가(분할 시 가중평균 매입가)** — pivot 아님 | B | O'Neil HMMS "below your purchase price"; Minervini TLSMW ch.13 "from the average cost of his three buys" |
+| 초기 손절 anchor | **매수가(분할 시 가중평균 매입가)** — pivot 아님. ※ production 신호 스탑(entry_params, pivot×0.92 — #153)은 예상 매입가 기준이며 보유 관리 스탑(평균매입가 8%)과 앵커가 다르다. 두 스탑의 연결은 #162. 본 행은 관리 규칙 서술(#155 C2). | B | O'Neil HMMS "below your purchase price"; Minervini TLSMW ch.13 "from the average cost of his three buys" |
 | 초기 손절 폭 | **8%** (7–8% 상한 범위의 상단) | B/D | O'Neil "7% to 8% is your absolute loss limit"; 8 선택은 종가판정 보상 |
 | 절대 상한 | **10%** (uncle point) — 코드 불변식으로 상시 감시 | B | Minervini TLSMW·TTLC §8 |
 | "평균 손실 5–6%" | 설정값 아님 — **결과 통계 목표**(재량 조기매도 전제). 명목 스톱으로 오용 금지 | B | TTLC §8 + HMMS(조기매도 재량) |
@@ -56,8 +58,8 @@
 **(전제 소멸 — 2026-07-21 실전 전환)**. 2026-07-22 전 항목 현행 코드 재검증 =
 `docs/superpowers/2026-07-22-issue3-conflict-recheck.md` (요지: #1 상충 유지·발현 축소
 (#45 게이트), #2 상충 불변, #3 안전장치 #47 승계, #4 코어 완료·wiring=#47, #5 정합).
-production 반영 시 각 항목 별도 사전등록 + 의존성 맵 — #47(포지션 wiring) 완료 전
-실매매 개시 금지.
+production 반영 시 각 항목 별도 사전등록 + 의존성 맵. (구 '#47 완료 전 실매매 개시 금지' 는
+2026-07-21 #47 완료로 조건 소멸 — 기록, #155 C7.)
 
 ## 5. 알려진 편차 (known deviations, 의도적)
 
