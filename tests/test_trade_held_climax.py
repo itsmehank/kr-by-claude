@@ -185,6 +185,8 @@ def _fired(**over):
 def _runner_seed(db, symbol, entry_price=10000.0):
     from kr_pipeline.trade_management.store import open_position
     with db.cursor() as cur:
+        cur.execute("DELETE FROM position_decline_evaluations WHERE position_id IN "
+                    "(SELECT id FROM positions WHERE symbol=%s)", (symbol,))
         cur.execute("DELETE FROM position_climax_evaluations WHERE position_id IN "
                     "(SELECT id FROM positions WHERE symbol=%s)", (symbol,))
         cur.execute("DELETE FROM position_stop_evaluations WHERE position_id IN "
@@ -202,6 +204,8 @@ def _runner_seed(db, symbol, entry_price=10000.0):
 def _runner_cleanup(db, symbol):
     """테스트 간 오염 방지 — 러너는 open 포지션 전체를 평가하므로 남기면 다른 테스트의 카운트를 바꾼다."""
     with db.cursor() as cur:
+        cur.execute("DELETE FROM position_decline_evaluations WHERE position_id IN "
+                    "(SELECT id FROM positions WHERE symbol=%s)", (symbol,))
         cur.execute("DELETE FROM position_climax_evaluations WHERE position_id IN "
                     "(SELECT id FROM positions WHERE symbol=%s)", (symbol,))
         cur.execute("DELETE FROM position_stop_evaluations WHERE position_id IN "
@@ -225,7 +229,7 @@ def _bar(db, symbol, d, close):
 def test_runner_fires_notifies_and_is_idempotent(db, mocker):
     from kr_pipeline.trade_management import runner
     pid = _runner_seed(db, "HCLX2")
-    mocker.patch.object(runner, "compute_held_climax", return_value=_fired())
+    mocker.patch.object(runner, "compute_held_gates", return_value=_g(t2_max_volume_now=True))
     notify = mocker.patch.object(runner, "notify_sell_into_strength")
     mocker.patch.object(runner, "notify_stop_triggered")
     _bar(db, "HCLX2", date(2026, 7, 10), 15000.0)  # 스탑(9,200) 위 → not triggered
@@ -246,7 +250,7 @@ def test_runner_fires_notifies_and_is_idempotent(db, mocker):
 def test_runner_stop_takes_precedence_over_climax(db, mocker):
     from kr_pipeline.trade_management import runner
     pid = _runner_seed(db, "HCLX3")
-    hc = mocker.patch.object(runner, "compute_held_climax", return_value=_fired())
+    hc = mocker.patch.object(runner, "compute_held_gates", return_value=_g(t2_max_volume_now=True))
     notify = mocker.patch.object(runner, "notify_sell_into_strength")
     mocker.patch.object(runner, "notify_stop_triggered")
     _bar(db, "HCLX3", date(2026, 7, 10), 9000.0)  # < initial stop 9,200 → triggered
@@ -262,8 +266,9 @@ def test_runner_stop_takes_precedence_over_climax(db, mocker):
 def test_runner_records_none_and_suppressed_without_notify(db, mocker):
     from kr_pipeline.trade_management import runner
     pid = _runner_seed(db, "HCLX4")
-    mocker.patch.object(runner, "compute_held_climax",
-                        return_value=_fired(fired=None, mode="no_transition", anchor_week=None, weeks_since=None))
+    mocker.patch.object(runner, "compute_held_gates",
+                        return_value=_g(no_transition=True, anchor_week=None, weeks_since=None,
+                                        maturity_ok=None, p2_accel_ok=None, scope_active=None))
     notify = mocker.patch.object(runner, "notify_sell_into_strength")
     mocker.patch.object(runner, "notify_stop_triggered")
     _bar(db, "HCLX4", date(2026, 7, 10), 15000.0)

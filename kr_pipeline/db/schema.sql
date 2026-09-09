@@ -704,6 +704,26 @@ CREATE TABLE IF NOT EXISTS position_climax_evaluations (
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (position_id, eval_date)
 );
+-- (#164 2026-09-09) 보유 종목 약세 매도 판정 로그 — 멱등 (position_id, eval_date).
+-- held_decline = P1 ∧ (T-A ∨ TA-d), 억제 없음. 스탑 triggered 인 날은 미평가(행 없음).
+-- fired NULL = 판정 불능(left_censored/no_transition/quality). climax_also_fired = 같은 날
+-- climax 도 성립(우선순위 약세 > 강세 — 라벨은 decline, climax 는 병기).
+CREATE TABLE IF NOT EXISTS position_decline_evaluations (
+  position_id      BIGINT NOT NULL REFERENCES positions(id),
+  eval_date        DATE NOT NULL,
+  fired            BOOLEAN,
+  hold_days        INTEGER NOT NULL,
+  signals          JSONB,                   -- True 인 신호 키(ta_max_decline_now / ta_d_daily_max_decline_now)
+  anchor_week      DATE,
+  weeks_since      SMALLINT,
+  maturity_ok      BOOLEAN,
+  ta_max_decline_now          BOOLEAN,
+  ta_d_daily_max_decline_now  BOOLEAN,
+  mode             VARCHAR(16) NOT NULL,
+  climax_also_fired BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (position_id, eval_date)
+);
 CREATE INDEX IF NOT EXISTS idx_position_stop_eval_date
   ON position_stop_evaluations (eval_date);
 
