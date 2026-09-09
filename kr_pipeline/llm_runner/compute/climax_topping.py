@@ -6,10 +6,13 @@ Stage 1→2 전환 주(anchor)를 뒤에서부터 탐색한다. 확정 D1: "전 
 전환을 anchor 로 채택 — 과거의 오래된 전환은 이후 Stage 4 재하락으로 무효화된 것으로
 간주(test_anchor_resets_after_stage4).
 
-null 규약(보수): 이력이 CLIMAX_ANCHOR_VOL_AVG_WEEKS(50)주 이하 = 탐색 자체가 불가능한
-결측 → left_censored=True, 게이트 전부 None. 이력은 충분하나 전환 조건을 만족하는 주가
-없으면(예: 줄곧 Stage 2 상승) no_transition=True — 원 규칙 보존을 위해 P1(선행조건)
-충족으로 간주하는 모드(anchor_week=None 이지만 게이트 거부가 아님).
+null 규약(보수, governance 4-2): 이력이 CLIMAX_ANCHOR_VOL_AVG_WEEKS(50)주 이하 = 탐색 자체가
+불가능한 결측 → left_censored=True, 게이트 전부 None. 이력은 충분하나 전환 조건을 만족하는
+주가 없으면(예: 줄곧 Stage 2 상승) no_transition=True — anchor 의존 필드는 left_censored 와
+동일하게 None(#169, 2026-09-09: 책 정의 "since the beginning of the move" 는 식별된 시작점을
+전제하므로 시작점 부재 시 신호 미정의 — 일간 T5/T6/TA-d 의 #157 Q-8 판정을 주간에 일관 적용).
+anchor 비의존 게이트(T3·T4·G0·T-B·T-C·td_dist_ok)는 계속 계산된다. 모드 자체는 기록용으로
+유지(baseline="no_transition"). 구 #44 규약(P1 충족 간주 + 전체 이력 극값)은 superseded.
 
 탐색 하한 `range(n - 1, W - 1, -1)`: i=W(=50) 포함 — off-by-one 가드. i 를 W-1까지로
 좁히면 n=W+1(=51) 부근에서 유효한 i=W 후보를 건너뛰어 no_transition 으로 폴스루하는
@@ -73,7 +76,7 @@ def find_anchor(weekly: list[dict]) -> dict:
                 "no_transition": False, "weeks_since": None}
     k = CLIMAX_ANCHOR_TURNUP_WEEKS
     s1 = CLIMAX_ANCHOR_STAGE1_MIN_WEEKS
-    for i in range(n - 1, W - 1, -1):  # i=W(=50) 포함 — n=51 폴스루가 no_transition(P1 간주)으로 새는 회귀 방지(라운드 2 N2)
+    for i in range(n - 1, W - 1, -1):  # i=W(=50) 포함 — n=51 폴스루가 no_transition 으로 새는 회귀 방지(라운드 2 N2)
         s30, s40 = _sma(closes, i, 30), _sma(closes, i, 40)
         v_avg = sum(vols[i - W : i]) / W
         if None in (s30, s40) or v_avg <= 0:
@@ -121,9 +124,10 @@ def compute_climax_gates(weekly: list[dict], daily_20d: list[dict], anchor: dict
     supporting_ext_sma200_pct(값만 — 70% 판정은 프롬프트 잔류), scope_active,
     baseline("anchored"|"no_transition"|None), quality_flag.
 
-    모드: left_censored → 전부 None(baseline 포함) / no_transition → maturity_ok=True
-    (간주 — 원 규칙 보존), 극값·P2 는 전체 이력 기준, baseline="no_transition" /
-    anchored → baseline="anchored", maturity_weeks=anchor["weeks_since"].
+    모드: left_censored → 전부 None(baseline 포함) / no_transition(#169) → anchor 의존 필드
+    (maturity_weeks·maturity_ok·p2_*·t1·t2·scope_active) None, anchor 비의존 t3/t4 는 계산,
+    baseline="no_transition"(기록용) / anchored → baseline="anchored",
+    maturity_weeks=anchor["weeks_since"].
 
     quality_flag: 입력 주봉에 close<=0/None 존재 시 True + weekly 값에 의존하는 게이트
     (p2_*, t1/t2, scope_active) 는 None 강등(daily 기반인 t3/t4 는 영향 없음).
@@ -137,10 +141,11 @@ def compute_climax_gates(weekly: list[dict], daily_20d: list[dict], anchor: dict
     quality_flag = any(c is None or c <= 0 for c in closes)
 
     if anchor["no_transition"]:
+        # (#169) 시작점 부재 = anchor 의존 신호 미정의 — left_censored 와 동일하게 None.
         baseline = "no_transition"
-        start_idx = 0
+        start_idx = None
         maturity_weeks = None
-        maturity_ok = True  # 간주(원 규칙 보존 — v2 복원)
+        maturity_ok = None
     else:
         baseline = "anchored"
         weeks_since = anchor["weeks_since"]
@@ -148,7 +153,7 @@ def compute_climax_gates(weekly: list[dict], daily_20d: list[dict], anchor: dict
         maturity_weeks = weeks_since
         maturity_ok = maturity_weeks >= CLIMAX_MATURITY_WEEKS
 
-    if quality_flag:
+    if quality_flag or start_idx is None:
         p2_best_roll_pct = p2_is_steepest = p2_accel_ok = None
         t1_max_spread_now = t2_max_volume_now = None
         scope_active = None
@@ -272,9 +277,8 @@ def compute_daily_extremes(daily_hist: list[dict] | None, baseline_start: str | 
     - 동률 >= (기존 P2/T1/T-A 관례 — 가격제한 동률 실재, 노출 축소 방향). 오늘이 상승일/
       하락일 아니면 T5/TA-d 는 False(자격 없음 — T-A 관례, None 아님).
     - **결측 모드**: left_censored → None. **no_transition → None**(Q-8 판정: 책 정의 "since
-      the beginning of the move" 는 식별된 시작점을 전제 — 시작점 부재 시 신호 미정의. 주간
-      P2/T1/T2/T-A 의 no_transition 관례(전체 이력)와 **다름** — plan 문서 명기). quality_flag
-      → None(Q-5).
+      the beginning of the move" 는 식별된 시작점을 전제 — 시작점 부재 시 신호 미정의. #169
+      부터 주간 P2/T1/T2/T-A/T-D 거래량도 동일 규약). quality_flag → None(Q-5).
     - **연속 세션만**(Q-6 판정 C): prev 행과 해당 행 사이에 zero-bar 가 있으면 그 쌍은 baseline
       극값·오늘 판정 양쪽에서 제외. 오늘이 재개일(직전 zero-bar) 이면 3신호 None.
     - **T6 공식 유효성 조건**(Q-7 판정 A — 규칙 신설 아님): (high−low)/prev_close 는 세 값이
@@ -348,8 +352,8 @@ def compute_topping_gates(weekly: list[dict], dist_count_25s: int | None, anchor
       서로 영향 없음).
     - T-C 턴다운: tc_sma40_turndown = 40주 SMA 가 직전 주 대비 하락.
 
-    anchor 의존(anchored → anchor 이후 baseline, no_transition → 전체 이력,
-    left_censored → None):
+    anchor 의존(anchored → anchor 이후 baseline, no_transition · left_censored → None —
+    #169 부터 두 결측 모드 동일 취급):
     - T-A: 마지막 주 전주比 하락률이 baseline 구간 하락 주 중 최대인가.
     - T-D 거래량: 마지막 주 거래량이 baseline 구간 '하락 주(전주比 종가 하락 — 브리프
       침묵으로 이 정의 채택, 명시)' 중 최대인가. baseline 내 하락 주가 전무하면
@@ -393,13 +397,13 @@ def compute_topping_gates(weekly: list[dict], dist_count_25s: int | None, anchor
         tc_sma40_turndown = (None if None in (s40_last, s40_prev)
                               else s40_last < s40_prev)
 
-    if quality_flag or anchor["left_censored"]:
+    if quality_flag or anchor["left_censored"] or anchor["no_transition"]:
         ta_max_decline_now = None
         td_max_down_volume_now = None
     else:
         # 하락 주(전주比 종가 하락)만 후보 — 동률 허용(>=, Task 3 P2/T1/T2 와 동일
         # 관례: "엄격 = 보수"). 마지막 주가 하락 주가 아니면 최대일 자격이 없어 False.
-        start_idx = 0 if anchor["no_transition"] else last_idx - anchor["weeks_since"]
+        start_idx = last_idx - anchor["weeks_since"]
         declines: dict[int, float] = {}
         down_vols: dict[int, float] = {}
         # anchor 주(i=start_idx) 자체도 후보에 포함하되 하락 판정은 anchor "이전" 주

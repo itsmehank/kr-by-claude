@@ -332,7 +332,7 @@ def test_build_payload_daily_extremes_anchored_matches_direct_compute(db):
 
 
 def test_build_payload_daily_extremes_none_when_no_transition(db):
-    # Q-8: 시작점 부재 → 일간 3신호 None(주간 P2/T1/T2 는 전체 이력 값 공급 — 관례 병존).
+    # Q-8: 시작점 부재 → 일간 3신호 None. (#169) 주간 anchor 의존 필드도 None — 관례 병존 해소.
     ticker = "CLPD8"
     _seed_stock(db, ticker)
     weekly = _weekly_rows([(1000.0 + 10 * i, 100_000) for i in range(80)], date(2018, 1, 5))
@@ -341,7 +341,10 @@ def test_build_payload_daily_extremes_none_when_no_transition(db):
     _seed_daily_indicators(db, ticker, on_date, 25, [False] * 25)
     gates = build_payload(db, ticker, on_date=on_date)["climax_topping_gates"]
     assert gates["no_transition"] is True and gates["baseline"] == "no_transition"
-    assert gates["t1_max_spread_now"] is not None  # 주간은 전체 이력 기준 값 유지
+    assert gates["t1_max_spread_now"] is None and gates["maturity_ok"] is None  # #169 주간도 None
+    assert gates["p2_accel_ok"] is None and gates["scope_active"] is None
+    assert gates["ta_max_decline_now"] is None and gates["td_max_down_volume_now"] is None
+    assert gates["t4_ok"] is not None and gates["g0_below_10w"] is not None  # anchor 비의존 유지
     assert gates["t5_daily_max_up_now"] is None
     assert gates["t6_daily_max_spread_now"] is None
     assert gates["ta_d_daily_max_decline_now"] is None

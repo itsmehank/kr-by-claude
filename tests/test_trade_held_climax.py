@@ -72,6 +72,23 @@ def test_missing_modes_yield_none(mode_kw, mode):
     assert d.fired is None and d.mode == mode
 
 
+def test_no_transition_series_end_to_end_never_fires():
+    # (#169) 실제 산술 경로: 80주 연속 상승(전환 부재) → gates_from_series 가 anchor 의존 필드
+    # None 을 내고 결합식은 fired=None(미정의, 미발화). 별도 코드 변경 없이 공용 함수로 전파.
+    d0 = date(2018, 1, 5)
+    weekly = [{"week_end": str(d0 + timedelta(weeks=i)), "open": p, "high": p * 1.02, "low": p * 0.98,
+               "close": p, "volume": 100_000} for i, p in enumerate(1000.0 + 10 * i for i in range(80))]
+    last = date.fromisoformat(weekly[-1]["week_end"])
+    daily = [{"date": str(last - timedelta(days=19 - i)), "open": 1700.0 + i, "high": 1701.0 + i,
+              "low": 1699.0 + i, "close": 1700.0 + i, "volume": 100_000} for i in range(20)]
+    g = gates_from_series(weekly, daily)
+    assert g["no_transition"] is True and g["anchor_week"] is None
+    assert g["maturity_ok"] is None and g["p2_accel_ok"] is None and g["scope_active"] is None
+    assert g["t4_ok"] is True  # anchor 비의존 트리거는 계산됨 — 그래도 결합식은 미정의
+    d = evaluate_held_climax(g, ENTRY, LATE)
+    assert d.fired is None and d.mode == "no_transition" and d.triggers == ("t4_ok",)
+
+
 # ---------- replay(payload_builder 경로) ↔ production(gates_from_series) 일치 ----------
 
 def _seed_stock(db, ticker):
