@@ -40,6 +40,8 @@ from kr_pipeline.llm_runner.compute.trigger_gate import evaluate as gate_evaluat
 from kr_pipeline.trade_management.held_climax import (
     evaluate_held_climax, fetch_daily_flagged, gates_from_series, slice_upto,
 )
+from kr_pipeline.common.price_source import price_source
+from kr_pipeline.ohlcv.delisted_adj import LIQ_WINDOW_DAYS
 from kr_pipeline.trade_management.held_decline import evaluate_held_decline
 from kr_pipeline.trade_management.sell_half import SellHalfState, evaluate_sell_half
 
@@ -67,6 +69,10 @@ class TickerData:
     # 날짜별 절단은 held_climax.slice_upto. 비어 있으면 left_censored → 미발화(합성 테스트 호환).
     weekly_full: list = field(default_factory=list)
     daily_flagged: list = field(default_factory=list)
+    # (#181 B5) 상폐 격리 종목: 마지막 봉(= delisted_at − 1일 = liq_window 끝)에 전량 강제청산.
+    delisted: bool = False
+    last_bar: date | None = None            # 마지막 거래일(격리 종목만)
+    liq_start: date | None = None           # 정리매매 창 시작(마지막 봉 − LIQ_WINDOW_DAYS 달력일)
 
 
 @dataclass
@@ -145,6 +151,7 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
         "uncle point 불변식 위반: 초기 스톱 > 10% (TTLC §8)"   # v2.2
     stats = {"n_entries": 0, "n_replacements": 0, "n_tranche_fills": 0,
              "n_half_sells": 0, "n_skipped_chase": 0,
+             "n_entries_in_liq_window": 0,   # (#181 B5 관측) 정리매매 창 내 신규 진입(차단 없음)
              "n_skipped_down_phase": 0, "n_skipped_no_cash": 0,
              "n_skipped_slots_full": 0, "entry_amounts": [],
              "exit_reasons": {}, "exits": [], "tranche_expiry": {},
@@ -217,6 +224,12 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
             stop_level, stop_reason = max(floors)
             if bar.close < stop_level:
                 _full_exit(pos, bar.close, d, stop_reason)
+                continue
+            # (#181 B5) 상폐 강제청산 — 마지막 봉 도달 시 종가 전량, reason=delisted
+            # [design-judgment — 책 근거 없음, 보수 선택]. 우선순위 스탑 > delisted > 약세 > 강세.
+            td_d = data[t]
+            if td_d.delisted and td_d.last_bar is not None and d >= td_d.last_bar:
+                _full_exit(pos, bar.close, d, "delisted")
                 continue
             # (항목 ③·#164) 보유 약세/강세 매도 — 스탑 이후·미청산 포지션. production 러너와
             # 같은 판정 함수(held_decline·held_climax), 같은 gates(절단 1회). 우선순위 스탑 >
@@ -449,6 +462,9 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
             )
             entered_pivots.add((s["ticker"], active.sat))
             stats["n_entries"] += 1
+            td_e = data[s["ticker"]]
+            if td_e.delisted and td_e.liq_start is not None and d >= td_e.liq_start:
+                stats["n_entries_in_liq_window"] += 1   # (#181 B5 관측) 차단 없음
             stats["entry_amounts"].append(amt)
             if s["entry_kind"] == "pilot":
                 stats["n_pilot_entries"] += 1
@@ -570,13 +586,19 @@ def load_ticker_data(conn, tickers: list[str] | None = None, *,
         ftd_event_by_date = {b.d: xmaps[code].get(b.d, {}).get("is_ftd_event",
                                                                False)
                              for b in bars}
+        src = price_source(conn, ticker)  # (#181 B4) 라이브/격리 분기
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT date, rs_rating, minervini_pass, rs_line_at_52w_high, "
-                "pct_from_52w_high FROM daily_indicators "
+                f"SELECT date, rs_rating, minervini_pass, rs_line_at_52w_high, "
+                f"pct_from_52w_high FROM {src.indicators} "
                 "WHERE ticker = %s AND date BETWEEN %s AND %s",
                 (ticker, start, end))
             rows = cur.fetchall()
+        delisted_last_bar = None
+        if src.delisted:
+            with conn.cursor() as cur:
+                cur.execute(f"SELECT MAX(date) FROM {src.daily} WHERE ticker = %s", (ticker,))
+                delisted_last_bar = cur.fetchone()[0]
         rs = {r[0]: r[1] for r in rows}
         # (Arm-54 E2) 3중 하드 필터 — 전부 as-of 저장 지표, AND 결합
         pilot54_flags = {
@@ -592,6 +614,9 @@ def load_ticker_data(conn, tickers: list[str] | None = None, *,
         daily_flagged = fetch_daily_flagged(conn, ticker, end)
         out[ticker] = TickerData(
             market=market, bars=bars, weekly_full=weekly_full, daily_flagged=daily_flagged,
+            delisted=src.delisted, last_bar=delisted_last_bar,
+            liq_start=(delisted_last_bar - timedelta(days=LIQ_WINDOW_DAYS)
+                       if delisted_last_bar is not None else None),
             watch_rows=load_watchlist(conn, ticker, watch_start, watch_end,
                                       table=BT_TABLE),
             rs_by_date=rs, phase_by_date=phase_by_date,

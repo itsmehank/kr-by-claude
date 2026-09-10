@@ -866,3 +866,87 @@ CREATE TABLE IF NOT EXISTS bt_delisted_indicators (
   gate_pass BOOLEAN,                -- c1~c7 AND rs_gate AND c8
   PRIMARY KEY (ticker, date)
 );
+
+-- ====== (#181 P0-② 배관, 2026-09-10) 상폐 격리 테이블 확장 — 라이브 테이블 무접촉 ======
+-- B1 상폐 수정 OHLV: factor = adj_close/close 행별 유도(kr_pipeline/ohlcv/delisted_ohlv.py).
+-- zero-bar 행은 adj_open/high/low/volume 만 NULL, adj_close(체인값) 유지 = 라이브 nullify_halt_adj 동형(PR #183 Q-1 (B)).
+-- NOT NULL 해제는 복원 절차(restore_zero_bar_adj_close)의 과도 상태 허용용. CHECK(adj_close > 0)는 NULL 통과.
+ALTER TABLE delisted_adj_prices ADD COLUMN IF NOT EXISTS adj_open   NUMERIC(16, 4);
+ALTER TABLE delisted_adj_prices ADD COLUMN IF NOT EXISTS adj_high   NUMERIC(16, 4);
+ALTER TABLE delisted_adj_prices ADD COLUMN IF NOT EXISTS adj_low    NUMERIC(16, 4);
+ALTER TABLE delisted_adj_prices ADD COLUMN IF NOT EXISTS adj_volume NUMERIC(20, 2);
+ALTER TABLE delisted_adj_prices ALTER COLUMN adj_close DROP NOT NULL;
+-- B4 리졸버용 뷰: daily_prices 와 동일 컬럼 집합(raw + adj) — SQL 은 테이블명만 바꿔 재사용.
+CREATE OR REPLACE VIEW delisted_daily_prices_adj AS
+SELECT d.ticker, d.date, d.open, d.high, d.low, d.close, d.volume, d.value, d.updated_at,
+       a.adj_close, a.adj_open, a.adj_high, a.adj_low, a.adj_volume
+  FROM delisted_daily_prices d
+  LEFT JOIN delisted_adj_prices a ON a.ticker = d.ticker AND a.date = d.date;
+-- B2 상폐 주봉 — weekly_prices 동일 스키마(aggregate_to_weekly 순수 함수 출력).
+CREATE TABLE IF NOT EXISTS delisted_weekly_prices (
+    ticker          VARCHAR(10)   NOT NULL REFERENCES stocks(ticker),
+    week_end_date   DATE          NOT NULL,
+    open            NUMERIC(12,2) NOT NULL,
+    high            NUMERIC(12,2) NOT NULL,
+    low             NUMERIC(12,2) NOT NULL,
+    close           NUMERIC(12,2) NOT NULL,
+    adj_close       NUMERIC(12,4),          -- 주 전체 zero-bar 면 NULL(라이브는 NOT NULL — carry 종가 보유)
+    adj_high        NUMERIC(12,4),
+    adj_low         NUMERIC(12,4),
+    adj_open        NUMERIC(12,4),
+    adj_volume      NUMERIC(20,2),
+    volume          BIGINT        NOT NULL,
+    value           BIGINT        NOT NULL,
+    trading_days    SMALLINT      NOT NULL,
+    updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (ticker, week_end_date)
+);
+-- B3 상폐 지표 수치 — daily_indicators 동일 37컬럼. rs_rating/c8 = bt_rs_daily(무편향), 나머지는
+-- indicators/compute 순수 함수 재사용(kr_pipeline/indicators/delisted.py). bt_delisted_indicators 는 #118 기록물 보존.
+CREATE TABLE IF NOT EXISTS delisted_daily_indicators (
+    ticker            VARCHAR(10)   NOT NULL REFERENCES stocks(ticker),
+    date              DATE          NOT NULL,
+    adj_close         NUMERIC(12,4) NOT NULL,
+    sma_10            NUMERIC(12,4),
+    sma_21            NUMERIC(12,4),
+    sma_50            NUMERIC(12,4),
+    sma_150           NUMERIC(12,4),
+    sma_200           NUMERIC(12,4),
+    w52_high          NUMERIC(12,4),
+    w52_low           NUMERIC(12,4),
+    pct_from_52w_high NUMERIC(8,4),
+    pct_from_52w_low  NUMERIC(8,4),
+    rs_line               NUMERIC(16,8),
+    rs_line_52w_high      NUMERIC(16,8),
+    rs_line_52w_high_date DATE,
+    rs_line_at_52w_high   BOOLEAN,
+    rs_line_uptrend_6w    BOOLEAN,
+    rs_line_uptrend_13w   BOOLEAN,
+    rs_line_not_declining_7m BOOLEAN,
+    rs_rating         SMALLINT,
+    minervini_c1      BOOLEAN,
+    minervini_c2      BOOLEAN,
+    minervini_c3      BOOLEAN,
+    minervini_c4      BOOLEAN,
+    minervini_c5      BOOLEAN,
+    minervini_c6      BOOLEAN,
+    minervini_c7      BOOLEAN,
+    minervini_c8      BOOLEAN,
+    minervini_pass    BOOLEAN,
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    volume                    NUMERIC(20,2),
+    avg_volume_50d            NUMERIC(20,2),
+    volume_ratio_50d          NUMERIC(10,4),
+    pocket_pivot_flag         BOOLEAN,
+    volume_dry_up_flag        BOOLEAN,
+    up_down_volume_ratio_50d  NUMERIC(10,4),
+    distribution_day_flag     BOOLEAN,
+    PRIMARY KEY (ticker, date)
+);
+CREATE INDEX IF NOT EXISTS idx_delisted_daily_indicators_date ON delisted_daily_indicators(date);
+-- B6 prompt_version — 프롬프트 파일 sha256[:12](claude_cli 로드 직후). 기존 행 NULL.
+ALTER TABLE weekly_classification        ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);
+ALTER TABLE classification_backfill      ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);
+ALTER TABLE backtest_classification      ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);
+ALTER TABLE recall_audit_classification  ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);
+ALTER TABLE trigger_evaluation_log       ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);

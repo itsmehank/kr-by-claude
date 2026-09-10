@@ -2,6 +2,8 @@
 from datetime import date
 from psycopg import Connection
 
+from kr_pipeline.common.price_source import price_source
+
 
 CONDITION_DESCRIPTIONS = {
     "c1": "close > SMA(150) > SMA(200)",
@@ -89,13 +91,14 @@ def build_minervini_detail(conn: Connection, ticker: str, on_date: date) -> dict
 
     Return: {"c1": {"passed": bool, "description": str, "values": {...}, "margin_pct": float}, ...}
     """
+    src = price_source(conn, ticker)  # (#181 B4) 라이브/격리 분기 — payload conditions_detail 경로
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             SELECT adj_close, sma_50, sma_150, sma_200, w52_high, w52_low, rs_rating,
                    minervini_c1, minervini_c2, minervini_c3, minervini_c4, minervini_c5,
                    minervini_c6, minervini_c7, minervini_c8
-              FROM daily_indicators
+              FROM {src.indicators}
              WHERE ticker = %s AND date <= %s
              ORDER BY date DESC
              LIMIT 1
@@ -107,9 +110,9 @@ def build_minervini_detail(conn: Connection, ticker: str, on_date: date) -> dict
         # P2-4: c3 margin 계산에 필요한 22 거래일 전 sma_200.
         # 거래일 22 행 이전 = on_date 포함 23 행 중 23번째 (인덱스 22).
         cur.execute(
-            """
+            f"""
             SELECT sma_200
-              FROM daily_indicators
+              FROM {src.indicators}
              WHERE ticker = %s AND date <= %s
              ORDER BY date DESC
              LIMIT 23

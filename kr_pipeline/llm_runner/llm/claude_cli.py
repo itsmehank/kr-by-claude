@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -251,6 +252,9 @@ def call_claude(
     # 프롬프트 캐시 프리픽스가 된다. user 메시지(stdin)에는 호출별로 달라지는
     # 데이터(payload_inline·첨부 참조)만 남긴다.
     prompt_text = prompt_path.read_text(encoding="utf-8")
+    if meta_out is not None:
+        # (#181 B6) 프롬프트 버전 = 파일 전문 sha256 앞 12자 — 저장 행에 붙여 버전 혼재를 추적 가능하게.
+        meta_out["prompt_version"] = hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()[:12]
     user_parts: list[str] = []
     if payload_inline is not None:
         if isinstance(payload_inline, str):

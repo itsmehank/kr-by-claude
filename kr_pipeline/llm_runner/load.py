@@ -7,9 +7,14 @@ from psycopg import Connection
 
 
 def get_qualifying_tickers(
-    conn: Connection, as_of: date | None = None, tickers: list[str] | None = None
+    conn: Connection, as_of: date | None = None, tickers: list[str] | None = None,
+    *, include_delisted: bool = False,
 ) -> list[dict]:
     """주말 (5) batch 후보 종목 조회.
+
+    include_delisted (#181 B4, 기본 False = 현행 동작): True 면 라이브 필터(delisted_at IS NULL)에
+    더해 격리 테이블(delisted_daily_indicators, 같은 날짜·같은 조건)의 상폐 종목을 UNION 한다 —
+    P0-② 재분류(②-2) 전용, 라이브 주말 배치는 기본값 그대로.
 
     as_of 가 주어지면 그 날짜 이하 가장 최근 daily_indicators 의 날짜를 찾아 사용.
     tickers 가 주어지면 그 종목들로 한정 (minervini 통과분만 반환 — 미통과는 자동 제외).
@@ -44,7 +49,23 @@ def get_qualifying_tickers(
     if tickers:
         sql += " AND i.ticker = ANY(%s)"
         params.append(list(tickers))
-    sql += " ORDER BY i.ticker"
+    if include_delisted:
+        sql = "(" + sql + ") UNION ALL (" + """
+        SELECT i.ticker, s.market
+          FROM delisted_daily_indicators i
+          JOIN stocks s ON s.ticker = i.ticker
+         WHERE i.date = %s
+           AND i.minervini_pass = TRUE
+           AND i.rs_line_not_declining_7m = TRUE
+           AND NOT EXISTS (
+               SELECT 1 FROM delisted_daily_prices_adj p
+                WHERE p.ticker = i.ticker AND p.date = i.date AND p.adj_low IS NULL
+           )
+        """ + (" AND i.ticker = ANY(%s)" if tickers else "") + ")"
+        params.append(target_date)
+        if tickers:
+            params.append(list(tickers))
+    sql += " ORDER BY 1"
 
     with conn.cursor() as cur:
         cur.execute(sql, params)

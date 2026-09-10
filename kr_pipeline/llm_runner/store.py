@@ -385,12 +385,14 @@ def insert_classification(
                watch_reason,
                sanity_warnings,
                pivot_continuity,
-               verdict_original)
+               verdict_original,
+               prompt_version)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
                     %s, %s, %s, %s,
+                    %s,
                     %s,
                     %s,
                     %s,
@@ -426,6 +428,7 @@ def insert_classification(
                 json.dumps(sanity_warnings) if sanity_warnings else None,
                 pivot_continuity,
                 verdict_original,
+                llm_meta.get("prompt_version"),
             ),
         )
         # (#1) same-base 재판독 경고는 행이 실제 저장된 경우에만 — ON CONFLICT 로
@@ -504,12 +507,14 @@ def insert_backfill_classification(
                measurements,
                watch_reason,
                verdict_original,
-               sanity_warnings)
+               sanity_warnings,
+               prompt_version)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
                     %s,
                     %s, %s, %s, %s,
+                    %s,
                     %s,
                     %s,
                     %s,
@@ -543,6 +548,7 @@ def insert_backfill_classification(
                 _watch_reason(result),
                 verdict_original,
                 json.dumps(sanity_warnings) if sanity_warnings else None,
+                llm_meta.get("prompt_version"),
             ),
         )
 
@@ -604,14 +610,14 @@ def insert_trigger_log(
                analyzed_for_date,
                prior_classification_at,
                llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model,
-               wait_reason)
+               wait_reason, prompt_version)
             VALUES (%s, %s, %s,
                     %s, %s, %s,
                     %s, %s, %s, %s,
                     %s,
                     %s,
                     %s, %s, %s, %s,
-                    %s)
+                    %s, %s)
             ON CONFLICT (symbol, evaluated_at) DO NOTHING
             """,
             (
@@ -632,6 +638,7 @@ def insert_trigger_log(
                 llm_meta.get("output_tokens"),
                 llm_meta.get("model"),
                 wait_reason,
+                llm_meta.get("prompt_version"),
             ),
         )
 
