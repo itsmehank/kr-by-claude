@@ -27,6 +27,13 @@ interface Position {
   status: string;
   note: string | null;
   last_eval: LastEval | null;
+  // (#162) 시그널 연결 — 참고 표기(손절 판정은 매입가 기준 불변), 전부 nullable
+  signal_at: string | null;
+  pivot_price: number | null;
+  signal_stop_price: number | null;
+  chase_pct: number | null;
+  chase_over_limit: boolean | null;
+  signal_gap_days: number | null;
 }
 
 function fmtPrice(n: number | null | undefined): string {
@@ -80,6 +87,8 @@ export default function PositionsPage() {
                 <th className="py-2 pr-3">평가일</th>
                 <th className="py-2 pr-3">종가</th>
                 <th className="py-2 pr-3">유효 손절선</th>
+                <th className="py-2 pr-3">시그널 손절(참고)</th>
+                <th className="py-2 pr-3">추격</th>
                 <th className="py-2 pr-3">바인딩</th>
                 <th className="py-2 pr-3">상태</th>
               </tr>
@@ -96,6 +105,32 @@ export default function PositionsPage() {
                   <td className="py-2 pr-3">{p.last_eval?.eval_date ?? "—"}</td>
                   <td className="py-2 pr-3">{fmtPrice(p.last_eval?.close)}</td>
                   <td className="py-2 pr-3">{fmtPrice(p.last_eval?.effective_stop)}</td>
+                  <td className="py-2 pr-3" title={p.signal_at ? `시그널 ${p.signal_at} · pivot ${fmtPrice(p.pivot_price)}` : "시그널 없는 매수 — 추격·손절 대조 불가"}>
+                    {p.signal_at ? (
+                      <>
+                        {fmtPrice(p.signal_stop_price)}
+                        {p.signal_gap_days != null ? (
+                          <span className="ml-1 text-xs text-muted-foreground">+{p.signal_gap_days}일</span>
+                        ) : null}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">시그널 없음</span>
+                    )}
+                  </td>
+                  <td className="py-2 pr-3">
+                    {p.chase_pct == null ? (
+                      "—"
+                    ) : p.chase_over_limit ? (
+                      <span
+                        className="rounded bg-amber-100 px-1 text-xs font-semibold text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                        title="책 기준 5% 초과 — 매입가 기준 8% 손절은 정상 되돌림에 걸릴 수 있음(HMMS). 손절가는 그대로 매입가 × 0.92"
+                      >
+                        {(p.chase_pct * 100).toFixed(1)}% 초과
+                      </span>
+                    ) : (
+                      `${(p.chase_pct * 100).toFixed(1)}%`
+                    )}
+                  </td>
                   <td className="py-2 pr-3">
                     {p.last_eval ? BINDING_LABEL[p.last_eval.binding] ?? p.last_eval.binding : "—"}
                     {p.breakeven_armed ? (

@@ -3,7 +3,7 @@
 
 사용 예:
   python -m kr_pipeline.trade_management --mode=daily-eval [--as-of 2026-07-22]
-  python -m kr_pipeline.trade_management --add 005930 --price 71000 [--date ...] [--qty 10]
+  python -m kr_pipeline.trade_management --add 005930 --price 71000 [--date ...] [--qty 10] [--signal-at 2026-07-18T09:00:00+09:00]
   python -m kr_pipeline.trade_management --close-id 3 [--reason "target hit"]
   python -m kr_pipeline.trade_management --list
 """
@@ -11,13 +11,15 @@ import argparse
 import json
 import logging
 import sys
-from datetime import date
+from datetime import date, datetime
 
 from kr_pipeline.common.config import Config
 from kr_pipeline.common.logging import setup_logging
 from kr_pipeline.db.connection import connect
 from kr_pipeline.db.runs import run_tracking
+from kr_pipeline.llm_runner.slack import notify_chase_entry
 from kr_pipeline.trade_management.runner import run_daily_eval
+from kr_pipeline.trade_management.signal_link import link_warnings, match_signal
 from kr_pipeline.trade_management.store import (
     close_position, get_open_positions, open_position,
 )
@@ -35,6 +37,8 @@ def parse_args() -> argparse.Namespace:
                    default=None, help="--add 매수일 (기본 오늘)")
     p.add_argument("--qty", type=int, default=None)
     p.add_argument("--note", default=None)
+    p.add_argument("--signal-at", dest="signal_at", type=datetime.fromisoformat, default=None,
+                   help="(#162) --add 시 연결할 entry_params.signal_at 명시(기본: entry_date 이전 최근 행)")
     p.add_argument("--close-id", type=int, help="포지션 종료 (id)")
     p.add_argument("--reason", default=None, help="--close-id 사유")
     p.add_argument("--list", action="store_true", help="open 포지션 목록")
@@ -63,11 +67,34 @@ def main() -> int:
             if not args.price:
                 log.error("--add 는 --price 필수")
                 return 1
+            entry_date = args.entry_date or date.today()
+            # (#162) 시그널 연결 — 참고 컬럼만, 손절 판정(매입가 × 0.92)은 불변. 기록 거부 없음.
+            try:
+                link = match_signal(conn, symbol=args.add, entry_date=entry_date,
+                                    entry_price=args.price, signal_at=args.signal_at)
+            except ValueError as e:
+                log.error("%s", e)
+                return 1
             pid = open_position(
-                conn, symbol=args.add, entry_date=args.entry_date or date.today(),
-                entry_price=args.price, quantity=args.qty, note=args.note,
+                conn, symbol=args.add, entry_date=entry_date,
+                entry_price=args.price, quantity=args.qty, note=args.note, signal=link,
             )
             log.info("opened position id=%d %s @ %s", pid, args.add, args.price)
+            if link is not None:
+                log.info("signal %s · pivot %s · 시그널 손절 %s · 추격 %s · gap %d일",
+                         link.signal_at.isoformat(), link.pivot_price, link.signal_stop_price,
+                         f"{link.chase_pct * 100:+.1f}%" if link.chase_pct is not None else "n/a",
+                         link.signal_gap_days)
+            for w in link_warnings(link):
+                log.warning("%s", w)
+            if link is not None and link.chase_over_limit:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT name FROM stocks WHERE ticker = %s", (args.add,))
+                    nrow = cur.fetchone()
+                notify_chase_entry(symbol=args.add, name=nrow[0] if nrow else args.add,
+                                   entry_price=args.price, pivot_price=link.pivot_price,
+                                   chase_pct=link.chase_pct, warning=link_warnings(link)[0],
+                                   entry_date=entry_date)
         elif args.close_id:
             try:
                 close_position(conn, position_id=args.close_id, reason=args.reason)

@@ -19,18 +19,25 @@ def open_position(
     quantity: int | None = None,
     note: str | None = None,
     source: str = "manual",
+    signal=None,
 ) -> int:
-    """포지션 개설 — 새 id 반환. entry_price 는 평균매입가(체결 사실, 이후 불변)."""
+    """포지션 개설 — 새 id 반환. entry_price 는 평균매입가(체결 사실, 이후 불변).
+    signal: (#162) signal_link.SignalLink | None — 참고 컬럼(전부 nullable), 판정 무영향."""
     if entry_price is None or not (entry_price > 0):
         raise ValueError(f"entry_price must be positive: {entry_price}")
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO positions (symbol, entry_date, entry_price, quantity, note, source)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO positions (symbol, entry_date, entry_price, quantity, note, source,
+                                   signal_at, pivot_price, signal_stop_price, chase_pct,
+                                   chase_over_limit, signal_gap_days)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (symbol, entry_date, entry_price, quantity, note, source),
+            (symbol, entry_date, entry_price, quantity, note, source,
+             *((signal.signal_at, signal.pivot_price, signal.signal_stop_price, signal.chase_pct,
+                signal.chase_over_limit, signal.signal_gap_days) if signal is not None
+               else (None,) * 6)),
         )
         return cur.fetchone()[0]
 
@@ -57,7 +64,9 @@ def get_open_positions(conn: Connection) -> list[dict]:
         cur.execute(
             """
             SELECT id, symbol, entry_date, entry_price, quantity, breakeven_armed, note,
-                   hit20_date, half_pending, half_fired_at, half_expired
+                   hit20_date, half_pending, half_fired_at, half_expired,
+                   signal_at, pivot_price, signal_stop_price, chase_pct, chase_over_limit,
+                   signal_gap_days
               FROM positions
              WHERE status = 'open'
              ORDER BY entry_date, id
@@ -72,6 +81,13 @@ def get_open_positions(conn: Connection) -> list[dict]:
             # (#166) 5B 상태
             "hit20_date": r[7], "half_pending": bool(r[8]),
             "half_fired_at": r[9], "half_expired": bool(r[10]),
+            # (#162) 시그널 연결 — 참고용(판정 무관), 전부 nullable
+            "signal_at": r[11],
+            "pivot_price": float(r[12]) if r[12] is not None else None,
+            "signal_stop_price": float(r[13]) if r[13] is not None else None,
+            "chase_pct": float(r[14]) if r[14] is not None else None,
+            "chase_over_limit": r[15],
+            "signal_gap_days": r[16],
         }
         for r in rows
     ]

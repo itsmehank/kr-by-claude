@@ -165,6 +165,9 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
                     symbol=p["symbol"], name=nrow[0] if nrow else p["symbol"],
                     close=close, effective_stop=d.effective_stop, binding=d.binding,
                     eval_date=as_of,
+                    # (#162) 병기만 — 판정(effective_stop)은 매입가 기준 불변
+                    signal_stop_price=p.get("signal_stop_price"), chase_pct=p.get("chase_pct"),
+                    chase_over_limit=p.get("chase_over_limit"),
                 )
                 log.warning(
                     "[stop-triggered] %s close %.0f < stop %.0f (%s)",

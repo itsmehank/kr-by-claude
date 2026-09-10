@@ -661,6 +661,21 @@ CREATE INDEX IF NOT EXISTS idx_positions_open ON positions (status, symbol);
 -- 종목당 open 포지션 1개 (전량 매도 신호 모델 — 이중 등록 시 이중 평가·이중 알림 방지)
 CREATE UNIQUE INDEX IF NOT EXISTS uq_positions_open_symbol
   ON positions (symbol) WHERE status = 'open';
+-- (#162 2026-09-09) 시그널 연결 — 전부 nullable, **참고용**(손절 판정은 매입가 기준 stop_stack 불변).
+-- entry_params 는 surrogate id 가 없어(PK symbol+signal_at) 복합 FK 로 연결. chase_pct = entry/pivot − 1
+-- (분수), chase_over_limit = chase_pct > PIVOT_EXTENDED_BAND_MULT − 1 (5%, 기존 상수 재사용).
+ALTER TABLE positions ADD COLUMN IF NOT EXISTS signal_at         TIMESTAMPTZ;
+ALTER TABLE positions ADD COLUMN IF NOT EXISTS pivot_price       NUMERIC(12, 4);
+ALTER TABLE positions ADD COLUMN IF NOT EXISTS signal_stop_price NUMERIC(12, 4);
+ALTER TABLE positions ADD COLUMN IF NOT EXISTS chase_pct         NUMERIC(8, 6);
+ALTER TABLE positions ADD COLUMN IF NOT EXISTS chase_over_limit  BOOLEAN;
+ALTER TABLE positions ADD COLUMN IF NOT EXISTS signal_gap_days   INTEGER;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'positions_signal_fk') THEN
+    ALTER TABLE positions ADD CONSTRAINT positions_signal_fk
+      FOREIGN KEY (symbol, signal_at) REFERENCES entry_params (symbol, signal_at);
+  END IF;
+END $$;
 -- (#166 2026-09-08) 이익목표 절반매도(5B) 상태 — 포지션당 1회 발화, 러너가 영속(멱등)
 ALTER TABLE positions ADD COLUMN IF NOT EXISTS hit20_date     DATE;      -- +20% 최초 도달일
 ALTER TABLE positions ADD COLUMN IF NOT EXISTS half_pending   BOOLEAN NOT NULL DEFAULT FALSE;  -- 21일 내 도달 → 8주차 대기
