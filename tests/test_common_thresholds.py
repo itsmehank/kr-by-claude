@@ -78,7 +78,7 @@ def test_phase2i_cup_shape_constants():
     assert thresholds.CUP_PRIOR_UPTREND_MIN_PCT == 30.0
     assert thresholds.HANDLE_DEPTH_BULL_MIN_PCT == 8.0
     assert thresholds.HANDLE_DEPTH_BULL_MAX_PCT == 12.0
-    assert thresholds.HANDLE_LEGIT_MIN_DAYS == 5          # book-anchor 길이 게이트 (≠ HANDLE_MIN_DAYS heuristic)
+    assert thresholds.HANDLE_LEGIT_MIN_DAYS == 5          # book-anchor 길이 게이트 — (#177) 검출기 하한도 이 값
     assert thresholds.MIN_BASE_WEEKS == {
         "cup_with_handle": 7, "flat_base": 5, "double_bottom": 7, "vcp": 5,
     }
@@ -88,10 +88,9 @@ def test_phase2i_cup_shape_constants():
 
 
 def test_phase2i_handle_heuristic_constants():
-    # heuristic (튜닝 가능)
-    assert thresholds.HANDLE_DEEP_RATIO == 0.33
+    # heuristic (튜닝 가능). (#177) HANDLE_DEEP_RATIO·HANDLE_MIN_DAYS 삭제 — 재도입 가드
+    assert not hasattr(thresholds, "HANDLE_DEEP_RATIO") and not hasattr(thresholds, "HANDLE_MIN_DAYS")
     assert thresholds.HANDLE_VOLUME_NOT_CONTRACTING_RATIO == 0.80
-    assert thresholds.HANDLE_MIN_DAYS == 3
     assert thresholds.BASE_MIN_DAYS == 5
     assert thresholds.HANDLE_POSITION_LOW_RATIO == 0.33
 

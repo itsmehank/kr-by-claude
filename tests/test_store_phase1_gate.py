@@ -8,12 +8,12 @@ from kr_pipeline.llm_runner.store import insert_classification
 
 
 def _seed_ohlcv_deep_handle(db, ticker):
-    """deep handle 발화하는 OHLCV 시드.
+    """handle_quality 발화하는 OHLCV 시드 — (#177) 조건 A(깊이비) 제거 후 거래량비(B)로 발화.
 
-    구조: cup(6봉) + deep_handle(3봉).
+    구조: cup(6봉) + handle(5봉, 림 봉 포함 6일 ≥ HANDLE_LEGIT_MIN_DAYS 5).
     컵: 좌측 림→바닥(low 78, idx3)→우측 림(high 101>=100, idx5).
-    핸들: 깊은 하락(low 82) → depth=(100-82)/100=18%, base 30% → ratio 0.6 > 0.33.
-    classified_at 을 2026-01-20 으로 하면 base_start=2026-01-05 이후 9봉 커버.
+    핸들: 거래량 2000(base 1000) → ratio_b 2.0 > 0.80 → volume_not_contracting.
+    classified_at 을 2026-01-20 으로 하면 base_start=2026-01-05 이후 11봉 커버.
 
     [plan 원본 시드 교체 사유]
     plan 초안의 시드는 right_rim 봉(high >= pivot)이 없어 cup_with_handle 구조가
@@ -29,11 +29,13 @@ def _seed_ohlcv_deep_handle(db, ticker):
         (94, 88, 92, 1000),   # idx4 회복
         (101, 96, 99, 1000),  # idx5 우측 림 (high 101 >= pivot 100)
     ]
-    # handle bars (after right rim): deep handle, low 82 → ratio_a = 18/30 = 0.6 > 0.33
+    # handle bars (after right rim): 거래량 미수축(2000 vs base 1000) → B 발화. 깊이는 판정 비관여(#177)
     handle = [
-        (99, 85, 86, 700),
-        (97, 82, 84, 600),
-        (98, 90, 96, 700),
+        (99, 85, 86, 2000),
+        (97, 82, 84, 2000),
+        (98, 90, 96, 2000),
+        (99, 92, 97, 2000),
+        (99, 93, 98, 2000),
     ]
     start = date(2026, 1, 5)
     with db.cursor() as cur:
