@@ -9,6 +9,8 @@ from datetime import date
 
 from psycopg import Connection
 
+from kr_pipeline.common.price_source import price_source
+
 from kr_pipeline.llm_runner.compute.trigger_gate import evaluate as gate_evaluate, ALLOWED_WATCH_REASONS
 
 # shadow 모드에서 watch_reason 적격 게이트만 우회(가격/거래량/fresh_cross 로직은 동일 유지).
@@ -239,17 +241,20 @@ def load_watchlist(conn: Connection, ticker: str, start: date, end: date,
 
 
 def load_daily_series(conn: Connection, ticker: str, start: date, end: date) -> list[DayBar]:
+    src = price_source(conn, ticker)  # (#181 B4) 라이브/격리 분기
     with conn.cursor() as cur:
         # adj_volume 사용 — gate 의 avg_volume_50d(=daily_indicators, adj 기준)와 단위 일치(raw 쓰면 기업행위 종목 오발화). cf. payload_raw_vs_adj_volume_mismatch
+        # (#181) 격리 종목은 zero-bar 행의 adj_close 가 NULL — DayBar.close 는 NOT NULL 계약이라 그 행은 제외.
         cur.execute(
-            """
+            f"""
             SELECT p.date, p.adj_close, p.adj_volume, i.sma_50, i.avg_volume_50d,
                    LAG(p.adj_close) OVER (ORDER BY p.date) AS prev_close,
                    COALESCE(p.adj_open, p.open), COALESCE(p.adj_high, p.high),
                    COALESCE(p.adj_low, p.low)
-              FROM daily_prices p
-              LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
+              FROM {src.daily} p
+              LEFT JOIN {src.indicators} i ON i.ticker = p.ticker AND i.date = p.date
              WHERE p.ticker = %s AND p.date BETWEEN %s AND %s
+               AND p.adj_close IS NOT NULL
              ORDER BY p.date
             """,
             (ticker, start, end),

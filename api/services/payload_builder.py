@@ -5,6 +5,7 @@ from psycopg import Connection
 from api.services.market_context_builder import build_market_context
 from api.services.corporate_actions_builder import build_corporate_actions
 from api.services.minervini_detail_builder import build_minervini_detail
+from kr_pipeline.common.price_source import price_source
 from kr_pipeline.llm_runner.compute.climax_topping import (
     compute_climax_gates,
     compute_daily_extremes,
@@ -229,10 +230,11 @@ def _fetch_minervini_pass_series(conn: Connection, ticker: str, on_date: date) -
     시간 오름차순 반환 — recent_transition_count_63d 입력 규약(마지막 행 = 기준일,
     look-ahead 금지는 date <= on_date 로 보장). 거래일 = daily_indicators 행 존재일.
     """
+    src = price_source(conn, ticker)  # (#181 B4) 라이브/격리 분기
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(f"""
             SELECT minervini_pass
-              FROM daily_indicators
+              FROM {src.indicators}
              WHERE ticker = %s AND date <= %s
              ORDER BY date DESC
              LIMIT %s
@@ -243,13 +245,14 @@ def _fetch_minervini_pass_series(conn: Connection, ticker: str, on_date: date) -
 
 def _build_current_metrics(conn: Connection, ticker: str, on_date: date) -> dict:
     """가격·거래량은 daily_prices 권위 소스, 52w·volume_ratio 는 daily_indicators."""
+    src = price_source(conn, ticker)  # (#181 B4)
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(f"""
             SELECT p.adj_close, i.w52_high, i.w52_low,
                    i.pct_from_52w_high, i.pct_from_52w_low,
                    i.avg_volume_50d, i.volume_ratio_50d
-              FROM daily_prices p
-              LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
+              FROM {src.daily} p
+              LEFT JOIN {src.indicators} i ON i.ticker = p.ticker AND i.date = p.date
              WHERE p.ticker = %s AND p.date <= %s
              ORDER BY p.date DESC
              LIMIT 1
@@ -301,10 +304,11 @@ def _daily_row(r) -> dict:
 
 
 def _fetch_daily_ohlcv(conn: Connection, ticker: str, on_date: date, days: int = 60) -> list:
+    src = price_source(conn, ticker)  # (#181 B4)
     with conn.cursor() as cur:
         cur.execute(f"""
             SELECT {_DAILY_OHLCV_COLS}
-              FROM daily_prices
+              FROM {src.daily}
              WHERE ticker = %s AND date <= %s
                AND {_DAILY_NOT_ZERO_BAR}
              ORDER BY date DESC LIMIT %s
@@ -337,15 +341,16 @@ def _fetch_daily_since(conn: Connection, ticker: str, start: date, on_date: date
     cols = f"""{_DAILY_OHLCV_COLS},
                    (open = 0 AND high = 0 AND low = 0 AND volume = 0) AS zero_bar,
                    (adj_high IS NOT NULL AND adj_low IS NOT NULL)     AS adj_hl"""
+    src = price_source(conn, ticker)  # (#181 B4)
     with conn.cursor() as cur:
         cur.execute(f"""
             (SELECT {cols}
-               FROM daily_prices
+               FROM {src.daily}
               WHERE ticker = %s AND date < %s
               ORDER BY date DESC LIMIT 1)
             UNION ALL
             (SELECT {cols}
-               FROM daily_prices
+               FROM {src.daily}
               WHERE ticker = %s AND date >= %s AND date <= %s
               ORDER BY date ASC)
             ORDER BY date ASC
@@ -357,15 +362,16 @@ def _fetch_daily_since(conn: Connection, ticker: str, start: date, on_date: date
 def _fetch_weekly_ohlcv(conn: Connection, ticker: str, on_date: date, weeks: int = 104) -> list:
     """주봉 OHLCV 104주 (COALESCE(adj_*, raw)). #99 부터 payload 미출력 —
     csv_builder.build_weekly_ohlcv_csv 가 이 함수를 소비해 CSV 로 직렬화한다."""
+    src = price_source(conn, ticker)  # (#181 B4)
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(f"""
             SELECT week_end_date,
                    COALESCE(adj_open,  open)   AS o,
                    COALESCE(adj_high,  high)   AS h,
                    COALESCE(adj_low,   low)    AS l,
                    COALESCE(adj_close, close)  AS c,
                    COALESCE(adj_volume,volume) AS v
-              FROM weekly_prices
+              FROM {src.weekly}
              WHERE ticker = %s AND week_end_date <= %s
              ORDER BY week_end_date DESC LIMIT %s
         """, (ticker, on_date, weeks))
@@ -394,8 +400,9 @@ def _fetch_weekly_full(conn: Connection, ticker: str, on_date: date) -> list:
     - `gap_before` = 이 주와 직전 반환 행 사이에 zero-bar 주가 있었음(T1 비율의 prev_close 불연속).
     - `adj_hl` = adj_high·adj_low 둘 다 존재(high·low 가 adj 소스; T1 (high−low)/adj_close 유효성).
     """
+    src = price_source(conn, ticker)  # (#181 B4)
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(f"""
             SELECT week_end_date,
                    COALESCE(adj_open,  open)   AS o,
                    COALESCE(adj_high,  high)   AS h,
@@ -404,7 +411,7 @@ def _fetch_weekly_full(conn: Connection, ticker: str, on_date: date) -> list:
                    COALESCE(adj_volume,volume) AS v,
                    (open = 0 AND high = 0 AND low = 0 AND volume = 0) AS zero_bar,
                    (adj_high IS NOT NULL AND adj_low IS NOT NULL)     AS adj_hl
-              FROM weekly_prices
+              FROM {src.weekly}
              WHERE ticker = %s AND week_end_date <= %s
              ORDER BY week_end_date ASC
         """, (ticker, on_date))
@@ -429,8 +436,9 @@ def _fetch_weekly_full(conn: Connection, ticker: str, on_date: date) -> list:
     return out
 def _fetch_indicators_recent(conn: Connection, ticker: str, on_date: date, days: int = 60) -> list:
     """daily_prices(가격·거래량) + daily_indicators(지표) JOIN → 최근 N일 series."""
+    src = price_source(conn, ticker)  # (#181 B4)
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(f"""
             -- volume 은 i.volume(=adj_volume, modes.py:231) — daily_ohlcv·avg_volume_50d·
             -- volume_ratio 가 전부 adj 라, 여기서 p.volume(raw) 을 쓰면 같은 날 두 도메인 혼입.
             SELECT p.date, p.adj_close, i.volume,
@@ -438,8 +446,8 @@ def _fetch_indicators_recent(conn: Connection, ticker: str, on_date: date, days:
                    i.w52_high, i.w52_low, i.rs_line, i.rs_rating, i.minervini_pass,
                    i.avg_volume_50d, i.volume_ratio_50d, i.pocket_pivot_flag, i.distribution_day_flag,
                    i.rs_line_at_52w_high, i.rs_line_uptrend_6w, i.rs_line_uptrend_13w
-              FROM daily_prices p
-              LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
+              FROM {src.daily} p
+              LEFT JOIN {src.indicators} i ON i.ticker = p.ticker AND i.date = p.date
              WHERE p.ticker = %s AND p.date <= %s
              ORDER BY p.date DESC LIMIT %s
         """, (ticker, on_date, days))
