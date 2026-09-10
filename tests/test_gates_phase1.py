@@ -25,7 +25,7 @@ def _base_result(classification="entry", confidence=0.62, risk_flags=None):
 def test_tier1_soft_watch(monkeypatch, db):
     """handle_quality 단독 → watch 강등 + conf ≤ 0.60, entry_params 차단 없음."""
     monkeypatch.setattr(gates, "compute_handle_quality",
-                        lambda *a, **k: {"fired": True, "reasons": ["deep_handle"], "weights": [], "metrics": {}})
+                        lambda *a, **k: {"fired": True, "reasons": ["volume_not_contracting"], "weights": [], "metrics": {}})
     monkeypatch.setattr(gates, "compute_failed_breakout", lambda *a, **k: None)
 
     result = _base_result(classification="entry", confidence=0.80, risk_flags=[])
@@ -42,7 +42,7 @@ def test_tier1_soft_watch(monkeypatch, db):
 def test_tier2_hard_watch_with_extended(monkeypatch, db):
     """handle_quality + extended_from_ma → watch + conf ≤ 0.50."""
     monkeypatch.setattr(gates, "compute_handle_quality",
-                        lambda *a, **k: {"fired": True, "reasons": ["deep_handle"], "weights": [], "metrics": {}})
+                        lambda *a, **k: {"fired": True, "reasons": ["volume_not_contracting"], "weights": [], "metrics": {}})
     monkeypatch.setattr(gates, "compute_failed_breakout", lambda *a, **k: None)
 
     result = _base_result(classification="entry", confidence=0.80, risk_flags=["extended_from_ma"])
@@ -91,7 +91,7 @@ def test_ignore_with_handle_quality_stays_ignore(monkeypatch, db):
     conf cap 은 적용됨 (min). extended_from_ma → Tier2 cap 0.50.
     """
     monkeypatch.setattr(gates, "compute_handle_quality",
-                        lambda *a, **k: {"fired": True, "reasons": ["deep_handle"], "weights": [], "metrics": {}})
+                        lambda *a, **k: {"fired": True, "reasons": ["volume_not_contracting"], "weights": [], "metrics": {}})
     monkeypatch.setattr(gates, "compute_failed_breakout", lambda *a, **k: None)
 
     result = _base_result(classification="ignore", confidence=0.90, risk_flags=["extended_from_ma"])
@@ -107,7 +107,7 @@ def test_ignore_with_handle_quality_stays_ignore(monkeypatch, db):
 def test_tier1_conf_none_capped(monkeypatch, db):
     """confidence=None 인 entry 도 handle_quality 발화 시 cap 값으로 설정."""
     monkeypatch.setattr(gates, "compute_handle_quality",
-                        lambda *a, **k: {"fired": True, "reasons": ["deep_handle"], "weights": [], "metrics": {}})
+                        lambda *a, **k: {"fired": True, "reasons": ["volume_not_contracting"], "weights": [], "metrics": {}})
     monkeypatch.setattr(gates, "compute_failed_breakout", lambda *a, **k: None)
 
     result = _base_result(classification="entry", confidence=None, risk_flags=[])
@@ -125,7 +125,7 @@ def test_watch_with_handle_quality_stays_watch_conf_capped(monkeypatch, db):
     watch no-extended → Tier1 cap 0.60. 0.75 → min(0.75, 0.60) = 0.60.
     """
     monkeypatch.setattr(gates, "compute_handle_quality",
-                        lambda *a, **k: {"fired": True, "reasons": ["deep_handle"], "weights": [], "metrics": {}})
+                        lambda *a, **k: {"fired": True, "reasons": ["volume_not_contracting"], "weights": [], "metrics": {}})
     monkeypatch.setattr(gates, "compute_failed_breakout", lambda *a, **k: None)
 
     result = _base_result(classification="watch", confidence=0.75, risk_flags=[])
@@ -141,7 +141,7 @@ def test_watch_with_handle_quality_stays_watch_conf_capped(monkeypatch, db):
 def test_monotone_no_promotion_ignore_stays(monkeypatch, db):
     """ignore + handle_quality → ignore 유지 (most_conservative no-promotion)."""
     monkeypatch.setattr(gates, "compute_handle_quality",
-                        lambda *a, **k: {"fired": True, "reasons": ["deep_handle"], "weights": [], "metrics": {}})
+                        lambda *a, **k: {"fired": True, "reasons": ["volume_not_contracting"], "weights": [], "metrics": {}})
     monkeypatch.setattr(gates, "compute_failed_breakout", lambda *a, **k: None)
     result = _base_result(classification="ignore", confidence=0.90, risk_flags=[])
     out, tr = gates.apply_phase1_gates(db, "IG", datetime(2026, 1, 1, tzinfo=timezone.utc), result)
@@ -153,7 +153,7 @@ def test_monotone_no_promotion_ignore_stays(monkeypatch, db):
 def test_monotone_watch_conf_capped_with_extended(monkeypatch, db):
     """LLM 이 이미 watch + handle_quality + extended → watch 유지 + conf ≤ 0.50."""
     monkeypatch.setattr(gates, "compute_handle_quality",
-                        lambda *a, **k: {"fired": True, "reasons": ["deep_handle"], "weights": [], "metrics": {}})
+                        lambda *a, **k: {"fired": True, "reasons": ["volume_not_contracting"], "weights": [], "metrics": {}})
     monkeypatch.setattr(gates, "compute_failed_breakout", lambda *a, **k: None)
     result = _base_result(classification="watch", confidence=0.80, risk_flags=["extended_from_ma"])
     out, tr = gates.apply_phase1_gates(db, "WX", datetime(2026, 1, 1, tzinfo=timezone.utc), result)

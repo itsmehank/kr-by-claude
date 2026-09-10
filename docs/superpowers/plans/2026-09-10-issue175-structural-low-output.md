@@ -101,4 +101,6 @@ payload_lite·recent_transition·trigger_gate·tt_marginal)에 수축 구간·ch
 ## 3. 후속(착수 금지)
 
 - **#177** `compute_handle_quality` 강등의 정당성 검토(원칙 1-3·1-1 판정 대상 후보) — 발화 36건 조사 요청 4항.
+  → **#177 Phase B(2026-09-10)**: 같은 검출기에 책 경계 2건(조건 A 깊이비 제거·핸들 하한 5일) 적용 —
+  `plans/2026-09-10-issue177-handle-quality-book-bounds.md`. 시작점·창 상한 재설계는 여전히 본 이슈(#175) 범위.
 - #161(보류, wake 동일 조건) · #165 · #174.

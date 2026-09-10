@@ -406,15 +406,14 @@ HANDLE_LEGIT_MIN_DAYS: Final[int] = 5
 **HANDLE_MIN_DAYS(=3, heuristic 계산 윈도우)와 다름** — 이건 분류 게이트(길이). 미달 → handle_status=not_formed(형성중, faulty 아님)."""
 
 # --- handle_quality.py 이관 (heuristic) ---
-HANDLE_DEEP_RATIO: Final[float] = 0.33
-"""[heuristic] 컵깊이 대비 핸들깊이 비 발화 임계. **trace 필요**: 책의 8~12% 절대치
-(HANDLE_DEPTH_BULL_*)와 reconcile 미완 — 현재는 휴리스틱."""
+# (#177 2026-09-10) HANDLE_DEEP_RATIO 0.33 [heuristic] 삭제 — 책 근거 없음(책은 고점 대비 절대 8~12% =
+# HANDLE_DEPTH_BULL_*), 원칙 1-1 4조건 충족. HANDLE_MIN_DAYS 3 [heuristic] 삭제 — 검출기 핸들 하한은
+# HANDLE_LEGIT_MIN_DAYS(5, book-anchor) 로 대체. 정의 원문은 plans/2026-09-10-issue177-handle-quality-book-bounds.md.
 
 HANDLE_VOLUME_NOT_CONTRACTING_RATIO: Final[float] = 0.80
-"""[heuristic] handle/base 평균거래량 비 발화 임계 (수축 안 됨)."""
+"""[heuristic] handle/base 평균거래량 비 발화 임계 (수축 안 됨). 개념은 book(HMMS 핸들 중 거래량
+증가 금지), 수치는 design — 별도 판정 대상(#177 미변경)."""
 
-HANDLE_MIN_DAYS: Final[int] = 3
-"""[heuristic] handle_quality 의 handle 구간 계산 최소 윈도우 (≠ HANDLE_LEGIT_MIN_DAYS 분류 게이트)."""
 BASE_MIN_DAYS: Final[int] = 5
 """[heuristic] handle_quality 의 base 구간 계산 최소 윈도우."""
 
