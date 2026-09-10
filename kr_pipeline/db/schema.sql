@@ -869,7 +869,8 @@ CREATE TABLE IF NOT EXISTS bt_delisted_indicators (
 
 -- ====== (#181 P0-② 배관, 2026-09-10) 상폐 격리 테이블 확장 — 라이브 테이블 무접촉 ======
 -- B1 상폐 수정 OHLV: factor = adj_close/close 행별 유도(kr_pipeline/ohlcv/delisted_ohlv.py).
--- zero-bar 행은 adj_* 전부 NULL(adj_close 포함) → NOT NULL 해제. CHECK(adj_close > 0)는 NULL 통과.
+-- zero-bar 행은 adj_open/high/low/volume 만 NULL, adj_close(체인값) 유지 = 라이브 nullify_halt_adj 동형(PR #183 Q-1 (B)).
+-- NOT NULL 해제는 복원 절차(restore_zero_bar_adj_close)의 과도 상태 허용용. CHECK(adj_close > 0)는 NULL 통과.
 ALTER TABLE delisted_adj_prices ADD COLUMN IF NOT EXISTS adj_open   NUMERIC(16, 4);
 ALTER TABLE delisted_adj_prices ADD COLUMN IF NOT EXISTS adj_high   NUMERIC(16, 4);
 ALTER TABLE delisted_adj_prices ADD COLUMN IF NOT EXISTS adj_low    NUMERIC(16, 4);

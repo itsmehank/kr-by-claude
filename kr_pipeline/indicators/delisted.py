@@ -3,9 +3,8 @@
 indicators/compute 순수 함수를 라이브 `modes._process_ticker_daily` 와 **같은 순서·같은 인자**로
 호출한다(복제 금지 대상은 계산식이며, 오케스트레이션은 라이브 함수가 테이블에 결합돼 있어 여기
 별도 기술). 차이(사실):
-- 입력 = delisted_daily_prices_adj(B1). zero-bar 행은 B1 규약상 adj_close 가 NULL 이므로 지표
-  계산용 시계열에서는 **carry 종가 × 직전 행 팩터**로 복원한다(라이브 daily_prices 는 정지일에도
-  adj_close carry 를 보유 — SMA 창 의미론 동형 유지). adj_high/low/volume 은 라이브와 같이 NaN.
+- 입력 = delisted_daily_prices_adj(B1). zero-bar 행도 adj_close(체인값, PR #183 Q-1 (B))를 보유하므로
+  라이브 daily_prices 와 같은 시계열 의미론(정지일 carry 포함 SMA 창). adj_high/low/volume 은 NaN.
 - rs_rating·c8 = bt_rs_daily(무편향 RS, #114) — 라이브 Phase B(생존 유니버스 백분위) 대신.
 - rs_line_not_declining_7m = delisted_weekly_prices(B2) adj_close 로 주봉 RS 라인 계산 후 daily 에
   asof 미러(라이브 Phase D 와 동일 규약, 주봉 지표 테이블은 만들지 않음).
@@ -47,20 +46,18 @@ COLUMNS = (
 
 
 def load_delisted_daily_for_indicators(conn: Connection, ticker: str) -> pd.DataFrame:
-    """(date, adj_close, adj_high, adj_low, adj_volume) — zero-bar 행 adj_close 는 carry×직전 팩터 복원."""
+    """(date, adj_close, adj_high, adj_low, adj_volume) — 라이브 load_daily_prices 와 동일 컬럼."""
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT date, close, adj_close, adj_high, adj_low, adj_volume "
+            "SELECT date, adj_close, adj_high, adj_low, adj_volume "
             "FROM delisted_daily_prices_adj WHERE ticker = %s ORDER BY date", (ticker,))
         rows = cur.fetchall()
-    df = pd.DataFrame(rows, columns=["date", "close", "adj_close", "adj_high", "adj_low", "adj_volume"])
+    df = pd.DataFrame(rows, columns=["date", "adj_close", "adj_high", "adj_low", "adj_volume"])
     if df.empty:
         return df
-    for c in ("close", "adj_close", "adj_high", "adj_low", "adj_volume"):
+    for c in ("adj_close", "adj_high", "adj_low", "adj_volume"):
         df[c] = pd.to_numeric(df[c], errors="coerce")
-    factor = (df["adj_close"] / df["close"]).ffill()
-    df["adj_close"] = df["adj_close"].where(df["adj_close"].notna(), df["close"] * factor)
-    return df.drop(columns=["close"])
+    return df
 
 
 def compute_delisted_rows(ticker: str, df_daily: pd.DataFrame, df_idx: pd.DataFrame,
@@ -101,7 +98,7 @@ def compute_delisted_rows(ticker: str, df_daily: pd.DataFrame, df_idx: pd.DataFr
     rows = []
     for d in df.index:
         if pd.isna(adj_close.loc[d]):
-            continue  # adj 복원 불가 행(선두 zero-bar 등) — 라이브도 adj_close NOT NULL
+            continue  # adj_close 없는 행(체인 미생산) — 라이브도 adj_close NOT NULL
         cs = [_as_bool(mn[f"minervini_c{k}"].loc[d]) for k in range(1, 8)]
         rr = rs_rating.get(d)
         c8 = None if rr is None else (rr >= C8_RS_RATING_MIN)

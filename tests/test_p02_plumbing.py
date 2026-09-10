@@ -19,9 +19,10 @@ def test_derive_adj_ohlv_single_factor():
     assert r == AdjOHLV(50.0, 55.0, 45.0, 50.0, 2000.0)
 
 
-def test_derive_adj_ohlv_zero_bar_all_none():
+def test_derive_adj_ohlv_zero_bar_keeps_adj_close_only():
+    # (PR #183 Q-1 (B)) nullify_halt_adj 동형: OHLV·volume None, adj_close(체인값) 유지
     assert is_zero_bar(0, 0, 0, 0)
-    assert derive_adj_ohlv(0, 0, 0, 100.0, 0, adj_close=50.0) == AdjOHLV(None, None, None, None, None)
+    assert derive_adj_ohlv(0, 0, 0, 100.0, 0, adj_close=50.0) == AdjOHLV(None, None, None, 50.0, None)
     assert derive_adj_ohlv(100, 110, 90, 100.0, 10, adj_close=None) == AdjOHLV(None, None, None, None, None)
 
 
@@ -80,8 +81,11 @@ def test_b1_apply_derives_ohlv_and_nulls_zero_bar(db):
         assert c == pytest.approx(raw * 0.5) and o == pytest.approx(raw * 0.5) and h == pytest.approx(raw * 1.02 * 0.5)
         assert l == pytest.approx(raw * 0.98 * 0.5) and v == pytest.approx(1010 / 0.5)
         cur.execute("SELECT adj_open, adj_close, adj_volume FROM delisted_adj_prices WHERE ticker=%s AND date=%s", ("DLST1", dates[300]))
-        assert cur.fetchone() == (None, None, None)
+        o, c, v = cur.fetchone()
+        assert o is None and v is None and float(c) == pytest.approx((100.0 + 300 % 7) * 1.0)  # adj_close 유지
         cur.execute("SELECT count(*) FROM delisted_daily_prices_adj WHERE ticker=%s AND adj_close IS NULL", ("DLST1",))
+        assert cur.fetchone()[0] == 0
+        cur.execute("SELECT count(*) FROM delisted_daily_prices_adj WHERE ticker=%s AND adj_open IS NULL", ("DLST1",))
         assert cur.fetchone()[0] == 2
     _cleanup(db, "DLST1")
 
@@ -128,7 +132,7 @@ def test_b2_b3_b4_delisted_end_to_end(db):
                 cur.execute("INSERT INTO index_daily (index_code, date, open, high, low, close, volume) VALUES ('1001',%s,100,100,100,100,0) ON CONFLICT DO NOTHING", (dd,))
         db.commit()
     st = build_delisted_indicators(db, ["DLST3"])
-    assert st["tickers"] == 1 and st["rows"] == 600   # zero-bar 행도 carry 복원으로 포함(라이브 동형)
+    assert st["tickers"] == 1 and st["rows"] == 600   # zero-bar 행도 adj_close(체인값) 보유 → 포함(라이브 동형)
     with db.cursor() as cur:
         cur.execute("SELECT sma_50, w52_high, minervini_c1, rs_rating, minervini_pass FROM delisted_daily_indicators WHERE ticker=%s AND date=%s",
                     ("DLST3", dates[-1]))
@@ -155,7 +159,7 @@ def test_b2_b3_b4_delisted_end_to_end(db):
     flagged = fetch_daily_flagged(db, "DLST3", on)
     assert len(flagged) == 600 and sum(r["zero_bar"] for r in flagged) == 2
     bars = load_daily_series(db, "DLST3", dates[0], on)
-    assert len(bars) == 598 and bars[-1].sma_50 is not None   # zero-bar(adj NULL) 제외
+    assert len(bars) == 600 and bars[-1].sma_50 is not None   # zero-bar 도 adj_close 보유(라이브 동형)
     _cleanup(db, "DLST3")
 
 

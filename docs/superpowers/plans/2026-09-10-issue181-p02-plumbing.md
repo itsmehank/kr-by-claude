@@ -11,7 +11,7 @@
 
 | # | 판정 | 구현 |
 |---|---|---|
-| B1 | adj OHLV: factor = adj_close/close 행별, o/h/l × factor, volume ÷ factor. zero-bar 는 adj_* 전부 NULL(adj_close 포함) | `kr_pipeline/ohlcv/delisted_ohlv.py` `derive_adj_ohlv`(순수)·`apply_delisted_adj_ohlv`. delisted_adj_prices +4컬럼, adj_close NOT NULL 해제 |
+| B1 | adj OHLV: factor = adj_close/close 행별, o/h/l × factor, volume ÷ factor. zero-bar 는 **OHLV·volume 만 NULL, adj_close(체인값) 유지**(PR #183 Q-1 (B) — 라이브 nullify_halt_adj 동일 규칙) | `kr_pipeline/ohlcv/delisted_ohlv.py` `derive_adj_ohlv`(순수)·`apply_delisted_adj_ohlv`·`restore_zero_bar_adj_close`(체인 재계산 복원). delisted_adj_prices +4컬럼, adj_close NOT NULL 해제(복원 과도 상태용) |
 | B2 | 상폐 주봉 = weekly_prices 동일 스키마, aggregate_to_weekly 재사용, weekly_prices 무접촉 | `delisted_weekly_prices` 신설, `kr_pipeline/weekly/delisted.py` |
 | B3 | 상폐 지표 = daily_indicators 동일 37컬럼, compute 순수 함수 재사용, c8·rs = bt_rs_daily, bt_delisted_indicators 보존 | `delisted_daily_indicators` 신설, `kr_pipeline/indicators/delisted.py` |
 | B4 | 리졸버 price_source → {daily, weekly, indicators, rs}, 판정 = delisted_daily_prices 행 존재, rs_source 기본 live | `kr_pipeline/common/price_source.py` + 뷰 `delisted_daily_prices_adj`(daily_prices 동일 컬럼) |
@@ -27,30 +27,38 @@
 - RS 소스 보류 사유: 생존 종목의 rs_rating 을 bt_rs_daily(무편향)로 바꾸면 라이브 분류 입력이 달라져 ②-2 범위
   결정과 결합됨 → `rs_source="bt"` 는 구현만 하고 기본은 live. 격리 종목은 라이브 RS 가 없어 항상 bt 유래.
 
+### 방법론 세션 오류 기록(원칙 3-6)
+사양 초안 B1 의 "zero-bar 행 adj_* 전부 NULL(adj_close 포함)"은 라이브 `nullify_halt_adj` 를 잘못 인용한 것 — 라이브
+규칙은 **adj_close 유지·OHLV·volume 만 NULL**. 1차 구현이 초안대로 adj_close 85,725행을 NULL 로 전환했다가 Q-1 판정
+(B)로 v5-d 체인 재계산값(결정론·0오차)으로 복원했다(`restore_zero_bar_adj_close`, 복원 85,725행 = 전환분과 동수).
+
 ## 2. 측정(관측만)
 
 | 항목 | 값 |
 |---|---|
-| B1 zero-bar NULL 전환 | **85,725행**(503,645 중 17.0%) — 전부 435종목에 분포(zero-bar 0 종목 없음). 유도 417,920행 |
+| B1 zero-bar | **85,725행**(503,645 중 17.0%, 435종목 전부에 분포) — OHLV·volume NULL, adj_close 체인값 유지(복원 85,725행). 유도 417,920행 |
 | B1 검증 | 비-zero-bar 417,920행 v5-d 체인 재계산 adj_close = 저장값, 불일치 0·최대 오차 0.0. 유도 팩터 일관성(adj_high/high = adj_close/close) 불일치 0 |
-| B2 | 435종목 107,007주, 주 전체 zero-bar 로 adj_close NULL 17,095주 |
-| B3 | 435종목 502,922행(선두 zero-bar 723행 제외), minervini_pass 22,278, rs_rating NULL 114,096(bt_rs 미보유 5종목 포함), rs_gate NULL 221,470 |
-| B3 c1~c7 일치(bt_delisted_indicators 대조) | **390,999/502,922(77.7%)**. 불일치는 c6 111,224·c7 110,952 가 지배 — 신규 NULL(bt 는 값) 111,184·110,939, 값 자체 상이 40·13. c1~c5 불일치 2.5k~8.4k. 원인 = 정의 차이(§3 Q-1·Q-2), 계산 오류 아님 |
+| B2 | 435종목 107,007주(adj_close NULL 0 — 정지 주도 carry 보유, 라이브 동형) |
+| B3 | 435종목 503,645행(전 행), rs_rating 은 bt_rs_daily 미보유 5종목·구간에서 NULL |
+| B3 c1~c7 일치(bt_delisted_indicators 대조, Q-1 (B) 반영 후) | **392,233/503,645(77.9%)**. **c1~c5 불일치 0**. c6/c7 = 신규 NULL(bt 는 값) 111,359·111,114 — 정의 차이(bt 는 zero-bar high/low 를 close 로 대체, 신규는 라이브 규칙 NaN·min_periods 240 → Q-2 판정: 라이브 정본). 값 자체 상이 c6 40·c7 13(§3 Q-2 관측) |
 | B5 창 내 진입 | armA-prod 표본 A+B: **0건**(상폐 종목 미포함이라 예상대로) |
-| B8 상폐 payload | 표본 10종목 build_payload 오류 0, 키 집합 동일 8/10(2건은 `conditions_detail.c1.values.w52_high/low` 키 부재 — w52 NULL 시 detail builder 가 키를 생략), non-null 비율 0.82~0.99(생존 005930 0.88) |
+| B8 상폐 payload | 표본 10종목 build_payload 오류 0, 키 집합 동일 8/10(2건은 `conditions_detail.c1.values.w52_high/low` 키 부재 — w52 NULL 시 detail builder 가 키를 생략, **라이브 동일 동작**, 기록만), non-null 비율 0.82~0.99(생존 005930 0.88) |
 
 ## 3. 에스컬레이션(원칙 2-3)
 
-- **[Q-1] zero-bar 행의 adj_close NULL 규약.** 사양은 nullify_halt_adj 규칙을 인용했으나 라이브 `nullify_halt_adj` 는
+- **[Q-1 → (B) 판정, 반영 완료]** zero-bar 행 adj_close = 체인값 유지, OHLV·volume 만 NULL(라이브 동일). 아래는 판정 전 기록.
+- **[Q-1 원문] zero-bar 행의 adj_close NULL 규약.** 사양은 nullify_halt_adj 규칙을 인용했으나 라이브 `nullify_halt_adj` 는
   **adj_close 를 유지**(OHLV·volume 만 NULL). 사양대로 adj_close 까지 NULL 로 두면 (a) 지표 SMA 창에서 정지일 carry
   종가가 사라져 라이브 의미론과 어긋나고 (b) 체인 팩터가 미저장이라 복원 시 직전 팩터 ffill 로 대체하는데
   85,002 zero-bar 행 중 **16,647행(19.6%)이 체인 값과 불일치**(정지 구간 안에 조정 이벤트). B3 는 현재 ffill 복원을
   쓴다. 선택지 (A) 사양 유지(현 구현) / (B) 라이브 규약으로 정정 — zero-bar 행 adj_close 를 체인 값으로 복원
   (produce 재실행 결정론, 0 오차 확인됨)하고 OHLV·volume 만 NULL. **회신 전 현 구현 유지.**
-- **[Q-2] B3 검증 기준 "c1~c7 = bt_delisted_indicators".** bt(#118)는 zero-bar 행의 high/low 를 close 로 대체해 w52 를
+- **[Q-2 → 판정: 라이브 규칙(NaN·min_periods 240) 정본]** bt_delisted_indicators 차이는 정의 차이로 기록. **값 상이 53행(c6 40·c7 13) 원인 관측**: 53행 중 **22행**은 직전 252거래일 창 안에 zero-bar 행(0~12개)이 있어 bt 의 close 대체(w52 극값 후보 추가)로 설명된다. 나머지 **31행은 창 안에 zero-bar 도 부분 zero(high/low=0, 전체 8행뿐) 행도 없어 본 조사로는 원인 미확인** — bt 실행 시점(08-22)의 입력(delisted_adj_prices v5-d 재생산 전후·index 데이터) 차이 가능성만 남김. 정의 정본은 라이브 규칙이므로 판정 영향 없음. 기록만.
+- **[Q-2 원문] B3 검증 기준 "c1~c7 = bt_delisted_indicators".** bt(#118)는 zero-bar 행의 high/low 를 close 로 대체해 w52 를
   계산했고, 신규는 라이브 규칙(adj_high/low NaN, min_periods 240/252)을 따른다 → c6/c7 NULL 이 22% 행에서 발생.
   두 정의 중 어느 쪽을 기준으로 삼을지. 라이브 동형이 production 파리티 원칙(4-4·격리 설계)에 부합하나, 판정은 위임.
-- **[Q-3] 분류 첨부 경로(범위 밖 기록).** inline_builder 가 붙이는 daily.csv(csv_builder: daily_prices ⨝
+- **[Q-3 → 판정: #181 범위 밖 확정, #180 ②-2 착수 조건에 추가(2026-09-10)]**
+- **[Q-3 원문] 분류 첨부 경로(범위 밖 기록).** inline_builder 가 붙이는 daily.csv(csv_builder: daily_prices ⨝
   daily_indicators)·weekly.csv(**weekly_indicators** — 상폐 대응 테이블 없음)·차트 PNG(chart_render: daily/weekly_prices)
   는 아직 라이브 테이블 고정. payload dict 는 동일 스키마이나 ②-2 실제 분류 호출 전에 이 3경로 분기(+상폐 주봉
   지표 테이블 여부)가 필요. payload_lite 6곳(B 프롬프트·entry_params)은 사양대로 목록만.
@@ -72,12 +80,12 @@
 
 ## 5. 적용 이력(production 격리 테이블, 2026-09-10)
 
-B1 apply 435종목 503,645행 → B2 build 107,007주 → B3 build 502,922행. 라이브 테이블 행 변경 0. 재실행 멱등.
+1차: B1 apply → B2 → B3(502,922행). Q-1 (B) 반영 후 2차: restore 85,725행 → B1 apply(zero-bar OHLV·volume NULL 85,725·유도 417,920) → B2 107,007주 → B3 **503,645행**. 라이브 테이블 행 변경 0. 재실행 멱등.
 
 ## 6. 백테스트·파리티 (§7)
 
 - stage3 replay(backtest_classification 6,023행, payload_builder 헬퍼 경유): 분기 전후 records **diff 0행**, 집계
-  4항목 동일.
-- armA-prod 표본 A+B: exits 37 = stop8 19·decline 11·sma50 5·floor 2, final 1.1676, MDD −18.96%, 진입 39 — **불변**.
-  n_entries_in_liq_window 0.
+  4항목 동일 — Q-1 (B) 반영 후 재실행도 diff 0.
+- armA-prod 표본 A+B: exits 37 = stop8 19·decline 11·sma50 5·floor 2, final 1.1676, MDD −18.96%, 진입 39 — **불변**
+  (Q-1 (B) 반영 후 재실행 동일). n_entries_in_liq_window 0.
 - test_climax_payload·test_gates_from_series 등 기존 198건 + 신규 12건 통과.
