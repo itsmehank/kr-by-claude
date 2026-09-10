@@ -35,18 +35,44 @@ def notify_signal(*, symbol: str, name: str, entry_price: float, stop_loss: floa
     _post({"text": text})
 
 
+def signal_note(signal_stop_price: float | None, chase_pct: float | None,
+                chase_over_limit: bool | None) -> str:
+    """(#162) 실효 손절 옆에 병기하는 시그널 손절·추격 문구 — 판정 무관. 시그널 없으면 빈 문자열."""
+    if signal_stop_price is None and chase_pct is None:
+        return ""
+    parts = []
+    if signal_stop_price is not None:
+        parts.append(f"시그널 손절 ₩{signal_stop_price:,.0f}(pivot×0.92, 참고)")
+    if chase_pct is not None:
+        parts.append(f"추격 {chase_pct * 100:+.1f}%" + (" ⚠5% 초과" if chase_over_limit else ""))
+    return " · ".join(parts)
+
+
 def notify_stop_triggered(*, symbol: str, name: str, close: float,
                           effective_stop: float, binding: str,
-                          eval_date=None) -> None:
+                          eval_date=None, signal_stop_price: float | None = None,
+                          chase_pct: float | None = None, chase_over_limit: bool | None = None) -> None:
     """(#47) 보유 포지션 매도 신호 알림 (일일 손절 평가 러너).
 
     eval_date 명시 — 과거일 재평가 알림이 실시간 신호로 오독되는 것 방지(리뷰).
+    (#162) signal_stop_price·chase_pct 는 병기만 — 판정(effective_stop)은 매입가 기준 불변.
     """
     when = f" [{eval_date}]" if eval_date else ""
+    note = signal_note(signal_stop_price, chase_pct, chase_over_limit)
     text = (
         f"🔴 *매도 신호*{when} `{symbol}` {name}\n"
         f"종가 ₩{close:,.0f} < 유효 손절선 ₩{effective_stop:,.0f} ({binding})"
+        + (f"\n{note}" if note else "")
     )
+    _post({"text": text})
+
+
+def notify_chase_entry(*, symbol: str, name: str, entry_price: float, pivot_price: float,
+                       chase_pct: float, warning: str, entry_date=None) -> None:
+    """(#162) --add 시 추격 매수(5% 초과) 표시 — 기록 거부 없음, 손절가 불변."""
+    when = f" [{entry_date}]" if entry_date else ""
+    text = (f"🟠 *추격 매수 기록*{when} `{symbol}` {name}\n"
+            f"매입가 ₩{entry_price:,.0f} vs pivot ₩{pivot_price:,.0f} ({chase_pct * 100:+.1f}%)\n{warning}")
     _post({"text": text})
 
 

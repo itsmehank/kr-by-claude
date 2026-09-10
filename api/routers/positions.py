@@ -23,7 +23,9 @@ def list_positions(
             SELECT p.id, p.symbol, s.name, p.entry_date, p.entry_price, p.quantity,
                    p.breakeven_armed, p.status, p.closed_at, p.close_reason, p.note,
                    e.eval_date, e.close, e.sma_50, e.effective_stop, e.binding,
-                   e.triggered, e.warnings
+                   e.triggered, e.warnings,
+                   p.signal_at, p.pivot_price, p.signal_stop_price, p.chase_pct,
+                   p.chase_over_limit, p.signal_gap_days
               FROM positions p
               LEFT JOIN stocks s ON s.ticker = p.symbol
               LEFT JOIN LATERAL (
@@ -51,6 +53,9 @@ def list_positions(
                 "effective_stop": _f(r[14]), "binding": r[15],
                 "triggered": bool(r[16]), "warnings": r[17] or [],
             },
+            # (#162) 시그널 연결 — 참고 표기(판정 무관), 전부 nullable
+            "signal_at": r[18], "pivot_price": _f(r[19]), "signal_stop_price": _f(r[20]),
+            "chase_pct": _f(r[21]), "chase_over_limit": r[22], "signal_gap_days": r[23],
         }
         for r in rows
     ]
