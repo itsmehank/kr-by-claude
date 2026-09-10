@@ -3,7 +3,7 @@
 # #161 — 구조 저점 손절 참조: Phase A 사실·판정·보류(2026-09-10)
 
 > 코드·상수·문서 변경 0(본 기록 문서만). LLM 0. 판정은 전문가(원칙 2-2), 사실은 CC 조사.
-> 상태: **보류(deferred)** — wake trigger = 신규 이슈(패턴별 구조 저점 가격 출력 신설) 완료 후 재개.
+> 상태: **보류(deferred)** — wake trigger = #175(패턴별 구조 저점 가격 출력 신설) 완료 후 재개.
 
 ## 0. 판정(전문가, 2026-09-10)
 
@@ -109,7 +109,7 @@ watch, faulty→none 금지), risk_flags `handle_quality`·`faulty_pivot`, 컵 �
 
 ## 4. 후속(착수 금지)
 
-- 신규 이슈: 패턴별 구조 저점 가격 출력 신설(handle_low·last_contraction_low·cheat_low) — #161 전제.
+- **#175** 패턴별 구조 저점 가격 출력 신설(handle_low·last_contraction_low·cheat_low) — #161 전제.
   설계 갈래 (a) LLM 출력 / (b) 결정론 산출(compute_handle_quality 확장) / (c) 혼합(LLM 구간 날짜 → 코드 저점
   가격) — 판정 대기, (c) 가 governance 4-1 취지에 가장 부합할 가능성.
 - #174 계좌 자본·매수 웹 폼(제품 기능), #165 시장 국면 전환.
