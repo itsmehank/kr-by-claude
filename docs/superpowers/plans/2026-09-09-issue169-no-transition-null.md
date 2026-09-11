@@ -50,7 +50,7 @@ held_climax(③ 매도), portfolio 백테스트(③ 경유), stage3 replay 스�
 | CLIMAX_SCOPE_* | 불변 | **있음** — scope_active True 149행 → None(P1·P2 와 함께 결합식 불가) | PRESERVES | 동일 holdout |
 | TOPPING_BELOW_10W_WEEKS=8·STOCK_DISTRIBUTION_COUNT_25D=4 (G0·T-B·T-D분배일) | 불변 | **없음** — anchor 비의존, 산술 동일. §6.2 발화 3행 전부 T-B/분배일 경유라 T-A/T-D거래량 제거로 잃는 행 0 | PRESERVES | 없음 |
 | CLIMAX_UP_DAYS_*(T4)·T3 | 불변 | **없음** — daily 입력만, 계산 유지(결합식은 P1·P2·scope None 으로 불가) | PRESERVES | 없음 |
-| BREAKOUT_VOL_FLOOR=1.4 (C3) | 가능(배수) | **없음**(find_anchor 불변) — 잔여 404행 차단 사유 재확인만(§3) | PRESERVES | **관측 기록만** — 임계 변경 금지(#158 §7 계승) |
+| BREAKOUT_VOL_FLOOR=1.4 (C3) | 가능(배수) | **없음**(find_anchor 불변) — 잔여 404행 차단 사유 재확인만(§3) | PRESERVES | **관측 기록만** — 임계 변경 금지(#158 §7 계승 → **#184**, 2026-09-11 이관) |
 | TRADE_HOLD_MIN_DAYS=56·held_climax 결합식 | 불변 | **없음** — mode≠anchored 는 이미 fired=None | — | 백테스트 불변 확인(§5) |
 
 **소비 경계 (1줄)**: `find_anchor → compute_*_gates → payload climax_topping_gates → analyze_chart_v3

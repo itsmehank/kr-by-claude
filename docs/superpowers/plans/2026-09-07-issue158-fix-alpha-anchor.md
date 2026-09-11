@@ -92,7 +92,7 @@ payload_builder(daily baseline 시작), gates.py observe. 프롬프트 §6.1/§6
 | CLIMAX_MATURITY_WEEKS=18 (P1) | 불변 | **있음** — anchored 행 3,848 로 확대되어 P1 이 실판정됨(신규 89.5% 충족, 기존 no_transition 은 True 간주였음) | PRESERVES(HMMS p.263) | **사전등록 holdout** — B3 분포 기록 |
 | CLIMAX_GAIN_PCT=25·P2 풀링 / T1·T2·T-A 극값 baseline | 불변 | **있음** — baseline 이 "전체 이력"→"현 사이클" 로 좁아져 극값 갱신 빈도 변화(B4 방향: P2·T2 ↑, T1 ↑, T-A ↑ vs 구 no_transition) | PRESERVES | **사전등록 holdout** — B4 기준선 첨부 |
 | CLIMAX_SCOPE_*(고점 ≤2주·조정 ≤15%) | 불변 | **있음** — 고점 탐색 구간이 현 사이클로 축소 → scope_active True 가능 행 증가 | PRESERVES | 동일 holdout |
-| BREAKOUT_VOL_FLOOR=1.4 (C3) | 가능(배수) | **있음** — B5: 잔여 no_transition 의 93.9% 가 C3 단독 차단 → Fix α 후 유일한 실효 게이트 | PRESERVES(HMMS Ch.2) | **관측 기록만**(아래 미해결) — 임계 변경 금지 |
+| BREAKOUT_VOL_FLOOR=1.4 (C3) | 가능(배수) | **있음** — B5: 잔여 no_transition 의 93.9% 가 C3 단독 차단 → Fix α 후 유일한 실효 게이트 | PRESERVES(HMMS Ch.2) | **관측 기록만**(아래 미해결) — 임계 변경 금지. **→ #184(2026-09-11 이관)** |
 | T5/T6/TA-d 연속 세션·adj_hl 규약 | 불변 | **없음** — 일간 baseline 시작이 anchor 주 월요일로 산출되는 행이 늘 뿐 규약 동일 | — | 없음 |
 | gates.py §6.2 shadow would_force | 불변 | **없음**(anchor 비의존 입력) | — | 없음 |
 
@@ -126,5 +126,8 @@ weekly_classification.risk_flags(climax_run/topping_distribution → ignore)`. �
   9.5% 로 줄어 노출 축소, 규약 자체는 미해소. **[#169 해소 2026-09-09: 주간 anchor 의존 신호도 None]**
 - **C3 의 주간 적용(1.4× 50주 평균)** 이 HMMS 의 일간 기준(돌파일 거래량 40~50%↑ vs 50일 평균)
   에 대응하는지 — B5 에서 잔여 차단의 93.9% 가 C3. 기록만.
+  **[#184 이관 2026-09-11: 별도 이슈 등록(book-fidelity·anchor·deferred). #158 클로즈 시 이 관측만
+  추적처가 없어 승계 — thresholds.py `BREAKOUT_VOL_FLOOR` docstring 원문이 "50**일** 평균 배수"
+  인데 앵커는 50**주** 평균에 적용하는 층위 불일치를 포함해 조사 요청 5항 기록. 임계 변경 금지 유지.]**
 - #155 규칙 전수조사에 **"책에 없는 조건이 책 신호를 차단한 사례" 3건째**로 표기(#151
   spread_wide_loose 와 같은 계열; 이슈 코멘트로 기록).
