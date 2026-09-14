@@ -122,3 +122,46 @@ def test_mark_delisted_empty_set_still_noop(db):
     from kr_pipeline.universe.store import mark_delisted
 
     assert mark_delisted(db, current_tickers=set(), on_date=date(2026, 7, 7)) == 0
+
+
+# ---------- 가드 3: fetch_security_groups 부분 응답 fail-closed (SECUGRP 필터 Task 3) ----------
+
+def _secugrp_df(rows):
+    import pandas as pd
+    return pd.DataFrame(rows, columns=["ISU_CD", "ISU_ABBRV", "SECUGRP_NM"])
+
+
+def test_fetch_security_groups_merges_markets(monkeypatch):
+    import kr_pipeline.universe.fetch as uf
+
+    calls = []
+
+    class _Fake:
+        def fetch(self, trd_dd, mkt, secugrp):
+            calls.append((trd_dd, mkt, tuple(secugrp)))
+            n = 1000 if mkt == "STK" else 1800
+            base = 0 if mkt == "STK" else 100000   # 시장 간 가짜 티커 충돌 방지
+            rows = [(f"{base + i:06d}", f"N{i}", "주권") for i in range(n)]
+            rows.append(("094800", "맵스리얼티", "투자회사") if mkt == "STK" else ("900070", "글로벌에스엠", "외국주권"))
+            return _secugrp_df(rows)
+
+    monkeypatch.setattr(uf, "_short_sale_all_stocks", lambda: _Fake())
+    monkeypatch.setattr(uf.time, "sleep", lambda s: None)
+    out = uf.fetch_security_groups(date(2026, 9, 11))
+    assert out["094800"] == "투자회사" and out["900070"] == "외국주권"
+    assert [c[1] for c in calls] == ["STK", "KSQ"]
+    assert all(c[0] == "20260911" and c[2] == ("STMFRTSCIFDRFS",) for c in calls)
+
+
+def test_fetch_security_groups_raises_on_partial_response(monkeypatch):
+    """한 시장이 비어 합계가 하한 미달이면 ValueError — 조용한 UNRESOLVED 대량 전환(유니버스 무음 축소) 방어."""
+    import kr_pipeline.universe.fetch as uf
+
+    class _Fake:
+        def fetch(self, trd_dd, mkt, secugrp):
+            return _secugrp_df([(f"{i:06d}", "N", "주권") for i in range(50)])
+
+    monkeypatch.setattr(uf, "_short_sale_all_stocks", lambda: _Fake())
+    monkeypatch.setattr(uf.time, "sleep", lambda s: None)
+    with pytest.raises(ValueError, match="security_group"):
+        uf.fetch_security_groups(date(2026, 9, 11))
