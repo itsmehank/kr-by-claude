@@ -950,3 +950,26 @@ ALTER TABLE classification_backfill      ADD COLUMN IF NOT EXISTS prompt_version
 ALTER TABLE backtest_classification      ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);
 ALTER TABLE recall_audit_classification  ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);
 ALTER TABLE trigger_evaluation_log       ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);
+
+-- ── 토스증권 주문 감사로그 (spec 2026-09-14 §5 AuditLog) ────────────────────────
+-- append-only. 전송 직전 INSERT(http_status NULL = pending) → 응답 후 UPDATE.
+-- 1일 누적 상한 집계: kind='create' AND NOT dry_run AND side='BUY' AND http_status=200, KST 자정 경계.
+CREATE TABLE IF NOT EXISTS toss_order_audit (
+  id               BIGSERIAL PRIMARY KEY,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  kind             TEXT NOT NULL,               -- create | modify | cancel
+  client_order_id  TEXT,
+  symbol           TEXT NOT NULL,
+  side             TEXT,                        -- BUY | SELL (cancel 은 NULL 가능)
+  order_amount_krw NUMERIC(18, 2),              -- 가드 5 기준 금액 (MARKET 은 상한가×수량)
+  request_json     JSONB NOT NULL,
+  dry_run          BOOLEAN NOT NULL,
+  http_status      INTEGER,                     -- NULL = pending(응답 미수신)
+  error_code       TEXT,
+  request_id       TEXT,                        -- 토스 X-Request-Id
+  order_id         TEXT,
+  response_json    JSONB,
+  responded_at     TIMESTAMPTZ,
+  CONSTRAINT toss_order_audit_kind_chk CHECK (kind IN ('create', 'modify', 'cancel'))
+);
+CREATE INDEX IF NOT EXISTS idx_toss_order_audit_day ON toss_order_audit (created_at, side, dry_run);
