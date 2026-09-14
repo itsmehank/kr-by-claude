@@ -56,7 +56,7 @@ web/ (React SPA, :5173, vite dev)
 | `kr_trading/audit.py` | AuditLog |
 | `trade_api/main.py` | FastAPI 앱, lifespan에서 풀·TokenManager 초기화, 기동 로그 |
 | `trade_api/deps.py` | DB 풀 (`api/deps.py` 동형, 별도 인스턴스) |
-| `trade_api/routers/{health,holdings,market,orders}.py` | §6 |
+| `trade_api/routers/{health,accounts,holdings,market,orders}.py` | §6 |
 | `web/src/pages/TradingPage.tsx` (+ `components/trading/*`) | §7 |
 | `web/src/lib/tradeApi.ts` | `/trade-api` 클라이언트, 에러 envelope 파싱 |
 
@@ -91,6 +91,11 @@ STOCK 5, ORDER 10, ORDER_HISTORY 5, ORDER_INFO 6`). 응답 헤더 `X-RateLimit-L
 (`code·message·data·requestId`)를 **가공 없이** `TossApiError`로 올린다. 숫자는 `Decimal ↔ str`만,
 `float` 경유 금지.
 
+**Decimal 직렬화 구현 규칙(실측 근거)** — FastAPI 0.136 은 라우트가 bare `dict` 를 반환하면 `Decimal("70000.10")`
+을 `70000.1`(float) 로 내보내고, `response_model`(또는 pydantic 반환 타입 힌트)일 때만 `"70000.10"` 문자열로
+내보낸다. 따라서 **`trade_api` 의 모든 라우트는 pydantic 응답 모델을 필수로 선언하고 bare `dict` 반환을 금지**
+한다. 이를 라우터 테스트에서 검증한다(응답 JSON 의 금액 필드가 `str` 타입인지).
+
 **OrderGuard** — 순서대로 검사, 하나라도 걸리면 토스 주문 API를 호출하지 않는다.
 
 1. `LIMIT`인데 `price` 없음 → `guard/price-required` / `MARKET`인데 `price` 있음 → `guard/price-forbidden`
@@ -99,9 +104,10 @@ STOCK 5, ORDER 10, ORDER_HISTORY 5, ORDER_INFO 6`). 응답 헤더 `X-RateLimit-L
 4. `GET /price-limits` 대비 `lowerLimitPrice ≤ price ≤ upperLimitPrice` → 아니면 `guard/price-out-of-range`
 5. 주문금액 산정: `LIMIT` = `price × quantity`, **`MARKET` = `upperLimitPrice × quantity`**(시장가는 상한가까지
    체결 가능 — 보수적 기준). 1건 > `GUARD_MAX_ORDER_KRW` → `guard/max-order-amount`
-6. 1일 누적(BUY만): `toss_order_audit` 에서 `NOT dry_run AND side='BUY' AND http_status=200` 행의
-   주문금액 합 + 이번 주문 > `GUARD_MAX_DAILY_KRW` → `guard/max-daily-amount`. 하루 경계 = **KST 자정**
-   (`created_at AT TIME ZONE 'Asia/Seoul'`). 취소분은 차감하지 않음
+6. 1일 누적(BUY만): `toss_order_audit` 에서 `kind='create' AND NOT dry_run AND side='BUY' AND http_status=200`
+   행의 주문금액 합 + 이번 주문 > `GUARD_MAX_DAILY_KRW` → `guard/max-daily-amount`. 하루 경계 = **KST 자정**
+   (`created_at AT TIME ZONE 'Asia/Seoul'`). 취소분은 차감하지 않음. **정정(`kind='modify'`)은 누적에 넣지
+   않고 1건 상한(5번)만 재검**한다 — 원주문과 정정을 둘 다 합산하면 이중 집계로 과다 차단되기 때문
 7. 매도: `GET /sellable-quantity` 초과 → `guard/sellable-exceeded`
 8. 주문금액 ≥ 1억 → `confirmHighValueOrder=true` 강제, ≥ 30억 → 차단(스펙 `422 max-order-amount-exceeded`)
 9. `DRY_RUN`: 위 검사를 전부 통과한 뒤 토스 호출 대신 "보낼 본문"을 반환하고 감사로그에 `dry_run=true` 기록
@@ -112,7 +118,8 @@ STOCK 5, ORDER 10, ORDER_HISTORY 5, ORDER_INFO 6`). 응답 헤더 `X-RateLimit-L
 이 시점에 생성**(`{yyyymmdd}-{uuid8}`, ≤36자, `[A-Za-z0-9_-]`) 해 본문에 포함 (c) 본문 canonical JSON 의
 SHA-256 을 `previewToken` 으로 발급. `POST /orders` 는 `previewToken` 필수 + 본문 해시 일치
 (`guard/preview-required`, `guard/preview-mismatch`). 같은 미리보기 재전송 → 같은 `clientOrderId` →
-토스 멱등성(10분)으로 중복 주문 차단. TTL 5분 < 멱등 10분.
+토스 멱등성(10분)으로 중복 주문 차단. TTL 5분 < 멱등 10분. 메모리 저장이라 **서버 재시작 시 토큰이
+소멸**한다 — 주문은 `guard/preview-required` 로 막히므로 안전하며, 사용자는 미리보기를 다시 실행하면 된다.
 
 **AuditLog** — `toss_order_audit` append-only. **전송 직전 INSERT(`pending`) → 응답 후 UPDATE.** 타임아웃으로
 응답을 못 받아도 "보냈다"는 행이 남는다. 정정·취소·DRY_RUN도 기록.
@@ -144,9 +151,10 @@ CREATE INDEX IF NOT EXISTS idx_toss_order_audit_day ON toss_order_audit (created
 
 | Method | Path | 토스 호출 | 비고 |
 |---|---|---|---|
-| GET | `/trade-api/health` | 없음 | `{dryRun, maxOrderKrw, maxDailyKrw, accountSeq}` — secret 미노출 |
-| GET | `/trade-api/holdings` | `/holdings` + `positions` SELECT | `HoldingsOverview` 그대로 + `mismatch[]`: `{symbol, name, tossQty, positionQty|null, kind: missing|qty_diff}` |
-| GET | `/trade-api/search?q=` | 없음 | 로컬 `stocks` (ticker·name prefix/부분 일치, 최대 20) |
+| GET | `/trade-api/health` | 없음 | `{dryRun, maxOrderKrw, maxDailyKrw, accountSeq|null}` — secret 미노출 |
+| GET | `/trade-api/accounts` | `/accounts` | 계좌 헤더 불필요. **`TOSS_ACCOUNT_SEQ` 미설정 상태에서도 동작** — §10 2단계에서 `accountSeq`·`accountType` 확인용. TTL 5분 캐시(`ACCOUNT` 1/s) |
+| GET | `/trade-api/holdings` | `/holdings` + `positions` SELECT | `HoldingsOverview` 그대로 + `mismatch[]`: `{symbol, name, tossQty, positionQty|null, kind: missing|qty_diff}`. `positions.quantity` 가 NULL(전량 모델)이면 존재만 확인하고 수량 비교는 생략(`qty_diff` 미판정) |
+| GET | `/trade-api/search?q=` | 없음 | 로컬 `stocks` — `delisted_at IS NULL AND is_common` 필터, ticker·name prefix/부분 일치, 최대 20 |
 | GET | `/trade-api/quote/{symbol}` | `/prices`, `/orderbook`, `/price-limits`, `/stocks/{symbol}/warnings` | 묶음. 종목명은 로컬 `stocks` |
 | GET | `/trade-api/buying-power` | `/buying-power?currency=KRW` | |
 | GET | `/trade-api/sellable/{symbol}` | `/sellable-quantity` | |
@@ -224,7 +232,8 @@ GUARD_MAX_DAILY_KRW=10000000
 **단위** — TokenManager(선제 갱신·401 재시도 1회·동시 발급 직렬화) / RateLimiter(버킷·헤더 보정·429) /
 OrderGuard(규칙별 표 케이스: price 정합, tick, 상하한, 1건·1일 상한 — MARKET 상한가 기준·dry_run 제외·KST 경계,
 1억/30억, sellable) / PreviewStore(해시 일치·TTL·clientOrderId 포함) / AuditLog(전송 예외 시 pending 행 잔존) /
-에러 envelope 무가공 통과 / Decimal↔str 왕복에 float 미개입.
+에러 envelope 무가공 통과 / Decimal↔str 왕복에 float 미개입 / **전 라우트 응답의 금액 필드가 JSON 문자열**
+(bare dict 반환 회귀 방지).
 
 **라우터** — FastAPI `TestClient` + MockTransport, DB는 kr_test(conftest가 schema.sql 적용).
 
@@ -234,7 +243,7 @@ OrderGuard(규칙별 표 케이스: price 정합, tick, 상하한, 1건·1일 �
 **실물 검증 순서(D6)**
 
 1. 사용자: WTS `설정 > Open API > 허용 IP` 등록. 공인 IP 변경 시 재등록(403 `edge-blocked` 재발 시 첫 확인 항목)
-2. 읽기 연결: `/accounts` → `accountSeq` `.env` 고정 → `/holdings`·`/prices`·`/orders?status=OPEN` 응답 확인
+2. 읽기 연결: `GET /trade-api/accounts` → `accountType=BROKERAGE` 계좌의 `accountSeq` 를 `.env` 에 고정 → 재기동 → `/holdings`·`/quote/005930`·`/orders?status=OPEN` 응답 확인
 3. DRY_RUN=true 로 주문·정정·취소 전 경로 + UI 완성. 감사로그에 `dry_run=true` 행 확인
 4. **실주문 검증(비가역)** — `TOSS_DRY_RUN=false`, 장중, 1주, 현재가 −3% 지정가 BUY → OPEN 확인 →
    **즉시 취소** → CLOSED `CANCELED` 확인 → 감사로그 create·cancel 행 확인. 이 왕복을 통과한 뒤에만 체결되는
