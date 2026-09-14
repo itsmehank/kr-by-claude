@@ -24,6 +24,13 @@ if os.environ.get("KR_ALLOW_KRX") != "1":
     os.environ["KRX_ID"] = ""
     os.environ["KRX_PW"] = ""
 
+# ── 토스증권 자격증명 무력화 + DRY_RUN 강제 (spec 2026-09-14 §10, #92 동형) ────
+# 키를 pop 하지 않고 값만 비운다 — kr_trading/config.py 의 load_dotenv() 가
+# "키가 없을 때만" .env 값을 복원하기 때문.
+os.environ["TOSS_CLIENT_ID"] = ""
+os.environ["TOSS_CLIENT_SECRET"] = ""
+os.environ["TOSS_DRY_RUN"] = "true"
+
 SCHEMA_PATH = Path(__file__).parent.parent / "kr_pipeline" / "db" / "schema.sql"
 
 

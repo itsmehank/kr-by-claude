@@ -21,6 +21,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     "jinja2>=3.1",
     "psycopg-pool>=3.2",
+    "httpx>=0.28.1",
 ]
 
 [dependency-groups]
@@ -28,7 +29,6 @@ dev = [
     "pytest>=8.0",
     "pytest-mock>=3.12",
     "freezegun>=1.4",
-    "httpx>=0.28.1",
 ]
 
 [tool.pytest.ini_options]
