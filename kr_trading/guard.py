@@ -29,7 +29,8 @@ def order_amount_krw(req: OrderCreateRequest, upper_limit: Decimal | None) -> De
         if upper_limit is None:
             raise GuardError("guard/price-limit-unavailable", "상한가 조회 불가 — 시장가 금액 산정 불가")
         return upper_limit * req.quantity
-    assert req.price is not None
+    if req.price is None:   # assert 금지 — python -O 에서도 방어선 유지
+        raise GuardError("guard/price-required", "지정가 주문은 가격이 필요합니다")
     return req.price * req.quantity
 
 
@@ -52,7 +53,10 @@ def check_order(req: OrderCreateRequest, *, cfg: TradeConfig,
         tick = Decimal(krx_tick_size(float(req.price)))
         if req.price % tick != 0:
             raise GuardError("guard/tick-size", f"호가 단위 {tick}원 배수가 아닙니다", {"tickSize": str(tick)})
-        if (upper_limit is not None and req.price > upper_limit) or (lower_limit is not None and req.price < lower_limit):
+        # KR 종목은 상·하한가가 항상 있다 — None 은 상류 이상이므로 MARKET 과 동일하게 fail-closed
+        if upper_limit is None or lower_limit is None:
+            raise GuardError("guard/price-limit-unavailable", "상·하한가 조회 불가 — 가격 범위 검증 불가")
+        if req.price > upper_limit or req.price < lower_limit:
             raise GuardError("guard/price-out-of-range", "상·하한가 범위 밖",
                              {"upperLimitPrice": str(upper_limit), "lowerLimitPrice": str(lower_limit)})
     # 5. 1건 상한

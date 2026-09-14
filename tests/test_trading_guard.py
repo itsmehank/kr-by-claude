@@ -34,6 +34,7 @@ def test_limit_ok():
     (buy(order_type="MARKET", price="70000"), "guard/price-forbidden"),
     (buy(qty="0"), "guard/quantity-invalid"),
     (buy(qty="1.5"), "guard/quantity-invalid"),
+    (buy(price="70000.5"), "guard/tick-size"),        # 비정수 가격 → krx_tick_size 도달 전 차단
     (buy(price="70050"), "guard/tick-size"),           # 5만~20만 구간 tick 100
     (buy(price="95000"), "guard/price-out-of-range"),  # 상한 91000 초과
     (buy(price="48000"), "guard/price-out-of-range"),  # 하한 49000 미달
@@ -54,6 +55,23 @@ def test_tick_size_error_carries_correct_tick():
 def test_market_uses_upper_limit_basis():
     r = run(buy(order_type="MARKET", price=None, qty="10"))
     assert r.amount_krw == D("910000") and r.amount_basis == "upper_limit"
+
+
+def test_limit_without_price_limits_is_blocked():
+    """KR 종목은 상·하한가가 항상 있다 — None 이면 상류 이상, MARKET 과 동일하게 fail-closed."""
+    with pytest.raises(GuardError) as ei:
+        run(buy(), upper_limit=None)
+    assert ei.value.code == "guard/price-limit-unavailable"
+    with pytest.raises(GuardError) as ei:
+        run(buy(), lower_limit=None)
+    assert ei.value.code == "guard/price-limit-unavailable"
+
+
+def test_order_amount_krw_limit_without_price_is_guard_error():
+    """assert 가 아니라 GuardError — python -O 에서도 방어선 유지."""
+    with pytest.raises(GuardError) as ei:
+        order_amount_krw(buy(price=None), D("91000"))
+    assert ei.value.code == "guard/price-required"
 
 
 def test_market_without_upper_limit_is_blocked():
