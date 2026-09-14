@@ -753,14 +753,18 @@ def test_acquire_sleeps_when_bucket_empty():
 
 
 def test_update_from_headers_changes_capacity():
+    # fake sleep 은 fake clock 을 반드시 전진시킨다 — 실제 time.sleep 이 time.monotonic 을
+    # 전진시키는 것과 동형. 전진하지 않는 fake 는 acquire 의 재충전 루프를 영원히 굶긴다.
     now = [0.0]
     slept = []
-    rl = RateLimiter(clock=lambda: now[0], sleep=lambda s: slept.append(s))
+    rl = RateLimiter(clock=lambda: now[0],
+                     sleep=lambda s: (slept.append(s), now.__setitem__(0, now[0] + s)))
     rl.update_from_headers("ORDER", {"X-RateLimit-Limit": "2"})
     rl.acquire("ORDER"); rl.acquire("ORDER")
     assert slept == []
     rl.acquire("ORDER")
-    assert len(slept) == 1
+    # wait = (1 - 0) / capacity → 보정이 적용됐으면 0.5, 초기값 10 이면 0.1
+    assert len(slept) == 1 and abs(slept[0] - 0.5) < 1e-9
 
 
 def test_retry_after():
