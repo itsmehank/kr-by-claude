@@ -1008,6 +1008,34 @@ def test_429_waits_retry_after_then_retries():
     assert sleeps == [2.0] and n[0] == 2
 
 
+def test_429_then_401_reissues_and_retries():
+    """Retry-After 대기 중 토큰이 무효화돼도 재발급 경로를 타야 한다(원인별 1회)."""
+    seen = []; sleeps = []
+
+    def h(req):
+        seen.append(1)
+        if len(seen) == 1:
+            return httpx.Response(429, headers={"Retry-After": "1"}, json={"error": {"code": "rate-limit-exceeded", "message": ""}})
+        if len(seen) == 2:
+            return httpx.Response(401, json={"error": {"code": "token-revoked", "message": ""}})
+        return httpx.Response(200, json={"result": {"currency": "KRW", "cashBuyingPower": "1"}})
+
+    assert make(h, sleeps=sleeps).buying_power().cashBuyingPower == Decimal("1")
+    assert len(seen) == 3 and sleeps == [1.0]   # 최초 + 레이트 재시도 + 인증 재시도 = 상한 3
+
+
+def test_429_persisting_retries_once_then_raises():
+    n = [0]; sleeps = []
+
+    def h(req):
+        n[0] += 1
+        return httpx.Response(429, headers={"Retry-After": "1"}, json={"error": {"code": "rate-limit-exceeded", "message": ""}})
+
+    with pytest.raises(TossApiError) as ei:
+        make(h, sleeps=sleeps).holdings()
+    assert n[0] == 2 and ei.value.code == "rate-limit-exceeded"   # 루프 금지
+
+
 def test_error_envelope_passthrough():
     def h(req):
         return httpx.Response(400, headers={"X-Request-Id": "req-9"}, json={"error": {
@@ -1088,16 +1116,24 @@ class TossClient:
                                  "TOSS_ACCOUNT_SEQ 미설정 — GET /trade-api/accounts 로 확인 후 .env 에 고정")
             headers["X-Tossinvest-Account"] = str(self.cfg.account_seq)
         group = group_for_path(path)
-        resp = self._send(method, path, params, json, headers, group)
-        if resp.status_code == 401:
-            code = _error_code(resp)
-            if code in _REISSUE_CODES:
-                self._token.invalidate()
-                resp = self._send(method, path, params, json, headers, group)
-        if resp.status_code == 429:
-            wait = self._limiter.retry_after_seconds(resp.headers) or 1.0
-            self._sleep(wait)
+        # 재시도는 원인별로 각 1회, 최대 3회 시도(최초 + 인증 1 + 레이트 1). 두 조건을
+        # 순차 if 로 두면 "429 재시도 응답이 401 token-revoked" 인 경우가 재발급을 못 타므로
+        # 원인별 플래그를 쓰는 유한 루프로 둔다 — Retry-After 대기 중 외부 재발급으로 토큰이
+        # 무효화되는 것은 문서가 경고하는 실제 시나리오다.
+        retried_auth = False
+        retried_rate = False
+        while True:
             resp = self._send(method, path, params, json, headers, group)
+            if (resp.status_code == 401 and not retried_auth
+                    and _error_code(resp) in _REISSUE_CODES):
+                retried_auth = True
+                self._token.invalidate()
+                continue
+            if resp.status_code == 429 and not retried_rate:
+                retried_rate = True
+                self._sleep(self._limiter.retry_after_seconds(resp.headers) or 1.0)
+                continue
+            break
         raise_for_envelope(resp)
         body = resp.json()
         return body.get("result") if isinstance(body, dict) else body
@@ -1169,7 +1205,7 @@ def _error_code(resp: httpx.Response) -> str:
         return ""
 ```
 
-- [ ] **Step 4: 통과 확인** — `uv run pytest tests/test_trading_client.py -v` → 8 passed
+- [ ] **Step 4: 통과 확인** — `uv run pytest tests/test_trading_client.py -v` → 10 passed
 
 - [ ] **Step 5: 커밋**
 
