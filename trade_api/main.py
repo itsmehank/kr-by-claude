@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 
 from kr_trading.toss.errors import GuardError, TossApiError
 from trade_api import deps
-from trade_api.routers import accounts, health
+from trade_api.routers import accounts, health, holdings, market
 
 log = logging.getLogger("trade_api")
 
@@ -49,3 +49,5 @@ async def _guard_error(_: Request, e: GuardError) -> JSONResponse:
 
 app.include_router(health.router)
 app.include_router(accounts.router)
+app.include_router(holdings.router)
+app.include_router(market.router)

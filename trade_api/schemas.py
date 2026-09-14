@@ -6,7 +6,9 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
-from kr_trading.toss.models import Account
+from kr_trading.toss.models import (
+    Account, HoldingsOverview, OrderbookResponse, PriceLimitResponse, PriceResponse, StockWarning,
+)
 
 AccountOut = Account  # 재사용 — 브리프 인터페이스 계약(schemas.py 소비처용 별칭)
 
@@ -27,3 +29,31 @@ class ErrorDetail(BaseModel):
 
 class ErrorBody(BaseModel):
     error: ErrorDetail
+
+
+class MismatchOut(BaseModel):
+    symbol: str
+    name: str
+    tossQty: Decimal
+    positionQty: Decimal | None
+    kind: str          # missing | qty_diff
+
+
+class HoldingsOut(BaseModel):
+    overview: HoldingsOverview
+    mismatch: list[MismatchOut]
+
+
+class SearchHit(BaseModel):
+    ticker: str
+    name: str
+    market: str
+
+
+class QuoteOut(BaseModel):
+    symbol: str
+    name: str | None
+    price: PriceResponse
+    orderbook: OrderbookResponse
+    limits: PriceLimitResponse
+    warnings: list[StockWarning]
