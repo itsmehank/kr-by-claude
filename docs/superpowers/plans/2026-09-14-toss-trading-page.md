@@ -1892,7 +1892,7 @@ def test_guard_error_handler_400():
 """
 from __future__ import annotations
 
-from typing import Generator
+from typing import Callable, Generator
 
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
@@ -1907,6 +1907,16 @@ _pool: ConnectionPool | None = None
 _cfg: TradeConfig | None = None
 _toss: TossClient | None = None
 _preview: PreviewStore | None = None
+_reset_hooks: list[Callable[[], None]] = []   # 상태를 가진 라우터가 등록 — deps 는 라우터를 import 하지 않는다(계층 방향 유지)
+
+
+def register_reset_hook(fn: Callable[[], None]) -> None:
+    _reset_hooks.append(fn)
+
+
+def _run_reset_hooks() -> None:
+    for fn in _reset_hooks:
+        fn()
 
 
 def init_singletons() -> None:
@@ -1928,13 +1938,16 @@ def set_test_overrides(*, cfg: TradeConfig | None = None, toss: TossClient | Non
                        preview: PreviewStore | None = None) -> None:
     global _cfg, _toss, _preview
     if cfg is not None: _cfg = cfg
-    if toss is not None: _toss = toss
+    if toss is not None:
+        _toss = toss
+        _run_reset_hooks()          # 클라이언트 교체 시 라우터 캐시(예: accounts) 무효화 — 설계로 보장
     if preview is not None: _preview = preview
 
 
 def reset_overrides() -> None:
     global _cfg, _toss, _preview
     _cfg = _toss = _preview = None
+    _run_reset_hooks()
 
 
 def get_cfg() -> TradeConfig:
@@ -2023,11 +2036,19 @@ from fastapi import APIRouter, Depends
 
 from kr_trading.toss.client import TossClient
 from kr_trading.toss.models import Account
-from trade_api.deps import get_toss
+from trade_api.deps import get_toss, register_reset_hook
 
 router = APIRouter(prefix="/trade-api", tags=["accounts"])
 _cache: tuple[float, list[Account]] | None = None
 CACHE_TTL = 300.0
+
+
+def reset_cache() -> None:
+    global _cache
+    _cache = None
+
+
+register_reset_hook(reset_cache)   # deps 가 accounts 를 import 하는 대신 accounts 가 등록
 
 
 @router.get("/accounts", response_model=list[Account])
