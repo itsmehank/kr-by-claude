@@ -3552,7 +3552,7 @@ uv run uvicorn trade_api.main:app --port 8001
 ```bash
 git diff --stat main -- api/ kr_pipeline/ web/src/lib/api.ts | tail -3      # kr_pipeline/db/schema.sql 만 나와야 함
 pgrep -f pytest || echo "no other pytest"
-uv run pytest tests/ 2>&1 | tail -3        # 기대: 기존 1458 + 신규(12+6+5+5+8+4+17+4+4+4+9=78) passed, 1 skipped, 1 deselected
+uv run pytest tests/ 2>&1 | tail -3        # 기대: 기존 1458 + 신규(12+6+5+5+10+4+20+4+4+4+9=83) passed, 1 skipped, 1 deselected  (T5·T7 fix round 로 +5)
 cd web && npx tsc -b && npx eslint . && npx vitest run 2>&1 | tail -3 && cd ..
 ```
 
