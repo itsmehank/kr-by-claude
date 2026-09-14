@@ -1467,6 +1467,7 @@ def test_limit_ok():
     (buy(order_type="MARKET", price="70000"), "guard/price-forbidden"),
     (buy(qty="0"), "guard/quantity-invalid"),
     (buy(qty="1.5"), "guard/quantity-invalid"),
+    (buy(price="70000.5"), "guard/tick-size"),        # 비정수 가격 → krx_tick_size 도달 전 차단
     (buy(price="70050"), "guard/tick-size"),           # 5만~20만 구간 tick 100
     (buy(price="95000"), "guard/price-out-of-range"),  # 상한 91000 초과
     (buy(price="48000"), "guard/price-out-of-range"),  # 하한 49000 미달
@@ -1487,6 +1488,23 @@ def test_tick_size_error_carries_correct_tick():
 def test_market_uses_upper_limit_basis():
     r = run(buy(order_type="MARKET", price=None, qty="10"))
     assert r.amount_krw == D("910000") and r.amount_basis == "upper_limit"
+
+
+def test_limit_without_price_limits_is_blocked():
+    """KR 종목은 상·하한가가 항상 있다 — None 이면 상류 이상, MARKET 과 동일하게 fail-closed."""
+    with pytest.raises(GuardError) as ei:
+        run(buy(), upper_limit=None)
+    assert ei.value.code == "guard/price-limit-unavailable"
+    with pytest.raises(GuardError) as ei:
+        run(buy(), lower_limit=None)
+    assert ei.value.code == "guard/price-limit-unavailable"
+
+
+def test_order_amount_krw_limit_without_price_is_guard_error():
+    """assert 가 아니라 GuardError — python -O 에서도 방어선 유지."""
+    with pytest.raises(GuardError) as ei:
+        order_amount_krw(buy(price=None), D("91000"))
+    assert ei.value.code == "guard/price-required"
 
 
 def test_market_without_upper_limit_is_blocked():
@@ -1571,7 +1589,8 @@ def order_amount_krw(req: OrderCreateRequest, upper_limit: Decimal | None) -> De
         if upper_limit is None:
             raise GuardError("guard/price-limit-unavailable", "상한가 조회 불가 — 시장가 금액 산정 불가")
         return upper_limit * req.quantity
-    assert req.price is not None
+    if req.price is None:   # assert 금지 — python -O 에서도 방어선 유지
+        raise GuardError("guard/price-required", "지정가 주문은 가격이 필요합니다")
     return req.price * req.quantity
 
 
@@ -1594,7 +1613,10 @@ def check_order(req: OrderCreateRequest, *, cfg: TradeConfig,
         tick = Decimal(krx_tick_size(float(req.price)))
         if req.price % tick != 0:
             raise GuardError("guard/tick-size", f"호가 단위 {tick}원 배수가 아닙니다", {"tickSize": str(tick)})
-        if (upper_limit is not None and req.price > upper_limit) or (lower_limit is not None and req.price < lower_limit):
+        # KR 종목은 상·하한가가 항상 있다 — None 은 상류 이상이므로 MARKET 과 동일하게 fail-closed
+        if upper_limit is None or lower_limit is None:
+            raise GuardError("guard/price-limit-unavailable", "상·하한가 조회 불가 — 가격 범위 검증 불가")
+        if req.price > upper_limit or req.price < lower_limit:
             raise GuardError("guard/price-out-of-range", "상·하한가 범위 밖",
                              {"upperLimitPrice": str(upper_limit), "lowerLimitPrice": str(lower_limit)})
     # 5. 1건 상한
@@ -1623,7 +1645,7 @@ def check_order(req: OrderCreateRequest, *, cfg: TradeConfig,
     return GuardResult(amount_krw=amount, amount_basis=basis, warnings=warnings)
 ```
 
-- [ ] **Step 4: 통과 확인** — `uv run pytest tests/test_trading_guard.py -v` → 17 passed
+- [ ] **Step 4: 통과 확인** — `uv run pytest tests/test_trading_guard.py -v` → 20 passed
 
 - [ ] **Step 5: 커밋**
 
