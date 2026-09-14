@@ -1,0 +1,96 @@
+"""trade_api 의존성 — TradeConfig·TossClient·PreviewStore 프로세스 싱글톤 + DB 풀(api/deps.py 동형).
+
+토스 토큰은 클라이언트당 1개 → TossClient(=TokenManager) 는 이 프로세스에 정확히 1개.
+테스트는 set_test_overrides 로 MockTransport 클라이언트를 주입(토스 접촉 0).
+"""
+from __future__ import annotations
+
+from typing import Generator
+
+from psycopg import Connection
+from psycopg_pool import ConnectionPool
+
+from kr_pipeline.common.config import Config
+from kr_pipeline.db.connection import connect
+from kr_trading.config import TradeConfig
+from kr_trading.preview import PreviewStore
+from kr_trading.toss.client import TossClient
+
+_pool: ConnectionPool | None = None
+_cfg: TradeConfig | None = None
+_toss: TossClient | None = None
+_preview: PreviewStore | None = None
+
+
+def init_singletons() -> None:
+    global _pool, _cfg, _toss, _preview
+    _cfg = _cfg or TradeConfig.load()
+    _toss = _toss or TossClient(_cfg)
+    _preview = _preview or PreviewStore()
+    _pool = ConnectionPool(Config.load().database_url, min_size=1, max_size=5, open=True)
+
+
+def close_singletons() -> None:
+    """프로세스 종료 시 정리. DB 풀은 close(), 토스 HTTP 클라이언트도 함께 닫는다.
+
+    TossClient 는 close() 를 노출하지 않지만(httpx.Client 를 내부 보유), 소켓/커넥션
+    누수 없이 정상 종료하려면 여기서 닫아야 한다 — 단일 장수 프로세스라 실제 위험은
+    작지만(프로세스 종료 시 OS 가 회수), lifespan finally 에서 명시적으로 정리하는 편이
+    재기동(uvicorn --reload 등) 시 소켓 누적을 막는다. TossClient._http 는 private 이지만
+    현재 이 클래스에 공개 close() 가 없어(Task 5 리뷰 기록) 여기서만 최소로 접근한다.
+    """
+    global _pool, _toss
+    if _pool is not None:
+        _pool.close()
+        _pool = None
+    if _toss is not None:
+        _toss._http.close()
+        _toss = None
+
+
+def set_test_overrides(*, cfg: TradeConfig | None = None, toss: TossClient | None = None,
+                       preview: PreviewStore | None = None) -> None:
+    global _cfg, _toss, _preview
+    if cfg is not None: _cfg = cfg
+    if toss is not None: _toss = toss
+    if preview is not None: _preview = preview
+
+
+def reset_overrides() -> None:
+    global _cfg, _toss, _preview
+    _cfg = _toss = _preview = None
+    # 라우터의 모듈 레벨 캐시(예: accounts._cache)는 deps 상태가 아니라 여기서 리셋되지
+    # 않으면 테스트 간에 누수된다. 지연 import 로 순환 임포트를 피한다(accounts.py 가
+    # 모듈 레벨에서 이 모듈을 import 하므로).
+    from trade_api.routers import accounts
+    accounts.reset_cache()
+
+
+def get_cfg() -> TradeConfig:
+    global _cfg
+    if _cfg is None:
+        _cfg = TradeConfig.load()
+    return _cfg
+
+
+def get_toss() -> TossClient:
+    global _toss
+    if _toss is None:
+        _toss = TossClient(get_cfg())
+    return _toss
+
+
+def get_preview() -> PreviewStore:
+    global _preview
+    if _preview is None:
+        _preview = PreviewStore()
+    return _preview
+
+
+def get_conn() -> Generator[Connection, None, None]:
+    if _pool is not None:
+        with _pool.connection() as conn:
+            yield conn
+        return
+    with connect(Config.load().database_url) as conn:
+        yield conn
