@@ -2168,7 +2168,13 @@ def db(test_db_url):
         c.execute("INSERT INTO stocks (ticker, name, market, delisted_at) VALUES ('999999','상폐테스트','KOSDAQ','2025-01-01') ON CONFLICT (ticker) DO UPDATE SET delisted_at='2025-01-01'")
         c.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity) VALUES ('005930','2026-09-01',70000,10)")
         c.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity) VALUES ('000660','2026-09-01',200000,NULL)")
+        # 앱의 get_conn 을 이 kr_test 연결로 — 미오버라이드 시 Config.load().database_url(운영) 로 감
+        # (리포 관례 tests/test_api_triggers.py:17). autocommit 연결이라 라우터의 conn.commit() 은 no-op.
+        def _override():
+            yield c
+        app.dependency_overrides[deps.get_conn] = _override
         yield c
+        app.dependency_overrides.pop(deps.get_conn, None)
         c.execute("DELETE FROM positions WHERE symbol IN ('005930','000660')")
         c.execute("DELETE FROM stocks WHERE ticker='999999'")
 
@@ -2426,7 +2432,13 @@ def toss_with(routes: dict, cfg, calls: list | None = None):
 def db(test_db_url):
     with psycopg.connect(test_db_url, autocommit=True) as c:
         c.execute("DELETE FROM toss_order_audit")
+        # 앱의 get_conn 을 이 kr_test 연결로 — 미오버라이드 시 운영 DB 로 감(관례 tests/test_api_triggers.py:17).
+        # autocommit 연결: 라우터의 conn.commit() 은 no-op, 모든 문장이 즉시 durable → pending 행 관측에 적합.
+        def _override():
+            yield c
+        app.dependency_overrides[deps.get_conn] = _override
         yield c
+        app.dependency_overrides.pop(deps.get_conn, None)
 
 
 def setup_function():
