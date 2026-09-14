@@ -2895,7 +2895,7 @@ describe("estimateAmount", () => {
     expect(estimateAmount("LIMIT", "70000", "0", "91000")).toBeNull();
   });
   it("handles large values without float rounding", () => {
-    expect(estimateAmount("LIMIT", "1234567", "98765", null)!.amount).toBe("121932631205");
+    expect(estimateAmount("LIMIT", "1234567", "98765", null)!.amount).toBe("121932009755");   // 1234567×98765 (python 실측)
   });
 });
 ```
