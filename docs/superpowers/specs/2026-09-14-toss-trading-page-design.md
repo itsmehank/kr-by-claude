@@ -161,6 +161,7 @@ CREATE INDEX IF NOT EXISTS idx_toss_order_audit_day ON toss_order_audit (created
 | POST | `/trade-api/orders/preview` | `/price-limits`, `/sellable-quantity`(SELL), `/commissions` | 가드 전부·`clientOrderId` 생성·`previewToken`. 주문 API 미호출 |
 | POST | `/trade-api/orders` | `/orders` (DRY_RUN 시 미호출) | `previewToken` 필수. 감사 INSERT→전송→UPDATE |
 | POST | `/trade-api/orders/{id}/cancel` | `/orders/{id}/cancel` | 감사 기록. 새 `orderId` 반환 |
+| POST | `/trade-api/orders/modify/preview` | `/orders/{id}`(원주문 symbol·side), `/price-limits`, `/commissions` | 정정 미리보기 — 원주문과 합성한 요청으로 가드 실행(1일 누적 재검 제외), `previewToken` 발급. `clientOrderId` 없음 |
 | POST | `/trade-api/orders/{id}/modify` | `/orders/{id}/modify` | 미리보기 동일 적용. 스펙상 `orderType` 필수, KR은 `quantity` 필수 |
 | GET | `/trade-api/orders?status=OPEN\|CLOSED&cursor=&limit=` | `/orders` | 그대로 전달 |
 | GET | `/trade-api/orders/{id}` | `/orders/{id}` | 폴링 대상 |
