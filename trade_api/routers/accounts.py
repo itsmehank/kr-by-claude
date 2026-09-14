@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 
 from kr_trading.toss.client import TossClient
 from kr_trading.toss.models import Account
-from trade_api.deps import get_toss
+from trade_api.deps import get_toss, register_reset_hook
 
 router = APIRouter(prefix="/trade-api", tags=["accounts"])
 _cache: tuple[float, list[Account]] | None = None
@@ -14,9 +14,12 @@ CACHE_TTL = 300.0
 
 
 def reset_cache() -> None:
-    """테스트 간 모듈 레벨 캐시 누수 방지 — deps.reset_overrides() 에서 호출."""
+    """테스트/클라이언트 교체 시 모듈 레벨 캐시 누수 방지 — deps 의 리셋 훅 레지스트리에 등록."""
     global _cache
     _cache = None
+
+
+register_reset_hook(reset_cache)   # deps 가 accounts 를 import 하는 대신 accounts 가 등록
 
 
 @router.get("/accounts", response_model=list[Account])
