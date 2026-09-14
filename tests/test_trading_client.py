@@ -96,6 +96,34 @@ def test_429_waits_retry_after_then_retries():
     assert sleeps == [2.0] and n[0] == 2
 
 
+def test_429_then_401_reissues_and_retries():
+    """Retry-After 대기 중 토큰이 무효화돼도 재발급 경로를 타야 한다(원인별 1회)."""
+    seen = []; sleeps = []
+
+    def h(req):
+        seen.append(1)
+        if len(seen) == 1:
+            return httpx.Response(429, headers={"Retry-After": "1"}, json={"error": {"code": "rate-limit-exceeded", "message": ""}})
+        if len(seen) == 2:
+            return httpx.Response(401, json={"error": {"code": "token-revoked", "message": ""}})
+        return httpx.Response(200, json={"result": {"currency": "KRW", "cashBuyingPower": "1"}})
+
+    assert make(h, sleeps=sleeps).buying_power().cashBuyingPower == Decimal("1")
+    assert len(seen) == 3 and sleeps == [1.0]   # 최초 + 레이트 재시도 + 인증 재시도 = 상한 3
+
+
+def test_429_persisting_retries_once_then_raises():
+    n = [0]; sleeps = []
+
+    def h(req):
+        n[0] += 1
+        return httpx.Response(429, headers={"Retry-After": "1"}, json={"error": {"code": "rate-limit-exceeded", "message": ""}})
+
+    with pytest.raises(TossApiError) as ei:
+        make(h, sleeps=sleeps).holdings()
+    assert n[0] == 2 and ei.value.code == "rate-limit-exceeded"   # 루프 금지
+
+
 def test_error_envelope_passthrough():
     def h(req):
         return httpx.Response(400, headers={"X-Request-Id": "req-9"}, json={"error": {
