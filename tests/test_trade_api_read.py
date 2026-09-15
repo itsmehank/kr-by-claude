@@ -36,7 +36,11 @@ def db(test_db_url):
     with psycopg.connect(test_db_url, autocommit=True) as c:
         c.execute("DELETE FROM positions")
         c.execute("INSERT INTO stocks (ticker, name, market) VALUES ('005930','삼성전자','KOSPI'),('000660','SK하이닉스','KOSPI'),('035420','NAVER','KOSPI') ON CONFLICT (ticker) DO UPDATE SET name=EXCLUDED.name, delisted_at=NULL, is_common=TRUE")
-        c.execute("INSERT INTO stocks (ticker, name, market, delisted_at) VALUES ('999999','상폐테스트','KOSDAQ','2025-01-01') ON CONFLICT (ticker) DO UPDATE SET delisted_at='2025-01-01'")
+        # 검색 테스트 전용 시드 — 고유 마커(TRDT%). 다른 모듈이 '삼성전자' 이름으로 테스트 티커(RVSP·OLD·ADJ1…)를
+        # 남기므로 실명(삼성/0059)으로 정확 일치 단언하면 전체 suite 에서 순서 의존 실패(리포 관례 TRGTEST%/EXCTEST%).
+        c.execute("DELETE FROM stocks WHERE ticker LIKE 'TRDT%'")
+        c.execute("INSERT INTO stocks (ticker, name, market) VALUES ('TRDT01','트레이드검색A','KOSPI'),('TRDT02','트레이드검색B상폐','KOSDAQ')")
+        c.execute("UPDATE stocks SET delisted_at='2025-01-01' WHERE ticker='TRDT02'")
         c.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity) VALUES ('005930','2026-09-01',70000,10)")
         c.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity) VALUES ('000660','2026-09-01',200000,NULL)")
         # 앱의 get_conn 을 이 kr_test 연결로 — 미오버라이드 시 Config.load().database_url(운영) 로 감
@@ -47,7 +51,7 @@ def db(test_db_url):
         yield c
         app.dependency_overrides.pop(deps.get_conn, None)
         c.execute("DELETE FROM positions WHERE symbol IN ('005930','000660')")
-        c.execute("DELETE FROM stocks WHERE ticker='999999'")
+        c.execute("DELETE FROM stocks WHERE ticker LIKE 'TRDT%'")
 
 
 def setup_function():
@@ -71,9 +75,10 @@ def test_holdings_mismatch_rules(db):
 def test_search_excludes_delisted(db):
     deps.set_test_overrides(cfg=CFG, toss=toss_with({}))
     c = TestClient(app)
-    assert [h["ticker"] for h in c.get("/trade-api/search?q=삼성").json()] == ["005930"]
-    assert c.get("/trade-api/search?q=상폐").json() == []
-    assert c.get("/trade-api/search?q=0059").json()[0]["name"] == "삼성전자"
+    assert [h["ticker"] for h in c.get("/trade-api/search?q=트레이드검색").json()] == ["TRDT01"]   # 상폐 TRDT02 제외
+    assert c.get("/trade-api/search?q=B상폐").json() == []
+    assert c.get("/trade-api/search?q=TRDT01").json()[0]["ticker"] == "TRDT01"                      # 정확 티커 우선
+    assert c.get("/trade-api/search?q=TRDT0").json()[0]["name"] == "트레이드검색A"
 
 
 def test_quote_bundle(db):
