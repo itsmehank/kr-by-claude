@@ -90,6 +90,27 @@ def test_holdings_mismatch_rules(db):
     assert next(m for m in body["mismatch"] if m["symbol"] == "005930")["positionQty"] == "10"
 
 
+def test_holdings_uses_store_get_open_positions(db, monkeypatch):
+    """holdings.py 가 store.get_open_positions(conn) 을 재사용하는지 — 원시 SELECT 로 되돌아가지 않게 고정(#187 리뷰 추가 정리)."""
+    calls = []
+
+    def stub(conn):
+        calls.append(conn)
+        return [{"symbol": "035420", "quantity": 1}]
+
+    monkeypatch.setattr("trade_api.routers.holdings.get_open_positions", stub)
+    holdings = {"totalPurchaseAmount": M("1"), "marketValue": M("1"), "profitLoss": M("0"), "dailyProfitLoss": M("0"),
+                "items": [item("005930", "삼성전자", "12"),      # 스텁 결과에 없음 → missing
+                          item("000660", "SK하이닉스", "3"),     # 스텁 결과에 없음 → missing
+                          item("035420", "NAVER", "1")]}         # 스텁 qty 1 == toss qty 1 → mismatch 없음
+    deps.set_test_overrides(cfg=CFG, toss=toss_with({"/api/v1/holdings": lambda r: httpx.Response(200, json={"result": holdings})}))
+    r = TestClient(app).get("/trade-api/holdings")
+    assert r.status_code == 200, r.text
+    assert calls, "get_open_positions(conn) 이 호출되지 않음"
+    body = r.json()
+    assert sorted((m["symbol"], m["kind"]) for m in body["mismatch"]) == [("000660", "missing"), ("005930", "missing")]
+
+
 def test_search_excludes_delisted(db):
     deps.set_test_overrides(cfg=CFG, toss=toss_with({}))
     c = TestClient(app)

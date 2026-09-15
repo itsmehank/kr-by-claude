@@ -5,6 +5,7 @@ from psycopg import Connection
 from kr_trading.toss.client import TossClient
 from kr_trading.toss.errors import GuardError
 from kr_trading.toss.models import BuyingPowerResponse, SellableQuantityResponse
+from trade_api.daycache import cached_price_limits
 from trade_api.deps import get_conn, get_toss
 from trade_api.schemas import QuoteOut, SearchHit, kr_int_str
 
@@ -42,7 +43,7 @@ def quote(symbol: str, toss: TossClient = Depends(get_toss), conn: Connection = 
     if not prices:
         raise GuardError("guard/symbol-unpriced", "시세 없음(상폐·미거래·미상장)", {"symbol": symbol})
     price = prices[0].model_copy(update={"lastPrice": kr_int_str(prices[0].lastPrice)})
-    limits = toss.price_limits(symbol)
+    limits = cached_price_limits(toss, symbol)
     limits = limits.model_copy(update={"upperLimitPrice": kr_int_str(limits.upperLimitPrice),
                                        "lowerLimitPrice": kr_int_str(limits.lowerLimitPrice)})
     orderbook = toss.orderbook(symbol)

@@ -19,6 +19,7 @@ from kr_trading.preview import PreviewStore, new_client_order_id
 from kr_trading.toss.client import TossClient
 from kr_trading.toss.errors import GuardError, TossApiError
 from kr_trading.toss.models import Order, OrderCreateRequest, PaginatedOrderResponse
+from trade_api.daycache import cached_price_limits, commissions_cache
 from trade_api.deps import get_cfg, get_conn, get_preview, get_toss
 from trade_api.schemas import (
     EstimateOut, ModifyPreviewIn, ModifySubmitIn, OperationOut, OrderSubmitIn, OrderSubmitOut,
@@ -91,9 +92,15 @@ def _audited_call(conn: Connection, log: AuditLog, cfg: TradeConfig, toss: TossC
 
 
 def _kr_commission_rate(toss: TossClient) -> Decimal | None:
+    """국내(KR) 수수료율 — 일 단위 캐시 경유(#187 리뷰 추가 정리). 실패(TossApiError)는 캐시하지
+    않아 다음 preview 가 재시도한다."""
+    cached = commissions_cache.get("commissions")
+    if cached is not None:
+        return cached
     try:
         for c in toss.commissions():
             if c.marketCountry == "KR":
+                commissions_cache.put("commissions", value=c.commissionRate)
                 return c.commissionRate
     except TossApiError:
         return None
@@ -109,7 +116,7 @@ def _estimate(side: str, g: GuardResult, rate: Decimal | None) -> EstimateOut:
 
 def _guard(req: OrderCreateRequest, *, cfg: TradeConfig, toss: TossClient, log: AuditLog,
            count_toward_daily: bool, skip_sellable: bool = False) -> GuardResult:
-    limits = toss.price_limits(req.symbol)
+    limits = cached_price_limits(toss, req.symbol)
     sellable = (toss.sellable_quantity(req.symbol).sellableQuantity
                if (req.side == "SELL" and not skip_sellable) else None)
     daily = log.daily_buy_total_krw(kst_today()) if (req.side == "BUY" and count_toward_daily) else Decimal("0")

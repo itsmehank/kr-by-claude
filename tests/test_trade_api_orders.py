@@ -352,3 +352,53 @@ def test_modify_preview_sell_does_not_call_sellable(db):
     r = c.post("/trade-api/orders/modify/preview", json={"orderId": "ord_s", "orderType": "LIMIT", "quantity": "5", "price": "71000"})
     assert r.status_code == 200, r.text
     assert ("GET", "/api/v1/sellable-quantity") not in calls   # 조회됐다면 404 → TossApiError → 비-200
+
+
+# ── Task 5(#187 리뷰 추가 정리): price_limits·commissions 일단위 캐시(리셋 훅) ──
+
+def test_price_limits_cached_per_day(db):
+    calls = []
+    deps.set_test_overrides(cfg=DRY, toss=toss_with(READ_ROUTES, DRY, calls), preview=PreviewStore())
+    c = TestClient(app)
+    preview(c)
+    preview(c)
+    assert calls.count(("GET", "/api/v1/price-limits")) == 1
+
+
+def test_commissions_cached(db):
+    calls = []
+    deps.set_test_overrides(cfg=DRY, toss=toss_with(READ_ROUTES, DRY, calls), preview=PreviewStore())
+    c = TestClient(app)
+    preview(c)
+    preview(c)
+    assert calls.count(("GET", "/api/v1/commissions")) == 1
+
+
+def test_commission_failure_not_cached(db):
+    attempts = {"n": 0}
+
+    def commissions(req):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            return httpx.Response(500, json={"error": {"code": "server-error", "message": "boom"}})
+        return COMM(req)
+
+    routes = {**READ_ROUTES, ("GET", "/api/v1/commissions"): commissions}
+    deps.set_test_overrides(cfg=DRY, toss=toss_with(routes, DRY), preview=PreviewStore())
+    c = TestClient(app)
+    p1 = preview(c)
+    assert p1["estimate"]["commission"] is None   # 첫 호출 실패 — 캐시되지 않음
+    p2 = preview(c)
+    assert p2["estimate"]["commission"] is not None   # 두 번째는 재호출되어 성공
+    assert attempts["n"] == 2
+
+
+def test_cache_reset_on_override(db):
+    calls = []
+    deps.set_test_overrides(cfg=DRY, toss=toss_with(READ_ROUTES, DRY, calls), preview=PreviewStore())
+    c = TestClient(app)
+    preview(c)
+    assert calls.count(("GET", "/api/v1/price-limits")) == 1
+    deps.set_test_overrides(toss=toss_with(READ_ROUTES, DRY, calls))   # 클라이언트 교체 → 리셋 훅 발화
+    preview(c)
+    assert calls.count(("GET", "/api/v1/price-limits")) == 2

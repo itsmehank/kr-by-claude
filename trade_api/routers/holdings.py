@@ -1,10 +1,12 @@
 """GET /trade-api/holdings — 토스 잔고 + positions(open) 읽기전용 대조 (spec D2·§6).
-positions 는 SELECT 만. quantity NULL(전량 모델)은 존재만 확인."""
+positions 조회는 get_open_positions(conn) 재사용(store.py, import 만·수정 금지). quantity
+NULL(전량 모델)은 존재만 확인."""
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends
 from psycopg import Connection
 
+from kr_pipeline.trade_management.store import get_open_positions
 from kr_trading.toss.client import TossClient
 from trade_api.deps import get_conn, get_toss
 from trade_api.schemas import HoldingsOut, MismatchOut, kr_int_str
@@ -21,8 +23,10 @@ def holdings(toss: TossClient = Depends(get_toss), conn: Connection = Depends(ge
         if it.marketCountry == "KR" else it
         for it in overview.items
     ]})
-    rows = conn.execute("SELECT symbol, quantity FROM positions WHERE status = 'open'").fetchall()
-    pos: dict[str, Decimal | None] = {r[0]: (Decimal(r[1]) if r[1] is not None else None) for r in rows}
+    pos: dict[str, Decimal | None] = {
+        r["symbol"]: (Decimal(r["quantity"]) if r["quantity"] is not None else None)
+        for r in get_open_positions(conn)
+    }
     mismatch: list[MismatchOut] = []
     for it in overview.items:
         if it.marketCountry != "KR":
