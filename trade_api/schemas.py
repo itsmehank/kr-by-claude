@@ -7,7 +7,8 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 from kr_trading.toss.models import (
-    Account, HoldingsOverview, OrderbookResponse, PriceLimitResponse, PriceResponse, StockWarning,
+    Account, HoldingsOverview, OrderbookResponse, OrderCreateRequest, OrderModifyRequest,
+    PriceLimitResponse, PriceResponse, StockWarning,
 )
 
 AccountOut = Account  # 재사용 — 브리프 인터페이스 계약(schemas.py 소비처용 별칭)
@@ -57,3 +58,62 @@ class QuoteOut(BaseModel):
     orderbook: OrderbookResponse
     limits: PriceLimitResponse
     warnings: list[StockWarning]
+
+
+class PreviewIn(BaseModel):
+    symbol: str
+    side: str
+    orderType: str
+    quantity: Decimal
+    price: Decimal | None = None
+    confirmHighValueOrder: bool = False
+
+
+class EstimateOut(BaseModel):
+    amount: Decimal
+    amountBasis: str
+    commission: Decimal | None
+    total: Decimal
+
+
+class PreviewOut(BaseModel):
+    previewToken: str
+    clientOrderId: str | None
+    request: dict
+    estimate: EstimateOut
+    warnings: list[str]
+    dryRun: bool
+    expiresInSec: int
+
+
+class OrderSubmitIn(BaseModel):
+    previewToken: str
+    request: OrderCreateRequest
+
+
+class OrderSubmitOut(BaseModel):
+    dryRun: bool
+    orderId: str | None
+    clientOrderId: str | None
+    auditId: int
+    request: dict
+
+
+class ModifyPreviewIn(BaseModel):
+    orderId: str
+    orderType: str
+    quantity: Decimal
+    price: Decimal | None = None
+    confirmHighValueOrder: bool = False
+
+
+class ModifySubmitIn(BaseModel):
+    previewToken: str
+    orderId: str
+    request: OrderModifyRequest
+
+
+class OperationOut(BaseModel):
+    dryRun: bool
+    orderId: str | None
+    auditId: int

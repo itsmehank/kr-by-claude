@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 
 from kr_trading.toss.errors import GuardError, TossApiError
 from trade_api import deps
-from trade_api.routers import accounts, health, holdings, market
+from trade_api.routers import accounts, health, holdings, market, orders
 
 log = logging.getLogger("trade_api")
 
@@ -51,3 +51,4 @@ app.include_router(health.router)
 app.include_router(accounts.router)
 app.include_router(holdings.router)
 app.include_router(market.router)
+app.include_router(orders.router)
