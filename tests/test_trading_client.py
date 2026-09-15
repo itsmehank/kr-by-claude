@@ -175,3 +175,52 @@ def test_last_request_id_is_thread_local():
     # 다른 스레드가 설정한 값은 메인 스레드에서 보이지 않는다(thread-local)
     assert c.last_request_id is None
     assert seen["t1"] == "rid-t1"
+
+
+def test_two_threads_401_reissue_once():
+    """두 스레드가 동시에 같은(T0) 토큰으로 401 token-revoked 를 받아도 재발급은 정확히
+    1회만 일어난다 — compare-and-clear 없이는 두 번째 스레드의 invalidate() 가 첫 스레드가
+    막 재발급한 토큰까지 지워 연쇄 재발급(및 최종 재시도 실패)을 유발한다."""
+    import threading
+
+    token_n = [0]
+    token_lock = threading.Lock()
+
+    def token_handler(req):
+        with token_lock:
+            token_n[0] += 1
+            n = token_n[0]
+        return httpx.Response(200, json={"access_token": f"tok{n}", "token_type": "Bearer", "expires_in": 3600})
+
+    barrier = threading.Barrier(2)
+
+    def api_handler(req):
+        auth = req.headers.get("authorization")
+        if auth == "Bearer tok1":
+            barrier.wait(timeout=2)   # 두 스레드 모두 tok1 로 요청을 보낸 시점에 맞춰 401 을 함께 받게 한다
+            return httpx.Response(401, json={"error": {"code": "token-revoked", "message": ""}})
+        return httpx.Response(200, json={"result": {"currency": "KRW", "cashBuyingPower": "1"}})
+
+    def route(req: httpx.Request):
+        if req.url.path == "/oauth2/token":
+            return token_handler(req)
+        return api_handler(req)
+
+    http = httpx.Client(transport=httpx.MockTransport(route), base_url=CFG.base_url)
+    c = TossClient(CFG, http=http, sleep=lambda s: None)
+
+    results = []
+    results_lock = threading.Lock()
+
+    def worker():
+        r = c.buying_power().cashBuyingPower
+        with results_lock:
+            results.append(r)
+
+    t1 = threading.Thread(target=worker)
+    t2 = threading.Thread(target=worker)
+    t1.start(); t2.start()
+    t1.join(timeout=5); t2.join(timeout=5)
+
+    assert sorted(results) == [Decimal("1"), Decimal("1")]
+    assert c._token.issue_count == 2   # tok1(최초 발급) + tok2(정확히 1회 재발급) — tok3 연쇄 없음

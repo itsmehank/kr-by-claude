@@ -1,5 +1,6 @@
 """TokenManager — 선제 갱신·동시 발급 직렬화·invalidate. 토스 접촉 0 (MockTransport)."""
 import threading
+import time
 from decimal import Decimal
 
 import httpx
@@ -90,3 +91,53 @@ def test_auth_failure_raises_toss_api_error():
     with pytest.raises(TossApiError) as ei:
         tm.get()
     assert ei.value.status == 401 and ei.value.code == "invalid-client" and ei.value.request_id == "r1"
+
+
+def test_invalidate_compare_and_clear():
+    """다른 요청이 이미 쓴(stale) 토큰으로 invalidate 하면 no-op — 현재 토큰과 일치할 때만 비운다."""
+    n = [0]
+
+    def handler(req):
+        n[0] += 1
+        return httpx.Response(200, json={"access_token": f"tok{n[0]}", "token_type": "Bearer", "expires_in": 3600})
+
+    tm = TokenManager(_client(handler), CFG)
+    assert tm.get() == "tok1"
+    tm.invalidate("stale")          # 현재 토큰(tok1)과 다름 → no-op
+    assert tm.get() == "tok1"
+    assert tm.issue_count == 1
+    tm.invalidate("tok1")           # 현재 토큰과 일치 → 비움
+    assert tm.get() == "tok2"
+
+
+def test_get_never_returns_none_under_concurrent_invalidate():
+    """get() 은 fast-path·lock-path 모두 스냅샷 한 번만 읽어 None 을 절대 반환하지 않는다."""
+    n = [0]
+
+    def handler(req):
+        n[0] += 1
+        return httpx.Response(200, json={"access_token": f"tok{n[0]}", "token_type": "Bearer", "expires_in": 3600})
+
+    tm = TokenManager(_client(handler), CFG)
+    tm.get()  # 초기 발급
+
+    results = []
+
+    def invalidator():
+        for _ in range(300):
+            tm.invalidate()
+            time.sleep(0)
+
+    def getter():
+        for _ in range(300):
+            results.append(tm.get())
+            time.sleep(0)
+
+    ti = threading.Thread(target=invalidator)
+    tg = threading.Thread(target=getter)
+    ti.start(); tg.start()
+    ti.join(); tg.join()
+
+    assert len(results) == 300
+    for r in results:
+        assert isinstance(r, str) and r.startswith("tok")

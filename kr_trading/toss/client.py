@@ -63,11 +63,13 @@ class TossClient:
         retried_auth = False
         retried_rate = False
         while True:
-            resp = self._send(method, path, params, json, headers, group)
+            resp, used_token = self._send(method, path, params, json, headers, group)
             if (resp.status_code == 401 and not retried_auth
                     and _error_code(resp) in _REISSUE_CODES):
                 retried_auth = True
-                self._token.invalidate()
+                # 이 요청이 실제로 쓴 토큰만 넘긴다 — compare-and-clear: 다른 스레드가 이미
+                # 재발급했다면(현재 토큰이 달라졌다면) no-op, 방금 나온 새 토큰을 지우지 않는다.
+                self._token.invalidate(used_token)
                 continue
             if resp.status_code == 429 and not retried_rate:
                 retried_rate = True
@@ -79,13 +81,14 @@ class TossClient:
         body = resp.json()
         return body.get("result") if isinstance(body, dict) else body
 
-    def _send(self, method, path, params, json, headers, group) -> httpx.Response:
+    def _send(self, method, path, params, json, headers, group) -> tuple[httpx.Response, str]:
         self._limiter.acquire(group)
         h = dict(headers)
-        h["Authorization"] = f"Bearer {self._token.get()}"
+        used_token = self._token.get()
+        h["Authorization"] = f"Bearer {used_token}"
         resp = self._http.request(method, path, params=params, json=json, headers=h)
         self._limiter.update_from_headers(group, resp.headers)
-        return resp
+        return resp, used_token
 
     # ── 고수준 ─────────────────────────────────────────────────────
     def accounts(self) -> list[Account]:
