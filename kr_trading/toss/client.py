@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import threading
 import time
 from typing import Any, Callable
 
@@ -36,7 +37,14 @@ class TossClient:
         self._token = token or TokenManager(self._http, cfg)
         self._limiter = limiter or RateLimiter()
         self._sleep = sleep
-        self.last_request_id: str | None = None
+        # X-Request-Id 는 스레드별로 보관 — TossClient 는 프로세스 싱글톤이고 sync 라우트가 스레드풀에서
+        # 동시에 request() 를 부를 수 있어, 인스턴스 속성이면 겹친 주문의 감사 request_id 가 뒤바뀐다.
+        self._tl = threading.local()
+
+    @property
+    def last_request_id(self) -> str | None:
+        """직전 request() 의 토스 X-Request-Id — **호출한 스레드** 기준. 다른 스레드의 값은 보이지 않는다."""
+        return getattr(self._tl, "last_request_id", None)
 
     # ── 저수준 ─────────────────────────────────────────────────────
     def request(self, method: str, path: str, *, params: dict | None = None,
@@ -66,7 +74,7 @@ class TossClient:
                 self._sleep(self._limiter.retry_after_seconds(resp.headers) or 1.0)
                 continue
             break
-        self.last_request_id = resp.headers.get("X-Request-Id")
+        self._tl.last_request_id = resp.headers.get("X-Request-Id")
         raise_for_envelope(resp)
         body = resp.json()
         return body.get("result") if isinstance(body, dict) else body

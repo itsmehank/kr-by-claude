@@ -148,3 +148,30 @@ def test_create_order_sends_string_decimals():
     r = make(h).create_order(OrderCreateRequest(symbol="005930", side="BUY", orderType="LIMIT",
                                                 quantity=Decimal("10"), price=Decimal("70000"), clientOrderId="c1"))
     assert r.orderId == "ord_1" and seen["price"] == "70000" and seen["quantity"] == "10"
+
+
+def test_last_request_id_is_thread_local():
+    """싱글톤 TossClient 를 스레드풀 라우트가 공유해도 request_id 가 스레드 간에 새지 않는다."""
+    import threading
+
+    def h(req):
+        rid = req.headers.get("x-test-rid", "main")
+        return httpx.Response(200, headers={"X-Request-Id": f"rid-{rid}"},
+                              json={"result": [{"symbol": "005930", "timestamp": None, "lastPrice": "1", "currency": "KRW"}]})
+
+    c = make(h)
+    seen = {}
+
+    def worker(name):
+        # 각 스레드가 자기 요청을 보내고 곧바로 자기 값을 읽는다 — 라우트 핸들러와 동일한 사용 패턴
+        c._http.headers["x-test-rid"] = name          # 이 스레드의 요청을 식별하는 표식 (테스트용)
+        c.prices(["005930"])
+        seen[name] = c.last_request_id
+
+    # 메인 스레드는 아직 아무 요청도 안 했다 → None
+    assert c.last_request_id is None
+    t = threading.Thread(target=worker, args=("t1",))
+    t.start(); t.join()
+    # 다른 스레드가 설정한 값은 메인 스레드에서 보이지 않는다(thread-local)
+    assert c.last_request_id is None
+    assert seen["t1"] == "rid-t1"
