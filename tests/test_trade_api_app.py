@@ -2,6 +2,7 @@
 from decimal import Decimal
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from kr_trading.config import TradeConfig
@@ -57,3 +58,21 @@ def test_guard_error_handler_400():
     deps.set_test_overrides(cfg=CFG, toss=toss_with(lambda r: httpx.Response(200, json={"result": {}})))
     r = TestClient(app).get("/trade-api/buying-power")   # account_seq None → guard/account-seq-missing
     assert r.status_code == 400 and r.json()["error"]["code"] == "guard/account-seq-missing"
+
+
+def test_get_conn_refuses_production_fallback_under_pytest(monkeypatch):
+    """pytest 실행 중 get_conn 이 dependency_overrides 없이 호출되면(오버라이드 누락) 운영
+    DB 로 폴백하지 말고 즉시 RuntimeError 로 죽어야 한다(#187 리뷰, 구조적 격리)."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql://localhost/kr_pipeline")
+    deps._pool = None
+    app.dependency_overrides.pop(deps.get_conn, None)
+    with pytest.raises(RuntimeError):
+        next(deps.get_conn())
+
+
+def test_autouse_override_routes_to_test_db():
+    """어떤 모듈 `db` 픽스처도 받지 않은 테스트라도 autouse 오버라이드가 걸려 있어야
+    운영 DB 500(RuntimeError)이 아니라 kr_test 로 정상 조회된다."""
+    deps.set_test_overrides(cfg=CFG, toss=toss_with(lambda r: httpx.Response(200, json={"result": {}})))
+    r = TestClient(app).get("/trade-api/search?q=zzz")
+    assert r.status_code == 200

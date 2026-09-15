@@ -5,7 +5,9 @@
 """
 from __future__ import annotations
 
+import os
 from typing import Callable, Generator
+from urllib.parse import urlparse
 
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
@@ -101,5 +103,10 @@ def get_conn() -> Generator[Connection, None, None]:
         with _pool.connection() as conn:
             yield conn
         return
-    with connect(Config.load().database_url) as conn:
+    url = Config.load().database_url
+    if os.environ.get("PYTEST_CURRENT_TEST") and "test" not in urlparse(url).path.rsplit("/", 1)[-1]:
+        raise RuntimeError(
+            "trade_api get_conn: pytest 에서 비-test DB 폴백 금지 — dependency_overrides 누락"
+        )
+    with connect(url) as conn:
         yield conn

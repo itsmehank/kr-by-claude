@@ -2,6 +2,7 @@
 from decimal import Decimal
 
 import pytest
+from dotenv import dotenv_values
 
 from kr_trading.config import TradeConfig, parse_bool_fail_closed
 
@@ -48,3 +49,17 @@ def test_conftest_isolation_forces_dry_run_and_blank_credentials():
     assert os.environ.get("TOSS_CLIENT_SECRET") == ""
     assert os.environ.get("TOSS_DRY_RUN") == "true"
     assert os.environ.get("TOSS_BASE_URL") == "http://127.0.0.1:1"
+    assert os.environ.get("TOSS_ACCOUNT_SEQ") == ""
+    assert os.environ.get("GUARD_MAX_ORDER_KRW") == "5000000"
+    assert os.environ.get("GUARD_MAX_DAILY_KRW") == "10000000"
+
+
+def test_env_example_account_seq_is_blank():
+    """.env.example 의 TOSS_ACCOUNT_SEQ 인라인 주석이 python-dotenv 파싱 시 값으로
+    읽히면(빈 값 뒤 주석 → 실측 '# GET /trade-api/accounts …') TradeConfig.load() 가
+    int(그 문자열) 로 죽는다. 설명은 윗줄 주석으로 옮기고 값은 진짜 빈 문자열이어야 한다.
+    """
+    values = dotenv_values(".env.example")
+    assert values["TOSS_ACCOUNT_SEQ"] == ""
+    assert values["GUARD_MAX_ORDER_KRW"] == "5000000"
+    assert values["GUARD_MAX_DAILY_KRW"] == "10000000"
