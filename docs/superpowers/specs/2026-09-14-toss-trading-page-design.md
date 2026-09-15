@@ -105,13 +105,14 @@ STOCK 5, ORDER 10, ORDER_HISTORY 5, ORDER_INFO 6`). 응답 헤더 `X-RateLimit-L
 4. `GET /price-limits` 대비 `lowerLimitPrice ≤ price ≤ upperLimitPrice` → 아니면 `guard/price-out-of-range`
 5. 주문금액 산정: `LIMIT` = `price × quantity`, **`MARKET` = `upperLimitPrice × quantity`**(시장가는 상한가까지
    체결 가능 — 보수적 기준). 1건 > `GUARD_MAX_ORDER_KRW` → `guard/max-order-amount`
-6. 1일 누적(BUY만): `toss_order_audit` 에서 `kind='create' AND NOT dry_run AND side='BUY' AND http_status=200`
-   행의 주문금액 합 + 이번 주문 > `GUARD_MAX_DAILY_KRW` → `guard/max-daily-amount`. 하루 경계 = **KST 자정**
+6. 1일 누적(BUY만): `toss_order_audit` 에서 `kind='create' AND NOT dry_run AND side='BUY' AND
+   (http_status IS NULL OR http_status IN (200, -1) OR http_status >= 500)` 행의 주문금액 합 — pending(NULL)·통신 오류(-1)·
+   토스 5xx 는 접수됐을 수 있으므로 포함(fail-closed), 4xx/422 는 토스가 거부를 확정한 것이라 제외(AuditLog 절 참조) + 이번 주문 > `GUARD_MAX_DAILY_KRW` → `guard/max-daily-amount`. 하루 경계 = **KST 자정**
    (`created_at AT TIME ZONE 'Asia/Seoul'`). 취소분은 차감하지 않음. **정정(`kind='modify'`)은 누적에 넣지
    않고 1건 상한(5번)만 재검**한다 — 원주문과 정정을 둘 다 합산하면 이중 집계로 과다 차단되기 때문.
    **이 규칙은 preview 뿐 아니라 `POST /orders`(submit) 에서도 재평가한다** — 미리보기 N개를 TTL 내 연속 제출하면
    preview 시점 합계가 stale 이라 상한을 넘을 수 있다(최종 리뷰 I-2). 결정은 행동 시점에.
-7. 매도: `GET /sellable-quantity` 초과 → `guard/sellable-exceeded`. 조회값이 None 이면 `guard/sellable-unavailable`(fail-closed).
+7. 매도: `GET /sellable-quantity` 초과 → `guard/sellable-exceeded`. 조회값이 None 이면 `guard/sellable-unavailable`(fail-closed). 추가(코드리뷰 후속): `guard/sellable-unavailable`, `guard/symbol-unpriced`, `guard/side-invalid`, `guard/order-type-invalid`, `guard/account-seq-missing`
    **정정(modify) 은 규칙 7 을 생략**한다 — 토스 `sellableQuantity` 가 해당 미체결 매도에 잠긴 수량을 제외할 수 있어 로컬 오차단
    위험이 있고, spec §6 의 modify/preview 는 sellable 을 조회하지 않는다(최종 판정권 = 토스). 코드리뷰 후속 2026-09-15
 8. 주문금액 ≥ 1억 → `confirmHighValueOrder=true` 강제, ≥ 30억 → 차단(스펙 `422 max-order-amount-exceeded`)
@@ -130,8 +131,8 @@ SHA-256 을 `previewToken` 으로 발급. `POST /orders` 는 `previewToken` 필�
 
 **AuditLog** — `toss_order_audit` append-only. **전송 직전 INSERT(`pending`) → 응답 후 UPDATE.** 타임아웃으로
 응답을 못 받아도 "보냈다"는 행이 남는다. 정정·취소·DRY_RUN도 기록. 토스 외 예외(전송 계층·파싱)도 `http_status=-1` 로
-마감한다. **1일 누적 집계는 `http_status IS NULL OR IN (200, -1)` 을 포함** — 응답을 못 받은 주문은 접수된 것으로 간주
-(fail-closed). 4xx/422 는 제외. `submit` 의 누적 재검과 INSERT 는 `pg_advisory_xact_lock` 아래 한 트랜잭션(동시 제출
+마감한다. **1일 누적 집계는 `http_status IS NULL OR IN (200, -1) OR >= 500` 을 포함** — 응답을 못 받은 주문·통신 오류·토스 5xx
+(게이트웨이 502 는 접수 후에도 올 수 있다)는 접수된 것으로 간주(fail-closed). 4xx/422 는 거부 확정이라 제외. `submit` 의 누적 재검과 INSERT 는 `pg_advisory_xact_lock` 아래 한 트랜잭션(동시 제출
 직렬화)이며, `client_order_id` 에 `kind='create'` 부분 UNIQUE 인덱스로 DB 도 중복을 거부한다(코드리뷰 후속 2026-09-15).
 
 ```sql
@@ -165,14 +166,14 @@ CREATE INDEX IF NOT EXISTS idx_toss_order_audit_day ON toss_order_audit (created
 | GET | `/trade-api/accounts` | `/accounts` | 계좌 헤더 불필요. **`TOSS_ACCOUNT_SEQ` 미설정 상태에서도 동작** — §10 2단계에서 `accountSeq`·`accountType` 확인용. TTL 5분 캐시(`ACCOUNT` 1/s) |
 | GET | `/trade-api/holdings` | `/holdings` + `positions` SELECT | `HoldingsOverview` 그대로 + `mismatch[]`: `{symbol, name, tossQty, positionQty|null, kind: missing|qty_diff}`. `positions.quantity` 가 NULL(전량 모델)이면 존재만 확인하고 수량 비교는 생략(`qty_diff` 미판정) |
 | GET | `/trade-api/search?q=` | 없음 | 로컬 `stocks` — `delisted_at IS NULL AND is_common` 필터, ticker·name prefix/부분 일치, 최대 20 |
-| GET | `/trade-api/quote/{symbol}` | `/prices`, `/orderbook`, `/price-limits`, `/stocks/{symbol}/warnings` | 묶음. 종목명은 로컬 `stocks` |
+| GET | `/trade-api/quote/{symbol}` | `/prices`, `/orderbook`, `/price-limits`(일단위 캐시), `/stocks/{symbol}/warnings` | 묶음. 종목명은 로컬 `stocks`(상폐 제외). 로컬 미존재·시세 빈 응답 → `guard/symbol-unpriced`(토스 미호출). KR 숫자는 정수 정규화 |
 | GET | `/trade-api/buying-power` | `/buying-power?currency=KRW` | |
 | GET | `/trade-api/sellable/{symbol}` | `/sellable-quantity` | |
 | POST | `/trade-api/orders/preview` | `/price-limits`, `/sellable-quantity`(SELL), `/commissions` | 가드 전부·`clientOrderId` 생성·`previewToken`. 주문 API 미호출 |
 | POST | `/trade-api/orders` | `/orders` (DRY_RUN 시 미호출) | `previewToken` 필수 → **BUY 는 1일 누적 재검(§5 6번)** → 감사 INSERT→전송→UPDATE. 성공 시 `request_id`(X-Request-Id) 기록 |
 | POST | `/trade-api/orders/{id}/cancel` | `/orders/{id}/cancel` | 감사 기록. 새 `orderId` 반환 |
 | POST | `/trade-api/orders/modify/preview` | `/orders/{id}`(원주문 symbol·side), `/price-limits`, `/commissions` | 정정 미리보기 — 원주문과 합성한 요청으로 가드 실행(1일 누적 재검 제외), `previewToken` 발급. `clientOrderId` 없음 |
-| POST | `/trade-api/orders/{id}/modify` | `/orders/{id}/modify` | 미리보기 동일 적용. 스펙상 `orderType` 필수, KR은 `quantity` 필수 |
+| POST | `/trade-api/orders/{id}/modify` | `/orders/{id}/modify` | 미리보기 동일 적용(토큰은 `verify` — 1회 소비는 `POST /orders` 에만, 정정 재제출은 토스가 REPLACED 로 거부). 스펙상 `orderType` 필수, KR은 `quantity` 필수 |
 | GET | `/trade-api/orders?status=OPEN\|CLOSED&cursor=&limit=` | `/orders` | 그대로 전달 |
 | GET | `/trade-api/orders/{id}` | `/orders/{id}` | 폴링 대상 |
 
@@ -226,9 +227,11 @@ CORS는 `localhost:5173` 허용(프록시 없이 직접 접근 대비). JSON 본
 ```
 TOSS_CLIENT_ID=
 TOSS_CLIENT_SECRET=
-TOSS_ACCOUNT_SEQ=            # /accounts 로 확인 후 고정 (accountType=BROKERAGE)
+# TOSS_ACCOUNT_SEQ: GET /trade-api/accounts 로 확인 후 고정 (accountType=BROKERAGE). 빈 값 뒤 인라인 주석 금지 — dotenv 가 주석을 값으로 읽음
+TOSS_ACCOUNT_SEQ=
 TOSS_BASE_URL=https://openapi.tossinvest.com
-TOSS_DRY_RUN=true            # 기본 true. 실주문은 명시적으로 false
+# TOSS_DRY_RUN: 기본 true. 실주문은 명시적으로 false
+TOSS_DRY_RUN=true
 GUARD_MAX_ORDER_KRW=5000000
 GUARD_MAX_DAILY_KRW=10000000
 ```
