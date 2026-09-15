@@ -52,7 +52,7 @@ def test_build_payload_basic_structure(db):
     # daily.csv(17지표)/weekly_ohlcv.csv 로 이동해 payload 에서 제거됐고,
     # 그 외 키는 우발 추가/삭제 없이 보존돼야 한다.
     assert set(payload.keys()) == {
-        "symbol", "name", "market", "sector", "date",
+        "symbol", "name", "market", "sector", "security_group", "date",
         "conditions_met", "conditions_detail", "conditions_summary",
         "market_direction_gate", "rs_rating", "current_metrics",
         "daily_ohlcv_recent_60d", "market_context", "price_data_notes",

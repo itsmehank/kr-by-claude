@@ -1,0 +1,68 @@
+"""[KRX 접촉 — 사용자 승인 후에만 실행] SECUGRP 필터로 신규 편입된 종목의 전기간 일봉 백필.
+
+종목별 pykrx get_market_ohlcv raw(KRX) 1회 + adjusted(Naver) 1회 = KRX 요청 = 종목 수.
+적재 경로는 라이브 incremental 과 동일(merge_raw_and_adjusted → to_price_rows → upsert_daily_prices)
+— nullify_halt_adj chokepoint 를 경유한다. weekly_prices·지표는 다음 정규 실행이 채운다.
+
+usage: KR_ALLOW_KRX=1 uv run python scripts/secugrp_backfill_new_tickers.py 088980,138040,369370 [--execute]
+plan: docs/superpowers/plans/2026-09-15-secugrp-universe-filter.md Task 6 Step 7.
+"""
+import argparse
+import json
+import os
+import sys
+import time
+from datetime import date, timedelta
+
+import psycopg
+
+from kr_pipeline.common.config import Config
+from kr_pipeline.ohlcv.fetch import _fetch_one
+from kr_pipeline.ohlcv.modes import _get_db_min_date
+from kr_pipeline.ohlcv.store import upsert_daily_prices
+from kr_pipeline.ohlcv.transform import merge_raw_and_adjusted, to_price_rows
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("tickers")
+    ap.add_argument("--execute", action="store_true", help="없으면 fetch 만 하고 적재는 rollback")
+    ap.add_argument("--report", default="data/verification/secugrp_backfill_report.json")
+    a = ap.parse_args()
+    if os.environ.get("KR_ALLOW_KRX") != "1":
+        print("KR_ALLOW_KRX=1 없이는 실행하지 않는다(운영 규칙 5 — KRX 실 접촉 승인 게이트).")
+        return 2
+    cfg = Config.load()
+    tickers = [t for t in a.tickers.split(",") if t]
+    rep: dict = {"execute": a.execute, "tickers": {}}
+    end = date.today() - timedelta(days=1)
+    with psycopg.connect(cfg.database_url) as cn:
+        start = _get_db_min_date(cn)
+        rep["range"] = [start.isoformat(), end.isoformat()]
+        for t in tickers:
+            raw = _fetch_one(t, start, end, adjusted=False)      # KRX
+            time.sleep(1.0)
+            adj = _fetch_one(t, start, end, adjusted=True)       # Naver
+            time.sleep(1.0)
+            info = {"raw_rows": len(raw), "adj_rows": len(adj)}
+            if raw.empty or adj.empty:
+                info["skipped"] = "empty raw/adj — 적재 보류(#95 규약)"
+                rep["tickers"][t] = info
+                continue
+            merged = merge_raw_and_adjusted(raw, adj)
+            rows = to_price_rows(t, merged)
+            info["rows"] = len(rows)
+            info["first"], info["last"] = str(merged["date"].min()), str(merged["date"].max())
+            info["upserted"] = upsert_daily_prices(cn, rows)
+            rep["tickers"][t] = info
+        if a.execute:
+            cn.commit()
+        else:
+            cn.rollback()
+    json.dump(rep, open(a.report, "w"), ensure_ascii=False, indent=1)
+    print(json.dumps(rep, ensure_ascii=False, indent=1))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
