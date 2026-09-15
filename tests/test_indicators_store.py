@@ -205,3 +205,74 @@ def test_delete_weekly_indicators_orphans(db):
     db.commit()
     assert deleted >= 1
     assert rows == [date(2026, 6, 5)], f"고아 잔존: {rows}"
+
+
+# ---------- (Q-5) security_group 게이트 — NULL·기준일 전진 적용 (SECUGRP 필터 Task 5) ----------
+from datetime import timedelta
+from kr_pipeline.common.security_group import SECURITY_GROUP_GATE_EFFECTIVE_DATE as EFF
+from kr_pipeline.indicators.store import update_weekly_indicators_minervini_pass
+
+
+def _seed_stock_sg(db, ticker, sg):
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM stocks WHERE ticker = %s", (ticker,))
+        cur.execute("INSERT INTO stocks (ticker, name, market, security_group) VALUES (%s, 'T', 'KOSPI', %s)", (ticker, sg))
+
+
+def _seed_daily_all_true(db, ticker, d):
+    with db.cursor() as cur:
+        cur.execute("""INSERT INTO daily_indicators (ticker, date, adj_close, rs_rating,
+                       minervini_c1, minervini_c2, minervini_c3, minervini_c4, minervini_c5, minervini_c6, minervini_c7)
+                       VALUES (%s, %s, 1000, 95, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)""", (ticker, d))
+
+
+def _seed_weekly_all_true(db, ticker, d):
+    with db.cursor() as cur:
+        cur.execute("""INSERT INTO weekly_indicators (ticker, week_end_date, adj_close, rs_rating,
+                       minervini_c1, minervini_c2, minervini_c3, minervini_c4, minervini_c5, minervini_c6, minervini_c7)
+                       VALUES (%s, %s, 1000, 95, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)""", (ticker, d))
+
+
+def test_daily_gate_nulls_non_qualifying_from_effective_date_only(db):
+    """(Q-5) 비허용 security_group: 기준일 이후 행 = NULL(판정하지 않음), 기준일 이전 행 = 정상 산출(재산출 금지)."""
+    _seed_stock_sg(db, "SG1", "투자회사")
+    _seed_daily_all_true(db, "SG1", EFF)
+    _seed_daily_all_true(db, "SG1", EFF - timedelta(days=1))
+    update_daily_indicators_minervini_pass(db, EFF - timedelta(days=1), EFF)
+    with db.cursor() as cur:
+        cur.execute("SELECT date, minervini_c8, minervini_pass FROM daily_indicators WHERE ticker='SG1' ORDER BY date")
+        rows = cur.fetchall()
+    assert rows[0] == (EFF - timedelta(days=1), True, True)     # 과거: TRUE 유지
+    assert rows[1] == (EFF, True, None)                          # 전진: NULL, c8 은 그대로 계산
+
+
+def test_daily_gate_unresolved_is_gated(db):
+    """UNRESOLVED(조회 미해결) = 자격 게이트 fail-closed → NULL. (daily_indicators.ticker 는 stocks FK 라
+    '행 없음' 경로는 라이브에서 발생 불가 — SQL 조각의 COALESCE 는 방어적 기본값.)"""
+    _seed_stock_sg(db, "SG2", "UNRESOLVED")
+    _seed_daily_all_true(db, "SG2", EFF)
+    update_daily_indicators_minervini_pass(db, EFF, EFF)
+    with db.cursor() as cur:
+        cur.execute("SELECT minervini_pass FROM daily_indicators WHERE ticker='SG2'")
+        assert cur.fetchone() == (None,)
+
+
+def test_daily_gate_passes_qualifying_groups(db):
+    for t, g in (("SG3", "주권"), ("SG4", "외국주권"), ("SG5", "주식예탁증권")):
+        _seed_stock_sg(db, t, g)
+        _seed_daily_all_true(db, t, EFF)
+    update_daily_indicators_minervini_pass(db, EFF, EFF)
+    with db.cursor() as cur:
+        cur.execute("SELECT ticker, minervini_pass FROM daily_indicators WHERE ticker IN ('SG3','SG4','SG5') ORDER BY 1")
+        assert cur.fetchall() == [("SG3", True), ("SG4", True), ("SG5", True)]
+
+
+def test_weekly_gate_mirrors_daily(db):
+    _seed_stock_sg(db, "SG6", "사회간접자본투융자회사")
+    _seed_weekly_all_true(db, "SG6", EFF + timedelta(days=4))
+    _seed_weekly_all_true(db, "SG6", EFF - timedelta(days=3))
+    update_weekly_indicators_minervini_pass(db, EFF - timedelta(days=3), EFF + timedelta(days=4))
+    with db.cursor() as cur:
+        cur.execute("SELECT week_end_date, minervini_pass FROM weekly_indicators WHERE ticker='SG6' ORDER BY 1")
+        rows = cur.fetchall()
+    assert rows[0][1] is True and rows[1][1] is None

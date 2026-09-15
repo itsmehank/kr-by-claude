@@ -7,6 +7,7 @@ DB·코드 무접촉. 결과는 stdout + JSON. 이번 스프린트에서 수정�
 usage: uv run python scripts/secugrp_name_axis_audit.py <krx_secugrp_full.json> <out.json>
 """
 import json
+import re
 import sys
 from collections import Counter
 
@@ -20,7 +21,6 @@ pref_hits = [(t, v["name"]) for t, v in krx.items() if _is_preferred(v["name"])]
 spac_hits = [(t, v["name"]) for t, v in krx.items() if _is_spac(v["name"])]
 # 우선주 의심 오탐: 6자리 숫자 코드가 0 으로 끝나면 보통주 관례 — 정규식에 걸렸다면 이름이 '우'로 끝나는 보통주
 pref_suspect = [(t, n) for t, n in pref_hits if t.isdigit() and t.endswith("0")]
-import re
 spac_suspect = [(t, n) for t, n in spac_hits
                 if not re.search(r"(호스팩|스팩\d+호|스팩)$", n) and "호스팩" not in n]   # "OO스팩N호"·"OO제N호스팩" = 진짜 스팩
 report = {
