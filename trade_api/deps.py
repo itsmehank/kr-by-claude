@@ -37,7 +37,8 @@ def init_singletons() -> None:
     _cfg = _cfg or TradeConfig.load()
     _toss = _toss or TossClient(_cfg)
     _preview = _preview or PreviewStore()
-    _pool = ConnectionPool(Config.load().database_url, min_size=1, max_size=5, open=True)
+    if _pool is None:
+        _pool = ConnectionPool(Config.load().database_url, min_size=1, max_size=5, open=True)
 
 
 def close_singletons() -> None:

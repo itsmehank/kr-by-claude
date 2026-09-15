@@ -16,7 +16,7 @@ from kr_trading.config import TradeConfig
 from kr_trading.guard import GuardResult, check_order
 from kr_trading.preview import PreviewStore, new_client_order_id
 from kr_trading.toss.client import TossClient
-from kr_trading.toss.errors import TossApiError
+from kr_trading.toss.errors import GuardError, TossApiError
 from kr_trading.toss.models import Order, OrderCreateRequest, PaginatedOrderResponse
 from trade_api.deps import get_cfg, get_conn, get_preview, get_toss
 from trade_api.schemas import (
@@ -73,6 +73,11 @@ def submit(body: OrderSubmitIn, cfg: TradeConfig = Depends(get_cfg), toss: TossC
     payload = body.request.to_toss_json()
     meta = store.verify(body.previewToken, payload)
     log = AuditLog(conn)
+    if body.request.side == "BUY" and not cfg.dry_run:
+        total = log.daily_buy_total_krw(kst_today())
+        if total + Decimal(meta["amount"]) > cfg.max_daily_krw:
+            raise GuardError("guard/max-daily-amount", "1일 매수 누적 상한 초과(제출 시점 재검)",
+                             {"amountKrw": meta["amount"], "dailyTotalKrw": str(total), "maxDailyKrw": str(cfg.max_daily_krw)})
     audit_id = log.begin("create", body.request.symbol, body.request.side, body.request.clientOrderId,
                          Decimal(meta["amount"]), payload, dry_run=cfg.dry_run)
     conn.commit()                                     # pending 행을 전송 전에 확정
@@ -87,7 +92,8 @@ def submit(body: OrderSubmitIn, cfg: TradeConfig = Depends(get_cfg), toss: TossC
         log.finish(audit_id, http_status=e.status, error_code=e.code, request_id=e.request_id)
         conn.commit()
         raise
-    log.finish(audit_id, http_status=200, order_id=res.orderId, response_json=res.model_dump(mode="json"))
+    log.finish(audit_id, http_status=200, order_id=res.orderId, response_json=res.model_dump(mode="json"), request_id=toss.last_request_id)
+    conn.commit()
     return OrderSubmitOut(dryRun=False, orderId=res.orderId, clientOrderId=res.clientOrderId,
                           auditId=audit_id, request=payload)
 
@@ -125,7 +131,8 @@ def modify(order_id: str, body: ModifySubmitIn, cfg: TradeConfig = Depends(get_c
         log.finish(audit_id, http_status=e.status, error_code=e.code, request_id=e.request_id)
         conn.commit()
         raise
-    log.finish(audit_id, http_status=200, order_id=res.orderId, response_json=res.model_dump(mode="json"))
+    log.finish(audit_id, http_status=200, order_id=res.orderId, response_json=res.model_dump(mode="json"), request_id=toss.last_request_id)
+    conn.commit()
     return OperationOut(dryRun=False, orderId=res.orderId, auditId=audit_id)
 
 
@@ -145,7 +152,8 @@ def cancel(order_id: str, cfg: TradeConfig = Depends(get_cfg), toss: TossClient 
         log.finish(audit_id, http_status=e.status, error_code=e.code, request_id=e.request_id)
         conn.commit()
         raise
-    log.finish(audit_id, http_status=200, order_id=res.orderId, response_json=res.model_dump(mode="json"))
+    log.finish(audit_id, http_status=200, order_id=res.orderId, response_json=res.model_dump(mode="json"), request_id=toss.last_request_id)
+    conn.commit()
     return OperationOut(dryRun=False, orderId=res.orderId, auditId=audit_id)
 
 

@@ -3,6 +3,7 @@ bare dict 반환 금지 — FastAPI 는 dict 의 Decimal 을 float 로 내보낸
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -62,8 +63,8 @@ class QuoteOut(BaseModel):
 
 class PreviewIn(BaseModel):
     symbol: str
-    side: str
-    orderType: str
+    side: Literal["BUY", "SELL"]
+    orderType: Literal["LIMIT", "MARKET"]
     quantity: Decimal
     price: Decimal | None = None
     confirmHighValueOrder: bool = False
@@ -101,7 +102,7 @@ class OrderSubmitOut(BaseModel):
 
 class ModifyPreviewIn(BaseModel):
     orderId: str
-    orderType: str
+    orderType: Literal["LIMIT", "MARKET"]
     quantity: Decimal
     price: Decimal | None = None
     confirmHighValueOrder: bool = False

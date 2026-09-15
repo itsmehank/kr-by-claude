@@ -2,7 +2,6 @@
 """주문 감사로그 (spec §5). 전송 직전 begin() → 응답 후 finish(). 커밋은 호출자."""
 from __future__ import annotations
 
-import json
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 

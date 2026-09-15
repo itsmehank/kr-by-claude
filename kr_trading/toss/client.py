@@ -36,6 +36,7 @@ class TossClient:
         self._token = token or TokenManager(self._http, cfg)
         self._limiter = limiter or RateLimiter()
         self._sleep = sleep
+        self.last_request_id: str | None = None
 
     # ── 저수준 ─────────────────────────────────────────────────────
     def request(self, method: str, path: str, *, params: dict | None = None,
@@ -65,6 +66,7 @@ class TossClient:
                 self._sleep(self._limiter.retry_after_seconds(resp.headers) or 1.0)
                 continue
             break
+        self.last_request_id = resp.headers.get("X-Request-Id")
         raise_for_envelope(resp)
         body = resp.json()
         return body.get("result") if isinstance(body, dict) else body

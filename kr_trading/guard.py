@@ -38,6 +38,11 @@ def check_order(req: OrderCreateRequest, *, cfg: TradeConfig,
                 upper_limit: Decimal | None, lower_limit: Decimal | None,
                 daily_buy_total: Decimal, sellable_qty: Decimal | None,
                 count_toward_daily: bool = True) -> GuardResult:
+    # 0. side/orderType 유효성 (합성 요청 등 pydantic Literal 을 거치지 않은 경로 방어)
+    if req.side not in ("BUY", "SELL"):
+        raise GuardError("guard/side-invalid", "side 는 BUY|SELL", {"side": req.side})
+    if req.orderType not in ("LIMIT", "MARKET"):
+        raise GuardError("guard/order-type-invalid", "orderType 은 LIMIT|MARKET", {"orderType": req.orderType})
     # 1. LIMIT ↔ price 정합
     if req.orderType == "LIMIT" and req.price is None:
         raise GuardError("guard/price-required", "지정가 주문은 가격이 필요합니다")
