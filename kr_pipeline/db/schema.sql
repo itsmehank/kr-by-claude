@@ -953,9 +953,10 @@ ALTER TABLE trigger_evaluation_log       ADD COLUMN IF NOT EXISTS prompt_version
 
 -- ── 토스증권 주문 감사로그 (spec 2026-09-14 §5 AuditLog) ────────────────────────
 -- append-only. 전송 직전 INSERT(http_status NULL = pending) → 응답 후 UPDATE.
--- 1일 누적 상한 집계(fail-closed, #187 리뷰): kind='create' AND NOT dry_run AND side='BUY'
--- AND (http_status IS NULL OR http_status IN (200, -1)), KST 자정 경계. pending(NULL)·통신
--- 오류 마감(-1) 도 포함 — 토스가 실제로 접수했을 수 있어서다. 4xx/422(거부 확정) 만 제외.
+-- 1일 누적 상한 집계(fail-closed, #187 리뷰 최종 수정웨이브): kind='create' AND NOT dry_run AND
+-- side='BUY' AND (http_status IS NULL OR http_status IN (200, -1) OR http_status >= 500), KST
+-- 자정 경계. pending(NULL)·통신 오류 마감(-1)·5xx(응답은 받았으나 거부 확정 아님 — 접수 후 게이트웨이
+-- 502 등일 수 있음) 도 포함. 4xx/422(거부 확정) 만 제외.
 CREATE TABLE IF NOT EXISTS toss_order_audit (
   id               BIGSERIAL PRIMARY KEY,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),

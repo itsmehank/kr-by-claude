@@ -48,14 +48,16 @@ class AuditLog:
         )
 
     def daily_buy_total_krw(self, today_kst: date) -> Decimal:
-        """fail-closed: 응답 미수신(pending, NULL)·통신 오류 마감(-1) 도 접수됐을 수 있으므로 포함한다.
-        4xx/422(토스가 거부 확정) 만 제외 — 리뷰 근거: 타임아웃은 토스가 실제로 받았을 수 있다."""
+        """fail-closed: 응답 미수신(pending, NULL)·통신 오류 마감(-1)·5xx 도 접수됐을 수 있으므로 포함한다.
+        4xx/422(토스가 거부 확정) 만 제외 — 리뷰 근거: 타임아웃·5xx 는 토스가 실제로 받았을 수 있다."""
         row = self._conn.execute(
             """
+            -- 5xx 는 응답을 받긴 했지만 거부가 확정된 게 아니다(예: 접수 후 게이트웨이 502) —
+            -- 4xx/422(거부 확정) 만 제외하고 5xx 는 pending/-1 과 동일하게 fail-closed 로 포함한다.
             SELECT COALESCE(SUM(order_amount_krw), 0)
               FROM toss_order_audit
              WHERE kind = 'create' AND NOT dry_run AND side = 'BUY'
-               AND (http_status IS NULL OR http_status IN (200, %s))
+               AND (http_status IS NULL OR http_status IN (200, %s) OR http_status >= 500)
                AND (created_at AT TIME ZONE 'Asia/Seoul')::date = %s
             """,
             (TRANSPORT_ERROR_STATUS, today_kst),

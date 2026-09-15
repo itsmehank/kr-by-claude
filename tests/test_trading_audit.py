@@ -60,21 +60,24 @@ def test_daily_buy_total_filters(conn):
 
 
 def test_daily_total_counts_pending_and_transport_error_rows(conn):
-    """pending(NULL)·통신오류(-1) 는 접수됐을 수 있으므로 포함(fail-closed) — 422(거부 확정)·dry_run 은 제외."""
+    """pending(NULL)·통신오류(-1)·5xx 는 접수됐을 수 있으므로 포함(fail-closed) — 422(거부 확정)·dry_run·
+    SELL(side 필터) 은 제외."""
     log = AuditLog(conn)
 
-    def add(status, amt, dry=False):
-        aid = log.begin("create", "005930", "BUY", None, Decimal(amt), {}, dry_run=dry)
+    def add(status, amt, dry=False, side="BUY"):
+        aid = log.begin("create", "005930", side, None, Decimal(amt), {}, dry_run=dry)
         if status is not None:
             log.finish(aid, http_status=status)
 
     add(None, "1000000")                          # pending 포함
     add(TRANSPORT_ERROR_STATUS, "2000000")        # 통신 오류로 마감 — 포함
     add(200, "3000000")                           # 정상 완료 — 포함
+    add(502, "4000000")                           # 5xx(거부 확정 아님) — 포함
     add(422, "5000000")                           # 거부 확정 — 제외
     add(200, "9000000", dry=True)                 # dry_run — 제외
+    add(503, "8000000", side="SELL")              # SELL — side 필터로 제외
     conn.commit()
-    assert log.daily_buy_total_krw(kst_today()) == Decimal("6000000")
+    assert log.daily_buy_total_krw(kst_today()) == Decimal("10000000")
 
 
 def test_kst_today_is_date():
