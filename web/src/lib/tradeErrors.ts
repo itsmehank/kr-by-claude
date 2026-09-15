@@ -42,6 +42,8 @@ const MESSAGES: Record<string, string> = {
   // 자체 가드
   "guard/preview-required": "미리보기가 없거나 만료되었습니다 — 미리보기를 다시 실행하세요",
   "guard/preview-mismatch": "미리보기한 내용과 주문 내용이 다릅니다 — 미리보기를 다시 실행하세요",
+  "guard/side-invalid": "주문 방향은 BUY 또는 SELL 이어야 합니다",
+  "guard/order-type-invalid": "호가 유형은 LIMIT 또는 MARKET 이어야 합니다",
   "guard/price-required": "지정가 주문은 가격이 필요합니다",
   "guard/price-forbidden": "시장가 주문에는 가격을 넣지 않습니다",
   "guard/quantity-invalid": "수량은 1 이상의 정수여야 합니다",

@@ -4,8 +4,7 @@ import { tradeApi } from "../../lib/tradeApi";
 import type { Health } from "../../lib/tradeTypes";
 import { fmtKrw } from "../../lib/tradeMath";
 
-// eslint-disable-next-line react-refresh/only-export-components -- 브리프 지정대로 훅을 컴포넌트와 함께 export
-export function useHealth() {
+function useHealth() {
   return useQuery<Health>({ queryKey: ["trade", "health"], queryFn: () => tradeApi<Health>("/health"), refetchInterval: 30_000 });
 }
 

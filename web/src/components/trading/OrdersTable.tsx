@@ -29,11 +29,16 @@ export default function OrdersTable() {
 
   const cancel = useMutation({ mutationFn: (id: string) => postJson<OperationOut>(`/orders/${id}/cancel`, {}), onSuccess: () => { setErr(null); invalidate(); }, onError: (e) => setErr(toErr(e)) });
   const modPreview = useMutation({
-    mutationFn: () => postJson<PreviewOut>("/orders/modify/preview", { orderId: modify!.order.orderId, orderType: "LIMIT", quantity: modify!.qty, price: modify!.price }),
+    mutationFn: () => postJson<PreviewOut>("/orders/modify/preview", { orderId: modify!.order.orderId, orderType: modify!.order.orderType, quantity: modify!.qty, price: modify!.order.orderType === "MARKET" ? null : modify!.price }),
     onSuccess: (p) => { setPreview(p); setErr(null); }, onError: (e) => setErr(toErr(e)),
   });
   const modSubmit = useMutation({
-    mutationFn: () => postJson<OperationOut>(`/orders/${modify!.order.orderId}/modify`, { previewToken: preview!.previewToken, orderId: modify!.order.orderId, request: { orderType: "LIMIT", quantity: modify!.qty, price: modify!.price } }),
+    // 서버가 미리보기한 그대로 echo — 로컬 상태(modify.qty/price)로 재구성하지 않는다.
+    mutationFn: () => {
+      const { orderId: _omit, ...request } = preview!.request;
+      void _omit;
+      return postJson<OperationOut>(`/orders/${modify!.order.orderId}/modify`, { previewToken: preview!.previewToken, orderId: modify!.order.orderId, request });
+    },
     onSuccess: () => { setPreview(null); setModify(null); setErr(null); invalidate(); }, onError: (e) => setErr(toErr(e)),
   });
 
@@ -74,7 +79,9 @@ export default function OrdersTable() {
         <div className="mt-3 rounded border bg-slate-50 p-2 text-sm">
           정정 <span className="font-mono">{modify.order.symbol}</span>
           <input className="ml-2 w-20 rounded border px-1" value={modify.qty} onChange={(e) => setModify({ ...modify, qty: e.target.value.replace(/\D/g, "") })} /> 주
-          <input className="ml-2 w-28 rounded border px-1" value={modify.price} onChange={(e) => setModify({ ...modify, price: e.target.value.replace(/\D/g, "") })} /> 원
+          {modify.order.orderType !== "MARKET" && (<>
+            <input className="ml-2 w-28 rounded border px-1" value={modify.price} onChange={(e) => setModify({ ...modify, price: e.target.value.replace(/\D/g, "") })} /> 원
+          </>)}
           <button className="ml-2 rounded bg-slate-900 px-2 py-0.5 text-white" disabled={modPreview.isPending} onClick={() => modPreview.mutate()}>미리보기</button>
           <button className="ml-1 rounded border px-2 py-0.5" onClick={() => setModify(null)}>닫기</button>
         </div>
