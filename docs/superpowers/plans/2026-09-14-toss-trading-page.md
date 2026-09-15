@@ -3596,13 +3596,19 @@ uv run pytest tests/ 2>&1 | tail -3        # 기대: 기존 1458 + 신규(12+6+5
 cd web && npx tsc -b && npx eslint . && npx vitest run 2>&1 | tail -3 && cd ..
 ```
 
-- [ ] **Step 5: 커밋 · PR**
+- [ ] **Step 5: 커밋** (push·PR 은 여기서 하지 않는다)
 
 ```bash
 git add README.md CLAUDE.md docs/toss/live-verification-checklist.md
 git commit -m "docs: trade_api 구동법·운영규칙 6(토스 호출 격리)·실물 검증 체크리스트"
-git push -u origin feature/toss-trading-page
-gh pr create --title "토스증권 매매 페이지 — trade_api(:8001) + /trading (DRY_RUN 기본)" --body-file <(cat <<'MD'
+```
+
+> **push·PR 생성은 이 태스크 범위 밖.** 전체 브랜치 최종 리뷰(opus)가 끝난 뒤 `finishing-a-development-branch` 단계에서
+> 사용자가 통합 방식을 선택한다(외부로 나가는 side effect 는 사용자 결정). 아래 PR 본문 초안은 그 단계에서 재사용한다.
+
+<details><summary>PR 본문 초안 (finishing 단계용)</summary>
+
+```
 ## 요약
 spec `docs/superpowers/specs/2026-09-14-toss-trading-page-design.md` 구현. 국내 지정가·시장가 매수/매도·정정/취소·보유·주문현황. 별도 프로세스 `trade_api`(:8001), `TOSS_DRY_RUN=true` 기본, 미리보기 토큰 강제, 감사로그 전송 전 INSERT.
 
@@ -3610,15 +3616,14 @@ spec `docs/superpowers/specs/2026-09-14-toss-trading-page-design.md` 구현. 국
 `api/`·`kr_pipeline/`(schema.sql 테이블 1개 추가 제외) 변경 0줄. `positions`·`stocks` SELECT 만. suite 결과 첨부.
 
 ## 검증
-- `uv run pytest tests/` → N passed / 1 skipped / 1 deselected (토스 실접촉 0, MockTransport)
-- `web`: tsc·eslint·vitest 76 passed
+- `uv run pytest tests/` → 1542 passed / 1 skipped / 1 deselected (토스 실접촉 0, MockTransport)
+- `web`: tsc·eslint·vitest 76 passed·vite build
 - 실물 검증은 머지 후 `docs/toss/live-verification-checklist.md` 순서로 사용자가 수행
 
 ## 운영
 - schema.sql 양쪽 DB 적용 완료(운영규칙 4) / CLAUDE.md 운영규칙 6 추가
-MD
-)
 ```
+</details>
 
 ---
 
