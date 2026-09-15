@@ -30,6 +30,7 @@ if os.environ.get("KR_ALLOW_KRX") != "1":
 os.environ["TOSS_CLIENT_ID"] = ""
 os.environ["TOSS_CLIENT_SECRET"] = ""
 os.environ["TOSS_DRY_RUN"] = "true"
+os.environ["TOSS_BASE_URL"] = "http://127.0.0.1:1"  # 오버라이드를 잊은 테스트가 실 TossClient 를 만들어도 unroutable 주소로만 감(운영규칙 6, #92 동형)
 
 SCHEMA_PATH = Path(__file__).parent.parent / "kr_pipeline" / "db" / "schema.sql"
 

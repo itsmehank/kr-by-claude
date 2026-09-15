@@ -21,6 +21,7 @@ def test_load_defaults(monkeypatch):
     monkeypatch.delenv("TOSS_DRY_RUN", raising=False)
     monkeypatch.delenv("GUARD_MAX_ORDER_KRW", raising=False)
     monkeypatch.delenv("GUARD_MAX_DAILY_KRW", raising=False)
+    monkeypatch.delenv("TOSS_BASE_URL", raising=False)  # conftest 가 격리를 위해 강제 설정(#92 동형) — 기본값 테스트는 이를 해제
     cfg = TradeConfig.load()
     assert cfg.account_seq is None
     assert cfg.dry_run is True
@@ -46,3 +47,4 @@ def test_conftest_isolation_forces_dry_run_and_blank_credentials():
     assert os.environ.get("TOSS_CLIENT_ID") == ""
     assert os.environ.get("TOSS_CLIENT_SECRET") == ""
     assert os.environ.get("TOSS_DRY_RUN") == "true"
+    assert os.environ.get("TOSS_BASE_URL") == "http://127.0.0.1:1"

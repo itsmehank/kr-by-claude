@@ -31,10 +31,18 @@ def toss_with(routes: dict):
     return TossClient(CFG, http=httpx.Client(transport=httpx.MockTransport(route), base_url=CFG.base_url), sleep=lambda s: None)
 
 
+_REAL_TICKERS = ('005930', '000660', '035420')
+
+
 @pytest.fixture
 def db(test_db_url):
     with psycopg.connect(test_db_url, autocommit=True) as c:
-        c.execute("DELETE FROM positions")
+        c.execute("DELETE FROM positions WHERE symbol IN ('005930','000660')")
+        # 실 종목 3개는 fixture 종료 시 원상복구 대상 — upsert 전 스냅샷(없으면 fixture 가 만든 신규 행으로 취급)
+        prev = c.execute(
+            "SELECT ticker, name, market, delisted_at, is_common FROM stocks WHERE ticker = ANY(%s)",
+            (list(_REAL_TICKERS),),
+        ).fetchall()
         c.execute("INSERT INTO stocks (ticker, name, market) VALUES ('005930','삼성전자','KOSPI'),('000660','SK하이닉스','KOSPI'),('035420','NAVER','KOSPI') ON CONFLICT (ticker) DO UPDATE SET name=EXCLUDED.name, delisted_at=NULL, is_common=TRUE")
         # 검색 테스트 전용 시드 — 고유 마커(TRDT%). 다른 모듈이 '삼성전자' 이름으로 테스트 티커(RVSP·OLD·ADJ1…)를
         # 남기므로 실명(삼성/0059)으로 정확 일치 단언하면 전체 suite 에서 순서 의존 실패(리포 관례 TRGTEST%/EXCTEST%).
@@ -52,6 +60,16 @@ def db(test_db_url):
         app.dependency_overrides.pop(deps.get_conn, None)
         c.execute("DELETE FROM positions WHERE symbol IN ('005930','000660')")
         c.execute("DELETE FROM stocks WHERE ticker LIKE 'TRDT%'")
+        # stocks 를 fixture 진입 전 상태로 원상복구
+        prev_tickers = {row[0] for row in prev}
+        for ticker, name, market, delisted_at, is_common in prev:
+            c.execute(
+                "UPDATE stocks SET name=%s, market=%s, delisted_at=%s, is_common=%s WHERE ticker=%s",
+                (name, market, delisted_at, is_common, ticker),
+            )
+        created = [t for t in _REAL_TICKERS if t not in prev_tickers]
+        if created:
+            c.execute("DELETE FROM stocks WHERE ticker = ANY(%s)", (created,))
 
 
 def setup_function():

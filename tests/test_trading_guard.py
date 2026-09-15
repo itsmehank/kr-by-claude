@@ -30,6 +30,8 @@ def test_limit_ok():
 
 
 @pytest.mark.parametrize("req,code", [
+    (buy(side="buy"), "guard/side-invalid"),
+    (buy(order_type="limit"), "guard/order-type-invalid"),
     (buy(price=None), "guard/price-required"),
     (buy(order_type="MARKET", price="70000"), "guard/price-forbidden"),
     (buy(qty="0"), "guard/quantity-invalid"),

@@ -78,6 +78,12 @@ def test_preview_guard_rejection_is_400_with_guard_code(db):
     assert r.status_code == 400 and r.json()["error"]["code"] == "guard/tick-size"
 
 
+def test_preview_rejects_invalid_side_literal(db):
+    deps.set_test_overrides(cfg=DRY, toss=toss_with(READ_ROUTES, DRY), preview=PreviewStore())
+    r = TestClient(app).post("/trade-api/orders/preview", json={**BUY, "side": "buy"})
+    assert r.status_code == 422
+
+
 def test_submit_without_preview_is_rejected(db):
     deps.set_test_overrides(cfg=DRY, toss=toss_with(READ_ROUTES, DRY), preview=PreviewStore())
     r = TestClient(app).post("/trade-api/orders", json={"previewToken": "x" * 64, "request": BUY})
@@ -121,8 +127,8 @@ def test_live_submit_audit_insert_then_update(db):
     assert r.status_code == 200 and r.json()["orderId"] == "ord_9" and r.json()["dryRun"] is False
     assert seen["pending_at_send"] == (None,)            # 전송 시점에 pending 행이 이미 존재
     assert seen["body"]["price"] == "70000" and seen["body"]["clientOrderId"] == p["clientOrderId"]
-    row = db.execute("SELECT http_status, order_id, dry_run FROM toss_order_audit WHERE id=%s", (r.json()["auditId"],)).fetchone()
-    assert row == (200, "ord_9", False)
+    row = db.execute("SELECT http_status, order_id, dry_run, request_id FROM toss_order_audit WHERE id=%s", (r.json()["auditId"],)).fetchone()
+    assert row == (200, "ord_9", False, "req-7")
 
 
 def test_live_submit_toss_error_is_recorded_and_passed_through(db):
@@ -177,6 +183,26 @@ def test_daily_cap_uses_audit(db):
     deps.set_test_overrides(cfg=LIVE, toss=toss_with(READ_ROUTES, LIVE), preview=PreviewStore())
     r = TestClient(app).post("/trade-api/orders/preview", json=BUY)     # 950만 + 70만 > 1000만
     assert r.status_code == 400 and r.json()["error"]["code"] == "guard/max-daily-amount"
+
+
+def test_daily_cap_rechecked_at_submit(db):
+    """미리보기 시점엔 둘 다 통과(총액 0) but 첫 제출 후 제출 시점 재검(I-2)이 둘째를 막는다."""
+    def create(req):
+        body = json.loads(req.content)
+        return httpx.Response(200, json={"result": {"orderId": "ord_cap", "clientOrderId": body["clientOrderId"]}})
+    live_cap = TradeConfig(dry_run=False, client_id="c", client_secret="s", account_seq=7, base_url="https://toss.test",
+                           max_order_krw=Decimal("7000000"), max_daily_krw=Decimal("10000000"))
+    deps.set_test_overrides(cfg=live_cap, toss=toss_with({**READ_ROUTES, ("POST", "/api/v1/orders"): create}, live_cap), preview=PreviewStore())
+    c = TestClient(app)
+    big = {"symbol": "005930", "side": "BUY", "orderType": "LIMIT", "quantity": "100", "price": "60000"}  # 600만원
+    p1 = preview(c, big)
+    p2 = preview(c, big)   # 둘 다 미리보기 시점 누적 0 → 통과
+    r1 = c.post("/trade-api/orders", json={"previewToken": p1["previewToken"], "request": p1["request"]})
+    assert r1.status_code == 200, r1.text
+    r2 = c.post("/trade-api/orders", json={"previewToken": p2["previewToken"], "request": p2["request"]})
+    assert r2.status_code == 400 and r2.json()["error"]["code"] == "guard/max-daily-amount"
+    rows = db.execute("SELECT count(*) FROM toss_order_audit WHERE kind='create' AND http_status=200").fetchone()
+    assert rows == (1,)
 
 
 def test_cancel_and_modify_with_audit(db):
