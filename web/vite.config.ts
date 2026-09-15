@@ -27,6 +27,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": process.env.VITE_API_TARGET || "http://localhost:8000",
+      "/trade-api": process.env.VITE_TRADE_API_TARGET || "http://localhost:8001",
     },
     fs: {
       // prompts/ 디렉터리 (vite root 외부) 접근 허용
