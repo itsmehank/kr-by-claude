@@ -36,8 +36,14 @@ class PreviewStore:
     def put(self, payload: dict, meta: dict) -> str:
         tok = canonical_hash(payload)
         with self._lock:
+            self._evict_expired()
             self._items[tok] = (self._clock() + self._ttl, payload, meta)
         return tok
+
+    def _evict_expired(self) -> None:
+        now = self._clock()
+        for tok in [t for t, (exp, _, _) in self._items.items() if now > exp]:
+            del self._items[tok]
 
     def get(self, token: str) -> tuple[dict, dict] | None:
         with self._lock:
@@ -58,3 +64,20 @@ class PreviewStore:
         if canonical_hash(payload) != token or stored != payload:
             raise GuardError("guard/preview-mismatch", "미리보기한 내용과 주문 내용이 다릅니다")
         return meta
+
+    def consume(self, token: str, payload: dict) -> dict:
+        """verify 와 동일 검증을 거친 뒤 lock 안에서 pop — 동일 토큰 재제출 차단(#187 리뷰 I-3)."""
+        with self._lock:
+            item = self._items.get(token)
+            if item is not None:
+                exp, stored, meta = item
+                if self._clock() > exp:
+                    del self._items[token]
+                    item = None
+            if item is None:
+                raise GuardError("guard/preview-required", "미리보기가 없거나 만료됨 — 미리보기를 다시 실행하세요")
+            exp, stored, meta = item
+            if canonical_hash(payload) != token or stored != payload:
+                raise GuardError("guard/preview-mismatch", "미리보기한 내용과 주문 내용이 다릅니다")
+            del self._items[token]
+            return meta

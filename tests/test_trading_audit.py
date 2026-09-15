@@ -6,7 +6,7 @@ from decimal import Decimal
 import psycopg
 import pytest
 
-from kr_trading.audit import AuditLog, kst_today
+from kr_trading.audit import TRANSPORT_ERROR_STATUS, AuditLog, kst_today
 
 KST = timezone(timedelta(hours=9))
 
@@ -51,12 +51,30 @@ def test_daily_buy_total_filters(conn):
     add("create", "BUY", "5000000", True, 200)           # dry_run 제외
     add("create", "SELL", "5000000", False, 200)         # SELL 제외
     add("modify", "BUY", "5000000", False, 200)          # 정정 제외(이중 집계 방지)
-    add("create", "BUY", "5000000", False, 422)          # 거부 제외
-    add("create", "BUY", "5000000", False, None)         # pending 제외
+    add("create", "BUY", "5000000", False, 422)          # 거부(422) 제외 — 토스가 거부 확정
+    add("create", "BUY", "5000000", False, None)         # pending(NULL) 포함 — fail-closed(#187 리뷰)
     yesterday_2330 = datetime.combine(today - timedelta(days=1), datetime.min.time(), KST) + timedelta(hours=23, minutes=30)
     add("create", "BUY", "5000000", False, 200, created=yesterday_2330)   # 전날 23:30 KST 제외
     conn.commit()
-    assert log.daily_buy_total_krw(today) == Decimal("3000000")
+    assert log.daily_buy_total_krw(today) == Decimal("8000000")
+
+
+def test_daily_total_counts_pending_and_transport_error_rows(conn):
+    """pending(NULL)·통신오류(-1) 는 접수됐을 수 있으므로 포함(fail-closed) — 422(거부 확정)·dry_run 은 제외."""
+    log = AuditLog(conn)
+
+    def add(status, amt, dry=False):
+        aid = log.begin("create", "005930", "BUY", None, Decimal(amt), {}, dry_run=dry)
+        if status is not None:
+            log.finish(aid, http_status=status)
+
+    add(None, "1000000")                          # pending 포함
+    add(TRANSPORT_ERROR_STATUS, "2000000")        # 통신 오류로 마감 — 포함
+    add(200, "3000000")                           # 정상 완료 — 포함
+    add(422, "5000000")                           # 거부 확정 — 제외
+    add(200, "9000000", dry=True)                 # dry_run — 제외
+    conn.commit()
+    assert log.daily_buy_total_krw(kst_today()) == Decimal("6000000")
 
 
 def test_kst_today_is_date():

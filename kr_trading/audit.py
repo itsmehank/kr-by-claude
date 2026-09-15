@@ -9,6 +9,7 @@ from psycopg import Connection
 from psycopg.types.json import Jsonb
 
 KST = timezone(timedelta(hours=9))
+TRANSPORT_ERROR_STATUS = -1   # http_status: 응답 미수신 채로 통신 예외로 마감(타임아웃 등) — 1일 상한 집계는 접수된 것으로 간주
 
 
 def kst_today() -> date:
@@ -47,13 +48,16 @@ class AuditLog:
         )
 
     def daily_buy_total_krw(self, today_kst: date) -> Decimal:
+        """fail-closed: 응답 미수신(pending, NULL)·통신 오류 마감(-1) 도 접수됐을 수 있으므로 포함한다.
+        4xx/422(토스가 거부 확정) 만 제외 — 리뷰 근거: 타임아웃은 토스가 실제로 받았을 수 있다."""
         row = self._conn.execute(
             """
             SELECT COALESCE(SUM(order_amount_krw), 0)
               FROM toss_order_audit
-             WHERE kind = 'create' AND NOT dry_run AND side = 'BUY' AND http_status = 200
+             WHERE kind = 'create' AND NOT dry_run AND side = 'BUY'
+               AND (http_status IS NULL OR http_status IN (200, %s))
                AND (created_at AT TIME ZONE 'Asia/Seoul')::date = %s
             """,
-            (today_kst,),
+            (TRANSPORT_ERROR_STATUS, today_kst),
         ).fetchone()
         return Decimal(row[0])

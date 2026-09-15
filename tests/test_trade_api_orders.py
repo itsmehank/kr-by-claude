@@ -1,6 +1,8 @@
 # tests/test_trade_api_orders.py
 """주문 라우트 — 미리보기 토큰 강제, DRY_RUN 무전송, 실주문 감사 INSERT→UPDATE, 토스 에러 시 감사 기록, 정정·취소."""
 import json
+import threading
+import time
 from decimal import Decimal
 
 import httpx
@@ -8,6 +10,7 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
+from kr_trading.audit import AuditLog
 from kr_trading.config import TradeConfig
 from kr_trading.preview import PreviewStore
 from kr_trading.toss.client import TossClient
@@ -18,6 +21,10 @@ BASE = dict(client_id="c", client_secret="s", account_seq=7, base_url="https://t
             max_order_krw=Decimal("5000000"), max_daily_krw=Decimal("10000000"))
 DRY = TradeConfig(dry_run=True, **BASE)
 LIVE = TradeConfig(dry_run=False, **BASE)
+# 건당 상한(max_order_krw)을 600만원 이상으로 둔 live 설정 — 일일 상한(1000만) 케이스 전용(건당 상한과 분리).
+LIVE_HIGH_ORDER_CAP = TradeConfig(dry_run=False, client_id="c", client_secret="s", account_seq=7,
+                                  base_url="https://toss.test", max_order_krw=Decimal("7000000"),
+                                  max_daily_krw=Decimal("10000000"))
 TOKEN_OK = httpx.Response(200, json={"access_token": "tok", "token_type": "Bearer", "expires_in": 3600})
 LIMITS = lambda r: httpx.Response(200, json={"result": {"timestamp": "t", "currency": "KRW", "upperLimitPrice": "91000", "lowerLimitPrice": "49000"}})
 COMM = lambda r: httpx.Response(200, json={"result": [{"marketCountry": "KR", "commissionRate": "0.00015", "startDate": None, "endDate": None}]})
@@ -232,3 +239,99 @@ def test_cancel_and_modify_with_audit(db):
     # 목록·상세 그대로 전달
     assert c.get("/trade-api/orders?status=OPEN").json()["orders"][0]["price"] == "70000"
     assert c.get("/trade-api/orders/ord_1").json()["execution"]["filledQuantity"] == "0"
+
+
+# ── Task 2(#187 리뷰): 통신 오류 마감·pending 포함 상한·토큰 1회 소비·advisory lock·UNIQUE ──
+
+def test_transport_error_finishes_audit_row(db):
+    def create(req):
+        raise httpx.ReadTimeout("t")
+    deps.set_test_overrides(cfg=LIVE, toss=toss_with({**READ_ROUTES, ("POST", "/api/v1/orders"): create}, LIVE), preview=PreviewStore())
+    c = TestClient(app, raise_server_exceptions=False)
+    p = preview(c)
+    r = c.post("/trade-api/orders", json={"previewToken": p["previewToken"], "request": p["request"]})
+    assert r.status_code == 500
+    row = db.execute("SELECT http_status, error_code FROM toss_order_audit WHERE client_order_id=%s", (p["clientOrderId"],)).fetchone()
+    assert row == (-1, "ReadTimeout")
+
+
+def test_pending_row_blocks_next_buy(db):
+    db.execute("INSERT INTO toss_order_audit (kind, symbol, side, order_amount_krw, request_json, dry_run) "
+              "VALUES ('create','005930','BUY',9000000,'{}',false)")   # http_status 미지정 = pending(NULL)
+    deps.set_test_overrides(cfg=LIVE_HIGH_ORDER_CAP, toss=toss_with(READ_ROUTES, LIVE_HIGH_ORDER_CAP), preview=PreviewStore())
+    big = {"symbol": "005930", "side": "BUY", "orderType": "LIMIT", "quantity": "100", "price": "60000"}  # 600만원
+    r = TestClient(app).post("/trade-api/orders/preview", json=big)     # 900만(pending, 포함) + 600만 > 1000만
+    assert r.status_code == 400 and r.json()["error"]["code"] == "guard/max-daily-amount"
+
+
+def test_same_token_cannot_submit_twice(db):
+    def create(req):
+        body = json.loads(req.content)
+        return httpx.Response(200, json={"result": {"orderId": "ord_once", "clientOrderId": body["clientOrderId"]}})
+    deps.set_test_overrides(cfg=LIVE, toss=toss_with({**READ_ROUTES, ("POST", "/api/v1/orders"): create}, LIVE), preview=PreviewStore())
+    c = TestClient(app)
+    p = preview(c)
+    r1 = c.post("/trade-api/orders", json={"previewToken": p["previewToken"], "request": p["request"]})
+    assert r1.status_code == 200, r1.text
+    r2 = c.post("/trade-api/orders", json={"previewToken": p["previewToken"], "request": p["request"]})
+    assert r2.status_code == 400 and r2.json()["error"]["code"] == "guard/preview-required"
+    rows = db.execute("SELECT count(*) FROM toss_order_audit WHERE kind='create'").fetchone()
+    assert rows == (1,)
+
+
+def test_concurrent_submits_only_one_passes_cap(db, test_db_url):
+    """동시 제출 2건(각 600만, 상한 1000만) — advisory lock 이 직렬화해 정확히 1건만 통과.
+
+    autouse/모듈 db 오버라이드는 단일 연결을 스레드 간 공유해 psycopg 연결이 스레드
+    안전이 아니므로(#187 리뷰 I-4), 이 테스트만 요청마다 새 연결을 여는 오버라이드로 교체한다.
+    """
+    def create(req):
+        time.sleep(0.2)      # 두 요청이 실제로 겹치도록(lock 은 begin 구간에서만 짧게 점유)
+        body = json.loads(req.content)
+        return httpx.Response(200, json={"result": {"orderId": "ord_race", "clientOrderId": body["clientOrderId"]}})
+    deps.set_test_overrides(cfg=LIVE_HIGH_ORDER_CAP, toss=toss_with({**READ_ROUTES, ("POST", "/api/v1/orders"): create}, LIVE_HIGH_ORDER_CAP), preview=PreviewStore())
+    c = TestClient(app)
+    big = {"symbol": "005930", "side": "BUY", "orderType": "LIMIT", "quantity": "100", "price": "60000"}  # 600만원
+    p1 = preview(c, big)
+    p2 = preview(c, big)
+
+    def _fresh_conn_override():
+        conn = psycopg.connect(test_db_url)
+        try:
+            yield conn
+            conn.commit()
+        finally:
+            conn.close()
+    app.dependency_overrides[deps.get_conn] = _fresh_conn_override
+
+    barrier = threading.Barrier(2)
+    results: dict[str, object] = {}
+
+    def _submit(name, p):
+        client = TestClient(app)
+        barrier.wait()
+        results[name] = client.post("/trade-api/orders", json={"previewToken": p["previewToken"], "request": p["request"]})
+
+    t1 = threading.Thread(target=_submit, args=("a", p1))
+    t2 = threading.Thread(target=_submit, args=("b", p2))
+    t1.start(); t2.start()
+    t1.join(); t2.join()
+
+    statuses = sorted(r.status_code for r in results.values())
+    assert statuses == [200, 400]
+    rejected = next(r for r in results.values() if r.status_code == 400)
+    assert rejected.json()["error"]["code"] == "guard/max-daily-amount"
+    rows = db.execute("SELECT count(*) FROM toss_order_audit WHERE kind='create' AND http_status=200").fetchone()
+    assert rows == (1,)
+
+
+def test_duplicate_client_order_id_rejected_by_db(test_db_url):
+    with psycopg.connect(test_db_url) as conn:
+        conn.execute("DELETE FROM toss_order_audit")
+        conn.commit()
+        log = AuditLog(conn)
+        log.begin("create", "005930", "BUY", "dup-1", Decimal("700000"), {}, dry_run=False)
+        conn.commit()
+        with pytest.raises(psycopg.errors.UniqueViolation):
+            log.begin("create", "005930", "BUY", "dup-1", Decimal("700000"), {}, dry_run=False)
+        conn.rollback()

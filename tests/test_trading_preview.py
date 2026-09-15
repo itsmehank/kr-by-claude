@@ -38,3 +38,25 @@ def test_unknown_token_is_preview_required():
     with pytest.raises(GuardError) as ei:
         PreviewStore().verify("nope", {})
     assert ei.value.code == "guard/preview-required"
+
+
+def test_consume_is_single_use():
+    st = PreviewStore(ttl_sec=300, clock=lambda: 0.0)
+    payload = {"symbol": "005930", "price": "70000", "quantity": "10", "clientOrderId": "c1"}
+    tok = st.put(payload, {"amount": "700000"})
+    assert st.consume(tok, payload) == {"amount": "700000"}
+    with pytest.raises(GuardError) as ei:
+        st.consume(tok, payload)
+    assert ei.value.code == "guard/preview-required"
+    with pytest.raises(GuardError) as ei:
+        st.verify(tok, payload)
+    assert ei.value.code == "guard/preview-required"
+
+
+def test_put_evicts_expired():
+    now = [0.0]
+    st = PreviewStore(ttl_sec=300, clock=lambda: now[0])
+    st.put({"a": 1}, {})
+    now[0] = 301
+    st.put({"b": 2}, {})
+    assert len(st._items) == 1

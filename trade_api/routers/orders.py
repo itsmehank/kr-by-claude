@@ -7,11 +7,12 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any, Callable
 
 from fastapi import APIRouter, Depends, Query
 from psycopg import Connection
 
-from kr_trading.audit import AuditLog, kst_today
+from kr_trading.audit import TRANSPORT_ERROR_STATUS, AuditLog, kst_today
 from kr_trading.config import TradeConfig
 from kr_trading.guard import GuardResult, check_order
 from kr_trading.preview import PreviewStore, new_client_order_id
@@ -27,6 +28,66 @@ from trade_api.schemas import (
 router = APIRouter(prefix="/trade-api/orders", tags=["orders"])
 DRY_RUN_STATUS = 0          # 감사 http_status: 전송 없음 표식(1일 누적은 200 만 집계)
 PREVIEW_TTL_SEC = 300
+
+
+def _begin_audit(conn: Connection, log: AuditLog, cfg: TradeConfig, *, kind: str, symbol: str,
+                 side: str | None, client_order_id: str | None, amount: Decimal | None,
+                 payload: dict, lock_cap: bool = False) -> int:
+    """상한 재검(선택)+INSERT(pending) 를 한 트랜잭션에서 — advisory lock 으로 동시 제출을 직렬화.
+
+    lock_cap=True 일 때만 `pg_advisory_xact_lock` 을 잡고 1일 매수 누적을 재검한다(모두 BUY·live
+    submit 전용, modify/cancel 은 상한이 없어 lock 불필요). 트랜잭션 종료(with 블록 탈출)와 함께
+    lock 도 해제된다 — psycopg `conn.transaction()` 은 autocommit 연결에서도 블록 트랜잭션을 연다.
+    """
+    with conn.transaction():
+        if lock_cap:
+            conn.execute("SELECT pg_advisory_xact_lock(hashtext('toss_daily_cap'))")
+            total = log.daily_buy_total_krw(kst_today())
+            if total + amount > cfg.max_daily_krw:
+                raise GuardError("guard/max-daily-amount", "1일 매수 누적 상한 초과(제출 시점 재검)",
+                                 {"amountKrw": str(amount), "dailyTotalKrw": str(total),
+                                  "maxDailyKrw": str(cfg.max_daily_krw)})
+        audit_id = log.begin(kind, symbol, side, client_order_id, amount, payload, dry_run=cfg.dry_run)
+    return audit_id
+
+
+def _dispatch(conn: Connection, log: AuditLog, cfg: TradeConfig, toss: TossClient, audit_id: int,
+             call: Callable[[], Any]) -> tuple[int, Any | None]:
+    """pending 행을 먼저 커밋(전송 전 확정) 한 뒤 호출 → 결과에 따라 감사행을 마감.
+
+    - dry_run: 전송 없이 http_status=0 으로 마감.
+    - TossApiError: 토스가 거부/오류를 확정 응답 — 그 상태 코드로 마감 후 재던짐(핸들러가 envelope 전달).
+    - 그 외 모든 예외(타임아웃·검증 오류 등): 응답 미수신 — TRANSPORT_ERROR_STATUS(-1) 로 마감 후
+      재던짐. 이 행은 1일 상한 집계에 포함된다(토스가 실제로 접수했을 수 있으므로 fail-closed).
+    - 성공: http_status=200 으로 마감.
+    """
+    if cfg.dry_run:
+        log.finish(audit_id, http_status=DRY_RUN_STATUS)
+        conn.commit()
+        return audit_id, None
+    try:
+        res = call()
+    except TossApiError as e:
+        log.finish(audit_id, http_status=e.status, error_code=e.code, request_id=e.request_id)
+        conn.commit()
+        raise
+    except Exception as e:
+        log.finish(audit_id, http_status=TRANSPORT_ERROR_STATUS, error_code=type(e).__name__)
+        conn.commit()
+        raise
+    log.finish(audit_id, http_status=200, order_id=res.orderId,
+              response_json=res.model_dump(mode="json"), request_id=toss.last_request_id)
+    conn.commit()
+    return audit_id, res
+
+
+def _audited_call(conn: Connection, log: AuditLog, cfg: TradeConfig, toss: TossClient, *, kind: str,
+                  symbol: str, side: str | None, client_order_id: str | None, amount: Decimal | None,
+                  payload: dict, call: Callable[[], Any], lock_cap: bool = False) -> tuple[int, Any | None]:
+    audit_id = _begin_audit(conn, log, cfg, kind=kind, symbol=symbol, side=side,
+                            client_order_id=client_order_id, amount=amount, payload=payload,
+                            lock_cap=lock_cap)
+    return _dispatch(conn, log, cfg, toss, audit_id, call)
 
 
 def _kr_commission_rate(toss: TossClient) -> Decimal | None:
@@ -71,29 +132,17 @@ def preview(body: PreviewIn, cfg: TradeConfig = Depends(get_cfg), toss: TossClie
 def submit(body: OrderSubmitIn, cfg: TradeConfig = Depends(get_cfg), toss: TossClient = Depends(get_toss),
            store: PreviewStore = Depends(get_preview), conn: Connection = Depends(get_conn)) -> OrderSubmitOut:
     payload = body.request.to_toss_json()
-    meta = store.verify(body.previewToken, payload)
+    meta = store.consume(body.previewToken, payload)   # 1회 소비 — 동일 토큰 재제출 차단(#187 리뷰 I-3)
     log = AuditLog(conn)
-    if body.request.side == "BUY" and not cfg.dry_run:
-        total = log.daily_buy_total_krw(kst_today())
-        if total + Decimal(meta["amount"]) > cfg.max_daily_krw:
-            raise GuardError("guard/max-daily-amount", "1일 매수 누적 상한 초과(제출 시점 재검)",
-                             {"amountKrw": meta["amount"], "dailyTotalKrw": str(total), "maxDailyKrw": str(cfg.max_daily_krw)})
-    audit_id = log.begin("create", body.request.symbol, body.request.side, body.request.clientOrderId,
-                         Decimal(meta["amount"]), payload, dry_run=cfg.dry_run)
-    conn.commit()                                     # pending 행을 전송 전에 확정
+    audit_id, res = _audited_call(
+        conn, log, cfg, toss, kind="create", symbol=body.request.symbol, side=body.request.side,
+        client_order_id=body.request.clientOrderId, amount=Decimal(meta["amount"]), payload=payload,
+        call=lambda: toss.create_order(body.request),
+        lock_cap=(body.request.side == "BUY" and not cfg.dry_run),
+    )
     if cfg.dry_run:
-        log.finish(audit_id, http_status=DRY_RUN_STATUS)
         return OrderSubmitOut(dryRun=True, orderId=None, clientOrderId=body.request.clientOrderId,
                               auditId=audit_id, request=payload)
-    # ── 실주문 경로 (DRY_RUN 가드 뒤) ────────────────────────────────
-    try:
-        res = toss.create_order(body.request)
-    except TossApiError as e:
-        log.finish(audit_id, http_status=e.status, error_code=e.code, request_id=e.request_id)
-        conn.commit()
-        raise
-    log.finish(audit_id, http_status=200, order_id=res.orderId, response_json=res.model_dump(mode="json"), request_id=toss.last_request_id)
-    conn.commit()
     return OrderSubmitOut(dryRun=False, orderId=res.orderId, clientOrderId=res.clientOrderId,
                           auditId=audit_id, request=payload)
 
@@ -120,19 +169,13 @@ def modify(order_id: str, body: ModifySubmitIn, cfg: TradeConfig = Depends(get_c
     payload = {"orderId": order_id, **body.request.model_dump(mode="json", exclude_none=True)}
     meta = store.verify(body.previewToken, payload)
     log = AuditLog(conn)
-    audit_id = log.begin("modify", meta["symbol"], meta["side"], None, Decimal(meta["amount"]), payload, dry_run=cfg.dry_run)
-    conn.commit()
+    audit_id, res = _audited_call(
+        conn, log, cfg, toss, kind="modify", symbol=meta["symbol"], side=meta["side"],
+        client_order_id=None, amount=Decimal(meta["amount"]), payload=payload,
+        call=lambda: toss.modify_order(order_id, body.request),
+    )
     if cfg.dry_run:
-        log.finish(audit_id, http_status=DRY_RUN_STATUS)
         return OperationOut(dryRun=True, orderId=None, auditId=audit_id)
-    try:
-        res = toss.modify_order(order_id, body.request)
-    except TossApiError as e:
-        log.finish(audit_id, http_status=e.status, error_code=e.code, request_id=e.request_id)
-        conn.commit()
-        raise
-    log.finish(audit_id, http_status=200, order_id=res.orderId, response_json=res.model_dump(mode="json"), request_id=toss.last_request_id)
-    conn.commit()
     return OperationOut(dryRun=False, orderId=res.orderId, auditId=audit_id)
 
 
@@ -141,19 +184,13 @@ def cancel(order_id: str, cfg: TradeConfig = Depends(get_cfg), toss: TossClient 
            conn: Connection = Depends(get_conn)) -> OperationOut:
     original = toss.get_order(order_id)
     log = AuditLog(conn)
-    audit_id = log.begin("cancel", original.symbol, original.side, None, None, {"orderId": order_id}, dry_run=cfg.dry_run)
-    conn.commit()
+    audit_id, res = _audited_call(
+        conn, log, cfg, toss, kind="cancel", symbol=original.symbol, side=original.side,
+        client_order_id=None, amount=None, payload={"orderId": order_id},
+        call=lambda: toss.cancel_order(order_id),
+    )
     if cfg.dry_run:
-        log.finish(audit_id, http_status=DRY_RUN_STATUS)
         return OperationOut(dryRun=True, orderId=None, auditId=audit_id)
-    try:
-        res = toss.cancel_order(order_id)
-    except TossApiError as e:
-        log.finish(audit_id, http_status=e.status, error_code=e.code, request_id=e.request_id)
-        conn.commit()
-        raise
-    log.finish(audit_id, http_status=200, order_id=res.orderId, response_json=res.model_dump(mode="json"), request_id=toss.last_request_id)
-    conn.commit()
     return OperationOut(dryRun=False, orderId=res.orderId, auditId=audit_id)
 
 
