@@ -87,7 +87,8 @@ uv run uvicorn trade_api.main:app --port 8001           # 신규 — --workers �
 STOCK 5, ORDER 10, ORDER_HISTORY 5, ORDER_INFO 6`). 응답 헤더 `X-RateLimit-Limit`로 런타임 보정.
 `429` → `Retry-After` 우선, 없으면 지수백오프(1→2→4s)+jitter.
 
-**TossClient** — `Authorization` 자동, 계좌 필요 경로만 `X-Tossinvest-Account` 자동. 에러 envelope
+**TossClient** — `Authorization` 자동, 계좌 필요 경로만 `X-Tossinvest-Account` 자동. 응답 헤더 `X-Request-Id` 를
+호출자에게 노출(감사 성공 경로 기록용). 에러 envelope
 (`code·message·data·requestId`)를 **가공 없이** `TossApiError`로 올린다. 숫자는 `Decimal ↔ str`만,
 `float` 경유 금지.
 
@@ -107,7 +108,9 @@ STOCK 5, ORDER 10, ORDER_HISTORY 5, ORDER_INFO 6`). 응답 헤더 `X-RateLimit-L
 6. 1일 누적(BUY만): `toss_order_audit` 에서 `kind='create' AND NOT dry_run AND side='BUY' AND http_status=200`
    행의 주문금액 합 + 이번 주문 > `GUARD_MAX_DAILY_KRW` → `guard/max-daily-amount`. 하루 경계 = **KST 자정**
    (`created_at AT TIME ZONE 'Asia/Seoul'`). 취소분은 차감하지 않음. **정정(`kind='modify'`)은 누적에 넣지
-   않고 1건 상한(5번)만 재검**한다 — 원주문과 정정을 둘 다 합산하면 이중 집계로 과다 차단되기 때문
+   않고 1건 상한(5번)만 재검**한다 — 원주문과 정정을 둘 다 합산하면 이중 집계로 과다 차단되기 때문.
+   **이 규칙은 preview 뿐 아니라 `POST /orders`(submit) 에서도 재평가한다** — 미리보기 N개를 TTL 내 연속 제출하면
+   preview 시점 합계가 stale 이라 상한을 넘을 수 있다(최종 리뷰 I-2). 결정은 행동 시점에.
 7. 매도: `GET /sellable-quantity` 초과 → `guard/sellable-exceeded`
 8. 주문금액 ≥ 1억 → `confirmHighValueOrder=true` 강제, ≥ 30억 → 차단(스펙 `422 max-order-amount-exceeded`)
 9. `DRY_RUN`: 위 검사를 전부 통과한 뒤 토스 호출 대신 "보낼 본문"을 반환하고 감사로그에 `dry_run=true` 기록
@@ -159,7 +162,7 @@ CREATE INDEX IF NOT EXISTS idx_toss_order_audit_day ON toss_order_audit (created
 | GET | `/trade-api/buying-power` | `/buying-power?currency=KRW` | |
 | GET | `/trade-api/sellable/{symbol}` | `/sellable-quantity` | |
 | POST | `/trade-api/orders/preview` | `/price-limits`, `/sellable-quantity`(SELL), `/commissions` | 가드 전부·`clientOrderId` 생성·`previewToken`. 주문 API 미호출 |
-| POST | `/trade-api/orders` | `/orders` (DRY_RUN 시 미호출) | `previewToken` 필수. 감사 INSERT→전송→UPDATE |
+| POST | `/trade-api/orders` | `/orders` (DRY_RUN 시 미호출) | `previewToken` 필수 → **BUY 는 1일 누적 재검(§5 6번)** → 감사 INSERT→전송→UPDATE. 성공 시 `request_id`(X-Request-Id) 기록 |
 | POST | `/trade-api/orders/{id}/cancel` | `/orders/{id}/cancel` | 감사 기록. 새 `orderId` 반환 |
 | POST | `/trade-api/orders/modify/preview` | `/orders/{id}`(원주문 symbol·side), `/price-limits`, `/commissions` | 정정 미리보기 — 원주문과 합성한 요청으로 가드 실행(1일 누적 재검 제외), `previewToken` 발급. `clientOrderId` 없음 |
 | POST | `/trade-api/orders/{id}/modify` | `/orders/{id}/modify` | 미리보기 동일 적용. 스펙상 `orderType` 필수, KR은 `quantity` 필수 |
@@ -201,6 +204,7 @@ CORS는 `localhost:5173` 허용(프록시 없이 직접 접근 대비). JSON 본
 
 | 조건 | 규칙 |
 |---|---|
+| `side`·`orderType`(inbound) | `Literal["BUY","SELL"]`·`Literal["LIMIT","MARKET"]` — unknown 허용은 **토스 응답** 에만, 인바운드 주문은 fail-closed(최종 리뷰 I-1) |
 | `LIMIT` | `price` 필수, KR 정수, 호가단위 배수, 상·하한가 범위 |
 | `MARKET` | `price` 금지 |
 | `quantity` | 양의 정수 |
