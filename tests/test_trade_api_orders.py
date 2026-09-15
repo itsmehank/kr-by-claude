@@ -137,6 +137,41 @@ def test_live_submit_toss_error_is_recorded_and_passed_through(db):
     assert row == (422, "insufficient-buying-power", "r-1")
 
 
+def test_pending_row_is_durable_to_other_sessions_before_send(test_db_url):
+    """commit-before-send 계약 pin — 비-autocommit 오버라이드(운영 풀 연결과 동형) + **제2 세션**에서
+    전송 시점의 pending 행을 관측한다. 라우터의 begin 직후 conn.commit() 이 빠지면 제2 세션은 행을 못 본다.
+    (기존 test_live_submit_* 는 autocommit 동일 연결이라 commit 유무를 구분하지 못함 — 리뷰 I-1)"""
+    seen = {}
+    c1 = psycopg.connect(test_db_url)                    # 비-autocommit
+    c1.execute("DELETE FROM toss_order_audit"); c1.commit()
+
+    def _override():
+        yield c1
+        c1.commit()                                      # 풀 컨텍스트의 정상 종료 commit 과 동형
+
+    app.dependency_overrides[deps.get_conn] = _override
+    try:
+        def create(req):
+            body = json.loads(req.content)
+            with psycopg.connect(test_db_url, autocommit=True) as c2:   # 독립 세션
+                seen["other_session"] = c2.execute(
+                    "SELECT http_status FROM toss_order_audit WHERE client_order_id=%s",
+                    (body["clientOrderId"],)).fetchone()
+            return httpx.Response(200, json={"result": {"orderId": "ord_d", "clientOrderId": body["clientOrderId"]}})
+        deps.set_test_overrides(cfg=LIVE, toss=toss_with({**READ_ROUTES, ("POST", "/api/v1/orders"): create}, LIVE), preview=PreviewStore())
+        c = TestClient(app)
+        p = preview(c)
+        r = c.post("/trade-api/orders", json={"previewToken": p["previewToken"], "request": p["request"]})
+        assert r.status_code == 200, r.text
+        assert seen["other_session"] == (None,)          # 전송 시점에 타 세션이 pending 행을 봄 = commit 됨
+        with psycopg.connect(test_db_url, autocommit=True) as c3:
+            assert c3.execute("SELECT http_status, order_id FROM toss_order_audit WHERE id=%s",
+                              (r.json()["auditId"],)).fetchone() == (200, "ord_d")
+    finally:
+        app.dependency_overrides.pop(deps.get_conn, None)
+        c1.close()
+
+
 def test_daily_cap_uses_audit(db):
     db.execute("INSERT INTO toss_order_audit (kind, symbol, side, order_amount_krw, request_json, dry_run, http_status) VALUES ('create','005930','BUY',9500000,'{}',false,200)")
     deps.set_test_overrides(cfg=LIVE, toss=toss_with(READ_ROUTES, LIVE), preview=PreviewStore())
