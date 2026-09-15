@@ -45,6 +45,16 @@ uv run uvicorn api.main:app --reload --port 8000
 - **재기동 관례**: main 머지 후(stale 코드 방지)와 brew python 업그레이드
   후(프레임워크 불일치 방지)에는 서버를 재기동한다.
 
+## 매매 API 서버 (토스증권 Open API, 별도 프로세스)
+
+```
+uv run uvicorn trade_api.main:app --port 8001
+```
+
+- 분석 API(:8000)와 **별도 프로세스**. `--workers` 금지(토스 토큰은 클라이언트당 1개), `--reload` 는 주문 중 재시작을 유발하므로 UI 개발 중에만 명시적으로.
+- 기본 `TOSS_DRY_RUN=true`(연습 모드). 실주문은 `.env` 에서 명시적으로 `false` + 재기동. 화면 상단 배너로 현재 모드 확인.
+- 설정 키·실물 검증 순서: `docs/toss/live-verification-checklist.md`, 설계: `docs/superpowers/specs/2026-09-14-toss-trading-page-design.md`.
+
 ## 스케줄 등록 (launchd — #88 로 cron 에서 이전)
 
 예약 실행은 **launchd** 가 담당한다(cron 은 Mac 수면 중 놓친 발화를 버리지만

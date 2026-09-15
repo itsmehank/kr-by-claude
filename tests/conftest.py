@@ -24,6 +24,17 @@ if os.environ.get("KR_ALLOW_KRX") != "1":
     os.environ["KRX_ID"] = ""
     os.environ["KRX_PW"] = ""
 
+# ── 토스증권 자격증명 무력화 + DRY_RUN 강제 (spec 2026-09-14 §10, #92 동형) ────
+# 키를 pop 하지 않고 값만 비운다 — kr_trading/config.py 의 load_dotenv() 가
+# "키가 없을 때만" .env 값을 복원하기 때문.
+os.environ["TOSS_CLIENT_ID"] = ""
+os.environ["TOSS_CLIENT_SECRET"] = ""
+os.environ["TOSS_DRY_RUN"] = "true"
+os.environ["TOSS_BASE_URL"] = "http://127.0.0.1:1"  # 오버라이드를 잊은 테스트가 실 TossClient 를 만들어도 unroutable 주소로만 감(운영규칙 6, #92 동형)
+os.environ["TOSS_ACCOUNT_SEQ"] = ""  # 테스트가 .env 의 운영 계좌번호에 좌우되지 않게
+os.environ["GUARD_MAX_ORDER_KRW"] = "5000000"
+os.environ["GUARD_MAX_DAILY_KRW"] = "10000000"
+
 SCHEMA_PATH = Path(__file__).parent.parent / "kr_pipeline" / "db" / "schema.sql"
 
 
@@ -97,3 +108,28 @@ def db(test_db_url):
     finally:
         conn.rollback()
         conn.close()
+
+
+@pytest.fixture(autouse=True)
+def _trade_api_db_override(test_db_url):
+    """trade_api.deps.get_conn 을 kr_test 로 강제 라우팅(#187 리뷰 — 운영 DB 폴백 구조 차단).
+
+    import 는 픽스처 내부에서 — trade_api.main 을 여기서 top-level import 하면 `api/`
+    테스트 수집까지 그 비용을 물린다. T10/T11(test_trade_api_read.py·test_trade_api_orders.py)의
+    모듈 `db` 픽스처가 같은 dependency_overrides 키를 다시 덮어써도 무방(같은 DB로 가므로).
+    """
+    from trade_api import deps
+    from trade_api.main import app
+
+    def _override():
+        conn = psycopg.connect(test_db_url, autocommit=True)
+        try:
+            yield conn
+        finally:
+            conn.close()
+
+    app.dependency_overrides[deps.get_conn] = _override
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(deps.get_conn, None)

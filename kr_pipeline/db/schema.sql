@@ -950,3 +950,33 @@ ALTER TABLE classification_backfill      ADD COLUMN IF NOT EXISTS prompt_version
 ALTER TABLE backtest_classification      ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);
 ALTER TABLE recall_audit_classification  ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);
 ALTER TABLE trigger_evaluation_log       ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);
+
+-- ── 토스증권 주문 감사로그 (spec 2026-09-14 §5 AuditLog) ────────────────────────
+-- append-only. 전송 직전 INSERT(http_status NULL = pending) → 응답 후 UPDATE.
+-- 1일 누적 상한 집계(fail-closed, #187 리뷰 최종 수정웨이브): kind='create' AND NOT dry_run AND
+-- side='BUY' AND (http_status IS NULL OR http_status IN (200, -1) OR http_status >= 500), KST
+-- 자정 경계. pending(NULL)·통신 오류 마감(-1)·5xx(응답은 받았으나 거부 확정 아님 — 접수 후 게이트웨이
+-- 502 등일 수 있음) 도 포함. 4xx/422(거부 확정) 만 제외.
+CREATE TABLE IF NOT EXISTS toss_order_audit (
+  id               BIGSERIAL PRIMARY KEY,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  kind             TEXT NOT NULL,               -- create | modify | cancel
+  client_order_id  TEXT,
+  symbol           TEXT NOT NULL,
+  side             TEXT,                        -- BUY | SELL (cancel 은 NULL 가능)
+  order_amount_krw NUMERIC(18, 2),              -- 가드 5 기준 금액 (MARKET 은 상한가×수량)
+  request_json     JSONB NOT NULL,
+  dry_run          BOOLEAN NOT NULL,
+  http_status      INTEGER,                     -- NULL = pending(응답 미수신)
+  error_code       TEXT,
+  request_id       TEXT,                        -- 토스 X-Request-Id
+  order_id         TEXT,
+  response_json    JSONB,
+  responded_at     TIMESTAMPTZ,
+  CONSTRAINT toss_order_audit_kind_chk CHECK (kind IN ('create', 'modify', 'cancel'))
+);
+CREATE INDEX IF NOT EXISTS idx_toss_order_audit_day ON toss_order_audit (created_at, side, dry_run);
+-- 동일 clientOrderId 의 중복 create 를 DB 레벨에서도 차단(#187 리뷰 I-3 방어층 — 애플리케이션 토큰
+-- 1회 소비 위에 얹는 마지막 안전망). modify/cancel 은 client_order_id 를 안 쓰므로 kind='create' 한정.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_toss_order_audit_client_order_id
+  ON toss_order_audit (client_order_id) WHERE kind = 'create' AND client_order_id IS NOT NULL;
