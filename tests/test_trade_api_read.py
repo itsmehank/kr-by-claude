@@ -122,3 +122,66 @@ def test_buying_power_and_sellable():
     c = TestClient(app)
     assert c.get("/trade-api/buying-power").json() == {"currency": "KRW", "cashBuyingPower": "1234567"}
     assert c.get("/trade-api/sellable/005930").json() == {"sellableQuantity": "8"}
+
+
+# ── Task 4(#187 리뷰): Decimal 정수 정규화·prices 빈 응답 guard·ILIKE 이스케이프 ──
+
+def test_quote_normalizes_kr_decimals(db):
+    routes = {
+        "/api/v1/prices": lambda r: httpx.Response(200, json={"result": [{"symbol": "005930", "timestamp": None, "lastPrice": "70000.0", "currency": "KRW"}]}),
+        "/api/v1/orderbook": lambda r: httpx.Response(200, json={"result": {"timestamp": None, "currency": "KRW", "asks": [{"price": "70100.0", "volume": "5.0"}], "bids": []}}),
+        "/api/v1/price-limits": lambda r: httpx.Response(200, json={"result": {"timestamp": "t", "currency": "KRW", "upperLimitPrice": "91000.00", "lowerLimitPrice": "49000.0"}}),
+        "/api/v1/stocks/005930/warnings": lambda r: httpx.Response(200, json={"result": []}),
+    }
+    deps.set_test_overrides(cfg=CFG, toss=toss_with(routes))
+    body = TestClient(app).get("/trade-api/quote/005930").json()
+    assert body["price"]["lastPrice"] == "70000"
+    assert body["limits"]["upperLimitPrice"] == "91000" and body["limits"]["lowerLimitPrice"] == "49000"
+    assert body["orderbook"]["asks"][0]["price"] == "70100" and body["orderbook"]["asks"][0]["volume"] == "5"
+
+
+def test_sellable_normalizes():
+    routes = {"/api/v1/sellable-quantity": lambda r: httpx.Response(200, json={"result": {"sellableQuantity": "10.0"}})}
+    deps.set_test_overrides(cfg=CFG, toss=toss_with(routes))
+    assert TestClient(app).get("/trade-api/sellable/005930").json() == {"sellableQuantity": "10"}
+
+
+def test_holdings_normalizes_kr_quantities(db):
+    holdings = {"totalPurchaseAmount": M("1"), "marketValue": M("1"), "profitLoss": M("0"), "dailyProfitLoss": M("0"),
+                "items": [item("000660", "SK하이닉스", "12.0")]}   # positions qty NULL → 판정 생략, 정규화만 확인
+    deps.set_test_overrides(cfg=CFG, toss=toss_with({"/api/v1/holdings": lambda r: httpx.Response(200, json={"result": holdings})}))
+    body = TestClient(app).get("/trade-api/holdings").json()
+    assert body["overview"]["items"][0]["quantity"] == "12"
+    assert body["mismatch"] == []   # positions.quantity 는 NULL → 대조 생략(기존 규칙 불변)
+
+
+def test_quote_empty_prices_is_guard_error(db):
+    routes = {"/api/v1/prices": lambda r: httpx.Response(200, json={"result": []})}
+    deps.set_test_overrides(cfg=CFG, toss=toss_with(routes))
+    r = TestClient(app).get("/trade-api/quote/005930")
+    assert r.status_code == 400 and r.json()["error"]["code"] == "guard/symbol-unpriced"
+
+
+def test_quote_delisted_local_ticker_is_guard_error(db):
+    calls = []
+
+    def route(req):
+        calls.append((req.method, req.url.path))
+        return httpx.Response(404, json={"error": {"code": "not-found", "message": ""}})
+
+    toss = TossClient(CFG, http=httpx.Client(transport=httpx.MockTransport(route), base_url=CFG.base_url), sleep=lambda s: None)
+    deps.set_test_overrides(cfg=CFG, toss=toss)
+    r = TestClient(app).get("/trade-api/quote/TRDT02")   # db 픽스처가 상폐 처리한 시드
+    assert r.status_code == 400 and r.json()["error"]["code"] == "guard/symbol-unpriced"
+    assert calls == []   # 로컬에서 이미 걸러져 토스 호출 0
+
+
+def test_search_escapes_wildcards(db):
+    """`_`/`%` 는 리터럴로 취급돼야 한다 — 이스케이프 안 되면 와일드카드로 전체 종목과 매치되므로,
+    리터럴 `_`·`%` 를 포함하지 않는 시드(TRDT01/02)가 결과에 섞여 들어오는지로 판정한다
+    (실 kr_test 에는 다른 테스트 모듈이 남긴 literal `_` 포함 티커가 존재해 빈 리스트 단언은 순서의존 오탐)."""
+    deps.set_test_overrides(cfg=CFG, toss=toss_with({}))
+    c = TestClient(app)
+    assert "TRDT01" not in [h["ticker"] for h in c.get("/trade-api/search?q=_").json()]
+    assert "TRDT01" not in [h["ticker"] for h in c.get("/trade-api/search?q=%25").json()]
+    assert [h["ticker"] for h in c.get("/trade-api/search?q=트레이드검색").json()] == ["TRDT01"]

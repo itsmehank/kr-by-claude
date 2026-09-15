@@ -37,7 +37,7 @@ def order_amount_krw(req: OrderCreateRequest, upper_limit: Decimal | None) -> De
 def check_order(req: OrderCreateRequest, *, cfg: TradeConfig,
                 upper_limit: Decimal | None, lower_limit: Decimal | None,
                 daily_buy_total: Decimal, sellable_qty: Decimal | None,
-                count_toward_daily: bool = True) -> GuardResult:
+                count_toward_daily: bool = True, skip_sellable: bool = False) -> GuardResult:
     # 0. side/orderType 유효성 (합성 요청 등 pydantic Literal 을 거치지 않은 경로 방어)
     if req.side not in ("BUY", "SELL"):
         raise GuardError("guard/side-invalid", "side 는 BUY|SELL", {"side": req.side})
@@ -74,10 +74,14 @@ def check_order(req: OrderCreateRequest, *, cfg: TradeConfig,
     if req.side == "BUY" and count_toward_daily and daily_buy_total + amount > cfg.max_daily_krw:
         raise GuardError("guard/max-daily-amount", "1일 매수 누적 상한 초과",
                          {"amountKrw": str(amount), "dailyTotalKrw": str(daily_buy_total), "maxDailyKrw": str(cfg.max_daily_krw)})
-    # 7. 매도 가능 수량
-    if req.side == "SELL" and sellable_qty is not None and req.quantity > sellable_qty:
-        raise GuardError("guard/sellable-exceeded", "판매 가능 수량 초과",
-                         {"sellableQuantity": str(sellable_qty), "quantity": str(req.quantity)})
+    # 7. 매도 가능 수량 — 정정(skip_sellable)은 토스가 판단(spec §6, sellable-quantity 호출 없음).
+    #    신규 매도는 None 이 fail-closed(가격 상·하한 없음과 동형).
+    if req.side == "SELL" and not skip_sellable:
+        if sellable_qty is None:
+            raise GuardError("guard/sellable-unavailable", "판매 가능 수량 조회 불가 — 매도 가드 불가")
+        if req.quantity > sellable_qty:
+            raise GuardError("guard/sellable-exceeded", "판매 가능 수량 초과",
+                             {"sellableQuantity": str(sellable_qty), "quantity": str(req.quantity)})
     # 8. 고액
     warnings: list[str] = []
     if amount >= MAX_ORDER_KRW_ABSOLUTE:

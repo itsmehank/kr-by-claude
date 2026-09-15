@@ -7,7 +7,7 @@ from psycopg import Connection
 
 from kr_trading.toss.client import TossClient
 from trade_api.deps import get_conn, get_toss
-from trade_api.schemas import HoldingsOut, MismatchOut
+from trade_api.schemas import HoldingsOut, MismatchOut, kr_int_str
 
 router = APIRouter(prefix="/trade-api", tags=["holdings"])
 
@@ -15,6 +15,12 @@ router = APIRouter(prefix="/trade-api", tags=["holdings"])
 @router.get("/holdings", response_model=HoldingsOut)
 def holdings(toss: TossClient = Depends(get_toss), conn: Connection = Depends(get_conn)) -> HoldingsOut:
     overview = toss.holdings()
+    overview = overview.model_copy(update={"items": [
+        it.model_copy(update={"quantity": kr_int_str(it.quantity), "lastPrice": kr_int_str(it.lastPrice),
+                              "averagePurchasePrice": kr_int_str(it.averagePurchasePrice)})
+        if it.marketCountry == "KR" else it
+        for it in overview.items
+    ]})
     rows = conn.execute("SELECT symbol, quantity FROM positions WHERE status = 'open'").fetchall()
     pos: dict[str, Decimal | None] = {r[0]: (Decimal(r[1]) if r[1] is not None else None) for r in rows}
     mismatch: list[MismatchOut] = []

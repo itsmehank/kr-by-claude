@@ -108,12 +108,14 @@ def _estimate(side: str, g: GuardResult, rate: Decimal | None) -> EstimateOut:
 
 
 def _guard(req: OrderCreateRequest, *, cfg: TradeConfig, toss: TossClient, log: AuditLog,
-           count_toward_daily: bool) -> GuardResult:
+           count_toward_daily: bool, skip_sellable: bool = False) -> GuardResult:
     limits = toss.price_limits(req.symbol)
-    sellable = toss.sellable_quantity(req.symbol).sellableQuantity if req.side == "SELL" else None
+    sellable = (toss.sellable_quantity(req.symbol).sellableQuantity
+               if (req.side == "SELL" and not skip_sellable) else None)
     daily = log.daily_buy_total_krw(kst_today()) if (req.side == "BUY" and count_toward_daily) else Decimal("0")
     return check_order(req, cfg=cfg, upper_limit=limits.upperLimitPrice, lower_limit=limits.lowerLimitPrice,
-                       daily_buy_total=daily, sellable_qty=sellable, count_toward_daily=count_toward_daily)
+                       daily_buy_total=daily, sellable_qty=sellable, count_toward_daily=count_toward_daily,
+                       skip_sellable=skip_sellable)
 
 
 @router.post("/preview", response_model=PreviewOut)
@@ -154,7 +156,7 @@ def modify_preview(body: ModifyPreviewIn, cfg: TradeConfig = Depends(get_cfg), t
     synthetic = OrderCreateRequest(symbol=original.symbol, side=original.side, orderType=body.orderType,
                                    quantity=body.quantity, price=body.price,
                                    confirmHighValueOrder=body.confirmHighValueOrder)
-    g = _guard(synthetic, cfg=cfg, toss=toss, log=AuditLog(conn), count_toward_daily=False)
+    g = _guard(synthetic, cfg=cfg, toss=toss, log=AuditLog(conn), count_toward_daily=False, skip_sellable=True)
     est = _estimate(original.side, g, _kr_commission_rate(toss))
     payload = {"orderId": body.orderId, **body.model_dump(mode="json", exclude={"orderId"}, exclude_none=True)}
     token = store.put(payload, {"amount": str(g.amount_krw), "basis": g.amount_basis,

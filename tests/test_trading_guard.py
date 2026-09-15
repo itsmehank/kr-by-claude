@@ -119,3 +119,18 @@ def test_high_value_flags():
 def test_order_amount_krw_direct():
     assert order_amount_krw(buy(), None) == D("700000")
     assert order_amount_krw(buy(order_type="MARKET", price=None), D("91000")) == D("910000")
+
+
+# ── Task 4(#187 리뷰): 매도 정정은 규칙 7 생략, 신규 매도는 fail-closed ──
+
+def test_sell_without_sellable_is_fail_closed():
+    with pytest.raises(GuardError) as ei:
+        run(buy(side="SELL", qty="5"), sellable_qty=None)
+    assert ei.value.code == "guard/sellable-unavailable"
+
+
+def test_skip_sellable_bypasses_rule_7():
+    r = run(buy(side="SELL", qty="5"), sellable_qty=None, skip_sellable=True)
+    assert r.amount_krw == D("350000")
+    r2 = run(buy(side="SELL", qty="5"), sellable_qty=D("1"), skip_sellable=True)   # 초과인데도 통과
+    assert r2.amount_krw == D("350000")

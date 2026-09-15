@@ -53,6 +53,8 @@ const MESSAGES: Record<string, string> = {
   "guard/max-order-amount": "1건 주문 금액 상한을 초과했습니다",
   "guard/max-daily-amount": "1일 매수 누적 상한을 초과했습니다",
   "guard/sellable-exceeded": "판매 가능 수량을 초과했습니다",
+  "guard/sellable-unavailable": "판매 가능 수량을 조회할 수 없어 매도를 막았습니다",
+  "guard/symbol-unpriced": "시세를 조회할 수 없는 종목입니다(상장폐지·미거래)",
   "guard/confirm-high-value-required": "1억원 이상 주문은 고액 확인 체크가 필요합니다",
   "guard/max-order-amount-exceeded": "30억원 이상 주문은 접수할 수 없습니다",
   "guard/account-seq-missing": "TOSS_ACCOUNT_SEQ 가 설정되지 않았습니다 — 계좌 확인 후 .env 에 고정",

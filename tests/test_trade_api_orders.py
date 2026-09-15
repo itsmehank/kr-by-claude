@@ -335,3 +335,20 @@ def test_duplicate_client_order_id_rejected_by_db(test_db_url):
         with pytest.raises(psycopg.errors.UniqueViolation):
             log.begin("create", "005930", "BUY", "dup-1", Decimal("700000"), {}, dry_run=False)
         conn.rollback()
+
+
+# ── Task 4(#187 리뷰): 매도 정정 미리보기는 sellable-quantity 를 조회하지 않는다(spec §6 표 정합) ──
+
+def test_modify_preview_sell_does_not_call_sellable(db):
+    order = {"orderId": "ord_s", "symbol": "005930", "side": "SELL", "orderType": "LIMIT", "timeInForce": "DAY",
+             "status": "PENDING", "price": "70000", "quantity": "10", "orderAmount": None, "currency": "KRW",
+             "orderedAt": "2026-09-14T09:00:00+09:00", "canceledAt": None,
+             "execution": {"filledQuantity": "0", "averageFilledPrice": None, "filledAmount": None, "commission": None, "tax": None, "filledAt": None, "settlementDate": None}}
+    routes = {("GET", "/api/v1/price-limits"): LIMITS, ("GET", "/api/v1/commissions"): COMM,
+              ("GET", "/api/v1/orders/ord_s"): lambda r: httpx.Response(200, json={"result": order})}
+    calls = []
+    deps.set_test_overrides(cfg=LIVE, toss=toss_with(routes, LIVE, calls), preview=PreviewStore())
+    c = TestClient(app)
+    r = c.post("/trade-api/orders/modify/preview", json={"orderId": "ord_s", "orderType": "LIMIT", "quantity": "5", "price": "71000"})
+    assert r.status_code == 200, r.text
+    assert ("GET", "/api/v1/sellable-quantity") not in calls   # 조회됐다면 404 → TossApiError → 비-200
