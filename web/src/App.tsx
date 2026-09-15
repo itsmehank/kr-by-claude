@@ -19,6 +19,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   History,
+  Wallet,
 } from "lucide-react";
 import HomePage from "./pages/HomePage";
 import HeatmapPage from "./pages/HeatmapPage";
@@ -36,6 +37,7 @@ import LlmPipelinePage from "./pages/LlmPipelinePage";
 import LlmPipelineAuditPage from "./pages/LlmPipelineAuditPage";
 import PipelinePage from "./pages/PipelinePage";
 import LibraryPage from "./pages/LibraryPage";
+import TradingPage from "./pages/TradingPage";
 import { api } from "./lib/api";
 import type { PipelineRun } from "./lib/types";
 import { relativeTime, stalenessLevel } from "./lib/utils";
@@ -61,6 +63,9 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/signals", label: "Signals", kr: "시그널", Icon: Zap },
   { to: "/positions", label: "Positions", kr: "포지션", Icon: Briefcase },
   { to: "/performance", label: "Performance", kr: "시그널 성과", Icon: TrendingUp },
+
+  // ─── 실행 ─────────────────────────────────
+  { to: "/trading", label: "Trading", kr: "매매", Icon: Wallet },
 
   // ─── 메타 문서 / 운영 ──────────────────────
   { to: "/library", label: "Library", kr: "자료실", Icon: Library },
@@ -261,6 +266,7 @@ function App() {
           <Route path="/signals" element={<SignalsPage />} />
           <Route path="/positions" element={<PositionsPage />} />
           <Route path="/performance" element={<PerformancePage />} />
+          <Route path="/trading" element={<TradingPage />} />
           <Route path="/classifications" element={<ClassificationsPage />} />
           <Route path="/triggers" element={<TriggersPage />} />
           <Route path="/review" element={<ReviewPage />} />
