@@ -35,6 +35,8 @@ def run(conn: Connection, *, as_of: date | None = None) -> dict:
                 ON sp.symbol = ep.symbol AND sp.signal_at = ep.signal_at
              WHERE COALESCE(ep.analyzed_for_date, (ep.signal_at AT TIME ZONE 'UTC')::date) >= %s - INTERVAL '90 days'
                AND COALESCE(ep.analyzed_for_date, (ep.signal_at AT TIME ZONE 'UTC')::date) <= %s
+               -- 소급 무효화 신호(excluded_reason NOT NULL)는 성과 분모 제외 — 행은 보존(2026-09-15 SECUGRP 필터)
+               AND ep.excluded_reason IS NULL
             """,
             (as_of, as_of),
         )

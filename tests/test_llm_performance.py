@@ -129,3 +129,42 @@ def test_performance_return_uses_adjusted_consistently(db):
     assert row is not None
     # (2200 - 2000) / 2000 * 100 = 10.0 — adj 눈금 정합 산술 검증
     assert abs(float(row[0]) - 10.0) < 0.01
+
+
+def test_performance_skips_excluded_signals(db):
+    """(SECUGRP 소급) excluded_reason NOT NULL 신호는 성과 분모에서 제외 — 행은 보존. 쌍둥이 유효 신호(PF3)는 산출."""
+    today = date(2026, 5, 20)
+    signal_date = today - timedelta(days=10)
+    signal_at = datetime(signal_date.year, signal_date.month, signal_date.day, 16, 30, tzinfo=timezone.utc)
+    with db.cursor() as cur:
+        for sym, reason in (("PF2", "security_group=투자회사 — 테스트"), ("PF3", None)):
+            cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s, 'P', 'KOSPI') ON CONFLICT DO NOTHING", (sym,))
+            cur.execute("DELETE FROM signal_performance WHERE symbol=%s", (sym,))
+            cur.execute("DELETE FROM entry_params WHERE symbol=%s", (sym,))
+            cur.execute(
+                """INSERT INTO entry_params
+                   (symbol, signal_at, entry_mode, trigger_price, entry_price, stop_loss,
+                    stop_loss_pct_from_pivot, stop_loss_pct_from_current_price, stop_loss_basis,
+                    expected_target_price, expected_target_pct, risk_reward_ratio,
+                    position_size_pct, position_size_basis, breakout_volume_requirement,
+                    observed_breakout_volume_ratio, known_warnings, other_warnings, notes,
+                    trigger_evaluation_at, prior_classification_at, excluded_reason)
+                   VALUES (%s, %s, 'pivot_breakout', 100.1, 100, 95, -5, -5, 'logical_pct', 115, 15, 3.0,
+                           5, 'test', '1.4x', 1.5, '[]', '', 'test', %s, %s, %s)""",
+                (sym, signal_at, signal_at, signal_at, reason),
+            )
+            for d_offset in (0, 7):
+                d = signal_date + timedelta(days=d_offset)
+                cur.execute("""INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
+                               VALUES (%s, %s, 100, 105, 95, 100, 100, 1000, 100000) ON CONFLICT DO NOTHING""", (sym, d))
+                cur.execute("""INSERT INTO index_daily (index_code, date, open, high, low, close, volume, value)
+                               VALUES ('1001', %s, 3000, 3050, 2980, 3020, 100000000, 1000000000000) ON CONFLICT DO NOTHING""", (d,))
+    db.commit()
+
+    from kr_pipeline.llm_runner.performance import run
+    run(db, as_of=today)
+    with db.cursor() as cur:
+        cur.execute("SELECT symbol FROM signal_performance WHERE symbol IN ('PF2','PF3') ORDER BY 1")
+        assert [r[0] for r in cur.fetchall()] == ["PF3"]
+        cur.execute("SELECT count(*) FROM entry_params WHERE symbol = 'PF2'")
+        assert cur.fetchone()[0] == 1      # 행 보존
