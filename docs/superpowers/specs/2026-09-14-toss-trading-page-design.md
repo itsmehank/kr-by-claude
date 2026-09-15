@@ -111,13 +111,17 @@ STOCK 5, ORDER 10, ORDER_HISTORY 5, ORDER_INFO 6`). 응답 헤더 `X-RateLimit-L
    않고 1건 상한(5번)만 재검**한다 — 원주문과 정정을 둘 다 합산하면 이중 집계로 과다 차단되기 때문.
    **이 규칙은 preview 뿐 아니라 `POST /orders`(submit) 에서도 재평가한다** — 미리보기 N개를 TTL 내 연속 제출하면
    preview 시점 합계가 stale 이라 상한을 넘을 수 있다(최종 리뷰 I-2). 결정은 행동 시점에.
-7. 매도: `GET /sellable-quantity` 초과 → `guard/sellable-exceeded`
+7. 매도: `GET /sellable-quantity` 초과 → `guard/sellable-exceeded`. 조회값이 None 이면 `guard/sellable-unavailable`(fail-closed).
+   **정정(modify) 은 규칙 7 을 생략**한다 — 토스 `sellableQuantity` 가 해당 미체결 매도에 잠긴 수량을 제외할 수 있어 로컬 오차단
+   위험이 있고, spec §6 의 modify/preview 는 sellable 을 조회하지 않는다(최종 판정권 = 토스). 코드리뷰 후속 2026-09-15
 8. 주문금액 ≥ 1억 → `confirmHighValueOrder=true` 강제, ≥ 30억 → 차단(스펙 `422 max-order-amount-exceeded`)
 9. `DRY_RUN`: 위 검사를 전부 통과한 뒤 토스 호출 대신 "보낼 본문"을 반환하고 감사로그에 `dry_run=true` 기록
 
 로컬 호가단위 검증은 API 왕복 없이 먼저 걸러주는 편의이며 **최종 판정권은 API**(에러 `data`에 올바른 단위가 옴).
 
-**PreviewStore** — 메모리, TTL 5분. `POST /orders/preview` 가 (a) 가드 전부 실행 (b) **`clientOrderId` 를
+**PreviewStore** — 메모리, TTL 5분. 토큰은 **1회용**: `POST /orders` 는 `consume(token, payload)` 로 검증과 동시에
+lock 안에서 pop 한다(같은 토큰 재제출 → `guard/preview-required`; 코드리뷰 후속 2026-09-15). `put()` 은 만료 항목을 정리한다.
+`POST /orders/preview` 가 (a) 가드 전부 실행 (b) **`clientOrderId` 를
 이 시점에 생성**(`{yyyymmdd}-{uuid8}`, ≤36자, `[A-Za-z0-9_-]`) 해 본문에 포함 (c) 본문 canonical JSON 의
 SHA-256 을 `previewToken` 으로 발급. `POST /orders` 는 `previewToken` 필수 + 본문 해시 일치
 (`guard/preview-required`, `guard/preview-mismatch`). 같은 미리보기 재전송 → 같은 `clientOrderId` →
@@ -125,7 +129,10 @@ SHA-256 을 `previewToken` 으로 발급. `POST /orders` 는 `previewToken` 필�
 소멸**한다 — 주문은 `guard/preview-required` 로 막히므로 안전하며, 사용자는 미리보기를 다시 실행하면 된다.
 
 **AuditLog** — `toss_order_audit` append-only. **전송 직전 INSERT(`pending`) → 응답 후 UPDATE.** 타임아웃으로
-응답을 못 받아도 "보냈다"는 행이 남는다. 정정·취소·DRY_RUN도 기록.
+응답을 못 받아도 "보냈다"는 행이 남는다. 정정·취소·DRY_RUN도 기록. 토스 외 예외(전송 계층·파싱)도 `http_status=-1` 로
+마감한다. **1일 누적 집계는 `http_status IS NULL OR IN (200, -1)` 을 포함** — 응답을 못 받은 주문은 접수된 것으로 간주
+(fail-closed). 4xx/422 는 제외. `submit` 의 누적 재검과 INSERT 는 `pg_advisory_xact_lock` 아래 한 트랜잭션(동시 제출
+직렬화)이며, `client_order_id` 에 `kind='create'` 부분 UNIQUE 인덱스로 DB 도 중복을 거부한다(코드리뷰 후속 2026-09-15).
 
 ```sql
 CREATE TABLE IF NOT EXISTS toss_order_audit (
