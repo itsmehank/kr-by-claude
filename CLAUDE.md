@@ -51,3 +51,5 @@ pykrx import 시 로그인 요청이 나가지 않게 한다(pop 이 아니라 �
    발단: 미적용 시 INSERT/테스트 실패 전례(specs/2026-06-23 §140).
 5. **작업 기간 KRX 실 접촉 0** — 위 테스트 격리에 더해 차단 대응·백필 기간에는 코드 경로 전체가 접촉 0, 신규 테스트는 monkeypatch.
    발단: 2026-08-04 #92 차단, #132 캠페인 규약.
+6. **토스 API 호출은 `trade_api` 프로세스만** — `kr_pipeline`·CLI·테스트에서 토스 호출 금지(토큰 1개 제약, 위반 시 `401 token-revoked` 로 서로 무효화). `trade_api` 는 `--workers` 금지, `--reload` 기본 미사용. 테스트는 conftest 가 `TOSS_CLIENT_ID/SECRET` 를 비우고 `TOSS_DRY_RUN=true` 를 강제한다(#92 동형).
+   발단: 2026-09-14 매매 페이지 설계(spec §4.3) — 문서상 제약을 사고 전에 규칙화.
