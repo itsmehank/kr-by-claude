@@ -1523,9 +1523,12 @@ git commit -m "prompt A: Pre-Check 를 security_group 기준으로 결정적 변
 | 094800 모니터링 종료 행 | 2026-09-15 19:04:53 KST, source=system_disqualify, 사유=excluded_reason_text("투자회사"). 실행 후 `get_active_monitoring` 에서 094800·415640 부재 확인 |
 | 지표 전진 적용 | 09-15 이후 첫 indicators incremental(신규 코드) 후 확인 — 094800·415640·088980 date≥09-15 NULL, 과거 TRUE 246·48 불변. **회신 시점 미실행**(운영은 main 코드 — PR 머지·체크아웃 전환 후 유효) |
 | 백테스트 파리티 | armA-prod **1.1676 · n_realized 37** (불변 확인, 커브 파일 복원) |
-| 138040 시계열 수집 | Task 6 Step 7 KRX 3회 승인 게이트 — 회신 시점 상태는 §9 |
+| 138040 시계열 수집 | **승인 실행(KRX 3회, 누적 8회)** — 088980 2,517행·138040 2,517행(2016-06-13~2026-09-14)·369370 1,402행(2020-12-23~), adj NULL 0 (`data/verification/secugrp_backfill_report.json`). weekly·지표는 다음 정규 실행 |
 | PR #187 정합 | rebase(schema.sql append 충돌 1건, 양쪽 유지). 운영 DB ↔ 병합 schema.sql drift 0(37 테이블·컬럼·인덱스·제약) |
-| suite | (Task 8 Step 1) |
+| [5] Pre-Check 1회 실행 | `--mode weekend --ticker 094800 --date 2026-09-11`(23:48, 라이브 러너 종료 후) → **`ignore` · confidence 1.0 · pattern none · risk_flags `["security_group_not_equity"]` · reasoning "security_group=투자회사 — not an operating-company equity …"** · §1~§6 분석 미수행. 저장본 `data/verification/secugrp_precheck_094800.json`, 행 excluded_reason 표기(094800 총 4행), active monitoring 부재 유지 |
+| 1회 실행 부수 관측 | (a) `prompt_version` NULL — 09-10 이후 weekly_classification 전 source 129/129 NULL(weekend 58·daily_delta 42·system_disqualify 29). **기존 상태**(B6 배선이 라이브 경로에 미도달) — 이번 범위 아님, 별건 후보. (b) 러너 기동 시 pykrx 가 KRX **로그인 1회**(데이터 요청 0) — 라이브 잡과 동일 기동 동작, 접촉 0 규율상 기록 |
+| suite | **1615 passed · 1 skipped · 1 deselected · 1 warning**(새 기준, #187 포함) |
+| 이슈·PR | #191 신규상장 미반영(등록만) · PR #192(머지는 회신 후) |
 
 ## 7. 이름 3축 경계 점검 결과(보고 전용 — 이번 스프린트 수정 금지)
 
