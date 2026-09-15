@@ -2,9 +2,9 @@
 """KST 일 단위 캐시(#187 리뷰 추가 정리) — 하루 동안 불변인 토스 응답(price_limits·commissions)을
 프로세스 메모리에 캐시해 매 preview·quote 폴링마다 토스를 재호출하지 않는다.
 
-키에 kst_today() 를 자동 포함 — 자정을 넘기면 전날 항목은 다음 get() 에서 자연히 미스된다
-(그 항목을 명시적으로 지우지는 않는다 — 다음 put() 이 새 날짜 키로 덮어쓸 뿐이라 메모리는 하루치만
-쌓인다). TossClient 교체(`deps.set_test_overrides(toss=…)`)·`deps.reset_overrides()` 시에는
+키에 kst_today() 를 자동 포함 — 자정을 넘기면 전날 항목은 다음 get() 에서 자연히 미스된다. put() 은
+호출될 때마다 오늘 날짜가 아닌 키를 lock 하에 정리한다(#187 최종 수정웨이브) — 메모리는 항상 하루치만
+남는다. TossClient 교체(`deps.set_test_overrides(toss=…)`)·`deps.reset_overrides()` 시에는
 `register_reset_hook` 경유로 명시적으로 비운다 — 다른 계정·환경의 응답이 새 클라이언트로 넘어가지
 않게.
 
@@ -37,6 +37,7 @@ class DayCache:
     def put(self, *parts: Any, value: Any) -> None:
         key = (self._today(), *parts)
         with self._lock:
+            self._items = {k: v for k, v in self._items.items() if k[0] == key[0]}   # 전날 키 정리
             self._items[key] = value
 
     def reset(self) -> None:

@@ -33,3 +33,13 @@ def test_reset_clears_all_entries():
     cache.reset()
     assert cache.get("limits", "005930") is None
     assert cache.get("commissions") is None
+
+
+def test_day_rollover_prunes_old_day_entries_on_put():
+    """E(#187 최종 수정웨이브): put() 이 오늘 날짜가 아닌 키를 정리 — 전날 항목이 메모리에 남지 않는다."""
+    today = {"d": date(2026, 9, 15)}
+    cache = DayCache(today=lambda: today["d"])
+    cache.put("limits", "005930", value="v1")
+    today["d"] = date(2026, 9, 16)   # 자정 경과
+    cache.put("commissions", value="v2")
+    assert len(cache._items) == 1

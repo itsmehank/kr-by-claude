@@ -198,11 +198,14 @@ def test_quote_delisted_local_ticker_is_guard_error(db):
 
 
 def test_search_escapes_wildcards(db):
-    """`_`/`%` 는 리터럴로 취급돼야 한다 — 이스케이프 안 되면 와일드카드로 전체 종목과 매치되므로,
-    리터럴 `_`·`%` 를 포함하지 않는 시드(TRDT01/02)가 결과에 섞여 들어오는지로 판정한다
-    (실 kr_test 에는 다른 테스트 모듈이 남긴 literal `_` 포함 티커가 존재해 빈 리스트 단언은 순서의존 오탐)."""
+    """`_`/`%` 는 리터럴로 취급돼야 한다 — 이스케이프 안 되면 와일드카드로 전체 종목과 매치되므로
+    (이 경우 `%_%`가 TRDT01/트레이드검색A 처럼 `_`·`%` 를 포함하지 않는 이름과도 매치돼 아래 all() 이
+    깨진다). 순서·LIMIT 무관하게 결과 전원이 리터럴 문자를 포함하는지로 판정한다(#187 최종 수정웨이브
+    — 기존 "TRDT01 not in results" 는 실 kr_test 의 다른 모듈 시드에 우연히 의존하는 순서의존 단언이었다)."""
     deps.set_test_overrides(cfg=CFG, toss=toss_with({}))
     c = TestClient(app)
-    assert "TRDT01" not in [h["ticker"] for h in c.get("/trade-api/search?q=_").json()]
-    assert "TRDT01" not in [h["ticker"] for h in c.get("/trade-api/search?q=%25").json()]
+    rows_underscore = c.get("/trade-api/search?q=_").json()
+    assert all("_" in h["ticker"] or "_" in h["name"] for h in rows_underscore)
+    rows_percent = c.get("/trade-api/search?q=%25").json()
+    assert all("%" in h["ticker"] or "%" in h["name"] for h in rows_percent)
     assert [h["ticker"] for h in c.get("/trade-api/search?q=트레이드검색").json()] == ["TRDT01"]

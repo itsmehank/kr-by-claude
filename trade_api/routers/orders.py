@@ -1,9 +1,9 @@
 # trade_api/routers/orders.py
-"""주문 라우트 (spec §6). 실주문 코드는 _submit_live 안에만 있고 DRY_RUN 가드 뒤에 위치.
+"""주문 라우트 (spec §6).
 
-흐름: preview(가드 전부·clientOrderId 생성·토큰) → submit(토큰 검증 → 감사 begin → [DRY_RUN 종료]
-→ 토스 호출 → 감사 finish). 토스 에러도 감사 finish 후 그대로 재던짐(핸들러가 envelope 전달).
-"""
+흐름: preview(가드 전부·clientOrderId 생성·토큰) → submit(previewToken consume → _begin_audit[advisory
+lock+상한 재검+INSERT+commit] → _dispatch[DRY_RUN 가드 뒤 토스 호출 → finish]). 토스 에러도 감사 finish
+후 그대로 재던짐(핸들러가 envelope 전달)."""
 from __future__ import annotations
 
 from decimal import Decimal
@@ -23,7 +23,7 @@ from trade_api.daycache import cached_price_limits, commissions_cache
 from trade_api.deps import get_cfg, get_conn, get_preview, get_toss
 from trade_api.schemas import (
     EstimateOut, ModifyPreviewIn, ModifySubmitIn, OperationOut, OrderSubmitIn, OrderSubmitOut,
-    PreviewIn, PreviewOut,
+    PreviewIn, PreviewOut, kr_int_str,
 )
 
 router = APIRouter(prefix="/trade-api/orders", tags=["orders"])
@@ -49,6 +49,10 @@ def _begin_audit(conn: Connection, log: AuditLog, cfg: TradeConfig, *, kind: str
                                  {"amountKrw": str(amount), "dailyTotalKrw": str(total),
                                   "maxDailyKrw": str(cfg.max_daily_krw)})
         audit_id = log.begin(kind, symbol, side, client_order_id, amount, payload, dry_run=cfg.dry_run)
+    # 명시적 commit(#187 최종 수정웨이브): 풀링된 non-autocommit 연결에 이미 열린 트랜잭션이 있으면
+    # 위 conn.transaction() 은 savepoint 로 강등돼 커밋되지 않는다 — pending 행의 durability·advisory
+    # lock 해제를 연결의 이전 상태와 무관하게 만든다.
+    conn.commit()
     return audit_id
 
 
@@ -203,12 +207,29 @@ def cancel(order_id: str, cfg: TradeConfig = Depends(get_cfg), toss: TossClient 
     return OperationOut(dryRun=False, orderId=res.orderId, auditId=audit_id)
 
 
+def _normalize_kr_order(order: Order) -> Order:
+    """KR(원화) 주문은 quantity·price·체결수량·체결단가가 정수 — 토스 decimal scale 을 출력 시 정규화
+    (#187 최종 수정웨이브). currency!='KRW' 는 그대로 통과."""
+    if order.currency != "KRW":
+        return order
+    execution = order.execution.model_copy(update={
+        "filledQuantity": kr_int_str(order.execution.filledQuantity),
+        "averageFilledPrice": kr_int_str(order.execution.averageFilledPrice),
+    })
+    return order.model_copy(update={
+        "quantity": kr_int_str(order.quantity),
+        "price": kr_int_str(order.price),
+        "execution": execution,
+    })
+
+
 @router.get("", response_model=PaginatedOrderResponse)
 def list_orders(status: str = Query(..., pattern="^(OPEN|CLOSED)$"), cursor: str | None = None,
                 limit: int | None = Query(None, ge=1, le=100), toss: TossClient = Depends(get_toss)) -> PaginatedOrderResponse:
-    return toss.list_orders(status, cursor=cursor, limit=limit)
+    resp = toss.list_orders(status, cursor=cursor, limit=limit)
+    return resp.model_copy(update={"orders": [_normalize_kr_order(o) for o in resp.orders]})
 
 
 @router.get("/{order_id}", response_model=Order)
 def detail(order_id: str, toss: TossClient = Depends(get_toss)) -> Order:
-    return toss.get_order(order_id)
+    return _normalize_kr_order(toss.get_order(order_id))

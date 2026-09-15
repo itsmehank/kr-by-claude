@@ -330,11 +330,16 @@ def test_duplicate_client_order_id_rejected_by_db(test_db_url):
         conn.execute("DELETE FROM toss_order_audit")
         conn.commit()
         log = AuditLog(conn)
-        log.begin("create", "005930", "BUY", "dup-1", Decimal("700000"), {}, dry_run=False)
-        conn.commit()
-        with pytest.raises(psycopg.errors.UniqueViolation):
+        try:
             log.begin("create", "005930", "BUY", "dup-1", Decimal("700000"), {}, dry_run=False)
-        conn.rollback()
+            conn.commit()
+            with pytest.raises(psycopg.errors.UniqueViolation):
+                log.begin("create", "005930", "BUY", "dup-1", Decimal("700000"), {}, dry_run=False)
+            conn.rollback()
+        finally:
+            # 실주문 행 정리(#187 최종 수정웨이브) — 공유 kr_test 에 live pending 행이 남지 않도록.
+            conn.execute("DELETE FROM toss_order_audit WHERE client_order_id = 'dup-1'")
+            conn.commit()
 
 
 # ── Task 4(#187 리뷰): 매도 정정 미리보기는 sellable-quantity 를 조회하지 않는다(spec §6 표 정합) ──
@@ -402,3 +407,46 @@ def test_cache_reset_on_override(db):
     deps.set_test_overrides(toss=toss_with(READ_ROUTES, DRY, calls))   # 클라이언트 교체 → 리셋 훅 발화
     preview(c)
     assert calls.count(("GET", "/api/v1/price-limits")) == 2
+
+
+# ── #187 최종 수정웨이브: commit-before-send 무조건화(B)·KR 주문 quantity/price 정규화(F) ──
+
+def test_begin_audit_commits_even_if_transaction_already_open(test_db_url):
+    """B: 풀링된 non-autocommit 연결에 이미 열린 트랜잭션이 있으면(conn.transaction() 이 savepoint 로
+    강등) _begin_audit 의 명시적 commit 이 없으면 pending 행이 다른 세션에 durable 하지 않다."""
+    from trade_api.routers.orders import _begin_audit
+
+    conn = psycopg.connect(test_db_url)          # 비-autocommit — 운영 풀 연결과 동형
+    conn.execute("SELECT 1")                     # 트랜잭션을 미리 연다(savepoint 강등 조건)
+    log = AuditLog(conn)
+    audit_id = None
+    try:
+        audit_id = _begin_audit(conn, log, LIVE, kind="create", symbol="005930", side="BUY",
+                                client_order_id=None, amount=Decimal("700000"), payload={}, lock_cap=False)
+        with psycopg.connect(test_db_url, autocommit=True) as c2:   # 독립(제2) 세션
+            row = c2.execute("SELECT http_status FROM toss_order_audit WHERE id=%s", (audit_id,)).fetchone()
+        assert row == (None,)   # pending 행이 dispatch 전에 이미 제2 세션에서 보임 = commit 됨
+    finally:
+        if audit_id is not None:
+            conn.execute("DELETE FROM toss_order_audit WHERE id=%s", (audit_id,))
+            conn.commit()
+        conn.close()
+
+
+def test_list_and_detail_normalize_kr_order_quantities(db):
+    """F: KR 주문의 quantity·price·filledQuantity 는 토스 decimal scale('10.0','70000.00') 을
+    정수 문자열로 정규화해 내보낸다(list·detail 둘 다)."""
+    order = {"orderId": "ord_n", "symbol": "005930", "side": "BUY", "orderType": "LIMIT", "timeInForce": "DAY",
+             "status": "PENDING", "price": "70000.00", "quantity": "10.0", "orderAmount": None, "currency": "KRW",
+             "orderedAt": "2026-09-14T09:00:00+09:00", "canceledAt": None,
+             "execution": {"filledQuantity": "0.0", "averageFilledPrice": None, "filledAmount": None,
+                           "commission": None, "tax": None, "filledAt": None, "settlementDate": None}}
+    routes = {**READ_ROUTES,
+              ("GET", "/api/v1/orders/ord_n"): lambda r: httpx.Response(200, json={"result": order}),
+              ("GET", "/api/v1/orders"): lambda r: httpx.Response(200, json={"result": {"orders": [order], "nextCursor": None, "hasNext": False}})}
+    deps.set_test_overrides(cfg=LIVE, toss=toss_with(routes, LIVE), preview=PreviewStore())
+    c = TestClient(app)
+    listed = c.get("/trade-api/orders?status=OPEN").json()["orders"][0]
+    assert listed["quantity"] == "10" and listed["price"] == "70000" and listed["execution"]["filledQuantity"] == "0"
+    detail = c.get("/trade-api/orders/ord_n").json()
+    assert detail["quantity"] == "10" and detail["price"] == "70000" and detail["execution"]["filledQuantity"] == "0"
