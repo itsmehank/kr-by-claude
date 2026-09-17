@@ -980,3 +980,20 @@ CREATE INDEX IF NOT EXISTS idx_toss_order_audit_day ON toss_order_audit (created
 -- 1회 소비 위에 얹는 마지막 안전망). modify/cancel 은 client_order_id 를 안 쓰므로 kind='create' 한정.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_toss_order_audit_client_order_id
   ON toss_order_audit (client_order_id) WHERE kind = 'create' AND client_order_id IS NOT NULL;
+-- SECUGRP 유니버스 필터 (2026-09-15, docs/superpowers/plans/2026-09-15-secugrp-universe-filter.md)
+-- security_group: KRX SECUGRP_NM. 지속화 fail-open — 조회 실패 시 기존 값 유지, 미해결 = 'UNRESOLVED'.
+ALTER TABLE stocks ADD COLUMN IF NOT EXISTS security_group VARCHAR(30) NOT NULL DEFAULT 'UNRESOLVED';
+-- 소급 무효화 표기 — 행 삭제 금지, 성과·recall 분모 제외 표식. NULL = 유효.
+ALTER TABLE weekly_classification   ADD COLUMN IF NOT EXISTS excluded_reason TEXT;
+ALTER TABLE trigger_evaluation_log  ADD COLUMN IF NOT EXISTS excluded_reason TEXT;
+ALTER TABLE entry_params            ADD COLUMN IF NOT EXISTS excluded_reason TEXT;
+-- 적재 전 배제 집합 스냅샷 — 회귀 가드가 직전 스냅샷과 집합 대조, 미설명 변동 시 적재 실패.
+CREATE TABLE IF NOT EXISTS universe_exclusion_snapshot (
+    snapshot_date   DATE         NOT NULL,
+    ticker          VARCHAR(10)  NOT NULL,
+    name            VARCHAR(100) NOT NULL,
+    market          VARCHAR(10)  NOT NULL,
+    security_group  VARCHAR(30)  NOT NULL,
+    axis            VARCHAR(20)  NOT NULL,   -- preferred | spac | etf | security_group
+    PRIMARY KEY (snapshot_date, ticker)
+);

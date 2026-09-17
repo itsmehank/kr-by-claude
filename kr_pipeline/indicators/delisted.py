@@ -16,6 +16,7 @@ from datetime import date
 import pandas as pd
 from psycopg import Connection
 
+from kr_pipeline.common.security_group import UNRESOLVED, is_gated_out
 from kr_pipeline.common.thresholds import (
     C8_RS_RATING_MIN, RS_LINE_DECLINE_GATE_WEEKS, RS_LINE_UPTREND_LONG_WEEKS,
     RS_LINE_UPTREND_SHORT_WEEKS,
@@ -61,8 +62,13 @@ def load_delisted_daily_for_indicators(conn: Connection, ticker: str) -> pd.Data
 
 
 def compute_delisted_rows(ticker: str, df_daily: pd.DataFrame, df_idx: pd.DataFrame,
-                          rs_rating: dict[date, int | None], rs_gate_weekly: pd.Series | None) -> list[dict]:
-    """라이브 _process_ticker_daily 의 Phase A 산술 + Phase B/C/D 를 상폐 입력으로 재현(순수)."""
+                          rs_rating: dict[date, int | None], rs_gate_weekly: pd.Series | None,
+                          *, security_group: str) -> list[dict]:
+    """라이브 _process_ticker_daily 의 Phase A 산술 + Phase B/C/D 를 상폐 입력으로 재현(순수).
+
+    (Q-5) 증권구분 게이트: is_gated_out(security_group, d) 참이면 minervini_pass=None — 라이브 daily/weekly
+    UPDATE 와 동일 계약(SSOT kr_pipeline/common/security_group.py). 상폐 종목은 전 행이 기준일 이전이라 무영향.
+    """
     df = df_daily.merge(df_idx.rename(columns={"close": "index_close"}), on="date", how="left")
     df = df.set_index("date").sort_index()
     adj_close = df["adj_close"]
@@ -102,6 +108,7 @@ def compute_delisted_rows(ticker: str, df_daily: pd.DataFrame, df_idx: pd.DataFr
         cs = [_as_bool(mn[f"minervini_c{k}"].loc[d]) for k in range(1, 8)]
         rr = rs_rating.get(d)
         c8 = None if rr is None else (rr >= C8_RS_RATING_MIN)
+        gated = is_gated_out(security_group, d)
         rows.append({
             "ticker": ticker, "date": d, "adj_close": float(adj_close.loc[d]),
             "sma_10": _as_float(sma_10.loc[d]), "sma_21": _as_float(sma_21.loc[d]),
@@ -116,7 +123,7 @@ def compute_delisted_rows(ticker: str, df_daily: pd.DataFrame, df_idx: pd.DataFr
             "rs_rating": rr,
             **{f"minervini_c{k}": cs[k - 1] for k in range(1, 8)},
             "minervini_c8": c8,
-            "minervini_pass": (all(x is True for x in cs) and c8 is True) if c8 is not None else None,
+            "minervini_pass": None if gated else ((all(x is True for x in cs) and c8 is True) if c8 is not None else None),
             "volume": _as_float(adj_volume.loc[d]), "avg_volume_50d": _as_float(avg_vol_50.loc[d]),
             "volume_ratio_50d": _as_float(vol_ratio_50.loc[d]), "pocket_pivot_flag": _as_bool(pp_flag.loc[d]),
             "volume_dry_up_flag": _as_bool(vdu_flag.loc[d]), "up_down_volume_ratio_50d": _as_float(ud_ratio_50.loc[d]),
@@ -155,7 +162,10 @@ def build_delisted_indicators(conn: Connection, tickers: list[str] | None = None
             rs = {d: (int(r) if r is not None else None) for d, r in cur.fetchall()}
             if not rs:
                 stats["no_rs"] += 1
-            rows = compute_delisted_rows(t, df, df_idx, rs, _weekly_rs_gate(conn, t))
+            cur.execute("SELECT security_group FROM stocks WHERE ticker = %s", (t,))
+            sg_row = cur.fetchone()
+            rows = compute_delisted_rows(t, df, df_idx, rs, _weekly_rs_gate(conn, t),
+                                         security_group=sg_row[0] if sg_row else UNRESOLVED)
             cur.execute("DELETE FROM delisted_daily_indicators WHERE ticker = %s", (t,))
             with cur.copy(f"COPY delisted_daily_indicators ({', '.join(COLUMNS)}) FROM STDIN") as cp:
                 for r in rows:

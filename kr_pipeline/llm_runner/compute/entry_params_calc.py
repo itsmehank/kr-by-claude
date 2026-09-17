@@ -247,10 +247,10 @@ def calculate_entry_params(payload: dict) -> dict:
         target_pct, window = 15.0, 1
         target_price = _r2(pivot * (1 + target_pct / 100))
         other.append("climax_run with classification=entry — contradiction")
-    if "etf_methodology_mismatch" in eff_flags:
+    if eff_flags & {"etf_methodology_mismatch", "security_group_not_equity"}:
         target_pct, window = ENTRY_TARGET_PCT_MIN, 1
         target_price = _r2(pivot * (1 + target_pct / 100))
-        other.append("etf_methodology_mismatch reached entry params — upstream filter breach")
+        other.append("security_group/etf flag reached entry params — upstream filter breach")
 
     # ---- §8 경고 정리 — 우선순위 정렬만. 발행 지점이 코드 경로상 각 1회라 중복 불가,
     # §8.3 의 ≤6 예산은 LLM 출력 억제용이었고 저장 계층에 상한이 없으므로

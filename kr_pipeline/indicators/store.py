@@ -3,6 +3,7 @@
 from datetime import date
 from psycopg import Connection
 
+from kr_pipeline.common.security_group import security_group_gate_params, security_group_gate_sql
 from kr_pipeline.common.thresholds import C8_RS_RATING_MIN
 
 
@@ -95,22 +96,27 @@ def update_daily_indicators_minervini_pass(
     start_date: date,
     end_date: date,
 ) -> int:
-    """단일 SQL UPDATE 로 c8 (rs_rating >= C8_RS_RATING_MIN) 와 minervini_pass (c1..c8 ALL TRUE) 계산."""
+    """단일 SQL UPDATE 로 c8 (rs_rating >= C8_RS_RATING_MIN) 와 minervini_pass (c1..c8 ALL TRUE) 계산.
+
+    (Q-5) 증권구분 게이트 — 비허용 종목은 기준일 이후 행만 NULL(판정하지 않음). 조건은 SSOT 조각
+    `security_group_gate_sql` 단일 참조(3곳 동일 계약: 여기 daily · weekly · indicators/delisted.py).
+    """
+    gate = security_group_gate_sql("d", "date")
     with conn.cursor() as cur:
         cur.execute(
-            """
-            UPDATE daily_indicators
-               SET minervini_c8 = (rs_rating >= %s),
-                   minervini_pass = (
-                       minervini_c1 IS TRUE AND minervini_c2 IS TRUE AND
-                       minervini_c3 IS TRUE AND minervini_c4 IS TRUE AND
-                       minervini_c5 IS TRUE AND minervini_c6 IS TRUE AND
-                       minervini_c7 IS TRUE AND (rs_rating >= %s)
-                   ),
+            f"""
+            UPDATE daily_indicators d
+               SET minervini_c8 = (d.rs_rating >= %(c8)s),
+                   minervini_pass = CASE WHEN {gate} THEN NULL ELSE (
+                       d.minervini_c1 IS TRUE AND d.minervini_c2 IS TRUE AND
+                       d.minervini_c3 IS TRUE AND d.minervini_c4 IS TRUE AND
+                       d.minervini_c5 IS TRUE AND d.minervini_c6 IS TRUE AND
+                       d.minervini_c7 IS TRUE AND (d.rs_rating >= %(c8)s)
+                   ) END,
                    updated_at = NOW()
-             WHERE date BETWEEN %s AND %s
+             WHERE d.date BETWEEN %(start)s AND %(end)s
             """,
-            (C8_RS_RATING_MIN, C8_RS_RATING_MIN, start_date, end_date),
+            {"c8": C8_RS_RATING_MIN, "start": start_date, "end": end_date, **security_group_gate_params()},
         )
         return cur.rowcount
 
@@ -182,21 +188,23 @@ def update_weekly_indicators_minervini_pass(
     start_date: date,
     end_date: date,
 ) -> int:
+    """(Q-5) daily 와 동일 계약 — 게이트 조건은 SSOT 조각 단일 참조."""
+    gate = security_group_gate_sql("w", "week_end_date")
     with conn.cursor() as cur:
         cur.execute(
-            """
-            UPDATE weekly_indicators
-               SET minervini_c8 = (rs_rating >= %s),
-                   minervini_pass = (
-                       minervini_c1 IS TRUE AND minervini_c2 IS TRUE AND
-                       minervini_c3 IS TRUE AND minervini_c4 IS TRUE AND
-                       minervini_c5 IS TRUE AND minervini_c6 IS TRUE AND
-                       minervini_c7 IS TRUE AND (rs_rating >= %s)
-                   ),
+            f"""
+            UPDATE weekly_indicators w
+               SET minervini_c8 = (w.rs_rating >= %(c8)s),
+                   minervini_pass = CASE WHEN {gate} THEN NULL ELSE (
+                       w.minervini_c1 IS TRUE AND w.minervini_c2 IS TRUE AND
+                       w.minervini_c3 IS TRUE AND w.minervini_c4 IS TRUE AND
+                       w.minervini_c5 IS TRUE AND w.minervini_c6 IS TRUE AND
+                       w.minervini_c7 IS TRUE AND (w.rs_rating >= %(c8)s)
+                   ) END,
                    updated_at = NOW()
-             WHERE week_end_date BETWEEN %s AND %s
+             WHERE w.week_end_date BETWEEN %(start)s AND %(end)s
             """,
-            (C8_RS_RATING_MIN, C8_RS_RATING_MIN, start_date, end_date),
+            {"c8": C8_RS_RATING_MIN, "start": start_date, "end": end_date, **security_group_gate_params()},
         )
         return cur.rowcount
 

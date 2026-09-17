@@ -131,11 +131,11 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
         on_date = date.today()
 
     with conn.cursor() as cur:
-        cur.execute("SELECT name, market, sector FROM stocks WHERE ticker = %s", (ticker,))
+        cur.execute("SELECT name, market, sector, security_group FROM stocks WHERE ticker = %s", (ticker,))
         row = cur.fetchone()
     if row is None:
         raise ValueError(f"Stock not found: {ticker}")
-    name, market, sector = row
+    name, market, sector, security_group = row
 
     # 미너비니 detail
     minervini = build_minervini_detail(conn, ticker, on_date)
@@ -203,6 +203,8 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
         "name": name,
         "market": market,
         "sector": sector,
+        # (SECUGRP 필터) Pre-Check 의 유일한 권위 입력 — sector 추론 대체. stocks.security_group(KRX SECUGRP_NM).
+        "security_group": security_group,
         "date": on_date.isoformat(),
         "conditions_met": conditions_met,
         "conditions_detail": minervini,

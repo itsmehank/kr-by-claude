@@ -66,6 +66,10 @@ export const RISK_FLAGS: RiskFlag[] = [
     id: "etf_methodology_mismatch",
     definition: "Instrument is an ETF/fund (handled in Pre-Check)",
   },
+  {
+    id: "security_group_not_equity",
+    definition: "security_group is not an operating-company equity (handled in Pre-Check)",
+  },
 ];
 
 export interface AutoRule {

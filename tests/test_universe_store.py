@@ -119,3 +119,30 @@ def test_upsert_clears_delisted_at_when_ticker_reappears(db):
     with db.cursor() as cur:
         cur.execute("SELECT delisted_at FROM stocks WHERE ticker = '005930'")
         assert cur.fetchone() == (None,)
+
+
+# ---------- security_group 지속화 (SECUGRP 필터 Task 3, Q-1 fail-open) ----------
+
+def test_upsert_stores_security_group_and_defaults_unresolved(db):
+    df = pd.DataFrame([
+        {"ticker": "094800", "name": "맵스리얼티", "market": "KOSPI", "sector": None, "security_group": "투자회사"},
+        {"ticker": "096610", "name": "알에프세미", "market": "KOSDAQ", "sector": None, "security_group": np.nan},
+        {"ticker": "005930", "name": "삼성전자", "market": "KOSPI", "sector": None},   # 컬럼 값 부재 행
+    ])
+    upsert_stocks(db, df)
+    with db.cursor() as cur:
+        cur.execute("SELECT ticker, security_group FROM stocks WHERE ticker IN ('094800','096610','005930') ORDER BY 1")
+        assert cur.fetchall() == [("005930", "UNRESOLVED"), ("094800", "투자회사"), ("096610", "UNRESOLVED")]
+
+
+def test_upsert_unresolved_never_overwrites_known_value(db):
+    """지속화 fail-open(Q-1): 조회 실패(UNRESOLVED)는 알려진 값을 덮어쓰지 않는다. 알려진 값끼리는 갱신."""
+    upsert_stocks(db, pd.DataFrame([{"ticker": "094800", "name": "맵스리얼티", "market": "KOSPI", "sector": None, "security_group": "투자회사"}]))
+    upsert_stocks(db, pd.DataFrame([{"ticker": "094800", "name": "맵스리얼티", "market": "KOSPI", "sector": None, "security_group": "UNRESOLVED"}]))
+    with db.cursor() as cur:
+        cur.execute("SELECT security_group FROM stocks WHERE ticker = '094800'")
+        assert cur.fetchone() == ("투자회사",)
+    upsert_stocks(db, pd.DataFrame([{"ticker": "094800", "name": "맵스리얼티", "market": "KOSPI", "sector": None, "security_group": "주권"}]))
+    with db.cursor() as cur:
+        cur.execute("SELECT security_group FROM stocks WHERE ticker = '094800'")
+        assert cur.fetchone() == ("주권",)

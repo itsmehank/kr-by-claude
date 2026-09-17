@@ -110,6 +110,8 @@ const RISK_FLAG_DESCRIPTIONS: Record<string, string> = {
     `시장 downtrend/correction 또는 distribution day 5개 이상 (${MARKET_DISTRIBUTION_LOOKBACK_DAYS} sessions). O'Neil HMMS Ch.9 의 표준.`,
   etf_methodology_mismatch:
     "ETF/fund — Minervini/O'Neil 개별 leadership 종목 방법론 적용 안 됨.",
+  security_group_not_equity:
+    "증권구분이 주권·외국주권·주식예탁증권이 아님(투자회사·투융자회사·리츠·UNRESOLVED) — 방법론 대상 자산 아님(Pre-Check).",
   thin_liquidity_us_only:
     "(US only) 일평균 거래대금 $5M 미만 (실무 변형; O'Neil disciple 원전은 35~50만 주 최소).",
 };

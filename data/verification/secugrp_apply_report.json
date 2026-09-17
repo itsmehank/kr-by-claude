@@ -1,0 +1,73 @@
+{
+ "dry_run": false,
+ "snapshot_date": "2026-09-15",
+ "universe_before": 2551,
+ "security_group_updated": 2550,
+ "unresolved_after_update": [
+  "096610"
+ ],
+ "generic_new_candidates": [
+  "088980",
+  "138040",
+  "369370",
+  "386380"
+ ],
+ "generic_minus_explicit(별건 — 미반영)": [
+  "386380"
+ ],
+ "inserted": [
+  [
+   "088980",
+   "맥쿼리인프라",
+   "KOSPI",
+   "사회간접자본투융자회사"
+  ],
+  [
+   "138040",
+   "메리츠금융지주",
+   "KOSPI",
+   "주권"
+  ],
+  [
+   "369370",
+   "블리츠웨이엔터테인먼트",
+   "KOSDAQ",
+   "주권"
+  ]
+ ],
+ "exclusion_snapshot_rows": 211,
+ "exclusion_by_axis": {
+  "preferred": 117,
+  "spac": 70,
+  "security_group": 23,
+  "etf": 1
+ },
+ "retro_marked_rows": {
+  "094800.weekly_classification": 2,
+  "094800.trigger_evaluation_log": 2,
+  "094800.entry_params": 2,
+  "415640.weekly_classification": 5,
+  "415640.trigger_evaluation_log": 0,
+  "415640.entry_params": 0
+ },
+ "monitoring_closed_094800": "2026-09-15T10:04:52.958883+00:00",
+ "universe_after": 2554,
+ "row_kept_excluded": [
+  "088980",
+  "094800",
+  "415640"
+ ],
+ "unresolved": [
+  "096610"
+ ],
+ "qualifying_pool_expert_def(활성-게이트제외3)": 2551,
+ "qualifying_pool_strict(UNRESOLVED 도 제외)": 2550,
+ "active_group_dist": {
+  "주권": 2528,
+  "외국주권": 12,
+  "주식예탁증권": 10,
+  "사회간접자본투융자회사": 2,
+  "UNRESOLVED": 1,
+  "투자회사": 1
+ }
+}

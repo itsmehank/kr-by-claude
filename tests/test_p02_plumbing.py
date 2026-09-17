@@ -285,3 +285,25 @@ def test_prompt_version_stored_in_weekly_and_backfill(db):
         cur.execute("DELETE FROM backtest_classification WHERE symbol='PVER1'")
         cur.execute("DELETE FROM stocks WHERE ticker='PVER1'")
     db.commit()
+
+
+def test_b3_delisted_gate_is_forward_only_and_reads_stocks_security_group(db):
+    """(Q-5 3번째 지점) 격리 산출도 SSOT 게이트: 기준일 이후+비허용 → NULL, 이전 → 산출. security_group 은 stocks 에서."""
+    from datetime import timedelta
+    from kr_pipeline.common.security_group import SECURITY_GROUP_GATE_EFFECTIVE_DATE as EFF
+    from kr_pipeline.indicators.delisted import compute_delisted_rows
+    import pandas as pd
+    n = 300
+    dates = [EFF - timedelta(days=n - 1 - i) for i in range(n)]      # 마지막 날 = EFF
+    df = pd.DataFrame({"date": dates, "adj_close": [100.0 + i for i in range(n)],
+                       "adj_high": [101.0 + i for i in range(n)], "adj_low": [99.0 + i for i in range(n)],
+                       "adj_volume": [1e6] * n})
+    idx = pd.DataFrame({"date": dates, "close": [1000.0 + i for i in range(n)]})
+    rs = {d: 95 for d in dates}
+    rows_q = compute_delisted_rows("DLQ", df, idx, rs, None, security_group="주권")
+    rows_x = compute_delisted_rows("DLX", df, idx, rs, None, security_group="투자회사")
+    last_q, last_x = rows_q[-1], rows_x[-1]
+    assert last_q["date"] == EFF and last_x["date"] == EFF
+    assert last_x["minervini_pass"] is None                              # 기준일 당일 비허용 → NULL
+    assert rows_x[-2]["minervini_pass"] == rows_q[-2]["minervini_pass"]  # 기준일 이전 → 동일 산출(재산출 금지)
+    assert last_x["minervini_c8"] is True                                # c8 은 그대로

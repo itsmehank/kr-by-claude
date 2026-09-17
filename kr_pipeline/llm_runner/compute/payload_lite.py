@@ -211,12 +211,12 @@ def build_for_6(
     """(6) calculate_entry_params payload."""
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT name, market, sector FROM stocks WHERE ticker = %s", (symbol,)
+            "SELECT name, market, sector, security_group FROM stocks WHERE ticker = %s", (symbol,)
         )
         meta = cur.fetchone()
         if meta is None:
             raise ValueError(f"Stock not found: {symbol}")
-        name, market, sector = meta
+        name, market, sector, security_group = meta
 
         cur.execute(
             """
@@ -292,6 +292,7 @@ def build_for_6(
         "name": name,
         "market": market,
         "sector": sector,
+        "security_group": security_group,
         "signal_date": evaluation_at.date().isoformat(),
         "prior_analysis": {
             "classified_at": prior[0].isoformat(),

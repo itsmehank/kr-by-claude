@@ -278,12 +278,15 @@ def test_normalize_entry_params_other_warnings_list_serialized():
     assert s["other_warnings"] == "plain"                            # 문자열은 그대로
 
 
-def test_risk_flags_taxonomy_has_15():
+def test_risk_flags_taxonomy_has_16():
     from kr_pipeline.llm_runner.risk_flags import RISK_FLAGS_TAXONOMY
-    # 15종: 기존 14 + topping_distribution(§6.2 force-ignore, 2026-06-13)
-    assert len(RISK_FLAGS_TAXONOMY) == 15
+    # 16종: 기존 14 + topping_distribution(§6.2 force-ignore, 2026-06-13)
+    #       + security_group_not_equity(Pre-Check security_group 기준 전환, 2026-09-15 SECUGRP 필터).
+    #       구 etf_methodology_mismatch 는 저장본 행에 남아 있어 유지.
+    assert len(RISK_FLAGS_TAXONOMY) == 16
     assert "climax_run" in RISK_FLAGS_TAXONOMY and "handle_quality" in RISK_FLAGS_TAXONOMY
     assert "topping_distribution" in RISK_FLAGS_TAXONOMY
+    assert {"security_group_not_equity", "etf_methodology_mismatch"} <= RISK_FLAGS_TAXONOMY
 
 
 def test_validate_classification():

@@ -122,3 +122,112 @@ def test_mark_delisted_empty_set_still_noop(db):
     from kr_pipeline.universe.store import mark_delisted
 
     assert mark_delisted(db, current_tickers=set(), on_date=date(2026, 7, 7)) == 0
+
+
+# ---------- 가드 3: fetch_security_groups 부분 응답 fail-closed (SECUGRP 필터 Task 3) ----------
+
+def _secugrp_df(rows):
+    import pandas as pd
+    return pd.DataFrame(rows, columns=["ISU_CD", "ISU_ABBRV", "SECUGRP_NM"])
+
+
+def test_fetch_security_groups_merges_markets(monkeypatch):
+    import kr_pipeline.universe.fetch as uf
+
+    calls = []
+
+    class _Fake:
+        def fetch(self, trd_dd, mkt, secugrp):
+            calls.append((trd_dd, mkt, tuple(secugrp)))
+            n = 1000 if mkt == "STK" else 1800
+            base = 0 if mkt == "STK" else 100000   # 시장 간 가짜 티커 충돌 방지
+            rows = [(f"{base + i:06d}", f"N{i}", "주권") for i in range(n)]
+            rows.append(("094800", "맵스리얼티", "투자회사") if mkt == "STK" else ("900070", "글로벌에스엠", "외국주권"))
+            return _secugrp_df(rows)
+
+    monkeypatch.setattr(uf, "_short_sale_all_stocks", lambda: _Fake())
+    monkeypatch.setattr(uf.time, "sleep", lambda s: None)
+    out = uf.fetch_security_groups(date(2026, 9, 11))
+    assert out["094800"] == "투자회사" and out["900070"] == "외국주권"
+    assert [c[1] for c in calls] == ["STK", "KSQ"]
+    assert all(c[0] == "20260911" and c[2] == ("STMFRTSCIFDRFS",) for c in calls)
+
+
+def test_fetch_security_groups_raises_on_partial_response(monkeypatch):
+    """한 시장이 비어 합계가 하한 미달이면 ValueError — 조용한 UNRESOLVED 대량 전환(유니버스 무음 축소) 방어."""
+    import kr_pipeline.universe.fetch as uf
+
+    class _Fake:
+        def fetch(self, trd_dd, mkt, secugrp):
+            return _secugrp_df([(f"{i:06d}", "N", "주권") for i in range(50)])
+
+    monkeypatch.setattr(uf, "_short_sale_all_stocks", lambda: _Fake())
+    monkeypatch.setattr(uf.time, "sleep", lambda s: None)
+    with pytest.raises(ValueError, match="security_group"):
+        uf.fetch_security_groups(date(2026, 9, 11))
+
+
+# ---------- 가드 4: 적재 후 회귀 가드 [3-b] (SECUGRP 필터 Task 4) ----------
+import pandas as pd
+from kr_pipeline.universe.guards import (
+    UniverseGuardError, count_active, verify_universe_after_load, write_exclusion_snapshot,
+)
+from kr_pipeline.universe.store import upsert_stocks
+
+
+def _excluded(*rows):
+    return pd.DataFrame(list(rows), columns=["ticker", "name", "market", "security_group", "axis"])
+
+
+def _seed(db, rows):
+    upsert_stocks(db, pd.DataFrame(rows))
+
+
+def test_guard_a_rejects_preload_group_in_active_universe(db):
+    """(a) 활성 stocks 의 security_group 집합 ⊆ 허용 ∪ {UNRESOLVED} ∪ 행생성예외. 부동산투자회사 유입 = 실패."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"},
+               {"ticker": "T2", "name": "리츠누수", "market": "KOSPI", "security_group": "부동산투자회사"}])
+    with pytest.raises(UniverseGuardError, match="부동산투자회사"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 9, 15), excluded=_excluded())
+
+
+def test_guard_a_allows_row_kept_groups_and_unresolved(db):
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"},
+               {"ticker": "T3", "name": "맵스리얼티", "market": "KOSPI", "security_group": "투자회사"},
+               {"ticker": "T4", "name": "알에프세미", "market": "KOSDAQ", "security_group": "UNRESOLVED"}])
+    info = verify_universe_after_load(db, snapshot_date=date(2026, 9, 15), excluded=_excluded())
+    assert info["unresolved"] >= 1 and info["row_kept_excluded"] >= 1
+    assert info["qualifying_pool"] == info["active_after"] - info["unresolved"] - info["row_kept_excluded"]
+
+
+def test_guard_b_rejects_name_axis_hit_in_active_universe(db):
+    """(b) 우선주·스팩·ETF 이름축 카운트 = 0. 하나라도 있으면 실패."""
+    _seed(db, [{"ticker": "T5", "name": "삼성전자우", "market": "KOSPI", "security_group": "주권"}])
+    with pytest.raises(UniverseGuardError, match="preferred"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 9, 15), excluded=_excluded())
+
+
+def test_snapshot_first_run_writes_baseline_and_diff_fails_next(db):
+    """(신규) 배제 집합 스냅샷: 첫 실행은 기준선 저장, 다음 실행에서 집합 변동은 accept 없이 실패."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
+    ex1 = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"), ("R1", "리츠", "KOSPI", "부동산투자회사", "security_group"))
+    info = verify_universe_after_load(db, snapshot_date=date(2026, 9, 15), excluded=ex1)
+    assert info["exclusion_added"] == [] and info["exclusion_removed"] == []
+    with db.cursor() as cur:
+        cur.execute("SELECT count(*) FROM universe_exclusion_snapshot WHERE snapshot_date = '2026-09-15'")
+        assert cur.fetchone()[0] == 2
+    ex2 = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"))   # R1 사라짐
+    with pytest.raises(UniverseGuardError, match="R1"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 15), excluded=ex2)
+    info2 = verify_universe_after_load(db, snapshot_date=date(2026, 10, 15), excluded=ex2, accept_exclusion_diff=True)
+    assert info2["exclusion_removed"] == ["R1"]
+    with db.cursor() as cur:
+        cur.execute("SELECT count(*) FROM universe_exclusion_snapshot WHERE snapshot_date = '2026-10-15'")
+        assert cur.fetchone()[0] == 1
+
+
+def test_guard_c_records_count_delta_without_threshold(db):
+    before = count_active(db)
+    _seed(db, [{"ticker": "T9", "name": "신규", "market": "KOSDAQ", "security_group": "주권"}])
+    info = verify_universe_after_load(db, snapshot_date=date(2026, 9, 15), excluded=_excluded())
+    assert info["active_after"] >= before + 1      # 기록만, 임계 없음(별도 판정 사안)

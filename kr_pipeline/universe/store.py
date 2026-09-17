@@ -2,25 +2,36 @@ from datetime import date
 import pandas as pd
 from psycopg import Connection
 
+from kr_pipeline.common.security_group import UNRESOLVED
+
 
 def upsert_stocks(conn: Connection, df: pd.DataFrame) -> int:
+    """security_group 지속화 = fail-open(Q-1): 값 부재/NaN → UNRESOLVED 로 INSERT 하되, 갱신 시
+    UNRESOLVED 는 알려진 값을 덮어쓰지 않는다(조회 실패가 기존 판정을 지우지 않게)."""
     if df.empty:
         return 0
     rows = []
+    has_sg = "security_group" in df.columns
     for _, r in df.iterrows():
         sector = r.get("sector")
         if pd.isna(sector):
             sector = None
-        rows.append((r["ticker"], r["name"], r["market"], sector))
+        sg = r.get("security_group") if has_sg else None
+        if sg is None or pd.isna(sg) or str(sg) == "":
+            sg = UNRESOLVED
+        rows.append((r["ticker"], r["name"], r["market"], sector, str(sg)))
     with conn.cursor() as cur:
         cur.executemany(
             """
-            INSERT INTO stocks (ticker, name, market, sector, updated_at)
-            VALUES (%s, %s, %s, %s, NOW())
+            INSERT INTO stocks (ticker, name, market, sector, security_group, updated_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
             ON CONFLICT (ticker) DO UPDATE
                SET name = EXCLUDED.name,
                    market = EXCLUDED.market,
                    sector = COALESCE(EXCLUDED.sector, stocks.sector),
+                   -- 지속화 fail-open(Q-1): UNRESOLVED 는 알려진 값을 덮어쓰지 않는다
+                   security_group = CASE WHEN EXCLUDED.security_group = 'UNRESOLVED'
+                                         THEN stocks.security_group ELSE EXCLUDED.security_group END,
                    delisted_at = NULL,
                    updated_at = NOW()
             """,
