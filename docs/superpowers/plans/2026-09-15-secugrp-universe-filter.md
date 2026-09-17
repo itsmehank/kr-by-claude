@@ -1557,3 +1557,13 @@ git commit -m "prompt A: Pre-Check 를 security_group 기준으로 결정적 변
 ## 9. 회신 항목(전문가 지시)
 
 유니버스 전후 수 · 자격 대상 수 · UNRESOLVED 건수 · 배제 집합 차분 4건 반영 확인 · 138040 시계열 신규 수집 결과 · [Q-6] 094800 모니터링 종료 행(열거 목록 밖의 추가 행, 사유 = 증권구분) 확인 요청 · §7 이름축 오탐 별건 보고 · 386380 이슈 번호.
+
+## 10. 회신 5 후속 (2026-09-17)
+
+- PR #192 **머지**(main 6a2ee88), 메인 체크아웃 main pull 완료 → 게이트 발효 = 다음 indicators incremental(date≥09-15 NULL 확인은 그 뒤, 공백기 생성 행 동일 소급 표기 후 회신).
+- [Q-6] 종료 행 승인. 사유 문구 대조: 저장 reasoning = "security_group=투자회사 — 평가 대상 자산 아님 (book-mandated …)" — 금지 표현(미너비니 자격 상실·추세 이탈·시스템 강등·손절/이탈) 0. 단 행의 `classification='disqualified'`·`source='system_disqualify'` 는 기존 종료 상태 enum(신규 값 미도입) — 라벨 자체가 '강등'으로 읽히는지는 판정 사안으로 회신에 명시.
+- 성과·승률 경로: `llm_runner/performance.py` 는 entry_params(excluded_reason IS NULL) → signal_performance, `api/routers/performance.py` 는 signal_performance 만 읽음. weekly_classification 종료 행은 실현손익·승률 경로에 **미포함**. signal_performance 094800·415640·088980 = 0건 유지.
+- 공백기(09-15 19:04 ~ 09-17) 생성 행: weekly 1(09-15 23:48 Pre-Check 검증 실행, 표기 완료) · trigger 0 · entry_params 0 → 종료 행이 신호 생성을 막았음. daily_indicators 09-15·09-16 은 구 코드라 094800 TRUE 유지(전진 적용 정의상 09-15 이후 행은 발효 후 첫 incremental 이 NULL 로 재산출 — 30일 창 내).
+- prompt_version: **#194** 등록(원인 = 호출처 5곳 llm_meta 재조립 시 키 미전달, 범위 = 배선 1줄×5 + 테스트, 타 테이블 전부 non-NULL 0). 수정 착수는 판정 후. 검증 기준점 저장본에 수동 기록(`_prompt_version_manual` 739c7cc1b5c7, PR #193).
+- 이름축 오탐: **#195** 등록(활성 결함·measurement-based, 착수 금지, 정규식 정교화 선행 금지).
+- 파리티 불변 해석(회신 5): 안전성 증거이지 효과 없음의 증거가 아님 — 편입 3종목 효과는 미래 표본에서만.

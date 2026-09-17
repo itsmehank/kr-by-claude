@@ -37,5 +37,11 @@
  },
  "verdict_original": "ignore",
  "prompt_version": null,
- "excluded_reason": "security_group=투자회사 — 평가 대상 자산 아님 (book-mandated: HMMS Ch.20 규칙 2~6·8 / TLSMW Ch.3 SEPA 2단계). 무효화 기준은 성과와 독립적인 사전 속성이므로 순환성 위반 아님."
+ "excluded_reason": "security_group=투자회사 — 평가 대상 자산 아님 (book-mandated: HMMS Ch.20 규칙 2~6·8 / TLSMW Ch.3 SEPA 2단계). 무효화 기준은 성과와 독립적인 사전 속성이므로 순환성 위반 아님.",
+ "_prompt_version_manual": {
+  "value": "739c7cc1b5c7",
+  "how": "sha256(prompts/analyze_chart_v3.md)[:12], 실행 시 체크아웃 커밋 0285894(프롬프트 파일 마지막 변경 커밋)에서 계산",
+  "why_manual": "DB prompt_version 컬럼 NULL — B6 배선 미도달(weekend.py llm_meta 에 prompt_version 키 부재). 전문가 회신 5 지시 (b). 추정 아님: 실행 프로세스가 로드한 파일은 해당 커밋의 worktree 체크아웃 파일이며 그 후 프롬프트 변경 커밋 없음",
+  "recorded_at": "2026-09-17"
+ }
 }
