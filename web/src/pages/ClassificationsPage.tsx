@@ -46,13 +46,14 @@ const DEFAULT_FILTERS: Filters = {
   has_pivot: false,
 };
 
-const CLASSIFICATION_ORDER = ["watch", "entry", "ignore", "disqualified"] as const;
+const CLASSIFICATION_ORDER = ["watch", "entry", "ignore", "disqualified", "excluded_by_universe"] as const;
 
 const CLASSIFICATION_LABELS: Record<string, string> = {
   watch: "Watch",
   entry: "Entry",
   ignore: "Ignore",
   disqualified: "자격 상실",
+  excluded_by_universe: "유니버스 배제",
 };
 
 const CLASSIFICATION_TONES: Record<string, string> = {
@@ -60,6 +61,7 @@ const CLASSIFICATION_TONES: Record<string, string> = {
   entry: "bg-success-soft text-success",
   ignore: "bg-tint-stone text-muted",
   disqualified: "bg-tint-stone text-faint",
+  excluded_by_universe: "bg-tint-stone text-faint",
 };
 
 const PATTERN_DESCRIPTIONS: Record<string, string> = {

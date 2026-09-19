@@ -19,6 +19,8 @@ from api.services.review_builder import (
     corp_action_flags, first_breakout, max_reach, count_orphan_triggers,
     fetch_price_series,
 )
+from kr_pipeline.common.security_group import UNIVERSE_EXCLUSION_SOURCE
+
 _CENSOR_WINDOW = timedelta(days=7)
 _GAP_DAYS = 10
 _VALID_SOURCES = ("weekend", "daily_delta", "backfill")
@@ -78,6 +80,9 @@ def _closer_kind(row: dict) -> str | None:
         return "ignore"
     if row["source"] == "system_disqualify":
         return "disqualify"
+    # (2026-09-19) 유니버스 자격 게이트 배제 — '판정해서 떨어짐'(disqualify)과 다른 종결 kind.
+    if row["source"] == UNIVERSE_EXCLUSION_SOURCE:
+        return "universe_excluded"
     return None
 
 

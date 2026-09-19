@@ -12,6 +12,7 @@ const TONES: Record<ClassificationLabel, string> = {
   watch: "bg-tint-blue text-accent",
   ignore: "bg-tint-stone text-muted",
   disqualified: "bg-rose-50 text-danger",
+  excluded_by_universe: "bg-tint-stone text-faint",   // 판정 대상 아님 — 탈락(빨강)과 구분
 };
 
 function Chip({ classification }: { classification: string }) {

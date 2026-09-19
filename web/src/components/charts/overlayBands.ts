@@ -1,4 +1,6 @@
-export type BandState = "entry" | "watch" | "ignore" | "fail";
+// excluded = 유니버스 자격 게이트 배제(excluded_by_universe) — '판정 대상 아님'. fail('판정해서 떨어짐')과
+// 색·라벨을 분리한다(2026-09-19 판정 1 원칙: 두 상태를 같은 값으로 표현하지 않는다).
+export type BandState = "entry" | "watch" | "ignore" | "fail" | "excluded";
 
 export interface BandSegment {
   startDate: string; // YYYY-MM-DD inclusive
@@ -11,6 +13,7 @@ export const BAND_COLORS: Record<BandState, string> = {
   watch: "rgba(37,99,235,0.18)",
   ignore: "rgba(156,163,175,0.18)",
   fail: "rgba(220,38,38,0.18)",
+  excluded: "rgba(120,113,108,0.14)",
 };
 
 export const BAND_LABELS: Record<BandState, string> = {
@@ -18,6 +21,7 @@ export const BAND_LABELS: Record<BandState, string> = {
   watch: "watch",
   ignore: "ignore",
   fail: "미통과/탈락",
+  excluded: "유니버스 배제",
 };
 
 // 범례 스와치용 솔리드 색 (BAND_COLORS 의 불투명 원색 — 작은 스와치는 반투명이면 잘 안 보임).
@@ -26,10 +30,11 @@ export const BAND_SWATCH: Record<BandState, string> = {
   watch: "#2563eb",
   ignore: "#9ca3af",
   fail: "#dc2626",
+  excluded: "#78716c",
 };
 
 // 범례/순회용 표시 순서.
-export const BAND_ORDER: BandState[] = ["entry", "watch", "ignore", "fail"];
+export const BAND_ORDER: BandState[] = ["entry", "watch", "ignore", "fail", "excluded"];
 
 export interface BandBar {
   date: string;
@@ -65,6 +70,7 @@ export function buildBandSegments(
       const c = sorted[pi].classification;
       if (COLORED.has(c)) carried = c as BandState;
       else if (c === "disqualified") carried = "fail";
+      else if (c === "excluded_by_universe") carried = "excluded";
       pi++;
     }
     const state: BandState | null = carried;

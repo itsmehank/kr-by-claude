@@ -140,6 +140,7 @@ def _process_one(conn: Connection, symbol: str, market: str, *, dry_run: bool, a
         llm_meta={"duration_s": (finished - started).total_seconds(),
                   "input_tokens": llm_io.get("input_tokens"),
                   "output_tokens": llm_io.get("output_tokens"),
-                  "model": llm_io.get("model")},
+                  "model": llm_io.get("model"),
+                  "prompt_version": llm_io.get("prompt_version")},   # #194 B6 배선 복구
         analyzed_for_date=as_of,
     )

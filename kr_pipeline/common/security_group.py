@@ -41,6 +41,24 @@ ROW_KEPT_EXCLUDED_SECURITY_GROUPS: frozenset[str] = frozenset({"사회간접자�
 # 게이트 발효일 — 이 날짜부터의 지표 행에만 적용(전진 적용). 과거 행 재산출 금지.
 SECURITY_GROUP_GATE_EFFECTIVE_DATE: date = date(2026, 9, 15)
 
+# [원칙 — 전문가 판정 회신 6, 2026-09-19] 파이프라인 상태 값은 '판정해서 떨어짐'과 '판정 대상이 아님'을
+# 절대 같은 값으로 표현하지 않는다.
+#   minervini_pass : FALSE vs NULL             (Q-5)
+#   종료 사유 문구 : 자격상실 vs 자산유형배제   (Q-6)
+#   분류 라벨      : disqualified vs 아래 값   (판정 1)
+# 명칭 제약: 'disqualif' 문자열 포함 금지 — 집계·조회가 문자열로 실격을 잡는 함정(문자열 판정 금지 교훈).
+#
+# [prompt_version NULL 의 의미 — 회신 7 확인, #194 컷오버 = PR #196 머지(2026-09-19) 이후 첫 라이브 실행부터]
+#   컷오버 이전 NULL = 값 유실(B6 배선 절단, 2026-09-10~09-19 생성분. 복원·백필 금지).
+#   컷오버 이후 NULL = LLM 미호출 행. 기존 컬럼으로 구분 가능하므로 센티널 미도입:
+#     trigger_evaluation_log : 결정론 wait 행 = `wait_reason IS NOT NULL` (⇔ llm_call_duration_s IS NULL);
+#                              LLM 호출 행 = `llm_call_duration_s IS NOT NULL` (실측 218/218).
+#     weekly_classification  : 시스템 행 = `source IN ('system_disqualify', 'system_universe_gate')`;
+#                              LLM 행 = source IN ('weekend','daily_delta','backfill').
+UNIVERSE_EXCLUSION_CLASSIFICATION = "excluded_by_universe"      # weekly_classification.classification
+UNIVERSE_EXCLUSION_SOURCE = "system_universe_gate"              # weekly_classification.source (VARCHAR(20) 상한)
+assert "disqualif" not in UNIVERSE_EXCLUSION_CLASSIFICATION and "disqualif" not in UNIVERSE_EXCLUSION_SOURCE
+
 BOOK_MANDATED_EXCLUSION_REASON = (
     "security_group={security_group} — 평가 대상 자산 아님 "
     "(book-mandated: HMMS Ch.20 규칙 2~6·8 / TLSMW Ch.3 SEPA 2단계). "

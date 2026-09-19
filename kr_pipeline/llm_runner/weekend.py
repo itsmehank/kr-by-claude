@@ -210,6 +210,7 @@ def _process_one(
             "input_tokens": llm_io.get("input_tokens"),
             "output_tokens": llm_io.get("output_tokens"),
             "model": llm_io.get("model"),
+            "prompt_version": llm_io.get("prompt_version"),   # #194 B6 배선 복구
         },
         analyzed_for_date=as_of,
     )
