@@ -88,16 +88,15 @@ def main() -> int:
             # 094800 은 최신 분류가 entry → get_active_monitoring 이 계속 반환해 트리거 평가가 이어짐.
             # 기존 구조 기제(시스템 강등 행)로 모니터링을 종료한다 — 사유는 증권구분(사실), 추세 기준 아님.
             # [Q-6 명시 가정] 전문가 열거 목록 밖의 '추가 행'. 삭제·변조 아님. 회신에서 확인 요청.
-            from kr_pipeline.llm_runner.store import insert_disqualification
+            # (회신 6 판정 1) 종료 행은 disqualified 재사용 금지 → excluded_by_universe / system_universe_gate.
+            from kr_pipeline.llm_runner.store import insert_universe_exclusion
             cur.execute("""SELECT classification FROM weekly_classification WHERE symbol = '094800'
                            ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC LIMIT 1""")
             latest = cur.fetchone()
             if latest and latest[0] in ("entry", "watch"):
                 now = datetime.now(timezone.utc)
-                insert_disqualification(cn, symbol="094800", classified_at=now, market="KOSPI",
-                                        reason=excluded_reason_text("투자회사"), analyzed_for_date=snap_date)
-                cur.execute("UPDATE weekly_classification SET excluded_reason = %s WHERE symbol='094800' AND classified_at = %s",
-                            (excluded_reason_text("투자회사"), now))
+                insert_universe_exclusion(cn, symbol="094800", classified_at=now, market="KOSPI",
+                                          reason=excluded_reason_text("투자회사"), analyzed_for_date=snap_date)
                 rep["monitoring_closed_094800"] = now.isoformat()
             else:
                 rep["monitoring_closed_094800"] = f"skip(latest={latest[0] if latest else None})"

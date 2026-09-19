@@ -7,11 +7,13 @@ import type { Streak } from "../lib/types";
 const CLOSED_TONE: Record<string, string> = {
   disqualify: "border-danger/25 bg-rose-50 text-danger",
   ignore: "border-hairline bg-tint-stone text-muted",
+  universe_excluded: "border-hairline bg-tint-stone text-faint",   // 판정 대상 아님 — 실격(빨강)과 구분
 };
 
 const CLOSED_LABEL: Record<string, string> = {
   disqualify: "실격",
   ignore: "ignore",
+  universe_excluded: "유니버스 배제",
 };
 
 /** 닫는 행 카드(#139) — 구간이 언제·왜 닫혔는지 타임라인 끝에 표시.

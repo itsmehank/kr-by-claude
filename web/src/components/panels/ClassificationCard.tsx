@@ -17,7 +17,9 @@ const CLASSIFICATION_COLOR: Record<string, string> = {
 // 실격 포함 최신 1건 — 기본 필터(disqualified 제외)에 기대면 최신 상태가 실격인
 // 종목이 "이력 없음"으로 오표기된다(#149, 072870 사례).
 const ALL_CLASSIFICATIONS =
-  "classifications=entry&classifications=watch&classifications=ignore&classifications=disqualified";
+  "classifications=entry&classifications=watch&classifications=ignore&classifications=disqualified" +
+  "&classifications=excluded_by_universe";
+const TERMINAL = new Set(["disqualified", "excluded_by_universe"]);
 
 export function ClassificationCard({ ticker }: Props) {
   const q = useQuery<Classification[]>({
@@ -33,7 +35,7 @@ export function ClassificationCard({ ticker }: Props) {
   const prevQ = useQuery<ClassificationHistoryRow[]>({
     queryKey: ["classification-card-prev", ticker],
     queryFn: () => api<ClassificationHistoryRow[]>(`/classifications/history/${ticker}`),
-    enabled: !!ticker && latest?.classification === "disqualified",
+    enabled: !!ticker && TERMINAL.has(latest?.classification ?? ""),
   });
 
   if (q.isLoading) return <Card title="분류">불러오는 중…</Card>;
@@ -43,21 +45,25 @@ export function ClassificationCard({ ticker }: Props) {
 
   const c = q.data[0];
 
-  if (c.classification === "disqualified") {
+  if (TERMINAL.has(c.classification)) {
+    const excluded = c.classification === "excluded_by_universe";
     const prev = [...(prevQ.data ?? [])]
       .reverse()
-      .find((r) => r.classification !== "disqualified");
+      .find((r) => !TERMINAL.has(r.classification));
     const disqDate = c.analyzed_for_date ?? c.classified_at.slice(0, 10);
     return (
       <Card title="분류">
         <div className="space-y-2 text-data">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded bg-red-50 text-red-700">disqualified</span>
+            <span className={`px-2 py-0.5 rounded ${excluded ? "bg-tint-stone text-faint" : "bg-red-50 text-red-700"}`}>
+              {c.classification}
+            </span>
             <span className="num text-data-xs text-muted">{disqDate}</span>
           </div>
           <div className="text-data-xs text-muted">
-            실격 — 미너비니 조건 미달 등으로 관찰 자격을 잃은 상태입니다. 조건을 다시
-            통과해 재분류되면 이 카드가 갱신됩니다.
+            {excluded
+              ? "유니버스 배제 — 증권구분이 방법론 대상 자산(주권·외국주권·주식예탁증권)이 아니어서 판정 대상에서 제외된 상태입니다. 실격이 아니며, 추세 기준과 무관합니다."
+              : "실격 — 미너비니 조건 미달 등으로 관찰 자격을 잃은 상태입니다. 조건을 다시 통과해 재분류되면 이 카드가 갱신됩니다."}
           </div>
           {c.reasoning && (
             <div className="text-data-xs text-muted whitespace-pre-wrap">{c.reasoning}</div>

@@ -421,3 +421,31 @@ def test_classification_history_includes_detail_fields(client, db):
             cur.execute("DELETE FROM stocks WHERE ticker='HSTD1'")
         db.commit()
         app.dependency_overrides.pop(get_conn, None)
+
+
+def test_default_filter_hides_excluded_by_universe_like_disqualified(client, db):
+    """(회신 6 판정 1 확인 (a)) 기본 조회(<> 'disqualified' 음성 목록)는 신규 종료 값도 숨긴다.
+    명시 필터로는 조회 가능(ClassificationCard 의 최신-1건 조회 경로)."""
+    from datetime import date, timedelta
+    afd = (date.today() - timedelta(days=1)).isoformat()
+
+    def override():
+        yield db
+    app.dependency_overrides[get_conn] = override
+    try:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_classification WHERE symbol = 'CLSTESTUEX'")
+            cur.execute("DELETE FROM stocks WHERE ticker = 'CLSTESTUEX'")
+            cur.execute("INSERT INTO stocks (ticker, name, market, sector, listed_at) VALUES ('CLSTESTUEX','TestUEX','KOSPI','기타금융','2020-01-01')")
+            cur.execute("""INSERT INTO weekly_classification (symbol, classified_at, analyzed_for_date, market, classification, source, created_at)
+                           VALUES ('CLSTESTUEX', NOW() - INTERVAL '1 hour', %s, 'KOSPI', 'excluded_by_universe', 'system_universe_gate', NOW())""", (afd,))
+        db.commit()
+        default_rows = client.get("/api/classifications?lookback_days=30").json()
+        assert all(r["symbol"] != "CLSTESTUEX" for r in default_rows)
+        explicit = client.get("/api/classifications?lookback_days=30&classifications=excluded_by_universe&ticker=CLSTESTUEX").json()
+        assert [r["symbol"] for r in explicit] == ["CLSTESTUEX"]
+        # 소스 필터 면제(시스템 이벤트) — sources=weekend 로 좁혀도 명시 classification 이면 노출
+        with_src = client.get("/api/classifications?lookback_days=30&classifications=excluded_by_universe&sources=weekend&ticker=CLSTESTUEX").json()
+        assert [r["symbol"] for r in with_src] == ["CLSTESTUEX"]
+    finally:
+        app.dependency_overrides.pop(get_conn, None)

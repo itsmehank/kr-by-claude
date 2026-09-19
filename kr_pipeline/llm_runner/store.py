@@ -579,6 +579,37 @@ def insert_disqualification(
         )
 
 
+def insert_universe_exclusion(
+    conn: Connection,
+    *,
+    symbol: str,
+    classified_at: datetime,
+    market: str,
+    reason: str,
+    analyzed_for_date: date | None = None,
+) -> None:
+    """유니버스 자격 게이트(security_group) 배제 종목의 모니터링 종료 행 INSERT (LLM/Phase1 게이트 우회).
+
+    disqualified(판정해서 떨어짐)와 **다른 값**(판정 대상이 아님) — 전문가 판정 회신 6 원칙.
+    reason 은 자산 유형 사실만(security_group.excluded_reason_text). 자격상실·이탈·강등 어휘 금지.
+    get_active_monitoring 등 양성 목록(entry/watch) 소비처는 자동으로 제외한다.
+    """
+    from kr_pipeline.common.security_group import (
+        UNIVERSE_EXCLUSION_CLASSIFICATION, UNIVERSE_EXCLUSION_SOURCE,
+    )
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO weekly_classification
+              (symbol, classified_at, analyzed_for_date, market, classification, source, reasoning, excluded_reason)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (symbol, classified_at) DO NOTHING
+            """,
+            (symbol, classified_at, analyzed_for_date, market,
+             UNIVERSE_EXCLUSION_CLASSIFICATION, UNIVERSE_EXCLUSION_SOURCE, reason, reason),
+        )
+
+
 def insert_trigger_log(
     conn: Connection,
     *,

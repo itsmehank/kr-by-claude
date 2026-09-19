@@ -14,6 +14,7 @@ const pct = (v: number | null) =>
 const CLOSED_BY_LABEL: Record<string, string> = {
   ignore: "ignore",
   disqualify: "실격",
+  universe_excluded: "유니버스 배제",
 };
 
 const STAGE_LABEL: Record<string, string> = {
@@ -143,7 +144,7 @@ function StockStreakRow({
         start: s.start,
         end: s.end,
         end_clamped: s.end_clamped ?? false,
-        closed_by: (s.closed_by as "ignore" | "disqualify" | null) ?? null,
+        closed_by: (s.closed_by as "ignore" | "disqualify" | "universe_excluded" | null) ?? null,
         censored: s.censored,
         backfilled: s.backfilled,
         has_gap: s.has_gap,

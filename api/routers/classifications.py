@@ -57,14 +57,15 @@ def get_classifications(
           FROM latest l
           JOIN stocks s ON s.ticker = l.symbol
          WHERE (
-                 (%(classifications)s::text[] IS NULL AND l.classification <> 'disqualified')
+                 (%(classifications)s::text[] IS NULL
+                  AND l.classification NOT IN ('disqualified', 'excluded_by_universe'))
                  OR (%(classifications)s::text[] IS NOT NULL AND l.classification = ANY(%(classifications)s::text[]))
                )
-           -- 소스 필터는 LLM 분류(weekend/daily_delta)의 출처 선택용. 자격상실은
-           -- 시스템 강등 이벤트(source='system_disqualify')라 user-facing 소스 옵션이
-           -- 없으므로 소스 필터에서 면제 — 노출 여부는 classification 필터만으로 결정.
+           -- 소스 필터는 LLM 분류(weekend/daily_delta)의 출처 선택용. 자격상실(system_disqualify)과
+           -- 유니버스 배제(system_universe_gate, 2026-09-19)는 시스템 이벤트라 user-facing 소스
+           -- 옵션이 없으므로 소스 필터에서 면제 — 노출 여부는 classification 필터만으로 결정.
            AND (%(sources)s::text[] IS NULL OR l.source = ANY(%(sources)s::text[])
-                OR l.classification = 'disqualified')
+                OR l.classification IN ('disqualified', 'excluded_by_universe'))
            AND COALESCE(l.confidence, 0) >= %(min_confidence)s
          ORDER BY {sort_clause}
          LIMIT %(limit)s

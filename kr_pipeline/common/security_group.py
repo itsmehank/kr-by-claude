@@ -41,6 +41,16 @@ ROW_KEPT_EXCLUDED_SECURITY_GROUPS: frozenset[str] = frozenset({"사회간접자�
 # 게이트 발효일 — 이 날짜부터의 지표 행에만 적용(전진 적용). 과거 행 재산출 금지.
 SECURITY_GROUP_GATE_EFFECTIVE_DATE: date = date(2026, 9, 15)
 
+# [원칙 — 전문가 판정 회신 6, 2026-09-19] 파이프라인 상태 값은 '판정해서 떨어짐'과 '판정 대상이 아님'을
+# 절대 같은 값으로 표현하지 않는다.
+#   minervini_pass : FALSE vs NULL             (Q-5)
+#   종료 사유 문구 : 자격상실 vs 자산유형배제   (Q-6)
+#   분류 라벨      : disqualified vs 아래 값   (판정 1)
+# 명칭 제약: 'disqualif' 문자열 포함 금지 — 집계·조회가 문자열로 실격을 잡는 함정(문자열 판정 금지 교훈).
+UNIVERSE_EXCLUSION_CLASSIFICATION = "excluded_by_universe"      # weekly_classification.classification
+UNIVERSE_EXCLUSION_SOURCE = "system_universe_gate"              # weekly_classification.source (VARCHAR(20) 상한)
+assert "disqualif" not in UNIVERSE_EXCLUSION_CLASSIFICATION and "disqualif" not in UNIVERSE_EXCLUSION_SOURCE
+
 BOOK_MANDATED_EXCLUSION_REASON = (
     "security_group={security_group} — 평가 대상 자산 아님 "
     "(book-mandated: HMMS Ch.20 규칙 2~6·8 / TLSMW Ch.3 SEPA 2단계). "

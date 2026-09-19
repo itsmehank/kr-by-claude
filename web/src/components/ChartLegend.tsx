@@ -89,9 +89,10 @@ export const MARK_DESC = {
 } as const;
 
 /** 닫힘 사유(closed_by)별 한 줄 설명 — 차트 band 툴팁과 범례가 공유. */
-export const CLOSED_DESC: Record<"disqualify" | "ignore", string> = {
+export const CLOSED_DESC: Record<"disqualify" | "ignore" | "universe_excluded", string> = {
   disqualify: "실격으로 종료 — 관찰 자격 상실(예: 미너비니 조건 미달)",
   ignore: "ignore 판정으로 종료 — LLM이 분석 제외(클라이맥스 등)로 판정",
+  universe_excluded: "유니버스 배제로 종료 — 증권구분이 방법론 대상 자산이 아님(판정 대상 아님, 실격 아님)",
 };
 
 type Surface = "detail" | "spark";
