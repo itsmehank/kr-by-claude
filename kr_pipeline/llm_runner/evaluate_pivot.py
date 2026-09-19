@@ -354,6 +354,7 @@ def _process_one(conn, active_row, trig_type, *, dry_run, as_of):
         llm_meta={"duration_s": (finished - started).total_seconds(),
                   "input_tokens": llm_io.get("input_tokens"),
                   "output_tokens": llm_io.get("output_tokens"),
-                  "model": llm_io.get("model")},
+                  "model": llm_io.get("model"),
+                  "prompt_version": llm_io.get("prompt_version")},   # #194 B6 배선 복구
         analyzed_for_date=as_of,
     )
