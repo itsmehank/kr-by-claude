@@ -207,6 +207,14 @@ PROMPTS_DIR = Path(__file__).parent.parent.parent.parent / "prompts"
 RETRY_DELAYS = [1, 3, 9]
 
 
+def prompt_version_of(prompt_text: str) -> str:
+    """프롬프트 버전 식별자 = 파일 전문 sha256 앞 12자 (SSOT — DB 컬럼·JSON 감사 산출물 공용, #181 B6·#198).
+
+    동일성만 보장하고 순서는 없다(#197). 형식 변경 시 이 함수 하나만 바꾼다.
+    """
+    return hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()[:12]
+
+
 def call_claude(
     prompt_file: str,
     attachments: list[str] | None = None,
@@ -254,7 +262,7 @@ def call_claude(
     prompt_text = prompt_path.read_text(encoding="utf-8")
     if meta_out is not None:
         # (#181 B6) 프롬프트 버전 = 파일 전문 sha256 앞 12자 — 저장 행에 붙여 버전 혼재를 추적 가능하게.
-        meta_out["prompt_version"] = hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()[:12]
+        meta_out["prompt_version"] = prompt_version_of(prompt_text)
     user_parts: list[str] = []
     if payload_inline is not None:
         if isinstance(payload_inline, str):

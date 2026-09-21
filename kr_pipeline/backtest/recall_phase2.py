@@ -293,6 +293,9 @@ def main() -> int:
         if dry_run:
             r["decision"] = result.get("decision")
             continue
+        # (#198) 감사 산출물도 프롬프트 버전 귀속 — 키 부재 = 실행 차단(전문가 판정 회신 9 Q-3).
+        if "prompt_version" not in llm_io:
+            raise RuntimeError("prompt_version 부재 — call_claude meta_out 미기록. 감사 산출물 버전 귀속 불가로 실행 차단(#198)")
         rec_out = {
             "ticker": r["ticker"], "breakout_date": r["breakout_date"],
             "audited_anchor": r["audited_anchor"], "gate_result": r["gate_result"],
@@ -304,6 +307,7 @@ def main() -> int:
             "llm_model": llm_io.get("model"),
             "input_tokens": llm_io.get("input_tokens"),
             "output_tokens": llm_io.get("output_tokens"),
+            "prompt_version": llm_io["prompt_version"],
         }
         doc["results"].append(rec_out)
         done[key] = rec_out
