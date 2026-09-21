@@ -150,6 +150,10 @@ def run_audit(conn: Connection, *, dry_run: bool = False,
         if dry_run:
             agg["processed"] += 1
             continue
+        # (#198) 감사 산출물도 프롬프트 버전 귀속 — 키 부재 = 실행 차단(전문가 판정 회신 9 Q-3).
+        # 기존 JSON 레코드는 소급 추정 금지(null 유지).
+        if "prompt_version" not in llm_io:
+            raise RuntimeError("prompt_version 부재 — call_claude meta_out 미기록. 감사 산출물 버전 귀속 불가로 실행 차단(#198)")
         doc["results"].append({
             "ticker": t["ticker"], "entry_date": str(t["entry_date"]),
             "phase": t["phase"], "pivot_sat": str(t["pivot_sat"]),
@@ -161,6 +165,7 @@ def run_audit(conn: Connection, *, dry_run: bool = False,
             "llm_model": llm_io.get("model"),
             "input_tokens": llm_io.get("input_tokens"),
             "output_tokens": llm_io.get("output_tokens"),
+            "prompt_version": llm_io["prompt_version"],
         })
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(doc, ensure_ascii=False, indent=2),
