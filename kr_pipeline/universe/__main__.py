@@ -12,7 +12,7 @@ from kr_pipeline.db.runs import run_tracking
 from kr_pipeline.universe.fetch import fetch_universe, fetch_sectors, fetch_security_groups
 from kr_pipeline.universe.guards import count_active, verify_universe_after_load
 from kr_pipeline.universe.transform import split_universe
-from kr_pipeline.universe.store import upsert_stocks, mark_delisted
+from kr_pipeline.universe.store import upsert_stocks, mark_delisted, save_universe_raw_snapshot
 
 
 log = logging.getLogger("kr_pipeline.universe")
@@ -53,6 +53,9 @@ def main() -> int:
 
             groups = _security_groups_fail_open(today, state["warnings"])
             df["security_group"] = df["ticker"].map(groups).fillna(UNRESOLVED)
+            # (#195 커밋2 부수) 필터 전 원본 전량 저장 — #191 판정 전제(KRX 재접촉 없이 차집합 계산).
+            raw_saved = save_universe_raw_snapshot(conn, today, df)
+            log.info(f"Saved raw universe snapshot: {raw_saved} rows")
             df, excluded = split_universe(df)
             log.info(f"After pre-load exclusion: {len(df)} kept / {len(excluded)} excluded "
                      f"{excluded['axis'].value_counts().to_dict() if not excluded.empty else {}}")
@@ -73,6 +76,12 @@ def main() -> int:
             affected = upsert_stocks(conn, df)
             log.info(f"Upserted {affected} stocks")
 
+            # [#199 사실 기록, 전문가 회신 10 — 보류(C)] (1) mark_delisted 비교 대상 = 이 df = 적재 전 배제 **후** 목록.
+            #   따라서 적재 전 배제 축에 새 구분을 넣으면 기존 활성 종목이 "상장 원본에 없음"과 같은 취급으로 폐지 처리된다
+            #   (의미 정정 필요: 원본 목록 기준). (2) 시세 수집 대상은 stocks.delisted_at IS NULL 기반(ohlcv/modes._load_active_tickers)
+            #   → "상장 중·대상 아님" 상태는 기존 필드 전용이 아니라 컬럼 추가 방향. 둘은 동시에만 가능.
+            #   wake: 배제 집합 스냅샷 가드가 "기존 포함 → 신규 배제" 차분을 처음 잡는 시점 — 그 차분은
+            #   --accept-exclusion-diff 단독 수용 금지, 의미 정정 + 상태 컬럼 동시 착수.
             delisted = mark_delisted(conn, current_tickers=set(df["ticker"]), on_date=today)
             log.info(f"Marked {delisted} as delisted")
 

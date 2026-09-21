@@ -1,4 +1,4 @@
-"""유니버스 적재 전 배제 — 우선주(코드 말미 규칙)·스팩(이름)·ETF(이름 접두사) + SECUGRP 축(부동산투자회사).
+"""유니버스 적재 전 배제 — 우선주(코드 말미 규칙)·스팩(이름) + SECUGRP 축(부동산투자회사). ETF 축은 #195 커밋2 에서 제거.
 
 plan: docs/superpowers/plans/2026-09-15-secugrp-universe-filter.md Task 2 · #195 커밋1(우선주 축 코드 규칙, 회신 10).
 """
@@ -37,10 +37,12 @@ def test_common_stocks_whose_name_ends_with_woo_are_kept():
     assert set(filter_common_stocks(df)["ticker"]) == {"458650", "159910", "294090"}
 
 
-def test_excludes_etfs_by_name_prefix():
-    df = pd.DataFrame([_row("069500", "KODEX 200"), _row("102110", "TIGER 200"),
-                       _row("114800", "KODEX 인버스"), _row("005930", "삼성전자")])
-    assert set(filter_common_stocks(df)["ticker"]) == {"005930"}
+def test_etf_prefix_names_are_no_longer_excluded_at_load():
+    """(#195 커밋2, governance 1-1) ETF 축 제거 — 유니버스 원본에 ETF 가 구조적으로 없고, 있더라도 SECUGRP 미해결
+    → 자격 게이트 NULL 이 후방 방어. 접두사 'BNK' 가 BNK금융지주(138930, 주권) 를 오탐했던 사례의 회귀."""
+    df = pd.DataFrame([_row("138930", "BNK금융지주"), _row("069500", "KODEX 200", security_group="UNRESOLVED")])
+    kept, excluded = split_universe(df)
+    assert set(kept["ticker"]) == {"138930", "069500"} and excluded.empty
 
 
 def test_excludes_reits_by_security_group_not_name():
@@ -94,7 +96,7 @@ def test_unresolved_security_group_is_kept_at_load():
     ("005935", "삼성전자우", "주권", "preferred"),
     ("00104K", "CJ4우(전환)", "주권", "preferred"),
     ("458650", "성우", "주권", None),                       # 이름 '우' 끝 보통주 — 코드 끝자리 0
-    ("069500", "KODEX 200", "UNRESOLVED", "etf"),
+    ("069500", "KODEX 200", "UNRESOLVED", None),                # ETF 축 제거 — 적재 후 SECUGRP 게이트가 담당
     ("0088D0", "메리츠제1호스팩", "주권", "spac"),
     ("330590", "롯데리츠", "부동산투자회사", "security_group"),
     ("138040", "메리츠금융지주", "주권", None),
