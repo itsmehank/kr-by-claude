@@ -69,7 +69,7 @@ def verify_universe_after_load(conn: Connection, *, snapshot_date: date, exclude
         raise UniverseGuardError(f"guard(a) 활성 유니버스에 비허용 security_group 유입: {bad}")
 
     # (b)
-    hits = [(t, n, ax) for t, n, g in active if (ax := classify_exclusion_axis(n, g)) is not None]
+    hits = [(t, n, ax) for t, n, g in active if (ax := classify_exclusion_axis(t, n, g)) is not None]
     if hits:
         raise UniverseGuardError(f"guard(b) 활성 유니버스에 적재 전 배제 축 종목 잔존 {len(hits)}건: {hits[:10]}")
 

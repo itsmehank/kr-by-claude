@@ -202,7 +202,7 @@ def test_guard_a_allows_row_kept_groups_and_unresolved(db):
 
 def test_guard_b_rejects_name_axis_hit_in_active_universe(db):
     """(b) 우선주·스팩·ETF 이름축 카운트 = 0. 하나라도 있으면 실패."""
-    _seed(db, [{"ticker": "T5", "name": "삼성전자우", "market": "KOSPI", "security_group": "주권"}])
+    _seed(db, [{"ticker": "005935", "name": "삼성전자우", "market": "KOSPI", "security_group": "주권"}])   # 코드 끝자리 5 = 우선주
     with pytest.raises(UniverseGuardError, match="preferred"):
         verify_universe_after_load(db, snapshot_date=date(2026, 9, 15), excluded=_excluded())
 

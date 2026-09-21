@@ -11,16 +11,16 @@ import re
 import sys
 from collections import Counter
 
-from kr_pipeline.universe.transform import ETF_PREFIXES, _is_etf, _is_preferred, _is_spac
+from kr_pipeline.universe.transform import ETF_PREFIXES, _is_etf, _is_preferred_code, _is_spac
 
 src, out = sys.argv[1], sys.argv[2]
 krx = json.load(open(src))
 etf_hits = [(t, v["name"], v["secugrp"], next(p for p in ETF_PREFIXES if v["name"].startswith(p)))
             for t, v in krx.items() if _is_etf(v["name"])]
-pref_hits = [(t, v["name"]) for t, v in krx.items() if _is_preferred(v["name"])]
+pref_hits = [(t, v["name"]) for t, v in krx.items() if _is_preferred_code(t)]   # #195 커밋1: 코드 말미 규칙
 spac_hits = [(t, v["name"]) for t, v in krx.items() if _is_spac(v["name"])]
-# 우선주 의심 오탐: 6자리 숫자 코드가 0 으로 끝나면 보통주 관례 — 정규식에 걸렸다면 이름이 '우'로 끝나는 보통주
-pref_suspect = [(t, n) for t, n in pref_hits if t.isdigit() and t.endswith("0")]
+# (#195 커밋1 이후) 우선주 판별이 코드 규칙이므로 "끝자리 0 인데 적중" 은 정의상 0 — 회귀 확인용
+pref_suspect = [(t, n) for t, n in pref_hits if t.endswith("0")]
 spac_suspect = [(t, n) for t, n in spac_hits
                 if not re.search(r"(호스팩|스팩\d+호|스팩)$", n) and "호스팩" not in n]   # "OO스팩N호"·"OO제N호스팩" = 진짜 스팩
 report = {
