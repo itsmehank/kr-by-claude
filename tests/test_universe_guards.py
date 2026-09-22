@@ -183,7 +183,16 @@ def _seed(db, rows):
     upsert_stocks(db, pd.DataFrame(rows))
 
 
-def test_guard_a_rejects_preload_group_in_active_universe(db):
+@pytest.fixture
+def clean_universe(db):
+    """가드는 *활성 유니버스 전체* 를 단언한다 — 다른 테스트가 autocommit 으로 남긴 픽스처 종목
+    (예: 'ASOFC2'·'ZIPLA1' = 6자·끝자리≠'0' → 우선주 코드 규칙에 걸림)을 같은 트랜잭션 안에서
+    폐지 처리해 시작점을 비운다. db 픽스처가 ROLLBACK 하므로 kr_test 상태는 변하지 않는다."""
+    with db.cursor() as cur:
+        cur.execute("UPDATE stocks SET delisted_at = CURRENT_DATE WHERE delisted_at IS NULL")
+
+
+def test_guard_a_rejects_preload_group_in_active_universe(db, clean_universe):
     """(a) 활성 stocks 의 security_group 집합 ⊆ 허용 ∪ {UNRESOLVED} ∪ 행생성예외. 부동산투자회사 유입 = 실패."""
     _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"},
                {"ticker": "T2", "name": "리츠누수", "market": "KOSPI", "security_group": "부동산투자회사"}])
@@ -191,7 +200,7 @@ def test_guard_a_rejects_preload_group_in_active_universe(db):
         verify_universe_after_load(db, snapshot_date=date(2026, 9, 15), excluded=_excluded())
 
 
-def test_guard_a_allows_row_kept_groups_and_unresolved(db):
+def test_guard_a_allows_row_kept_groups_and_unresolved(db, clean_universe):
     _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"},
                {"ticker": "T3", "name": "맵스리얼티", "market": "KOSPI", "security_group": "투자회사"},
                {"ticker": "T4", "name": "알에프세미", "market": "KOSDAQ", "security_group": "UNRESOLVED"}])
@@ -200,14 +209,14 @@ def test_guard_a_allows_row_kept_groups_and_unresolved(db):
     assert info["qualifying_pool"] == info["active_after"] - info["unresolved"] - info["row_kept_excluded"]
 
 
-def test_guard_b_rejects_name_axis_hit_in_active_universe(db):
+def test_guard_b_rejects_name_axis_hit_in_active_universe(db, clean_universe):
     """(b) 우선주·스팩·ETF 이름축 카운트 = 0. 하나라도 있으면 실패."""
     _seed(db, [{"ticker": "005935", "name": "삼성전자우", "market": "KOSPI", "security_group": "주권"}])   # 코드 끝자리 5 = 우선주
     with pytest.raises(UniverseGuardError, match="preferred"):
         verify_universe_after_load(db, snapshot_date=date(2026, 9, 15), excluded=_excluded())
 
 
-def test_snapshot_first_run_writes_baseline_and_diff_fails_next(db):
+def test_snapshot_first_run_writes_baseline_and_diff_fails_next(db, clean_universe):
     """(신규) 배제 집합 스냅샷: 첫 실행은 기준선 저장, 다음 실행에서 집합 변동은 accept 없이 실패."""
     _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
     ex1 = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"), ("R1", "리츠", "KOSPI", "부동산투자회사", "security_group"))
@@ -226,7 +235,7 @@ def test_snapshot_first_run_writes_baseline_and_diff_fails_next(db):
         assert cur.fetchone()[0] == 1
 
 
-def test_guard_c_records_count_delta_without_threshold(db):
+def test_guard_c_records_count_delta_without_threshold(db, clean_universe):
     before = count_active(db)
     _seed(db, [{"ticker": "T9", "name": "신규", "market": "KOSDAQ", "security_group": "주권"}])
     info = verify_universe_after_load(db, snapshot_date=date(2026, 9, 15), excluded=_excluded())
