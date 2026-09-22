@@ -997,3 +997,14 @@ CREATE TABLE IF NOT EXISTS universe_exclusion_snapshot (
     axis            VARCHAR(20)  NOT NULL,   -- preferred | spac | etf | security_group
     PRIMARY KEY (snapshot_date, ticker)
 );
+
+-- (#195 커밋2 부수, 2026-09-21) 유니버스 원본 응답 저장 — 월간 갱신마다 필터 전 원본(pykrx 전종목시세 STK/KSQ) 전량.
+-- #191(신규상장 미반영) 판정의 전제: "KRX 상장 ∖ stocks" 차집합을 KRX 재접촉 없이 계산.
+CREATE TABLE IF NOT EXISTS universe_raw_snapshot (
+    snapshot_date   DATE         NOT NULL,
+    ticker          VARCHAR(10)  NOT NULL,
+    name            VARCHAR(100) NOT NULL,
+    market          VARCHAR(10)  NOT NULL,
+    security_group  VARCHAR(30)  NOT NULL,   -- 조회 실패 시 'UNRESOLVED'
+    PRIMARY KEY (snapshot_date, ticker)
+);

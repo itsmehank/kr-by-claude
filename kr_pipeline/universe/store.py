@@ -40,6 +40,24 @@ def upsert_stocks(conn: Connection, df: pd.DataFrame) -> int:
         return cur.rowcount
 
 
+def save_universe_raw_snapshot(conn: Connection, snapshot_date: date, df: pd.DataFrame) -> int:
+    """(#195 커밋2 부수) 필터 전 유니버스 원본 응답 전량 저장 — #191 차집합 계산의 전제(KRX 재접촉 0).
+
+    df 컬럼: ticker, name, market, security_group(없으면 UNRESOLVED). 같은 날짜 재실행은 덮어쓴다.
+    """
+    if df.empty:
+        return 0
+    sg = df["security_group"] if "security_group" in df.columns else pd.Series(UNRESOLVED, index=df.index)
+    rows = [(snapshot_date, t, n, m, (g if isinstance(g, str) and g else UNRESOLVED))
+            for t, n, m, g in zip(df["ticker"], df["name"], df["market"], sg)]
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM universe_raw_snapshot WHERE snapshot_date = %s", (snapshot_date,))
+        cur.executemany(
+            "INSERT INTO universe_raw_snapshot (snapshot_date, ticker, name, market, security_group) VALUES (%s, %s, %s, %s, %s)",
+            rows)
+    return len(rows)
+
+
 # [design judgment] 1회 폐지 비율 상한 — book 근거 아님. 월 1회 정상 폐지는
 # 수십 건 이하(활성 ~2,550 의 1% 미만)라 2% 는 넉넉한 안전마진. 초과는 부분
 # fetch(한 시장 누락 등) 의심 → 파괴적 UPDATE 전에 fail-closed.

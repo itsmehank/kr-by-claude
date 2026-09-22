@@ -146,3 +146,19 @@ def test_upsert_unresolved_never_overwrites_known_value(db):
     with db.cursor() as cur:
         cur.execute("SELECT security_group FROM stocks WHERE ticker = '094800'")
         assert cur.fetchone() == ("주권",)
+
+
+# ---------- (#195 커밋2 부수) 유니버스 원본 응답 스냅샷 ----------
+
+def test_save_universe_raw_snapshot_overwrites_same_date(db):
+    from datetime import date as _d
+    from kr_pipeline.universe.store import save_universe_raw_snapshot
+    df = pd.DataFrame([
+        {"ticker": "005930", "name": "삼성전자", "market": "KOSPI", "security_group": "주권"},
+        {"ticker": "005935", "name": "삼성전자우", "market": "KOSPI"},            # 컬럼 값 부재 → UNRESOLVED
+    ])
+    assert save_universe_raw_snapshot(db, _d(2026, 10, 1), df) == 2
+    assert save_universe_raw_snapshot(db, _d(2026, 10, 1), df.iloc[:1]) == 1   # 같은 날짜 재실행 = 덮어쓰기
+    with db.cursor() as cur:
+        cur.execute("SELECT ticker, security_group FROM universe_raw_snapshot WHERE snapshot_date = '2026-10-01' ORDER BY 1")
+        assert cur.fetchall() == [("005930", "주권")]

@@ -1,7 +1,7 @@
 """유니버스 적재 후 회귀 가드 [3-b] — 위반 시 UniverseGuardError → run_tracking 이 rollback·failed 처리.
 
 (a) 활성 stocks 의 security_group ⊆ QUALIFYING ∪ {UNRESOLVED} ∪ ROW_KEPT_EXCLUDED(행 생성 대상 = 명시 예외).
-(b) 이름 휴리스틱 3축(우선주·스팩·ETF) 활성 카운트 0.
+(b) 비-SECUGRP 2축(우선주 코드 규칙·스팩 이름) 활성 카운트 0. (ETF 축은 #195 커밋2 에서 제거 — governance 1-1)
 (c) 전기 대비 활성 종목 수 기록 — 경고 임계 없음(별도 판정 사안).
 (신규) 적재 전 배제 집합 스냅샷을 저장하고 직전 스냅샷과 집합 대조 — 원소 변동은 accept 플래그 없이 실패.
 
@@ -69,7 +69,7 @@ def verify_universe_after_load(conn: Connection, *, snapshot_date: date, exclude
         raise UniverseGuardError(f"guard(a) 활성 유니버스에 비허용 security_group 유입: {bad}")
 
     # (b)
-    hits = [(t, n, ax) for t, n, g in active if (ax := classify_exclusion_axis(n, g)) is not None]
+    hits = [(t, n, ax) for t, n, g in active if (ax := classify_exclusion_axis(t, n, g)) is not None]
     if hits:
         raise UniverseGuardError(f"guard(b) 활성 유니버스에 적재 전 배제 축 종목 잔존 {len(hits)}건: {hits[:10]}")
 
