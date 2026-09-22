@@ -46,7 +46,7 @@ def test_run_weekly_chain_calls_weekly_then_indicators_in_order(mocker):
     mocker.patch.object(ch.weekly, "run", side_effect=lambda *a, **k: calls.append("weekly") or _Stats())
     mocker.patch.object(ch.indicators, "run_weekly", side_effect=lambda *a, **k: calls.append("ind_weekly") or _Stats())
     mirror = {"rows": 3, "candidates_before": 61, "candidates_after": 66, "added": ["A"], "removed": []}
-    mocker.patch.object(ch.indicators, "mirror_daily_rs_gate", side_effect=lambda *a, **k: calls.append("mirror") or mirror)
+    mocker.patch.object(ch, "_mirror_gate_with_diff", side_effect=lambda *a, **k: calls.append("mirror") or mirror)
     ch.run_weekly_chain(conn=None, full_sweep=False)
     # #203: 주봉 지표 뒤 · LLM 선별 전에 주봉 게이트를 daily 로 미러(직전 주 게이트로 후보 선정되던 결함).
     assert calls == ["weekly", "ind_weekly", "mirror"]
@@ -142,10 +142,10 @@ def test_run_weekly_chain_full_sweep_reloads_before_weekly(mocker):
                         side_effect=lambda *a, **k: calls.append("reload") or {"ticker": "AAA"})
     mocker.patch.object(ch.weekly, "run", side_effect=lambda *a, **k: calls.append("weekly") or _Stats())
     mocker.patch.object(ch.indicators, "run_weekly", side_effect=lambda *a, **k: calls.append("ind_weekly") or _Stats())
-    mocker.patch.object(ch.indicators, "mirror_daily_rs_gate", return_value={})   # #203 미러(DB 필요) 격리
+    mocker.patch.object(ch, "_mirror_gate_with_diff", side_effect=lambda *a, **k: calls.append("mirror") or {})
 
     ch.run_weekly_chain(conn=None)
-    assert [c[0] if isinstance(c, tuple) else c for c in calls] == ["detect", "reload", "weekly", "ind_weekly"]
+    assert [c[0] if isinstance(c, tuple) else c for c in calls] == ["detect", "reload", "weekly", "ind_weekly", "mirror"]
     assert calls[0][1] is None    # tickers=None → 전 종목
     assert calls[0][2] == ch.drift.SWEEP_RECENT_DAYS
     assert state["details"]["sweep"] == {"detected": 1, "reloaded": 1, "failures": 0, "unverified": 0}
@@ -166,10 +166,10 @@ def test_run_weekly_chain_sweep_reload_failure_isolated(mocker):
     mocker.patch.object(ch.weekly, "run", side_effect=lambda *a, **k: calls.append("weekly") or _Stats())
     mocker.patch.object(ch.indicators, "run_weekly", side_effect=lambda *a, **k: calls.append("ind_weekly") or _Stats())
     rb = mocker.patch.object(ch, "_rollback", side_effect=lambda conn: None)
-    mocker.patch.object(ch.indicators, "mirror_daily_rs_gate", return_value={})   # #203 미러(DB 필요) 격리
+    mocker.patch.object(ch, "_mirror_gate_with_diff", side_effect=lambda *a, **k: calls.append("mirror") or {})
 
     ch.run_weekly_chain(conn=None)
-    assert calls == ["weekly", "ind_weekly"]
+    assert calls == ["weekly", "ind_weekly", "mirror"]
     assert state["details"]["sweep"] == {"detected": 2, "reloaded": 1, "failures": 1, "unverified": 0}
     rb.assert_called_once()
 
@@ -188,3 +188,17 @@ def test_main_weekly_no_sweep_passes_full_sweep_false(mocker):
 
     m.main()
     rw.assert_called_once_with("CONN", limit_tickers=None, full_sweep=False)
+
+
+def test_run_weekly_chain_mirror_failure_is_fail_closed(mocker):
+    """#203 미러 실패 = 예외 전파(data_weekly failed → weekend_chain.sh 가 LLM 선별 중단). 미러 없이 선별하면
+    직전 주 게이트 결함이 그대로 재현되므로 fail-soft 로 계속하지 않는다."""
+    import pytest
+    import kr_pipeline.pipeline.chains as ch
+
+    _fake_run_tracking(mocker, ch)
+    mocker.patch.object(ch.weekly, "run", return_value=_Stats())
+    mocker.patch.object(ch.indicators, "run_weekly", return_value=_Stats())
+    mocker.patch.object(ch, "_mirror_gate_with_diff", side_effect=RuntimeError("lock timeout"))
+    with pytest.raises(RuntimeError, match="lock timeout"):
+        ch.run_weekly_chain(conn=None, full_sweep=False)

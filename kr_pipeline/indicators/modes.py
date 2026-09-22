@@ -49,6 +49,7 @@ log = logging.getLogger("kr_pipeline.indicators")
 # sma_200 / rs_rating 등 200~252 거래일 lookback 지표가 NULL 없이 채워짐.
 LOOKBACK_DAYS = 400       # 252 거래일 ≈ 375 캘린더 일 + 25일 안전 마진
 LOOKBACK_WEEKS = 60       # 52 주 + 8 주 안전 마진 (휴일 분포)
+DAILY_INCREMENTAL_WINDOW = 30   # run_daily incremental upsert 창(일) — Phase D 미러와 weekend 미러(#203)가 공유
 
 
 class Mode(str, Enum):
@@ -379,7 +380,7 @@ def run_daily(
     conn: Connection,
     mode: Mode,
     *,
-    window: int = 30,
+    window: int = DAILY_INCREMENTAL_WINDOW,
     limit_tickers: int | None = None,
     only_tickers: list[str] | None = None,
 ) -> RunStats:
@@ -463,34 +464,42 @@ def run_daily(
     return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)
 
 
-def mirror_daily_rs_gate(conn: Connection, *, as_of: date | None = None, window: int = 30) -> dict:
+def mirror_daily_rs_gate(conn: Connection, *, as_of: date, window: int = DAILY_INCREMENTAL_WINDOW) -> dict:
     """#203: 주봉 게이트(rs_line_not_declining_7m) → daily 미러를 weekend 체인 1c 직후·LLM 선별 전에 1회.
 
-    Phase D(run_daily) 와 같은 SQL(update_daily_rs_gate_from_weekly)·같은 창(as_of−window..as_of) — 새 로직
-    없음·멱등(월요일 daily 체인이 쓰던 값을 앞당김). 미러 전후로 LLM 후보 집합(load.get_qualifying_tickers,
-    라이브 필터 그대로)을 비교해 구 게이트 대비 차분을 돌려준다 — pipeline_runs.details 에 기록(수정 후
-    첫 주말 실행의 차분 1회 기록 요구). commit 은 호출자(run_tracking) 몫.
+    Phase D(run_daily) 와 같은 SQL(update_daily_rs_gate_from_weekly)·같은 창 길이(DAILY_INCREMENTAL_WINDOW).
+    창의 끝은 as_of, 시작은 *실제 최신 daily 행(target)* 기준 — daily_indicators 가 as_of 보다 뒤처져 있어도
+    LLM 이 읽는 target 행이 반드시 창에 들어간다. 새 로직 없음·멱등(월요일 daily 체인이 쓰던 값을 앞당김).
+    stale_gate_*: target 행 중 당해 주(target−6일 초과) weekly 행이 없어 *직전 주 값이 미러된* 종목 —
+    r_ind/r_price 실패 종목이 여기 잡힌다(차분 기록의 오염 표지). commit 은 호출자(run_tracking) 몫.
     근거: TLSMW Ch.5 주말 리뷰 = 당해 주 종가 기준 — 입력 as-of(금)와 게이트 as-of(직전 주) 불일치 교정.
     """
-    from kr_pipeline.llm_runner.load import get_qualifying_tickers  # 지연 import — llm_runner 층 역참조 방지
-
-    as_of = as_of or date.today()
     with conn.cursor() as cur:
         cur.execute("SELECT MAX(date) FROM daily_indicators WHERE date <= %s", (as_of,))
         row = cur.fetchone()
-    target = row[0] if row and row[0] else as_of
-    before = {r["symbol"] for r in get_qualifying_tickers(conn, as_of=as_of)}
-    rows = update_daily_rs_gate_from_weekly(conn, as_of - timedelta(days=window), as_of)
-    after = {r["symbol"] for r in get_qualifying_tickers(conn, as_of=as_of)}
-    log.info("weekend rs gate mirror: %d rows, candidates %d -> %d (+%d -%d)",
-             rows, len(before), len(after), len(after - before), len(before - after))
+        target = row[0] if row and row[0] else as_of
+        window_start = target - timedelta(days=window)
+        rows = update_daily_rs_gate_from_weekly(conn, window_start, as_of)
+        cur.execute(
+            """
+            SELECT d.ticker FROM daily_indicators d
+             WHERE d.date = %s
+               AND NOT EXISTS (SELECT 1 FROM weekly_indicators w
+                                WHERE w.ticker = d.ticker
+                                  AND w.week_end_date > %s AND w.week_end_date <= %s)
+             ORDER BY 1
+            """,
+            (target, target - timedelta(days=7), target),
+        )
+        stale = [r[0] for r in cur.fetchall()]
+    log.info("weekend rs gate mirror: %d rows (%s..%s), target=%s, stale current-week gate: %d",
+             rows, window_start, as_of, target, len(stale))
     return {
         "rows": rows,
         "as_of": target.isoformat(),
-        "candidates_before": len(before),
-        "candidates_after": len(after),
-        "added": sorted(after - before),
-        "removed": sorted(before - after),
+        "window_start": window_start.isoformat(),
+        "stale_gate_count": len(stale),
+        "stale_gate_sample": stale[:20],
     }
 
 
