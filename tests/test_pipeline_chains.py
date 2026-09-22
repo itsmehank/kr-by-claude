@@ -45,13 +45,17 @@ def test_run_weekly_chain_calls_weekly_then_indicators_in_order(mocker):
     calls = []
     mocker.patch.object(ch.weekly, "run", side_effect=lambda *a, **k: calls.append("weekly") or _Stats())
     mocker.patch.object(ch.indicators, "run_weekly", side_effect=lambda *a, **k: calls.append("ind_weekly") or _Stats())
+    mirror = {"rows": 3, "candidates_before": 61, "candidates_after": 66, "added": ["A"], "removed": []}
+    mocker.patch.object(ch.indicators, "mirror_daily_rs_gate", side_effect=lambda *a, **k: calls.append("mirror") or mirror)
     ch.run_weekly_chain(conn=None, full_sweep=False)
-    assert calls == ["weekly", "ind_weekly"]
+    # #203: 주봉 지표 뒤 · LLM 선별 전에 주봉 게이트를 daily 로 미러(직전 주 게이트로 후보 선정되던 결함).
+    assert calls == ["weekly", "ind_weekly", "mirror"]
     assert fake.kwargs["pipeline"] == "data_weekly"
     assert state["details"] == {
         "sweep": {"detected": 0, "reloaded": 0, "failures": 0, "unverified": 0},
         "weekly": {"rows": 0, "failures": 0},
         "indicators_weekly": {"rows": 0, "failures": 0},
+        "daily_rs_gate_mirror": mirror,
     }
 
 
@@ -138,6 +142,7 @@ def test_run_weekly_chain_full_sweep_reloads_before_weekly(mocker):
                         side_effect=lambda *a, **k: calls.append("reload") or {"ticker": "AAA"})
     mocker.patch.object(ch.weekly, "run", side_effect=lambda *a, **k: calls.append("weekly") or _Stats())
     mocker.patch.object(ch.indicators, "run_weekly", side_effect=lambda *a, **k: calls.append("ind_weekly") or _Stats())
+    mocker.patch.object(ch.indicators, "mirror_daily_rs_gate", return_value={})   # #203 미러(DB 필요) 격리
 
     ch.run_weekly_chain(conn=None)
     assert [c[0] if isinstance(c, tuple) else c for c in calls] == ["detect", "reload", "weekly", "ind_weekly"]
@@ -161,6 +166,7 @@ def test_run_weekly_chain_sweep_reload_failure_isolated(mocker):
     mocker.patch.object(ch.weekly, "run", side_effect=lambda *a, **k: calls.append("weekly") or _Stats())
     mocker.patch.object(ch.indicators, "run_weekly", side_effect=lambda *a, **k: calls.append("ind_weekly") or _Stats())
     rb = mocker.patch.object(ch, "_rollback", side_effect=lambda conn: None)
+    mocker.patch.object(ch.indicators, "mirror_daily_rs_gate", return_value={})   # #203 미러(DB 필요) 격리
 
     ch.run_weekly_chain(conn=None)
     assert calls == ["weekly", "ind_weekly"]

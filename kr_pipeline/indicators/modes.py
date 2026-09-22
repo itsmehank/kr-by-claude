@@ -463,6 +463,37 @@ def run_daily(
     return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)
 
 
+def mirror_daily_rs_gate(conn: Connection, *, as_of: date | None = None, window: int = 30) -> dict:
+    """#203: 주봉 게이트(rs_line_not_declining_7m) → daily 미러를 weekend 체인 1c 직후·LLM 선별 전에 1회.
+
+    Phase D(run_daily) 와 같은 SQL(update_daily_rs_gate_from_weekly)·같은 창(as_of−window..as_of) — 새 로직
+    없음·멱등(월요일 daily 체인이 쓰던 값을 앞당김). 미러 전후로 LLM 후보 집합(load.get_qualifying_tickers,
+    라이브 필터 그대로)을 비교해 구 게이트 대비 차분을 돌려준다 — pipeline_runs.details 에 기록(수정 후
+    첫 주말 실행의 차분 1회 기록 요구). commit 은 호출자(run_tracking) 몫.
+    근거: TLSMW Ch.5 주말 리뷰 = 당해 주 종가 기준 — 입력 as-of(금)와 게이트 as-of(직전 주) 불일치 교정.
+    """
+    from kr_pipeline.llm_runner.load import get_qualifying_tickers  # 지연 import — llm_runner 층 역참조 방지
+
+    as_of = as_of or date.today()
+    with conn.cursor() as cur:
+        cur.execute("SELECT MAX(date) FROM daily_indicators WHERE date <= %s", (as_of,))
+        row = cur.fetchone()
+    target = row[0] if row and row[0] else as_of
+    before = {r["symbol"] for r in get_qualifying_tickers(conn, as_of=as_of)}
+    rows = update_daily_rs_gate_from_weekly(conn, as_of - timedelta(days=window), as_of)
+    after = {r["symbol"] for r in get_qualifying_tickers(conn, as_of=as_of)}
+    log.info("weekend rs gate mirror: %d rows, candidates %d -> %d (+%d -%d)",
+             rows, len(before), len(after), len(after - before), len(before - after))
+    return {
+        "rows": rows,
+        "as_of": target.isoformat(),
+        "candidates_before": len(before),
+        "candidates_after": len(after),
+        "added": sorted(after - before),
+        "removed": sorted(before - after),
+    }
+
+
 def _ticker_market(conn: Connection, ticker: str) -> str | None:
     """단일 종목 시장 코드(RS 벤치마크 결정용). 없으면 None."""
     with conn.cursor() as cur:

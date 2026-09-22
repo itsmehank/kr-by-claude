@@ -1,7 +1,7 @@
 """데이터 파이프라인 통합 체인 — 가격→지표 순서 보장.
 
 통합 A(daily): (공시 후보 드리프트 감지) → ohlcv 증분 → (감지 종목 재적재) → indicators 일봉 증분
-통합 B(weekly): (전체스윕 드리프트) → weekly 증분 → indicators 주봉 증분
+통합 B(weekly): (전체스윕 드리프트) → weekly 증분 → indicators 주봉 증분 → 주봉 게이트 daily 미러(#203)
 기존 모듈 run() 을 순서대로 호출(무수정).
 """
 from __future__ import annotations
@@ -105,11 +105,15 @@ def run_weekly_chain(conn: Connection, *, limit_tickers: int | None = None, full
         r_price = weekly.run(conn, weekly.Mode.INCREMENTAL, limit_tickers=limit_tickers,
                              check_freshness=True)  # 일봉 stale 시 부분 주봉 방지(fail-closed)
         r_ind = indicators.run_weekly(conn, indicators.Mode.INCREMENTAL, limit_tickers=limit_tickers)
+        # #203: 주봉 게이트 → daily 미러(Phase D 동일)를 여기서 1회 — LLM 주말 선별(weekend_chain.sh 2단계)이
+        # daily 미러 컬럼을 읽으므로, 이 단계 없이는 토요일 후보가 직전 주 게이트로 뽑힌다(09-19 실증 61 vs 66).
+        mirror = indicators.mirror_daily_rs_gate(conn, as_of=as_of)
         result = {
             "sweep": {"detected": len(swept), "reloaded": sweep_reloaded,
                       "failures": sweep_failures, "unverified": len(sweep_unverified)},
             "weekly": {"rows": r_price.rows_affected, "failures": len(r_price.failures)},
             "indicators_weekly": {"rows": r_ind.rows_affected, "failures": len(r_ind.failures)},
+            "daily_rs_gate_mirror": mirror,
         }
         state["rows_affected"] = (r_price.rows_affected or 0) + (r_ind.rows_affected or 0)
         state["details"] = result
