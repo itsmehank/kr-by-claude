@@ -1,190 +1,70 @@
-"""tests/test_pipeline_drift.py — 드리프트 감지/재적재."""
+"""드리프트(기업행위 조정) 감지 + 단일종목 재적재 — #207 A안 이후: Naver 접촉 0, change_pct 기반 이벤트 검출."""
 from datetime import date
 
-
-class _stats:
-    rows_affected = 5
-    failures = []
+import pytest
 
 
-def test_is_drift_identical_returns_false():
-    from kr_pipeline.pipeline.drift import is_drift
-    db = {date(2024, 1, 2): 50000.0, date(2024, 1, 3): 50500.0}
-    krx = {date(2024, 1, 2): 50000.0, date(2024, 1, 3): 50500.0}
-    assert is_drift(db, krx, rel_tol=0.01) is False
+def _stats():
+    class _S:
+        rows_affected = 0
+        failures = []
+    return _S()
 
 
-def test_is_drift_split_ratio_returns_true():
-    """분할 후 adj_close 가 배수로 바뀌면 겹치는 날에서 상대차 큼 → True."""
-    from kr_pipeline.pipeline.drift import is_drift
-    db = {date(2024, 1, 2): 50000.0, date(2024, 1, 3): 50500.0}
-    krx = {date(2024, 1, 2): 10000.0, date(2024, 1, 3): 10100.0}
-    assert is_drift(db, krx, rel_tol=0.01) is True
+def _seed(db, ticker, rows):
+    """rows = [(date, close, change_pct)] — raw=close, adj=close."""
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s, 'A', 'KOSPI') ON CONFLICT DO NOTHING", (ticker,))
+        for d, c, cp in rows:
+            cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value, change_pct) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1000, 1000, 1, %s)", (ticker, d, c, c, c, c, c, c, c, c, cp))
 
 
-def test_is_drift_tiny_float_noise_returns_false():
-    from kr_pipeline.pipeline.drift import is_drift
-    db = {date(2024, 1, 2): 50000.0}
-    krx = {date(2024, 1, 2): 50000.4}
-    assert is_drift(db, krx, rel_tol=0.01) is False
-
-
-def test_is_drift_no_overlap_returns_false():
-    from kr_pipeline.pipeline.drift import is_drift
-    db = {date(2024, 1, 2): 50000.0}
-    krx = {date(2024, 2, 2): 50000.0}
-    assert is_drift(db, krx, rel_tol=0.01) is False
-
-
-def test_detect_drifted_tickers_flags_split(mocker):
-    """한 종목은 분할(불일치), 한 종목은 동일 → 분할 종목만 반환."""
+def test_detect_drifted_tickers_flags_unrecorded_event_only(db):
+    """창 안에 change_pct 기반 조정일이 있는데 adj_factor_events 에 없으면 드리프트. 기록된 것·정상 종목은 제외. KRX·Naver 접촉 0."""
     import kr_pipeline.pipeline.drift as d
-
-    mocker.patch.object(d, "_active_tickers", return_value=["AAA", "BBB"])
-    mocker.patch.object(d, "_db_adj_close", side_effect=lambda conn, t, s, e: {
-        "AAA": {date(2024, 1, 2): 50000.0},
-        "BBB": {date(2024, 1, 2): 30000.0},
-    }[t])
-    mocker.patch.object(d, "_krx_adj_close", side_effect=lambda t, s, e: {
-        "AAA": {date(2024, 1, 2): 10000.0},
-        "BBB": {date(2024, 1, 2): 30000.0},
-    }[t])
-
-    out = d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10), rel_tol=0.01)
-    assert out == ["AAA"]
+    from kr_pipeline.ohlcv import adjust
+    _seed(db, "DR1", [(date(2026, 9, 21), 10000, 0.5), (date(2026, 9, 22), 80000, 0.0)])   # ×8 미기록
+    _seed(db, "DR2", [(date(2026, 9, 21), 5000, 0.5), (date(2026, 9, 22), 40000, 0.0)])    # ×8 기록됨
+    adjust.record_events(db, "DR2", [(date(2026, 9, 22), 8.0)])
+    _seed(db, "DR3", [(date(2026, 9, 21), 100, 0.5), (date(2026, 9, 22), 101, 1.0)])      # 정상
+    out = d.detect_drifted_tickers(db, as_of=date(2026, 9, 23), tickers=["DR1", "DR2", "DR3"], recent_days=10)
+    assert out == ["DR1"]
 
 
-def test_detect_drifted_tickers_widens_on_no_overlap(mocker):
-    """30일 겹침 0 → 365일 재조회 후 판정."""
+def test_detect_marks_unverified_when_window_has_no_change_pct(db):
+    """창 안 행 전부 change_pct NULL(등락률 미수집) = 판정 못 함 → unverified(이상 없음 아님)."""
     import kr_pipeline.pipeline.drift as d
-
-    mocker.patch.object(d, "_active_tickers", return_value=["AAA"])
-    db_calls = {30: {}, 365: {date(2023, 6, 1): 50000.0}}
-    krx_calls = {30: {date(2024, 1, 2): 9000.0}, 365: {date(2023, 6, 1): 10000.0}}
-
-    def fake_db(conn, t, s, e):
-        return db_calls[(date(2024, 1, 10) - s).days]
-    def fake_krx(t, s, e):
-        return krx_calls[(date(2024, 1, 10) - s).days]
-
-    mocker.patch.object(d, "_db_adj_close", side_effect=fake_db)
-    mocker.patch.object(d, "_krx_adj_close", side_effect=fake_krx)
-
-    out = d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10),
-                                   rel_tol=0.01, recent_days=30, wide_days=365)
-    assert out == ["AAA"]
+    _seed(db, "DR4", [(date(2026, 9, 21), 100, None), (date(2026, 9, 22), 800, None)])
+    unv = []
+    out = d.detect_drifted_tickers(db, as_of=date(2026, 9, 23), tickers=["DR4"], recent_days=10, unverified_out=unv)
+    assert out == [] and unv == ["DR4"]
 
 
-def test_detect_drifted_tickers_skips_fetch_error(mocker):
-    """KRX fetch 실패 종목은 로그+skip(드리프트 아님 취급)."""
+def test_detect_empty_list_checks_nothing(db):
     import kr_pipeline.pipeline.drift as d
-
-    mocker.patch.object(d, "_active_tickers", return_value=["AAA", "BBB"])
-    mocker.patch.object(d, "_db_adj_close", return_value={date(2024, 1, 2): 50000.0})
-
-    def fake_krx(t, s, e):
-        if t == "AAA":
-            raise RuntimeError("KRX timeout")
-        return {date(2024, 1, 2): 50000.0}
-
-    mocker.patch.object(d, "_krx_adj_close", side_effect=fake_krx)
-    out = d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10), rel_tol=0.01)
-    assert out == []
+    assert d.detect_drifted_tickers(db, as_of=date(2026, 9, 23), tickers=[]) == []
 
 
-def test_reload_ticker_sequence(mocker):
-    """단일종목: adj 재수신→update→daily Phase A 재계산→weekly 가격 재집계→weekly Phase A 재계산 순서."""
+def test_reload_ticker_records_applies_then_recomputes(db, mocker):
+    """reload: 미기록 조정일 기록+이력 소급(×8) → daily Phase A → weekly 재집계 → weekly Phase A. Naver 호출 없음."""
     import kr_pipeline.pipeline.drift as d
-    import pandas as pd
-
+    _seed(db, "DR5", [(date(2026, 9, 18), 1000, 0.0), (date(2026, 9, 21), 1000, 0.0), (date(2026, 9, 22), 8000, 0.0)])
     calls = []
-    mocker.patch.object(d, "get_daily_min_date", return_value=date(2020, 1, 1))
-    fake_df = pd.DataFrame(
-        [{"date": date(2024, 1, 2), "open": 9.0, "high": 11.0, "low": 8.0,
-          "close": 10.0, "volume": 100.0, "value": 1000.0}]
-    )
-    mocker.patch.object(d, "fetch_adj_only", side_effect=lambda t, s, e: calls.append("fetch") or fake_df)
-    mocker.patch.object(d, "update_adj_prices", side_effect=lambda conn, rows: calls.append(("update", rows)) or len(rows))
     mocker.patch.object(d.indicators, "recompute_ticker_daily", side_effect=lambda conn, t: calls.append(("ind_daily", t)) or 5)
     mocker.patch.object(d.weekly, "run", side_effect=lambda *a, **k: calls.append(("weekly", k.get("only_tickers"))) or _stats())
     mocker.patch.object(d.indicators, "recompute_ticker_weekly", side_effect=lambda conn, t: calls.append(("ind_weekly", t)) or 3)
-
-    out = d.reload_ticker(conn=None, ticker="AAA", as_of=date(2024, 1, 10))
-
-    assert [c[0] if isinstance(c, tuple) else c for c in calls] == \
-        ["fetch", "update", "ind_daily", "weekly", "ind_weekly"]
-    assert calls[1][1] == [("AAA", date(2024, 1, 2), 10.0, 11.0, 8.0, 9.0, 100.0)]
-    assert calls[2][1] == "AAA"
-    assert calls[3][1] == ["AAA"]
-    assert calls[4][1] == "AAA"
-    assert out["ticker"] == "AAA" and out["adj_rows"] == 1
-
-
-def test_reload_ticker_nullifies_halt_rows(mocker):
-    """거래정지일(adj OHLV=0·vol=0·close>0) reload 시 chokepoint 경유 → adj_*=None(NULL).
-
-    드리프트 재적재가 update_adj_prices 에 0 을 그대로 넘기면 w52_low=0 재오염.
-    nullify_halt_adj 를 거쳐 halt 행 adj_high/low/open/volume 이 None 이어야 한다.
-    정상 거래일 행은 실값 유지.
-    """
-    import kr_pipeline.pipeline.drift as d
-    import pandas as pd
-
-    captured = {}
-    mocker.patch.object(d, "get_daily_min_date", return_value=date(2020, 1, 1))
-    fake_df = pd.DataFrame([
-        # 정상 거래일
-        {"date": date(2024, 1, 2), "open": 9.0, "high": 11.0, "low": 8.0,
-         "close": 10.0, "volume": 100.0, "value": 1000.0},
-        # 거래정지일 — OHLV·volume 0, close 만 직전가 carry
-        {"date": date(2024, 1, 3), "open": 0.0, "high": 0.0, "low": 0.0,
-         "close": 10.0, "volume": 0.0, "value": 0.0},
-    ])
-    mocker.patch.object(d, "fetch_adj_only", side_effect=lambda t, s, e: fake_df)
-    mocker.patch.object(d, "update_adj_prices",
-                        side_effect=lambda conn, rows: captured.setdefault("rows", rows) or len(rows))
-    mocker.patch.object(d.indicators, "recompute_ticker_daily", return_value=5)
-    mocker.patch.object(d.weekly, "run", side_effect=lambda *a, **k: _stats())
-    mocker.patch.object(d.indicators, "recompute_ticker_weekly", return_value=3)
-
-    d.reload_ticker(conn=None, ticker="AAA", as_of=date(2024, 1, 10))
-
-    rows = captured["rows"]
-    # tuple: (ticker, date, adj_close, adj_high, adj_low, adj_open, adj_volume)
-    normal = next(r for r in rows if r[1] == date(2024, 1, 2))
-    halt = next(r for r in rows if r[1] == date(2024, 1, 3))
-    assert normal == ("AAA", date(2024, 1, 2), 10.0, 11.0, 8.0, 9.0, 100.0)
-    # halt: close 유지, 나머지 adj_* 는 None
-    assert halt[2] == 10.0  # adj_close carry 유지
-    assert halt[3] is None and halt[4] is None and halt[5] is None and halt[6] is None
-
-
-def test_detect_drifted_tickers_uses_given_tickers(mocker):
-    """tickers 인자가 주어지면 _active_tickers 대신 그 목록만 검사."""
-    import kr_pipeline.pipeline.drift as d
-
-    active = mocker.patch.object(d, "_active_tickers")
-    mocker.patch.object(d, "_db_adj_close", return_value={date(2024, 1, 2): 50000.0})
-    mocker.patch.object(d, "_krx_adj_close", return_value={date(2024, 1, 2): 10000.0})
-
-    out = d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10),
-                                   rel_tol=0.01, tickers=["AAA"])
-    assert out == ["AAA"]
-    active.assert_not_called()
-
-
-def test_detect_drifted_tickers_empty_list_checks_nothing(mocker):
-    """tickers=[] 는 '검사 0건' — _active_tickers/_krx 호출 없이 빈 리스트."""
-    import kr_pipeline.pipeline.drift as d
-
-    active = mocker.patch.object(d, "_active_tickers")
-    krx = mocker.patch.object(d, "_krx_adj_close")
-
-    out = d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10),
-                                   rel_tol=0.01, tickers=[])
-    assert out == []
-    active.assert_not_called()
-    krx.assert_not_called()
+    out = d.reload_ticker(db, "DR5", as_of=date(2026, 9, 23))
+    assert [c[0] for c in calls] == ["ind_daily", "weekly", "ind_weekly"] and calls[1][1] == ["DR5"]
+    assert out["ticker"] == "DR5" and out["adj_events"] == 1 and out["adj_rows"] == 2
+    with db.cursor() as cur:
+        cur.execute("SELECT date, adj_close FROM daily_prices WHERE ticker='DR5' ORDER BY 1")
+        assert [(dt, float(a)) for dt, a in cur.fetchall()] == [(date(2026, 9, 18), 8000.0), (date(2026, 9, 21), 8000.0), (date(2026, 9, 22), 8000.0)]
+        cur.execute("SELECT count(*) FROM adj_factor_events WHERE ticker='DR5'")
+        assert cur.fetchone()[0] == 1
+    # 멱등: 두 번째 reload 는 이벤트 0·소급 0
+    out2 = d.reload_ticker(db, "DR5", as_of=date(2026, 9, 23))
+    assert out2["adj_events"] == 0 and out2["adj_rows"] == 0
 
 
 def test_recent_corp_action_tickers_filters(db):
@@ -224,74 +104,3 @@ def test_recent_corp_action_tickers_filters(db):
 
 
 # ====== P1-5 Part C: '검증 못 함(unverified)' 을 '이상 없음' 과 구분 ======
-
-def test_detect_marks_unverified_on_empty_krx(mocker):
-    """recent+wide 재조회가 모두 빈 응답 → drifted 아님 + unverified 로 분리.
-
-    기존엔 overlap 없음 → is_drift False = '이상 없음' 으로 오판 — 놓친 split 이
-    무경고 통과하는 경로였다.
-    """
-    import kr_pipeline.pipeline.drift as d
-
-    mocker.patch.object(d, "_active_tickers", return_value=["AAA"])
-    mocker.patch.object(d, "_db_adj_close",
-                        side_effect=lambda conn, t, s, e: {date(2024, 1, 2): 50000.0})
-    mocker.patch.object(d, "_krx_adj_close", side_effect=lambda t, s, e: {})
-
-    unverified: list[str] = []
-    out = d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10),
-                                   unverified_out=unverified, sleep_s=0)
-    assert out == []
-    assert unverified == ["AAA"], "빈 재조회가 '이상 없음' 으로 뭉개짐"
-
-
-def test_detect_marks_unverified_on_fetch_error(mocker):
-    """재시도 소진 후 예외로 skip 된 종목도 '검증 못 함' 으로 집계."""
-    import kr_pipeline.pipeline.drift as d
-
-    mocker.patch.object(d, "_active_tickers", return_value=["ERR1"])
-    mocker.patch.object(d, "_db_adj_close",
-                        side_effect=lambda conn, t, s, e: {date(2024, 1, 2): 50000.0})
-    mocker.patch.object(d, "_krx_adj_close", side_effect=RuntimeError("boom"))
-
-    unverified: list[str] = []
-    out = d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10),
-                                   unverified_out=unverified, sleep_s=0)
-    assert out == []
-    assert unverified == ["ERR1"]
-
-
-def test_detect_normal_overlap_not_unverified(mocker):
-    """정상 겹침 종목은 unverified 에 안 들어가고 기존 드리프트 판정 유지."""
-    import kr_pipeline.pipeline.drift as d
-
-    mocker.patch.object(d, "_active_tickers", return_value=["SPL", "SAME"])
-    mocker.patch.object(d, "_db_adj_close", side_effect=lambda conn, t, s, e: {
-        "SPL": {date(2024, 1, 2): 50000.0},
-        "SAME": {date(2024, 1, 2): 50000.0},
-    }[t])
-    mocker.patch.object(d, "_krx_adj_close", side_effect=lambda t, s, e: {
-        "SPL": {date(2024, 1, 2): 10000.0},
-        "SAME": {date(2024, 1, 2): 50000.0},
-    }[t])
-
-    unverified: list[str] = []
-    out = d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10), rel_tol=0.01,
-                                   unverified_out=unverified, sleep_s=0)
-    assert out == ["SPL"]
-    assert unverified == []
-
-
-def test_detect_sleeps_between_tickers(mocker):
-    """스윕이 무-sleep 직렬 호출로 스스로 throttle 을 유발하지 않게 종목 간 대기."""
-    import kr_pipeline.pipeline.drift as d
-
-    mocker.patch.object(d, "_active_tickers", return_value=["AAA", "BBB"])
-    mocker.patch.object(d, "_db_adj_close",
-                        side_effect=lambda conn, t, s, e: {date(2024, 1, 2): 1.0})
-    mocker.patch.object(d, "_krx_adj_close",
-                        side_effect=lambda t, s, e: {date(2024, 1, 2): 1.0})
-    sleep_mock = mocker.patch.object(d.time, "sleep")
-
-    d.detect_drifted_tickers(conn=None, as_of=date(2024, 1, 10), sleep_s=0.1)
-    assert sleep_mock.call_count == 2

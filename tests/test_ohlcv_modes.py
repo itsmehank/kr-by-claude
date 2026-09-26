@@ -54,72 +54,6 @@ def test_full_refresh_range_uses_db_min(monkeypatch):
     assert end == date(2026, 5, 14)
 
 
-def test_full_refresh_retries_failed_tickers_at_end(monkeypatch, db):
-    """첫 시도에서 실패한 종목이 끝에서 한 번 더 시도되어 성공하면 failures 에 안 남음."""
-    from kr_pipeline.ohlcv import modes
-
-    # 시드: stocks 테이블에 종목 한 개 + daily_prices 한 행 (update 대상)
-    with db.cursor() as cur:
-        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('005930', '삼성전자', 'KOSPI') ON CONFLICT DO NOTHING")
-        cur.execute("""
-            INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value)
-            VALUES ('005930', '2026-05-12', 70000, 71000, 69500, 70500, 35250, 1000, 70500000)
-            ON CONFLICT DO NOTHING
-        """)
-    db.commit()
-
-    # fetch_adj_only mock: 첫 호출은 RuntimeError, 두 번째는 성공
-    call_count = {"n": 0}
-
-    def fake_fetch(ticker, start, end):
-        call_count["n"] += 1
-        if call_count["n"] == 1:
-            raise RuntimeError("transient")
-        return pd.DataFrame([{"date": date_cls(2026, 5, 12), "close": 36000.0, "high": 36500.0, "low": 35500.0, "open": 35800.0, "volume": 2000.0}])
-
-    import kr_pipeline.ohlcv.fetch as fetch_mod
-    monkeypatch.setattr(fetch_mod, "fetch_adj_only", fake_fetch)
-
-    try:
-        stats = modes._run_full_refresh(db, ["005930"], date_cls(2026, 5, 1), date_cls(2026, 5, 14), max_workers=1)
-
-        assert call_count["n"] == 2  # 첫 시도 + 재시도
-        assert stats.failures == []   # 재시도 성공으로 failures 비어있음
-        assert stats.rows_affected == 1
-    finally:
-        with db.cursor() as cur:
-            cur.execute("DELETE FROM daily_prices WHERE ticker = '005930' AND date = '2026-05-12'")
-            cur.execute("DELETE FROM stocks WHERE ticker = '005930'")
-        db.commit()
-
-
-def test_full_refresh_records_persistent_failures(monkeypatch, db):
-    """첫 시도 + 재시도 모두 실패하면 failures 에 기록."""
-    from kr_pipeline.ohlcv import modes
-
-    with db.cursor() as cur:
-        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('005930', '삼성전자', 'KOSPI') ON CONFLICT DO NOTHING")
-    db.commit()
-
-    def always_fail(ticker, start, end):
-        raise RuntimeError("permanent")
-
-    import kr_pipeline.ohlcv.fetch as fetch_mod
-    monkeypatch.setattr(fetch_mod, "fetch_adj_only", always_fail)
-
-    try:
-        stats = modes._run_full_refresh(db, ["005930"], date_cls(2026, 5, 1), date_cls(2026, 5, 14), max_workers=1)
-
-        assert len(stats.failures) == 1
-        assert stats.failures[0][0] == "005930"
-        assert "permanent" in stats.failures[0][1]
-    finally:
-        with db.cursor() as cur:
-            cur.execute("DELETE FROM daily_prices WHERE ticker = '005930'")
-            cur.execute("DELETE FROM stocks WHERE ticker = '005930'")
-        db.commit()
-
-
 def test_sanity_checks_coverage_warning(db):
     """활성 종목 100개 중 50개만 최근 일봉 들어왔으면 경고."""
     from kr_pipeline.ohlcv.modes import _run_sanity_checks, Mode
@@ -328,21 +262,6 @@ def test_run_upsert_datewise_halt_row_nullifies_adj(monkeypatch, db):
     assert adj_open is None and adj_volume is None  # OHLV → NULL
 
 
-def test_full_refresh_accounts_empty_fetches(monkeypatch, db):
-    """full-refresh(adj 갱신) 경로의 빈 응답도 동일하게 집계."""
-    from kr_pipeline.ohlcv import modes
-    import kr_pipeline.ohlcv.fetch as ofetch
-
-    monkeypatch.setattr(ofetch, "fetch_adj_only", lambda t, s, e: pd.DataFrame())
-    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
-
-    stats = modes._run_full_refresh(
-        db, ["EMFR1", "EMFR2"], date(2026, 7, 1), date(2026, 7, 7), 1
-    )
-    joined = " ".join(stats.warnings)
-    assert "empty_fetch" in joined and "2/2" in joined and "EMFR1" in joined
-
-
 # ====== (#49) 수정 OHLC 봉 불변식 관측 (pykrx adjusted 반올림 유래, 관측 전용) ======
 
 def _insert_price_row(cur, ticker, d, *, adj_close, adj_high, adj_low):
@@ -537,3 +456,45 @@ def test_run_upsert_preserves_pre_seam_adj(monkeypatch, db):
         assert [(d, float(c), float(a)) for d, c, a in cur.fetchall()] == [
             (date(2026, 9, 11), 1001.0, 500.0),      # raw 갱신·adj 보존
             (ADJ_SELF_START, 1010.0, 1010.0)]        # 시임 이후 신규: adj = raw × F(=1)
+
+
+# ---------- #207 A안: full-refresh = 시임 이후 행 raw × F 재유도(접촉 0) ----------
+
+def test_full_refresh_rederives_post_seam_rows_from_raw_and_events(monkeypatch, db):
+    """시임(ADJ_SELF_START) 이후 행: adj_* = raw × F(이벤트) 로 재유도. 시임 이전 행(Naver 이력) 불변. fetch 호출 0."""
+    from kr_pipeline.ohlcv import modes, adjust
+    import kr_pipeline.ohlcv.fetch as fetch_mod
+    _seed_prices(db, "FR1", [(date(2026, 9, 11), 1000, 500.0), (date(2026, 9, 14), 1000, 999.0), (date(2026, 9, 15), 8000, 999.0)])
+    with db.cursor() as cur:
+        cur.execute("UPDATE daily_prices SET change_pct = 0.0 WHERE ticker='FR1'")
+    adjust.record_events(db, "FR1", [(date(2026, 9, 15), 8.0)])
+    monkeypatch.setattr(fetch_mod, "fetch_adj_only", lambda *a, **k: (_ for _ in ()).throw(AssertionError("Naver 호출 금지")))
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+    stats = modes._run_full_refresh(db, ["FR1"], date(2026, 1, 1), date(2026, 9, 30), 1)
+    assert stats.failures == [] and stats.rows_affected == 2
+    with db.cursor() as cur:
+        cur.execute("SELECT date, adj_close, adj_volume FROM daily_prices WHERE ticker='FR1' ORDER BY 1")
+        assert [(d, float(a), float(v)) for d, a, v in cur.fetchall()] == [
+            (date(2026, 9, 11), 500.0, 1000.0),      # 시임 이전 불변
+            (date(2026, 9, 14), 8000.0, 125.0),      # 1000 × 8, volume / 8
+            (date(2026, 9, 15), 8000.0, 1000.0)]
+
+
+def test_full_refresh_ticker_failure_isolated(monkeypatch, db):
+    """한 종목 예외는 failures 기록 + rollback 후 다음 종목 계속. (종목 실패 시 conn.rollback() 이 테스트 시드까지
+    되돌리므로 시드는 commit 하고 finally 에서 정리 — 구 Naver 테스트와 같은 관례.)"""
+    from kr_pipeline.ohlcv import modes, adjust
+    _seed_prices(db, "FR2", [(date(2026, 9, 14), 100, 100.0)])
+    _seed_prices(db, "FR3", [(date(2026, 9, 14), 100, 100.0)])
+    db.commit()
+    orig = adjust.load_events
+    monkeypatch.setattr(adjust, "load_events", lambda conn, t: (_ for _ in ()).throw(RuntimeError("boom")) if t == "FR2" else orig(conn, t))
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+    try:
+        stats = modes._run_full_refresh(db, ["FR2", "FR3"], date(2026, 1, 1), date(2026, 9, 30), 1)
+        assert [t for t, _ in stats.failures] == ["FR2"] and stats.rows_affected == 1
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM daily_prices WHERE ticker IN ('FR2','FR3')")
+            cur.execute("DELETE FROM stocks WHERE ticker IN ('FR2','FR3')")
+        db.commit()

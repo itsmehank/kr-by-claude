@@ -279,64 +279,37 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
 
 
 def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.FULL_REFRESH) -> RunStats:
-    """수정 OHLCV(adj_close/adj_high/adj_low/adj_open/adj_volume) 갱신. 종목별 실패는 끝에서 1회 재시도."""
-    import time
-    from kr_pipeline.ohlcv.fetch import fetch_adj_only
-
-    empties: list[str] = []
-
-    def _process_ticker(ticker: str) -> int:
-        """한 종목의 수정 OHLCV(종가/고가/저가/시가/거래량)를 가져와 업데이트. 영향받은 행 수 반환."""
-        adj = fetch_adj_only(ticker, start, end)
-        if adj.empty:
-            # 성공도 실패도 아닌 소멸 금지 — 계정 후 skip (P1-5 B)
-            if ticker not in empties:
-                empties.append(ticker)
-            return 0
-        # 단일 chokepoint 경유 — adj-refresh 도 halt 정규화(adj_* NULL) 적용.
-        # fetch_adj_only 컬럼(open/high/low/close/volume = 수정값)을 adj_* 로 매핑 후 정규화.
-        adj = adj.rename(columns={"close": "adj_close", "high": "adj_high", "low": "adj_low",
-                                  "open": "adj_open", "volume": "adj_volume"})
-        adj = nullify_halt_adj(adj)
-
-        def _n(v):
-            return None if pd.isna(v) else float(v)
-        rows = [
-            (ticker, r["date"], _n(r["adj_close"]), _n(r["adj_high"]), _n(r["adj_low"]),
-             _n(r["adj_open"]), _n(r["adj_volume"]))
-            for _, r in adj.iterrows()
-        ]
-        affected = update_adj_prices(conn, rows)
-        conn.commit()
-        return affected
-
+    """#207 A안: 수정 OHLCV 전체 재유도 — **외부 접촉 0**. 종목별로 시임(adjust.ADJ_SELF_START) 이후 raw 행을
+    adj_* = raw × F(adj_factor_events) 로 다시 계산해 update_adj_prices(adj 컬럼만). 시임 이전 행(Naver 구정의 이력,
+    후행 이벤트 소급 포함)은 건드리지 않는다. start/end 인자는 창 상한만(시임 이전으로 내려가지 않음)."""
+    from_date = max(start, adjust.ADJ_SELF_START)
     rows_total = 0
     failures: list[tuple[str, str]] = []
     for i, ticker in enumerate(tickers, 1):
         try:
-            rows_total += _process_ticker(ticker)
-            time.sleep(0.1)
+            events = adjust.load_events(conn, ticker)
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT date, open, high, low, close, volume, value FROM daily_prices "
+                    "WHERE ticker = %s AND date BETWEEN %s AND %s ORDER BY date",
+                    (ticker, from_date, end))
+                raw = pd.DataFrame(cur.fetchall(), columns=["date", "open", "high", "low", "close", "volume", "value"])
+            if raw.empty:
+                continue
+            raw[["open", "high", "low", "close", "volume", "value"]] = raw[["open", "high", "low", "close", "volume", "value"]].astype(float)
+            merged = adjust.derive_adj(raw, events)
+
+            def _n(v):
+                return None if pd.isna(v) else float(v)
+            rows = [(ticker, r["date"], _n(r["adj_close"]), _n(r["adj_high"]), _n(r["adj_low"]),
+                     _n(r["adj_open"]), _n(r["adj_volume"])) for _, r in merged.iterrows()]
+            rows_total += update_adj_prices(conn, rows)
+            conn.commit()
         except Exception as e:
             failures.append((ticker, str(e)))
             conn.rollback()  # DB 측 예외의 aborted 트랜잭션이 후속 종목으로 연쇄되지 않게
         if i % 100 == 0:
             log.info(f"full-refresh progress: {i}/{len(tickers)} (failures so far: {len(failures)})")
 
-    # 1차 실패 재시도 (fetch_many_datewise 의 adj 재시도와 같은 패턴)
-    if failures:
-        log.warning(f"Retrying {len(failures)} failed tickers in full-refresh")
-        retry_failures: list[tuple[str, str]] = []
-        for ticker, _ in failures:
-            try:
-                rows_total += _process_ticker(ticker)
-                time.sleep(0.2)  # 살짝 더 긴 sleep 으로 부드럽게 재시도
-            except Exception as e:
-                retry_failures.append((ticker, str(e)))
-                conn.rollback()
-        failures = retry_failures
-        if failures:
-            log.warning(f"After retry, {len(failures)} tickers still failed")
-
-    warnings = _empty_fetch_warning(empties, len(tickers))
-    warnings.extend(_run_sanity_checks(conn, mode))
+    warnings = _run_sanity_checks(conn, mode)
     return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)

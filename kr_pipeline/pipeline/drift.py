@@ -1,35 +1,32 @@
-"""조정 드리프트(분할 등) 감지 + 단일종목 전 기간 재적재.
+"""조정 드리프트(분할 등) 감지 + 단일종목 재적재 — #207 A안(회신 15·16) 이후 **외부 접촉 0**.
 
-detect 는 ohlcv 증분 전에 실행해야 한다(증분이 adj_close 를 덮어쓰기 전 DB vs KRX 비교).
-스펙: docs/superpowers/specs/2026-06-04-pipeline-integration-drift-reload-design.md §2.
+구 설계(DB adj_close vs Naver 재조회 비교·Naver 전 기간 재수신)는 Naver 원천 자격 상실(#207)로 제거.
+현 설계: 조정일 = daily_prices.change_pct(KRX 등락률) 기반 판정(adjust.is_adjustment). 증분 적재(ohlcv._run_upsert)가
+조정일을 기록·소급하므로 여기의 detect 는 **안전망**(창 안 미기록 조정일 스캔, DB 전용)이고 reload 는 미기록
+이벤트 기록·소급 후 지표 재계산이다. 스펙: docs/superpowers/specs/2026-06-04-pipeline-integration-drift-reload-design.md §2(구),
+#207 회신 15·16(현).
 """
 from __future__ import annotations
 import logging
-import time
 from datetime import date, timedelta
 
-import pandas as pd
 from psycopg import Connection
 
-from kr_pipeline.ohlcv.fetch import fetch_adj_only
-from kr_pipeline.ohlcv.store import update_adj_prices
-from kr_pipeline.ohlcv.transform import nullify_halt_adj
-from kr_pipeline.weekly.load import get_daily_min_date
+from kr_pipeline.ohlcv import adjust
 from kr_pipeline.weekly import modes as weekly
 from kr_pipeline.indicators import modes as indicators
 
 log = logging.getLogger("kr_pipeline.pipeline.drift")
 
-# 수정주가를 바꾸는 corporate action 유형 (현금배당 제외 — 수정주가 무관).
-# 목록이 넉넉해도 안전: 실제 재적재 판정은 is_drift(가격 대조)가 한다.
+# 수정주가를 바꾸는 corporate action 유형 (현금배당 제외 — 수정주가 무관). recent_corp_action_tickers 참조용.
 ADJ_AFFECTING_EVENT_TYPES = (
     "stock_split", "reverse_split", "bonus_issue", "rights_offering",
     "merger", "spinoff", "capital_reduction",
 )
 
-CA_LOOKBACK_DAYS = 90   # 평일 후보: 최근 N일 공시. 결정→권리락 간격(수 주) 흡수.
-SWEEP_RECENT_DAYS = 90  # 토요일 스윕 비교창. ohlcv window_days(30)보다 커야
-                        # 증분이 덮은 최근 구간 너머 옛 구간에서 놓친 split 을 잡는다.
+CA_LOOKBACK_DAYS = 90   # (참조) 공시 후보 창 — A안 이후 detect 는 후보 없이 전 종목 DB 스캔(접촉 0).
+SWEEP_RECENT_DAYS = 90  # 토요일 스윕 비교창. ohlcv window_days(30)보다 커야 증분 창 너머 옛 구간의 미기록 조정을 잡는다.
+RELOAD_LOOKBACK_DAYS = 365   # reload 시 미기록 이벤트 탐색 창
 
 
 def recent_corp_action_tickers(conn: Connection, *, as_of: date, lookback_days: int) -> list[str]:
@@ -51,106 +48,56 @@ def recent_corp_action_tickers(conn: Connection, *, as_of: date, lookback_days: 
         return [r[0] for r in cur.fetchall()]
 
 
-def is_drift(
-    db_adj: dict[date, float],
-    krx_adj: dict[date, float],
-    rel_tol: float,
-) -> bool:
-    """DB 저장 adj_close vs KRX 재조회 adj_close 비교.
-
-    겹치는 날짜(둘 다 존재)에서 상대차 |db-krx|/|krx| 가 rel_tol 초과면 True.
-    겹침이 없으면 False(호출부가 기간 확대를 책임진다).
-    """
-    overlap = db_adj.keys() & krx_adj.keys()
-    for d in overlap:
-        k = krx_adj[d]
-        if k == 0:
-            continue
-        if abs(db_adj[d] - k) / abs(k) > rel_tol:
-            return True
-    return False
-
-
 def _active_tickers(conn: Connection, limit: int | None = None) -> list[str]:
-    sql = "SELECT ticker FROM stocks WHERE delisted_at IS NULL ORDER BY ticker"
-    if limit:
-        sql += f" LIMIT {int(limit)}"
     with conn.cursor() as cur:
-        cur.execute(sql)
+        cur.execute("SELECT ticker FROM stocks WHERE delisted_at IS NULL ORDER BY ticker" + (f" LIMIT {int(limit)}" if limit else ""))
         return [r[0] for r in cur.fetchall()]
 
 
-def _db_adj_close(conn: Connection, ticker: str, start: date, end: date) -> dict[date, float]:
+def _window_has_change_pct(conn: Connection, ticker: str, start: date, end: date) -> bool:
     with conn.cursor() as cur:
-        cur.execute(
-            "SELECT date, adj_close FROM daily_prices "
-            "WHERE ticker = %s AND date BETWEEN %s AND %s AND adj_close IS NOT NULL",
-            (ticker, start, end),
-        )
-        return {r[0]: float(r[1]) for r in cur.fetchall()}
+        cur.execute("SELECT 1 FROM daily_prices WHERE ticker = %s AND date BETWEEN %s AND %s AND change_pct IS NOT NULL LIMIT 1",
+                    (ticker, start, end))
+        return cur.fetchone() is not None
 
 
-def _krx_adj_close(ticker: str, start: date, end: date) -> dict[date, float]:
-    df = fetch_adj_only(ticker, start, end)
-    if df.empty:
-        return {}
-    # fetch_adj_only 의 'close' 가 수정종가, 'date' 는 datetime.date 컬럼
-    return {row.date: float(row.close) for row in df.itertuples(index=False)}
+def _unrecorded_events(conn: Connection, ticker: str, *, since: date) -> list[tuple[date, float]]:
+    recorded = {d for d, _ in adjust.load_events(conn, ticker)}
+    return [(d, c) for d, c in adjust.detect_events(conn, ticker, since=since) if d not in recorded]
 
 
 def detect_drifted_tickers(
     conn: Connection,
     *,
     as_of: date,
-    rel_tol: float = 0.01,
     recent_days: int = 30,
-    wide_days: int = 365,
     tickers: list[str] | None = None,
     limit_tickers: int | None = None,
     unverified_out: list[str] | None = None,
-    sleep_s: float = 0.1,
+    **_legacy,   # rel_tol·wide_days·sleep_s(구 Naver 비교 인자) — 무시
 ) -> list[str]:
-    """활성 종목별 DB(현재, 덮어쓰기 전) vs KRX 재조회 adj_close 비교 → 드리프트 종목.
+    """창(as_of−recent_days..as_of) 안에 change_pct 기반 조정일이 있는데 adj_factor_events 에 없는 종목(DB 전용, 접촉 0).
 
-    tickers=None 이면 활성 전 종목(전체스윕). tickers 가 리스트면 그 목록만 검사
-    (빈 리스트 = 검사 0건, 전 종목 아님). 반드시 ohlcv 증분 적재 전에 호출.
-
-    unverified_out (P1-5 C): '검증 못 함' 을 '이상 없음' 과 구분하는 계정 —
-    wide 확대 후에도 비교 겹침이 없거나(KRX 빈 응답 등) 재시도 소진 예외로
-    skip 된 종목을 담는다. 기존엔 둘 다 조용히 False(드리프트 없음) 취급이라
-    놓친 split 이 무경고 통과했다. None 이면 기존 반환 계약 그대로(비파괴).
-
-    sleep_s: 종목 간 대기 — 전체스윕(~2,550종목)이 무-sleep 직렬 호출로 스스로
-    throttle 을 유발하지 않게. _run_full_refresh 의 0.1s 선례. 테스트는 0.
+    tickers=None 이면 활성 전 종목. unverified_out: 창 안 행에 change_pct 가 하나도 없어 판정 못 한 종목
+    ('이상 없음' 아님 — 등락률 미수집 구간).
     """
-    if tickers is None:
-        scan = _active_tickers(conn, limit=limit_tickers)
-    else:
-        scan = list(tickers[:limit_tickers]) if limit_tickers else list(tickers)
+    scan = _active_tickers(conn, limit=limit_tickers) if tickers is None else \
+        (list(tickers[:limit_tickers]) if limit_tickers else list(tickers))
+    since = as_of - timedelta(days=recent_days)
     drifted: list[str] = []
     unverified: list[str] = []
     for t in scan:
         try:
-            recent_start = as_of - timedelta(days=recent_days)
-            db = _db_adj_close(conn, t, recent_start, as_of)
-            krx = _krx_adj_close(t, recent_start, as_of)
-            if not (db.keys() & krx.keys()):
-                wide_start = as_of - timedelta(days=wide_days)
-                db = _db_adj_close(conn, t, wide_start, as_of)
-                krx = _krx_adj_close(t, wide_start, as_of)
-            if not (db.keys() & krx.keys()):
+            if not _window_has_change_pct(conn, t, since, as_of):
                 unverified.append(t)
-            elif is_drift(db, krx, rel_tol):
+                continue
+            if _unrecorded_events(conn, t, since=since):
                 drifted.append(t)
         except Exception as e:  # noqa: BLE001 — 종목 단위 격리
             unverified.append(t)
             log.warning("drift detect skip %s: %s", t, e)
-        finally:
-            if sleep_s:
-                time.sleep(sleep_s)
     if unverified:
-        log.warning("drift unverified: %d tickers (빈 재조회/예외 — '이상 없음' 아님) %s",
-                    len(unverified), unverified[:20])
+        log.warning("drift unverified: %d tickers (등락률 미수집/예외 — '이상 없음' 아님) %s", len(unverified), unverified[:20])
     if unverified_out is not None:
         unverified_out.extend(unverified)
     log.info("drift detected: %d tickers %s", len(drifted), drifted[:20])
@@ -158,36 +105,18 @@ def detect_drifted_tickers(
 
 
 def reload_ticker(conn: Connection, ticker: str, *, as_of: date) -> dict:
-    """드리프트 종목 전 기간 재적재.
-
-    1) daily adj 재수신(fetch_adj_only) → update_adj_prices(매칭 행 adj_* 만 갱신, raw 불변)
-    2) daily 시계열 지표 Phase A 전 기간 재계산
-    3) 주봉 가격 재집계(weekly.run FULL_REFRESH, 그 종목만)
-    4) 주봉 시계열 지표 Phase A 전 기간 재계산
-    횡단면 RS 순위는 체인의 전 종목 증분/주간 실행이 최신값 확정.
-
-    단계별 commit 이므로 3)~4) 에서 실패하면 daily 는 갱신·weekly 는 stale 인
-    부분 상태가 남을 수 있다(다음 전체/주간 실행이 복구). 호출부(run_daily_chain)는
-    종목 단위로 예외를 격리한다.
+    """단일 종목 재적재(접촉 0): 미기록 조정일 기록 + 이력 소급(adjust.apply_event) → daily Phase A 재계산 →
+    주봉 가격 재집계(weekly FULL_REFRESH, 그 종목만) → weekly Phase A 재계산. 횡단면 RS 는 체인의 전 종목 실행이 확정.
+    멱등: 이미 기록된 이벤트는 다시 적용하지 않는다. 단계별 commit(부분 상태는 다음 실행이 복구), 호출부가 종목 단위 격리.
     """
-    start = get_daily_min_date(conn) or (as_of - timedelta(days=365 * 5))
-    df = fetch_adj_only(ticker, start, as_of)
-    # 단일 chokepoint 경유 — adj-refresh(_run_full_refresh._process_ticker) 와 동일하게
-    # 거래정지일 adj_* 를 NULL 화. fetch_adj_only 컬럼(open/high/low/close/volume=수정값)을
-    # adj_* 로 매핑 후 nullify_halt_adj. 이를 빠뜨리면 halt 행이 0 으로 적재돼 w52_low=0 재오염.
-    if not df.empty:
-        df = df.rename(columns={"close": "adj_close", "high": "adj_high", "low": "adj_low",
-                                "open": "adj_open", "volume": "adj_volume"})
-        df = nullify_halt_adj(df)
-
-    def _n(v):
-        return None if pd.isna(v) else float(v)
-    rows = [
-        (ticker, r["date"], _n(r["adj_close"]), _n(r["adj_high"]), _n(r["adj_low"]),
-         _n(r["adj_open"]), _n(r["adj_volume"]))
-        for _, r in df.iterrows()
-    ]
-    updated = update_adj_prices(conn, rows) if rows else 0
+    events = _unrecorded_events(conn, ticker, since=as_of - timedelta(days=RELOAD_LOOKBACK_DAYS))
+    applied = 0
+    for d, c in events:
+        applied += adjust.apply_event(conn, ticker, d, c)
+    if events:
+        adjust.record_events(conn, ticker, events)
+        log.info("reload %s: adjustment events %s, rows rescaled %d", ticker, [(str(d), round(c, 6)) for d, c in events], applied)
+    conn.commit()
 
     r_ind_d = indicators.recompute_ticker_daily(conn, ticker)
     r_wk = weekly.run(conn, weekly.Mode.FULL_REFRESH, only_tickers=[ticker])
@@ -195,7 +124,8 @@ def reload_ticker(conn: Connection, ticker: str, *, as_of: date) -> dict:
 
     return {
         "ticker": ticker,
-        "adj_rows": updated,
+        "adj_events": len(events),
+        "adj_rows": applied,
         "indicators_daily": r_ind_d,
         "weekly": r_wk.rows_affected,
         "indicators_weekly": r_ind_w,

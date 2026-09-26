@@ -3,9 +3,10 @@ import contextlib
 
 
 class _Stats:
-    def __init__(self):
+    def __init__(self, adjusted=()):
         self.rows_affected = 0
         self.failures = []
+        self.adjusted_tickers = list(adjusted)   # #207: ohlcv 증분이 기록·소급한 조정 종목
 
 
 def _fake_run_tracking(mocker, ch):
@@ -29,7 +30,7 @@ def test_run_daily_chain_calls_ohlcv_then_indicators_in_order(mocker):
     mocker.patch.object(ch.ohlcv, "run", side_effect=lambda *a, **k: calls.append("ohlcv") or _Stats())
     mocker.patch.object(ch.indicators, "run_daily", side_effect=lambda *a, **k: calls.append("ind_daily") or _Stats())
     ch.run_daily_chain(conn=None, drift_check=False)
-    assert calls == ["ohlcv", "ind_daily"]
+    assert calls == ["ohlcv", "ind_daily"]      # drift_check=False: 안전망 스캔 생략(증분의 adjusted_tickers 는 그래도 reload)
     assert fake.kwargs["pipeline"] == "data_daily"
     assert state["details"] == {
         "drift": {"detected": 0, "reloaded": 0, "failures": 0, "tickers": [], "unverified": 0},
@@ -59,24 +60,23 @@ def test_run_weekly_chain_calls_weekly_then_indicators_in_order(mocker):
     }
 
 
-def test_run_daily_chain_detects_before_ohlcv_then_reloads(mocker):
-    """순서: detect(증분 전) → ohlcv 증분 → reload(감지분) → indicators 증분."""
+def test_run_daily_chain_ohlcv_then_detect_then_reloads(mocker):
+    """#207 A안 순서: ohlcv 증분(조정일 기록·소급) → detect(DB 창 안전망, 접촉 0) → reload(합집합) → indicators 증분."""
     import kr_pipeline.pipeline.chains as ch
 
     state, fake = _fake_run_tracking(mocker, ch)
     calls = []
-    mocker.patch.object(ch.drift, "recent_corp_action_tickers", return_value=["AAA"])
     mocker.patch.object(ch.drift, "detect_drifted_tickers",
-                        side_effect=lambda *a, **k: calls.append("detect") or ["AAA"])
+                        side_effect=lambda *a, **k: calls.append("detect") or ["BBB"])
     mocker.patch.object(ch.drift, "reload_ticker",
-                        side_effect=lambda *a, **k: calls.append("reload") or {"ticker": "AAA"})
-    mocker.patch.object(ch.ohlcv, "run", side_effect=lambda *a, **k: calls.append("ohlcv") or _Stats())
+                        side_effect=lambda conn, t, **k: calls.append(("reload", t)) or {"ticker": t})
+    mocker.patch.object(ch.ohlcv, "run", side_effect=lambda *a, **k: calls.append("ohlcv") or _Stats(adjusted=["AAA"]))
     mocker.patch.object(ch.indicators, "run_daily", side_effect=lambda *a, **k: calls.append("ind_daily") or _Stats())
 
     ch.run_daily_chain(conn=None)
-    assert calls == ["detect", "ohlcv", "reload", "ind_daily"]
-    assert state["details"]["drift"]["detected"] == 1
-    assert state["details"]["drift"]["reloaded"] == 1
+    assert calls == ["ohlcv", "detect", ("reload", "AAA"), ("reload", "BBB"), "ind_daily"]
+    assert state["details"]["drift"]["detected"] == 2 and state["details"]["drift"]["reloaded"] == 2
+    assert state["details"]["drift"]["tickers"] == ["AAA", "BBB"]
 
 
 def test_run_daily_chain_drift_false_skips_detect(mocker):
@@ -90,7 +90,7 @@ def test_run_daily_chain_drift_false_skips_detect(mocker):
     mocker.patch.object(ch.indicators, "run_daily", side_effect=lambda *a, **k: calls.append("ind_daily") or _Stats())
 
     ch.run_daily_chain(conn=None, drift_check=False)
-    assert calls == ["ohlcv", "ind_daily"]
+    assert calls == ["ohlcv", "ind_daily"]      # drift_check=False: 안전망 스캔 생략(증분의 adjusted_tickers 는 그래도 reload)
 
 
 def test_run_daily_chain_reload_failure_isolated(mocker):
@@ -99,7 +99,6 @@ def test_run_daily_chain_reload_failure_isolated(mocker):
 
     state, fake = _fake_run_tracking(mocker, ch)
     calls = []
-    mocker.patch.object(ch.drift, "recent_corp_action_tickers", return_value=["AAA", "BBB"])
     mocker.patch.object(ch.drift, "detect_drifted_tickers", side_effect=lambda *a, **k: ["AAA", "BBB"])
     def boom(conn, t, **k):
         if t == "AAA":
@@ -116,18 +115,17 @@ def test_run_daily_chain_reload_failure_isolated(mocker):
     rb.assert_called_once()
 
 
-def test_run_daily_chain_passes_corp_action_candidates(mocker):
-    """detect 가 recent_corp_action_tickers 의 후보 목록을 tickers 로 받아 호출된다."""
+def test_run_daily_chain_detect_scans_all_active_without_candidates(mocker):
+    """detect 는 공시 후보 목록 없이(접촉 0 이므로) 활성 전 종목 창을 스캔 — tickers 인자 없음."""
     import kr_pipeline.pipeline.chains as ch
 
     state, fake = _fake_run_tracking(mocker, ch)
-    mocker.patch.object(ch.drift, "recent_corp_action_tickers", return_value=["AAA", "BBB"])
     det = mocker.patch.object(ch.drift, "detect_drifted_tickers", return_value=[])
     mocker.patch.object(ch.ohlcv, "run", side_effect=lambda *a, **k: _Stats())
     mocker.patch.object(ch.indicators, "run_daily", side_effect=lambda *a, **k: _Stats())
 
     ch.run_daily_chain(conn=None)
-    assert det.call_args.kwargs["tickers"] == ["AAA", "BBB"]
+    assert "tickers" not in det.call_args.kwargs and det.call_args.kwargs["as_of"] is not None
 
 
 def test_run_weekly_chain_full_sweep_reloads_before_weekly(mocker):
