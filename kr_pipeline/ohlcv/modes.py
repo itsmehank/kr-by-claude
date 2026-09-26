@@ -7,9 +7,10 @@ import pandas as pd
 from psycopg import Connection
 
 from kr_pipeline.db.runs import run_tracking
-from kr_pipeline.ohlcv.fetch import fetch_many_datewise, fetch_index
+from kr_pipeline.ohlcv import adjust
+from kr_pipeline.ohlcv.fetch import fetch_raw_datewise, fetch_index
 from kr_pipeline.ohlcv.transform import (
-    merge_raw_and_adjusted, to_price_rows, to_index_rows, nullify_halt_adj,
+    to_price_rows, to_index_rows, nullify_halt_adj,
 )
 from kr_pipeline.ohlcv.store import upsert_daily_prices, update_adj_prices, upsert_index_daily
 
@@ -69,6 +70,7 @@ class RunStats:
     rows_affected: int
     failures: list[tuple[str, str]]
     warnings: list[str] = field(default_factory=list)
+    adjusted_tickers: list[str] = field(default_factory=list)   # #207: 이번 run 에서 신규 조정일이 기록·소급된 종목
 
 
 # [design judgment] 빈 응답 경고 강화 임계 — book 근거 아님. KRX throttling 은
@@ -219,24 +221,33 @@ def run(
 
 
 def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
-    successes, failures = fetch_many_datewise(tickers, start, end, max_workers=max_workers)
+    """#207 A안: raw(KRX) 만 수집, 수정 OHLCV 는 자체 계수(adjust)로 산출 — Naver 접촉 0.
+    종목별: 알려진 이벤트 + 배치에서 검출한 신규 조정일 → 배치 행 adj = raw × F(t) → upsert(시임 이전 행 adj 보존)
+    → 신규 조정일은 배치 이전 이력에 소급(apply_event) + 기록(record_events) → adjusted_tickers 로 보고(지표 재계산은 체인)."""
+    successes, failures = fetch_raw_datewise(tickers, start, end)
     rows_total = 0
     empties: list[str] = []
-    adj_empties: list[str] = []
-    for ticker, (raw, adj) in successes.items():
+    adjusted: list[str] = []
+    for ticker, raw in successes.items():
         if raw.empty:
             # 성공도 실패도 아닌 소멸 금지 — 계정 후 skip (P1-5 B)
             empties.append(ticker)
             continue
-        if adj.empty:
-            # #95 설계: 빈 adj(재시도 후에도)는 적재 통째 보류 — raw fallback 으로
-            # 적재하면 upsert 의 ON CONFLICT 가 기존 올바른 adj 30일 창을 raw 로
-            # 덮어쓴다(조용한 오염). 기존 행 불변, 다음 run 창 재수집이 자연 보충.
-            adj_empties.append(ticker)
-            continue
-        merged = merge_raw_and_adjusted(raw, adj)
+        raw = raw.sort_values("date").reset_index(drop=True)
+        batch_start = raw["date"].min()
+        known = adjust.load_events(conn, ticker)
+        known_dates = {d for d, _ in known}
+        prev_close = adjust.last_close_before(conn, ticker, batch_start)
+        new_events = [(d, c) for d, c in adjust.events_in_frame(raw, prev_close=prev_close) if d not in known_dates]
+        merged = adjust.derive_adj(raw, known + new_events)
         rows = to_price_rows(ticker, merged)
-        rows_total += upsert_daily_prices(conn, rows)
+        rows_total += upsert_daily_prices(conn, rows, adj_from=adjust.ADJ_SELF_START)
+        for d, c in new_events:
+            adjust.apply_event(conn, ticker, d, c, until=batch_start)
+        if new_events:
+            adjust.record_events(conn, ticker, new_events)
+            adjusted.append(ticker)
+            log.info("adjustment events %s: %s", ticker, [(str(d), round(c, 6)) for d, c in new_events])
         conn.commit()
 
     # 지수
@@ -251,11 +262,6 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
         conn.commit()
 
     warnings = _empty_fetch_warning(empties, len(tickers))
-    if adj_empties:
-        warnings.append(
-            f"adj_empty_fetch: {len(adj_empties)}종목 적재 보류 {adj_empties[:20]} — "
-            f"재시도 후에도 adj(Naver) 빈 응답, 기존 행 불변·다음 run 자연 보충"
-        )
     # 스냅샷 결측 날짜 승격 (#94 리뷰) — 창 중간 하루 차단/실패는 어떤 종목도
     # raw.empty 로 만들지 않아 empty_fetch 가 못 잡는다. failures 는 run warnings
     # 에 영속되지 않으므로(run_tracking 은 warnings 만 기록) 여기서 승격한다.
@@ -269,7 +275,7 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
     if empty_indexes:
         warnings.append(f"empty_index_fetch: 지수 {empty_indexes} 빈 응답")
     warnings.extend(_run_sanity_checks(conn, mode))
-    return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)
+    return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings, adjusted_tickers=adjusted)
 
 
 def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.FULL_REFRESH) -> RunStats:

@@ -2,6 +2,7 @@ from datetime import date
 from datetime import date as date_cls
 from freezegun import freeze_time
 import pandas as pd
+import pytest
 
 from kr_pipeline.ohlcv.modes import compute_date_range, Mode
 
@@ -237,8 +238,8 @@ def test_run_upsert_accounts_empty_fetches(monkeypatch, db):
 
     empty = pd.DataFrame()
     monkeypatch.setattr(
-        modes, "fetch_many_datewise",
-        lambda tickers, s, e, max_workers: ({t: (empty, empty) for t in tickers}, []),
+        modes, "fetch_raw_datewise",
+        lambda tickers, s, e: ({t: empty for t in tickers}, []),
     )
     monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
     monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
@@ -259,7 +260,7 @@ def test_run_upsert_no_empty_no_warning(monkeypatch, db):
     """빈 응답 0건이면 empty_fetch 경고 없음 (기존 동작 보존)."""
     from kr_pipeline.ohlcv import modes
 
-    monkeypatch.setattr(modes, "fetch_many_datewise", lambda tickers, s, e, max_workers: ({}, []))
+    monkeypatch.setattr(modes, "fetch_raw_datewise", lambda tickers, s, e: ({}, []))
     monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
     monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
 
@@ -276,10 +277,8 @@ def test_run_upsert_snapshot_gap_promoted_to_warning(monkeypatch, db):
     from kr_pipeline.ohlcv import modes
 
     monkeypatch.setattr(
-        modes, "fetch_many_datewise",
-        lambda tickers, s, e, max_workers: (
-            {}, [("snapshot:2026-07-02", "blocked/empty response")],
-        ),
+        modes, "fetch_raw_datewise",
+        lambda tickers, s, e: ({}, [("snapshot:2026-07-02", "blocked/empty response")]),
     )
     monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
     monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
@@ -302,13 +301,9 @@ def test_run_upsert_datewise_halt_row_nullifies_adj(monkeypatch, db):
         "date": [date(2026, 7, 2)], "open": [0], "high": [0], "low": [0],
         "close": [5000], "volume": [0], "value": [0],
     })
-    adj = pd.DataFrame({
-        "date": [date(2026, 7, 2)], "open": [0.0], "high": [0.0], "low": [0.0],
-        "close": [5000.0], "volume": [0.0], "value": [0.0],
-    })
     monkeypatch.setattr(
-        modes, "fetch_many_datewise",
-        lambda tickers, s, e, max_workers: ({"HLT": (raw, adj)}, []),
+        modes, "fetch_raw_datewise",
+        lambda tickers, s, e: ({"HLT": raw}, []),
     )
     monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
     monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
@@ -483,59 +478,62 @@ def test_sanity_checks_adj_invariant_recent_emphasis(db, monkeypatch):
         db.commit()
 
 
-def test_run_upsert_empty_adj_held_with_warning_others_proceed(monkeypatch, db):
-    """adj 빈 응답 종목은 적재 통째 보류 + adj_empty_fetch 경고, 다른 종목은 정상 적재 (#95 설계 변경).
+# (#207 A안) test_run_upsert_empty_adj_held_with_warning_others_proceed 삭제 — Naver adj 경로 자체가 제거돼
+#   '빈 adj 보류' 동작이 존재하지 않는다(raw 만 수집, adj = raw × F). 보류 설계(#95)는 레거시 fetch_many_datewise 에만 남음.
 
-    구 설계(raw fallback 적재)는 upsert 의 ON CONFLICT 가 adj_* 를 무조건 교체해
-    기존 올바른 adj 30일 창을 raw 로 덮어쓸 수 있었다(리뷰 major). 보류 설계는
-    기존 행을 건드리지 않고 다음 run 의 창 재수집이 자연 보충한다.
-    """
+
+def _seed_prices(db, ticker, rows):
+    """rows = [(date, close, adj_close)] — raw=close, change_pct NULL(시임 이전 Naver 이력 흉내)."""
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s, 'A', 'KOSPI') ON CONFLICT DO NOTHING", (ticker,))
+        for d, c, a in rows:
+            cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1000, 1000, 1)", (ticker, d, c, c, c, c, a, a, a, a))
+
+
+def test_run_upsert_derives_adj_from_events_and_records_new_event(monkeypatch, db):
+    """증분 배치(raw+change_pct)에서 조정일(×8) 검출 → 배치 행 adj = raw×F, 이전 이력 소급 ×8, 이벤트 기록,
+    stats.adjusted_tickers 에 종목. Naver 호출 없음."""
     from kr_pipeline.ohlcv import modes
-
-    def _raw(close):
-        return pd.DataFrame({
-            "date": [date(2026, 7, 2)], "open": [close - 100], "high": [close + 100],
-            "low": [close - 200], "close": [close], "volume": [1000], "value": [close * 1000],
-        })
-
-    adj_ok = pd.DataFrame({
-        "date": [date(2026, 7, 2)], "open": [450.0], "high": [550.0],
-        "low": [350.0], "close": [500.0], "volume": [2000.0],
+    _seed_prices(db, "EVT", [(date(2026, 9, 21), 10000, 10000.0)])
+    raw = pd.DataFrame({
+        "date": [date(2026, 9, 22), date(2026, 9, 23), date(2026, 9, 24)],
+        "open": [10100, 80000, 81000], "high": [10200, 81000, 82000], "low": [10000, 79000, 80000],
+        "close": [10200, 80800, 81600], "volume": [1000, 100, 120], "value": [1, 1, 1],
+        "change_pct": [2.0, 0.0, 0.99],   # 09-23: 10,200→80,800 with r=0 → 기준가 80,800 ≠ 10,200 → coef 7.9216
     })
-    # 빈-adj 종목을 dict 앞에 둬서, 격리 실패 시 뒤 종목 적재가 확실히 막히게 한다.
-    monkeypatch.setattr(
-        modes, "fetch_many_datewise",
-        lambda tickers, s, e, max_workers: (
-            {"EAJ": (_raw(7000), pd.DataFrame()), "OKJ": (_raw(1000), adj_ok)}, [],
-        ),
-    )
+    monkeypatch.setattr(modes, "fetch_raw_datewise", lambda tickers, s, e: ({"EVT": raw}, []))
     monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
     monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+    stats = modes._run_upsert(db, ["EVT"], date(2026, 9, 22), date(2026, 9, 24), 2, modes.Mode.INCREMENTAL)
+    assert stats.adjusted_tickers == ["EVT"]
+    with db.cursor() as cur:
+        cur.execute("SELECT date, close, adj_close, adj_volume FROM daily_prices WHERE ticker='EVT' ORDER BY 1")
+        rows = [(d, float(c), round(float(a), 1), round(float(v), 2)) for d, c, a, v in cur.fetchall()]
+    coef = 80800 / 10200
+    assert rows == [(date(2026, 9, 21), 10000.0, round(10000 * coef, 1), round(1000 / coef, 2)),   # 이력 소급
+                    (date(2026, 9, 22), 10200.0, round(10200 * coef, 1), round(1000 / coef, 2)),   # 배치, 조정일 전
+                    (date(2026, 9, 23), 80800.0, 80800.0, 100.0), (date(2026, 9, 24), 81600.0, 81600.0, 120.0)]
+    with db.cursor() as cur:
+        cur.execute("SELECT date, coef FROM adj_factor_events WHERE ticker='EVT'")
+        (d, c), = cur.fetchall(); assert d == date(2026, 9, 23) and float(c) == pytest.approx(coef, rel=1e-6)
 
-    try:
-        with db.cursor() as cur:
-            cur.execute(
-                "INSERT INTO stocks (ticker, name, market) VALUES "
-                "('EAJ', '빈수정주', 'KOSPI'), ('OKJ', '정상주', 'KOSPI') "
-                "ON CONFLICT (ticker) DO NOTHING")
-            db.commit()
 
-        stats = modes._run_upsert(
-            db, ["EAJ", "OKJ"], date(2026, 7, 1), date(2026, 7, 7), 2, modes.Mode.INCREMENTAL)
-
-        with db.cursor() as cur:
-            cur.execute(
-                "SELECT ticker, close, adj_close FROM daily_prices "
-                "WHERE ticker IN ('EAJ', 'OKJ') AND date='2026-07-02' ORDER BY ticker")
-            rows = cur.fetchall()
-        # 보류: EAJ 는 적재되지 않는다 (기존 행도 없으므로 0행) — OKJ 만 적재
-        assert rows == [("OKJ", 1000, 500.0)], f"보류/적재 판정 오류: {rows}"
-        joined = " ".join(stats.warnings)
-        assert "adj_empty_fetch" in joined and "EAJ" in joined
-        # 정상 종목은 경고 목록에 없어야 한다
-        assert "OKJ" not in joined
-    finally:
-        with db.cursor() as cur:
-            cur.execute("DELETE FROM daily_prices WHERE ticker IN ('EAJ','OKJ')")
-            cur.execute("DELETE FROM stocks WHERE ticker IN ('EAJ','OKJ')")
-        db.commit()
+def test_run_upsert_preserves_pre_seam_adj(monkeypatch, db):
+    """ADJ_SELF_START(2026-09-14) 이전 행은 Naver 구정의 이력이 정본 — 재적재가 raw 컬럼만 갱신하고 adj_* 보존."""
+    from kr_pipeline.ohlcv import modes
+    from kr_pipeline.ohlcv.adjust import ADJ_SELF_START
+    _seed_prices(db, "SEAM", [(date(2026, 9, 11), 1000, 500.0)])          # Naver 이력: adj 500(후행 분할 반영)
+    raw = pd.DataFrame({"date": [date(2026, 9, 11), ADJ_SELF_START], "open": [1000, 1010], "high": [1000, 1010],
+                        "low": [1000, 1010], "close": [1001, 1010], "volume": [1000, 1000], "value": [1, 1],
+                        "change_pct": [0.1, 0.9]})
+    monkeypatch.setattr(modes, "fetch_raw_datewise", lambda tickers, s, e: ({"SEAM": raw}, []))
+    monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+    stats = modes._run_upsert(db, ["SEAM"], date(2026, 9, 11), ADJ_SELF_START, 2, modes.Mode.INCREMENTAL)
+    assert stats.adjusted_tickers == []
+    with db.cursor() as cur:
+        cur.execute("SELECT date, close, adj_close FROM daily_prices WHERE ticker='SEAM' ORDER BY 1")
+        assert [(d, float(c), float(a)) for d, c, a in cur.fetchall()] == [
+            (date(2026, 9, 11), 1001.0, 500.0),      # raw 갱신·adj 보존
+            (ADJ_SELF_START, 1010.0, 1010.0)]        # 시임 이후 신규: adj = raw × F(=1)

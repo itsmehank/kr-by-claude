@@ -189,3 +189,17 @@ def test_update_change_pct_dedupes_duplicate_keys(db):
     upsert_daily_prices(db, [("005930", date(2026, 9, 14), 100, 110, 90, 105, 105.0, 110.0, 90.0, 100.0, 1000.0, 1000, 105000)])
     n = update_change_pct(db, [("005930", date(2026, 9, 14), -1.25), ("005930", date(2026, 9, 14), -1.25)])
     assert n == 1
+
+
+def test_upsert_adj_from_preserves_adj_before_date(db):
+    """#207: adj_from 이전 날짜 행은 충돌 시 raw 만 갱신(adj_* 보존), 이후 행은 adj 도 갱신."""
+    _seed_stock(db)
+    base = ("005930", date(2026, 9, 11), 100, 110, 90, 105, 50.0, 55.0, 45.0, 50.0, 2000.0, 1000, 105000, None)
+    upsert_daily_prices(db, [base, base[:1] + (date(2026, 9, 14),) + base[2:]])
+    upd = ("005930", date(2026, 9, 11), 100, 110, 90, 106, 106.0, 110.0, 90.0, 100.0, 1000.0, 1000, 106000, 1.0)
+    upd2 = upd[:1] + (date(2026, 9, 14),) + upd[2:]
+    upsert_daily_prices(db, [upd, upd2], adj_from=date(2026, 9, 14))
+    with db.cursor() as cur:
+        cur.execute("SELECT date, close, adj_close, adj_volume FROM daily_prices WHERE ticker='005930' ORDER BY 1")
+        assert [(d, c, float(a), float(v)) for d, c, a, v in cur.fetchall()] == [
+            (date(2026, 9, 11), 106, 50.0, 2000.0), (date(2026, 9, 14), 106, 106.0, 1000.0)]

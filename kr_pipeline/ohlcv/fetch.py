@@ -163,20 +163,20 @@ def fetch_market_snapshot(d: date, market: str = "ALL") -> pd.DataFrame:
     return df[SNAPSHOT_COLUMNS]
 
 
-def fetch_many_datewise(
-    tickers: list[str],
-    start: date,
-    end: date,
-    *,
-    max_workers: int = 3,
-) -> tuple[dict[str, tuple[pd.DataFrame, pd.DataFrame]], list[tuple[str, str]]]:
-    """날짜별 전종목 스냅샷으로 raw 를 조립하고 종목별 Naver adj 를 붙인다 (#94).
+def fetch_raw_datewise(
+    tickers: list[str], start: date, end: date,
+) -> tuple[dict[str, pd.DataFrame], list[tuple[str, str]]]:
+    """#207 A안 라이브 경로: 날짜별 전종목 스냅샷으로 raw(OHLCV + change_pct)만 조립 — **Naver 접촉 0**.
+    수정 OHLCV 는 호출자가 adjust.derive_adj(raw × F) 로 산출한다.
+    반환 ({ticker: raw}, [(식별자, 오류)]); raw 미출현 종목도 빈 raw 로 남아 P1-5 empty 계정이 잡는다."""
+    raw_by_ticker, failures = _assemble_raw_datewise(tickers, start, end)
+    empty_cols = [c for c in SNAPSHOT_COLUMNS if c != "ticker"]
+    return {t: raw_by_ticker.get(t, pd.DataFrame(columns=empty_cols)) for t in tickers}, failures
 
-    KRX 접촉 = 평일 수 × 1요청(전종목시세 — 주말은 달력으로 skip). 종목별 KRX 스윕 0회.
-    adj(수정 OHLCV)는 Naver 경유(adjusted=True)라 차단과 무관 — 종목별 유지.
-    반환 계약은 구 fetch_many 와 동일: ({ticker: (raw, adj)}, [(식별자, 오류)]).
-    raw 미출현 종목도 (빈 raw, adj) 로 dict 에 남아 P1-5 empty 계정이 잡는다.
-    """
+
+def _assemble_raw_datewise(
+    tickers: list[str], start: date, end: date,
+) -> tuple[dict[str, pd.DataFrame], list[tuple[str, str]]]:
     wanted = set(tickers)
     frames: list[pd.DataFrame] = []
     failures: list[tuple[str, str]] = []
@@ -206,6 +206,18 @@ def fetch_many_datewise(
             t: g.drop(columns=["ticker"]).sort_values("date").reset_index(drop=True)
             for t, g in raw_all.groupby("ticker")
         }
+    return raw_by_ticker, failures
+
+
+def fetch_many_datewise(
+    tickers: list[str],
+    start: date,
+    end: date,
+    *,
+    max_workers: int = 3,
+) -> tuple[dict[str, tuple[pd.DataFrame, pd.DataFrame]], list[tuple[str, str]]]:
+    """[레거시 — 라이브 미사용(#207 A안 이후)] 날짜별 raw + 종목별 Naver adj (#94). 반환 ({ticker: (raw, adj)}, failures)."""
+    raw_by_ticker, failures = _assemble_raw_datewise(tickers, start, end)
 
     def _raw_for(t: str) -> pd.DataFrame:
         got = raw_by_ticker.get(t)

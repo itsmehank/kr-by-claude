@@ -1,3 +1,4 @@
+from datetime import date
 import logging
 
 from psycopg import Connection
@@ -27,12 +28,14 @@ def _warn_unnormalized_halt(rows: list[tuple]) -> int:
     return n
 
 
-def upsert_daily_prices(conn: Connection, rows: list[tuple]) -> int:
+def upsert_daily_prices(conn: Connection, rows: list[tuple], *, adj_from: date | None = None) -> int:
     """13-튜플(구 호출처) 또는 14-튜플(… value, change_pct) 적재. change_pct(#207) 는 NULL 재적재 시
-    기존 값을 보존(COALESCE) — 등락률 없는 경로(구 프레임·adj-only)가 KRX 등락률을 지우지 않는다."""
+    기존 값을 보존(COALESCE) — 등락률 없는 경로(구 프레임·adj-only)가 KRX 등락률을 지우지 않는다.
+    adj_from(#207 A안): 이 날짜 **이전** 행은 충돌 시 raw 컬럼만 갱신하고 adj_* 를 보존(Naver 구정의 이력 정본),
+    이후 행은 adj_* 도 갱신(raw × F). None = 전 행 adj 갱신(구 동작)."""
     if not rows:
         return 0
-    rows = [r if len(r) == 14 else (*r, None) for r in rows]
+    rows = [(*(r if len(r) == 14 else (*r, None)), adj_from) for r in rows]
     with conn.cursor() as cur:
         cur.executemany(
             """
@@ -44,17 +47,17 @@ def upsert_daily_prices(conn: Connection, rows: list[tuple]) -> int:
                    high = EXCLUDED.high,
                    low = EXCLUDED.low,
                    close = EXCLUDED.close,
-                   adj_close = EXCLUDED.adj_close,
-                   adj_high = EXCLUDED.adj_high,
-                   adj_low = EXCLUDED.adj_low,
-                   adj_open = EXCLUDED.adj_open,
-                   adj_volume = EXCLUDED.adj_volume,
+                   adj_close = CASE WHEN %s::date IS NULL OR EXCLUDED.date >= %s::date THEN EXCLUDED.adj_close ELSE daily_prices.adj_close END,
+                   adj_high = CASE WHEN %s::date IS NULL OR EXCLUDED.date >= %s::date THEN EXCLUDED.adj_high ELSE daily_prices.adj_high END,
+                   adj_low = CASE WHEN %s::date IS NULL OR EXCLUDED.date >= %s::date THEN EXCLUDED.adj_low ELSE daily_prices.adj_low END,
+                   adj_open = CASE WHEN %s::date IS NULL OR EXCLUDED.date >= %s::date THEN EXCLUDED.adj_open ELSE daily_prices.adj_open END,
+                   adj_volume = CASE WHEN %s::date IS NULL OR EXCLUDED.date >= %s::date THEN EXCLUDED.adj_volume ELSE daily_prices.adj_volume END,
                    volume = EXCLUDED.volume,
                    value = EXCLUDED.value,
                    change_pct = COALESCE(EXCLUDED.change_pct, daily_prices.change_pct),
                    updated_at = NOW()
             """,
-            rows,
+            [(*r[:14], *([r[14]] * 10)) for r in rows],
         )
         return cur.rowcount
 
