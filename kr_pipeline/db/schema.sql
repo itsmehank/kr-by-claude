@@ -28,6 +28,10 @@ CREATE TABLE IF NOT EXISTS daily_prices (
     PRIMARY KEY (ticker, date)
 );
 CREATE INDEX IF NOT EXISTS idx_daily_prices_date ON daily_prices(date);
+-- (#207, 2026-09-27) KRX 등락률(FLUC_RT, 기준가 대비 %) — 기업행위 조정계수 자체 산출의 입력(회신 15:
+-- 기준가 = close/(1+등락률), 기준가 ≠ 전일 종가 → 조정일, 계수 = 기준가/전일 종가). NULL = 미수집(09-14 이전 대부분).
+-- Naver adjusted 경로의 등락률은 저장하지 않는다(merge 가 raw 컬럼만 보존).
+ALTER TABLE daily_prices ADD COLUMN IF NOT EXISTS change_pct NUMERIC(8,4);
 
 CREATE TABLE IF NOT EXISTS index_daily (
     index_code    VARCHAR(10)   NOT NULL,

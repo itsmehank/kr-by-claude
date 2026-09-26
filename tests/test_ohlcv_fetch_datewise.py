@@ -23,10 +23,12 @@ def test_snapshot_maps_columns_and_stamps_date(monkeypatch):
     monkeypatch.setattr(fetch_mod.stock, "get_market_ohlcv_by_ticker",
                         lambda ds, market: krx)
     out = fetch_mod.fetch_market_snapshot(date(2026, 8, 4))
-    assert list(out.columns) == ["ticker", "open", "high", "low", "close", "volume", "value", "date"]
+    assert list(out.columns) == ["ticker", "open", "high", "low", "close", "volume", "value", "date", "change_pct"]
     assert out.loc[out["ticker"] == "005930", "value"].item() == 70_500_000
     assert (out["date"] == date(2026, 8, 4)).all()
     assert "등락률" not in out.columns
+    # #207: KRX 등락률(FLUC_RT, 기준가 대비) 보존 — 기업행위 조정계수 자체 산출의 입력(회신 15)
+    assert out.loc[out["ticker"] == "000660", "change_pct"].item() == -1.0
 
 
 def test_snapshot_holiday_all_zero_returns_empty(monkeypatch):
@@ -40,7 +42,7 @@ def test_snapshot_holiday_all_zero_returns_empty(monkeypatch):
                         lambda ds, market: krx)
     out = fetch_mod.fetch_market_snapshot(date(2026, 8, 2))
     assert out.empty
-    assert list(out.columns) == ["ticker", "open", "high", "low", "close", "volume", "value", "date"]
+    assert list(out.columns) == fetch_mod.SNAPSHOT_COLUMNS
 
 
 def test_snapshot_empty_response_returns_empty(monkeypatch):
@@ -95,7 +97,7 @@ def test_datewise_blocked_date_recorded_as_failure(monkeypatch):
             "volume": [30], "value": [300],
         })
         df["date"] = d
-        return df[fetch_mod.SNAPSHOT_COLUMNS]
+        return df.reindex(columns=fetch_mod.SNAPSHOT_COLUMNS)
     monkeypatch.setattr(fetch_mod, "fetch_market_snapshot", snap)
     monkeypatch.setattr(fetch_mod, "_fetch_one",
                         lambda t, s, e, adjusted: pd.DataFrame())
@@ -128,7 +130,7 @@ def test_snapshot_blocked_keyerror_normalized_without_retry(monkeypatch):
 def _snap(d, rows):
     df = pd.DataFrame(rows)
     df["date"] = d
-    return df[fetch_mod.SNAPSHOT_COLUMNS]
+    return df.reindex(columns=fetch_mod.SNAPSHOT_COLUMNS)   # 픽스처에 없는 change_pct(#207) → NaN
 
 
 def _adj_frame(dates, closes):

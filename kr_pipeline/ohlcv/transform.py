@@ -84,9 +84,12 @@ def to_price_rows(ticker: str, merged: pd.DataFrame) -> list[tuple]:
 
     adj_* 는 halt 정규화로 NaN 일 수 있음 → None(NULL). raw open/high/low/volume·close 는
     NOT NULL 이며 halt 에서도 0/close 값을 유지(0 은 halt 마커).
+    14번째 change_pct(#207) = raw 의 KRX 등락률, 컬럼 부재·NaN → None(store 의 COALESCE 가 기존 값 보존).
     """
     def _adj(v):
         return None if pd.isna(v) else float(v)
+
+    has_cp = "change_pct" in merged.columns   # #207: raw 등락률(KRX) — 없는 경로(구 프레임)는 None(NULL)
 
     return [
         (
@@ -103,9 +106,23 @@ def to_price_rows(ticker: str, merged: pd.DataFrame) -> list[tuple]:
             _adj(r["adj_volume"]),
             int(r["volume"]),
             int(r["value"]),
+            _adj(r["change_pct"]) if has_cp else None,
         )
         for _, r in merged.iterrows()
     ]
+
+
+def to_change_pct_rows(df: pd.DataFrame, ticker: str | None = None) -> list[tuple]:
+    """#207 백필: raw 프레임(스냅샷 = ticker 컬럼 / per-ticker = ticker 인자) → (ticker, date, change_pct).
+    change_pct NaN 행은 제외(store.update_change_pct 가 NULL 로 덮지 않게)."""
+    if df.empty or "change_pct" not in df.columns:
+        return []
+    out: list[tuple] = []
+    for _, r in df.iterrows():
+        if pd.isna(r["change_pct"]):
+            continue
+        out.append((ticker if ticker is not None else r["ticker"], r["date"], float(r["change_pct"])))
+    return out
 
 
 def to_index_rows(index_code: str, idx_df: pd.DataFrame) -> list[tuple]:

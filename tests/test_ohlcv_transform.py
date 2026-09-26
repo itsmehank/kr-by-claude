@@ -1,7 +1,7 @@
 from datetime import date
 import pandas as pd
 
-from kr_pipeline.ohlcv.transform import merge_raw_and_adjusted, to_price_rows
+from kr_pipeline.ohlcv.transform import merge_raw_and_adjusted, to_price_rows, to_change_pct_rows
 
 
 def _ohlcv_row(date_, o, h, l, c, v, val):
@@ -46,7 +46,7 @@ def test_to_price_rows_includes_adj_high_low():
     rows = to_price_rows("005930", merged)
     assert rows == [(
         "005930", date(2026, 5, 12), 70000, 71000, 69500, 70500,
-        35250.0, 35500.0, 34750.0, 35000.0, 2000.0, 1000, 70_500_000
+        35250.0, 35500.0, 34750.0, 35000.0, 2000.0, 1000, 70_500_000, None,   # change_pct 부재 → None
     )]
 
 
@@ -197,3 +197,32 @@ def test_merge_empty_adj_with_columns_falls_back_to_raw():
     assert row["adj_low"] == 69500.0
     assert row["adj_open"] == 70000.0
     assert row["adj_volume"] == 1000.0
+
+
+def test_merge_keeps_raw_change_pct_and_ignores_adjusted_fluctuation():
+    """#207: change_pct 는 raw(KRX 기준가 대비 등락률)만 — adjusted(Naver) 의 등락률 컬럼은 무시."""
+    raw = pd.DataFrame([{**_ohlcv_row(date(2026, 9, 14), 100, 110, 90, 105, 1000, 105000), "change_pct": 2.5}])
+    adj = pd.DataFrame([{"date": date(2026, 9, 14), "open": 100.0, "high": 112.0, "low": 90.0,
+                         "close": 106.0, "volume": 1000, "등락률": 9.9}])
+    m = merge_raw_and_adjusted(raw, adj)
+    assert m.iloc[0]["change_pct"] == 2.5 and "등락률" not in m.columns
+    rows = to_price_rows("005930", m)
+    assert rows[0][13] == 2.5
+
+
+def test_to_price_rows_change_pct_nan_becomes_none():
+    merged = pd.DataFrame([{
+        "date": date(2026, 5, 12), "open": 70000, "high": 71000, "low": 69500, "close": 70500,
+        "adj_close": 35250.0, "adj_high": 35500.0, "adj_low": 34750.0, "adj_open": 35000.0,
+        "adj_volume": 2000.0, "volume": 1000, "value": 70_500_000, "change_pct": float("nan"),
+    }])
+    assert to_price_rows("005930", merged)[0][13] is None
+
+
+def test_to_change_pct_rows_from_snapshot_and_per_ticker_frames():
+    """#207 백필: 스냅샷(ticker 컬럼 有)·per-ticker(ticker 인자) 프레임 → (ticker, date, change_pct) 3-튜플, NaN 행 제외."""
+    snap = pd.DataFrame({"ticker": ["005930", "000660", "X"], "date": [date(2026, 9, 14)] * 3,
+                         "close": [1, 2, 3], "change_pct": [-1.0, 2.5, float("nan")]})
+    assert to_change_pct_rows(snap) == [("005930", date(2026, 9, 14), -1.0), ("000660", date(2026, 9, 14), 2.5)]
+    per = pd.DataFrame({"date": [date(2026, 9, 14), date(2026, 9, 15)], "close": [1, 2], "change_pct": [0.5, -0.5]})
+    assert to_change_pct_rows(per, ticker="006490") == [("006490", date(2026, 9, 14), 0.5), ("006490", date(2026, 9, 15), -0.5)]
