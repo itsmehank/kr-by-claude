@@ -203,3 +203,15 @@ def test_upsert_adj_from_preserves_adj_before_date(db):
         cur.execute("SELECT date, close, adj_close, adj_volume FROM daily_prices WHERE ticker='005930' ORDER BY 1")
         assert [(d, c, float(a), float(v)) for d, c, a, v in cur.fetchall()] == [
             (date(2026, 9, 11), 106, 50.0, 2000.0), (date(2026, 9, 14), 106, 106.0, 1000.0)]
+
+
+def test_update_adj_prices_twice_in_one_transaction(db):
+    """#207 재산출 크래시(09-26): TEMP TABLE _adj_updates 가 ON COMMIT DROP 이라 한 트랜잭션 안에서 두 번째 호출이
+    DuplicateTable — 종목 16개를 커밋 전에 순회하는 ingest_events 경로에서 재현. 호출마다 정리해야 한다."""
+    _seed_stock(db)
+    upsert_daily_prices(db, [("005930", date(2026, 9, 14), 100, 110, 90, 105, 105.0, 110.0, 90.0, 100.0, 1000.0, 1000, 105000)])
+    assert update_adj_prices(db, [("005930", date(2026, 9, 14), 210.0, 220.0, 180.0, 200.0, 500.0)]) == 1
+    assert update_adj_prices(db, [("005930", date(2026, 9, 14), 420.0, 440.0, 360.0, 400.0, 250.0)]) == 1
+    with db.cursor() as cur:
+        cur.execute("SELECT adj_close FROM daily_prices WHERE ticker='005930' AND date='2026-09-14'")
+        assert float(cur.fetchone()[0]) == 420.0
