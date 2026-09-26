@@ -38,6 +38,7 @@ from kr_pipeline.indicators.store import (
     upsert_weekly_indicators_phase_a, update_weekly_indicators_rs_rating,
     update_weekly_indicators_minervini_pass,
     update_daily_rs_gate_from_weekly,
+    nullify_daily_rs_gate_without_current_week,
     delete_weekly_indicators_orphans,
 )
 
@@ -49,6 +50,7 @@ log = logging.getLogger("kr_pipeline.indicators")
 # sma_200 / rs_rating 등 200~252 거래일 lookback 지표가 NULL 없이 채워짐.
 LOOKBACK_DAYS = 400       # 252 거래일 ≈ 375 캘린더 일 + 25일 안전 마진
 LOOKBACK_WEEKS = 60       # 52 주 + 8 주 안전 마진 (휴일 분포)
+DAILY_INCREMENTAL_WINDOW = 30   # run_daily incremental upsert 창(일) — Phase D 미러와 weekend 미러(#203)가 공유
 
 
 class Mode(str, Enum):
@@ -379,7 +381,7 @@ def run_daily(
     conn: Connection,
     mode: Mode,
     *,
-    window: int = 30,
+    window: int = DAILY_INCREMENTAL_WINDOW,
     limit_tickers: int | None = None,
     only_tickers: list[str] | None = None,
 ) -> RunStats:
@@ -461,6 +463,35 @@ def run_daily(
         state["rows_affected"] = rows_total
 
     return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)
+
+
+def mirror_daily_rs_gate(conn: Connection, *, as_of: date, window: int = DAILY_INCREMENTAL_WINDOW) -> dict:
+    """#203: 주봉 게이트(rs_line_not_declining_7m) → daily 미러를 weekend 체인 1c 직후·LLM 선별 전에 1회.
+
+    Phase D(run_daily) 와 같은 SQL(update_daily_rs_gate_from_weekly)·같은 창 길이(DAILY_INCREMENTAL_WINDOW).
+    창의 끝은 as_of, 시작은 *실제 최신 daily 행(target)* 기준 — daily_indicators 가 as_of 보다 뒤처져 있어도
+    LLM 이 읽는 target 행이 반드시 창에 들어간다. 멱등(월요일 daily 체인이 쓰던 값을 앞당김).
+    그 뒤 target 행 중 *당해 주 weekly 행이 없는 종목*(주봉 지표 실패분)은 게이트를 NULL 로 되돌린다(회신 13):
+    직전 주 값 복사 = 종목 단위 #203 결함 → 금지. NULL = "판정하지 않음"(회신 5) → 그 주 자격 제외.
+    stale_gate_*: 그 종목 표지·건수(차분 기록의 해석용). commit 은 호출자(run_tracking) 몫.
+    근거: TLSMW Ch.5 주말 리뷰 = 당해 주 종가 기준 — 입력 as-of(금)와 게이트 as-of(직전 주) 불일치 교정.
+    """
+    with conn.cursor() as cur:
+        cur.execute("SELECT MAX(date) FROM daily_indicators WHERE date <= %s", (as_of,))
+        row = cur.fetchone()
+    target = row[0] if row and row[0] else as_of
+    window_start = target - timedelta(days=window)
+    rows = update_daily_rs_gate_from_weekly(conn, window_start, as_of)
+    stale = nullify_daily_rs_gate_without_current_week(conn, target)
+    log.info("weekend rs gate mirror: %d rows (%s..%s), target=%s, no current-week gate → NULL: %d",
+             rows, window_start, as_of, target, len(stale))
+    return {
+        "rows": rows,
+        "as_of": target.isoformat(),
+        "window_start": window_start.isoformat(),
+        "stale_gate_count": len(stale),
+        "stale_gate_sample": stale[:20],
+    }
 
 
 def _ticker_market(conn: Connection, ticker: str) -> str | None:

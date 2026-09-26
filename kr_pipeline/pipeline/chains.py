@@ -1,7 +1,7 @@
 """데이터 파이프라인 통합 체인 — 가격→지표 순서 보장.
 
 통합 A(daily): (공시 후보 드리프트 감지) → ohlcv 증분 → (감지 종목 재적재) → indicators 일봉 증분
-통합 B(weekly): (전체스윕 드리프트) → weekly 증분 → indicators 주봉 증분
+통합 B(weekly): (전체스윕 드리프트) → weekly 증분 → indicators 주봉 증분 → 주봉 게이트 daily 미러(#203)
 기존 모듈 run() 을 순서대로 호출(무수정).
 """
 from __future__ import annotations
@@ -12,6 +12,7 @@ from psycopg import Connection
 from kr_pipeline.ohlcv import modes as ohlcv
 from kr_pipeline.weekly import modes as weekly
 from kr_pipeline.indicators import modes as indicators
+from kr_pipeline.llm_runner import load as llm_load
 from kr_pipeline.db.runs import run_tracking
 from kr_pipeline.pipeline import drift
 
@@ -70,8 +71,28 @@ def run_daily_chain(conn: Connection, *, drift_check: bool = True, limit_tickers
         return result
 
 
+def _mirror_gate_with_diff(conn: Connection, *, as_of: date) -> dict:
+    """#203: 주봉 게이트 daily 미러(indicators.mirror_daily_rs_gate) 전후로 LLM 후보 집합(라이브 필터 그대로)을
+    비교해 구 게이트 대비 차분을 붙인다 — 수정 후 첫 주말 실행의 차분 1회 기록 요구. 후보 조회는 LLM 층
+    (llm_runner.load) 몫이므로 미러 함수가 아닌 이 오케스트레이션 층에서 호출한다.
+    실패 정책 = fail-closed(예외 전파 → data_weekly failed → weekend_chain.sh 가 LLM 선별을 중단): 미러 없이
+    선별하면 #203 결함(직전 주 게이트)이 그대로 재현되므로 조용히 계속하지 않는다.
+    """
+    before = {r["symbol"] for r in llm_load.get_qualifying_tickers(conn, as_of=as_of)}
+    info = indicators.mirror_daily_rs_gate(conn, as_of=as_of)
+    after = {r["symbol"] for r in llm_load.get_qualifying_tickers(conn, as_of=as_of)}
+    info.update({
+        "candidates_before": len(before),
+        "candidates_after": len(after),
+        "added": sorted(after - before),
+        "removed": sorted(before - after),
+    })
+    return info
+
+
 def run_weekly_chain(conn: Connection, *, limit_tickers: int | None = None, full_sweep: bool = True) -> dict:
-    """토요일 통합: (전체스윕 drift) → weekly 증분 → indicators 주봉 증분.
+    """토요일 통합: (전체스윕 drift) → weekly 증분 → indicators 주봉 증분 → 주봉 게이트 daily 미러(#203,
+    daily_indicators.rs_line_not_declining_7m 기록 + 후보 차분 details).
 
     full_sweep: corporate_actions 가 놓친 드리프트를 잡는 안전망. 전 종목을 넓은
     비교창(SWEEP_RECENT_DAYS)으로 검사 — 평일 증분이 덮은 최근 구간 너머 옛 구간에서
@@ -105,11 +126,15 @@ def run_weekly_chain(conn: Connection, *, limit_tickers: int | None = None, full
         r_price = weekly.run(conn, weekly.Mode.INCREMENTAL, limit_tickers=limit_tickers,
                              check_freshness=True)  # 일봉 stale 시 부분 주봉 방지(fail-closed)
         r_ind = indicators.run_weekly(conn, indicators.Mode.INCREMENTAL, limit_tickers=limit_tickers)
+        # #203: 주봉 게이트 → daily 미러(Phase D 동일)를 여기서 1회 — LLM 주말 선별(weekend_chain.sh 2단계)이
+        # daily 미러 컬럼을 읽으므로, 이 단계 없이는 토요일 후보가 직전 주 게이트로 뽑힌다(09-19 실증 61 vs 66).
+        mirror = _mirror_gate_with_diff(conn, as_of=as_of)
         result = {
             "sweep": {"detected": len(swept), "reloaded": sweep_reloaded,
                       "failures": sweep_failures, "unverified": len(sweep_unverified)},
             "weekly": {"rows": r_price.rows_affected, "failures": len(r_price.failures)},
             "indicators_weekly": {"rows": r_ind.rows_affected, "failures": len(r_ind.failures)},
+            "daily_rs_gate_mirror": mirror,
         }
         state["rows_affected"] = (r_price.rows_affected or 0) + (r_ind.rows_affected or 0)
         state["details"] = result
