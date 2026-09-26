@@ -7,9 +7,10 @@ import pandas as pd
 from psycopg import Connection
 
 from kr_pipeline.db.runs import run_tracking
-from kr_pipeline.ohlcv.fetch import fetch_many_datewise, fetch_index
+from kr_pipeline.ohlcv import adjust
+from kr_pipeline.ohlcv.fetch import fetch_raw_datewise, fetch_index
 from kr_pipeline.ohlcv.transform import (
-    merge_raw_and_adjusted, to_price_rows, to_index_rows, nullify_halt_adj,
+    to_price_rows, to_index_rows, nullify_halt_adj,
 )
 from kr_pipeline.ohlcv.store import upsert_daily_prices, update_adj_prices, upsert_index_daily
 
@@ -69,6 +70,7 @@ class RunStats:
     rows_affected: int
     failures: list[tuple[str, str]]
     warnings: list[str] = field(default_factory=list)
+    adjusted_tickers: list[str] = field(default_factory=list)   # #207: 이번 run 에서 신규 조정일이 기록·소급된 종목
 
 
 # [design judgment] 빈 응답 경고 강화 임계 — book 근거 아님. KRX throttling 은
@@ -219,24 +221,37 @@ def run(
 
 
 def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
-    successes, failures = fetch_many_datewise(tickers, start, end, max_workers=max_workers)
+    """#207 A안: raw(KRX) 만 수집, 수정 OHLCV 는 자체 계수(adjust)로 산출 — Naver 접촉 0.
+    종목별: 배치에서 조정일 검출(직전 거래일 결측이면 보류) → 배치 행 adj = raw × F(시임 이전 행은 기록된 이벤트만,
+    시임 이후 행은 신규 포함) → upsert(시임 이전 기존 행 adj 보존) → adjust.ingest_events(기록·정책 소급·시임 이후 재유도)
+    → adjusted_tickers 로 보고(지표 재계산은 체인)."""
+    successes, failures = fetch_raw_datewise(tickers, start, end)
+    blocked = {date.fromisoformat(ident.split("snapshot:", 1)[1]) for ident, _ in failures if ident.startswith("snapshot:")}
+    batch_dates = {d for raw in successes.values() if not raw.empty for d in raw["date"]}
+    calendar = adjust.trading_days(conn, start - timedelta(days=45)) | batch_dates | blocked   # 거래일(또는 미확인) 집합
     rows_total = 0
     empties: list[str] = []
-    adj_empties: list[str] = []
-    for ticker, (raw, adj) in successes.items():
+    adjusted: list[str] = []
+    for ticker, raw in successes.items():
         if raw.empty:
             # 성공도 실패도 아닌 소멸 금지 — 계정 후 skip (P1-5 B)
             empties.append(ticker)
             continue
-        if adj.empty:
-            # #95 설계: 빈 adj(재시도 후에도)는 적재 통째 보류 — raw fallback 으로
-            # 적재하면 upsert 의 ON CONFLICT 가 기존 올바른 adj 30일 창을 raw 로
-            # 덮어쓴다(조용한 오염). 기존 행 불변, 다음 run 창 재수집이 자연 보충.
-            adj_empties.append(ticker)
-            continue
-        merged = merge_raw_and_adjusted(raw, adj)
+        raw = raw.sort_values("date").reset_index(drop=True)
+        batch_start = raw["date"].min()
+        known = adjust.load_events(conn, ticker)
+        prev_date, prev_close = adjust.last_row_before(conn, ticker, batch_start)
+        new_events = adjust.unrecorded(conn, ticker, adjust.events_in_frame(
+            raw, prev_close=prev_close, prev_date=prev_date, open_days=calendar))
+        pre = raw[raw["date"] < adjust.ADJ_SELF_START]
+        post = raw[raw["date"] >= adjust.ADJ_SELF_START]
+        merged = pd.concat([adjust.derive_adj(pre, known), adjust.derive_adj(post, known + new_events)], ignore_index=True)
         rows = to_price_rows(ticker, merged)
-        rows_total += upsert_daily_prices(conn, rows)
+        rows_total += upsert_daily_prices(conn, rows, adj_from=adjust.ADJ_SELF_START)
+        if new_events:
+            info = adjust.ingest_events(conn, ticker, new_events)
+            adjusted.append(ticker)
+            log.info("adjustment events %s: %s -> %s", ticker, [(str(d), round(c, 6)) for d, c in new_events], info)
         conn.commit()
 
     # 지수
@@ -251,11 +266,6 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
         conn.commit()
 
     warnings = _empty_fetch_warning(empties, len(tickers))
-    if adj_empties:
-        warnings.append(
-            f"adj_empty_fetch: {len(adj_empties)}종목 적재 보류 {adj_empties[:20]} — "
-            f"재시도 후에도 adj(Naver) 빈 응답, 기존 행 불변·다음 run 자연 보충"
-        )
     # 스냅샷 결측 날짜 승격 (#94 리뷰) — 창 중간 하루 차단/실패는 어떤 종목도
     # raw.empty 로 만들지 않아 empty_fetch 가 못 잡는다. failures 는 run warnings
     # 에 영속되지 않으므로(run_tracking 은 warnings 만 기록) 여기서 승격한다.
@@ -269,68 +279,22 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
     if empty_indexes:
         warnings.append(f"empty_index_fetch: 지수 {empty_indexes} 빈 응답")
     warnings.extend(_run_sanity_checks(conn, mode))
-    return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)
+    return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings, adjusted_tickers=adjusted)
 
 
 def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.FULL_REFRESH) -> RunStats:
-    """수정 OHLCV(adj_close/adj_high/adj_low/adj_open/adj_volume) 갱신. 종목별 실패는 끝에서 1회 재시도."""
-    import time
-    from kr_pipeline.ohlcv.fetch import fetch_adj_only
-
-    empties: list[str] = []
-
-    def _process_ticker(ticker: str) -> int:
-        """한 종목의 수정 OHLCV(종가/고가/저가/시가/거래량)를 가져와 업데이트. 영향받은 행 수 반환."""
-        adj = fetch_adj_only(ticker, start, end)
-        if adj.empty:
-            # 성공도 실패도 아닌 소멸 금지 — 계정 후 skip (P1-5 B)
-            if ticker not in empties:
-                empties.append(ticker)
-            return 0
-        # 단일 chokepoint 경유 — adj-refresh 도 halt 정규화(adj_* NULL) 적용.
-        # fetch_adj_only 컬럼(open/high/low/close/volume = 수정값)을 adj_* 로 매핑 후 정규화.
-        adj = adj.rename(columns={"close": "adj_close", "high": "adj_high", "low": "adj_low",
-                                  "open": "adj_open", "volume": "adj_volume"})
-        adj = nullify_halt_adj(adj)
-
-        def _n(v):
-            return None if pd.isna(v) else float(v)
-        rows = [
-            (ticker, r["date"], _n(r["adj_close"]), _n(r["adj_high"]), _n(r["adj_low"]),
-             _n(r["adj_open"]), _n(r["adj_volume"]))
-            for _, r in adj.iterrows()
-        ]
-        affected = update_adj_prices(conn, rows)
-        conn.commit()
-        return affected
-
+    """#207 A안: 수정 OHLCV 전체 재유도 — **외부 접촉 0**. 종목별 adjust.rederive_post_seam(시임 이후 행 raw × F, adj 컬럼만).
+    시임 이전 행(Naver 구정의 이력, 후행 이벤트 소급 포함)은 건드리지 않는다. start 는 무시(시임이 하한), end 는 상한."""
     rows_total = 0
     failures: list[tuple[str, str]] = []
     for i, ticker in enumerate(tickers, 1):
         try:
-            rows_total += _process_ticker(ticker)
-            time.sleep(0.1)
+            rows_total += adjust.rederive_post_seam(conn, ticker, end=end)
+            conn.commit()
         except Exception as e:
             failures.append((ticker, str(e)))
             conn.rollback()  # DB 측 예외의 aborted 트랜잭션이 후속 종목으로 연쇄되지 않게
         if i % 100 == 0:
             log.info(f"full-refresh progress: {i}/{len(tickers)} (failures so far: {len(failures)})")
-
-    # 1차 실패 재시도 (fetch_many_datewise 의 adj 재시도와 같은 패턴)
-    if failures:
-        log.warning(f"Retrying {len(failures)} failed tickers in full-refresh")
-        retry_failures: list[tuple[str, str]] = []
-        for ticker, _ in failures:
-            try:
-                rows_total += _process_ticker(ticker)
-                time.sleep(0.2)  # 살짝 더 긴 sleep 으로 부드럽게 재시도
-            except Exception as e:
-                retry_failures.append((ticker, str(e)))
-                conn.rollback()
-        failures = retry_failures
-        if failures:
-            log.warning(f"After retry, {len(failures)} tickers still failed")
-
-    warnings = _empty_fetch_warning(empties, len(tickers))
-    warnings.extend(_run_sanity_checks(conn, mode))
+    warnings = _run_sanity_checks(conn, mode)
     return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)

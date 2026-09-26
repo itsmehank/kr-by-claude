@@ -33,6 +33,19 @@ CREATE INDEX IF NOT EXISTS idx_daily_prices_date ON daily_prices(date);
 -- Naver adjusted 경로의 등락률은 저장하지 않는다(merge 가 raw 컬럼만 보존).
 ALTER TABLE daily_prices ADD COLUMN IF NOT EXISTS change_pct NUMERIC(8,4);
 
+-- (#207 회신 16, 2026-09-28) 기업행위 조정계수 적용 로그 — (종목, 날짜, 계수). 사유 추정 컬럼 없음(기록 금지).
+-- 계수 = 기준가/전일 종가, 기준가 = close/(1+change_pct/100). 판정·산출 = kr_pipeline/ohlcv/adjust.py 단일 정의.
+CREATE TABLE IF NOT EXISTS adj_factor_events (
+    ticker      VARCHAR(10)    NOT NULL REFERENCES stocks(ticker),
+    date        DATE           NOT NULL,
+    coef        NUMERIC(16,8)  NOT NULL,
+    prev_close  NUMERIC(12,2),
+    close       NUMERIC(12,2),
+    change_pct  NUMERIC(8,4),
+    created_at  TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (ticker, date)
+);
+
 CREATE TABLE IF NOT EXISTS index_daily (
     index_code    VARCHAR(10)   NOT NULL,
     date          DATE          NOT NULL,

@@ -87,8 +87,7 @@ def test_snapshot_status_distinguishes_blocked_from_holiday(monkeypatch):
 
 
 def test_datewise_blocked_date_recorded_as_failure(monkeypatch):
-    """차단으로 빈 스냅샷이 된 날짜는 failures 에 남아야 한다 — 다른 날짜가
-    성공하면 어떤 종목도 raw.empty 가 아니어서 P1-5 계정이 못 잡기 때문."""
+    """창 중간 하루 차단 → failures 에 'snapshot:D' 기록, 다른 날짜는 정상 조립 (raw 전용 경로)."""
     def snap(d, market="ALL"):
         if d == date(2026, 8, 3):
             return fetch_mod._empty_snapshot("blocked")
@@ -99,15 +98,10 @@ def test_datewise_blocked_date_recorded_as_failure(monkeypatch):
         df["date"] = d
         return df.reindex(columns=fetch_mod.SNAPSHOT_COLUMNS)
     monkeypatch.setattr(fetch_mod, "fetch_market_snapshot", snap)
-    monkeypatch.setattr(fetch_mod, "_fetch_one",
-                        lambda t, s, e, adjusted: pd.DataFrame())
     monkeypatch.setattr(fetch_mod.time, "sleep", lambda s: None)
-
-    successes, failures = fetch_mod.fetch_many_datewise(
-        ["A"], date(2026, 8, 3), date(2026, 8, 4), max_workers=1)
-
-    assert dict(failures).get("snapshot:2026-08-03") == "blocked/empty response"
-    assert successes["A"][0].shape[0] == 1  # 8/4 데이터는 정상 조립
+    successes, failures = fetch_mod.fetch_raw_datewise(["A"], date(2026, 8, 3), date(2026, 8, 4))
+    assert failures == [("snapshot:2026-08-03", "blocked/empty response")]
+    assert list(successes["A"]["date"]) == [date(2026, 8, 4)]
 
 
 def test_snapshot_blocked_keyerror_normalized_without_retry(monkeypatch):
@@ -125,7 +119,7 @@ def test_snapshot_blocked_keyerror_normalized_without_retry(monkeypatch):
     assert calls["n"] == 1
 
 
-# ====== fetch_many_datewise ======
+# ====== fetch_raw_datewise (#207 A안: raw 전용, Naver 접촉 0) ======
 
 def _snap(d, rows):
     df = pd.DataFrame(rows)
@@ -133,167 +127,37 @@ def _snap(d, rows):
     return df.reindex(columns=fetch_mod.SNAPSHOT_COLUMNS)   # 픽스처에 없는 change_pct(#207) → NaN
 
 
-def _adj_frame(dates, closes):
-    return pd.DataFrame({
-        "date": dates, "open": closes, "high": closes, "low": closes,
-        "close": closes, "volume": [1] * len(dates), "value": [1] * len(dates),
-    })
-
-
-def test_datewise_assembles_raw_and_filters_universe(monkeypatch):
-    """날짜 2일 스냅샷 → 종목별 raw 조립. universe 밖 티커(NEWIPO)는 제외."""
-    snaps = {
-        date(2026, 8, 3): _snap(date(2026, 8, 3), {
-            "ticker": ["A", "B", "NEWIPO"], "open": [1, 2, 9], "high": [1, 2, 9],
-            "low": [1, 2, 9], "close": [1, 2, 9], "volume": [10, 20, 90], "value": [100, 200, 900],
-        }),
-        date(2026, 8, 4): _snap(date(2026, 8, 4), {
-            "ticker": ["A"], "open": [3], "high": [3], "low": [3], "close": [3],
-            "volume": [30], "value": [300],
-        }),
-    }
-    monkeypatch.setattr(fetch_mod, "fetch_market_snapshot",
-                        lambda d, market="ALL": snaps.get(d, fetch_mod._empty_snapshot()))
-    monkeypatch.setattr(fetch_mod, "_fetch_one",
-                        lambda t, s, e, adjusted: _adj_frame([date(2026, 8, 3)], [1.0]))
-    monkeypatch.setattr(fetch_mod.time, "sleep", lambda s: None)
-
-    successes, failures = fetch_mod.fetch_many_datewise(
-        ["A", "B", "C"], date(2026, 8, 3), date(2026, 8, 4), max_workers=2)
-
-    assert failures == []
-    assert set(successes) == {"A", "B", "C"}          # NEWIPO 없음, 미출현 C 는 남음
-    raw_a = successes["A"][0]
-    assert list(raw_a["date"]) == [date(2026, 8, 3), date(2026, 8, 4)]  # 날짜 정렬
-    assert successes["B"][0].shape[0] == 1
-    assert successes["C"][0].empty                     # 활성인데 미출현 → empty 계정 대상
-
-
-def test_datewise_skips_weekends_without_contact(monkeypatch):
-    """주말은 KRX 접촉 없이 달력으로 확정 — 스냅샷 요청 자체를 보내지 않는다."""
-    called: list[date] = []
-
+def test_raw_datewise_assembles_raw_and_filters_universe(monkeypatch):
+    """날짜별 스냅샷을 종목별 raw 로 조립하고 universe 밖 종목은 버린다. 미출현 종목은 빈 raw 로 남는다."""
+    calls = []
     def snap(d, market="ALL"):
-        called.append(d)
-        return fetch_mod._empty_snapshot()
+        calls.append(d)
+        return _snap(d, {"ticker": ["A", "B", "Z"], "open": [1, 2, 9], "high": [1, 2, 9], "low": [1, 2, 9],
+                         "close": [1, 2, 9], "volume": [10, 20, 90], "value": [100, 200, 900]})
     monkeypatch.setattr(fetch_mod, "fetch_market_snapshot", snap)
-    monkeypatch.setattr(fetch_mod, "_fetch_one",
-                        lambda t, s, e, adjusted: pd.DataFrame())
     monkeypatch.setattr(fetch_mod.time, "sleep", lambda s: None)
+    successes, failures = fetch_mod.fetch_raw_datewise(["A", "B", "C"], date(2026, 8, 3), date(2026, 8, 4))
+    assert failures == [] and calls == [date(2026, 8, 3), date(2026, 8, 4)]
+    assert set(successes) == {"A", "B", "C"}
+    assert list(successes["A"]["close"]) == [1, 1] and successes["C"].empty
+    assert "Z" not in successes and "ticker" not in successes["A"].columns
 
-    # 2026-08-07(금) ~ 08-10(월): 토(8)·일(9) 은 요청 금지
-    fetch_mod.fetch_many_datewise(["A"], date(2026, 8, 7), date(2026, 8, 10), max_workers=1)
-    assert called == [date(2026, 8, 7), date(2026, 8, 10)]
+
+def test_raw_datewise_skips_weekends_without_contact(monkeypatch):
+    calls = []
+    monkeypatch.setattr(fetch_mod, "fetch_market_snapshot", lambda d, market="ALL": calls.append(d) or fetch_mod._empty_snapshot("holiday"))
+    monkeypatch.setattr(fetch_mod.time, "sleep", lambda s: None)
+    fetch_mod.fetch_raw_datewise(["A"], date(2026, 8, 7), date(2026, 8, 10))   # 금~월
+    assert calls == [date(2026, 8, 7), date(2026, 8, 10)]
 
 
-def test_datewise_snapshot_failure_recorded_others_continue(monkeypatch):
-    """한 날짜의 스냅샷 예외는 failures 로 남고 다른 날짜는 계속 처리."""
+def test_raw_datewise_snapshot_exception_recorded_others_continue(monkeypatch):
     def snap(d, market="ALL"):
-        if d == date(2026, 8, 3):
+        if d == date(2026, 8, 4):
             raise RuntimeError("boom")
-        return _snap(d, {"ticker": ["A"], "open": [3], "high": [3], "low": [3],
-                         "close": [3], "volume": [30], "value": [300]})
+        return _snap(d, {"ticker": ["A"], "open": [1], "high": [1], "low": [1], "close": [1], "volume": [1], "value": [1]})
     monkeypatch.setattr(fetch_mod, "fetch_market_snapshot", snap)
-    monkeypatch.setattr(fetch_mod, "_fetch_one",
-                        lambda t, s, e, adjusted: pd.DataFrame())
     monkeypatch.setattr(fetch_mod.time, "sleep", lambda s: None)
-
-    successes, failures = fetch_mod.fetch_many_datewise(
-        ["A"], date(2026, 8, 3), date(2026, 8, 4), max_workers=1)
-
-    assert "snapshot:2026-08-03" in dict(failures)
-    assert successes["A"][0].shape[0] == 1
-
-
-def test_datewise_adj_failure_retried_then_recorded(monkeypatch):
-    """adj(Naver) 실패는 1회 재시도 후 실패 기록 — fetch_many 패턴 보존."""
-    calls = {"n": 0}
-
-    def adj_fail(t, s, e, adjusted):
-        calls["n"] += 1
-        raise RuntimeError("naver down")
-    monkeypatch.setattr(fetch_mod, "fetch_market_snapshot",
-                        lambda d, market="ALL": fetch_mod._empty_snapshot())
-    monkeypatch.setattr(fetch_mod, "_fetch_one", adj_fail)
-    monkeypatch.setattr(fetch_mod.time, "sleep", lambda s: None)
-
-    successes, failures = fetch_mod.fetch_many_datewise(
-        ["A"], date(2026, 8, 4), date(2026, 8, 4), max_workers=1)
-
-    assert calls["n"] == 2                 # 본 시도 + 재시도
-    assert "A" in dict(failures)
-    assert "A" not in successes
-
-
-def test_datewise_empty_adj_retried_once_and_filled(monkeypatch):
-    """raw 있음 + adj 빈 응답이면 run 안에서 1회 재시도 — 성공 시 adj 교체."""
-    calls = {"n": 0}
-
-    def adj_flaky(t, s, e, adjusted):
-        calls["n"] += 1
-        if calls["n"] == 1:
-            return pd.DataFrame()          # 1차: 빈 응답 (일시 장애)
-        return _adj_frame([date(2026, 8, 4)], [1.0])
-    monkeypatch.setattr(fetch_mod, "fetch_market_snapshot",
-                        lambda d, market="ALL": _snap(d, {
-                            "ticker": ["A"], "open": [3], "high": [3], "low": [3],
-                            "close": [3], "volume": [30], "value": [300],
-                        }))
-    monkeypatch.setattr(fetch_mod, "_fetch_one", adj_flaky)
-    monkeypatch.setattr(fetch_mod.time, "sleep", lambda s: None)
-
-    successes, failures = fetch_mod.fetch_many_datewise(
-        ["A"], date(2026, 8, 4), date(2026, 8, 4), max_workers=1)
-
-    assert calls["n"] == 2                       # 본 시도 + 빈-adj 재시도
-    assert not successes["A"][1].empty           # 재시도 성공분으로 교체됨
-    assert failures == []
-
-
-def test_datewise_empty_adj_still_empty_after_retry_kept(monkeypatch):
-    """재시도해도 빈 adj 면 (raw, 빈 adj) 그대로 유지 — 계정은 _run_upsert 몫,
-    failures 에 넣지 않는다(예외가 아니므로)."""
-    calls = {"n": 0}
-
-    def adj_always_empty(t, s, e, adjusted):
-        calls["n"] += 1
-        return pd.DataFrame()
-    monkeypatch.setattr(fetch_mod, "fetch_market_snapshot",
-                        lambda d, market="ALL": _snap(d, {
-                            "ticker": ["A"], "open": [3], "high": [3], "low": [3],
-                            "close": [3], "volume": [30], "value": [300],
-                        }))
-    monkeypatch.setattr(fetch_mod, "_fetch_one", adj_always_empty)
-    monkeypatch.setattr(fetch_mod.time, "sleep", lambda s: None)
-
-    successes, failures = fetch_mod.fetch_many_datewise(
-        ["A"], date(2026, 8, 4), date(2026, 8, 4), max_workers=1)
-
-    assert calls["n"] == 2
-    assert successes["A"][1].empty
-    assert failures == []
-
-
-def test_datewise_empty_adj_retry_skipped_over_cap(monkeypatch):
-    """빈-adj 종목이 상한(_EMPTY_ADJ_RETRY_MAX) 초과면 재시도 생략 — 광역 장애에서
-    Naver 접촉 2배·run 팽창 방지(#92 시도 상한 원칙)."""
-    tickers = [f"T{i:03d}" for i in range(fetch_mod._EMPTY_ADJ_RETRY_MAX + 1)]
-    calls = {"n": 0}
-
-    def adj_always_empty(t, s, e, adjusted):
-        calls["n"] += 1
-        return pd.DataFrame()
-    monkeypatch.setattr(fetch_mod, "fetch_market_snapshot",
-                        lambda d, market="ALL": _snap(d, {
-                            "ticker": tickers, "open": [3] * len(tickers),
-                            "high": [3] * len(tickers), "low": [3] * len(tickers),
-                            "close": [3] * len(tickers), "volume": [30] * len(tickers),
-                            "value": [300] * len(tickers),
-                        }))
-    monkeypatch.setattr(fetch_mod, "_fetch_one", adj_always_empty)
-    monkeypatch.setattr(fetch_mod.time, "sleep", lambda s: None)
-
-    fetch_mod.fetch_many_datewise(
-        tickers, date(2026, 8, 4), date(2026, 8, 4), max_workers=1)
-
-    assert calls["n"] == len(tickers)   # 본 시도만 — 재시도 0회
+    successes, failures = fetch_mod.fetch_raw_datewise(["A"], date(2026, 8, 3), date(2026, 8, 5))
+    assert failures == [("snapshot:2026-08-04", "boom")]
+    assert list(successes["A"]["date"]) == [date(2026, 8, 3), date(2026, 8, 5)]

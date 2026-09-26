@@ -1,6 +1,6 @@
 """데이터 파이프라인 통합 체인 — 가격→지표 순서 보장.
 
-통합 A(daily): (공시 후보 드리프트 감지) → ohlcv 증분 → (감지 종목 재적재) → indicators 일봉 증분
+통합 A(daily): ohlcv 증분(raw+자체 계수, 조정일 기록·소급) → drift 안전망(DB) → (조정 종목 재계산) → indicators 일봉 증분
 통합 B(weekly): (전체스윕 드리프트) → weekly 증분 → indicators 주봉 증분 → 주봉 게이트 daily 미러(#203)
 기존 모듈 run() 을 순서대로 호출(무수정).
 """
@@ -24,28 +24,26 @@ def _rollback(conn) -> None:
 
 
 def run_daily_chain(conn: Connection, *, drift_check: bool = True, limit_tickers: int | None = None) -> dict:
-    """평일 통합: (드리프트 감지) → ohlcv 증분 → (감지 종목 재적재) → indicators 일봉 증분.
+    """평일 통합(#207 A안): ohlcv 증분(raw + 자체 계수 — 조정일 기록·소급) → drift 안전망 스캔(DB, 접촉 0)
+    → reload(조정 종목 지표 재계산) → indicators 일봉 증분.
 
-    드리프트 감지는 ohlcv 증분 '전에' 실행(증분이 adj_close 덮어쓰기 전 비교). 스펙 §1/§2.
-    통합 자체를 pipeline="data_daily" 로 추적. 하위 모듈도 각자 자기 이름으로 행을 남긴다.
+    구 순서(detect 가 증분 '전')는 Naver 비교 전제였다 — 제거. 통합 자체를 pipeline="data_daily" 로 추적.
     """
     with run_tracking(conn, pipeline="data_daily", mode="incremental",
                       params={"limit_tickers": limit_tickers, "drift": drift_check}) as state:
         as_of = date.today()
-        drifted: list[str] = []
+        r_price = ohlcv.run(conn, ohlcv.Mode.INCREMENTAL, limit_tickers=limit_tickers)
+
+        drifted: list[str] = list(r_price.adjusted_tickers)
         drift_unverified: list[str] = []
         if drift_check:
-            candidates = drift.recent_corp_action_tickers(
-                conn, as_of=as_of, lookback_days=drift.CA_LOOKBACK_DAYS)
-            drifted = drift.detect_drifted_tickers(
-                conn, as_of=as_of, tickers=candidates, limit_tickers=limit_tickers,
-                unverified_out=drift_unverified)
+            extra = drift.detect_drifted_tickers(
+                conn, as_of=as_of, limit_tickers=limit_tickers, unverified_out=drift_unverified)
+            drifted += [t for t in extra if t not in drifted]
             if drift_unverified:
                 state["warnings"].append(
                     f"drift_unverified: {len(drift_unverified)} 종목 검증 못 함"
-                    f"(빈 재조회/예외 — '이상 없음' 아님): {drift_unverified[:20]}")
-
-        r_price = ohlcv.run(conn, ohlcv.Mode.INCREMENTAL, limit_tickers=limit_tickers)
+                    f"(등락률 미수집/예외 — '이상 없음' 아님): {drift_unverified[:20]}")
 
         reloaded, reload_failures = 0, 0
         for t in drifted:
@@ -94,9 +92,8 @@ def run_weekly_chain(conn: Connection, *, limit_tickers: int | None = None, full
     """토요일 통합: (전체스윕 drift) → weekly 증분 → indicators 주봉 증분 → 주봉 게이트 daily 미러(#203,
     daily_indicators.rs_line_not_declining_7m 기록 + 후보 차분 details).
 
-    full_sweep: corporate_actions 가 놓친 드리프트를 잡는 안전망. 전 종목을 넓은
-    비교창(SWEEP_RECENT_DAYS)으로 검사 — 평일 증분이 덮은 최근 구간 너머 옛 구간에서
-    놓친 split 을 포착. 종목 단위 예외 격리(평일 체인과 동일). 통합 자체를
+    full_sweep(#207 A안 이후 접촉 0): 전 종목을 넓은 창(SWEEP_RECENT_DAYS)으로 DB 스캔해 미기록 조정일을
+    잡는 안전망 — 평일 증분 창(30일) 너머 구간. 종목 단위 예외 격리(평일 체인과 동일). 통합 자체를
     pipeline="data_weekly" 로 추적.
     """
     with run_tracking(conn, pipeline="data_weekly", mode="incremental",
