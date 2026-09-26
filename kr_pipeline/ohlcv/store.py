@@ -134,6 +134,7 @@ def update_adj_prices(conn: Connection, rows: list[tuple]) -> int:
              WHERE d.ticker = u.ticker AND d.date = u.date
         """)
         affected = cur.rowcount
+        cur.execute("DROP TABLE IF EXISTS _adj_updates")   # 같은 트랜잭션 내 재호출 허용(#207 재산출: 종목 순회 후 1회 commit)
     return affected
 
 
