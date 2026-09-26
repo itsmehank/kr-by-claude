@@ -28,14 +28,17 @@ def _warn_unnormalized_halt(rows: list[tuple]) -> int:
 
 
 def upsert_daily_prices(conn: Connection, rows: list[tuple]) -> int:
+    """13-튜플(구 호출처) 또는 14-튜플(… value, change_pct) 적재. change_pct(#207) 는 NULL 재적재 시
+    기존 값을 보존(COALESCE) — 등락률 없는 경로(구 프레임·adj-only)가 KRX 등락률을 지우지 않는다."""
     if not rows:
         return 0
+    rows = [r if len(r) == 14 else (*r, None) for r in rows]
     with conn.cursor() as cur:
         cur.executemany(
             """
             INSERT INTO daily_prices
-              (ticker, date, open, high, low, close, adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+              (ticker, date, open, high, low, close, adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value, change_pct, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (ticker, date) DO UPDATE
                SET open = EXCLUDED.open,
                    high = EXCLUDED.high,
@@ -48,11 +51,40 @@ def upsert_daily_prices(conn: Connection, rows: list[tuple]) -> int:
                    adj_volume = EXCLUDED.adj_volume,
                    volume = EXCLUDED.volume,
                    value = EXCLUDED.value,
+                   change_pct = COALESCE(EXCLUDED.change_pct, daily_prices.change_pct),
                    updated_at = NOW()
             """,
             rows,
         )
         return cur.rowcount
+
+
+def update_change_pct(conn: Connection, rows: list[tuple]) -> int:
+    """#207 백필: (ticker, date, change_pct) 3-튜플로 change_pct 만 갱신. OHLCV·adj_* 불변, 매칭 없는 행 무시.
+
+    TEMP TABLE + JOIN-UPDATE(update_adj_prices 와 동형). 반환 = 갱신 행 수.
+    """
+    if not rows:
+        return 0
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TEMP TABLE _cp_updates (
+                ticker      VARCHAR(10)  NOT NULL,
+                date        DATE         NOT NULL,
+                change_pct  NUMERIC(8,4),
+                PRIMARY KEY (ticker, date)
+            ) ON COMMIT DROP
+        """)
+        cur.executemany("INSERT INTO _cp_updates (ticker, date, change_pct) VALUES (%s, %s, %s)", rows)
+        cur.execute("""
+            UPDATE daily_prices p
+               SET change_pct = u.change_pct, updated_at = NOW()
+              FROM _cp_updates u
+             WHERE p.ticker = u.ticker AND p.date = u.date
+        """)
+        n = cur.rowcount
+        cur.execute("DROP TABLE IF EXISTS _cp_updates")
+        return n
 
 
 def update_adj_prices(conn: Connection, rows: list[tuple]) -> int:

@@ -74,6 +74,7 @@ def _fetch_one(ticker: str, start: date, end: date, adjusted: bool) -> pd.DataFr
     df = df.rename(columns={
         "날짜": "date", "시가": "open", "고가": "high",
         "저가": "low", "종가": "close", "거래량": "volume", "거래대금": "value",
+        "등락률": "change_pct",   # #207: KRX 기준가 대비 등락률 보존(adjusted=True 의 Naver 산출값은 merge 가 버림)
     })
     df["date"] = pd.to_datetime(df["date"]).dt.date
     return df
@@ -106,7 +107,7 @@ def fetch_index(index_code: str, start: date, end: date) -> pd.DataFrame:
     return df
 
 
-SNAPSHOT_COLUMNS = ["ticker", "open", "high", "low", "close", "volume", "value", "date"]
+SNAPSHOT_COLUMNS = ["ticker", "open", "high", "low", "close", "volume", "value", "date", "change_pct"]
 
 # 빈-adj run 내 재시도 상한 — 초과면 광역 장애로 보고 재시도 생략(#92 시도 상한 원칙)
 _EMPTY_ADJ_RETRY_MAX = 20
@@ -114,6 +115,7 @@ _EMPTY_ADJ_RETRY_MAX = 20
 _SNAPSHOT_RENAME = {
     "티커": "ticker", "시가": "open", "고가": "high",
     "저가": "low", "종가": "close", "거래량": "volume", "거래대금": "value",
+    "등락률": "change_pct",   # #207
 }
 
 

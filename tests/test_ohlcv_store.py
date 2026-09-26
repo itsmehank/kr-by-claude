@@ -1,6 +1,6 @@
 from datetime import date
 
-from kr_pipeline.ohlcv.store import upsert_daily_prices, update_adj_prices, upsert_index_daily
+from kr_pipeline.ohlcv.store import upsert_daily_prices, update_adj_prices, upsert_index_daily, update_change_pct
 
 
 def test_warn_unnormalized_halt_detects_and_logs(caplog):
@@ -144,3 +144,39 @@ def test_upsert_daily_prices_stores_adj_open_volume(db):
         with db.cursor() as cur:
             cur.execute("DELETE FROM daily_prices WHERE ticker='ADJ1'")
         db.commit()
+
+
+def test_upsert_persists_change_pct_and_keeps_previous_when_null(db):
+    """#207: change_pct 저장 + 재적재가 NULL 이면 기존 값 보존(COALESCE) — 등락률 없는 경로가 값을 지우지 않는다."""
+    _seed_stock(db)
+    row = ("005930", date(2026, 9, 14), 100, 110, 90, 105, 105.0, 110.0, 90.0, 100.0, 1000.0, 1000, 105000, 2.5)
+    upsert_daily_prices(db, [row])
+    with db.cursor() as cur:
+        cur.execute("SELECT change_pct FROM daily_prices WHERE ticker='005930' AND date='2026-09-14'")
+        assert float(cur.fetchone()[0]) == 2.5
+    upsert_daily_prices(db, [row[:13] + (None,)])
+    with db.cursor() as cur:
+        cur.execute("SELECT change_pct, close FROM daily_prices WHERE ticker='005930' AND date='2026-09-14'")
+        cp, close = cur.fetchone()
+        assert float(cp) == 2.5 and close == 105
+
+
+def test_upsert_accepts_legacy_13_tuple(db):
+    """구 호출처(13-튜플) 호환 — change_pct NULL 로 적재."""
+    _seed_stock(db)
+    upsert_daily_prices(db, [("005930", date(2026, 9, 15), 100, 110, 90, 105, 105.0, 110.0, 90.0, 100.0, 1000.0, 1000, 105000)])
+    with db.cursor() as cur:
+        cur.execute("SELECT change_pct FROM daily_prices WHERE ticker='005930' AND date='2026-09-15'")
+        assert cur.fetchone()[0] is None
+
+
+def test_update_change_pct_only_touches_change_pct(db):
+    """#207 백필: (ticker, date, change_pct) 로 change_pct 만 갱신 — OHLCV·adj_* 불변, 매칭 없는 행 무시."""
+    _seed_stock(db)
+    upsert_daily_prices(db, [("005930", date(2026, 9, 14), 100, 110, 90, 105, 105.0, 110.0, 90.0, 100.0, 1000.0, 1000, 105000)])
+    n = update_change_pct(db, [("005930", date(2026, 9, 14), -1.25), ("005930", date(2026, 9, 15), 3.0)])
+    assert n == 1
+    with db.cursor() as cur:
+        cur.execute("SELECT change_pct, close, adj_close FROM daily_prices WHERE ticker='005930' AND date='2026-09-14'")
+        cp, close, adj = cur.fetchone()
+        assert float(cp) == -1.25 and close == 105 and adj == 105.0

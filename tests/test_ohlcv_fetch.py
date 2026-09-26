@@ -98,3 +98,14 @@ def test_real_hang_request_raises_within_timeout(monkeypatch):
     srv.close()
 
     assert elapsed < 4, f"타임아웃 미발동 — {elapsed:.1f}s 동안 대기(=hang)"
+
+
+def test_fetch_one_keeps_krx_change_pct(monkeypatch):
+    """#207: per-ticker KRX 경로(adjusted=False)도 등락률→change_pct 로 보존(백필·drift reload 경로)."""
+    import pandas as pd
+    import kr_pipeline.ohlcv.fetch as fetch_mod
+    df = pd.DataFrame({"날짜": pd.to_datetime(["2026-09-14"]), "시가": [100], "고가": [110], "저가": [90],
+                       "종가": [105], "거래량": [1000], "거래대금": [105000], "등락률": [2.5]}).set_index("날짜")
+    monkeypatch.setattr(fetch_mod.stock, "get_market_ohlcv", lambda *a, **k: df)
+    out = fetch_mod._fetch_one("005930", date(2026, 9, 14), date(2026, 9, 14), adjusted=False)
+    assert out.loc[0, "change_pct"] == 2.5 and "등락률" not in out.columns
