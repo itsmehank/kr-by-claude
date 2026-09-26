@@ -38,6 +38,7 @@ from kr_pipeline.indicators.store import (
     upsert_weekly_indicators_phase_a, update_weekly_indicators_rs_rating,
     update_weekly_indicators_minervini_pass,
     update_daily_rs_gate_from_weekly,
+    nullify_daily_rs_gate_without_current_week,
     delete_weekly_indicators_orphans,
 )
 
@@ -469,30 +470,20 @@ def mirror_daily_rs_gate(conn: Connection, *, as_of: date, window: int = DAILY_I
 
     Phase D(run_daily) 와 같은 SQL(update_daily_rs_gate_from_weekly)·같은 창 길이(DAILY_INCREMENTAL_WINDOW).
     창의 끝은 as_of, 시작은 *실제 최신 daily 행(target)* 기준 — daily_indicators 가 as_of 보다 뒤처져 있어도
-    LLM 이 읽는 target 행이 반드시 창에 들어간다. 새 로직 없음·멱등(월요일 daily 체인이 쓰던 값을 앞당김).
-    stale_gate_*: target 행 중 당해 주(target−6일 초과) weekly 행이 없어 *직전 주 값이 미러된* 종목 —
-    r_ind/r_price 실패 종목이 여기 잡힌다(차분 기록의 오염 표지). commit 은 호출자(run_tracking) 몫.
+    LLM 이 읽는 target 행이 반드시 창에 들어간다. 멱등(월요일 daily 체인이 쓰던 값을 앞당김).
+    그 뒤 target 행 중 *당해 주 weekly 행이 없는 종목*(주봉 지표 실패분)은 게이트를 NULL 로 되돌린다(회신 13):
+    직전 주 값 복사 = 종목 단위 #203 결함 → 금지. NULL = "판정하지 않음"(회신 5) → 그 주 자격 제외.
+    stale_gate_*: 그 종목 표지·건수(차분 기록의 해석용). commit 은 호출자(run_tracking) 몫.
     근거: TLSMW Ch.5 주말 리뷰 = 당해 주 종가 기준 — 입력 as-of(금)와 게이트 as-of(직전 주) 불일치 교정.
     """
     with conn.cursor() as cur:
         cur.execute("SELECT MAX(date) FROM daily_indicators WHERE date <= %s", (as_of,))
         row = cur.fetchone()
-        target = row[0] if row and row[0] else as_of
-        window_start = target - timedelta(days=window)
-        rows = update_daily_rs_gate_from_weekly(conn, window_start, as_of)
-        cur.execute(
-            """
-            SELECT d.ticker FROM daily_indicators d
-             WHERE d.date = %s
-               AND NOT EXISTS (SELECT 1 FROM weekly_indicators w
-                                WHERE w.ticker = d.ticker
-                                  AND w.week_end_date > %s AND w.week_end_date <= %s)
-             ORDER BY 1
-            """,
-            (target, target - timedelta(days=7), target),
-        )
-        stale = [r[0] for r in cur.fetchall()]
-    log.info("weekend rs gate mirror: %d rows (%s..%s), target=%s, stale current-week gate: %d",
+    target = row[0] if row and row[0] else as_of
+    window_start = target - timedelta(days=window)
+    rows = update_daily_rs_gate_from_weekly(conn, window_start, as_of)
+    stale = nullify_daily_rs_gate_without_current_week(conn, target)
+    log.info("weekend rs gate mirror: %d rows (%s..%s), target=%s, no current-week gate → NULL: %d",
              rows, window_start, as_of, target, len(stale))
     return {
         "rows": rows,

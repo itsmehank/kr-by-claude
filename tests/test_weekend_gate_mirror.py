@@ -37,12 +37,17 @@ def test_mirror_daily_rs_gate_copies_current_week_gate_into_daily(db):
     assert info["stale_gate_count"] == 0
 
 
-def test_mirror_daily_rs_gate_flags_tickers_without_current_week_weekly_row(db):
-    """당해 주 weekly 행이 없는 종목(주봉 지표 실패분)은 직전 주 값이 미러된다 — 차분 기록 오염 표지로 노출."""
+def test_mirror_daily_rs_gate_nulls_gate_without_current_week_weekly_row(db):
+    """당해 주 weekly 행이 없는 종목(주봉 지표 실패분)은 직전 주 값을 복사하지 않고 NULL(판정하지 않음, 회신 13)
+    → 후보 SQL(= TRUE)에서 그 주 제외. 표지·건수는 유지."""
     _seed(db, "WG1", daily_gate=False, weekly_gate=True)
-    _seed(db, "WG4", daily_gate=False, weekly_gate=True, week_end=FRI - timedelta(days=7))   # 직전 주 행만
+    _seed(db, "WG4", daily_gate=False, weekly_gate=True, week_end=FRI - timedelta(days=7))   # 직전 주 행만(TRUE)
     info = indicators.mirror_daily_rs_gate(db, as_of=SAT)
     assert info["stale_gate_count"] == 1 and info["stale_gate_sample"] == ["WG4"]
+    with db.cursor() as cur:
+        cur.execute("SELECT ticker, rs_line_not_declining_7m FROM daily_indicators WHERE ticker IN ('WG1','WG4') AND date=%s ORDER BY 1", (FRI,))
+        assert cur.fetchall() == [("WG1", True), ("WG4", None)]
+    assert "WG4" not in {r["symbol"] for r in chains.llm_load.get_qualifying_tickers(db, as_of=SAT)}
 
 
 def test_mirror_gate_with_diff_records_candidate_set_change(db):

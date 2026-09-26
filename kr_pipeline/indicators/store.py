@@ -1,6 +1,6 @@
 # kr_pipeline/indicators/store.py
 """daily_indicators / weekly_indicators UPSERT + Phase 단위 UPDATE."""
-from datetime import date
+from datetime import date, timedelta
 from psycopg import Connection
 
 from kr_pipeline.common.security_group import security_group_gate_params, security_group_gate_sql
@@ -234,6 +234,27 @@ def update_daily_rs_gate_from_weekly(
             (start_date, end_date),
         )
         return cur.rowcount
+
+
+def nullify_daily_rs_gate_without_current_week(conn: Connection, target: date) -> list[str]:
+    """#203(회신 13): target 일자 daily 행 중 *당해 주*(target−7일 초과 ~ target) weekly 행이 없는 종목의 미러
+    게이트를 NULL 로 — "판정하지 않음"(회신 5 NULL 의미, 탈락 아님) → 후보 SQL(= TRUE)에서 그 주 자격 제외.
+    직전 주 값 복사는 종목 단위로 #203 결함과 동일하므로 금지. 반환 = 대상 종목(표지·건수 로그용).
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE daily_indicators d
+               SET rs_line_not_declining_7m = NULL, updated_at = NOW()
+             WHERE d.date = %s
+               AND NOT EXISTS (SELECT 1 FROM weekly_indicators w
+                                WHERE w.ticker = d.ticker
+                                  AND w.week_end_date > %s AND w.week_end_date <= %s)
+            RETURNING d.ticker
+            """,
+            (target, target - timedelta(days=7), target),
+        )
+        return sorted(r[0] for r in cur.fetchall())
 
 
 def delete_weekly_indicators_orphans(conn: Connection) -> int:
