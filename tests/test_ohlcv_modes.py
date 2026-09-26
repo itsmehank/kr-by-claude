@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from datetime import date as date_cls
 from freezegun import freeze_time
 import pandas as pd
@@ -468,7 +468,7 @@ def test_full_refresh_rederives_post_seam_rows_from_raw_and_events(monkeypatch, 
     with db.cursor() as cur:
         cur.execute("UPDATE daily_prices SET change_pct = 0.0 WHERE ticker='FR1'")
     adjust.record_events(db, "FR1", [(date(2026, 9, 15), 8.0)])
-    monkeypatch.setattr(fetch_mod, "fetch_adj_only", lambda *a, **k: (_ for _ in ()).throw(AssertionError("Naver 호출 금지")))
+    assert not hasattr(fetch_mod, "fetch_adj_only")   # Naver 호출 가능 경로 자체가 없다
     monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
     stats = modes._run_full_refresh(db, ["FR1"], date(2026, 1, 1), date(2026, 9, 30), 1)
     assert stats.failures == [] and stats.rows_affected == 2
@@ -500,28 +500,65 @@ def test_full_refresh_ticker_failure_isolated(monkeypatch, db):
         db.commit()
 
 
-def test_run_upsert_window_straddling_seam_rescales_preserved_pre_seam_batch_rows(monkeypatch, db):
-    """30일 창이 시임(09-14)을 걸치면 배치 안 시임 이전 행은 adj 보존(adj_from)된다 — 그 행들도 신규 이벤트 소급을
-    받아야 한다(until = max(배치 시작, 시임)). 리뷰 발견: until=배치 시작이면 [배치 시작, 시임) 행에 계수가 빠진다."""
+def test_run_upsert_event_within_naver_history_records_only(monkeypatch, db):
+    """리뷰 2(배포 순서): ADJ_NAVER_HISTORY_THROUGH 이전 조정일이 라이브 첫 실행에서 '신규'로 보여도 시임 이전 이력은
+    이미 소급돼 있으므로 기록만 하고 소급하지 않는다(이중 소급 방지). 시임 이후 행은 raw×F."""
     from kr_pipeline.ohlcv import modes
-    _seed_prices(db, "STR", [(date(2026, 9, 10), 1000, 1000.0), (date(2026, 9, 11), 1000, 1000.0)])   # 시임 이전 이력(adj=raw)
+    _seed_prices(db, "STR", [(date(2026, 9, 10), 1000, 8000.0), (date(2026, 9, 11), 1000, 8000.0)])   # Naver 이력(×8 반영)
     raw = pd.DataFrame({
         "date": [date(2026, 9, 11), date(2026, 9, 14), date(2026, 9, 15)],
         "open": [1000, 1000, 8000], "high": [1000, 1000, 8000], "low": [1000, 1000, 8000],
-        "close": [1000, 1000, 8000], "volume": [1000, 1000, 100], "value": [1, 1, 1],
-        "change_pct": [0.0, 0.0, 0.0],     # 09-15: 1,000→8,000 with r=0 → 계수 8
+        "close": [1000, 1000, 8000], "volume": [1000, 1000, 100], "value": [1, 1, 1], "change_pct": [0.0, 0.0, 0.0],
     })
     monkeypatch.setattr(modes, "fetch_raw_datewise", lambda tickers, s, e: ({"STR": raw}, []))
     monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
     monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
-    modes._run_upsert(db, ["STR"], date(2026, 9, 11), date(2026, 9, 15), 2, modes.Mode.INCREMENTAL)
+    stats = modes._run_upsert(db, ["STR"], date(2026, 9, 11), date(2026, 9, 15), 2, modes.Mode.INCREMENTAL)
+    assert stats.adjusted_tickers == ["STR"]
     with db.cursor() as cur:
         cur.execute("SELECT date, adj_close FROM daily_prices WHERE ticker='STR' ORDER BY 1")
         assert [(d, float(a)) for d, a in cur.fetchall()] == [
-            (date(2026, 9, 10), 8000.0),   # 배치 밖 이력 소급
-            (date(2026, 9, 11), 8000.0),   # 배치 안·시임 이전(보존 행) — 소급 필수
-            (date(2026, 9, 14), 8000.0),   # 배치 안·시임 이후 — derive_adj
-            (date(2026, 9, 15), 8000.0)]
+            (date(2026, 9, 10), 8000.0), (date(2026, 9, 11), 8000.0),   # 불변(이중 소급 없음)
+            (date(2026, 9, 14), 8000.0), (date(2026, 9, 15), 8000.0)]
+        cur.execute("SELECT count(*) FROM adj_factor_events WHERE ticker='STR'"); assert cur.fetchone()[0] == 1
+
+
+def test_run_upsert_post_naver_event_rescales_pre_seam_including_freshly_inserted_row(monkeypatch, db):
+    """리뷰 3·5: Naver 종료 이후 조정일 — 창이 시임을 걸치면 배치 안 시임 이전 행(보존 행 + 이번에 새로 INSERT 된 행)은
+    정확히 1회 소급(계수², 누락 모두 금지), 배치에 없던 시임 이후 DB 행도 재유도."""
+    from kr_pipeline.ohlcv import modes, adjust
+    late = adjust.ADJ_NAVER_HISTORY_THROUGH + timedelta(days=7)
+    _seed_prices(db, "STR2", [(date(2026, 9, 10), 1000, 1000.0), (date(2026, 9, 16), 1000, 1000.0)])   # 09-16: 배치에 없는 시임 이후 행
+    raw = pd.DataFrame({
+        "date": [date(2026, 9, 11), date(2026, 9, 15), late],          # 09-11: DB 에 없던 시임 이전 행(신규 INSERT)
+        "open": [1000, 1000, 8000], "high": [1000, 1000, 8000], "low": [1000, 1000, 8000],
+        "close": [1000, 1000, 8000], "volume": [1000, 1000, 100], "value": [1, 1, 1], "change_pct": [0.0, 0.0, 0.0],
+    })
+    monkeypatch.setattr(modes, "fetch_raw_datewise", lambda tickers, s, e: ({"STR2": raw}, []))
+    monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+    modes._run_upsert(db, ["STR2"], date(2026, 9, 11), late, 2, modes.Mode.INCREMENTAL)
+    with db.cursor() as cur:
+        cur.execute("SELECT date, adj_close FROM daily_prices WHERE ticker='STR2' ORDER BY 1")
+        assert [(d, float(a)) for d, a in cur.fetchall()] == [
+            (date(2026, 9, 10), 8000.0), (date(2026, 9, 11), 8000.0),   # 보존 행·신규 INSERT 행 모두 ×8 정확히 1회
+            (date(2026, 9, 15), 8000.0), (date(2026, 9, 16), 8000.0),   # 배치 행·배치에 없던 DB 행 모두 재유도
+            (late, 8000.0)]
+
+
+def test_run_upsert_skips_event_judgment_when_prior_day_snapshot_blocked(monkeypatch, db):
+    """리뷰 1: 직전 거래일 스냅샷이 차단(failures 'snapshot:D')이면 그 다음 날 행의 조정일 판정을 보류 — 2일 수익률 오판 방지."""
+    from kr_pipeline.ohlcv import modes
+    _seed_prices(db, "BLK", [(date(2026, 9, 21), 10000, 10000.0)])
+    raw = pd.DataFrame({"date": [date(2026, 9, 23)], "open": [10500], "high": [10500], "low": [10500], "close": [10500],
+                        "volume": [1000], "value": [1], "change_pct": [1.94]})    # 09-22 결측(차단), r 은 09-22 대비
+    monkeypatch.setattr(modes, "fetch_raw_datewise", lambda tickers, s, e: ({"BLK": raw}, [("snapshot:2026-09-22", "blocked/empty response")]))
+    monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+    stats = modes._run_upsert(db, ["BLK"], date(2026, 9, 22), date(2026, 9, 23), 2, modes.Mode.INCREMENTAL)
+    assert stats.adjusted_tickers == []
+    with db.cursor() as cur:
+        cur.execute("SELECT count(*) FROM adj_factor_events WHERE ticker='BLK'"); assert cur.fetchone()[0] == 0
 
 
 def test_run_upsert_ignores_pre_seam_adjustment_days(monkeypatch, db):

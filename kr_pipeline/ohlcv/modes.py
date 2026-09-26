@@ -222,9 +222,13 @@ def run(
 
 def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
     """#207 A안: raw(KRX) 만 수집, 수정 OHLCV 는 자체 계수(adjust)로 산출 — Naver 접촉 0.
-    종목별: 알려진 이벤트 + 배치에서 검출한 신규 조정일 → 배치 행 adj = raw × F(t) → upsert(시임 이전 행 adj 보존)
-    → 신규 조정일은 배치 이전 이력에 소급(apply_event) + 기록(record_events) → adjusted_tickers 로 보고(지표 재계산은 체인)."""
+    종목별: 배치에서 조정일 검출(직전 거래일 결측이면 보류) → 배치 행 adj = raw × F(시임 이전 행은 기록된 이벤트만,
+    시임 이후 행은 신규 포함) → upsert(시임 이전 기존 행 adj 보존) → adjust.ingest_events(기록·정책 소급·시임 이후 재유도)
+    → adjusted_tickers 로 보고(지표 재계산은 체인)."""
     successes, failures = fetch_raw_datewise(tickers, start, end)
+    blocked = {date.fromisoformat(ident.split("snapshot:", 1)[1]) for ident, _ in failures if ident.startswith("snapshot:")}
+    batch_dates = {d for raw in successes.values() if not raw.empty for d in raw["date"]}
+    calendar = adjust.trading_days(conn, start - timedelta(days=45)) | batch_dates | blocked   # 거래일(또는 미확인) 집합
     rows_total = 0
     empties: list[str] = []
     adjusted: list[str] = []
@@ -236,21 +240,18 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
         raw = raw.sort_values("date").reset_index(drop=True)
         batch_start = raw["date"].min()
         known = adjust.load_events(conn, ticker)
-        known_dates = {d for d, _ in known}
-        prev_close = adjust.last_close_before(conn, ticker, batch_start)
-        new_events = [(d, c) for d, c in adjust.events_in_frame(raw, prev_close=prev_close) if d not in known_dates]
-        merged = adjust.derive_adj(raw, known + new_events)
+        prev_date, prev_close = adjust.last_row_before(conn, ticker, batch_start)
+        new_events = adjust.unrecorded(conn, ticker, adjust.events_in_frame(
+            raw, prev_close=prev_close, prev_date=prev_date, open_days=calendar))
+        pre = raw[raw["date"] < adjust.ADJ_SELF_START]
+        post = raw[raw["date"] >= adjust.ADJ_SELF_START]
+        merged = pd.concat([adjust.derive_adj(pre, known), adjust.derive_adj(post, known + new_events)], ignore_index=True)
         rows = to_price_rows(ticker, merged)
         rows_total += upsert_daily_prices(conn, rows, adj_from=adjust.ADJ_SELF_START)
-        # 소급 상한 = max(배치 시작, 시임): 배치 안 시임 이전 행은 upsert 가 adj 를 보존(adj_from)하므로 여기서 소급해야
-        # 하고, 시임 이후 배치 행은 derive_adj 가 이미 F 를 적용했다(리뷰 발견 — 30일 창이 시임을 걸치는 구간).
-        until = max(batch_start, adjust.ADJ_SELF_START)
-        for d, c in new_events:
-            adjust.apply_event(conn, ticker, d, c, until=until)
         if new_events:
-            adjust.record_events(conn, ticker, new_events)
+            info = adjust.ingest_events(conn, ticker, new_events)
             adjusted.append(ticker)
-            log.info("adjustment events %s: %s", ticker, [(str(d), round(c, 6)) for d, c in new_events])
+            log.info("adjustment events %s: %s -> %s", ticker, [(str(d), round(c, 6)) for d, c in new_events], info)
         conn.commit()
 
     # 지수
@@ -282,37 +283,18 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
 
 
 def _run_full_refresh(conn, tickers, start, end, max_workers, mode: Mode = Mode.FULL_REFRESH) -> RunStats:
-    """#207 A안: 수정 OHLCV 전체 재유도 — **외부 접촉 0**. 종목별로 시임(adjust.ADJ_SELF_START) 이후 raw 행을
-    adj_* = raw × F(adj_factor_events) 로 다시 계산해 update_adj_prices(adj 컬럼만). 시임 이전 행(Naver 구정의 이력,
-    후행 이벤트 소급 포함)은 건드리지 않는다. start/end 인자는 창 상한만(시임 이전으로 내려가지 않음)."""
-    from_date = max(start, adjust.ADJ_SELF_START)
+    """#207 A안: 수정 OHLCV 전체 재유도 — **외부 접촉 0**. 종목별 adjust.rederive_post_seam(시임 이후 행 raw × F, adj 컬럼만).
+    시임 이전 행(Naver 구정의 이력, 후행 이벤트 소급 포함)은 건드리지 않는다. start 는 무시(시임이 하한), end 는 상한."""
     rows_total = 0
     failures: list[tuple[str, str]] = []
     for i, ticker in enumerate(tickers, 1):
         try:
-            events = adjust.load_events(conn, ticker)
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT date, open, high, low, close, volume, value FROM daily_prices "
-                    "WHERE ticker = %s AND date BETWEEN %s AND %s ORDER BY date",
-                    (ticker, from_date, end))
-                raw = pd.DataFrame(cur.fetchall(), columns=["date", "open", "high", "low", "close", "volume", "value"])
-            if raw.empty:
-                continue
-            raw[["open", "high", "low", "close", "volume", "value"]] = raw[["open", "high", "low", "close", "volume", "value"]].astype(float)
-            merged = adjust.derive_adj(raw, events)
-
-            def _n(v):
-                return None if pd.isna(v) else float(v)
-            rows = [(ticker, r["date"], _n(r["adj_close"]), _n(r["adj_high"]), _n(r["adj_low"]),
-                     _n(r["adj_open"]), _n(r["adj_volume"])) for _, r in merged.iterrows()]
-            rows_total += update_adj_prices(conn, rows)
+            rows_total += adjust.rederive_post_seam(conn, ticker, end=end)
             conn.commit()
         except Exception as e:
             failures.append((ticker, str(e)))
             conn.rollback()  # DB 측 예외의 aborted 트랜잭션이 후속 종목으로 연쇄되지 않게
         if i % 100 == 0:
             log.info(f"full-refresh progress: {i}/{len(tickers)} (failures so far: {len(failures)})")
-
     warnings = _run_sanity_checks(conn, mode)
     return RunStats(rows_affected=rows_total, failures=failures, warnings=warnings)

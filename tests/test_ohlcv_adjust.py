@@ -6,7 +6,7 @@ half-even 경계 포함 0.005 정확히). 실측(09-14~23 20,714행): ≤0.005 1
 (0.006, 1.0] 0 · >1.0 21 → 빈 구간이 판정을 가른다. 코다코 09-10(close 410, −99.50%)은 |diff| 0.0018 → 비이벤트
 (회신 15 잔차 = 반올림 역산 인공물). adj_volume = volume / 계수(Naver 구정의 관례 실측 k=1/coef²).
 """
-from datetime import date
+from datetime import date, timedelta
 
 import pandas as pd
 import pytest
@@ -137,3 +137,59 @@ def test_detect_events_ignores_dates_before_self_start(db):
     _seed(db, "AJ4", [(date(2026, 9, 2), 1000, 0.0), (date(2026, 9, 3), 8000, 0.0), (date(2026, 9, 14), 8000, 0.0), (date(2026, 9, 15), 16000, 0.0)])
     ev = adjust.detect_events(db, "AJ4", since=date(2026, 9, 1))
     assert [(d, round(c, 2)) for d, c in ev] == [(date(2026, 9, 15), 2.0)]
+
+
+# ---------- 2차 리뷰 반영 ----------
+
+def test_events_in_frame_skips_row_when_prior_trading_day_missing():
+    """리뷰 1: 직전 '행'이 직전 '거래일'이 아니면(하루 결측 — 스냅샷 차단·종목 누락) r_impl 은 2일 수익률이라
+    가짜 조정일이 된다. open_days(그 사이 거래일 존재) 가 있으면 판정 보류. 휴일만 사이에 있으면 정상 판정."""
+    raw = pd.DataFrame([{"date": date(2026, 9, 25), "close": 10500, "change_pct": 1.94}])
+    assert adjust.events_in_frame(raw, prev_close=10000.0, prev_date=date(2026, 9, 23), open_days={date(2026, 9, 24)}) == []
+    ev = adjust.events_in_frame(raw, prev_close=10000.0, prev_date=date(2026, 9, 23), open_days=set())   # 09-24 휴일
+    assert [(d, round(c, 4)) for d, c in ev] == [(date(2026, 9, 25), 1.03)]
+
+
+def test_ingest_events_naver_embodied_event_records_without_rescaling_pre_seam(db):
+    """리뷰 2·4: ADJ_NAVER_HISTORY_THROUGH 이전 조정일은 시임 이전 Naver 이력에 이미 소급돼 있다 → 기록만(소급 0),
+    시임 이후 행은 DB 기준으로 raw×F 재유도(배치에 없는 행 포함)."""
+    assert adjust.ADJ_SELF_START < adjust.ADJ_NAVER_HISTORY_THROUGH
+    _seed(db, "IG1", [(date(2026, 9, 11), 1000, 0.0), (date(2026, 9, 14), 1000, 0.0), (date(2026, 9, 15), 8000, 0.0)])
+    with db.cursor() as cur:   # Naver 이력 흉내: 시임 이전 행은 이미 ×8 반영, 시임 이후 행은 raw 그대로(미유도)
+        cur.execute("UPDATE daily_prices SET adj_close=8000, adj_high=8000, adj_low=8000, adj_open=8000 WHERE ticker='IG1' AND date='2026-09-11'")
+    out = adjust.ingest_events(db, "IG1", [(date(2026, 9, 15), 8.0)])
+    assert out["recorded"] == 1 and out["applied_rows"] == 0 and out["rederived_rows"] == 2
+    with db.cursor() as cur:
+        cur.execute("SELECT date, adj_close FROM daily_prices WHERE ticker='IG1' ORDER BY 1")
+        assert [(d, float(a)) for d, a in cur.fetchall()] == [(date(2026, 9, 11), 8000.0), (date(2026, 9, 14), 8000.0), (date(2026, 9, 15), 8000.0)]
+    assert adjust.ingest_events(db, "IG1", [(date(2026, 9, 15), 8.0)])["recorded"] == 0   # 멱등
+
+
+def test_ingest_events_post_naver_event_rescales_pre_seam_once_and_rederives_absent_rows(db):
+    """리뷰 5: Naver 종료 이후 조정일은 시임 이전 행 소급(1회) + 시임 이후 전 행 DB 기준 재유도(오늘 배치에 없던 행 포함)."""
+    late = adjust.ADJ_NAVER_HISTORY_THROUGH + timedelta(days=7)
+    _seed(db, "IG2", [(date(2026, 9, 11), 1000, 0.0), (date(2026, 9, 15), 1000, 0.0), (late, 8000, 0.0)])
+    out = adjust.ingest_events(db, "IG2", [(late, 8.0)])
+    assert out["recorded"] == 1 and out["applied_rows"] == 1 and out["rederived_rows"] == 2
+    with db.cursor() as cur:
+        cur.execute("SELECT date, adj_close, adj_volume FROM daily_prices WHERE ticker='IG2' ORDER BY 1")
+        assert [(d, float(a), float(v)) for d, a, v in cur.fetchall()] == [
+            (date(2026, 9, 11), 8000.0, 125.0), (date(2026, 9, 15), 8000.0, 125.0), (late, 8000.0, 1000.0)]
+
+
+def _seed_index(db, dates):
+    with db.cursor() as cur:
+        for d in dates:
+            cur.execute("INSERT INTO index_daily (index_code, date, open, high, low, close) VALUES ('1001', %s, 1, 1, 1, 1) ON CONFLICT DO NOTHING", (d,))
+
+
+def test_detect_events_all_set_based_returns_only_unrecorded_and_contiguous(db):
+    """리뷰 6·1: 전 종목 단일 쿼리 검출 — 미기록 이벤트만, 직전 거래일(index_daily 달력) 결측 종목은 보류."""
+    d1, d2, d3 = date(2026, 9, 21), date(2026, 9, 22), date(2026, 9, 23)
+    _seed_index(db, [d1, d2, d3])
+    _seed(db, "DA1", [(d1, 1000, 0.0), (d2, 8000, 0.0)])                 # 미기록 ×8
+    _seed(db, "DA2", [(d1, 1000, 0.0), (d2, 8000, 0.0)])                 # 기록됨
+    adjust.record_events(db, "DA2", [(d2, 8.0)])
+    _seed(db, "DA3", [(d1, 1000, 0.0), (d3, 8000, 0.0)])                 # 09-22 행 결측(달력상 거래일) → 보류
+    out = adjust.detect_events_all(db, since=d1, tickers=["DA1", "DA2", "DA3"])
+    assert {t: [(d, round(c, 2)) for d, c in ev] for t, ev in out.items()} == {"DA1": [(d2, 8.0)]}
