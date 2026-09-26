@@ -27,6 +27,9 @@ def main() -> int:
     ap.add_argument("--start", default=None); ap.add_argument("--end", default=None)
     ap.add_argument("--execute", action="store_true", help="없으면 fetch 만 하고 적재는 rollback")
     ap.add_argument("--report", default="data/verification/issue207_change_pct_backfill_report.json")
+    ap.add_argument("--cache", default="data/verification/issue207_change_pct_fetched.json",
+                    help="수집 결과 보존 파일(DB 적재 전에 기록 — 적재 실패 시 접촉 결과 유실 방지)")
+    ap.add_argument("--from-cache", action="store_true", help="접촉 없이 --cache 파일의 행으로 적재만")
     a = ap.parse_args()
     dates = [date.fromisoformat(d) for d in a.dates]
     dates = [d for d in dates if d.weekday() < 5]
@@ -38,6 +41,11 @@ def main() -> int:
 
     report = {"execute": a.execute, "requests": 0, "dates": {}, "tickers": {}}
     rows: list[tuple] = []
+    if a.from_cache:
+        cached = json.load(open(a.cache))
+        rows = [(t, date.fromisoformat(d), cp) for t, d, cp in cached["rows"]]
+        report["from_cache"] = a.cache
+        dates, tickers = [], []
     for d in dates:
         snap = fetch_market_snapshot(d); report["requests"] += 1
         r = to_change_pct_rows(snap)
@@ -49,6 +57,10 @@ def main() -> int:
         report["tickers"][t] = {"rows": len(r), "first": str(df["date"].min()) if not df.empty else None,
                                 "last": str(df["date"].max()) if not df.empty else None}
         rows += r; time.sleep(0.3)
+
+    if not a.from_cache:   # 접촉 결과를 DB 적재 전에 보존(09-27 롤백 유실 재발 방지)
+        json.dump({"rows": [(t, d.isoformat(), cp) for t, d, cp in rows], "report": report}, open(a.cache, "w"), ensure_ascii=False)
+        print(f"수집 {len(rows)}행 → {a.cache} 보존")
 
     cfg = Config.load()
     with psycopg.connect(cfg.database_url) as cn:

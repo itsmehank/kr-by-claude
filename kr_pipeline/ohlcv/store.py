@@ -66,6 +66,7 @@ def update_change_pct(conn: Connection, rows: list[tuple]) -> int:
     """
     if not rows:
         return 0
+    rows = list({(t, d): (t, d, cp) for t, d, cp in rows}.values())   # 중복 키 = 마지막 값(스냅샷+per-ticker 겹침)
     with conn.cursor() as cur:
         cur.execute("""
             CREATE TEMP TABLE _cp_updates (

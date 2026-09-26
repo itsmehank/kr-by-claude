@@ -180,3 +180,12 @@ def test_update_change_pct_only_touches_change_pct(db):
         cur.execute("SELECT change_pct, close, adj_close FROM daily_prices WHERE ticker='005930' AND date='2026-09-14'")
         cp, close, adj = cur.fetchone()
         assert float(cp) == -1.25 and close == 105 and adj == 105.0
+
+
+def test_update_change_pct_dedupes_duplicate_keys(db):
+    """#207 백필 사고(09-27): 스냅샷(날짜별)과 per-ticker(종목별) 수집이 같은 (ticker,date) 를 두 번 내면
+    TEMP PK 위반으로 전체 롤백 → 접촉 결과 유실. 중복은 마지막 값으로 합쳐 적재한다."""
+    _seed_stock(db)
+    upsert_daily_prices(db, [("005930", date(2026, 9, 14), 100, 110, 90, 105, 105.0, 110.0, 90.0, 100.0, 1000.0, 1000, 105000)])
+    n = update_change_pct(db, [("005930", date(2026, 9, 14), -1.25), ("005930", date(2026, 9, 14), -1.25)])
+    assert n == 1
