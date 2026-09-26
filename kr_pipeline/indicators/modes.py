@@ -27,6 +27,7 @@ from kr_pipeline.indicators.compute.volume import (
     pocket_pivot, volume_dry_up, up_down_volume_ratio, distribution_day,
 )
 from kr_pipeline.indicators.completeness import check_daily_ohlcv_complete
+from kr_pipeline.ohlcv.tripwires import AdjustmentTripwireError, check_adjustment_tripwires
 from kr_pipeline.indicators.load import (
     load_daily_prices, load_index_daily, load_weekly_prices, load_weekly_index,
     load_active_tickers_with_market,
@@ -415,6 +416,12 @@ def run_daily(
         # limit_tickers 설정(테스트/부분) 및 BACKFILL/FULL_REFRESH(end=어제) 는 제외.
         if mode == Mode.INCREMENTAL and limit_tickers is None:
             check_daily_ohlcv_complete(conn, active_count=len(tickers))
+        # ② 수정주가 정합성 트립와이어(#207 회신 16): (1′) 일별 조정 종목 수 · (2) adj≤raw×계수 · (3) low≤close≤high.
+        #    위반 시 fail-closed — 지표 미계산, run failed 기록(수집은 fail-open 유지).
+        if mode == Mode.INCREMENTAL and limit_tickers is None:
+            violations = check_adjustment_tripwires(conn, start=upsert_start, end=load_end)
+            if violations:
+                raise AdjustmentTripwireError("; ".join(violations))
         # Phase A
         log.info("Phase A: per-ticker time-series indicators")
         for i, (ticker, market) in enumerate(tickers, 1):

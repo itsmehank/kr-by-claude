@@ -401,6 +401,21 @@ def test_sanity_checks_adj_invariant_recent_emphasis(db, monkeypatch):
 #   '빈 adj 보류' 동작이 존재하지 않는다(raw 만 수집, adj = raw × F). 보류 설계(#95)는 레거시 fetch_many_datewise 에만 남음.
 
 
+_UPSERT_TEST_TICKERS = ["EVT", "SEAM", "STR", "STR2", "PRE", "BLK", "FR1", "FR2", "FR3", "HLT"]
+
+
+@pytest.fixture(autouse=True)
+def _purge_upsert_test_tickers(test_db_url):
+    """_run_upsert/_run_full_refresh 는 종목별 commit 을 하므로 시드가 kr_test 에 영속된다 — 다른 테스트(트립와이어 창 스캔·
+    sanity)를 오염시키지 않게 각 테스트 뒤 정리(별도 autocommit 연결)."""
+    yield
+    import psycopg
+    with psycopg.connect(test_db_url, autocommit=True) as cn:
+        cn.execute("DELETE FROM adj_factor_events WHERE ticker = ANY(%s)", (_UPSERT_TEST_TICKERS,))
+        cn.execute("DELETE FROM daily_prices WHERE ticker = ANY(%s)", (_UPSERT_TEST_TICKERS,))
+        cn.execute("DELETE FROM stocks WHERE ticker = ANY(%s)", (_UPSERT_TEST_TICKERS,))
+
+
 def _seed_prices(db, ticker, rows):
     """rows = [(date, close, adj_close)] — raw=close, change_pct NULL(시임 이전 Naver 이력 흉내)."""
     with db.cursor() as cur:
@@ -443,9 +458,9 @@ def test_run_upsert_preserves_pre_seam_adj(monkeypatch, db):
     from kr_pipeline.ohlcv import modes
     from kr_pipeline.ohlcv.adjust import ADJ_SELF_START
     _seed_prices(db, "SEAM", [(date(2026, 9, 11), 1000, 500.0)])          # Naver 이력: adj 500(후행 분할 반영)
-    raw = pd.DataFrame({"date": [date(2026, 9, 11), ADJ_SELF_START], "open": [1000, 1010], "high": [1000, 1010],
+    raw = pd.DataFrame({"date": [date(2026, 9, 11), ADJ_SELF_START], "open": [1000, 1010], "high": [1001, 1010],
                         "low": [1000, 1010], "close": [1001, 1010], "volume": [1000, 1000], "value": [1, 1],
-                        "change_pct": [0.1, 0.9]})
+                        "change_pct": [0.1, 0.9]})   # 유효 봉(low≤close≤high — 트립와이어 (3) 통과)
     monkeypatch.setattr(modes, "fetch_raw_datewise", lambda tickers, s, e: ({"SEAM": raw}, []))
     monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
     monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
