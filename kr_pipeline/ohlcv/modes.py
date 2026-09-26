@@ -242,8 +242,11 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
         merged = adjust.derive_adj(raw, known + new_events)
         rows = to_price_rows(ticker, merged)
         rows_total += upsert_daily_prices(conn, rows, adj_from=adjust.ADJ_SELF_START)
+        # 소급 상한 = max(배치 시작, 시임): 배치 안 시임 이전 행은 upsert 가 adj 를 보존(adj_from)하므로 여기서 소급해야
+        # 하고, 시임 이후 배치 행은 derive_adj 가 이미 F 를 적용했다(리뷰 발견 — 30일 창이 시임을 걸치는 구간).
+        until = max(batch_start, adjust.ADJ_SELF_START)
         for d, c in new_events:
-            adjust.apply_event(conn, ticker, d, c, until=batch_start)
+            adjust.apply_event(conn, ticker, d, c, until=until)
         if new_events:
             adjust.record_events(conn, ticker, new_events)
             adjusted.append(ticker)

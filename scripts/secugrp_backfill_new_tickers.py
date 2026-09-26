@@ -49,7 +49,7 @@ def main() -> int:
                 rep["tickers"][t] = info
                 continue
             raw = raw.sort_values("date").reset_index(drop=True)
-            events = adjust.events_in_frame(raw, prev_close=None)   # 신규 종목: 전 기간 자체 등락률로 조정일 검출
+            events = adjust.events_in_frame(raw, prev_close=None, min_date=None)   # 신규 종목: Naver 이력 없음 → 전 기간 자체 산출
             merged = adjust.derive_adj(raw, events)
             rows = to_price_rows(t, merged)
             info["rows"] = len(rows)

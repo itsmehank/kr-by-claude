@@ -83,22 +83,27 @@ def derive_adj(raw: pd.DataFrame, events: list[tuple[date, float]]) -> pd.DataFr
     return nullify_halt_adj(out)
 
 
-def events_in_frame(raw: pd.DataFrame, *, prev_close: float | None) -> list[tuple[date, float]]:
+def events_in_frame(raw: pd.DataFrame, *, prev_close: float | None,
+                    min_date: date | None = ADJ_SELF_START) -> list[tuple[date, float]]:
     """증분 배치(raw: date·close·change_pct, 날짜순)에서 조정일 검출. 첫 행의 전일 종가 = DB 직전 종가(prev_close).
-    change_pct 결측 행은 판정하지 않되 다음 행의 전일 종가로는 쓴다."""
+    change_pct 결측 행은 판정하지 않되 다음 행의 전일 종가로는 쓴다.
+    min_date(기본 시임): 그 이전 날짜는 조정일로 보지 않는다 — 시임 이전 조정은 Naver 이력에 이미 소급돼 있어 다시
+    적용하면 이중 조정(리뷰 발견: 30일 창이 시임을 걸침). 신규 종목처럼 이력을 자체 산출할 때만 None."""
     out: list[tuple[date, float]] = []
     prev = _num(prev_close)
     has_cp = "change_pct" in raw.columns
     for _, r in raw.sort_values("date").iterrows():
         cp = r["change_pct"] if has_cp else None
-        if is_adjustment(r["close"], prev, cp):
+        if (min_date is None or r["date"] >= min_date) and is_adjustment(r["close"], prev, cp):
             out.append((r["date"], coefficient(r["close"], prev, cp)))
         prev = _num(r["close"])
     return out
 
 
-def detect_events(conn: Connection, ticker: str, *, since: date, lookback_days: int = 30) -> list[tuple[date, float]]:
-    """since 이후 행 중 조정일 → [(date, coef)]. 전일 종가는 DB 직전 행(LAG) — since 앞 lookback 으로 확보."""
+def detect_events(conn: Connection, ticker: str, *, since: date, lookback_days: int = 30,
+                  min_date: date | None = ADJ_SELF_START) -> list[tuple[date, float]]:
+    """since 이후 행 중 조정일 → [(date, coef)]. 전일 종가는 DB 직전 행(LAG) — since 앞 lookback 으로 확보.
+    min_date(기본 시임) 이전 날짜는 제외(events_in_frame 과 동일 이유)."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -112,7 +117,7 @@ def detect_events(conn: Connection, ticker: str, *, since: date, lookback_days: 
         rows = cur.fetchall()
     out: list[tuple[date, float]] = []
     for d, close, cp, prev in rows:
-        if d < since:
+        if d < since or (min_date is not None and d < min_date):
             continue
         if is_adjustment(close, prev, cp):
             out.append((d, coefficient(close, prev, cp)))

@@ -498,3 +498,49 @@ def test_full_refresh_ticker_failure_isolated(monkeypatch, db):
             cur.execute("DELETE FROM daily_prices WHERE ticker IN ('FR2','FR3')")
             cur.execute("DELETE FROM stocks WHERE ticker IN ('FR2','FR3')")
         db.commit()
+
+
+def test_run_upsert_window_straddling_seam_rescales_preserved_pre_seam_batch_rows(monkeypatch, db):
+    """30일 창이 시임(09-14)을 걸치면 배치 안 시임 이전 행은 adj 보존(adj_from)된다 — 그 행들도 신규 이벤트 소급을
+    받아야 한다(until = max(배치 시작, 시임)). 리뷰 발견: until=배치 시작이면 [배치 시작, 시임) 행에 계수가 빠진다."""
+    from kr_pipeline.ohlcv import modes
+    _seed_prices(db, "STR", [(date(2026, 9, 10), 1000, 1000.0), (date(2026, 9, 11), 1000, 1000.0)])   # 시임 이전 이력(adj=raw)
+    raw = pd.DataFrame({
+        "date": [date(2026, 9, 11), date(2026, 9, 14), date(2026, 9, 15)],
+        "open": [1000, 1000, 8000], "high": [1000, 1000, 8000], "low": [1000, 1000, 8000],
+        "close": [1000, 1000, 8000], "volume": [1000, 1000, 100], "value": [1, 1, 1],
+        "change_pct": [0.0, 0.0, 0.0],     # 09-15: 1,000→8,000 with r=0 → 계수 8
+    })
+    monkeypatch.setattr(modes, "fetch_raw_datewise", lambda tickers, s, e: ({"STR": raw}, []))
+    monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+    modes._run_upsert(db, ["STR"], date(2026, 9, 11), date(2026, 9, 15), 2, modes.Mode.INCREMENTAL)
+    with db.cursor() as cur:
+        cur.execute("SELECT date, adj_close FROM daily_prices WHERE ticker='STR' ORDER BY 1")
+        assert [(d, float(a)) for d, a in cur.fetchall()] == [
+            (date(2026, 9, 10), 8000.0),   # 배치 밖 이력 소급
+            (date(2026, 9, 11), 8000.0),   # 배치 안·시임 이전(보존 행) — 소급 필수
+            (date(2026, 9, 14), 8000.0),   # 배치 안·시임 이후 — derive_adj
+            (date(2026, 9, 15), 8000.0)]
+
+
+def test_run_upsert_ignores_pre_seam_adjustment_days(monkeypatch, db):
+    """창 안 시임 이전 조정일(예: 09-03 ×8)은 Naver 이력이 이미 소급 반영 → 신규 이벤트로 보면 이중 적용.
+    시임 이전 날짜는 판정·기록·소급 대상이 아니다."""
+    from kr_pipeline.ohlcv import modes
+    _seed_prices(db, "PRE", [(date(2026, 9, 2), 1000, 8000.0)])   # Naver 이력: 09-03 ×8 이미 반영
+    raw = pd.DataFrame({
+        "date": [date(2026, 9, 3), date(2026, 9, 14)],
+        "open": [8000, 8100], "high": [8000, 8100], "low": [8000, 8100], "close": [8000, 8100],
+        "volume": [100, 100], "value": [1, 1], "change_pct": [0.0, 1.25],
+    })
+    monkeypatch.setattr(modes, "fetch_raw_datewise", lambda tickers, s, e: ({"PRE": raw}, []))
+    monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
+    monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
+    stats = modes._run_upsert(db, ["PRE"], date(2026, 9, 3), date(2026, 9, 14), 2, modes.Mode.INCREMENTAL)
+    assert stats.adjusted_tickers == []
+    with db.cursor() as cur:
+        cur.execute("SELECT date, adj_close FROM daily_prices WHERE ticker='PRE' ORDER BY 1")
+        assert [(d, float(a)) for d, a in cur.fetchall()] == [(date(2026, 9, 2), 8000.0), (date(2026, 9, 3), 8000.0), (date(2026, 9, 14), 8100.0)]
+        cur.execute("SELECT count(*) FROM adj_factor_events WHERE ticker='PRE'")
+        assert cur.fetchone()[0] == 0

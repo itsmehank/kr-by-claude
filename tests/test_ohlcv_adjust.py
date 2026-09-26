@@ -85,16 +85,16 @@ def _seed(db, ticker, rows):
 
 
 def test_detect_new_events_from_change_pct_and_record(db):
-    """09-03 정상, 09-04 감자(×8, 정지 중 종가 점프·등락률 0), 09-07 정상 → 이벤트 1건 기록(종목·날짜·계수)."""
-    _seed(db, "AJ1", [(date(2026, 9, 3), 10280, 0.5), (date(2026, 9, 4), 82300, 0.0), (date(2026, 9, 7), 82000, -0.36)])
-    ev = adjust.detect_events(db, "AJ1", since=date(2026, 9, 1))
-    assert [(d, round(c, 4)) for d, c in ev] == [(date(2026, 9, 4), 8.0058)]
+    """09-21 정상, 09-22 감자(×8, 정지 중 종가 점프·등락률 0), 09-23 정상 → 이벤트 1건 기록(종목·날짜·계수). (시임 이후 날짜)"""
+    _seed(db, "AJ1", [(date(2026, 9, 21), 10280, 0.5), (date(2026, 9, 22), 82300, 0.0), (date(2026, 9, 23), 82000, -0.36)])
+    ev = adjust.detect_events(db, "AJ1", since=date(2026, 9, 20))
+    assert [(d, round(c, 4)) for d, c in ev] == [(date(2026, 9, 22), 8.0058)]
     n = adjust.record_events(db, "AJ1", ev)
     assert n == 1
     assert adjust.record_events(db, "AJ1", ev) == 0          # 멱등(이미 기록)
     with db.cursor() as cur:
         cur.execute("SELECT ticker, date, coef FROM adj_factor_events WHERE ticker='AJ1'")
-        t, d, c = cur.fetchone(); assert (t, d) == ("AJ1", date(2026, 9, 4)) and float(c) == pytest.approx(8.0058, abs=1e-4)
+        t, d, c = cur.fetchone(); assert (t, d) == ("AJ1", date(2026, 9, 22)) and float(c) == pytest.approx(8.0058, abs=1e-4)
 
 
 def test_apply_event_rescales_history_before_event_only(db):
@@ -130,3 +130,10 @@ def test_apply_event_until_excludes_rows_already_derived(db):
     with db.cursor() as cur:
         cur.execute("SELECT date, adj_close FROM daily_prices WHERE ticker='AJ3' ORDER BY 1")
         assert [(d, float(c)) for d, c in cur.fetchall()] == [(date(2026, 9, 1), 800.0), (date(2026, 9, 3), 100.0), (date(2026, 9, 4), 800.0)]
+
+
+def test_detect_events_ignores_dates_before_self_start(db):
+    """시임(ADJ_SELF_START) 이전 조정일은 Naver 이력에 내재 → 검출 대상 아님(검증 표본용 change_pct 가 있어도)."""
+    _seed(db, "AJ4", [(date(2026, 9, 2), 1000, 0.0), (date(2026, 9, 3), 8000, 0.0), (date(2026, 9, 14), 8000, 0.0), (date(2026, 9, 15), 16000, 0.0)])
+    ev = adjust.detect_events(db, "AJ4", since=date(2026, 9, 1))
+    assert [(d, round(c, 2)) for d, c in ev] == [(date(2026, 9, 15), 2.0)]
