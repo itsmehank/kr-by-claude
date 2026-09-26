@@ -7,7 +7,7 @@ import pandas as pd
 from psycopg import Connection
 
 from kr_pipeline.db.runs import run_tracking
-from kr_pipeline.ohlcv import adjust
+from kr_pipeline.ohlcv import adjust, tripwires
 from kr_pipeline.ohlcv.fetch import fetch_raw_datewise, fetch_index
 from kr_pipeline.ohlcv.transform import (
     to_price_rows, to_index_rows, nullify_halt_adj,
@@ -221,38 +221,47 @@ def run(
 
 
 def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
-    """#207 A안: raw(KRX) 만 수집, 수정 OHLCV 는 자체 계수(adjust)로 산출 — Naver 접촉 0.
-    종목별: 배치에서 조정일 검출(직전 거래일 결측이면 보류) → 배치 행 adj = raw × F(시임 이전 행은 기록된 이벤트만,
-    시임 이후 행은 신규 포함) → upsert(시임 이전 기존 행 adj 보존) → adjust.ingest_events(기록·정책 소급·시임 이후 재유도)
-    → adjusted_tickers 로 보고(지표 재계산은 체인)."""
+    """#207 A안: raw(KRX) 만 수집, 수정 OHLCV 는 자체 계수(adjust)로 산출 — Naver 접촉 0. 4단계(회신 17 조건 = 예외 위치):
+    ① raw 적재(fail-open): 종목별 조정일 후보 검출(직전 거래일 결측이면 보류) → 배치 행 adj = raw × F(기록된 이벤트만) → upsert
+       (시임 이전 기존 행 adj 보존) → commit. 당일 KRX 봉은 여기서 전부 저장된다.
+    ② 트립와이어 (1′)(3): 후보 이벤트 일별 수 · raw 봉 정합 → 위반 시 AdjustmentTripwireError(이벤트 기록·소급·재유도 **전**,
+       ohlcv run failed → 체인 중단 → 지표 미계산).
+    ③ 이벤트 유도: adjust.ingest_events(기록 → 정책 소급 → 시임 이후 재유도) → adjusted_tickers.
+    ④ 트립와이어 (2): 유도 결과 봉 포함 관계 → 위반 시 예외(지표 전)."""
     successes, failures = fetch_raw_datewise(tickers, start, end)
     blocked = {date.fromisoformat(ident.split("snapshot:", 1)[1]) for ident, _ in failures if ident.startswith("snapshot:")}
     batch_dates = {d for raw in successes.values() if not raw.empty for d in raw["date"]}
     calendar = adjust.trading_days(conn, start - timedelta(days=45)) | batch_dates | blocked   # 거래일(또는 미확인) 집합
     rows_total = 0
     empties: list[str] = []
-    adjusted: list[str] = []
+    pending: dict[str, list[tuple[date, float]]] = {}
+    # ① raw 적재(fail-open)
     for ticker, raw in successes.items():
         if raw.empty:
             # 성공도 실패도 아닌 소멸 금지 — 계정 후 skip (P1-5 B)
             empties.append(ticker)
             continue
         raw = raw.sort_values("date").reset_index(drop=True)
-        batch_start = raw["date"].min()
         known = adjust.load_events(conn, ticker)
-        prev_date, prev_close = adjust.last_row_before(conn, ticker, batch_start)
+        prev_date, prev_close = adjust.last_row_before(conn, ticker, raw["date"].min())
         new_events = adjust.unrecorded(conn, ticker, adjust.events_in_frame(
             raw, prev_close=prev_close, prev_date=prev_date, open_days=calendar))
-        pre = raw[raw["date"] < adjust.ADJ_SELF_START]
-        post = raw[raw["date"] >= adjust.ADJ_SELF_START]
-        merged = pd.concat([adjust.derive_adj(pre, known), adjust.derive_adj(post, known + new_events)], ignore_index=True)
-        rows = to_price_rows(ticker, merged)
-        rows_total += upsert_daily_prices(conn, rows, adj_from=adjust.ADJ_SELF_START)
         if new_events:
-            info = adjust.ingest_events(conn, ticker, new_events)
-            adjusted.append(ticker)
-            log.info("adjustment events %s: %s -> %s", ticker, [(str(d), round(c, 6)) for d, c in new_events], info)
+            pending[ticker] = new_events
+        rows = to_price_rows(ticker, adjust.derive_adj(raw, known))
+        rows_total += upsert_daily_prices(conn, rows, adj_from=adjust.ADJ_SELF_START)
         conn.commit()
+    # ② (1′)(3) — raw 저장 후 · 이벤트 유도 전
+    tripwires.raise_if_violations(tripwires.check_pending_event_counts(pending) + tripwires.check_raw_bars(conn, start=start, end=end))
+    # ③ 이벤트 유도
+    adjusted: list[str] = []
+    for ticker, new_events in pending.items():
+        info = adjust.ingest_events(conn, ticker, new_events)
+        adjusted.append(ticker)
+        log.info("adjustment events %s: %s -> %s", ticker, [(str(d), round(c, 6)) for d, c in new_events], info)
+        conn.commit()
+    # ④ (2) — 유도 결과 검사
+    tripwires.raise_if_violations(tripwires.check_adj_envelope(conn, start=start, end=end))
 
     # 지수
     empty_indexes: list[str] = []
