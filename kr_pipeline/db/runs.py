@@ -83,11 +83,14 @@ def run_tracking(conn: Connection, *, pipeline: str, mode: str, params: dict) ->
         conn.commit()
     except BaseException as e:
         conn.rollback()
-        # 새 트랜잭션으로 실패 기록
+        # 새 트랜잭션으로 실패 기록 — details·warnings 는 보존(#201: 전량 실패의 failed_tickers 가 원인 추적 근거)
+        err = str(e) or type(e).__name__
+        if state.get("warnings"):
+            err = err + " | warnings: " + json.dumps(state["warnings"], ensure_ascii=False)
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE pipeline_runs SET finished_at = NOW(), status = 'failed', error = %s WHERE id = %s",
-                (str(e) or type(e).__name__, run_id),
+                "UPDATE pipeline_runs SET finished_at = NOW(), status = 'failed', error = %s, details = %s WHERE id = %s",
+                (err, json.dumps(state.get("details"), ensure_ascii=False, default=str) if state.get("details") is not None else None, run_id),
             )
         conn.commit()
         raise
