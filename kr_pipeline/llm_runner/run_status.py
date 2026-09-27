@@ -14,30 +14,42 @@ class AllAttemptsFailedError(RuntimeError):
     """LLM 배치의 모든 시도가 실패(성공 행 0) — run failed 기록·체인 중단."""
 
 
-def _judge(result: dict, label: str) -> str | None:
+def _judge(result: dict, label: str) -> tuple[str | None, str | None]:
+    """(failed 메시지, warning) — failed = 시도 ≥1 ∧ 성공 0. 대상 0(시도 0·성공 0) = success + 'no_targets' 경고(회신 18)."""
     if not isinstance(result, dict) or "processed" not in result:
-        return None
+        return None, None
     failures = result.get("failures")
     if failures is None:
         failures = len(result.get("failed_tickers") or [])
     processed = result.get("processed") or 0
     if processed == 0 and failures and failures > 0:
-        return f"{label}: 성공 행 0 — 실패 {failures}/{failures + processed} (전량 실패)"
-    return None
+        return f"{label}: 성공 행 0 — 실패 {failures}/{failures + processed} (전량 실패)", None
+    if processed == 0 and not failures:
+        return None, f"no_targets: {label}"
+    return None, None
 
 
-def check_all_failed(result: dict, *, mode: str) -> None:
-    """전량 실패면 AllAttemptsFailedError. 판정 대상 = processed 키가 있는 결과(또는 그 하위 단계 dict)."""
+def check_all_failed(result: dict, *, mode: str) -> list[str]:
+    """전량 실패면 AllAttemptsFailedError. 반환 = warnings(대상 0 단계 'no_targets: …'). 판정 대상 = processed 키가 있는
+    결과(또는 그 하위 단계 dict)."""
     if not isinstance(result, dict):
-        return
-    msgs = []
-    top = _judge(result, mode)
-    if top:
-        msgs.append(top)
+        return []
+    msgs: list[str] = []
+    warns: list[str] = []
+    top_fail, top_warn = _judge(result, mode)
+    if top_fail or top_warn:
+        if top_fail:
+            msgs.append(top_fail)
+        if top_warn:
+            warns.append(top_warn)
     else:
         for k, v in result.items():
-            m = _judge(v, f"{mode}/{k}") if isinstance(v, dict) else None
-            if m:
-                msgs.append(m)
+            if isinstance(v, dict):
+                f, w = _judge(v, f"{mode}/{k}")
+                if f:
+                    msgs.append(f)
+                if w:
+                    warns.append(w)
     if msgs:
         raise AllAttemptsFailedError("; ".join(msgs))
+    return warns

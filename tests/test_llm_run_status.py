@@ -19,10 +19,14 @@ def test_partial_failure_is_not_failed():
     check_all_failed({"processed": 60, "candidates": 61, "failures": 1, "failed_tickers": [{"symbol": "159010"}]}, mode="weekend")
 
 
-def test_zero_candidates_or_non_llm_result_is_not_failed():
-    check_all_failed({"processed": 0, "candidates": 0, "failures": 0, "failed_tickers": []}, mode="weekend")   # 할 일 없음
-    check_all_failed({"rows_affected": 3}, mode="performance")                                              # 키 없음 → 판정 안 함
-    check_all_failed({}, mode="entry")
+def test_zero_targets_is_success_with_no_targets_warning():
+    """회신 18: failed = 시도 ≥1 ∧ 성공 0 으로 한정. 대상 0 은 success + warnings 'no_targets'."""
+    w = check_all_failed({"processed": 0, "candidates": 0, "failures": 0, "failed_tickers": []}, mode="weekend")
+    assert w == ["no_targets: weekend"]
+    assert check_all_failed({"rows_affected": 3}, mode="performance") == []      # 키 없음 → 판정·경고 없음
+    assert check_all_failed({}, mode="entry") == []
+    nested = {"disqualify": {"processed": 0, "failures": 0}, "daily_delta": {"processed": 4, "failures": 0}, "performance": {"rows_affected": 1}}
+    assert check_all_failed(nested, mode="full-daily") == ["no_targets: full-daily/disqualify"]
 
 
 def test_run_tracking_failure_keeps_details(db):

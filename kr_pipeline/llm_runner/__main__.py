@@ -133,7 +133,7 @@ def main() -> int:
                 state["details"] = result
                 # #201: 성공 행 0(전량 실패)이면 success 로 남기지 않는다 — 예외 → run_tracking failed(details 보존)
                 #       → 비-0 종료 → 체인 중단 → watch_pipelines 알림. 부분 실패는 success 유지(임계 신설 금지).
-                check_all_failed(result, mode=args.mode)
+                state["warnings"].extend(check_all_failed(result, mode=args.mode))   # 대상 0 단계 = 'no_targets' 경고
 
     logging.getLogger("kr_pipeline.llm_runner").info(
         "DONE %s: %s", args.mode, json.dumps(result)
