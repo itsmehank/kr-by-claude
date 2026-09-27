@@ -1025,3 +1025,46 @@ CREATE TABLE IF NOT EXISTS universe_raw_snapshot (
     security_group  VARCHAR(30)  NOT NULL,   -- 조회 실패 시 'UNRESOLVED'
     PRIMARY KEY (snapshot_date, ticker)
 );
+
+-- (#186 B 단계, 2026-09-27) DART 주요계정 원본 보존 — 응답 원문(JSONB) + 사실 컬럼. dart_financials 와 독립(무변경).
+-- 소비 규약: 값은 response 에서 파생, 유효 시점은 kr_pipeline/financials/asof.py(접수일 다음 거래일)만 경유.
+CREATE TABLE IF NOT EXISTS dart_fin_raw (
+    corp_code       VARCHAR(20)  NOT NULL,
+    bsns_year       SMALLINT     NOT NULL,
+    reprt_code      VARCHAR(5)   NOT NULL,   -- 11011 사업 / 11013 1Q / 11012 반기 / 11014 3Q
+    ticker          VARCHAR(10),             -- 수집 시점 매핑(참조용, FK 없음 — 상폐 종목 포함)
+    status          VARCHAR(5)   NOT NULL,   -- API status: 000 | 013
+    rcept_no        VARCHAR(20),             -- 응답에 실제 담긴 접수번호(정정본이면 정정 접수번호, F-1)
+    rcept_dt        DATE,                    -- rcept_no 앞 8자리
+    orig_rcept_dt   DATE,                    -- 공시 목록의 원공시 접수일(정정 prefix 없는 행), 매칭 실패 NULL
+    is_correction   BOOLEAN,                 -- rcept_dt > orig_rcept_dt
+    no_data_reason  VARCHAR(40),             -- status 013 일 때만: raw_labels.py 라벨(unexplained 포함), 000 이면 NULL
+    response        JSONB        NOT NULL,   -- {status, message, list:[...]} 원문
+    batch_date      DATE         NOT NULL,
+    fetched_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (corp_code, bsns_year, reprt_code)
+);
+CREATE INDEX IF NOT EXISTS idx_dart_fin_raw_ticker ON dart_fin_raw(ticker);
+
+-- 공시검색(list.json, pblntf_ty=A 정기공시) 원본 — no_data 라벨 근거(제출 여부·제출일)와 원공시 접수일.
+CREATE TABLE IF NOT EXISTS dart_disclosure_raw (
+    corp_code   VARCHAR(20)  NOT NULL,
+    rcept_no    VARCHAR(20)  NOT NULL,
+    rcept_dt    DATE         NOT NULL,
+    report_nm   TEXT         NOT NULL,
+    item        JSONB        NOT NULL,       -- list 항목 원문
+    batch_date  DATE         NOT NULL,
+    fetched_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (corp_code, rcept_no)
+);
+CREATE INDEX IF NOT EXISTS idx_dart_disclosure_raw_corp_dt ON dart_disclosure_raw(corp_code, rcept_dt);
+
+-- 일별 호출 계정 — 상한 18,000/일(타 소비자 2,000 예약), status 020 수신 시 당일 중단.
+CREATE TABLE IF NOT EXISTS dart_batch_log (
+    batch_date     DATE         PRIMARY KEY,
+    calls          INTEGER      NOT NULL DEFAULT 0,
+    cap            INTEGER      NOT NULL,
+    stopped_020    BOOLEAN      NOT NULL DEFAULT FALSE,
+    note           TEXT,
+    updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
