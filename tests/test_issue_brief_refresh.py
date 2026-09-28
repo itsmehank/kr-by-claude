@@ -4,7 +4,7 @@ import threading
 import pytest
 
 from api.services.issue_brief.github import GhUnavailable, IssueComment, IssueRaw, RefState
-from api.services.issue_brief.refresh import RefreshState, run_refresh, start_refresh
+from api.services.issue_brief.refresh import RefreshState, request_cancel, run_refresh, start_refresh
 from api.services.issue_brief.store import fetch_briefs, fetch_hashes
 from api.services.issue_brief.summarize import Brief, SummarizeFailed
 from kr_pipeline.llm_runner.llm.claude_cli import UsageLimitError
@@ -204,6 +204,28 @@ def test_start_refresh_connect_failure_resets_running(monkeypatch):
     assert mod.STATE.running is False and mod.STATE.stopped_reason.startswith("error: RuntimeError")
     assert start_refresh(conn_factory=bad_factory) is True      # 락 해제됨
     mod._THREAD.join(5)
+
+
+def test_cancel_stops_at_issue_boundary(db):
+    import api.services.issue_brief.refresh as mod
+    ev = threading.Event()
+    calls = []
+
+    def summ(raw, refs, **kw):
+        calls.append(raw.number)
+        ev.set()                      # 첫 이슈 처리 중 취소 요청 도착
+        return _brief(), "m"
+
+    st = run_refresh(db, list_issues=lambda: [_raw(N1), _raw(N2)], ref_states=_refs({}),
+                     do_summarize=summ, state=RefreshState(), cancel=ev)
+    assert calls == [N1] and st.stopped_reason == "cancelled" and st.running is False
+    assert st.summarized == 1 and st.done == 1
+    assert next(r for r in fetch_briefs(db) if r["number"] == N1)["brief"] is not None
+    assert N2 not in fetch_hashes(db)                      # 두 번째 이슈는 관측조차 안 함
+
+
+def test_request_cancel_false_when_not_running():
+    assert request_cancel() is False
 
 
 def test_start_refresh_refuses_concurrent(monkeypatch):

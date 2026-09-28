@@ -54,3 +54,8 @@ def test_hash_ignores_unknown_refs_not_sent_to_payload():
     a = content_hash(raw, [RefState(1, "open", ""), RefState(9999, "unknown", "")])
     b = content_hash(raw, [RefState(1, "open", "")])
     assert a == b
+
+
+def test_extract_refs_with_korean_particles_and_no_space():
+    raw = _raw(body="#114의 배치, #186와 동일, 이슈#120 참고, (#130) ok", comments=("#199은 종결",))
+    assert extract_refs(raw) == {114, 186, 120, 130, 199}

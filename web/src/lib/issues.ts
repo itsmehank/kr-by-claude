@@ -28,6 +28,7 @@ export interface IssueItem {
 export interface IssuesResponse {
   updated_at: string | null;
   items: IssueItem[];
+  closed_numbers: number[]; // 캐시에 closed 로 남은 번호(의존 칩 3값 표시용)
 }
 
 export interface RefreshState {
@@ -39,6 +40,7 @@ export interface RefreshState {
   summarized: number;
   failed: number;
   stopped_reason: string | null;
+  cancel_requested: boolean;
 }
 
 export const GROUP_ORDER: Group[] = ["data", "book", "trading_ui", "validation", "ops"];
@@ -80,6 +82,16 @@ export function groupItems(
     .map((g) => ({ group: g, items: byGroup.get(g)!.sort((a, b) => b.number - a.number) }));
 }
 
-export function dependencyState(dep: number, openNumbers: Set<number>): "open" | "closed" {
-  return openNumbers.has(dep) ? "open" : "closed";
+export type DependencyState = "open" | "closed" | "unknown";
+
+// open = 화면의 open 이슈 · closed = 캐시가 닫힘으로 관측한 이슈 · unknown = 그 외(PR·미캐시 번호).
+// unknown 을 '닫힘(충족)'으로 그리면 열린 PR 의존이 충족된 것처럼 보인다(PR #215 리뷰).
+export function dependencyState(
+  dep: number,
+  openNumbers: Set<number>,
+  closedNumbers: Set<number>,
+): DependencyState {
+  if (openNumbers.has(dep)) return "open";
+  if (closedNumbers.has(dep)) return "closed";
+  return "unknown";
 }

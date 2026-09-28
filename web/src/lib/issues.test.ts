@@ -44,9 +44,11 @@ describe("groupItems", () => {
 });
 
 describe("dependencyState", () => {
-  it("open 집합에 없으면 closed", () => {
+  it("open → closed(캐시) → 그 외 unknown 순", () => {
     const open = new Set([10, 11]);
-    expect(dependencyState(10, open)).toBe("open");
-    expect(dependencyState(99, open)).toBe("closed");
+    const closed = new Set([20]);
+    expect(dependencyState(10, open, closed)).toBe("open");
+    expect(dependencyState(20, open, closed)).toBe("closed");
+    expect(dependencyState(99, open, closed)).toBe("unknown"); // 열린 PR·미캐시 번호는 충족 아님
   });
 });

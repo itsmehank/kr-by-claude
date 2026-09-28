@@ -7,8 +7,9 @@ import re
 
 from .github import IssueRaw, RefState
 
-# "#123" — 앞이 단어문자가 아니고 뒤가 숫자 아닌 곳에서 끝나는 것만. "#fff"·"#12abc" 제외.
-_REF_RE = re.compile(r"(?<![\w&])#(\d{1,6})(?![\w])")
+# "#123" — 앞뒤가 ASCII 단어문자가 아닌 것만. "#fff"·"#12abc" 제외. 유니코드 \w 를 쓰면
+# 한글 조사("#186가", "#114의", "이슈#120")가 경계를 막아 참조를 놓친다(PR #215 리뷰).
+_REF_RE = re.compile(r"(?<![A-Za-z0-9_&])#(\d{1,6})(?![A-Za-z0-9_])")
 
 
 def extract_refs(raw: IssueRaw) -> set[int]:

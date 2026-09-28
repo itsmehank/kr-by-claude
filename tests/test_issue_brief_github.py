@@ -35,6 +35,7 @@ def test_list_open_issues_parses_gh_json():
     )]
     cmd = run.calls[0]
     assert cmd[:3] == ["gh", "issue", "list"] and "--state" in cmd and "open" in cmd
+    assert cmd[cmd.index("-R") + 1] == "itsmehank/kr-by-claude"        # 저장소 고정
 
 
 def test_list_open_issues_null_body_becomes_empty():
@@ -83,7 +84,7 @@ def test_get_ref_states_batches_issues_and_prs_and_normalizes_merged():
     assert got[214].state == "open"
     assert got[9999] == RefState(9999, "unknown", "")
     assert [c[:2] for c in run.calls] == [["gh", "issue"], ["gh", "pr"]]
-    assert all("--state" in c and "all" in c for c in run.calls)
+    assert all("--state" in c and "all" in c and "-R" in c for c in run.calls)
 
 
 def test_get_ref_states_empty_set_makes_no_call():

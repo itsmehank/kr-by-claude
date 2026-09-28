@@ -9,8 +9,12 @@ import json
 import subprocess
 from dataclasses import dataclass
 
+import os
+
 GH_TIMEOUT_SECONDS = 60
 GH_LIST_LIMIT = 200
+# 저장소 고정 — api 프로세스 cwd 에 따라 다른 저장소 이슈를 받아 캐시를 덮는 일이 없게(PR #215 리뷰).
+GH_REPO = os.environ.get("KR_GH_REPO", "itsmehank/kr-by-claude")
 
 
 class GhUnavailable(RuntimeError):
@@ -55,7 +59,7 @@ def _run_gh(args: list[str], run) -> str:
 
 def list_open_issues(run=subprocess.run) -> list[IssueRaw]:
     out = _run_gh(
-        ["issue", "list", "--state", "open", "--limit", str(GH_LIST_LIMIT),
+        ["issue", "list", "-R", GH_REPO, "--state", "open", "--limit", str(GH_LIST_LIMIT),
          "--json", "number,title,body,labels,updatedAt,comments"],
         run,
     )
@@ -103,7 +107,7 @@ def get_ref_states(numbers: set[int], run=subprocess.run) -> dict[int, RefState]
         return {}
     found: dict[int, RefState] = {}
     for sub in ("issue", "pr"):
-        out = _run_gh([sub, "list", "--state", "all", "--limit", "1000",
+        out = _run_gh([sub, "list", "-R", GH_REPO, "--state", "all", "--limit", "1000",
                        "--json", "number,state,title"], run)
         for r in json.loads(out or "[]"):
             n = int(r["number"])

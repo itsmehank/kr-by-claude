@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Callable, Literal
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude
 
@@ -19,12 +19,28 @@ Group = Literal["data", "book", "trading_ui", "validation", "ops"]
 StartStatus = Literal["ready", "decision", "blocked"]
 
 
+SUMMARY_MAX = 120
+REASON_MAX = 160
+
+
 class Brief(BaseModel):
-    summary: str = Field(min_length=1, max_length=120)
+    summary: str = Field(min_length=1, max_length=SUMMARY_MAX)
     group: Group
     start_status: StartStatus
-    start_reason: str = Field(min_length=1, max_length=160)
+    start_reason: str = Field(min_length=1, max_length=REASON_MAX)
     depends_on: list[int] = Field(default_factory=list)
+
+    # 프롬프트는 60자/80자를 요구하지만 모델이 넘기는 일이 있다(라이브 최대 68자). 길이 초과를
+    # 영구 실패(매 회차 2콜 낭비)로 만들지 않고 잘라 받는다.
+    @field_validator("summary", mode="before")
+    @classmethod
+    def _trim_summary(cls, v):
+        return v.strip()[:SUMMARY_MAX] if isinstance(v, str) else v
+
+    @field_validator("start_reason", mode="before")
+    @classmethod
+    def _trim_reason(cls, v):
+        return v.strip()[:REASON_MAX] if isinstance(v, str) else v
 
 
 class SummarizeFailed(RuntimeError):

@@ -8,7 +8,7 @@ def test_issue_briefs_table_exists(db):
 
 from api.services.issue_brief.github import IssueComment, IssueRaw
 from api.services.issue_brief.store import (
-    fetch_briefs, fetch_hashes, mark_closed, set_brief, set_brief_error,
+    fetch_briefs, fetch_closed_numbers, fetch_hashes, mark_closed, set_brief, set_brief_error,
     set_override, upsert_observed,
 )
 from api.services.issue_brief.summarize import Brief
@@ -24,52 +24,52 @@ def _brief(status="ready"):
     return Brief(summary="s", group="ops", start_status=status, start_reason="r", depends_on=[1])
 
 
-def test_upsert_new_then_fetch(db):
-    upsert_observed(db, _raw(), "h1", keep_hash=False)
-    rows = fetch_briefs(db)
-    row = next(r for r in rows if r["number"] == 900001)
+def test_upsert_new_starts_with_empty_hash(db):
+    upsert_observed(db, _raw())
+    row = next(r for r in fetch_briefs(db) if r["number"] == 900001)
     assert row["title"] == "t" and row["labels"] == ["a"] and row["state"] == "open"
     assert row["brief"] is None and row["override_status"] is None
-    assert fetch_hashes(db)[900001] == ("h1", "open")
+    assert fetch_hashes(db)[900001] == ("", "open")
 
 
-def test_upsert_existing_keep_hash_preserves_hash_but_updates_meta(db):
-    upsert_observed(db, _raw(), "h1", keep_hash=False)
-    upsert_observed(db, _raw(title="t2", labels=("z",)), "h2", keep_hash=True)
+def test_upsert_existing_updates_meta_but_never_hash(db):
+    upsert_observed(db, _raw())
+    set_brief(db, 900001, _brief(), "m", "h1")
+    upsert_observed(db, _raw(title="t2", labels=("z",)))
     assert fetch_hashes(db)[900001] == ("h1", "open")
     row = next(r for r in fetch_briefs(db) if r["number"] == 900001)
-    assert row["title"] == "t2" and row["labels"] == ["z"]
+    assert row["title"] == "t2" and row["labels"] == ["z"] and row["brief"]["summary"] == "s"
 
 
-def test_upsert_existing_replace_hash(db):
-    upsert_observed(db, _raw(), "h1", keep_hash=False)
-    upsert_observed(db, _raw(), "h2", keep_hash=False)
-    assert fetch_hashes(db)[900001][0] == "h2"
-
-
-def test_set_brief_clears_error_and_set_error_keeps_brief(db):
-    upsert_observed(db, _raw(), "h1", keep_hash=False)
+def test_set_brief_sets_hash_and_clears_error_and_error_keeps_brief(db):
+    upsert_observed(db, _raw())
     set_brief_error(db, 900001, "boom")
-    set_brief(db, 900001, _brief(), "claude-sonnet-5")
+    set_brief(db, 900001, _brief(), "claude-sonnet-5", "h1")
     row = next(r for r in fetch_briefs(db) if r["number"] == 900001)
     assert row["brief"]["summary"] == "s" and row["brief_model"] == "claude-sonnet-5"
     assert row["brief_error"] is None and row["brief_at"] is not None
+    assert fetch_hashes(db)[900001][0] == "h1"
     set_brief_error(db, 900001, "later")
     row = next(r for r in fetch_briefs(db) if r["number"] == 900001)
     assert row["brief"]["summary"] == "s" and row["brief_error"] == "later"
+    assert fetch_hashes(db)[900001][0] == "h1"          # 실패는 해시를 건드리지 않음
 
 
-def test_mark_closed_hides_from_open_fetch_and_reopen_restores(db):
-    upsert_observed(db, _raw(), "h1", keep_hash=False)
+def test_mark_closed_hides_from_open_fetch_lists_in_closed_and_reopen_restores(db):
+    upsert_observed(db, _raw())
+    set_brief(db, 900001, _brief(), "m", "h1")
     mark_closed(db, [900001])
     assert all(r["number"] != 900001 for r in fetch_briefs(db))
+    assert 900001 in fetch_closed_numbers(db)
     assert fetch_hashes(db)[900001] == ("h1", "closed")
-    upsert_observed(db, _raw(), "h1", keep_hash=True)          # 재오픈 관측
+    upsert_observed(db, _raw())          # 재오픈 관측 — 해시 유지 → 재요약 없음
     assert any(r["number"] == 900001 for r in fetch_briefs(db))
+    assert fetch_hashes(db)[900001] == ("h1", "open")
+    assert 900001 not in fetch_closed_numbers(db)
 
 
 def test_set_override_and_clear(db):
-    upsert_observed(db, _raw(), "h1", keep_hash=False)
+    upsert_observed(db, _raw())
     row = set_override(db, 900001, "blocked", "메모")
     assert row["override_status"] == "blocked" and row["override_note"] == "메모"
     row = set_override(db, 900001, None, None)

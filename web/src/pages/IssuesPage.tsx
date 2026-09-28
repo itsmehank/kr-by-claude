@@ -1,7 +1,7 @@
 // (2026-09-28) 이슈 현황 — GitHub open 이슈의 쉬운 요약·착수 상태. spec: docs/superpowers/specs/2026-09-28-issues-page-design.md
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, RefreshCw, TriangleAlert, Lock } from "lucide-react";
+import { ExternalLink, RefreshCw, TriangleAlert, Lock, Square } from "lucide-react";
 import { api, apiUrl } from "../lib/api";
 import { relativeTime } from "../lib/utils";
 import {
@@ -73,9 +73,11 @@ function OverrideMenu({ item }: { item: IssueItem }) {
   );
 }
 
-function IssueCard({ item, openNumbers }: { item: IssueItem; openNumbers: Set<number> }) {
+function IssueCard({ item, openNumbers, closedNumbers }: {
+  item: IssueItem; openNumbers: Set<number>; closedNumbers: Set<number>;
+}) {
   const b = item.brief;
-  const st = effectiveStatus(item);
+  const overridden = item.override_status != null && item.override_status !== b?.start_status;
   return (
     <div id={`issue-${item.number}`} className="bg-paper rounded-xl shadow-bento px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -92,9 +94,13 @@ function IssueCard({ item, openNumbers }: { item: IssueItem; openNumbers: Set<nu
         </span>
       </div>
       <p className="mt-1.5 text-subhead text-ink">{b ? b.summary : item.title}</p>
-      {b && st && (
+      {b && (
         <p className="mt-1 text-sm text-slate-600">
-          {STATUS_LABEL[st].emoji} {b.start_reason}
+          {/* 이유는 AI 판정의 설명이므로 AI 이모지와 짝 — 수동 고정과 다르면 그 사실을 함께 표시 */}
+          {STATUS_LABEL[b.start_status].emoji} {b.start_reason}
+          {overridden && (
+            <span className="text-faint"> · AI 판정 {STATUS_LABEL[b.start_status].label} → 수동 고정 {STATUS_LABEL[item.override_status!].label}</span>
+          )}
           {item.override_note && <span className="text-faint"> · 메모: {item.override_note}</span>}
         </p>
       )}
@@ -102,13 +108,16 @@ function IssueCard({ item, openNumbers }: { item: IssueItem; openNumbers: Set<nu
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-data-xs">
           <span className="text-faint">의존:</span>
           {b.depends_on.map((d) => {
-            const closed = dependencyState(d, openNumbers) === "closed";
+            const ds = dependencyState(d, openNumbers, closedNumbers);
+            const inPage = ds === "open";
+            const cls = ds === "closed" ? "line-through text-faint" : ds === "unknown" ? "border-dashed text-slate-500" : "";
+            const title = ds === "closed" ? "닫힘(조건 충족 가능)" : ds === "unknown" ? "미확인(PR 또는 캐시에 없는 번호)" : "열림";
             return (
-              <a key={d} href={closed ? `${REPO_URL}/${d}` : `#issue-${d}`}
-                target={closed ? "_blank" : undefined} rel={closed ? "noreferrer" : undefined}
-                className={`px-1.5 py-0.5 rounded-md border border-slate-200 hover:border-accent ${closed ? "line-through text-faint" : ""}`}
-                title={closed ? "닫힘(조건 충족 가능)" : "열림"}>
-                #{d}
+              <a key={d} href={inPage ? `#issue-${d}` : `${REPO_URL}/${d}`}
+                target={inPage ? undefined : "_blank"} rel={inPage ? undefined : "noreferrer"}
+                className={`px-1.5 py-0.5 rounded-md border border-slate-200 hover:border-accent ${cls}`}
+                title={title}>
+                #{d}{ds === "unknown" ? "?" : ""}
               </a>
             );
           })}
@@ -155,8 +164,18 @@ export default function IssuesPage() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["issues-refresh"] }),
   });
+  const cancel = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(apiUrl("/issues/refresh"), { method: "DELETE" });
+      if (!res.ok && res.status !== 409) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["issues-refresh"] }),
+  });
+
   const items = list.data?.items ?? [];
   const openNumbers = useMemo(() => new Set(items.map((i) => i.number)), [items]);
+  const closedNumbers = useMemo(() => new Set(list.data?.closed_numbers ?? []), [list.data]);
   const groups = useMemo(() => groupItems(items, filter), [items, filter]);
   const counts = useMemo(() => {
     const c: Record<StartStatus, number> = { ready: 0, decision: 0, blocked: 0 };
@@ -173,11 +192,21 @@ export default function IssuesPage() {
             마지막 갱신 {list.data?.updated_at ? relativeTime(list.data.updated_at) : "—"} · open {items.length}건
             · 🟢 {counts.ready} · 🟡 {counts.decision} · 🔴 {counts.blocked}
           </span>
-          <button type="button" disabled={running || start.isPending} onClick={() => start.mutate()}
-            className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-sm disabled:opacity-50">
-            <RefreshCw size={14} className={running ? "animate-spin" : ""} />
-            {running ? `갱신 중 ${status.data?.done ?? 0}/${status.data?.total ?? 0}` : "GitHub 에서 새로고침"}
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            {running && (
+              <button type="button" disabled={cancel.isPending || status.data?.cancel_requested}
+                onClick={() => cancel.mutate()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-sm disabled:opacity-50"
+                title="다음 이슈 경계에서 중단(진행 중인 호출은 끝까지 기다림)">
+                <Square size={12} /> {status.data?.cancel_requested ? "중단 요청됨…" : "중단"}
+              </button>
+            )}
+            <button type="button" disabled={running || start.isPending} onClick={() => start.mutate()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-sm disabled:opacity-50">
+              <RefreshCw size={14} className={running ? "animate-spin" : ""} />
+              {running ? `갱신 중 ${status.data?.done ?? 0}/${status.data?.total ?? 0}` : "GitHub 에서 새로고침"}
+            </button>
+          </div>
         </div>
         <p className="text-data-xs text-faint">
           공통 전제: 조건 충족 = 착수 자격일 뿐, 실제 착수는 별도 지시가 필요합니다. 새로고침은 바뀐 이슈만
@@ -205,7 +234,9 @@ export default function IssuesPage() {
       {groups.map((g) => (
         <section key={g.group} className="space-y-2">
           <h2 className="text-subhead font-semibold text-ink">{GROUP_LABEL[g.group]} <span className="text-faint font-normal">({g.items.length})</span></h2>
-          {g.items.map((it) => <IssueCard key={it.number} item={it} openNumbers={openNumbers} />)}
+          {g.items.map((it) => (
+            <IssueCard key={it.number} item={it} openNumbers={openNumbers} closedNumbers={closedNumbers} />
+          ))}
         </section>
       ))}
     </div>

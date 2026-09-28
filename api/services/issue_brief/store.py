@@ -1,4 +1,8 @@
-"""issue_briefs 읽기/쓰기. commit 은 호출자."""
+"""issue_briefs 읽기/쓰기. commit 은 호출자.
+
+불변식: `content_hash` 는 **요약 성공 시에만**(`set_brief`) 바뀐다. 관측 upsert 는 해시를 건드리지
+않는다(신규 행은 빈 해시 "" 로 시작 → 첫 요약 성공 전까지 항상 '변경'으로 재시도).
+"""
 from __future__ import annotations
 
 from psycopg import Connection
@@ -31,6 +35,13 @@ def fetch_briefs(conn: Connection, *, only_open: bool = True) -> list[dict]:
         return [_row_to_dict(r) for r in cur.fetchall()]
 
 
+def fetch_closed_numbers(conn: Connection) -> list[int]:
+    """캐시에 closed 로 남은 번호 — 의존 칩의 열림/닫힘/미확인 3값 표시용."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT number FROM issue_briefs WHERE state = 'closed' ORDER BY number")
+        return [r[0] for r in cur.fetchall()]
+
+
 def fetch_hashes(conn: Connection) -> dict[int, tuple[str, str]]:
     with conn.cursor() as cur:
         cur.execute("SELECT number, content_hash, state FROM issue_briefs")
@@ -38,41 +49,40 @@ def fetch_hashes(conn: Connection) -> dict[int, tuple[str, str]]:
 
 
 def fetch_numbers_with_error_prefix(conn: Connection, prefix: str) -> set[int]:
-    """brief_error 가 prefix 로 시작하는 이슈 번호(usage_limit 오판 이슈를 회차 뒤로 미루는 용도)."""
+    """brief_error 가 prefix 로 시작하는 이슈 번호(usage_limit 실패 이슈를 회차 뒤로 미루는 용도)."""
     with conn.cursor() as cur:
         cur.execute("SELECT number FROM issue_briefs WHERE brief_error LIKE %s", (prefix + "%",))
         return {r[0] for r in cur.fetchall()}
 
 
-def upsert_observed(conn: Connection, raw: IssueRaw, content_hash: str, *, keep_hash: bool) -> None:
-    """관측 upsert. keep_hash=True 면 기존 행의 해시 유지(신규 행은 인자 저장)."""
-    hash_expr = "issue_briefs.content_hash" if keep_hash else "EXCLUDED.content_hash"
+def upsert_observed(conn: Connection, raw: IssueRaw) -> None:
+    """관측 upsert — 메타(제목·라벨·state=open·gh_updated_at·observed_at)만. 해시는 건드리지 않는다."""
     with conn.cursor() as cur:
         cur.execute(
-            f"""
+            """
             INSERT INTO issue_briefs
                 (number, title, labels, state, gh_updated_at, content_hash, observed_at)
-            VALUES (%s, %s, %s, 'open', %s, %s, now())
+            VALUES (%s, %s, %s, 'open', %s, '', now())
             ON CONFLICT (number) DO UPDATE SET
                 title = EXCLUDED.title,
                 labels = EXCLUDED.labels,
                 state = 'open',
                 gh_updated_at = EXCLUDED.gh_updated_at,
-                content_hash = {hash_expr},
                 observed_at = now()
             """,
-            (raw.number, raw.title, list(raw.labels), raw.updated_at or "1970-01-01T00:00:00Z",
-             content_hash),
+            (raw.number, raw.title, list(raw.labels), raw.updated_at or "1970-01-01T00:00:00Z"),
         )
 
 
-def set_brief(conn: Connection, number: int, brief: Brief, model: str | None) -> None:
+def set_brief(conn: Connection, number: int, brief: Brief, model: str | None, content_hash: str) -> None:
+    """요약 성공 — brief 와 그 입력의 해시를 한 UPDATE 로 확정, 오류 해제."""
     with conn.cursor() as cur:
         cur.execute(
             """UPDATE issue_briefs
-                  SET brief = %s, brief_model = %s, brief_at = now(), brief_error = NULL
+                  SET brief = %s, brief_model = %s, brief_at = now(), brief_error = NULL,
+                      content_hash = %s
                 WHERE number = %s""",
-            (Jsonb(brief.model_dump()), model, number),
+            (Jsonb(brief.model_dump()), model, content_hash, number),
         )
 
 

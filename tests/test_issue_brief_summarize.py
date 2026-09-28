@@ -71,6 +71,12 @@ def test_summarize_propagates_usage_limit():
         summarize(_raw(), [], call=call)
 
 
-def test_brief_rejects_overlong_summary():
+def test_brief_truncates_overlong_fields_instead_of_failing():
+    b = Brief(summary=" " + "x" * 130, group="ops", start_status="ready",
+              start_reason="y" * 200, depends_on=[])
+    assert len(b.summary) == 120 and len(b.start_reason) == 160
+
+
+def test_brief_still_rejects_empty_summary():
     with pytest.raises(Exception):
-        Brief(summary="x" * 121, group="ops", start_status="ready", start_reason="r", depends_on=[])
+        Brief(summary="   ", group="ops", start_status="ready", start_reason="r", depends_on=[])

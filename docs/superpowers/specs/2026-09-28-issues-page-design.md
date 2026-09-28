@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS issue_briefs (
 프롬프트에 포함한다(#195 data · #184 book · #188 trading_ui · #110 validation · #107 ops).
 few-shot 은 눈높이 고정용이며, 실제 이슈가 바뀌면 모델은 새 입력을 우선한다.
 
-### 6.3 출력 스키마(pydantic 으로 검증, 실패 시 1회 재호출 후 `brief_error` 기록)
+### 6.3 출력 스키마(pydantic 으로 검증, 실패 시 1회 재호출 후 `brief_error` 기록; `summary` 120자·`start_reason` 160자 초과는 실패가 아니라 절단)
 
 ```json
 {
@@ -133,21 +133,23 @@ few-shot 은 눈높이 고정용이며, 실제 이슈가 바뀌면 모델은 새
 
 1. `threading.Lock` 비획득 시 `409 already_running` 반환(런너와 동일한 의미). 스레드가 DB 연결 단계에서
    실패해도 `running` 을 반드시 false 로 되돌린다(영구 '갱신 중' 방지).
-2. `gh issue list --state open --limit 200 --json number,title,labels,body,updatedAt,comments`
-   1회 호출 → open 집합.
+2. `gh issue list -R <repo> --state open --limit 200 --json …` 1회 호출 → open 집합. 저장소는 `-R`(`KR_GH_REPO`,
+   기본 `itsmehank/kr-by-claude`)로 고정 — api 프로세스 cwd 에 좌우되지 않게.
 3. 본문·코멘트에서 `#\d+` 를 뽑아 자기 번호 제외 → 참조 번호 상태 결정:
-   open 집합에 있으면 `open`; 나머지는 **배치 2콜**(`gh issue list --state all` + `gh pr list --state all`,
+   open 집합에 있으면 `open`; 나머지는 **배치 2콜**(`gh issue list -R … --state all` + `gh pr list -R … --state all`,
    각 `--limit 1000 --json number,state,title`)로 한 번에 조회. gh 는 PR 번호도 issue 로 응답하므로
    PR 은 `MERGED`/`CLOSED`→`closed`, `OPEN`→`open` 으로 정규화(별도 'pr' 상태 없음). 목록에 없는
    번호는 `unknown`(payload·해시 모두에서 제외). gh 실패는 회차 중단(부분 결과로 해시가 흔들리지 않게).
-4. 이슈별 `content_hash = sha256(title|body|comment bodies|sorted ref (number,state))` — ref 는 payload 에 들어가는 open/closed 만(라벨·updatedAt·unknown 제외).
+4. 이슈별 `content_hash = sha256(title|body|comment bodies|sorted ref (number,state))` — ref 는 payload 에 들어가는 open/closed 만(라벨·updatedAt·unknown 제외). 참조 추출 정규식은 ASCII 경계(`#186가`·`이슈#120` 같은 한글 조사·무공백 표기 포함).
 5. 캐시 행 없음 또는 해시 불일치 → `summarize()` 호출. 성공 시 `brief/brief_model/brief_at`
    갱신·`brief_error` NULL. 실패(스키마 불일치 재호출 후 실패·ClaudeCLIError·subprocess 타임아웃 등
    **모든 예외**) 시 그 이슈만 실패 기록(직전 `brief` 유지, 해시 미갱신 → 다음 회차 재시도, 신규 행은
    빈 해시 저장), 사유 문자열은 argv 가 섞이지 않게 정제. `UsageLimitError` 는 회차 즉시 중단(남은 이슈는
-   다음 회차) — 단 claude_cli 가 **응답 본문**의 'rate limit' 문구도 한도로 오판할 수 있으므로, usage_limit 로
-   실패한 이슈는 다음 회차에 **맨 뒤로** 미뤄 한 이슈의 오판이 나머지를 막지 않게 한다.
+   다음 회차). claude_cli 는 응답 본문이 **JSON 으로 파싱되면 한도로 보지 않는다**(PR #215 — 'rate limit' 문구
+   오판 차단, 실전 파이프라인에도 동일 적용). 2차 방어로 usage_limit 실패 이슈는 다음 회차 **맨 뒤**.
 6. 해시 일치 → `observed_at/gh_updated_at/labels/title` 만 갱신, Claude 호출 0.
+   **해시 저장 불변식**: 관측 upsert 는 해시를 건드리지 않고(신규 행은 ""), 해시는 `set_brief` 가 brief 와 같은
+   UPDATE 로만 확정한다(성공 전 해시 선점 없음).
 7. open 집합에 없는 캐시 open 행 → `state='closed'`(행 보존, 표시 제외).
 8. 진행 상태(메모리): `{running, started_at, total, done, summarized, failed, stopped_reason}`.
    이슈 1건 처리마다 커밋 → GET /api/issues 는 진행 중에도 완료분을 보인다.
@@ -160,21 +162,22 @@ few-shot 은 눈높이 고정용이며, 실제 이슈가 바뀌면 모델은 새
 
 | 메서드 | 경로 | 응답 |
 |---|---|---|
-| GET | `/api/issues` | `{ updated_at, items: [{number,title,labels,gh_updated_at,brief,brief_at,brief_model,brief_error,override_status,override_note}] }` — state=open 만, brief NULL 도 포함(카드에 "요약 대기" 표시) |
+| GET | `/api/issues` | `{ updated_at, items: [{number,title,labels,gh_updated_at,brief,brief_at,brief_model,brief_error,override_status,override_note}], closed_numbers: [int] }` — state=open 만, brief NULL 도 포함(카드에 "요약 대기" 표시). `closed_numbers` = 캐시의 closed 번호(의존 칩 open/closed/unknown 3값용) |
 | POST | `/api/issues/refresh` | `202 {started:true}` 또는 `409 {reason:"already_running"}` |
-| GET | `/api/issues/refresh` | §7-8 진행 상태 |
+| GET | `/api/issues/refresh` | §7-8 진행 상태(+`cancel_requested`) |
+| DELETE | `/api/issues/refresh` | 취소 요청 → `202 {cancel_requested:true}` 또는 `409 {reason:"not_running"}`. 다음 이슈 경계에서 `stopped_reason="cancelled"` 로 종료(진행 중 claude 호출은 끝까지 기다림) |
 | PUT | `/api/issues/{n}/override` | body `{status: ready\|decision\|blocked\|null, note}` → 갱신된 항목 |
 
 `gh` 미설치·미로그인 → refresh 는 동기 사전 검사(`gh auth status`)로 `503 {reason:"gh_unavailable", detail}`.
 
 ## 9. 화면(`IssuesPage.tsx`)
 
-- 상단: 마지막 갱신 시각 · 새로고침 버튼(진행 중이면 `done/total` 진행 표시, 2초 폴링) ·
+- 상단: 마지막 갱신 시각 · 새로고침 버튼(진행 중이면 `done/total` 진행 표시, 2초 폴링) · 진행 중 **중단** 버튼(DELETE) ·
   범례(🟢 지금 가능 / 🟡 판정·결정 먼저 / 🔴 다른 작업 뒤) · 상태 필터 칩 · 공통 전제 1줄
   ("조건 충족 = 자격, 착수는 별도 지시").
 - 본문: 그룹 5개 섹션(데이터 정확도 / 책 기준 정합 / 매매·화면 / 검증 / 운영), 각 섹션에
   이슈 카드. 카드 = `#번호`(GitHub 링크, 새 탭) · summary · 상태 배지(override 있으면
-  "수동" 표시) · start_reason · depends_on 칩(클릭 시 해당 카드로 스크롤, 닫힌 이슈면 취소선) ·
+  "수동" 표시) · AI 이모지 + start_reason(수동 고정과 다르면 "AI 판정 → 수동 고정" 병기) · depends_on 칩(open=카드로 스크롤 / closed=취소선 / unknown=점선+`?`, PR·미캐시 번호를 충족으로 그리지 않음) ·
   라벨 · gh_updated_at 상대시간. brief_error 있으면 경고 아이콘+사유.
 - 카드 우측 메뉴: 상태 수동 고정(3값+해제) + 메모.
 - 스타일: LibraryPage 토큰(`bg-paper rounded-xl shadow-bento`, 배지 색은 상태별).

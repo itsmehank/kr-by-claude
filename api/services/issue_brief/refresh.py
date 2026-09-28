@@ -1,7 +1,8 @@
 """갱신 회차 — gh open 목록 → 해시 비교 → 변경분만 요약 → 행 단위 커밋.
 
 단일 실행: 모듈 락. 스레드는 api 프로세스 내 데몬(--reload 시 끊길 수 있음 — 완료분은
-커밋돼 있어 다음 회차가 해시 기준으로 이어간다).
+커밋돼 있어 다음 회차가 해시 기준으로 이어간다). 취소는 이슈 경계에서만 반영된다(진행 중인
+claude subprocess 는 끝까지 기다림).
 """
 from __future__ import annotations
 
@@ -38,18 +39,20 @@ class RefreshState:
     summarized: int = 0
     failed: int = 0
     stopped_reason: str | None = None
+    cancel_requested: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     def begin(self) -> None:
-        """회차 시작 — running 은 건드리지 않는다(start_refresh 가 먼저 True 로 둔 값을
-        잠깐이라도 False 로 되돌리면 프론트 폴링이 멈춘다)."""
+        """회차 시작 — running 은 True 로 유지(start_refresh 가 먼저 True 로 둔 값을 잠깐이라도
+        False 로 되돌리면 프론트 폴링이 멈춘다)."""
         self.running = True
         self.started_at = _now()
         self.finished_at = None
         self.total = self.done = self.summarized = self.failed = 0
         self.stopped_reason = None
+        self.cancel_requested = False
 
     def finish(self, reason: str | None = None) -> None:
         if reason is not None:
@@ -60,6 +63,7 @@ class RefreshState:
 
 STATE = RefreshState()
 _LOCK = threading.Lock()
+_CANCEL = threading.Event()
 _THREAD: threading.Thread | None = None
 
 
@@ -74,6 +78,19 @@ def _err_text(e: BaseException) -> str:
     return f"{type(e).__name__}: {str(e)[:_ERR_TEXT_MAX]}"
 
 
+def is_running() -> bool:
+    return _LOCK.locked()
+
+
+def request_cancel() -> bool:
+    """실행 중이면 취소 요청(다음 이슈 경계에서 중단). 실행 중이 아니면 False."""
+    if not _LOCK.locked():
+        return False
+    _CANCEL.set()
+    STATE.cancel_requested = True
+    return True
+
+
 def run_refresh(
     conn,
     *,
@@ -81,7 +98,10 @@ def run_refresh(
     ref_states=get_ref_states,
     do_summarize=summarize,
     state: RefreshState = STATE,
+    cancel: threading.Event | None = None,
 ) -> RefreshState:
+    cancel = cancel if cancel is not None else _CANCEL
+    cancel.clear()
     state.begin()
     try:
         issues = list_issues()
@@ -103,33 +123,30 @@ def run_refresh(
                 return RefState(n, "open", "")
             return resolved.get(n, RefState(n, "unknown", ""))
 
-        # 직전 회차에 usage_limit 로 실패한 이슈는 맨 뒤로 — 응답 본문의 'rate limit' 문구
-        # 오판(claude_cli._is_usage_limit)이 한 이슈에 고정돼도 나머지 이슈가 막히지 않게.
+        # 직전 회차에 usage_limit 로 실패한 이슈는 맨 뒤로(claude_cli 오판이 남아 있을 경우의 2차 방어).
         deferred = fetch_numbers_with_error_prefix(conn, USAGE_LIMIT_PREFIX)
         issues = sorted(issues, key=lambda r: (r.number in deferred, r.number))
 
         for raw in issues:
+            if cancel.is_set():
+                state.finish("cancelled")
+                return state
             refs = [resolve(n) for n in refs_by_issue[raw.number]]
             h = content_hash(raw, refs)
             prev = cached.get(raw.number)
-            changed = prev is None or prev[0] != h
-            if not changed:
-                upsert_observed(conn, raw, h, keep_hash=True)
-                conn.commit()
+            upsert_observed(conn, raw)            # 메타만 — 해시는 set_brief 에서만 확정
+            conn.commit()
+            if prev is not None and prev[0] == h:
                 state.done += 1
                 continue
-            # 변경: 요약 성공 시에만 실제 해시 저장. 기존 행은 옛 해시 유지(keep_hash),
-            # 신규 행은 빈 해시 "" 저장 — 실패해도 다음 회차에 반드시 다시 시도된다.
-            upsert_observed(conn, raw, "" if prev is None else h, keep_hash=(prev is not None))
-            conn.commit()
             try:
                 brief, model = do_summarize(raw, refs)
             except UsageLimitError as e:
                 set_brief_error(conn, raw.number, f"{USAGE_LIMIT_PREFIX}: {e}"[:_ERR_TEXT_MAX])
                 conn.commit()
                 state.failed += 1
-                state.stopped_reason = USAGE_LIMIT_PREFIX
-                break
+                state.finish(USAGE_LIMIT_PREFIX)
+                return state
             except Exception as e:  # SummarizeFailed·ClaudeCLIError·TimeoutExpired 등 — 이 이슈만 실패
                 log.warning("issue brief #%s failed: %s", raw.number, _err_text(e))
                 set_brief_error(conn, raw.number, _err_text(e))
@@ -137,8 +154,7 @@ def run_refresh(
                 state.failed += 1
                 state.done += 1
                 continue
-            set_brief(conn, raw.number, brief, model)
-            upsert_observed(conn, raw, h, keep_hash=False)   # 성공 → 실제 해시 확정
+            set_brief(conn, raw.number, brief, model, h)   # brief + 해시를 한 UPDATE 로 확정
             conn.commit()
             state.summarized += 1
             state.done += 1
@@ -172,6 +188,7 @@ def start_refresh(conn_factory=None) -> bool:
             _LOCK.release()
 
     STATE.running = True
+    STATE.cancel_requested = False
     _THREAD = threading.Thread(target=_target, name="issue-brief-refresh", daemon=True)
     _THREAD.start()
     return True
