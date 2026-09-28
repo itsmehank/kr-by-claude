@@ -20,6 +20,7 @@ import {
   PanelLeftOpen,
   History,
   Wallet,
+  ListTodo,
 } from "lucide-react";
 import HomePage from "./pages/HomePage";
 import HeatmapPage from "./pages/HeatmapPage";
@@ -38,6 +39,7 @@ import LlmPipelineAuditPage from "./pages/LlmPipelineAuditPage";
 import PipelinePage from "./pages/PipelinePage";
 import LibraryPage from "./pages/LibraryPage";
 import TradingPage from "./pages/TradingPage";
+import IssuesPage from "./pages/IssuesPage";
 import { api } from "./lib/api";
 import type { PipelineRun } from "./lib/types";
 import { relativeTime, stalenessLevel } from "./lib/utils";
@@ -68,6 +70,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/trading", label: "Trading", kr: "매매", Icon: Wallet },
 
   // ─── 메타 문서 / 운영 ──────────────────────
+  { to: "/issues", label: "Issues", kr: "이슈 현황", Icon: ListTodo },
   { to: "/library", label: "Library", kr: "자료실", Icon: Library },
   { to: "/docs/llm-pipeline", label: "LLM Pipeline Guide", kr: "LLM 분석 안내", Icon: BookOpen },
   { to: "/docs/llm-pipeline/audit", label: "LLM Audit", kr: "LLM 분석 검증", Icon: ShieldCheck },
@@ -270,6 +273,7 @@ function App() {
           <Route path="/classifications" element={<ClassificationsPage />} />
           <Route path="/triggers" element={<TriggersPage />} />
           <Route path="/review" element={<ReviewPage />} />
+          <Route path="/issues" element={<IssuesPage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/docs/llm-pipeline" element={<LlmPipelinePage />} />
           <Route path="/docs/llm-pipeline/audit" element={<LlmPipelineAuditPage />} />

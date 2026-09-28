@@ -335,7 +335,10 @@ def call_claude(
                 if envelope.get("type") == "result" and "result" in envelope:
                     # --output-format json 봉투: 답 텍스트는 result 필드에.
                     text = envelope.get("result") or ""
-                    if _is_usage_limit(text):
+                    # 모델 응답 본문이 JSON 으로 파싱되면 한도 안내문이 아니다 — 본문 속
+                    # 'rate limit' 류 문구(예: 스로틀링 주제의 요약)를 한도로 오판해 배치를
+                    # 중단시키지 않는다(PR #215 리뷰). 한도 안내는 항상 산문이다.
+                    if _is_usage_limit(text) and not _extract_json_objects(text):
                         raise UsageLimitError(f"usage limit: {text.strip()[:200]}")
                     if meta_out is not None:
                         mu = envelope.get("modelUsage") or {}

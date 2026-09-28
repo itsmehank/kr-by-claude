@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.deps import init_pool, close_pool
-from api.routers import stocks, indicators, heatmap, render, prompts, runs, market_context, signals, performance, runner, pipelines, classifications, triggers, index, positions, review
+from api.routers import stocks, indicators, heatmap, render, prompts, runs, market_context, signals, performance, runner, pipelines, classifications, triggers, index, positions, review, issues
 from api.routers import cron as cron_router
 
 
@@ -45,6 +45,7 @@ app.include_router(triggers.router)
 app.include_router(index.router)
 app.include_router(positions.router)
 app.include_router(review.router)
+app.include_router(issues.router)
 
 
 @app.get("/api/health")

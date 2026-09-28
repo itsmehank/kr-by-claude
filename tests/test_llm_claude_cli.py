@@ -538,3 +538,19 @@ def test_call_claude_unclassified_limit_phrase_alerts(mocker, caplog):
         "미분류" in r.getMessage() and "_USAGE_LIMIT_RE" in r.getMessage()
         for r in caplog.records
     )
+
+
+def test_call_claude_json_result_mentioning_rate_limit_is_not_usage_limit(mocker):
+    """(PR #215) 응답 본문이 JSON 으로 파싱되면 'rate limit' 문구가 있어도 한도가 아니다.
+
+    스로틀링 주제의 요약처럼 본문에 그 단어가 정당하게 들어갈 수 있고, 이를 한도로 오판하면
+    배치가 통째로 중단된다. 한도 안내문은 항상 산문(JSON 아님)이다.
+    """
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+
+    answer = {"summary": "KRX rate limit 차단을 피해 공식 API 로 전환할지 검토.", "group": "data"}
+    envelope = json.dumps({"type": "result", "is_error": False, "result": json.dumps(answer, ensure_ascii=False)})
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout=envelope, stderr="")
+    out = call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
+    assert out == answer and mock_run.call_count == 1
