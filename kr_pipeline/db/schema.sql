@@ -1068,3 +1068,22 @@ CREATE TABLE IF NOT EXISTS dart_batch_log (
     note           TEXT,
     updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+
+-- (2026-09-28, docs/superpowers/specs/2026-09-28-issues-page-design.md) GitHub 이슈 AI 요약 캐시.
+-- 원천은 GitHub(gh CLI). 행은 마지막으로 open 으로 관측된 이슈. 닫힘 관측 시 삭제하지 않고
+-- state='closed' 로 표기(표시 제외) — 재오픈 시 해시 동일하면 재요약 없이 복귀.
+CREATE TABLE IF NOT EXISTS issue_briefs (
+    number          INTEGER      PRIMARY KEY,
+    title           TEXT         NOT NULL,
+    state           VARCHAR(10)  NOT NULL,          -- open | closed
+    labels          TEXT[]       NOT NULL DEFAULT '{}',
+    gh_updated_at   TIMESTAMPTZ  NOT NULL,
+    content_hash    VARCHAR(64)  NOT NULL,          -- sha256(title|body|comments|ref_states)
+    brief           JSONB,                          -- summarize.Brief 출력. 요약 실패 시 직전 값 보존
+    brief_model     VARCHAR(60),
+    brief_at        TIMESTAMPTZ,
+    brief_error     TEXT,                           -- 마지막 요약 실패 사유(성공 시 NULL)
+    override_status VARCHAR(10),                    -- ready | decision | blocked | NULL(=AI 값)
+    override_note   TEXT,
+    observed_at     TIMESTAMPTZ  NOT NULL           -- 마지막 gh 관측 시각
+);
