@@ -13,8 +13,11 @@ export function triggerColor(triggerType: string): string {
   return GRAY;
 }
 
+// 종결 사유 — API weekly_classification.excluded_reason/closed_by 와 동일 어휘(universe_excluded 는 4c1dae7 추가).
+export type ClosedBy = "ignore" | "disqualify" | "universe_excluded";
+
 export interface StreakBandIn { start: string; end: string | null;
-  closed_by: "ignore" | "disqualify" | null; censored: boolean;
+  closed_by: ClosedBy | null; censored: boolean;
   backfilled: boolean; has_gap: boolean;
   /** end 가 조회 종료일로 표시 절단됨(#144 F1) — 실제 닫힘일은 범위 밖. */
   end_clamped?: boolean; }
@@ -34,7 +37,7 @@ export interface ChartOut {
   bands: { x1: number; x2: number; dashed: boolean;
            marker: "x" | "o" | null; censored: boolean;
            start: string; end: string | null;
-           closed_by: "ignore" | "disqualify" | null;
+           closed_by: ClosedBy | null;
            end_clamped: boolean }[];
   dots: { x: number; y: number; color: string;
           d: string; trigger_type: string }[];
@@ -68,9 +71,9 @@ export type ChartHit =
       close: number | null; pivot_price: number | null; x: number; y: number }
   | { kind: "step"; from: string; to: string | null; pivot: number; y: number }
   | { kind: "band"; start: string; end: string | null;
-      closed_by: "ignore" | "disqualify" | null; end_clamped?: boolean;
+      closed_by: ClosedBy | null; end_clamped?: boolean;
       x1: number; x2: number }
-  | { kind: "closure"; date: string; closed_by: "ignore" | "disqualify" }
+  | { kind: "closure"; date: string; closed_by: ClosedBy }
   | { kind: "price"; date: string; close: number; x: number; y: number };
 
 // buildChart 와 hitTest 가 좌표 공식을 공유한다 — 한쪽만 바뀌면 점 위치와
@@ -125,7 +128,7 @@ export function buildChart(input: ChartIn): ChartOut {
     x1: x(idx(s.start)),
     x2: s.end == null ? width : x(idx(s.end)),
     dashed: s.has_gap || s.backfilled,
-    marker: s.closed_by == null ? null : s.closed_by === "disqualify" ? "x" as const : "o" as const,
+    marker: s.closed_by == null ? null : s.closed_by === "ignore" ? "o" as const : "x" as const,
     censored: s.censored,
     start: s.start, end: s.end, closed_by: s.closed_by,
     end_clamped: s.end_clamped ?? false }));
