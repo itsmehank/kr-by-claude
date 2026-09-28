@@ -25,6 +25,7 @@ def content_hash(raw: IssueRaw, refs: list[RefState]) -> str:
     for c in raw.comments:
         h.update(c.body.encode("utf-8")); h.update(b"\x01")
     h.update(b"\x00")
-    for r in sorted(refs, key=lambda r: r.number):
+    # payload 에 실제로 들어가는 참조(open/closed)만 — unknown 은 요약 입력이 아니므로 제외.
+    for r in sorted((r for r in refs if r.state in ("open", "closed")), key=lambda r: r.number):
         h.update(f"{r.number}:{r.state}".encode("utf-8")); h.update(b"\x02")
     return h.hexdigest()

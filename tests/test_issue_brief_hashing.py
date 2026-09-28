@@ -47,3 +47,10 @@ def test_hash_changes_on_new_comment_and_ignores_updated_at_labels():
                          updated_at="2030-01-01T00:00:00Z",
                          comments=(IssueComment("c1", "other"),))
     assert content_hash(base, []) == content_hash(relabeled, [])
+
+
+def test_hash_ignores_unknown_refs_not_sent_to_payload():
+    raw = _raw(body="#1 #9999")
+    a = content_hash(raw, [RefState(1, "open", ""), RefState(9999, "unknown", "")])
+    b = content_hash(raw, [RefState(1, "open", "")])
+    assert a == b

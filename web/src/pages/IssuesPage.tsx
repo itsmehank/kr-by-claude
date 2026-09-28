@@ -1,5 +1,5 @@
 // (2026-09-28) 이슈 현황 — GitHub open 이슈의 쉬운 요약·착수 상태. spec: docs/superpowers/specs/2026-09-28-issues-page-design.md
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, RefreshCw, TriangleAlert, Lock } from "lucide-react";
 import { api, apiUrl } from "../lib/api";
@@ -32,6 +32,8 @@ function StatusBadge({ item }: { item: IssueItem }) {
 function OverrideMenu({ item }: { item: IssueItem }) {
   const qc = useQueryClient();
   const [note, setNote] = useState(item.override_note ?? "");
+  // 서버 값이 바뀌면(해제·다른 탭 수정 후 refetch) 입력값도 따라간다 — 옛 메모가 되살아나지 않게.
+  useEffect(() => { setNote(item.override_note ?? ""); }, [item.override_note]);
   const mut = useMutation({
     mutationFn: async (status: StartStatus | null) => {
       const res = await fetch(apiUrl(`/issues/${item.number}/override`), {
@@ -57,8 +59,14 @@ function OverrideMenu({ item }: { item: IssueItem }) {
         <button type="button" onClick={() => mut.mutate(null)} className="px-2 py-0.5 rounded-md border border-slate-200">
           해제(AI 값)
         </button>
-        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="메모"
-          className="px-2 py-0.5 rounded-md border border-slate-200 min-w-[10rem]" />
+        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="메모(상태 고정 시 함께 저장)"
+          className="px-2 py-0.5 rounded-md border border-slate-200 min-w-[12rem]" />
+        <button type="button" disabled={!item.override_status || mut.isPending}
+          onClick={() => mut.mutate(item.override_status)}
+          className="px-2 py-0.5 rounded-md border border-slate-200 disabled:opacity-50"
+          title={item.override_status ? "현재 고정 상태에 메모 저장" : "상태를 먼저 고정하세요"}>
+          메모 저장
+        </button>
         {mut.isError && <span className="text-rose-600">저장 실패</span>}
       </div>
     </details>
@@ -119,13 +127,22 @@ function IssueCard({ item, openNumbers }: { item: IssueItem; openNumbers: Set<nu
 export default function IssuesPage() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<StartStatus | "all">("all");
-  const list = useQuery({ queryKey: ["issues"], queryFn: () => api<IssuesResponse>("/issues") });
   const status = useQuery({
     queryKey: ["issues-refresh"],
     queryFn: () => api<RefreshState>("/issues/refresh"),
     refetchInterval: (q) => (q.state.data?.running ? 2000 : false),
   });
   const running = status.data?.running ?? false;
+  // 진행 중엔 목록도 2초마다 — 이슈 1건마다 커밋되므로 완료분이 바로 보인다.
+  const list = useQuery({
+    queryKey: ["issues"],
+    queryFn: () => api<IssuesResponse>("/issues"),
+    refetchInterval: running ? 2000 : false,
+  });
+  // running true→false 전이 시 마지막 ≤2초 창에 커밋된 요약을 놓치지 않게 1회 더 읽는다.
+  useEffect(() => {
+    if (!running) qc.invalidateQueries({ queryKey: ["issues"] });
+  }, [running, qc]);
   const start = useMutation({
     mutationFn: async () => {
       const res = await fetch(apiUrl("/issues/refresh"), { method: "POST" });
@@ -138,13 +155,6 @@ export default function IssuesPage() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["issues-refresh"] }),
   });
-  // 진행 중 2초마다 목록도 갱신(완료분이 커밋돼 있음)
-  useQuery({
-    queryKey: ["issues-live", running],
-    queryFn: async () => { if (running) await qc.invalidateQueries({ queryKey: ["issues"] }); return null; },
-    refetchInterval: running ? 2000 : false,
-  });
-
   const items = list.data?.items ?? [];
   const openNumbers = useMemo(() => new Set(items.map((i) => i.number)), [items]);
   const groups = useMemo(() => groupItems(items, filter), [items, filter]);

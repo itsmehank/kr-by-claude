@@ -128,7 +128,7 @@ export function buildChart(input: ChartIn): ChartOut {
     x1: x(idx(s.start)),
     x2: s.end == null ? width : x(idx(s.end)),
     dashed: s.has_gap || s.backfilled,
-    marker: s.closed_by == null ? null : s.closed_by === "ignore" ? "o" as const : "x" as const,
+    marker: s.closed_by == null ? null : s.closed_by === "disqualify" ? "x" as const : "o" as const,
     censored: s.censored,
     start: s.start, end: s.end, closed_by: s.closed_by,
     end_clamped: s.end_clamped ?? false }));

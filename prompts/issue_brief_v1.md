@@ -49,7 +49,7 @@
 "start_status":"blocked","start_reason":"#186 DART 배치가 끝난 뒤 착수. 임계 의존성 맵 작성 필수.","depends_on":[186]}
 
 입력 요지: #188 매도 정정 시 토스 sellableQuantity 가 잠긴 수량을 빼는지 실물 확인 후 가드 규칙 확정.
-"착수 조건: 허용 IP 등록 + 실주문 가능 상태. 실물 검증 전 코드 변경 금지". referenced: #187 pr, #190 open.
+"착수 조건: 허용 IP 등록 + 실주문 가능 상태. 실물 검증 전 코드 변경 금지". referenced: #187 closed(머지된 PR), #190 open.
 출력: {"summary":"매도 주문 수정 때 토스가 팔 수 있는 수량을 어떻게 계산하는지 실제로 확인.","group":"trading_ui",
 "start_status":"blocked","start_reason":"#190 의 실주문 단계까지 가야 관측 가능. 그 전 코드 변경 금지.","depends_on":[190]}
 

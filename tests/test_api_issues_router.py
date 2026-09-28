@@ -63,7 +63,7 @@ def test_refresh_status_get(client, monkeypatch):
 
 
 def test_refresh_post_starts_or_409(client, monkeypatch):
-    monkeypatch.setattr(issues_router, "_gh_available", lambda: True)
+    monkeypatch.setattr(issues_router, "gh_available", lambda: (True, ""))
     started = [True, False]
     monkeypatch.setattr(issues_router, "start_refresh", lambda: started.pop(0))
     assert client.post("/api/issues/refresh").status_code == 202
@@ -72,6 +72,7 @@ def test_refresh_post_starts_or_409(client, monkeypatch):
 
 
 def test_refresh_post_503_without_gh(client, monkeypatch):
-    monkeypatch.setattr(issues_router, "_gh_available", lambda: False)
+    monkeypatch.setattr(issues_router, "gh_available", lambda: (False, "not logged in"))
     r = client.post("/api/issues/refresh")
     assert r.status_code == 503 and r.json()["reason"] == "gh_unavailable"
+    assert r.json()["detail"] == "not logged in"

@@ -36,7 +36,7 @@ class IssueRaw:
 @dataclass(frozen=True)
 class RefState:
     number: int
-    state: str  # open | closed | pr | unknown
+    state: str  # open | closed | unknown  (PR 은 MERGED/CLOSED → closed, OPEN → open)
     title: str
 
 
@@ -76,15 +76,37 @@ def list_open_issues(run=subprocess.run) -> list[IssueRaw]:
     return issues
 
 
-def get_ref_state(number: int, run=subprocess.run) -> RefState:
-    """참조 이슈 상태. PR 번호면 'pr', 그 외 실패는 'unknown'(예외 아님 — 한 이슈 조회
-    실패가 회차 전체를 멈추지 않게)."""
+def gh_available(run=subprocess.run) -> tuple[bool, str]:
+    """gh 설치·로그인 사전 검사(`gh auth status`). (ok, detail)."""
     try:
-        out = _run_gh(["issue", "view", str(number), "--json", "number,state,title"], run)
+        _run_gh(["auth", "status"], run)
     except GhUnavailable as e:
-        msg = str(e).lower()
-        if "pull request" in msg:
-            return RefState(number, "pr", "")
-        return RefState(number, "unknown", "")
-    d = json.loads(out)
-    return RefState(number, (d.get("state") or "unknown").lower(), d.get("title") or "")
+        return False, str(e)
+    return True, ""
+
+
+def _norm_state(raw: str | None) -> str:
+    st = (raw or "").lower()
+    if st == "merged":
+        return "closed"
+    return st if st in ("open", "closed") else "unknown"
+
+
+def get_ref_states(numbers: set[int], run=subprocess.run) -> dict[int, RefState]:
+    """참조 번호들의 상태를 배치 조회 — 이슈 전체 + PR 전체 목록 2콜(번호별 view 반복 대신).
+
+    gh 는 PR 번호도 `issue view` 로 응답하므로(state MERGED) 이슈/PR 을 함께 조회해 정규화한다.
+    목록에 없는 번호는 'unknown'. gh 실패는 GhUnavailable 전파(회차 중단 — 부분 결과로 해시가
+    흔들리지 않게).
+    """
+    if not numbers:
+        return {}
+    found: dict[int, RefState] = {}
+    for sub in ("issue", "pr"):
+        out = _run_gh([sub, "list", "--state", "all", "--limit", "1000",
+                       "--json", "number,state,title"], run)
+        for r in json.loads(out or "[]"):
+            n = int(r["number"])
+            if n in numbers and n not in found:
+                found[n] = RefState(n, _norm_state(r.get("state")), r.get("title") or "")
+    return {n: found.get(n, RefState(n, "unknown", "")) for n in numbers}

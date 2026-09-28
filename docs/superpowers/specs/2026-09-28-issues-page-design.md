@@ -131,18 +131,22 @@ few-shot 은 눈높이 고정용이며, 실제 이슈가 바뀌면 모델은 새
 
 ## 7. 갱신 알고리즘(`refresh.py`)
 
-1. `threading.Lock` 비획득 시 `409 already_running` 반환(런너와 동일한 의미).
+1. `threading.Lock` 비획득 시 `409 already_running` 반환(런너와 동일한 의미). 스레드가 DB 연결 단계에서
+   실패해도 `running` 을 반드시 false 로 되돌린다(영구 '갱신 중' 방지).
 2. `gh issue list --state open --limit 200 --json number,title,labels,body,updatedAt,comments`
    1회 호출 → open 집합.
 3. 본문·코멘트에서 `#\d+` 를 뽑아 자기 번호 제외 → 참조 번호 상태 결정:
-   open 집합에 있으면 `open`; 아니면 `gh issue view N --json number,state,title` 1회 조회
-   (회차 내 메모이즈 — 같은 번호는 한 번만). 참조된 번호가 PR 이면 gh 가 오류를 내므로
-   `pr` 로 표기하고 판정 입력에서 제외. 회차마다 재조회하는 비용은 로컬 gh 호출 수십 회로 수용.
-4. 이슈별 `content_hash = sha256(title|body|comment bodies|sorted ref (number,state))`.
+   open 집합에 있으면 `open`; 나머지는 **배치 2콜**(`gh issue list --state all` + `gh pr list --state all`,
+   각 `--limit 1000 --json number,state,title`)로 한 번에 조회. gh 는 PR 번호도 issue 로 응답하므로
+   PR 은 `MERGED`/`CLOSED`→`closed`, `OPEN`→`open` 으로 정규화(별도 'pr' 상태 없음). 목록에 없는
+   번호는 `unknown`(payload·해시 모두에서 제외). gh 실패는 회차 중단(부분 결과로 해시가 흔들리지 않게).
+4. 이슈별 `content_hash = sha256(title|body|comment bodies|sorted ref (number,state))` — ref 는 payload 에 들어가는 open/closed 만(라벨·updatedAt·unknown 제외).
 5. 캐시 행 없음 또는 해시 불일치 → `summarize()` 호출. 성공 시 `brief/brief_model/brief_at`
-   갱신·`brief_error` NULL. 실패(ClaudeCLIError·스키마 불일치 재호출 후 실패) 시 직전
-   `brief` 유지·`brief_error` 기록·해시는 **갱신하지 않음**(다음 회차 재시도).
-   `UsageLimitError` 는 회차 즉시 중단(남은 이슈는 다음 회차).
+   갱신·`brief_error` NULL. 실패(스키마 불일치 재호출 후 실패·ClaudeCLIError·subprocess 타임아웃 등
+   **모든 예외**) 시 그 이슈만 실패 기록(직전 `brief` 유지, 해시 미갱신 → 다음 회차 재시도, 신규 행은
+   빈 해시 저장), 사유 문자열은 argv 가 섞이지 않게 정제. `UsageLimitError` 는 회차 즉시 중단(남은 이슈는
+   다음 회차) — 단 claude_cli 가 **응답 본문**의 'rate limit' 문구도 한도로 오판할 수 있으므로, usage_limit 로
+   실패한 이슈는 다음 회차에 **맨 뒤로** 미뤄 한 이슈의 오판이 나머지를 막지 않게 한다.
 6. 해시 일치 → `observed_at/gh_updated_at/labels/title` 만 갱신, Claude 호출 0.
 7. open 집합에 없는 캐시 open 행 → `state='closed'`(행 보존, 표시 제외).
 8. 진행 상태(메모리): `{running, started_at, total, done, summarized, failed, stopped_reason}`.
@@ -161,7 +165,7 @@ few-shot 은 눈높이 고정용이며, 실제 이슈가 바뀌면 모델은 새
 | GET | `/api/issues/refresh` | §7-8 진행 상태 |
 | PUT | `/api/issues/{n}/override` | body `{status: ready\|decision\|blocked\|null, note}` → 갱신된 항목 |
 
-`gh` 미설치·미로그인 → refresh 는 `503 {reason:"gh_unavailable", detail}`.
+`gh` 미설치·미로그인 → refresh 는 동기 사전 검사(`gh auth status`)로 `503 {reason:"gh_unavailable", detail}`.
 
 ## 9. 화면(`IssuesPage.tsx`)
 

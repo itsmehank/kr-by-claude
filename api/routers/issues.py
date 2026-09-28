@@ -1,7 +1,6 @@
 """(2026-09-28) GitHub 이슈 쉬운 요약 캐시 API. spec: docs/superpowers/specs/2026-09-28-issues-page-design.md"""
 from __future__ import annotations
 
-import shutil
 from typing import Literal
 
 from fastapi import APIRouter, Depends
@@ -11,14 +10,11 @@ from pydantic import BaseModel, Field
 
 from api.deps import get_conn
 from api.services.issue_brief import refresh as refresh_mod
+from api.services.issue_brief.github import gh_available
 from api.services.issue_brief.refresh import start_refresh
 from api.services.issue_brief.store import fetch_briefs, set_override
 
 router = APIRouter(prefix="/api/issues", tags=["issues"])
-
-
-def _gh_available() -> bool:
-    return shutil.which("gh") is not None
 
 
 class OverrideBody(BaseModel):
@@ -40,9 +36,9 @@ def refresh_status():
 
 @router.post("/refresh")
 def refresh_start():
-    if not _gh_available():
-        return JSONResponse(status_code=503,
-                            content={"reason": "gh_unavailable", "detail": "gh CLI not found in PATH"})
+    ok, detail = gh_available()          # 설치 + 로그인(`gh auth status`) 동기 사전 검사
+    if not ok:
+        return JSONResponse(status_code=503, content={"reason": "gh_unavailable", "detail": detail})
     if not start_refresh():
         return JSONResponse(status_code=409, content={"reason": "already_running"})
     return JSONResponse(status_code=202, content={"started": True})

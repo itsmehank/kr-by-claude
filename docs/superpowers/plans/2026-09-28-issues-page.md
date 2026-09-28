@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - 작업 위치: worktree `.claude/worktrees/issues-page`, 브랜치 `issues-page`(origin/main 1f7c2d0 기준). 커밋 전 `git branch --show-current` 로 확인. **`git add` 는 명시 경로만.**
-- 커밋 메시지 끝에 `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` 한 줄(다른 co-author 트레일러 금지).
+- 커밋 메시지에 Claude/Anthropic co-author 트레일러를 **넣지 않는다**(사용자 CLAUDE.md 규칙 — 세션 기본 안내보다 우선).
 - `uv run pytest tests/` 판정 전 `pgrep -f pytest` 로 동시 실행 없음 확인. 기대: 실패 0, 1 skipped, 1 deselected.
 - schema.sql 변경은 kr_pipeline·kr_test 양쪽 DB 에 `psql -f` 수동 적용(kr_test 는 conftest 가 세션마다 재적용하므로 pytest 실행으로 충족, kr_pipeline 은 Task 9 에서 수동).
 - 테스트는 gh·claude 실 호출 0 — 전부 monkeypatch/주입. `call_claude` 의 `dry_run` 경로는 `_MOCK_GENERATORS` 에 등록이 필요하므로 쓰지 않고 함수 주입으로 대체한다.
@@ -101,9 +101,7 @@ Expected: 1 passed (conftest 가 세션 시작 시 schema.sql 을 kr_test 에 �
 
 ```bash
 git add kr_pipeline/db/schema.sql tests/test_issue_brief_store.py
-git commit -m "이슈 현황 페이지 — issue_briefs 테이블(GitHub 이슈 AI 요약 캐시)
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+git commit -m "이슈 현황 페이지 — issue_briefs 테이블(GitHub 이슈 AI 요약 캐시)"
 ```
 
 ---
@@ -322,9 +320,7 @@ Expected: 7 passed
 
 ```bash
 git add api/services/issue_brief/__init__.py api/services/issue_brief/github.py tests/test_issue_brief_github.py
-git commit -m "이슈 현황 — gh CLI 래퍼(open 목록·참조 이슈 상태, 실패는 GhUnavailable/unknown)
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+git commit -m "이슈 현황 — gh CLI 래퍼(open 목록·참조 이슈 상태, 실패는 GhUnavailable/unknown)"
 ```
 
 ---
@@ -447,9 +443,7 @@ Expected: 6 passed
 
 ```bash
 git add api/services/issue_brief/hashing.py tests/test_issue_brief_hashing.py
-git commit -m "이슈 현황 — 참조 이슈 추출·내용 해시(제목·본문·코멘트·참조 상태만 입력)
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+git commit -m "이슈 현황 — 참조 이슈 추출·내용 해시(제목·본문·코멘트·참조 상태만 입력)"
 ```
 
 ---
@@ -707,9 +701,7 @@ Expected: 7 passed
 
 ```bash
 git add prompts/issue_brief_v1.md api/services/issue_brief/summarize.py tests/test_issue_brief_summarize.py
-git commit -m "이슈 현황 — 요약 프롬프트 issue_brief_v1(고등학생 눈높이 규칙 10 + 그룹별 예시 5) + summarize(스키마 검증·1회 재호출)
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+git commit -m "이슈 현황 — 요약 프롬프트 issue_brief_v1(고등학생 눈높이 규칙 10 + 그룹별 예시 5) + summarize(스키마 검증·1회 재호출)"
 ```
 
 ---
@@ -925,9 +917,7 @@ Expected: 7 passed
 
 ```bash
 git add api/services/issue_brief/store.py tests/test_issue_brief_store.py
-git commit -m "이슈 현황 — issue_briefs 저장 계층(관측 upsert·keep_hash·brief/error·closed·override)
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+git commit -m "이슈 현황 — issue_briefs 저장 계층(관측 upsert·keep_hash·brief/error·closed·override)"
 ```
 
 ---
@@ -1252,9 +1242,7 @@ Expected: 10 passed
 
 ```bash
 git add api/services/issue_brief/refresh.py tests/test_issue_brief_refresh.py
-git commit -m "이슈 현황 — 갱신 회차(해시 비교·변경분만 요약·행 단위 커밋·닫힘 표기·usage_limit 중단·단일 스레드 락)
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+git commit -m "이슈 현황 — 갱신 회차(해시 비교·변경분만 요약·행 단위 커밋·닫힘 표기·usage_limit 중단·단일 스레드 락)"
 ```
 
 ---
@@ -1442,9 +1430,7 @@ Expected: 5 passed
 
 ```bash
 git add api/routers/issues.py api/main.py tests/test_api_issues_router.py
-git commit -m "이슈 현황 — /api/issues 라우터(목록·refresh 시작/상태·override)
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+git commit -m "이슈 현황 — /api/issues 라우터(목록·refresh 시작/상태·override)"
 ```
 
 ---
@@ -1869,9 +1855,7 @@ Expected: vitest 전부 통과(기존 69 + 5), `tsc -b && vite build` 종료 코
 ```bash
 git add web/src/lib/issues.ts web/src/lib/issues.test.ts web/src/pages/IssuesPage.tsx web/src/App.tsx
 git status -s | grep "^A"      # 위 4개 외 신규 파일 없어야 함(web/node_modules·dist 는 .gitignore)
-git commit -m "이슈 현황 — /issues 페이지(그룹 카드·상태 필터·새로고침 진행 폴링·의존 칩·수동 고정) + 라우트·nav
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+git commit -m "이슈 현황 — /issues 페이지(그룹 카드·상태 필터·새로고침 진행 폴링·의존 칩·수동 고정) + 라우트·nav"
 ```
 
 ---

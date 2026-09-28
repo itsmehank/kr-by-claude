@@ -37,6 +37,13 @@ def fetch_hashes(conn: Connection) -> dict[int, tuple[str, str]]:
         return {n: (h, s) for n, h, s in cur.fetchall()}
 
 
+def fetch_numbers_with_error_prefix(conn: Connection, prefix: str) -> set[int]:
+    """brief_error 가 prefix 로 시작하는 이슈 번호(usage_limit 오판 이슈를 회차 뒤로 미루는 용도)."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT number FROM issue_briefs WHERE brief_error LIKE %s", (prefix + "%",))
+        return {r[0] for r in cur.fetchall()}
+
+
 def upsert_observed(conn: Connection, raw: IssueRaw, content_hash: str, *, keep_hash: bool) -> None:
     """관측 upsert. keep_hash=True 면 기존 행의 해시 유지(신규 행은 인자 저장)."""
     hash_expr = "issue_briefs.content_hash" if keep_hash else "EXCLUDED.content_hash"

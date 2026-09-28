@@ -6,19 +6,26 @@
 from __future__ import annotations
 
 import logging
+import subprocess
 import threading
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from kr_pipeline.db.connection import connect
-from kr_pipeline.llm_runner.llm.claude_cli import ClaudeCLIError, UsageLimitError
+from kr_pipeline.llm_runner.llm.claude_cli import UsageLimitError
 
-from .github import GhUnavailable, RefState, get_ref_state, list_open_issues
+from .github import GhUnavailable, RefState, get_ref_states, list_open_issues
 from .hashing import content_hash, extract_refs
-from .store import fetch_hashes, mark_closed, set_brief, set_brief_error, upsert_observed
-from .summarize import SummarizeFailed, summarize
+from .store import (
+    fetch_hashes, fetch_numbers_with_error_prefix, mark_closed, set_brief, set_brief_error,
+    upsert_observed,
+)
+from .summarize import summarize
 
 log = logging.getLogger(__name__)
+
+USAGE_LIMIT_PREFIX = "usage_limit"
+_ERR_TEXT_MAX = 300
 
 
 @dataclass
@@ -35,6 +42,21 @@ class RefreshState:
     def to_dict(self) -> dict:
         return asdict(self)
 
+    def begin(self) -> None:
+        """회차 시작 — running 은 건드리지 않는다(start_refresh 가 먼저 True 로 둔 값을
+        잠깐이라도 False 로 되돌리면 프론트 폴링이 멈춘다)."""
+        self.running = True
+        self.started_at = _now()
+        self.finished_at = None
+        self.total = self.done = self.summarized = self.failed = 0
+        self.stopped_reason = None
+
+    def finish(self, reason: str | None = None) -> None:
+        if reason is not None:
+            self.stopped_reason = reason
+        self.running = False
+        self.finished_at = _now()
+
 
 STATE = RefreshState()
 _LOCK = threading.Lock()
@@ -45,17 +67,22 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _err_text(e: BaseException) -> str:
+    """사용자에게 보일 실패 사유 — argv(시스템 프롬프트 전문 포함)가 섞인 예외 문자열은 노출하지 않는다."""
+    if isinstance(e, subprocess.TimeoutExpired):
+        return f"TimeoutExpired: {e.timeout}s"
+    return f"{type(e).__name__}: {str(e)[:_ERR_TEXT_MAX]}"
+
+
 def run_refresh(
     conn,
     *,
     list_issues=list_open_issues,
-    ref_state=get_ref_state,
+    ref_states=get_ref_states,
     do_summarize=summarize,
     state: RefreshState = STATE,
 ) -> RefreshState:
-    state.__init__()
-    state.running = True
-    state.started_at = _now()
+    state.begin()
     try:
         issues = list_issues()
         open_numbers = {i.number for i in issues}
@@ -66,17 +93,23 @@ def run_refresh(
         mark_closed(conn, [n for n, (_h, s) in cached.items() if s == "open" and n not in open_numbers])
         conn.commit()
 
-        memo: dict[int, RefState] = {}
+        # 참조 상태: open 집합 안이면 open, 나머지는 배치 조회(gh 2콜)
+        refs_by_issue = {raw.number: sorted(extract_refs(raw)) for raw in issues}
+        lookup = {n for ns in refs_by_issue.values() for n in ns} - open_numbers
+        resolved = ref_states(lookup) if lookup else {}
 
         def resolve(n: int) -> RefState:
             if n in open_numbers:
                 return RefState(n, "open", "")
-            if n not in memo:
-                memo[n] = ref_state(n)
-            return memo[n]
+            return resolved.get(n, RefState(n, "unknown", ""))
+
+        # 직전 회차에 usage_limit 로 실패한 이슈는 맨 뒤로 — 응답 본문의 'rate limit' 문구
+        # 오판(claude_cli._is_usage_limit)이 한 이슈에 고정돼도 나머지 이슈가 막히지 않게.
+        deferred = fetch_numbers_with_error_prefix(conn, USAGE_LIMIT_PREFIX)
+        issues = sorted(issues, key=lambda r: (r.number in deferred, r.number))
 
         for raw in issues:
-            refs = [resolve(n) for n in sorted(extract_refs(raw))]
+            refs = [resolve(n) for n in refs_by_issue[raw.number]]
             h = content_hash(raw, refs)
             prev = cached.get(raw.number)
             changed = prev is None or prev[0] != h
@@ -92,13 +125,14 @@ def run_refresh(
             try:
                 brief, model = do_summarize(raw, refs)
             except UsageLimitError as e:
-                set_brief_error(conn, raw.number, f"usage_limit: {e}")
+                set_brief_error(conn, raw.number, f"{USAGE_LIMIT_PREFIX}: {e}"[:_ERR_TEXT_MAX])
                 conn.commit()
                 state.failed += 1
-                state.stopped_reason = "usage_limit"
+                state.stopped_reason = USAGE_LIMIT_PREFIX
                 break
-            except (SummarizeFailed, ClaudeCLIError) as e:
-                set_brief_error(conn, raw.number, str(e))
+            except Exception as e:  # SummarizeFailed·ClaudeCLIError·TimeoutExpired 등 — 이 이슈만 실패
+                log.warning("issue brief #%s failed: %s", raw.number, _err_text(e))
+                set_brief_error(conn, raw.number, _err_text(e))
                 conn.commit()
                 state.failed += 1
                 state.done += 1
@@ -110,13 +144,13 @@ def run_refresh(
             state.done += 1
     except GhUnavailable as e:
         log.warning("issue refresh: gh unavailable: %s", e)
-        state.stopped_reason = "gh_unavailable"
-    except Exception as e:  # 스레드 사망 방지 — 사유는 상태로 노출
+        state.finish("gh_unavailable")
+        return state
+    except Exception as e:  # 스레드 사망 방지 — 사유는 상태로 노출(정제)
         log.exception("issue refresh failed")
-        state.stopped_reason = f"error: {e}"
-    finally:
-        state.running = False
-        state.finished_at = _now()
+        state.finish(f"error: {_err_text(e)}")
+        return state
+    state.finish()
     return state
 
 
@@ -131,6 +165,9 @@ def start_refresh(conn_factory=None) -> bool:
         try:
             with factory() as conn:
                 run_refresh(conn, state=STATE)
+        except Exception as e:  # connect() 실패 등 — running 이 영구 True 로 남지 않게
+            log.exception("issue refresh thread failed before run")
+            STATE.finish(f"error: {_err_text(e)}")
         finally:
             _LOCK.release()
 
