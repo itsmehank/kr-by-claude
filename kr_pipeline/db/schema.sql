@@ -1087,3 +1087,8 @@ CREATE TABLE IF NOT EXISTS issue_briefs (
     override_note   TEXT,
     observed_at     TIMESTAMPTZ  NOT NULL           -- 마지막 gh 관측 시각
 );
+
+-- (#207 회신 20, 2026-09-29) 거래량 정의 미확정 표지 — trigger_evaluation_log 에도 sanity_warnings(weekly_classification 과
+-- 동일 의미, SOFT·쓰기 전용). 09-28 이후 analyzed_for_date 행에 'volume_regime_unverified_#207'(data_regimes.py).
+ALTER TABLE trigger_evaluation_log
+  ADD COLUMN IF NOT EXISTS sanity_warnings JSONB;

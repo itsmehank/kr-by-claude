@@ -15,6 +15,7 @@ from pathlib import Path
 from psycopg import Connection
 
 from api.services.inline_builder import build_analysis_inline
+from kr_pipeline.common.data_regimes import assert_backtest_range_allowed
 from kr_pipeline.llm_runner.backfill import _enumerate_saturdays
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 from kr_pipeline.llm_runner.load import get_qualifying_tickers
@@ -77,6 +78,7 @@ def run_backtest_backfill(conn: Connection, *, start: date, end: date, tickers: 
                           dry_run: bool = False, concurrency: int | None = None) -> dict:
     """기간 × 매주 토요일, 지정 tickers 중 그 주 qualifying 종목을 분류해 BT_TABLE 에 적재.
     멱등: 이미 적재된 (symbol, 토요일)은 skip. 사용량 한도 시 abort(다음 실행이 이어감)."""
+    assert_backtest_range_allowed(end)   # (#207 회신 20 Q-4c)
     saturdays = _enumerate_saturdays(start, end)
     concurrency = concurrency or BT_CONCURRENCY
     agg = {"weeks": 0, "processed": 0, "skipped_existing": 0, "failures": 0,

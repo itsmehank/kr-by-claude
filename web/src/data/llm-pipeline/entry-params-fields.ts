@@ -40,7 +40,7 @@ export const ENTRY_PARAMS_FIELDS: EntryParamField[] = [
 
   // Meta 메타 (3)
   { name: "notes", category: "meta", what: "사람이 읽는 매수 노트 — entry_mode, 손절 기준, 사이징 산식(R/stop→full×pilot, 미적용 flag 목록), 경고 등 종합 설명.", constraint: "50~600 글자, 필수 항목 (entry_mode, stop binding, sizing 산식, both stop_pct, warnings) 모두 언급" },
-  { name: "known_warnings", category: "meta", what: "정의된 경고 코드 목록 — 예: 'breakout_volume_below_preferred_50pct'. (#153) 사이징·스탑 후보 경고 6종은 발행 지점 소멸 → 현행 발행 가능 5종.", constraint: "array from whitelist; no duplicates" },
+  { name: "known_warnings", category: "meta", what: "정의된 경고 코드 목록 — 예: 'breakout_volume_below_preferred_50pct'. (#153) 사이징·스탑 후보 경고 6종은 발행 지점 소멸 → 현행 발행 가능 5종.", constraint: "array from whitelist; no duplicates (+ 저장 시 시스템 표지 volume_regime_unverified_#207 — 2026-09-28~ 거래량 정의 미확정, #207)" },
   { name: "other_warnings", category: "meta", what: "정의 외 자유 텍스트 경고 — LLM 의 추가 관찰 사항.", constraint: "array of free-text strings; each 5~200 chars" },
 ];
 

@@ -15,6 +15,12 @@ adj 재유도 **전**에 (1′)(3) 검사 → 위반 시 AdjustmentTripwireError
      이후 행만: adj_high ≤ raw_high×계수 · adj_low ≥ raw_low×계수(계수 = adj_close/close). 기준선 2026-06-01~09-11 비할트
      176,076행 중 1행. 시임 이후 유도는 raw×F 정확식 → 위반 = 다른 writer(연장시간 봉 등) 유입 신호.
 (3)  raw 봉 low ≤ close ≤ high(비할트, high>0) — 정의상 검사, 임계 없음(기준선 전 이력 5,284,501행 0).
+(4)  VOLUME_BREAKOUT_DAILY_MAX = 1,361 — (회신 20, 2026-09-29) 일별 "volume_ratio_50d ≥ BREAKOUT_VOL_FLOOR(1.4) 비할트 종목 수"의
+     2026-01-02~09-11 171거래일 **실측 최댓값**(03-04; p50 307 · p95 805 · 최소 136; 09-14~09-28 은 267~401). 목적 = KRX 일별
+     거래량에 애프터마켓이 합산되기 시작(09-28 추정)한 뒤 거래량 배수 규칙의 가짜 돌파 폭증 감지. **경고형**(fail-closed 아님) —
+     indicators._run_sanity_checks_daily 가 [upsert_start, load_end] 창으로 호출해 run warnings 에 기록. **check_adjustment_tripwires
+     합본(fail-closed 3건)에 포함되지 않는다.** 모집단 = 비할트(daily_prices.high>0) — 사전 측정 SQL 과 동일 조건이라 JOIN 유지.
+     임계 개정은 checklist 이력 1줄 + 전문가 승인(회신 17 규칙).
 """
 from __future__ import annotations
 
@@ -22,10 +28,12 @@ from datetime import date
 
 from psycopg import Connection
 
+from kr_pipeline.common.thresholds import BREAKOUT_VOL_FLOOR
 from kr_pipeline.ohlcv.adjust import ADJ_SELF_START
 
 ADJ_DAILY_EVENTS_MAX = 16      # (1′) 관측 최댓값, 2026-01-02~09-11
 ADJ_ENVELOPE_TOL = 0.005       # (2) 0.5%
+VOLUME_BREAKOUT_DAILY_MAX = 1361  # (4) 관측 최댓값, 2026-01-02~09-11 (경고형)
 
 
 class AdjustmentTripwireError(RuntimeError):
@@ -78,8 +86,27 @@ def check_raw_bars(conn: Connection, *, start: date, end: date) -> list[str]:
     return [f"raw_bar: low ≤ close ≤ high 위반 {len(rows)}행(상한 50): {[(t, str(d)) for t, d in rows[:10]]}"]
 
 
+def check_volume_breakout_count(conn: Connection, *, start: date, end: date,
+                                max_count: int = VOLUME_BREAKOUT_DAILY_MAX) -> list[str]:
+    """(4) 일별 거래량 돌파(≥ BREAKOUT_VOL_FLOOR × 50일 평균) 비할트 종목 수 > max_count 인 날 — 경고 문자열(예외 아님)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT i.date, COUNT(*) AS n
+              FROM daily_indicators i JOIN daily_prices p USING (ticker, date)
+             WHERE i.date BETWEEN %s AND %s AND p.high > 0 AND i.volume_ratio_50d >= %s
+             GROUP BY i.date HAVING COUNT(*) > %s ORDER BY i.date
+            """,
+            (start, end, BREAKOUT_VOL_FLOOR, max_count),
+        )
+        rows = cur.fetchall()
+    return [f"volume_breakout_count: {d} 거래량 돌파 종목 {n} > 상한 {max_count} (거래량 정의 변경 의심, #207 회신 20)"
+            for d, n in rows]
+
+
 def check_adjustment_tripwires(conn: Connection, *, start: date, end: date) -> list[str]:
-    """[start, end] 창의 위반 목록(빈 리스트 = 통과) — 3건 전부(2차 방어용 합본). 접두어: daily_event_count / adj_envelope / raw_bar."""
+    """[start, end] 창의 위반 목록(빈 리스트 = 통과) — fail-closed 3건 합본(2차 방어용). 접두어: daily_event_count / adj_envelope / raw_bar.
+    경고형 (4) check_volume_breakout_count 는 포함하지 않는다."""
     return check_recorded_event_counts(conn, start=start, end=end) + check_adj_envelope(conn, start=start, end=end) + check_raw_bars(conn, start=start, end=end)
 
 

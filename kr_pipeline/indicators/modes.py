@@ -27,7 +27,7 @@ from kr_pipeline.indicators.compute.volume import (
     pocket_pivot, volume_dry_up, up_down_volume_ratio, distribution_day,
 )
 from kr_pipeline.indicators.completeness import check_daily_ohlcv_complete
-from kr_pipeline.ohlcv.tripwires import AdjustmentTripwireError, check_adjustment_tripwires
+from kr_pipeline.ohlcv.tripwires import AdjustmentTripwireError, check_adjustment_tripwires, check_volume_breakout_count
 from kr_pipeline.indicators.load import (
     load_daily_prices, load_index_daily, load_weekly_prices, load_weekly_index,
     load_active_tickers_with_market,
@@ -282,9 +282,13 @@ def _run_phase_b_daily(conn: Connection, upsert_start: date, upsert_end: date) -
     return affected
 
 
-def _run_sanity_checks_daily(conn: Connection, upsert_end: date) -> list[str]:
-    """sanity 검증 (spec §7)."""
+def _run_sanity_checks_daily(conn: Connection, upsert_end: date, upsert_start: date | None = None) -> list[str]:
+    """sanity 검증 (spec §7). upsert_start 를 주면 트립와이어 (4)를 그 창 전체에서 검사한다."""
     warnings = []
+    # (#207 회신 20) 트립와이어 (4) — 경고형: 일별 거래량 돌파 종목 수가 09-11 이전 실측 최댓값 초과.
+    # 창 = 이번 run 이 쓴 [upsert_start, upsert_end] 전체(다른 3건과 동일) — 실행일 하루만 보면 아침 재실행·
+    # 휴일 실행에서 빈 날짜를 보고 조용히 통과한다(PR #217 리뷰).
+    warnings += check_volume_breakout_count(conn, start=upsert_start or upsert_end, end=upsert_end)
     with conn.cursor() as cur:
         # 1. 커버리지
         cur.execute("SELECT COUNT(*) FROM daily_indicators WHERE date = %s", (upsert_end,))
@@ -465,7 +469,7 @@ def run_daily(
         log.info("daily rs gate mirrored: %d rows", gate_affected)
 
         # Sanity
-        warnings = _run_sanity_checks_daily(conn, load_end)
+        warnings = _run_sanity_checks_daily(conn, load_end, upsert_start)
         state["warnings"].extend(warnings)
         state["rows_affected"] = rows_total
 
