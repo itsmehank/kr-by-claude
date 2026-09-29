@@ -18,7 +18,9 @@ adj 재유도 **전**에 (1′)(3) 검사 → 위반 시 AdjustmentTripwireError
 (4)  VOLUME_BREAKOUT_DAILY_MAX = 1,361 — (회신 20, 2026-09-29) 일별 "volume_ratio_50d ≥ BREAKOUT_VOL_FLOOR(1.4) 비할트 종목 수"의
      2026-01-02~09-11 171거래일 **실측 최댓값**(03-04; p50 307 · p95 805 · 최소 136; 09-14~09-28 은 267~401). 목적 = KRX 일별
      거래량에 애프터마켓이 합산되기 시작(09-28 추정)한 뒤 거래량 배수 규칙의 가짜 돌파 폭증 감지. **경고형**(fail-closed 아님) —
-     indicators._run_sanity_checks_daily 가 run warnings 에 기록. 임계 개정은 checklist 이력 1줄 + 전문가 승인(회신 17 규칙).
+     indicators._run_sanity_checks_daily 가 [upsert_start, load_end] 창으로 호출해 run warnings 에 기록. **check_adjustment_tripwires
+     합본(fail-closed 3건)에 포함되지 않는다.** 모집단 = 비할트(daily_prices.high>0) — 사전 측정 SQL 과 동일 조건이라 JOIN 유지.
+     임계 개정은 checklist 이력 1줄 + 전문가 승인(회신 17 규칙).
 """
 from __future__ import annotations
 
@@ -103,7 +105,8 @@ def check_volume_breakout_count(conn: Connection, *, start: date, end: date,
 
 
 def check_adjustment_tripwires(conn: Connection, *, start: date, end: date) -> list[str]:
-    """[start, end] 창의 위반 목록(빈 리스트 = 통과) — 3건 전부(2차 방어용 합본). 접두어: daily_event_count / adj_envelope / raw_bar."""
+    """[start, end] 창의 위반 목록(빈 리스트 = 통과) — fail-closed 3건 합본(2차 방어용). 접두어: daily_event_count / adj_envelope / raw_bar.
+    경고형 (4) check_volume_breakout_count 는 포함하지 않는다."""
     return check_recorded_event_counts(conn, start=start, end=end) + check_adj_envelope(conn, start=start, end=end) + check_raw_bars(conn, start=start, end=end)
 
 

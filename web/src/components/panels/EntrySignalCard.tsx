@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { warningLabel } from "../../lib/warningLabels";
 import { api } from "../../lib/api";
 import type { Signal } from "../../lib/types";
 import { Card } from "./Card";
@@ -80,8 +81,9 @@ export function EntrySignalCard({ ticker }: Props) {
               <span
                 key={w}
                 className="px-2 py-0.5 rounded bg-yellow-50 text-yellow-800 text-data-xs"
+                title={w}
               >
-                {w}
+                {warningLabel(w)}
               </span>
             ))}
           </div>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { warningLabel } from "../lib/warningLabels";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
@@ -197,8 +198,8 @@ function SignalCard({ signal }: SignalCardProps) {
           </div>
           <div className="flex flex-wrap gap-1.5">
             {signal.known_warnings.map((w, i) => (
-              <span key={i} className="chip bg-amber-soft text-amber text-data-xs">
-                {w}
+              <span key={i} className="chip bg-amber-soft text-amber text-data-xs" title={w}>
+                {warningLabel(w)}
               </span>
             ))}
           </div>

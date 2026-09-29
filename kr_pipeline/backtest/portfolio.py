@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from math import inf
 
+from kr_pipeline.common.data_regimes import assert_backtest_range_allowed
 from kr_pipeline.backtest import phases as ph
 from kr_pipeline.backtest.backfill import BT_TABLE
 from kr_pipeline.backtest.frozen_sample import FROZEN_SAMPLE
@@ -723,6 +724,7 @@ def main() -> int:
     from kr_pipeline.db.connection import connect
     from kr_pipeline.backtest.premium_bins import premium_bins
     args = _parse_args(sys.argv[1:])
+    assert_backtest_range_allowed(args["end"])   # (#207 회신 20 Q-4c) 09-28 이후 봉 사용 금지
     kind = args["kind"]
     tickers = _resolve_sample(kind)
     curves_path = ("data/backtest/portfolio_curves_sample_ab_20260721.json"

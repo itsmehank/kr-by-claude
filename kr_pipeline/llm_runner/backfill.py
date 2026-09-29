@@ -15,6 +15,7 @@ from pathlib import Path
 from psycopg import Connection
 
 from api.services.inline_builder import build_analysis_inline
+from kr_pipeline.common.data_regimes import assert_backtest_range_allowed
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 from kr_pipeline.llm_runner.load import get_qualifying_tickers
 from kr_pipeline.llm_runner.parallel import run_parallel_batch
@@ -51,6 +52,7 @@ def _already_backfilled(conn: Connection, as_of: date) -> set[str]:
 def run(conn: Connection, *, start: date, end: date, tickers: list[str] | None = None,
         dry_run: bool = False, limit: int | None = None, concurrency: int | None = None) -> dict:
     """기간 × 매주 토요일 백필(병렬). 토요일마다 그 주 minervini 통과 종목(또는 지정 종목)을 분류."""
+    assert_backtest_range_allowed(end)   # (#207 회신 20 Q-4c) 09-28 이후 봉 백필 금지
     saturdays = _enumerate_saturdays(start, end)
     concurrency = concurrency or int(os.environ.get("BACKFILL_CONCURRENCY", "4"))
     agg = {
