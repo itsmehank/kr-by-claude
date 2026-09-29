@@ -474,3 +474,24 @@ def test_schedule_env_single_source_is_consistent():
     assert (int(lh), int(lm)) < (int(eh), int(em)) <= (int(wd), 0)
     assert int(wd) - int(eh) >= 2                       # 데이터 체인 최대 2h10m 실측 여유
     assert wake < f"{eh}:{em}:00"                       # 기상은 발화 전
+
+
+def test_no_variable_immediately_followed_by_hangul_in_launchd_scripts():
+    """`$VAR한글` 은 UTF-8 로케일 bash 에서 변수명 `VAR한글` 로 읽혀 set -u 에 unbound 로 죽는다
+    (2026-09-29 20:35 수동 fallback 실패 — launchd 는 C 로케일이라 잠복). 반드시 `${VAR}한글`."""
+    import re
+    bad = []
+    for sh in sorted((REPO / "scripts" / "launchd").glob("*.sh")):
+        for n, line in enumerate(sh.read_text(encoding="utf-8").splitlines(), 1):
+            if re.search(r"\$[A-Za-z_][A-Za-z0-9_]*[가-힣]", line):
+                bad.append(f"{sh.name}:{n}: {line.strip()[:80]}")
+    assert bad == [], bad
+
+
+def test_evening_chain_log_lines_expand_under_utf8_locale():
+    """실제 재현: ko_KR.UTF-8 + set -u 에서 문제 줄이 그대로 실행돼야 한다."""
+    r = subprocess.run(
+        ["bash", "-u", "-c", 'ELTD=2026-09-29; NIND=0; echo "데이터 체인 실행 (ELTD=$ELTD 지표 ${NIND}행 < 2200)"'],
+        capture_output=True, text=True, env={**os.environ, "LANG": "ko_KR.UTF-8", "LC_ALL": "ko_KR.UTF-8"},
+    )
+    assert r.returncode == 0 and "0행" in r.stdout, r.stderr
