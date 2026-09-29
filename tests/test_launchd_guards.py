@@ -3,6 +3,7 @@
 #92: KRX 접촉 빈도 제한이 회귀하지 않도록 고정한다. pykrx 는 호출하지 않는다.
 """
 import os
+import re
 import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
@@ -401,7 +402,6 @@ def test_blocked_branches_halt_the_chain(script, gate):
     박제된다(weekend.py 계약). monthly: 매핑이 universe 를 앞지르면 헤더가 경고한
     "역순이면 한 달 누락"이 실제로 일어난다. 각 분기 직후 5줄 안에 exit 0 이 있어야 한다.
     """
-    import re
 
     lines = (LAUNCHD / script).read_text().splitlines()
     idx = next(i for i, ln in enumerate(lines) if gate in ln and ("elif" in ln or "if" in ln))
@@ -474,3 +474,41 @@ def test_schedule_env_single_source_is_consistent():
     assert (int(lh), int(lm)) < (int(eh), int(em)) <= (int(wd), 0)
     assert int(wd) - int(eh) >= 2                       # 데이터 체인 최대 2h10m 실측 여유
     assert wake < f"{eh}:{em}:00"                       # 기상은 발화 전
+
+
+_VAR_NONASCII = re.compile(r"\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]")
+
+
+def _code_lines(path: Path):
+    """주석 줄 제외(bash 는 주석에서 확장하지 않음)."""
+    for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.lstrip().startswith("#"):
+            yield n, line
+
+
+def test_no_variable_immediately_followed_by_non_ascii_in_shell_scripts():
+    """`$VAR<비ASCII>` 는 UTF-8 로케일 bash 3.2 에서 비ASCII 바이트가 변수명에 붙어 set -u unbound 로 죽는다
+    (2026-09-29 20:35 수동 fallback 실패; launchd 는 C 로케일이라 잠복). 한글 음절뿐 아니라 —·漢·ㄱ·전각 전부.
+    범위 = scripts/ 전체(backfill_132.sh 등 수동 실행 스크립트 포함). 반드시 `${VAR}…`."""
+    scripts = sorted((REPO / "scripts").rglob("*.sh"))
+    assert scripts, "scripts/**/*.sh 가 비어 있음 — 경로 확인"
+    bad = [f"{sh.relative_to(REPO)}:{n}: {line.strip()[:80]}"
+           for sh in scripts for n, line in _code_lines(sh) if _VAR_NONASCII.search(line)]
+    assert bad == [], bad
+
+
+def test_evening_chain_log_lines_expand_under_utf8_locale():
+    """실제 스크립트의 log 줄을 추출해 ko_KR.UTF-8 + set -u 로 실행. 양성 대조 = 옛 표기(`$NIND행`)는 rc 127."""
+    env = {**os.environ, "LANG": "ko_KR.UTF-8", "LC_ALL": "ko_KR.UTF-8"}
+    # bash 가 잘린 변수명(비ASCII 바이트 일부)을 stderr 에 내보내므로 디코딩은 errors="replace"
+    control = subprocess.run(["bash", "-u", "-c", 'NIND=0; echo "지표 $NIND행"'], capture_output=True,
+                             encoding="utf-8", errors="replace", env=env)
+    if control.returncode != 127:
+        pytest.skip("이 호스트의 bash/로케일은 재현되지 않음(양성 대조 실패)")
+    script = LAUNCHD / "evening_chain.sh"
+    log_lines = [line.strip() for _n, line in _code_lines(script) if "NIND" in line and line.lstrip().startswith("log ")]
+    assert len(log_lines) >= 3, log_lines
+    body = "log() { echo \"$*\"; }; ELTD=2026-09-29; NIND=2552\n" + "\n".join(log_lines)
+    r = subprocess.run(["bash", "-u", "-c", body], capture_output=True, encoding="utf-8", errors="replace", env=env)
+    assert r.returncode == 0, r.stderr
+    assert "2552행" in r.stdout, r.stdout

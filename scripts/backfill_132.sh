@@ -213,7 +213,7 @@ tripwire_hit() { # 6키 밖 유출 or 총량 상한 초과
   local cs cap out_rows total d
   cs=$(state_get campaign_start); cap=$(state_get runaway_cap)
   out_rows=$(q "SELECT COUNT(*) FROM classification_backfill WHERE source='backfill' AND created_at >= '$cs' AND analyzed_for_date NOT IN ('${DATES[0]}','${DATES[1]}','${DATES[2]}','${DATES[3]}','${DATES[4]}','${DATES[5]}')")
-  is_int "$out_rows" && [ "$out_rows" -gt 0 ] && { log "TRIPWIRE: 6키 밖 적재 $out_rows행"; return 0; }
+  is_int "$out_rows" && [ "$out_rows" -gt 0 ] && { log "TRIPWIRE: 6키 밖 적재 ${out_rows}행"; return 0; }
   total=0
   for d in "${DATES[@]}"; do total=$((total + $(loaded_count "$d" || echo 0))); done
   is_int "$cap" && [ "$total" -gt "$cap" ] && { log "TRIPWIRE: 총량 $total > cap $cap"; return 0; }

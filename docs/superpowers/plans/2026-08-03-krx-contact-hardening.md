@@ -1033,13 +1033,13 @@ if [ "$NIND" -lt 2200 ]; then
   if ! attempt_allowed data_daily; then
     # 결정 2: 웹 UI(/runner) 수동 실행도 같은 pipeline_runs 행을 남겨 이 상한을 공유한다.
     # 아침에 수동 2회를 돌리면 그날 저녁 정규 실행이 여기서 멈추므로 이유를 명확히 남긴다.
-    log "데이터 체인 필요($ELTD 지표 $NIND행 < 2200)하나 시도 상한/백오프 — skip (웹 UI 수동 실행도 이 상한을 소모함: pipeline_runs 의 오늘 data_daily 행 확인)"
+    log "데이터 체인 필요($ELTD 지표 ${NIND}행 < 2200)하나 시도 상한/백오프 — skip (웹 UI 수동 실행도 이 상한을 소모함: pipeline_runs 의 오늘 data_daily 행 확인)"
     exit 0
   fi
-  log "데이터 체인 실행 (ELTD=$ELTD 지표 $NIND행 < 2200)"
+  log "데이터 체인 실행 (ELTD=$ELTD 지표 ${NIND}행 < 2200)"
   uv run python -m kr_pipeline.pipeline --chain=daily || { log "데이터 체인 실패 — 후속 중단"; exit 1; }
 else
-  log "데이터 몫 완료($ELTD 지표 $NIND행) — skip"
+  log "데이터 몫 완료($ELTD 지표 ${NIND}행) — skip"
 fi
 ```
 
@@ -1203,7 +1203,7 @@ if [ "$rc" -ne 0 ] || [ -z "$ROWS" ] || [ "$ROWS" = "0" ]; then
   echo "[probe] 판정: 차단 지속(빈 응답 또는 오류) — 재개하지 말 것"
   exit 1
 fi
-echo "[probe] 판정: 정상($ROWS행) — 단계적 재개 가능"
+echo "[probe] 판정: 정상(${ROWS}행) — 단계적 재개 가능"
 exit 0
 ```
 

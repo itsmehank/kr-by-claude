@@ -27,6 +27,9 @@ ATTEMPT_MAX_DEFAULT="${ATTEMPT_MAX_DEFAULT:-2}"
 ATTEMPT_GAP_DEFAULT="${ATTEMPT_GAP_DEFAULT:-21600}"
 cd "$REPO" || exit 1
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+# 로케일도 launchd(C/POSIX)와 통일 — UTF-8 셸의 bash 3.2 는 `$VAR` 뒤 비ASCII 바이트를 변수명에 붙여 set -u 로 죽는다
+# (09-29 20:35 수동 fallback 실패). 수동 재실행의 정본은 `launchctl kickstart gui/$UID/com.krbyclaude.<label>`.
+export LC_ALL=C
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >&2; }  # stdout 은 값 캡처용 — 로그는 stderr
 
