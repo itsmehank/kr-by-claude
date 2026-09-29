@@ -104,9 +104,9 @@ def compute_date_range(
     if mode == Mode.INCREMENTAL:
         load_start = today - timedelta(days=window_days + LOOKBACK_DAYS)
         upsert_start = today - timedelta(days=window_days)
-        # P1-4: load_end=today — ohlcv 체인(평일 18:30)이 index_daily 에 당일
-        # 확정봉을 적재하므로 19:30 incremental 은 당일 status 까지 계산해야
-        # 20:00 LLM(및 토 03:20 주말 분류)이 stale status 를 소비하지 않는다.
+        # P1-4: load_end=today — ohlcv 체인(평일 20:30 evening chain, #207)이 index_daily 에 당일
+        # 확정봉을 적재하므로 뒤이은 incremental 은 당일 status 까지 계산해야
+        # 같은 체인의 LLM(및 토 03:20 주말 분류)이 stale status 를 소비하지 않는다.
         # 당일 행 미존재(휴일/적재 전)면 로드 결과에 그 날짜가 없어 자연 skip.
         return load_start, today, upsert_start
 

@@ -429,3 +429,48 @@ def test_attempt_gap_survives_midnight(runs_conn):
     runs_conn.commit()
     r = run_guard("attempt_allowed guardtest 9 21600 && echo ALLOW || echo BLOCK", _kr_db())
     assert "BLOCK" in r.stdout, f"35분 전 시도인데 통과(자정 seam): {r.stdout!r} {r.stderr!r}"
+
+
+# ── (#207 2026-09-29) 잠정값 창 자물쇠 09:00~20:25 + schedule.env 단일 정의 ──────────────
+def _lock_shadow(dow: int, hh: str, mm: str) -> str:
+    return f"""date() {{
+  case "$1" in
+    +%w) echo {dow};;
+    +%H) echo {hh};;
+    +%M) echo {mm};;
+    *) command date "$@";;
+  esac
+}}"""
+
+
+@pytest.mark.parametrize("hh,mm,blocked", [
+    ("08", "59", False),   # 개장 전 허용
+    ("09", "00", True),    # 장중
+    ("17", "19", True),    # 09-29 사고 시각 — 애프터마켓 잠정값 창(구 가드는 허용했음)
+    ("20", "24", True),    # 확정 하한(20:20)+여유 직전
+    ("20", "25", False),   # 창 종료
+    ("20", "30", False),   # 정규 발화
+    ("21", "47", False),
+])
+def test_intraday_lock_blocks_provisional_window_until_2025(hh, mm, blocked):
+    r = run_guard(_lock_shadow(2, hh, mm) + "\nintraday_lock && echo BLOCKED || echo ALLOWED")
+    assert r.stdout.strip() == ("BLOCKED" if blocked else "ALLOWED"), r.stderr
+
+
+def test_intraday_lock_weekend_exempt():
+    r = run_guard(_lock_shadow(6, "12", "00") + "\nintraday_lock && echo BLOCKED || echo ALLOWED")
+    assert r.stdout.strip() == "ALLOWED"
+
+
+def test_schedule_env_single_source_is_consistent():
+    """schedule.env 값이 서로 정합 — 자물쇠 종료 < 발화 시각 ≤ 감시 판정, 대입문만 포함."""
+    env_path = REPO / "scripts" / "launchd" / "schedule.env"
+    text = env_path.read_text(encoding="utf-8")
+    for line in text.splitlines():
+        s = line.strip()
+        assert not s or s.startswith("#") or "=" in s.split("#")[0], line
+    r = run_guard('echo "$EVENING_HOUR $EVENING_MIN $INTRADAY_LOCK_END_HOUR $INTRADAY_LOCK_END_MIN $WATCH_DUE_HOUR $WAKE_TIME"')
+    eh, em, lh, lm, wd, wake = r.stdout.split()
+    assert (int(lh), int(lm)) < (int(eh), int(em)) <= (int(wd), 0)
+    assert int(wd) - int(eh) >= 2                       # 데이터 체인 최대 2h10m 실측 여유
+    assert wake < f"{eh}:{em}:00"                       # 기상은 발화 전

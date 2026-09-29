@@ -1,6 +1,6 @@
 #!/bin/bash
 # evening_chain.sh — 평일 저녁 체인 (#88): 데이터 → 포지션평가 → 시장지표 → LLM full-daily
-# launchd 평일 20:30(2026-09-29 #207: 18:30 → 20:30, KRX 애프터마켓 잠정값 회피) + RunAtLoad(재부팅 복구). plist 가 caffeinate -s 로 감싸 실행.
+# launchd 평일 20:30(schedule.env; 2026-09-29 #207: 18:30 → 20:30, KRX 애프터마켓 잠정값 회피) + RunAtLoad(재부팅 복구). plist 가 caffeinate -s 로 감싸 실행.
 # 순서 고정 이유: 각 단계가 앞 단계 산출물을 소비. launchd catch-up 동시 발화의
 # 역순 실행을 래퍼 직렬화로 차단.
 source "$(dirname "${BASH_SOURCE[0]}")/lib_guards.sh"
@@ -9,7 +9,7 @@ log "evening_chain 시작"
 
 # ── 시간 자물쇠: 장중 발화(catch-up/RunAtLoad)는 부분봉 오염 위험 → skip
 if intraday_lock; then
-  log "장중(09~17시) — skip (다음 정규 발화 또는 17시 이후 catch-up 에서 처리)"
+  log "잠정값 창(09:00~20:25) — skip (20:30 정규 발화 또는 그 이후 catch-up 에서 처리)"
   exit 0
 fi
 

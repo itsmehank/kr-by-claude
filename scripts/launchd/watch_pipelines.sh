@@ -74,7 +74,7 @@ CACHED=$(eltd_cached_latest) || CACHED=""
 E=""; AGE=999999
 if [ -n "$CACHED" ]; then E=${CACHED%% *}; AGE=${CACHED##* }; fi
 if [ -n "$E" ] && eltd_cache_fresh_today; then
-  DUE=$(q "SELECT (now() >= '$E'::date + interval '22 hours')::int")   # 대상일 22시 이후부터 판정(저녁 체인 20:30 발화, #207)
+  DUE=$(q "SELECT (now() >= '$E'::date + interval '$WATCH_DUE_HOUR hours')::int")   # 대상일 WATCH_DUE_HOUR(23)시 이후 판정 — schedule.env(발화 20:30 + 데이터 체인 최대 2h10m + 여유)
   if [ "$DUE" = "1" ]; then
     MAXI=$(q "SELECT COALESCE(MAX(date)::text,'0001-01-01') FROM daily_indicators")
     [ "$MAXI" \< "$E" ] && alert "miss.data.$E" "데이터 체인 미완료 (대상 거래일 $E, 지표 최신 $MAXI)"
@@ -84,7 +84,7 @@ if [ -n "$E" ] && eltd_cache_fresh_today; then
     [ "${N:-0}" -gt 0 ] || alert "miss.eval.$E" "포지션 일일 평가 미실행 (대상 $E — 소급 불가 항목)"
   fi
 else
-  # 체인 미발화 의심. 알림 시점 = ①당일 21시 이후(저녁 슬롯이 지났는데 미갱신)
+  # 체인 미발화 의심. 알림 시점 = ①당일 WATCH_DUE_HOUR 시 이후(저녁 슬롯이 지났는데 미갱신)
   # ②캐시가 직전 평일 17시보다 오래됨(그 저녁 통째 결측 — 아침에도 즉시. 3차 보완:
   #   이 조건이 없으면 "화 저녁 수면 → 수 아침 기상" 에서 수요일 체인이 성공하는 순간
   #   화요일 daily-eval(소급 불가) 소실이 영구 무알림이 된다. 기준이 '어제'가 아니라
@@ -93,7 +93,7 @@ else
   #   정보량 0인 소음이 평일마다 울린다.
   DOW_S=$(date +%w); HOUR_S=$(date +%H)
   if [ "$DOW_S" != "0" ] && [ "$DOW_S" != "6" ] \
-     && { [ "$HOUR_S" -ge 22 ] || eltd_cache_older_than_prev_workday17; } \
+     && { [ "$HOUR_S" -ge "$WATCH_DUE_HOUR" ] || eltd_cache_older_than_prev_workday17; } \
      && launchctl list com.krbyclaude.evening-chain >/dev/null 2>&1; then
     AGE_TXT="마지막 갱신 ${AGE}s 전"; [ "$AGE" = "999999" ] && AGE_TXT="캐시 없음"
     alert "eltd_stale.$(date +%Y%m%d)" "ELTD 캐시 미갱신($AGE_TXT) — 저녁 체인 미실행 의심(라이브 조회 없음)"
