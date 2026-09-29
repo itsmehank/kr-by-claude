@@ -26,7 +26,7 @@ if [ "${AC_SLEEP:-1}" != "0" ]; then
   echo "      (무시하려면 FORCE=1 로 실행)"
   [ "${FORCE:-0}" = "1" ] || exit 1
 fi
-pmset -g sched | grep -q "wakepoweron" || echo "경고: 반복 wake 예약 없음 — sudo pmset repeat wakeorpoweron MTWRFS 18:25:00 권장"
+pmset -g sched | grep -q "wakepoweron" || echo "경고: 반복 wake 예약 없음 — sudo pmset repeat wakeorpoweron MTWRFS 20:25:00 권장"
 
 echo "== ① crontab 백업"
 mkdir -p "$LOGD/cron-backups"
@@ -59,11 +59,13 @@ cal() { echo "    <dict><key>Weekday</key><integer>$1</integer><key>Hour</key><i
 
 echo "== ④ 새 plist 생성·로드"
 
-# evening-chain: 평일 18:30, caffeinate -s 로 수면 억제
+# evening-chain: 평일 20:30, caffeinate -s 로 수면 억제
+# (2026-09-29, #207) 18:30 → 20:30: KRX 전종목시세가 애프터마켓(16:00~20:00) 중에는 20분 지연 잠정값을
+# 반환해 종가가 정규장 고저 밖으로 나옴(09-28 트립와이어 발화). 하한 = 20:00 마감 + 20분 지연.
 { plist_head evening-chain
   echo "  <key>ProgramArguments</key><array><string>/usr/bin/caffeinate</string><string>-s</string><string>$SCRIPTS/evening_chain.sh</string></array>"
   echo "  <key>StartCalendarInterval</key><array>"
-  for W in 1 2 3 4 5; do cal $W 18 30; done
+  for W in 1 2 3 4 5; do cal $W 20 30; done
   echo "  </array>"
   echo "</dict></plist>"
 } > "$LA/com.krbyclaude.evening-chain.plist"

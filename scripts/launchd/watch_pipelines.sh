@@ -74,7 +74,7 @@ CACHED=$(eltd_cached_latest) || CACHED=""
 E=""; AGE=999999
 if [ -n "$CACHED" ]; then E=${CACHED%% *}; AGE=${CACHED##* }; fi
 if [ -n "$E" ] && eltd_cache_fresh_today; then
-  DUE=$(q "SELECT (now() >= '$E'::date + interval '21 hours')::int")   # 대상일 21시 이후부터 판정
+  DUE=$(q "SELECT (now() >= '$E'::date + interval '22 hours')::int")   # 대상일 22시 이후부터 판정(저녁 체인 20:30 발화, #207)
   if [ "$DUE" = "1" ]; then
     MAXI=$(q "SELECT COALESCE(MAX(date)::text,'0001-01-01') FROM daily_indicators")
     [ "$MAXI" \< "$E" ] && alert "miss.data.$E" "데이터 체인 미완료 (대상 거래일 $E, 지표 최신 $MAXI)"
@@ -93,7 +93,7 @@ else
   #   정보량 0인 소음이 평일마다 울린다.
   DOW_S=$(date +%w); HOUR_S=$(date +%H)
   if [ "$DOW_S" != "0" ] && [ "$DOW_S" != "6" ] \
-     && { [ "$HOUR_S" -ge 21 ] || eltd_cache_older_than_prev_workday17; } \
+     && { [ "$HOUR_S" -ge 22 ] || eltd_cache_older_than_prev_workday17; } \
      && launchctl list com.krbyclaude.evening-chain >/dev/null 2>&1; then
     AGE_TXT="마지막 갱신 ${AGE}s 전"; [ "$AGE" = "999999" ] && AGE_TXT="캐시 없음"
     alert "eltd_stale.$(date +%Y%m%d)" "ELTD 캐시 미갱신($AGE_TXT) — 저녁 체인 미실행 의심(라이브 조회 없음)"

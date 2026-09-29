@@ -71,7 +71,7 @@ scripts/launchd/install.sh   # crontab 백업·제거 → 구 LLM plist 정리 �
 
 | 잡 | 스케줄 | 내용 |
 |---|---|---|
-| evening-chain | 평일 18:30 | 데이터 체인 → 포지션 평가 → 시장 지표 → LLM full-daily(performance 내장) |
+| evening-chain | 평일 20:30 | 데이터 체인 → 포지션 평가 → 시장 지표 → LLM full-daily(performance 내장) |
 | weekend-chain | 토 03:00 (+월 07:00 catch-up) | 주봉 체인 → LLM 주말 분류 → freeze 정리 |
 | morning-corp | 평일 08:00 | 공시 증분(7일 창) |
 | monthly-chain | 매월 1일 06:30 | universe → corp_code 매핑 (순서 고정) |
