@@ -62,6 +62,8 @@ echo "== ④ 새 plist 생성·로드"
 # evening-chain: 평일 20:30, caffeinate -s 로 수면 억제
 # (2026-09-29, #207) 18:30 → 20:30: KRX 전종목시세가 애프터마켓(16:00~20:00) 중에는 20분 지연 잠정값을
 # 반환해 종가가 정규장 고저 밖으로 나옴(09-28 트립와이어 발화). 하한 = 20:00 마감 + 20분 지연.
+# ⚠️ RunAtLoad 즉발: bootstrap 시점이 장중 자물쇠(09~17시) 밖이면 즉시 체인이 돌아 잠정값을 받는다(09-29 17:19
+# 사고 — 트립와이어 발화·시도 이력 소모로 그날 정규 발화가 백오프 skip). plist 재등록은 09~17시 사이에만 할 것.
 { plist_head evening-chain
   echo "  <key>ProgramArguments</key><array><string>/usr/bin/caffeinate</string><string>-s</string><string>$SCRIPTS/evening_chain.sh</string></array>"
   echo "  <key>StartCalendarInterval</key><array>"
