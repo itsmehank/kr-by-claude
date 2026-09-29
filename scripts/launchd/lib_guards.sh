@@ -4,6 +4,8 @@
 # — PR #89 리뷰 차단 1) / DB 조회 실패 = fail-closed(차단 2) / bt-c pkill 상호배제.
 set -u
 REPO="${KR_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+# 저녁 체인 시각 단일 정의(#207) — 대입문만이라 source 부작용 없음
+source "$(dirname "${BASH_SOURCE[0]}")/schedule.env"
 # 락은 /tmp — 재부팅 시 소거돼 죽은 PID 의 stale lock 이 영구 차단하지 않게
 # (bt_backfill_loop_c.sh 의 기존 교훈과 동일)
 LOCK_DIR="/tmp/kr-by-claude-locks"
@@ -83,7 +85,7 @@ eltd_cache_fresh_today() {
 # 통째로 빠진 것이므로 21시를 기다리지 않고 아침에도 알린다(구 라이브 방식과 동일 시점).
 #
 # ⚠️ 기준이 단순 '어제'면 안 된다(4차 전체검토 실측) — 월요일의 어제는 일요일이라,
-#   정상 주말(마지막 기록 = 금 18:30 저녁체인 또는 토 03:00 주말체인)조차 OLD 로 판정돼
+#   정상 주말(마지막 기록 = 금 20:30 저녁체인 또는 토 03:00 주말체인)조차 OLD 로 판정돼
 #   **매주 월요일 아침 오탐**이 난다. 월요일만 -3d(금), 그 외 평일 -1d.
 #   주말(토·일)은 호출부의 DOW 게이트가 걸러 이 함수까지 오지 않는다.
 # 캐시 없음은 "오래됨"으로 치지 않는다(rc=1) — 재개 당일 아침 오탐 방지, 21시 경로가 담당.
@@ -95,12 +97,16 @@ eltd_cache_older_than_prev_workday17() {
   [ "$m" -lt "$p17" ]
 }
 
-# 장중(09:00~16:59) = 0(차단), 그 외 = 1(허용)
+# 잠정값 창(09:00 ~ INTRADAY_LOCK_END 20:25 전) = 0(차단), 그 외 = 1(허용).
+# (#207 2026-09-29) 구 09~17시: 09-28 부터 KRX 전종목시세가 애프터마켓(16:00~20:00) 중 20분 지연 잠정값을
+# 주므로 17:00~20:24 발화(RunAtLoad·재부팅·수동·웹)도 잠정 종가를 적재한다(09-29 17:19 사고). 20:30 정규 발화는 통과.
 intraday_lock() {
-  local h d; h=$(date +%H); d=$(date +%w)
+  local h m d; h=$(date +%H); m=$(date +%M); d=$(date +%w)
   # 주말(토·일)은 장이 없어 부분봉 위험 없음 — 차단 면제(08-01 실전 발견)
   [ "$d" = "0" ] || [ "$d" = "6" ] && return 1
-  [ "$h" -ge 9 ] && [ "$h" -lt 17 ]
+  [ "$h" -ge 9 ] || return 1
+  [ "$h" -lt "$INTRADAY_LOCK_END_HOUR" ] && return 0
+  [ "$h" -eq "$INTRADAY_LOCK_END_HOUR" ] && [ "$((10#$m))" -lt "$INTRADAY_LOCK_END_MIN" ]
 }
 
 bt_loop_alive() {

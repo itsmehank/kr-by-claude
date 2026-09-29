@@ -71,7 +71,7 @@ scripts/launchd/install.sh   # crontab 백업·제거 → 구 LLM plist 정리 �
 
 | 잡 | 스케줄 | 내용 |
 |---|---|---|
-| evening-chain | 평일 18:30 | 데이터 체인 → 포지션 평가 → 시장 지표 → LLM full-daily(performance 내장) |
+| evening-chain | 평일 20:30 | 데이터 체인 → 포지션 평가 → 시장 지표 → LLM full-daily(performance 내장) |
 | weekend-chain | 토 03:00 (+월 07:00 catch-up) | 주봉 체인 → LLM 주말 분류 → freeze 정리 |
 | morning-corp | 평일 08:00 | 공시 증분(7일 창) |
 | monthly-chain | 매월 1일 06:30 | universe → corp_code 매핑 (순서 고정) |
@@ -81,7 +81,7 @@ scripts/launchd/install.sh   # crontab 백업·제거 → 구 LLM plist 정리 �
 멱등(대상 거래일 몫 완료 시 skip) · 원자 락 직렬화(data/llm 2계열, /tmp — flock 은 macOS 미탑재) ·
 RunAtLoad(재부팅 복구) · **ELTD 파일 캐시**(체인만 라이브 조회, 감시는 순수 bash 로 캐시만 읽어
 KRX 접촉 0 — #92) · **시도 상한**(전 종목 스윕: data_daily 하루 2회·간격 6h, data_weekly·universe 하루 1회. 웹 UI `/runner`의 data-daily/data-weekly *체인* 실행은 같은 상한을 소모하지만 **standalone ohlcv/weekly 실행은 상한 밖** — 재개 기간엔 UI 실행 버튼 금지). 전제: **저녁 전원(AC) 연결** + `pmset repeat
-wakeorpoweron MTWRFS 18:25:00` + `pmset -c sleep 0`.
+wakeorpoweron MTWRFS 20:25:00`(schedule.env WAKE_TIME) + `pmset -c sleep 0`.
 롤백: `launchctl bootout gui/$UID/com.krbyclaude.<잡>` 5종 +
 `crontab < ~/.kr-by-claude/cron-backups/<백업파일>`.
 (구 `scripts/cron.example` 은 참고용 유산 — 신규 등록 금지.)

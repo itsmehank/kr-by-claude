@@ -51,7 +51,9 @@ else
     log "llm_weekend running 중 — freeze 포함 후속 skip(갱신 전 분류로 삭제 판정 방지)"
     exit 0
   else
-    if ! acquire_lock llm 600; then log "llm 락 획득 실패 — 중단"; exit 1; fi
+    # (#207 2026-09-29) 금요일 full-daily 가 20:30 발화로 2h 늦어져 10h 실행이면 토 06:30 까지 llm 락 보유(09-12 실측 충돌).
+    # 10분 → 4h 대기: 굶김 없이 기다렸다가 이어받는다(주말 분류는 as_of 고정이라 지연 무해).
+    if ! acquire_lock llm 14400; then log "llm 락 획득 실패(4h) — 중단"; exit 1; fi
     log "LLM 주말 분류 실행"
     uv run python -m kr_pipeline.llm_runner --mode=weekend || { log "주말 분류 실패"; exit 1; }
     release_lock llm

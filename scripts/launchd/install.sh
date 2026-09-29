@@ -2,11 +2,12 @@
 # install.sh — #88 크론 → launchd 전환 설치 스크립트
 # 순서(원자성, #88 검토): ① crontab 백업 → ② kr 관련 라인 제거 → ③ 구 LLM
 # plist 3종 bootout → ④ 새 plist 5종 생성·bootstrap. RunAtLoad 즉발은 각
-# 래퍼의 멱등·자물쇠 가드가 no-op 으로 흡수한다.
+# 래퍼의 멱등·자물쇠 가드(09:00~20:25 잠정값 창, schedule.env)가 no-op 으로 흡수한다.
 # 롤백: launchctl bootout gui/$UID/<label> 5종 + crontab < 백업파일 + 구 plist 재로드.
 set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPTS="$REPO/scripts/launchd"
+source "$SCRIPTS/schedule.env"   # 저녁 체인 시각 단일 정의(#207)
 LA="$HOME/Library/LaunchAgents"
 LOGD="$HOME/.kr-by-claude"
 UIDN=$(id -u)
@@ -26,7 +27,9 @@ if [ "${AC_SLEEP:-1}" != "0" ]; then
   echo "      (무시하려면 FORCE=1 로 실행)"
   [ "${FORCE:-0}" = "1" ] || exit 1
 fi
-pmset -g sched | grep -q "wakepoweron" || echo "경고: 반복 wake 예약 없음 — sudo pmset repeat wakeorpoweron MTWRFS 18:25:00 권장"
+WAKE_PM=$(date -j -f "%H:%M:%S" "$WAKE_TIME" "+%-I:%M%p")   # 예: 8:25PM — pmset -g sched 표기
+pmset -g sched | grep -q "wakepoweron at $WAKE_PM" \
+  || echo "경고: 반복 wake 예약이 $WAKE_TIME 이 아님(현재: $(pmset -g sched | grep wakepoweron || echo 없음)) — sudo pmset repeat cancel; sudo pmset repeat wakeorpoweron MTWRFS $WAKE_TIME"
 
 echo "== ① crontab 백업"
 mkdir -p "$LOGD/cron-backups"
@@ -59,11 +62,15 @@ cal() { echo "    <dict><key>Weekday</key><integer>$1</integer><key>Hour</key><i
 
 echo "== ④ 새 plist 생성·로드"
 
-# evening-chain: 평일 18:30, caffeinate -s 로 수면 억제
+# evening-chain: 평일 EVENING_HOUR:EVENING_MIN(schedule.env, 현재 20:30), caffeinate -s 로 수면 억제
+# (2026-09-29, #207) 18:30 → 20:30: KRX 전종목시세가 애프터마켓(16:00~20:00) 중에는 20분 지연 잠정값을
+# 반환해 종가가 정규장 고저 밖으로 나옴(09-28 트립와이어 발화). 하한 = 20:00 마감 + 20분 지연.
+# ⚠️ RunAtLoad 즉발: bootstrap 시점이 장중 자물쇠(09~17시) 밖이면 즉시 체인이 돌아 잠정값을 받는다(09-29 17:19
+# 사고 — 트립와이어 발화·시도 이력 소모로 그날 정규 발화가 백오프 skip). plist 재등록은 09~17시 사이에만 할 것.
 { plist_head evening-chain
   echo "  <key>ProgramArguments</key><array><string>/usr/bin/caffeinate</string><string>-s</string><string>$SCRIPTS/evening_chain.sh</string></array>"
   echo "  <key>StartCalendarInterval</key><array>"
-  for W in 1 2 3 4 5; do cal $W 18 30; done
+  for W in 1 2 3 4 5; do cal $W "$EVENING_HOUR" "$EVENING_MIN"; done
   echo "  </array>"
   echo "</dict></plist>"
 } > "$LA/com.krbyclaude.evening-chain.plist"
