@@ -9,6 +9,7 @@ import json
 
 from psycopg import Connection
 
+from kr_pipeline.common.data_regimes import volume_regime_warnings
 from kr_pipeline.common.thresholds import (
     ENTRY_STOP_PCT_FROM_PIVOT_FLOOR,
     ENTRY_TARGET_PCT_MIN,
@@ -346,6 +347,8 @@ def insert_classification(
     sanity_warnings = _validate_classification_prices(
         conn, result, symbol=symbol, as_of=analyzed_for_date,
     )
+    # (#207 회신 20) 09-28 이후 봉 입력 = 거래량 정의 미확정 표지(거래량 한정, SOFT)
+    sanity_warnings = list(sanity_warnings or []) + volume_regime_warnings(analyzed_for_date)
 
     # (#1) pivot 재판독 연속성 관측 — INSERT 전에 직전 분류를 조회해야 하므로 이 위치.
     # fail-soft: 관측 전용 헬퍼의 어떤 실패도 본 INSERT(LLM 비용 지출분)를 막으면
@@ -493,6 +496,8 @@ def insert_backfill_classification(
     sanity_warnings = _validate_classification_prices(
         conn, result, symbol=symbol, as_of=analyzed_for_date,
     )
+    # (#207 회신 20) 09-28 이후 봉 입력 = 거래량 정의 미확정 표지(거래량 한정, SOFT)
+    sanity_warnings = list(sanity_warnings or []) + volume_regime_warnings(analyzed_for_date)
 
     with conn.cursor() as cur:
         cur.execute(
@@ -641,14 +646,14 @@ def insert_trigger_log(
                analyzed_for_date,
                prior_classification_at,
                llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model,
-               wait_reason, prompt_version)
+               wait_reason, prompt_version, sanity_warnings)
             VALUES (%s, %s, %s,
                     %s, %s, %s,
                     %s, %s, %s, %s,
                     %s,
                     %s,
                     %s, %s, %s, %s,
-                    %s, %s)
+                    %s, %s, %s)
             ON CONFLICT (symbol, evaluated_at) DO NOTHING
             """,
             (
@@ -670,6 +675,9 @@ def insert_trigger_log(
                 llm_meta.get("model"),
                 wait_reason,
                 llm_meta.get("prompt_version"),
+                # (#207 회신 20) 09-28 이후 봉의 거래량 조건 의존 판정 표지(SOFT, 쓰기 전용)
+                json.dumps(volume_regime_warnings(analyzed_for_date)) or None
+                if volume_regime_warnings(analyzed_for_date) else None,
             ),
         )
 
@@ -820,6 +828,8 @@ def insert_entry_params(
 ) -> None:
     """entry_params 에 (6) 결과 INSERT (§9 → 정규화 → 저장)."""
     n = _normalize_entry_params(result)
+    # (#207 회신 20) 09-28 이후 봉의 거래량(observed_breakout_volume_ratio) 정의 미확정 표지
+    n["known_warnings"] = list(n.get("known_warnings") or []) + volume_regime_warnings(analyzed_for_date)
     with conn.cursor() as cur:
         cur.execute(
             """

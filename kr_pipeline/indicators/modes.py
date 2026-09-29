@@ -27,7 +27,7 @@ from kr_pipeline.indicators.compute.volume import (
     pocket_pivot, volume_dry_up, up_down_volume_ratio, distribution_day,
 )
 from kr_pipeline.indicators.completeness import check_daily_ohlcv_complete
-from kr_pipeline.ohlcv.tripwires import AdjustmentTripwireError, check_adjustment_tripwires
+from kr_pipeline.ohlcv.tripwires import AdjustmentTripwireError, check_adjustment_tripwires, check_volume_breakout_count
 from kr_pipeline.indicators.load import (
     load_daily_prices, load_index_daily, load_weekly_prices, load_weekly_index,
     load_active_tickers_with_market,
@@ -285,6 +285,8 @@ def _run_phase_b_daily(conn: Connection, upsert_start: date, upsert_end: date) -
 def _run_sanity_checks_daily(conn: Connection, upsert_end: date) -> list[str]:
     """sanity 검증 (spec §7)."""
     warnings = []
+    # (#207 회신 20) 트립와이어 (4) — 경고형: 당일 거래량 돌파 종목 수가 09-11 이전 실측 최댓값 초과
+    warnings += check_volume_breakout_count(conn, start=upsert_end, end=upsert_end)
     with conn.cursor() as cur:
         # 1. 커버리지
         cur.execute("SELECT COUNT(*) FROM daily_indicators WHERE date = %s", (upsert_end,))
