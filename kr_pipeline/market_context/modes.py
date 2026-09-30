@@ -59,6 +59,7 @@ COMPUTATION_NOTES = json.dumps({
     "ftd_rally_window_min": FTD_RALLY_WINDOW_MIN_DAYS,
     "ftd_rally_window_max": FTD_RALLY_WINDOW_MAX_DAYS,
     "ftd_lookback_days": STATUS_FTD_RECENT_DAYS,
+    "volume_regime_boundary_rule": "today/yesterday volume_regime differ -> not comparable (no distribution/stalling/FTD that day) - #207 reply 21",
     "correction_off_high_pct": STATUS_CORRECTION_OFF_HIGH_PCT,
     "downtrend_off_high_pct": STATUS_DOWNTREND_OFF_HIGH_PCT,
     "dist_count_threshold_for_ftd_invalidation": STATUS_DIST_COUNT_FOR_FTD_INVALIDATION,

@@ -22,7 +22,7 @@ def load_index_daily_with_sma200(
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT date, close, volume, high, low
+            SELECT date, close, volume, high, low, volume_regime
               FROM index_daily
              WHERE index_code = %s AND date BETWEEN %s AND %s
              ORDER BY date

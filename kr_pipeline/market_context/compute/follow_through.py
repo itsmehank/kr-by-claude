@@ -9,6 +9,7 @@
 from datetime import date
 import pandas as pd
 
+from kr_pipeline.market_context.compute.regime import regime_comparable
 from kr_pipeline.common.thresholds import (
     STATUS_FTD_RECENT_DAYS,
     FTD_PCT_BASE,
@@ -57,6 +58,8 @@ def detect_last_ftd(
         yesterday = index_df.iloc[i - 1]
         if yesterday["close"] == 0:
             continue
+        if not regime_comparable(today, yesterday):
+            continue   # (#207 회신 21) 거래량 정의 경계 — FTD 후보 아님
         pct = (today["close"] - yesterday["close"]) / yesterday["close"] * 100
         if pct < pct_threshold:
             continue
