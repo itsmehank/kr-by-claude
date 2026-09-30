@@ -1092,3 +1092,15 @@ CREATE TABLE IF NOT EXISTS issue_briefs (
 -- 동일 의미, SOFT·쓰기 전용). 09-28 이후 analyzed_for_date 행에 'volume_regime_unverified_#207'(data_regimes.py).
 ALTER TABLE trigger_evaluation_log
   ADD COLUMN IF NOT EXISTS sanity_warnings JSONB;
+
+-- (2026-09-30 #207 회신 21 Q-5c) 거래량 정의 경계 — 봉 단위. regular(정규장) / extended(애프터마켓 합산, 2026-09-28~) / mixed(주봉 혼재).
+-- 값은 날짜의 함수(data_regimes.VOLUME_REGIME_BOUNDARY): 저장 SQL 의 CASE 가 채우고, 소급은 scripts/sql/issue207_volume_regime_migrate.sql.
+ALTER TABLE daily_prices  ADD COLUMN IF NOT EXISTS volume_regime VARCHAR(8) NOT NULL DEFAULT 'regular';
+ALTER TABLE index_daily   ADD COLUMN IF NOT EXISTS volume_regime VARCHAR(8) NOT NULL DEFAULT 'regular';
+ALTER TABLE weekly_prices ADD COLUMN IF NOT EXISTS volume_regime VARCHAR(8) NOT NULL DEFAULT 'regular';
+-- 판정 행 표지(전용 컬럼, 회신 21 Q-5c 3): 계산 창이 경계에 걸친 판정만 'mixed', 그 외 NULL. sanity_warnings/known_warnings 와 의미 분리.
+ALTER TABLE weekly_classification        ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+ALTER TABLE trigger_evaluation_log       ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+ALTER TABLE entry_params                 ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+ALTER TABLE position_climax_evaluations  ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+ALTER TABLE position_decline_evaluations ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);

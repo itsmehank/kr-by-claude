@@ -13,7 +13,8 @@
   backtest/portfolio.main 이 종료일 ≥ 경계면 거부(우회 = 환경변수 KR_ALLOW_EXCLUDED_REGIME=1, 탐색 전용·holdout 원장 기입 선행).
   표지 문구는 VOLUME_REGIME_TAG 로 통일.
 - 같은 계열의 다른 경계: ohlcv/adjust.ADJ_SELF_START(2026-09-14, 수정주가 자체 산출 시임)·security_group.SECURITY_GROUP_GATE_EFFECTIVE_DATE.
-- 경로 확보 시 (ii) → 정규장 복원 전환은 별건 판정. 표지 제거도 그때.
+- 회신 21(09-30): 정규장 복원 전환 **폐기** — KRX 일별 거래량(애프터마켓 합산)을 정의로 수용. 봉에는 volume_regime(regular/extended/
+  mixed)만 저장하고 판정 행에는 전용 컬럼 volume_regime_flag 로 mixed 창만 표지(PR-2·PR-3, spec 2026-09-30-volume-regime-design.md).
 """
 from __future__ import annotations
 
@@ -21,9 +22,14 @@ import os
 from datetime import date, datetime
 from typing import Final, Iterable
 
-VOLUME_REGIME_UNVERIFIED_FROM: Final[date] = date(2026, 9, 28)
-VOLUME_REGIME_TAG: Final[str] = "volume_regime_unverified_#207"
+VOLUME_REGIME_BOUNDARY: Final[date] = date(2026, 9, 28)        # KRX 일별 거래량에 애프터마켓 합산 시작(관측 추정, 회신 21)
+VOLUME_REGIME_UNVERIFIED_FROM: Final[date] = VOLUME_REGIME_BOUNDARY   # PR #217 호환 별칭
+VOLUME_REGIME_TAG: Final[str] = "volume_regime_unverified_#207"       # 문자열 표지(PR-2 Task 5 에서 전용 컬럼으로 대체·삭제)
 BACKTEST_EXCLUDED_FROM: Final[date] = date(2026, 9, 28)
+REGIME_REGULAR: Final[str] = "regular"     # 정규장(09:00~15:30) 거래량
+REGIME_EXTENDED: Final[str] = "extended"   # 애프터마켓(16:00~20:00) 합산 거래량(회신 21: 정의로 수용)
+REGIME_MIXED: Final[str] = "mixed"         # 주봉: 구성 일봉 혼재
+FLAG_MIXED: Final[str] = "mixed"           # 판정 행 volume_regime_flag 값(그 외 NULL)
 
 
 def _as_date(v) -> date | None:
@@ -34,6 +40,19 @@ def _as_date(v) -> date | None:
     if isinstance(v, date):
         return v
     return date.fromisoformat(str(v)[:10])
+
+
+def regime_for_date(d: date) -> str:
+    """봉 날짜 → 정의. 저장 SQL 의 CASE(ohlcv/store·weekly/store)와 같은 규칙(테스트가 둘의 일치를 고정)."""
+    return REGIME_EXTENDED if d >= VOLUME_REGIME_BOUNDARY else REGIME_REGULAR
+
+
+def regime_flag_for_as_of(as_of) -> str | None:
+    """판정 행 표지(PR-2 규칙): as_of ≥ 경계 → 'mixed'. PR-3 에서 계산 창 유도로 축소(new → NULL)."""
+    d = _as_date(as_of)
+    if d is None or d < VOLUME_REGIME_BOUNDARY:
+        return None
+    return FLAG_MIXED
 
 
 def volume_regime_warnings(as_of) -> list[str]:
