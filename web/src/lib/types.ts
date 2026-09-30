@@ -144,6 +144,7 @@ export interface Signal {
   sizing_method: string | null;          // (#153) 'risk_backed'
   known_warnings: string[];
   notes: string | null;
+  volume_regime_flag: string | null;     // (#207) 'mixed' = 거래량 정의 혼재 창(2026-09-28 경계), null = 정상
 }
 
 export interface ModeParam {

@@ -24,7 +24,7 @@ def list_signals(
                    ep.stop_loss, ep.stop_loss_pct_from_pivot, ep.stop_loss_pct_from_current_price,
                    ep.expected_target_price, ep.expected_target_pct, ep.risk_reward_ratio,
                    ep.position_size_pct, ep.known_warnings, ep.notes,
-                   ep.position_size_full_pct, ep.sizing_method
+                   ep.position_size_full_pct, ep.sizing_method, ep.volume_regime_flag
               FROM entry_params ep
               JOIN stocks s ON s.ticker = ep.symbol
              WHERE ep.signal_at::date >= %s
@@ -53,6 +53,7 @@ def list_signals(
             notes=r[16],
             position_size_full_pct=float(r[17]) if r[17] is not None else None,
             sizing_method=r[18],
+            volume_regime_flag=r[19],
         )
         for r in rows
     ]

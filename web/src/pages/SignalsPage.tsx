@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { warningLabel } from "../lib/warningLabels";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
@@ -189,6 +188,16 @@ function SignalCard({ signal }: SignalCardProps) {
         )}
       </div>
 
+      {signal.volume_regime_flag === "mixed" && (
+        <div className="flex items-center gap-1.5">
+          <AlertTriangle size={13} className="text-amber shrink-0" />
+          <span className="chip bg-amber-soft text-amber text-data-xs"
+            title="2026-09-28 부터 KRX 일별 거래량에 애프터마켓이 합산됨. 이 판정의 거래량 창이 경계에 걸쳐 비율이 위로 편향될 수 있음(#207)">
+            거래량 혼재 창
+          </span>
+        </div>
+      )}
+
       {/* Warnings */}
       {signal.known_warnings.length > 0 && (
         <div>
@@ -198,8 +207,8 @@ function SignalCard({ signal }: SignalCardProps) {
           </div>
           <div className="flex flex-wrap gap-1.5">
             {signal.known_warnings.map((w, i) => (
-              <span key={i} className="chip bg-amber-soft text-amber text-data-xs" title={w}>
-                {warningLabel(w)}
+              <span key={i} className="chip bg-amber-soft text-amber text-data-xs">
+                {w}
               </span>
             ))}
           </div>

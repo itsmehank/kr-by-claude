@@ -22,6 +22,7 @@ class SignalOut(BaseModel):
     sizing_method: str | None = None
     known_warnings: list[str] = []
     notes: str | None = None
+    volume_regime_flag: str | None = None   # (#207 회신 21) 'mixed' = 거래량 정의 혼재 창, None = 정상
 
 
 class PerformanceStats(BaseModel):

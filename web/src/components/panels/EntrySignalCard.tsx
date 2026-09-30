@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { warningLabel } from "../../lib/warningLabels";
 import { api } from "../../lib/api";
 import type { Signal } from "../../lib/types";
 import { Card } from "./Card";
@@ -75,15 +74,20 @@ export function EntrySignalCard({ ticker }: Props) {
             <span className="num">{s.risk_reward_ratio.toFixed(2)}</span>
           </div>
         )}
+        {s.volume_regime_flag === "mixed" && (
+          <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 text-data-xs"
+            title="2026-09-28 부터 KRX 일별 거래량에 애프터마켓이 합산됨. 이 판정의 거래량 창이 경계에 걸쳐 비율이 위로 편향될 수 있음(#207)">
+            거래량 혼재 창
+          </span>
+        )}
         {s.known_warnings.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {s.known_warnings.map((w) => (
               <span
                 key={w}
                 className="px-2 py-0.5 rounded bg-yellow-50 text-yellow-800 text-data-xs"
-                title={w}
               >
-                {warningLabel(w)}
+                {w}
               </span>
             ))}
           </div>
