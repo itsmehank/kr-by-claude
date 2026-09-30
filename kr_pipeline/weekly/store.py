@@ -3,6 +3,8 @@ from datetime import date, timedelta
 
 from psycopg import Connection
 
+from kr_pipeline.common.data_regimes import VOLUME_REGIME_BOUNDARY
+
 
 def upsert_weekly_prices(conn: Connection, rows: list[tuple]) -> int:
     """
@@ -14,8 +16,13 @@ def upsert_weekly_prices(conn: Connection, rows: list[tuple]) -> int:
         cur.executemany(
             """
             INSERT INTO weekly_prices
-              (ticker, week_end_date, open, high, low, close, adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value, trading_days, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+              (ticker, week_end_date, open, high, low, close, adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value, trading_days,
+               volume_regime, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    CASE WHEN %s < %s THEN 'regular'
+                         WHEN (%s - (EXTRACT(ISODOW FROM %s)::int - 1)) >= %s THEN 'extended'
+                         ELSE 'mixed' END,
+                    NOW())
             ON CONFLICT (ticker, week_end_date) DO UPDATE
                SET open = EXCLUDED.open,
                    high = EXCLUDED.high,
@@ -29,9 +36,10 @@ def upsert_weekly_prices(conn: Connection, rows: list[tuple]) -> int:
                    volume = EXCLUDED.volume,
                    value = EXCLUDED.value,
                    trading_days = EXCLUDED.trading_days,
+                   volume_regime = EXCLUDED.volume_regime,   -- (#207 회신 21) 주의 월/금과 경계 비교
                    updated_at = NOW()
             """,
-            rows,
+            [(*r, r[1], VOLUME_REGIME_BOUNDARY, r[1], r[1], VOLUME_REGIME_BOUNDARY) for r in rows],
         )
         return cur.rowcount
 
