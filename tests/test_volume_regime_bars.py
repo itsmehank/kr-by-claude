@@ -33,7 +33,8 @@ def test_schema_columns_exist(db):
             cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name=%s AND column_name='volume_regime'", (table,))
             assert cur.fetchone(), table
         for table in ("weekly_classification", "trigger_evaluation_log", "entry_params",
-                      "position_climax_evaluations", "position_decline_evaluations"):
+                      "position_climax_evaluations", "position_decline_evaluations",
+                      "classification_backfill", "backtest_classification", "recall_audit_classification"):
             cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name=%s AND column_name='volume_regime_flag'", (table,))
             assert cur.fetchone(), table
 

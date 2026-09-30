@@ -1104,3 +1104,7 @@ ALTER TABLE trigger_evaluation_log       ADD COLUMN IF NOT EXISTS volume_regime_
 ALTER TABLE entry_params                 ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
 ALTER TABLE position_climax_evaluations  ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
 ALTER TABLE position_decline_evaluations ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+-- insert_backfill_classification 의 대상 3테이블(allowlist)도 동일 컬럼(백필 셀은 대부분 경계 이전 → NULL).
+ALTER TABLE classification_backfill      ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+ALTER TABLE backtest_classification      ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+ALTER TABLE recall_audit_classification  ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);

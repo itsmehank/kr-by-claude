@@ -9,7 +9,7 @@ import json
 
 from psycopg import Connection
 
-from kr_pipeline.common.data_regimes import with_volume_regime
+from kr_pipeline.common.data_regimes import regime_flag_for_as_of
 from kr_pipeline.common.thresholds import (
     ENTRY_STOP_PCT_FROM_PIVOT_FLOOR,
     ENTRY_TARGET_PCT_MIN,
@@ -347,7 +347,6 @@ def insert_classification(
     sanity_warnings = _validate_classification_prices(
         conn, result, symbol=symbol, as_of=analyzed_for_date,
     )
-    sanity_warnings = with_volume_regime(sanity_warnings, analyzed_for_date)   # (#207 회신 20) 거래량 정의 표지
 
     # (#1) pivot 재판독 연속성 관측 — INSERT 전에 직전 분류를 조회해야 하므로 이 위치.
     # fail-soft: 관측 전용 헬퍼의 어떤 실패도 본 INSERT(LLM 비용 지출분)를 막으면
@@ -388,7 +387,8 @@ def insert_classification(
                sanity_warnings,
                pivot_continuity,
                verdict_original,
-               prompt_version)
+               prompt_version,
+               volume_regime_flag)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
@@ -400,7 +400,7 @@ def insert_classification(
                     %s,
                     %s,
                     %s,
-                    %s)
+                    %s, %s)
             ON CONFLICT (symbol, classified_at) DO NOTHING
             """,
             (
@@ -431,6 +431,7 @@ def insert_classification(
                 pivot_continuity,
                 verdict_original,
                 llm_meta.get("prompt_version"),
+                regime_flag_for_as_of(analyzed_for_date),   # (#207 회신 21) 전용 표지 컬럼(mixed|NULL)
             ),
         )
         # (#1) same-base 재판독 경고는 행이 실제 저장된 경우에만 — ON CONFLICT 로
@@ -495,7 +496,6 @@ def insert_backfill_classification(
     sanity_warnings = _validate_classification_prices(
         conn, result, symbol=symbol, as_of=analyzed_for_date,
     )
-    sanity_warnings = with_volume_regime(sanity_warnings, analyzed_for_date)   # (#207 회신 20) 거래량 정의 표지
 
     with conn.cursor() as cur:
         cur.execute(
@@ -511,7 +511,8 @@ def insert_backfill_classification(
                watch_reason,
                verdict_original,
                sanity_warnings,
-               prompt_version)
+               prompt_version,
+               volume_regime_flag)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
@@ -522,7 +523,7 @@ def insert_backfill_classification(
                     %s,
                     %s,
                     %s,
-                    %s)
+                    %s, %s)
             ON CONFLICT (symbol, analyzed_for_date) DO NOTHING
             """,
             (
@@ -552,6 +553,7 @@ def insert_backfill_classification(
                 verdict_original,
                 json.dumps(sanity_warnings) if sanity_warnings else None,
                 llm_meta.get("prompt_version"),
+                regime_flag_for_as_of(analyzed_for_date),   # (#207 회신 21) 전용 표지 컬럼(mixed|NULL)
             ),
         )
 
@@ -634,7 +636,6 @@ def insert_trigger_log(
     LLM 평가 행은 None. 사전등록 코호트 질의의 동등비교 키.
     """
     decision = _validate_decision(result)
-    regime_warnings = with_volume_regime(None, analyzed_for_date)   # (#207 회신 20) 09-28 이후 봉의 거래량 조건 의존 판정 표지
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -645,7 +646,7 @@ def insert_trigger_log(
                analyzed_for_date,
                prior_classification_at,
                llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model,
-               wait_reason, prompt_version, sanity_warnings)
+               wait_reason, prompt_version, volume_regime_flag)
             VALUES (%s, %s, %s,
                     %s, %s, %s,
                     %s, %s, %s, %s,
@@ -674,7 +675,7 @@ def insert_trigger_log(
                 llm_meta.get("model"),
                 wait_reason,
                 llm_meta.get("prompt_version"),
-                json.dumps(regime_warnings) if regime_warnings else None,
+                regime_flag_for_as_of(analyzed_for_date),   # (#207 회신 21) 전용 표지 컬럼(mixed|NULL)
             ),
         )
 
@@ -825,7 +826,6 @@ def insert_entry_params(
 ) -> None:
     """entry_params 에 (6) 결과 INSERT (§9 → 정규화 → 저장)."""
     n = _normalize_entry_params(result)
-    n["known_warnings"] = with_volume_regime(n.get("known_warnings"), analyzed_for_date)   # (#207 회신 20) 거래량 정의 표지
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -840,7 +840,8 @@ def insert_entry_params(
                breakout_volume_requirement, observed_breakout_volume_ratio,
                known_warnings, other_warnings, notes,
                trigger_evaluation_at, prior_classification_at,
-               llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model)
+               llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model,
+               volume_regime_flag)
             VALUES (%s, %s, %s,
                     %s, %s, %s, %s, %s,
                     %s, %s, %s, %s,
@@ -851,7 +852,8 @@ def insert_entry_params(
                     %s, %s,
                     %s, %s, %s,
                     %s, %s,
-                    %s, %s, %s, %s)
+                    %s, %s, %s, %s,
+                    %s)
             ON CONFLICT (symbol, signal_at) DO NOTHING
             """,
             (
@@ -867,5 +869,6 @@ def insert_entry_params(
                 trigger_evaluation_at, prior_classification_at,
                 llm_meta.get("duration_s"), llm_meta.get("input_tokens"), llm_meta.get("output_tokens"),
                 llm_meta.get("model"),
+                regime_flag_for_as_of(analyzed_for_date),   # (#207 회신 21) 전용 표지 컬럼(mixed|NULL)
             ),
         )
