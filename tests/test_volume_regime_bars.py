@@ -101,3 +101,25 @@ def test_weekly_regime_mixed_when_week_straddles_boundary(db, monkeypatch):
     with db.cursor() as cur:
         cur.execute("SELECT volume_regime FROM weekly_prices WHERE ticker='VRW2'")
         assert cur.fetchone()[0] == "mixed"
+
+
+# ── Task 6: 이관 SQL 멱등 ──────────────────────────────────────────────────
+from pathlib import Path
+
+
+def test_migration_script_is_idempotent_and_moves_tags(db):
+    sql = (Path(__file__).parent.parent / "scripts" / "sql" / "issue207_volume_regime_migrate.sql").read_text(encoding="utf-8")
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('VRM1','VRM1','KOSPI') ON CONFLICT (ticker) DO NOTHING")
+        cur.execute("DELETE FROM daily_prices WHERE ticker='VRM1'"); cur.execute("DELETE FROM weekly_classification WHERE symbol='VRM1'")
+        cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value, volume_regime) "
+                    "VALUES ('VRM1', %s, 1,1,1,1,1,1,1,'regular')", (B,))
+        cur.execute("INSERT INTO weekly_classification (symbol, classified_at, market, classification, pattern, source, analyzed_for_date, sanity_warnings) "
+                    "VALUES ('VRM1', now(), 'KOSPI', 'watch', 'flat_base', 'weekend', %s, %s)", (B, '["x", "volume_regime_unverified_#207"]'))
+    for _ in range(2):                       # 2회 실행 = 멱등(같은 트랜잭션 안에서 BEGIN/COMMIT 은 무해)
+        with db.cursor() as cur:
+            cur.execute(sql)
+    with db.cursor() as cur:
+        cur.execute("SELECT volume_regime FROM daily_prices WHERE ticker='VRM1' AND date=%s", (B,)); assert cur.fetchone()[0] == "extended"
+        cur.execute("SELECT volume_regime_flag, sanity_warnings FROM weekly_classification WHERE symbol='VRM1'")
+        f, w = cur.fetchone(); assert f == "mixed" and w == ["x"]
