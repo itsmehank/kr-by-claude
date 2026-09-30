@@ -38,7 +38,7 @@ def main() -> int:
             window_days=args.window_days,
             limit_tickers=args.limit_tickers,
             max_workers=args.max_workers,
-            exclude_today=args.exclude_today,
+            exclude_today=True if args.exclude_today else None,   # 미지정 = CLOSE_BUFFER 자동(#207 회신 21)
         )
         log.info(f"DONE rows_affected={stats.rows_affected} failures={len(stats.failures)}")
         if stats.failures:

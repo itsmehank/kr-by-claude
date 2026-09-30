@@ -156,3 +156,14 @@ P2-1a (한국시장 FTD/distribution 임계 σ 보정) 가 *작성 당시 이 �
     | `VOLUME_REGIME_UNVERIFIED_FROM`=2026-09-28 (data_regimes) | 불가(날짜 경계, 임계 아님) | 표지만 — 분류·트리거·진입 행 문자열, 판정 비입력. 소급 20·6·0행 | design-judgment(회신 20 (ii)) | 모니터링: (iii) 조사로 경계가 09-14 등으로 정정되면 일괄 UPDATE + 상수 갱신 |
     | `BACKTEST_EXCLUDED_FROM`=2026-09-28 (data_regimes) | 불가 | **있음** — llm_runner/backfill.run · backtest/backfill.run_backtest_backfill · backtest/portfolio.main 이 end ≥ 경계면 ValueError(우회 `KR_ALLOW_EXCLUDED_REGIME=1`). 기존 arm 재실행(end ≤ 06-30·07-21) 무영향 | design-judgment(회신 20 Q-4c: 09-14~23 해제) | 모니터링: (iii) 결론(정규장 복원) 시 경계 이동·해제 별건 판정 |
   - 근거 = #207 코멘트(회신 20·사전 측정 09-29). 표지·경고는 governance 1-1 4조건 비대상(규칙 제거·변경 아님).
+- 2026-09-30: #207 회신 21 Q-5a ①②③ — thresholds.py 변경 0. 캘린더 상수 **`CLOSE_BUFFER` 17:00 → 20:25** 단일 정의를 `common/market_hours.py` 로 이동(trading_calendar 재수출), 신설 `ohlcv/provisional.py`(PROVISIONAL_RETRY_WAIT_S=600). PR: issue207-q5a-close-buffer.
+  - 소비 경계 1줄: `market_hours.CLOSE_BUFFER` → (a) `trading_calendar.expected_latest_trading_day`/`cache_key`(ELTD·캐시 키: 이 시각 이후 오늘=대상 거래일) → evening_chain.sh `eltd()`·pipeline-watch 캐시 판정 → (b) **신설** `ohlcv.modes.compute_date_range(INCREMENTAL, exclude_today=None)`: now < CLOSE_BUFFER 면 end=어제(경로 무관 기본값) → ohlcv·chains(daily)·웹 /runner 데이터 체인 → (c) `ohlcv.modes._run_upsert` ⓪ `provisional.guard_today`(end=오늘일 때만): 커밋 전 비할트 고저 검사 → 위반 시 600s 대기·`fetch_market_snapshot(오늘)` 1회 → 여전히 위반이면 AdjustmentTripwireError(저장 0, 접두어 provisional_snapshot). 지표·주봉·시장지표·공시 파이프라인은 각자 compute_date_range 를 가져 (b) 비대상(변경 0).
+  - 2축 판정 (3단계 고정 상수마다):
+
+    | 고정 상수 | 축1 환산? | 축2 영향? | 책 정합 | 판정 → 후속 |
+    |---|---|---|---|---|
+    | `CLOSE_BUFFER`=20:25 (market_hours) | **있음** — KRX 확정 하한 20:20(애프터마켓 20:00 마감 + 20분 지연 화면) + 5분 여유. 09-29 21:08 값 = 최종(09-30 재조회 전 종목 일치) | **있음** — ELTD: 20:25 전 실행은 대상=직전 거래일(구 17:00~20:24 창의 오발화·재부팅·수동 실행이 오늘을 대상으로 잡던 것 차단); 수집 창: 같은 창에서 오늘 봉 제외. 20:30 정규 발화·pipeline-watch(캐시 post 키) 동작 불변 | measurement-based(확정 시각)/design-judgment(단일 기준) | **모니터링 + 근거**: 09-30 20:30 첫 정규 발화 실측 — (3) 발화 시 20:55 로 개정(회신 21 Q-5b, 이 이력 1줄 + 전문가 승인). `provisional` 재조회 로그가 확정 시각 실측 자료 |
+    | `compute_date_range.exclude_today` 기본 None(=CLOSE_BUFFER 자동) | 불가(분기 규칙) | **있음** — 20:25 전 어떤 경로의 INCREMENTAL 도 오늘 봉을 받지 않음(장중 부분봉·잠정값 0). 08:xx 시작 실행이 09:00 을 넘겨도 오늘 행 미생성 → 저녁 체인 "지표 있음" 오판 차단 | design-judgment(회신 21 ②) | 모니터링: 셸 자물쇠(09:00~20:25)와 중복 방어 유지 |
+    | `PROVISIONAL_RETRY_WAIT_S`=600 (provisional) | 불가(대기 시간, 회신 21 지정) | 미미 — 20:30 발화가 잠정값일 때만 +10분·KRX +1콜, 그래도 위반이면 저장 0·run failed(회신 17 순서는 과거 봉에만) | design-judgment(회신 21 ③) | 모니터링: 발화 빈도·재조회 결과를 #207 에 기록 |
+  - 근거 = #207 코멘트(회신 21·09-29/09-30 관측). 값 판정·규칙 변경 0(입력 확정 시각과 저장 순서만).
+
