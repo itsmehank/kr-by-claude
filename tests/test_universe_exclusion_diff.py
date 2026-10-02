@@ -1,7 +1,7 @@
 """#221 — 배제 집합 변동의 3분류(상폐 자동 / 신규 상장 배제 자동 / 잔여)."""
 import pandas as pd
 
-from kr_pipeline.universe.exclusion_diff import AUTO_ACCEPT_AXES, classify_exclusion_diff
+from kr_pipeline.universe.exclusion_diff import AUTO_ACCEPT_AXES, MAX_AUTO_DELISTED, MAX_AUTO_NEW_LISTING, classify_exclusion_diff
 
 
 def _ex(*rows):
@@ -52,3 +52,18 @@ def test_2026_10_01_real_diff_is_fully_auto_accepted():
     assert d.removed_delisted == ["465320"] and sorted(d.added_new_listing) == ["0200G0", "0209J0"] and not d.unexplained
     s = d.summary()
     assert s["removed_delisted"] == ["465320"] and s["unexplained"] == []
+
+
+def test_mass_removed_exceeding_cap_is_not_auto_delisted():
+    """KRX 부분 응답(스로틀)으로 스팩 수십 개가 통째로 빠지면 '원본에 없음' 조건을 전부 만족한다 — 상한 초과는 일괄 잔여(fail-closed, 리뷰 #223)."""
+    prev = {f"S{i:05d}" for i in range(MAX_AUTO_DELISTED + 1)}
+    d = classify_exclusion_diff(prev_set=prev, excluded=_ex(), raw_tickers=set(), ever_in_stocks=set())
+    assert d.removed_delisted == [] and len(d.unexplained_removed) == MAX_AUTO_DELISTED + 1 and "상한" in d.unexplained_removed[0]["reason"]
+    small = {f"S{i:05d}" for i in range(MAX_AUTO_DELISTED)}
+    assert len(classify_exclusion_diff(prev_set=small, excluded=_ex(), raw_tickers=set(), ever_in_stocks=set()).removed_delisted) == MAX_AUTO_DELISTED
+
+
+def test_mass_added_exceeding_cap_is_not_auto_new_listing():
+    rows = [(f"N{i:05d}", f"스팩{i}", "KOSDAQ", "주권", "spac") for i in range(MAX_AUTO_NEW_LISTING + 1)]
+    d = classify_exclusion_diff(prev_set=set(), excluded=_ex(*rows), raw_tickers={r[0] for r in rows}, ever_in_stocks=set())
+    assert d.added_new_listing == [] and len(d.unexplained_added) == MAX_AUTO_NEW_LISTING + 1

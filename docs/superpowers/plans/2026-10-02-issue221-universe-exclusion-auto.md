@@ -1,3 +1,5 @@
+> **[기록 문서]** 본 문서의 규약 문장은 작성 시점 기록이며, 현행 규칙은 `docs/superpowers/governance.md` 절 ID를 따른다 (#155, 2026-09-09).
+
 # #221 universe 배제 집합 변동 자동 판정 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -12,9 +14,9 @@
 
 ## Global Constraints
 
-- **#199 유형 자동 수용 금지**: "기존 활성 종목(stocks 에 존재한 적 있음) → 신규 배제" 는 항상 잔여분. 테스트가 고정.
+- #199 wake 절("기존 포함 → 신규 배제 차분은 --accept-exclusion-diff 단독 수용 금지")을 코드로 고정 — 권한 분리는 governance 2-1/2-2 인용.
 - 분류 규칙(이슈 본문): removed ∧ raw 에 없음 → 상폐 자동 / added ∧ stocks 에 없던 티커 ∧ axis ∈ {spac, preferred, security_group} → 신규 상장 배제 자동 / 그 외 잔여.
-- KRX 접촉 0: 보고서 사실은 로컬 DB(universe_raw_snapshot·universe_exclusion_snapshot·stocks·daily_prices·corporate_actions)만. LLM 의 웹 검색은 KRX 도메인이 아닌 공시·뉴스 검색(허용).
+- 접촉 정책 = CLAUDE.md 운영 규칙 5 인용. 보고서 사실은 로컬 DB 만; LLM 도구는 `claude_cli.ALLOWED_TOOLSETS`("Read,WebSearch", WebFetch 미개방)로 도구 층에서 제한(리뷰 #223).
 - `call_claude` 기본 동작(tools="Read", 분류 결정론) 불변 — 새 `tools` 인자는 opt-in.
 - 운영 규칙: 브랜치 `issue221-universe-exclusion-auto`(worktree univ-221), `git add` 명시 경로, suite 전 `pgrep -f pytest`, Co-Authored-By 금지. thresholds 미변경(2축 표 불요).
 

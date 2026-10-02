@@ -91,6 +91,8 @@ def verify_universe_after_load(conn: Connection, *, snapshot_date: date, exclude
         raise UniverseGuardError(f"guard(b) 활성 유니버스에 적재 전 배제 축 종목 잔존 {len(hits)}건: {hits[:10]}")
 
     # (신규) 스냅샷 대조
+    if accept_exclusion_diff and not auto_accept:
+        raise ValueError("--accept-exclusion-diff 와 --strict-exclusion-diff 는 동시 지정 불가(의미 충돌)")
     prev_date, prev_set = _latest_snapshot(conn, snapshot_date)
     cur_set = set(excluded["ticker"]) if not excluded.empty else set()
     added, removed = sorted(cur_set - prev_set), sorted(prev_set - cur_set)
@@ -126,4 +128,6 @@ def verify_universe_after_load(conn: Connection, *, snapshot_date: date, exclude
                                     "added_new_listing": sorted(diff.added_new_listing) if diff else []},
         "exclusion_unexplained": {"added": [u["ticker"] for u in diff.unexplained_added] if diff else [],
                                   "removed": [u["ticker"] for u in diff.unexplained_removed] if diff else []},
+        # accept 로 통과한 잔여(사람 수용) — 호출자가 warnings 로 승격해 pipeline_runs 에 남긴다(리뷰 #223: 보고된 적 없는 잔여의 무음 수용 방지)
+        "exclusion_accepted_unexplained": bool(diff and diff.unexplained and accept_exclusion_diff),
     }

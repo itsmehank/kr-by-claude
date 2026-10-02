@@ -16,6 +16,11 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 AUTO_ACCEPT_AXES = frozenset({"spac", "preferred", "security_group"})   # transform.classify_exclusion_axis 의 축 이름
+# 자동 수용 상한(리뷰 #223): KRX 부분 응답(스로틀)으로 수백 종목이 통째로 빠지면 removed 가 "원본에 없음" 조건을 전부 만족한다 —
+# mark_delisted 의 2% 가드는 stocks 행이 없는 배제 축 종목을 못 본다. 월간 실측 규모(10-01: 상폐 1·신규 2)의 여유분으로 상한을 두고,
+# 넘으면 그 유형 전부를 잔여로 돌린다(기존 가드처럼 fail-closed). 다음 달 재등장 왕복(removed→added 자동)도 같은 상한이 막는다.
+MAX_AUTO_DELISTED = 10
+MAX_AUTO_NEW_LISTING = 30
 
 
 @dataclass
@@ -66,4 +71,13 @@ def classify_exclusion_diff(*, prev_set: set[str], excluded: pd.DataFrame, raw_t
         else:
             out.unexplained_removed.append({"ticker": t, "reason": ("원본 목록에 남아 있는데 배제 집합에서 빠짐 — 배제 축이 풀린 것(규칙/분류 변경)"
                                                                if raw_tickers is not None else "원본 목록 미제공 — 상폐 여부 판정 불가")})
+    if len(out.removed_delisted) > MAX_AUTO_DELISTED:
+        out.unexplained_removed.extend({"ticker": t, "reason": f"상폐 후보 {len(out.removed_delisted)} > 상한 {MAX_AUTO_DELISTED} — KRX 부분 응답 의심, 일괄 잔여"}
+                                       for t in out.removed_delisted)
+        out.removed_delisted = []
+    if len(out.added_new_listing) > MAX_AUTO_NEW_LISTING:
+        out.unexplained_added.extend({"ticker": t, "name": cur[t].name, "axis": getattr(cur[t], "axis", None), "security_group": cur[t].security_group,
+                                      "reason": f"신규 배제 후보 {len(out.added_new_listing)} > 상한 {MAX_AUTO_NEW_LISTING} — 일괄 잔여"}
+                                     for t in out.added_new_listing)
+        out.added_new_listing = []
     return out

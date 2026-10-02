@@ -21,7 +21,7 @@ from kr_pipeline.universe.exclusion_diff import ExclusionDiff
 log = logging.getLogger("kr_pipeline.universe.report")
 
 PROMPT_FILE = "universe_exclusion_report_v1.md"
-REPORT_TOOLS = "Read,WebSearch,WebFetch"      # 조사 전용 opt-in(분류 호출은 Read 만 — claude_cli 기본값 불변)
+REPORT_TOOLS = "Read,WebSearch"      # 조사 전용 opt-in. WebFetch 는 열지 않는다 — 임의 URL(KRX 도메인 포함) 접촉을 도구 층에서 차단(리뷰 #223)
 CALL_TIMEOUT_SECONDS = 300
 _VERDICTS = {"delisted", "new_listing", "axis_change", "renamed", "unknown"}
 _RECOMMENDS = {"accept", "hold"}
@@ -72,8 +72,8 @@ def _ticker_facts(cur, ticker: str, snapshot_date: date, prev_snapshot_date: dat
         prev = _one(cur, "SELECT name, market, security_group, axis FROM universe_exclusion_snapshot WHERE snapshot_date = %s AND ticker = %s",
                     prev_snapshot_date, ticker)
     cur.execute("SELECT event_date, event_type, ratio, note FROM corporate_actions WHERE ticker = %s ORDER BY event_date DESC LIMIT 5", (ticker,))
-    ca = [{"event_date": r[0].isoformat(), "event_type": r[1], "ratio": float(r[2]) if r[2] is not None else None, "note": r[3]}
-          for r in cur.fetchall()]
+    # ratio 는 VARCHAR("1:0.3" 등, corporate_actions/parser.parse_ratio) — 문자열 그대로(리뷰 #223: float() 가 보고서를 죽이던 결함)
+    ca = [{"event_date": r[0].isoformat(), "event_type": r[1], "ratio": r[2], "note": r[3]} for r in cur.fetchall()]
     return {
         "ticker": ticker,
         "in_stocks": st is not None,
@@ -103,18 +103,30 @@ def build_local_facts(conn: Connection, diff: ExclusionDiff, *, snapshot_date: d
     }
 
 
+def _expected_tickers(diff: ExclusionDiff) -> set[str]:
+    return {u["ticker"] for u in diff.unexplained_added} | {u["ticker"] for u in diff.unexplained_removed}
+
+
 def make_report(diff: ExclusionDiff, facts: dict, *, call: Callable[..., dict] = call_claude) -> tuple[dict, dict]:
-    """claude -p(웹 검색 허용) 1회 + 스키마 불일치 시 1회 재호출(issue_brief 전례). 반환 (report dict, meta)."""
+    """claude -p(웹 검색 허용) 1회 + 스키마/티커 집합 불일치 시 1회 재호출(issue_brief 전례). items 의 티커 집합은 잔여 집합과
+    정확히 같아야 한다(리뷰 #223: LLM 이 일부만 돌려주면 '1건' 으로 과소 보고). 반환 (report dict, meta)."""
     payload = {"task": "universe_exclusion_diff_investigation", "facts": facts}
+    expected = _expected_tickers(diff)
     last: Exception | None = None
     for _ in range(2):
         meta: dict = {}
         out = call(PROMPT_FILE, payload_inline=payload, tools=REPORT_TOOLS, timeout_seconds=CALL_TIMEOUT_SECONDS, meta_out=meta)
         try:
-            return Report.model_validate(out).model_dump(), meta
+            rep = Report.model_validate(out)
         except ValidationError as e:
             last = e
-    raise ReportFailed(f"universe exclusion report: schema mismatch after retry: {last}")
+            continue
+        got = {it.ticker for it in rep.items}
+        if got != expected:
+            last = ReportFailed(f"items 티커 집합 불일치: got={sorted(got)} expected={sorted(expected)}")
+            continue
+        return rep.model_dump(), meta
+    raise ReportFailed(f"universe exclusion report: invalid after retry: {last}")
 
 
 def _format(report: dict, snapshot_date: date) -> str:
@@ -127,19 +139,20 @@ def _format(report: dict, snapshot_date: date) -> str:
 
 
 def send_report(report: dict, *, snapshot_date: date, post: Callable[[str], None] = notify_universe_exclusion_report) -> bool:
+    text = _format(report, snapshot_date)
     try:
-        post(_format(report, snapshot_date))
+        post(text)
         return True
-    except Exception as e:  # noqa: BLE001 — 비차단
-        log.warning("exclusion_report_failed: slack post — %s", e)
+    except Exception as e:  # noqa: BLE001 — 비차단. LLM 웹 조사 비용이 든 본문은 로그에 남긴다(리뷰 #223: 재호출 없이 근거 복구)
+        log.warning("exclusion_report_failed: slack post — %s\n--- report text ---\n%s", e, text)
         return False
 
 
-def report_unexplained(conn: Connection, diff: ExclusionDiff, *, snapshot_date: date, prev_snapshot_date: date | None,
+def report_unexplained(diff: ExclusionDiff, facts: dict, *, snapshot_date: date,
                        call: Callable[..., dict] = call_claude, post: Callable[[str], None] = notify_universe_exclusion_report) -> None:
-    """가드 실패 직후 호출(__main__). 어떤 실패도 가드 예외를 가리지 않는다."""
+    """가드 실패 후 **run_tracking 트랜잭션 밖**에서 호출(__main__) — LLM·Slack 대기 중 stocks 행 잠금을 쥐지 않는다(리뷰 #223).
+    facts 는 트랜잭션 안에서 build_local_facts 로 미리 수집. 어떤 실패도 가드 예외를 가리지 않는다."""
     try:
-        facts = build_local_facts(conn, diff, snapshot_date=snapshot_date, prev_snapshot_date=prev_snapshot_date)
         report, meta = make_report(diff, facts, call=call)
         ok = send_report(report, snapshot_date=snapshot_date, post=post)
         log.warning("exclusion_report: %s 잔여 %d건 보고서 %s (model=%s)", snapshot_date, len(report["items"]),

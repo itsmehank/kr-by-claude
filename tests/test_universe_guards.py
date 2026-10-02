@@ -280,7 +280,7 @@ def test_snapshot_strict_mode_fails_even_auto_types(db, clean_universe):
     with pytest.raises(UniverseGuardError, match="465320"):
         verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(), raw_tickers={"T1"}, auto_accept=False)
     info = verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(), raw_tickers={"T1"},
-                                      auto_accept=False, accept_exclusion_diff=True)     # 명시 수용은 종전대로
+                                      accept_exclusion_diff=True)     # 명시 수용은 종전대로(strict 와 동시 지정은 ValueError — 별도 테스트)
     assert info["exclusion_removed"] == ["465320"]
 
 
@@ -290,3 +290,18 @@ def test_snapshot_without_raw_tickers_treats_removed_as_unexplained(db, clean_un
     verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=_excluded(("465320", "스팩", "KOSDAQ", "주권", "spac")))
     with pytest.raises(UniverseGuardError, match="465320"):
         verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded())
+
+
+def test_snapshot_accept_and_strict_together_is_an_error(db, clean_universe):
+    with pytest.raises(ValueError, match="동시 지정 불가"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(), accept_exclusion_diff=True, auto_accept=False)
+
+
+def test_snapshot_accept_marks_unexplained_as_human_accepted(db, clean_universe):
+    """accept 로 통과한 잔여는 info.exclusion_accepted_unexplained=True — 호출자가 warnings 로 pipeline_runs 에 남긴다."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=_excluded(("R1", "리츠", "KOSPI", "부동산투자회사", "security_group")),
+                               raw_tickers={"T1", "R1"})
+    info = verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(), raw_tickers={"T1", "R1"},
+                                      accept_exclusion_diff=True)
+    assert info["exclusion_accepted_unexplained"] is True and info["exclusion_unexplained"]["removed"] == ["R1"]
