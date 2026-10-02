@@ -222,6 +222,7 @@ def call_claude(
     dry_run: bool = False,
     timeout_seconds: int = 600,
     meta_out: dict | None = None,
+    tools: str = "Read",
 ) -> dict:
     """Claude CLI 호출.
 
@@ -238,6 +239,8 @@ def call_claude(
         meta_out: dict 를 주면 호출 메타를 채움 — model(별칭이 아닌 실제 해석된
             모델 ID, 예: claude-sonnet-5), input_tokens, output_tokens.
             봉투 파싱 실패(플레인 stdout 폴백) 시 미채움.
+        tools: --tools 값. 기본 "Read"(분류·판정 호출: 외부 조회 불가 = 시점 무결성·결정론).
+            (#221) 조사 보고서처럼 웹 근거가 필요한 **비판정** 호출만 "Read,WebSearch,WebFetch" 로 opt-in.
 
     Returns:
         parsed JSON dict
@@ -285,7 +288,7 @@ def call_claude(
     # 있는 섹션을 system prompt 앞부분에서 첫 user 메시지로 밀어낸다 — 이게 없으면
     # append 한 정적 프롬프트 앞의 동적 텍스트가 캐시 프리픽스를 계속 깨뜨린다.
     cmd = ["claude", "--print", "--permission-mode", "bypassPermissions",
-           "--tools", "Read", "--output-format", "json",
+           "--tools", tools, "--output-format", "json",
            "--append-system-prompt", prompt_text,
            "--exclude-dynamic-system-prompt-sections"]
 

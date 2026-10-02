@@ -240,3 +240,53 @@ def test_guard_c_records_count_delta_without_threshold(db, clean_universe):
     _seed(db, [{"ticker": "T9", "name": "신규", "market": "KOSDAQ", "security_group": "주권"}])
     info = verify_universe_after_load(db, snapshot_date=date(2026, 9, 15), excluded=_excluded())
     assert info["active_after"] >= before + 1      # 기록만, 임계 없음(별도 판정 사안)
+
+
+# ---------- (#221) 배제 집합 변동 자동 판정 ----------
+def test_snapshot_auto_accepts_delisted_and_new_listing(db, clean_universe):
+    """상폐(raw 에 없음)·신규 상장 배제(stocks 에 없던 spac)만 변동이면 실패하지 않고 details 에 기록."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
+    ex1 = _excluded(("465320", "교보15호스팩", "KOSDAQ", "주권", "spac"))
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=ex1, raw_tickers={"T1", "465320"})
+    ex2 = _excluded(("0200G0", "한국제17호스팩", "KOSDAQ", "주권", "spac"))
+    info = verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "0200G0"})
+    assert info["exclusion_auto_accepted"] == {"removed_delisted": ["465320"], "added_new_listing": ["0200G0"]}
+    assert info["exclusion_unexplained"] == {"added": [], "removed": []}
+    assert info["exclusion_added"] == ["0200G0"] and info["exclusion_removed"] == ["465320"]
+    with db.cursor() as cur:
+        cur.execute("SELECT ticker FROM universe_exclusion_snapshot WHERE snapshot_date='2026-10-01'")
+        assert [r[0] for r in cur.fetchall()] == ["0200G0"]
+
+
+def test_snapshot_unexplained_raises_with_diff_attached(db, clean_universe):
+    """기존 활성 종목(#199 유형)이 새로 배제되면 실패 — 예외에 판정(diff)이 붙어 보고서 입력이 된다."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"},
+               {"ticker": "088980", "name": "맵스리얼티", "market": "KOSPI", "security_group": "주권"}])
+    base = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"))     # 빈 배제 집합은 스냅샷을 쓰지 않으므로 기준선 1행
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=base, raw_tickers={"T1", "P1", "088980"})
+    ex2 = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"), ("088980", "맵스리얼티", "KOSPI", "투자회사", "security_group"))
+    with db.cursor() as cur:   # 가드 (b) 를 통과시키기 위해 활성에서는 제외(이번 적재 전 배제 대상이 됐다는 시나리오)
+        cur.execute("UPDATE stocks SET delisted_at = CURRENT_DATE WHERE ticker='088980'")
+    with pytest.raises(UniverseGuardError, match="088980") as ei:
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "P1", "088980"})
+    assert ei.value.diff is not None and [u["ticker"] for u in ei.value.diff.unexplained_added] == ["088980"]
+    assert "#199" in ei.value.diff.unexplained_added[0]["reason"]
+
+
+def test_snapshot_strict_mode_fails_even_auto_types(db, clean_universe):
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=_excluded(("465320", "스팩", "KOSDAQ", "주권", "spac")),
+                               raw_tickers={"T1", "465320"})
+    with pytest.raises(UniverseGuardError, match="465320"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(), raw_tickers={"T1"}, auto_accept=False)
+    info = verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(), raw_tickers={"T1"},
+                                      auto_accept=False, accept_exclusion_diff=True)     # 명시 수용은 종전대로
+    assert info["exclusion_removed"] == ["465320"]
+
+
+def test_snapshot_without_raw_tickers_treats_removed_as_unexplained(db, clean_universe):
+    """raw 미제공(구 호출처)이면 상폐 판정 불가 → removed 는 잔여(보수)."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=_excluded(("465320", "스팩", "KOSDAQ", "주권", "spac")))
+    with pytest.raises(UniverseGuardError, match="465320"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded())

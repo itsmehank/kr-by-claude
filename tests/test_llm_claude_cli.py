@@ -554,3 +554,16 @@ def test_call_claude_json_result_mentioning_rate_limit_is_not_usage_limit(mocker
     mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout=envelope, stderr="")
     out = call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
     assert out == answer and mock_run.call_count == 1
+
+
+def test_call_claude_tools_default_read_only_and_opt_in_web(mocker):
+    """(#221) tools 기본 'Read'(분류 결정론 불변). 조사 보고서만 opt-in 으로 웹 도구를 연다."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout='{"ok": true}', stderr="")
+    call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1})
+    cmd = mock_run.call_args.args[0]
+    assert cmd[cmd.index("--tools") + 1] == "Read"
+    call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1}, tools="Read,WebSearch,WebFetch")
+    cmd = mock_run.call_args.args[0]
+    assert cmd[cmd.index("--tools") + 1] == "Read,WebSearch,WebFetch"
