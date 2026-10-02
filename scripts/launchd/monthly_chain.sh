@@ -20,7 +20,7 @@ elif ! attempt_allowed universe 1; then   # max=1 → 하루 1회. gap 인자는
   exit 0
 else
   log "universe 실행"
-  uv run python -m kr_pipeline.universe || { log "universe 실패 — 매핑 단계 중단(순서 보전)"; exit 1; }
+  uv run python -m kr_pipeline.universe || { log "universe 실패 — 매핑 단계 중단(순서 보전). (#221) 배제 집합 잔여 변동이면 조사 보고서가 Slack 으로 갔는지 확인 후 --accept-exclusion-diff"; exit 1; }
 fi
 
 # refresh-mapping 도 corporate_actions pipeline 으로 기록되므로 mode 로 구분

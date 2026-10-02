@@ -26,6 +26,16 @@ def _post(payload: dict) -> None:
         log.warning("Slack post failed: %s", e)
 
 
+def notify_universe_exclusion_report(text: str) -> None:
+    """(#221) 유니버스 배제 집합 변동 조사 보고서 — pipeline-watch 와 같은 webhook(채널 = webhook 생성 시 고정). 실패는 예외로 올려
+    호출자(universe/report.send_report)가 비차단 처리한다."""
+    url = os.environ.get("SLACK_WEBHOOK_URL")
+    if not url:
+        raise RuntimeError("SLACK_WEBHOOK_URL not set")
+    req = urllib.request.Request(url, data=json.dumps({"text": text}).encode(), headers={"Content-Type": "application/json"})
+    urllib.request.urlopen(req, timeout=10)
+
+
 def notify_signal(*, symbol: str, name: str, entry_price: float, stop_loss: float,
                   size_pct: float | None = None) -> None:
     """매수 시그널 알림 (entry_params 생성 시). (#153) 비중 = 리스크 역산 파일럿 %."""

@@ -1,0 +1,56 @@
+# #221 universe 배제 집합 변동 자동 판정 Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** `verify_universe_after_load` 의 guard(snapshot) 가 배제 집합 변동 원소를 3분류해 설명 가능한 2유형(상폐·신규 상장 배제)은 자동 수용하고, 잔여분만 실패 + `claude -p` 조사 보고서를 Slack 으로 보낸다.
+
+**Architecture:** 분류는 순수 함수(`kr_pipeline/universe/exclusion_diff.py: classify_exclusion_diff`) — 입력 = 직전 스냅샷 집합·이번 배제 df·이번 원본(raw) 티커 집합·"stocks 에 존재한 적 있는 티커" 집합. 가드는 이 결과로 잔여분이 있을 때만 `UniverseGuardError`(판정 객체 첨부). `__main__` 이 예외를 잡아 보고서(`report.py: build_local_facts` → `call_claude(tools=Read+Web)` → `slack.notify_universe_exclusion_report`)를 보내고 재발생시킨다(run_tracking 이 failed 기록). 보고서 실패는 비차단(로그). 자동 수용은 기본, `--strict-exclusion-diff` 로 끔. 수용 내역은 `pipeline_runs.details.exclusion_auto_accepted`.
+
+**Tech Stack:** Python(psycopg, pandas), Claude CLI 래퍼(`llm_runner/llm/claude_cli.call_claude` — `tools` 파라미터 신설, 기본 "Read" 불변), Slack webhook(`llm_runner/slack._post`).
+
+**Spec:** GitHub issue #221 본문(해결 방법 1~3·완료 조건 5). governance 원칙 2(권한 분리: 보고서는 자료, 수용은 규칙/사람).
+
+## Global Constraints
+
+- **#199 유형 자동 수용 금지**: "기존 활성 종목(stocks 에 존재한 적 있음) → 신규 배제" 는 항상 잔여분. 테스트가 고정.
+- 분류 규칙(이슈 본문): removed ∧ raw 에 없음 → 상폐 자동 / added ∧ stocks 에 없던 티커 ∧ axis ∈ {spac, preferred, security_group} → 신규 상장 배제 자동 / 그 외 잔여.
+- KRX 접촉 0: 보고서 사실은 로컬 DB(universe_raw_snapshot·universe_exclusion_snapshot·stocks·daily_prices·corporate_actions)만. LLM 의 웹 검색은 KRX 도메인이 아닌 공시·뉴스 검색(허용).
+- `call_claude` 기본 동작(tools="Read", 분류 결정론) 불변 — 새 `tools` 인자는 opt-in.
+- 운영 규칙: 브랜치 `issue221-universe-exclusion-auto`(worktree univ-221), `git add` 명시 경로, suite 전 `pgrep -f pytest`, Co-Authored-By 금지. thresholds 미변경(2축 표 불요).
+
+---
+
+### Task 1: 순수 분류 `classify_exclusion_diff`
+
+**Files:** Create `kr_pipeline/universe/exclusion_diff.py`; Test `tests/test_universe_exclusion_diff.py`.
+**Produces:** `@dataclass ExclusionDiff(added_new_listing: list[str], removed_delisted: list[str], unexplained_added: list[dict], unexplained_removed: list[dict])` + `.unexplained` 프로퍼티(bool) + `.summary()` dict; `classify_exclusion_diff(*, prev_set, excluded: pd.DataFrame, raw_tickers: set[str], ever_in_stocks: set[str]) -> ExclusionDiff`. `AUTO_ACCEPT_AXES = frozenset({"spac", "preferred", "security_group"})`.
+
+- [ ] RED: 4 케이스 — 상폐(removed, raw 에 없음) 자동 / 신규 스팩(added, stocks 무, axis spac) 자동 / 기존 활성 → 배제(added, stocks 유) 잔여(#199) / raw 에 있는데 배제에서 빠짐(removed, raw 유) 잔여. 10-01 실제 변동(+0200G0 +0209J0 −465320) 재현 → 전부 자동.
+- [ ] GREEN 구현 → 통과.
+
+### Task 2: 가드 통합 + `--strict-exclusion-diff`
+
+**Files:** Modify `kr_pipeline/universe/guards.py`(verify_universe_after_load 에 `raw_tickers: set[str] | None`, `auto_accept: bool = True` 추가), `kr_pipeline/universe/__main__.py`(플래그·raw_tickers 전달·details 기록); Test `tests/test_universe_guards.py`.
+**Produces:** `UniverseGuardError.diff: ExclusionDiff | None`; info 에 `exclusion_auto_accepted: {"removed_delisted": [...], "added_new_listing": [...]}`, `exclusion_unexplained: {...}`.
+
+- [ ] RED: (a) 자동 수용분만 → 실패 없음·info 기록, (b) 잔여분 → UniverseGuardError 에 `.diff`, (c) `auto_accept=False` 면 자동 유형도 실패(strict), (d) `accept_exclusion_diff=True` 는 종전대로 전부 수용. raw_tickers None 이면 removed 는 전부 잔여(보수).
+- [ ] GREEN → 통과. 기존 `test_snapshot_first_run_writes_baseline_and_diff_fails_next` 는 R1 이 raw 에 남아 있는 케이스로 유지(잔여).
+
+### Task 3: 조사 보고서(`claude -p` + Slack)
+
+**Files:** Create `kr_pipeline/universe/report.py`, `prompts/universe_exclusion_report_v1.md`; Modify `kr_pipeline/llm_runner/llm/claude_cli.py`(`tools: str = "Read"` 인자), `kr_pipeline/llm_runner/slack.py`(`notify_universe_exclusion_report(text)`), `__main__.py`(예외 처리); Test `tests/test_universe_exclusion_report.py`, `tests/test_claude_cli*.py` 중 cmd 조립 테스트가 있으면 tools 반영.
+**Produces:** `build_local_facts(conn, diff, snapshot_date) -> dict`(티커별 name/market/security_group/axis, stocks 존재·delisted_at, 마지막 일봉, 직전 스냅샷 존재, corporate_actions 최근 5건), `make_report(diff, facts, *, call=call_claude) -> dict`(스키마: `{"items":[{"ticker","verdict":"delisted|new_listing|axis_change|unknown","evidence":str,"recommend":"accept|hold"}], "summary":str}`), `send_report(report, *, post=...) -> bool`, `report_unexplained(conn, diff, snapshot_date, *, call, post) -> None`(실패 비차단).
+
+- [ ] RED: build_local_facts 가 시드 데이터로 사실 수집 / make_report 가 가짜 call 로 스키마 검증·불일치 1회 재시도 / send_report 가 post 호출·webhook 없음·예외 시 False / `call_claude(tools="Read,WebSearch,WebFetch")` 가 cmd 에 반영(subprocess mock).
+- [ ] GREEN → 통과. 프롬프트: 역할(사실 자료 + 웹 검색으로 상폐·합병·종목명 변경 공시 확인), 규칙(결정 아님·근거 URL 명시·KRX 도메인 접촉 금지·JSON 만), 스키마.
+
+### Task 4: `__main__` 배선·월간 체인 로그·검증·PR
+
+**Files:** Modify `kr_pipeline/universe/__main__.py`, `scripts/launchd/monthly_chain.sh`(실패 로그에 "조사 보고서 Slack 전송 여부" 1줄); Test 통합(`tests/test_universe_guards.py` 또는 신규): main 경로는 함수로 분리해(`run_universe(conn, *, today, accept, strict, fetchers...)`) KRX monkeypatch 로 10-01 재현.
+
+- [ ] RED: 10-01 재현(raw 에 0200G0·0209J0 추가, 465320 제거, 직전 스냅샷 09-22) → run success·details.exclusion_auto_accepted 기록·보고서 미전송. 잔여 케이스 → 실패 + report 호출 1회.
+- [ ] GREEN → 통과. 전체 suite·커밋·push·PR(`gh pr create`), 이슈 #221 코멘트.
+
+## Self-Review
+- 완료 조건 1(분류·자동 수용 테스트 3케이스) → T1·T2; 2(잔여 → 실패 + Slack 보고서, 프롬프트 파일) → T3; 3(details·로그) → T2·T4; 4(#199 유형 금지 테스트) → T1·T2; 5(10-01 재현) → T1·T4.
+- 타입: `ExclusionDiff` 필드명·`classify_exclusion_diff` kwargs·`report_unexplained(conn, diff, snapshot_date, *, call, post)` 를 T2~T4 가 동일 사용.
