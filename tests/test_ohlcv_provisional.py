@@ -66,6 +66,26 @@ def test_guard_today_still_provisional_raises_without_saving(monkeypatch):
         provisional.guard_today(frames, TODAY, refetch=lambda d: _snap([("A", TODAY, 10, 12, 9, 12.5, 60)]), wait_s=1)
 
 
+def test_guard_today_empty_refetch_raises_instead_of_dropping_today(monkeypatch):
+    """재조회가 빈 스냅샷(KRX 차단/빈 응답)이면 오늘 행을 전부 지우고 '위반 0' 으로 통과시키면 안 된다 — 예외(저장 0)."""
+    monkeypatch.setattr(provisional, "_sleep", lambda s: None)
+    frames = {"A": _frame([(YDAY, 10, 12, 9, 11, 100), (TODAY, 10, 12, 9, 13, 50)]),
+              "B": _frame([(TODAY, 20, 22, 19, 21, 10)])}
+    empty = _snap([]); empty.attrs["snapshot_status"] = "blocked"
+    with pytest.raises(AdjustmentTripwireError, match="재조회 스냅샷 비어 있음"):
+        provisional.guard_today(frames, TODAY, refetch=lambda d: empty, wait_s=1)
+
+
+def test_guard_today_refetch_missing_ticker_is_counted_not_silently_dropped(monkeypatch, caplog):
+    """재조회 스냅샷에 없는 종목의 오늘 행 제거는 유지하되 건수를 로그에 남긴다(무음 소멸 금지)."""
+    import logging
+    monkeypatch.setattr(provisional, "_sleep", lambda s: None)
+    frames = {"A": _frame([(TODAY, 10, 12, 9, 13, 50)]), "B": _frame([(TODAY, 20, 22, 19, 21, 10)])}
+    with caplog.at_level(logging.WARNING, logger="kr_pipeline.ohlcv.provisional"):
+        out = provisional.guard_today(frames, TODAY, refetch=lambda d: _snap([("A", TODAY, 10, 12, 9, 11, 60)]), wait_s=1)
+    assert out["B"].empty and "오늘 행 제거 1종목" in caplog.text
+
+
 def test_run_upsert_step0_blocks_provisional_today(monkeypatch, db):
     """통합: 오늘 봉 잠정값이면 ① 커밋 전에 예외 — daily_prices 에 0행."""
     from kr_pipeline.ohlcv import modes

@@ -43,9 +43,11 @@ def count_today_violations(frames: dict[str, pd.DataFrame], today: date) -> tupl
 
 
 def replace_today_rows(frames: dict[str, pd.DataFrame], snap: pd.DataFrame, today: date) -> dict[str, pd.DataFrame]:
-    """재조회 스냅샷(ticker 컬럼 포함)으로 각 종목의 오늘 행을 교체. 스냅샷에 없는 종목의 오늘 행은 제거(미확정 취급)."""
+    """재조회 스냅샷(ticker 컬럼 포함)으로 각 종목의 오늘 행을 교체. 스냅샷에 없는 종목의 오늘 행은 제거(미확정 취급)하되
+    건수를 경고로 남긴다 — 무음 소멸 금지(#219 리뷰). 빈 스냅샷은 호출자(guard_today)가 예외로 막는다."""
     out: dict[str, pd.DataFrame] = {}
     by_ticker = {t: g.drop(columns=["ticker"]) for t, g in snap.groupby("ticker")} if not snap.empty else {}
+    dropped: list[str] = []
     for ticker, df in frames.items():
         if df is None or df.empty or "date" not in df.columns:
             out[ticker] = df
@@ -54,7 +56,11 @@ def replace_today_rows(frames: dict[str, pd.DataFrame], snap: pd.DataFrame, toda
         new = by_ticker.get(ticker)
         if new is not None and not new.empty:
             keep = pd.concat([keep, new[keep.columns] if len(keep.columns) else new], ignore_index=True)
+        elif len(keep) < len(df):
+            dropped.append(ticker)
         out[ticker] = keep.sort_values("date").reset_index(drop=True)
+    if dropped:
+        log.warning("provisional_snapshot: 재조회 스냅샷에 없어 %s 오늘 행 제거 %d종목 %s", today, len(dropped), sorted(dropped)[:10])
     return out
 
 
@@ -69,6 +75,11 @@ def guard_today(
     log.warning("provisional_snapshot: %s 비할트 고저 위반 %d행 %s — %ds 대기 후 재조회 1회", today, n0, sample0, wait_s)
     _sleep(wait_s)
     snap = refetch(today)
+    if snap is None or snap.empty:
+        # 차단/빈 응답(fetch_market_snapshot 은 예외 없이 빈 스냅샷 반환) — 오늘 행 전부 제거 후 '위반 0' 통과 금지(#219 리뷰)
+        raise AdjustmentTripwireError(
+            f"provisional_snapshot: 당일 {today} 비할트 고저 위반 {n0}행 → {wait_s:.0f}s 후 재조회 스냅샷 비어 있음"
+            f"(status={getattr(snap, 'attrs', {}).get('snapshot_status', '?')}) — 저장 0(잠정값 여부 판정 불가)")
     frames2 = replace_today_rows(frames, snap, today)
     n1, sample1 = count_today_violations(frames2, today)
     log.warning("provisional_snapshot: 재조회 결과 %s 위반 %d행 %s (초회 %d) — 확정 시각 실측 자료", today, n1, sample1, n0)

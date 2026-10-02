@@ -19,8 +19,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max-workers", type=int, default=3)
     p.add_argument(
         "--exclude-today", action="store_true",
-        help="INCREMENTAL 에서 오늘 제외(end=어제). 장중 수동 실행 시 오늘 미확정 부분봉 회피용. "
-             "기본 미설정=오늘 포함(마감 후 cron 정상 동작).",
+        help="INCREMENTAL 에서 오늘을 강제 제외(end=어제). 기본 미설정=자동: 지금이 CLOSE_BUFFER(20:25) 전이면 "
+             "오늘 제외, 이후면 포함(#207 회신 21). 이 플래그는 20:25 이후에도 오늘을 빼고 싶을 때만.",
     )
     return p.parse_args()
 

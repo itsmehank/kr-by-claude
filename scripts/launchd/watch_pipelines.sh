@@ -93,7 +93,7 @@ else
   #   정보량 0인 소음이 평일마다 울린다.
   DOW_S=$(date +%w); HOUR_S=$(date +%H)
   if [ "$DOW_S" != "0" ] && [ "$DOW_S" != "6" ] \
-     && { [ "$HOUR_S" -ge "$WATCH_DUE_HOUR" ] || eltd_cache_older_than_prev_workday17; } \
+     && { [ "$HOUR_S" -ge "$WATCH_DUE_HOUR" ] || eltd_cache_older_than_prev_workday_close; } \
      && launchctl list com.krbyclaude.evening-chain >/dev/null 2>&1; then
     AGE_TXT="마지막 갱신 ${AGE}s 전"; [ "$AGE" = "999999" ] && AGE_TXT="캐시 없음"
     alert "eltd_stale.$(date +%Y%m%d)" "ELTD 캐시 미갱신($AGE_TXT) — 저녁 체인 미실행 의심(라이브 조회 없음)"
