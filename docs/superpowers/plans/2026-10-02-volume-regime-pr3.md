@@ -377,6 +377,10 @@ LEFT JOIN LATERAL (SELECT volume_regime_flag FROM position_decline_evaluations W
 - [ ] **Step 2: 전체 검증** — `pgrep -f "pytest tests/" || uv run pytest tests/ -q`(기대 1814+신규), `cd web && npx tsc --noEmit -p . && npx vitest run`.
 - [ ] **Step 3: 커밋·push·PR** — `git add` 명시 경로, `git branch --show-current` 확인, `git push origin issue207-volume-regime-pr3`, `gh pr create --base main`. PR 본문: 요약·flag 규칙 전후·운영 영향(스키마 변경 0, 이관 불요)·검증.
 
+## 리뷰 반영(10-02, PR #222)
+
+`judgment_flag` → `classification_flag`/`daily_window_flag`/`entry_window_flag`(PP 탐색 +4봉), 주봉 창 W+1(SSOT import), decline 행 flag NULL(거래량 입력 없음 — spec D7 정정), run_daily_eval 이 T2 flag 1회 계산해 climax kwarg 로 전달, SAVEPOINT fail-soft·경계 전 DB 0, 이관 SQL flag 소급 삭제, `_as_date` 재사용·FLAG_MIXED·COALESCE. 기록만: 앵커 C3 분모 창(spec D7 범위).
+
 ## Self-Review
 
 - **Spec coverage**: D3 유도 함수 → T1·T2; D4(mixed만) → T1 `window_flag`; §5 소비처 5곳 → T3(4곳)+T4(2곳: climax·decline); D7(발화 불변) → T4 는 INSERT 값만; D9 Positions → T5; §7 만료 테스트 → T2 `after[49]`·T3 `expires`. 백테스트 해제는 범위 외(§7 "완료 후 별건").

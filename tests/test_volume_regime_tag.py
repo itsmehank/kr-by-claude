@@ -128,7 +128,9 @@ def test_entry_params_flag_column_and_clean_known_warnings(db, straddle, flag):
 
 @pytest.mark.parametrize("anchor_offset_weeks,flag", [(-3, FLAG_MIXED), (0, None), (None, None)])
 def test_position_evaluations_flag_from_anchor_window(db, anchor_offset_weeks, flag):
-    """T2·T-D 창 = 앵커 주 ~ 평가 주: 경계 전 앵커 → mixed, 경계 후 앵커 → NULL, 앵커 없음 → NULL."""
+    """T2 창 = 앵커 주 ~ 평가 주(spec D7): 경계 전 앵커 → mixed, 경계 후 앵커 → NULL, 앵커 없음 → NULL. flag 는 run_daily_eval 이 1회
+    계산해 climax 행에 넘기고, decline 행은 거래량 입력이 없어(T-A·TA-d = 가격 낙폭) 항상 NULL(리뷰 #222)."""
+    from kr_pipeline.common.regime_windows import weekly_range_flag
     from kr_pipeline.trade_management.runner import _insert_climax_eval, _insert_decline_eval
     eval_week = B + timedelta(days=4)                                  # 10-02(금)
     fridays = [eval_week + timedelta(weeks=i) for i in range(-6, 1)]
@@ -138,13 +140,16 @@ def test_position_evaluations_flag_from_anchor_window(db, anchor_offset_weeks, f
         cur.execute("DELETE FROM positions WHERE symbol='VRF4'")
         cur.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity, status) VALUES ('VRF4', %s, 1000, 1, 'open') RETURNING id", (eval_week,))
         pid = cur.fetchone()[0]
-    assert _insert_climax_eval(db, position_id=pid, symbol="VRF4", as_of=eval_week, fired=False, suppressed=False, hold_days=1, triggers=[],
-                               anchor_week=anchor, weeks_since=None, maturity_ok=None, p2_accel_ok=None, scope_active=None, mode="quality")
-    assert _insert_decline_eval(db, position_id=pid, symbol="VRF4", as_of=eval_week, fired=False, hold_days=1, signals=[], anchor_week=anchor,
+    vr = weekly_range_flag(db, "VRF4", anchor, eval_week)
+    assert vr == flag
+    assert _insert_climax_eval(db, position_id=pid, as_of=eval_week, fired=False, suppressed=False, hold_days=1, triggers=[],
+                               anchor_week=anchor, weeks_since=None, maturity_ok=None, p2_accel_ok=None, scope_active=None, mode="quality",
+                               volume_regime_flag=vr)
+    assert _insert_decline_eval(db, position_id=pid, as_of=eval_week, fired=False, hold_days=1, signals=[], anchor_week=anchor,
                                 weeks_since=None, maturity_ok=None, ta_max_decline_now=None, ta_d_daily_max_decline_now=None,
                                 mode="quality", climax_also_fired=False)
     assert _one(db, "SELECT volume_regime_flag FROM position_climax_evaluations WHERE position_id=%s", pid)[0] == flag
-    assert _one(db, "SELECT volume_regime_flag FROM position_decline_evaluations WHERE position_id=%s", pid)[0] == flag
+    assert _one(db, "SELECT volume_regime_flag FROM position_decline_evaluations WHERE position_id=%s", pid)[0] is None
 
 
 def test_classification_flag_null_after_window_expires(db):

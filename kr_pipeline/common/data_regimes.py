@@ -22,6 +22,8 @@ import os
 from datetime import date, datetime, timedelta
 from typing import Final, Iterable
 
+from kr_pipeline.common.thresholds import CLIMAX_ANCHOR_VOL_AVG_WEEKS
+
 VOLUME_REGIME_BOUNDARY: Final[date] = date(2026, 9, 28)        # KRX 일별 거래량에 애프터마켓 합산 시작(관측 추정, 회신 21)
 VOLUME_REGIME_UNVERIFIED_FROM: Final[date] = VOLUME_REGIME_BOUNDARY   # PR #217 호환 별칭
 BACKTEST_EXCLUDED_FROM: Final[date] = date(2026, 9, 28)
@@ -58,7 +60,7 @@ def regime_for_week(week_end: date) -> str:
 
 
 VOLUME_WINDOW_DAILY_BARS: Final[int] = 50     # daily_indicators.volume_ratio_50d / observed_breakout_volume_ratio 창(indicators/compute/volume.py)
-VOLUME_WINDOW_WEEKLY_WEEKS: Final[int] = 50   # C3 주간 거래량 50주 평균 창(find_anchor)
+VOLUME_WINDOW_WEEKLY_WEEKS: Final[int] = CLIMAX_ANCHOR_VOL_AVG_WEEKS + 1   # C3 = vols[i] ÷ avg(vols[i-W:i]) → 분자 주 포함 W+1 행(find_anchor, 리뷰 #222)
 
 
 def regime_window_state(regimes: Iterable[str]) -> str:

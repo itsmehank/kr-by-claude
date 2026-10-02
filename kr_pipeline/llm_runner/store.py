@@ -9,7 +9,7 @@ import json
 
 from psycopg import Connection
 
-from kr_pipeline.common.regime_windows import judgment_flag
+from kr_pipeline.common.regime_windows import classification_flag, daily_window_flag, entry_window_flag
 from kr_pipeline.common.thresholds import (
     ENTRY_STOP_PCT_FROM_PIVOT_FLOOR,
     ENTRY_TARGET_PCT_MIN,
@@ -431,7 +431,7 @@ def insert_classification(
                 pivot_continuity,
                 verdict_original,
                 llm_meta.get("prompt_version"),
-                judgment_flag(conn, symbol, analyzed_for_date, daily=True, weekly=True),   # (#207 Q-5c 2) 분류 창 = 주간 C3 50주 ∪ 일간 50봉
+                classification_flag(conn, symbol, analyzed_for_date),   # (#207 Q-5c 2) 분류 창 = 주간 C3 W+1주 ∪ 일간 50봉(fail-soft, 경계 전 DB 0)
             ),
         )
         # (#1) same-base 재판독 경고는 행이 실제 저장된 경우에만 — ON CONFLICT 로
@@ -553,7 +553,7 @@ def insert_backfill_classification(
                 verdict_original,
                 json.dumps(sanity_warnings) if sanity_warnings else None,
                 llm_meta.get("prompt_version"),
-                judgment_flag(conn, symbol, analyzed_for_date, daily=True, weekly=True),   # (#207 Q-5c 2) 분류 창 = 주간 C3 50주 ∪ 일간 50봉
+                classification_flag(conn, symbol, analyzed_for_date),   # (#207 Q-5c 2) 분류 창 = 주간 C3 W+1주 ∪ 일간 50봉(fail-soft, 경계 전 DB 0)
             ),
         )
 
@@ -675,7 +675,7 @@ def insert_trigger_log(
                 llm_meta.get("model"),
                 wait_reason,
                 llm_meta.get("prompt_version"),
-                judgment_flag(conn, symbol, analyzed_for_date),   # (#207 Q-5c 2) 트리거 창 = 일간 50봉(volume_ratio_50d)
+                daily_window_flag(conn, symbol, analyzed_for_date),   # (#207 Q-5c 2) 트리거 창 = 일간 50봉(volume_ratio_50d)
             ),
         )
 
@@ -869,6 +869,6 @@ def insert_entry_params(
                 trigger_evaluation_at, prior_classification_at,
                 llm_meta.get("duration_s"), llm_meta.get("input_tokens"), llm_meta.get("output_tokens"),
                 llm_meta.get("model"),
-                judgment_flag(conn, symbol, analyzed_for_date),   # (#207 Q-5c 2) 진입 창 = 일간 50봉(observed_breakout_volume_ratio)
+                entry_window_flag(conn, symbol, analyzed_for_date),   # (#207 Q-5c 2) 진입 창 = 일간 50봉 + PP 탐색 4봉(observed_breakout_volume_ratio)
             ),
         )

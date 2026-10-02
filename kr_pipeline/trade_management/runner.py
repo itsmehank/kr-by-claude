@@ -184,10 +184,12 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
             continue
         hd = evaluate_held_decline(gates, p["entry_date"], as_of)
         hc = evaluate_held_climax(gates, p["entry_date"], as_of)
+        # (#207 Q-5c 2) T2 창(앵커 주~평가 주)의 거래량 정의 경계 표지 — 1회 계산, climax 행에만 기록(decline 은 거래량 입력 없음)
+        vr_flag = weekly_range_flag(conn, p["symbol"], gates.get("anchor_week"), as_of)
 
         # (#164) 약세 매도 — 스탑 다음 우선. 기록은 항상, 알림은 발화 ∧ 신규 INSERT 시.
         hd_inserted = _insert_decline_eval(
-            conn, position_id=p["id"], symbol=p["symbol"], as_of=as_of, fired=hd.fired, hold_days=hd.hold_days, signals=hd.signals,
+            conn, position_id=p["id"], as_of=as_of, fired=hd.fired, hold_days=hd.hold_days, signals=hd.signals,
             anchor_week=hd.anchor_week, weeks_since=hd.weeks_since, maturity_ok=hd.maturity_ok,
             ta_max_decline_now=hd.ta_max_decline_now, ta_d_daily_max_decline_now=hd.ta_d_daily_max_decline_now,
             mode=hd.mode, climax_also_fired=bool(hc.fired))
@@ -213,9 +215,9 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
 
         # (항목 ③) 강세 매도 — 기록은 항상(병기), 알림은 decline 미발화일에만.
         hc_inserted = _insert_climax_eval(
-            conn, position_id=p["id"], symbol=p["symbol"], as_of=as_of, fired=hc.fired, suppressed=hc.suppressed, hold_days=hc.hold_days,
+            conn, position_id=p["id"], as_of=as_of, fired=hc.fired, suppressed=hc.suppressed, hold_days=hc.hold_days,
             triggers=hc.triggers, anchor_week=hc.anchor_week, weeks_since=hc.weeks_since, maturity_ok=hc.maturity_ok,
-            p2_accel_ok=hc.p2_accel_ok, scope_active=hc.scope_active, mode=hc.mode)
+            p2_accel_ok=hc.p2_accel_ok, scope_active=hc.scope_active, mode=hc.mode, volume_regime_flag=vr_flag)
         if hd.fired:
             continue  # 우선순위: 약세 > 강세 > 5B — decline 발화일엔 climax 알림·5B 미평가(기록만)
         if hc.fired:
@@ -262,9 +264,10 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
             "skipped": skipped}
 
 
-def _insert_decline_eval(conn: Connection, *, position_id: int, symbol: str, as_of: date, fired, hold_days, signals, anchor_week, weeks_since,
+def _insert_decline_eval(conn: Connection, *, position_id: int, as_of: date, fired, hold_days, signals, anchor_week, weeks_since,
                          maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode, climax_also_fired) -> bool:
-    """position_decline_evaluations INSERT(멱등). volume_regime_flag(#207 Q-5c 2) = T-D 창(앵커 주~평가 주)이 경계에 걸치면 'mixed', 앵커 없음 → NULL."""
+    """position_decline_evaluations INSERT(멱등). volume_regime_flag 는 항상 NULL — decline 판정(T-A·TA-d)은 가격 낙폭만 쓰고 거래량
+    입력이 없다(held_decline.HELD_DECLINE_SIGNALS; spec D7 의 'T-D' 는 오기, 리뷰 #222). 컬럼은 스키마 호환으로 유지."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -276,15 +279,15 @@ def _insert_decline_eval(conn: Connection, *, position_id: int, symbol: str, as_
             ON CONFLICT (position_id, eval_date) DO NOTHING
             """,
             (position_id, as_of, fired, hold_days, json.dumps(list(signals)), anchor_week, weeks_since,
-             maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode, climax_also_fired,
-             weekly_range_flag(conn, symbol, anchor_week, as_of)),
+             maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode, climax_also_fired, None),
         )
         return cur.rowcount == 1
 
 
-def _insert_climax_eval(conn: Connection, *, position_id: int, symbol: str, as_of: date, fired, suppressed, hold_days, triggers, anchor_week,
-                        weeks_since, maturity_ok, p2_accel_ok, scope_active, mode) -> bool:
-    """position_climax_evaluations INSERT(멱등). volume_regime_flag(#207 Q-5c 2) = T2 창(앵커 주~평가 주)이 경계에 걸치면 'mixed', 앵커 없음 → NULL."""
+def _insert_climax_eval(conn: Connection, *, position_id: int, as_of: date, fired, suppressed, hold_days, triggers, anchor_week,
+                        weeks_since, maturity_ok, p2_accel_ok, scope_active, mode, volume_regime_flag: str | None = None) -> bool:
+    """position_climax_evaluations INSERT(멱등). volume_regime_flag(#207 Q-5c 2) = 호출자가 weekly_range_flag(앵커 주~평가 주)로 1회 계산해 전달
+    ('mixed' | None). 앵커 없음 → NULL."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -295,6 +298,6 @@ def _insert_climax_eval(conn: Connection, *, position_id: int, symbol: str, as_o
             ON CONFLICT (position_id, eval_date) DO NOTHING
             """,
             (position_id, as_of, fired, suppressed, hold_days, json.dumps(list(triggers)), anchor_week, weeks_since,
-             maturity_ok, p2_accel_ok, scope_active, mode, weekly_range_flag(conn, symbol, anchor_week, as_of)),
+             maturity_ok, p2_accel_ok, scope_active, mode, volume_regime_flag),
         )
         return cur.rowcount == 1

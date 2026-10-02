@@ -38,7 +38,9 @@ def test_regime_window_state_and_flag():
     assert regime_window_state(["extended", "mixed"]) == "mixed"            # 주봉 mixed 포함
     assert window_flag(["regular"] * 50) is None and window_flag(["extended"] * 50) is None
     assert window_flag(["regular", "extended"]) == "mixed"
-    assert (VOLUME_WINDOW_DAILY_BARS, VOLUME_WINDOW_WEEKLY_WEEKS) == (50, 50)
+    from kr_pipeline.common.thresholds import CLIMAX_ANCHOR_VOL_AVG_WEEKS
+    assert VOLUME_WINDOW_DAILY_BARS == 50
+    assert VOLUME_WINDOW_WEEKLY_WEEKS == CLIMAX_ANCHOR_VOL_AVG_WEEKS + 1      # C3 = vols[i] ÷ avg(vols[i-W:i]) → 행 W+1 개(리뷰 #222)
 
 
 def test_pr2_interim_rule_is_gone():
@@ -147,7 +149,7 @@ def test_migration_script_is_idempotent_and_moves_tags(db):
     with db.cursor() as cur:
         cur.execute("SELECT volume_regime FROM daily_prices WHERE ticker='VRM1' AND date=%s", (B,)); assert cur.fetchone()[0] == "extended"
         cur.execute("SELECT volume_regime_flag, sanity_warnings FROM weekly_classification WHERE symbol='VRM1'")
-        f, w = cur.fetchone(); assert f == "mixed" and w == ["x"]
+        f, w = cur.fetchone(); assert f is None and w == ["x"]      # (PR-3) 이관 SQL 은 flag 를 찍지 않는다(창 유도 writer 의 NULL 을 덮으면 안 됨)
 
 
 def test_migration_sql_date_literals_equal_boundary_constant():
@@ -160,8 +162,8 @@ def test_migration_sql_date_literals_equal_boundary_constant():
 
 
 def test_migration_does_not_flag_system_rows_and_unflags_them(db):
-    """시스템 writer(system_disqualify·universe 배제)는 flag 를 쓰지 않는다 — 이관 SQL 이 그 행을 'mixed' 로 찍으면 안 되고,
-    이미 찍힌 행(운영 8행 실측)은 NULL 로 되돌린다."""
+    """(PR-3) 이관 SQL 은 어떤 판정 행에도 flag 를 찍지 않는다(as_of 규칙 폐기 — writer 가 창 유도로 NULL 을 쓴 행을 재실행이
+    'mixed' 로 덮던 경로 차단, 리뷰 #222). 시스템 writer 행에 남은 'mixed'(운영 8행 실측)만 NULL 로 되돌린다."""
     sql = (Path(__file__).parent.parent / "scripts" / "sql" / "issue207_volume_regime_migrate.sql").read_text(encoding="utf-8")
     with db.cursor() as cur:
         cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('VRM2','VRM2','KOSPI') ON CONFLICT (ticker) DO NOTHING")
@@ -172,7 +174,7 @@ def test_migration_does_not_flag_system_rows_and_unflags_them(db):
                     "VALUES ('VRM2', now() - interval '1 day', 'KOSPI', 'watch', 'flat_base', 'daily_delta', %s, NULL)", (B,))
         cur.execute(sql)
         cur.execute("SELECT source, volume_regime_flag FROM weekly_classification WHERE symbol='VRM2' ORDER BY source")
-        assert cur.fetchall() == [("daily_delta", "mixed"), ("system_disqualify", None)]
+        assert cur.fetchall() == [("daily_delta", None), ("system_disqualify", None)]
 
 
 def test_ohlcv_sanity_warns_on_regime_column_mismatch(db):

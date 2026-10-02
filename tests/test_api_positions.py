@@ -64,12 +64,12 @@ def test_list_evaluations(client, seed_position):
 
 
 def test_list_positions_exposes_volume_regime_flag(client, seed_position, db):
-    """최신 보유 평가(climax/decline)의 volume_regime_flag 를 노출 — 둘 중 하나라도 mixed 면 mixed(spec D9 PR-3)."""
+    """최신 보유 평가의 volume_regime_flag 를 노출(spec D9 PR-3) — 값은 climax(T2) 행에서 오고 decline 행은 항상 NULL(COALESCE)."""
     with db.cursor() as cur:
         cur.execute("INSERT INTO position_climax_evaluations (position_id, eval_date, fired, suppressed, hold_days, triggers, mode, volume_regime_flag) "
-                    "VALUES (%s, '2026-10-01', FALSE, FALSE, 1, '[]', 'quality', NULL)", (seed_position,))
+                    "VALUES (%s, '2026-10-01', FALSE, FALSE, 1, '[]', 'quality', 'mixed')", (seed_position,))
         cur.execute("INSERT INTO position_decline_evaluations (position_id, eval_date, fired, hold_days, signals, mode, climax_also_fired, volume_regime_flag) "
-                    "VALUES (%s, '2026-10-01', FALSE, 1, '[]', 'quality', FALSE, 'mixed')", (seed_position,))
+                    "VALUES (%s, '2026-10-01', FALSE, 1, '[]', 'quality', FALSE, NULL)", (seed_position,))
     db.commit()
     try:
         p = [x for x in client.get("/api/positions?status=open").json() if x["symbol"] == "APITEST1"][0]
