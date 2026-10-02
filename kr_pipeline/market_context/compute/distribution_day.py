@@ -9,6 +9,7 @@
 """
 import pandas as pd
 
+from kr_pipeline.market_context.compute.regime import regime_comparable
 from kr_pipeline.common.thresholds import (
     DISTRIBUTION_PCT_BASE,
     MARKET_DISTRIBUTION_LOOKBACK_DAYS,
@@ -96,6 +97,8 @@ def count_distribution_days(
             break
         today = index_df.iloc[i]
         yesterday = index_df.iloc[i - 1]
+        if not regime_comparable(today, yesterday):
+            continue   # (#207 회신 21) 거래량 정의 경계(09-25→09-28): 비교 불가 — 분배일·정체일 아님
         if is_distribution_day(
             today_close=float(today["close"]),
             today_volume=float(today["volume"]),

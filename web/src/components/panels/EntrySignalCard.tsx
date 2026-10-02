@@ -1,5 +1,5 @@
+import { VolumeRegimeBadge } from "../VolumeRegimeBadge";
 import { useQuery } from "@tanstack/react-query";
-import { warningLabel } from "../../lib/warningLabels";
 import { api } from "../../lib/api";
 import type { Signal } from "../../lib/types";
 import { Card } from "./Card";
@@ -75,15 +75,15 @@ export function EntrySignalCard({ ticker }: Props) {
             <span className="num">{s.risk_reward_ratio.toFixed(2)}</span>
           </div>
         )}
+        <VolumeRegimeBadge flag={s.volume_regime_flag} variant="inline" />
         {s.known_warnings.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {s.known_warnings.map((w) => (
               <span
                 key={w}
                 className="px-2 py-0.5 rounded bg-yellow-50 text-yellow-800 text-data-xs"
-                title={w}
               >
-                {warningLabel(w)}
+                {w}
               </span>
             ))}
           </div>

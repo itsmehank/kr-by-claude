@@ -1088,7 +1088,24 @@ CREATE TABLE IF NOT EXISTS issue_briefs (
     observed_at     TIMESTAMPTZ  NOT NULL           -- 마지막 gh 관측 시각
 );
 
--- (#207 회신 20, 2026-09-29) 거래량 정의 미확정 표지 — trigger_evaluation_log 에도 sanity_warnings(weekly_classification 과
--- 동일 의미, SOFT·쓰기 전용). 09-28 이후 analyzed_for_date 행에 'volume_regime_unverified_#207'(data_regimes.py).
+-- (#207 회신 20, 2026-09-29) trigger_evaluation_log.sanity_warnings — weekly_classification 과 동일 의미(SOFT). 당초 문자열 표지
+-- 'volume_regime_unverified_#207' 용으로 추가됐으나 회신 21 Q-5c 3(2026-09-30)으로 표지가 전용 컬럼 volume_regime_flag(아래)로
+-- 이관돼 현재 store 는 이 컬럼을 쓰지 않는다(이관 SQL 이 기존 표지 제거). 컬럼은 향후 SOFT 경고용으로 유지.
 ALTER TABLE trigger_evaluation_log
   ADD COLUMN IF NOT EXISTS sanity_warnings JSONB;
+
+-- (2026-09-30 #207 회신 21 Q-5c) 거래량 정의 경계 — 봉 단위. regular(정규장) / extended(애프터마켓 합산, 2026-09-28~) / mixed(주봉 혼재).
+-- 값은 날짜의 함수(data_regimes.VOLUME_REGIME_BOUNDARY): 저장 SQL 의 CASE 가 채우고, 소급은 scripts/sql/issue207_volume_regime_migrate.sql.
+ALTER TABLE daily_prices  ADD COLUMN IF NOT EXISTS volume_regime VARCHAR(8) NOT NULL DEFAULT 'regular';
+ALTER TABLE index_daily   ADD COLUMN IF NOT EXISTS volume_regime VARCHAR(8) NOT NULL DEFAULT 'regular';
+ALTER TABLE weekly_prices ADD COLUMN IF NOT EXISTS volume_regime VARCHAR(8) NOT NULL DEFAULT 'regular';
+-- 판정 행 표지(전용 컬럼, 회신 21 Q-5c 3): 계산 창이 경계에 걸친 판정만 'mixed', 그 외 NULL. sanity_warnings/known_warnings 와 의미 분리.
+ALTER TABLE weekly_classification        ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+ALTER TABLE trigger_evaluation_log       ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+ALTER TABLE entry_params                 ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+ALTER TABLE position_climax_evaluations  ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+ALTER TABLE position_decline_evaluations ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+-- insert_backfill_classification 의 대상 3테이블(allowlist)도 동일 컬럼(백필 셀은 대부분 경계 이전 → NULL).
+ALTER TABLE classification_backfill      ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+ALTER TABLE backtest_classification      ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+ALTER TABLE recall_audit_classification  ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);

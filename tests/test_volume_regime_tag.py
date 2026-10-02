@@ -1,36 +1,26 @@
-"""#207 회신 20 (ii) — 09-28 이후 거래량 정의 미확정 표지 + 트립와이어 (4) 경고형 + 백테스트 금지 강제."""
+"""#207 회신 21 Q-5c 3 — 판정 행 표지 = 전용 컬럼 volume_regime_flag(문자열 표지 제거) + 트립와이어 (4)."""
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
 from kr_pipeline.common.data_regimes import (
-    ALLOW_EXCLUDED_REGIME_ENV, BACKTEST_EXCLUDED_FROM, VOLUME_REGIME_TAG, VOLUME_REGIME_UNVERIFIED_FROM,
-    assert_backtest_range_allowed, volume_regime_warnings, with_volume_regime,
+    ALLOW_EXCLUDED_REGIME_ENV, BACKTEST_EXCLUDED_FROM, FLAG_MIXED, VOLUME_REGIME_BOUNDARY, assert_backtest_range_allowed,
 )
 from tests.test_llm_runner_store import _cls_result, _s9_result
 
-BEFORE = VOLUME_REGIME_UNVERIFIED_FROM - timedelta(days=5)
-AT = VOLUME_REGIME_UNVERIFIED_FROM
-BOUNDARY_CASES = [(BEFORE, False), (AT, True)]
+B = VOLUME_REGIME_BOUNDARY
+CASES = [(B - timedelta(days=5), None), (B, FLAG_MIXED)]
 _LLM_META = {"duration_s": 1.0, "input_tokens": None, "output_tokens": None}
 
 
-def test_helper_boundary_and_input_types():
-    assert volume_regime_warnings(None) == []
-    assert volume_regime_warnings(BEFORE) == []
-    assert volume_regime_warnings(AT) == [VOLUME_REGIME_TAG]
-    assert volume_regime_warnings(AT + timedelta(days=40)) == [VOLUME_REGIME_TAG]
-    assert volume_regime_warnings(datetime(AT.year, AT.month, AT.day, 9, tzinfo=timezone.utc)) == [VOLUME_REGIME_TAG]
-    assert volume_regime_warnings(AT.isoformat()) == [VOLUME_REGIME_TAG]
-
-
-def test_with_volume_regime_appends_once():
-    assert with_volume_regime(None, BEFORE) == []
-    assert with_volume_regime(["a"], AT) == ["a", VOLUME_REGIME_TAG]
-    assert with_volume_regime(["a", VOLUME_REGIME_TAG], AT) == ["a", VOLUME_REGIME_TAG]   # 중복 없음
+def _one(db, sql, *args):
+    with db.cursor() as cur:
+        cur.execute(sql, args)
+        return cur.fetchone()
 
 
 def test_backtest_guard(monkeypatch):
+    """회신 20 Q-4c: BACKTEST_EXCLUDED_FROM(09-28) 이후 봉은 백테스트 금지 — 명시 env 우회만 허용. (#220 리뷰: 삭제됐던 커버리지 복원)"""
     monkeypatch.delenv(ALLOW_EXCLUDED_REGIME_ENV, raising=False)
     assert_backtest_range_allowed(None)
     assert_backtest_range_allowed(BACKTEST_EXCLUDED_FROM - timedelta(days=1))
@@ -43,6 +33,7 @@ def test_backtest_guard(monkeypatch):
 
 
 def test_backfill_entrypoints_refuse_excluded_range(db, monkeypatch):
+    """세 진입점 중 두 곳(llm_runner.backfill·backtest.backfill)이 가드를 실제로 호출한다."""
     monkeypatch.delenv(ALLOW_EXCLUDED_REGIME_ENV, raising=False)
     from kr_pipeline.llm_runner import backfill as llm_backfill
     from kr_pipeline.backtest import backfill as bt_backfill
@@ -53,47 +44,73 @@ def test_backfill_entrypoints_refuse_excluded_range(db, monkeypatch):
                                           tickers=["005930"])
 
 
-def _fetch_one(db, sql, *args):
-    with db.cursor() as cur:
-        cur.execute(sql, args)
-        return cur.fetchone()[0]
+def test_text_tag_helpers_are_gone():
+    import kr_pipeline.common.data_regimes as m
+    assert not hasattr(m, "with_volume_regime") and not hasattr(m, "VOLUME_REGIME_TAG")
 
 
-@pytest.mark.parametrize("as_of,tagged", BOUNDARY_CASES)
-def test_insert_classification_tags_rows_on_or_after_boundary(db, as_of, tagged):
+@pytest.mark.parametrize("as_of,flag", CASES)
+def test_classification_flag_column_and_clean_sanity(db, as_of, flag):
     from kr_pipeline.llm_runner.store import insert_classification
     with db.cursor() as cur:
-        cur.execute("DELETE FROM weekly_classification WHERE symbol='VRTAG'")
-    insert_classification(db, symbol="VRTAG", classified_at=datetime.now(timezone.utc), market="KOSPI",
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='VRF1'")
+    insert_classification(db, symbol="VRF1", classified_at=datetime.now(timezone.utc), market="KOSPI",
                           result=_cls_result(), source="weekend", llm_meta=_LLM_META, analyzed_for_date=as_of)
-    w = _fetch_one(db, "SELECT sanity_warnings FROM weekly_classification WHERE symbol='VRTAG'")
-    assert (VOLUME_REGIME_TAG in (w or [])) is tagged
+    f, w = _one(db, "SELECT volume_regime_flag, sanity_warnings FROM weekly_classification WHERE symbol='VRF1'")
+    assert f == flag and not (w or [])
 
 
-@pytest.mark.parametrize("as_of,tagged", BOUNDARY_CASES)
-def test_insert_trigger_log_tags(db, as_of, tagged):
+@pytest.mark.parametrize("as_of,flag", CASES)
+def test_backfill_classification_flag_column(db, as_of, flag):
+    from kr_pipeline.llm_runner.store import insert_backfill_classification
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM classification_backfill WHERE symbol='VRF5'")
+    insert_backfill_classification(db, symbol="VRF5", classified_at=datetime.now(timezone.utc), market="KOSPI",
+                                   result=_cls_result(), source="backfill", llm_meta=_LLM_META, analyzed_for_date=as_of)
+    f = _one(db, "SELECT volume_regime_flag FROM classification_backfill WHERE symbol='VRF5'")[0]
+    assert f == flag
+
+
+@pytest.mark.parametrize("as_of,flag", CASES)
+def test_trigger_log_flag_column(db, as_of, flag):
     from kr_pipeline.llm_runner.store import insert_trigger_log
-    now = datetime(AT.year, AT.month, AT.day, 9, 0, tzinfo=timezone.utc)
+    now = datetime(B.year, B.month, B.day, 9, tzinfo=timezone.utc)
     with db.cursor() as cur:
-        cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol='VRTRG'")
-    insert_trigger_log(db, symbol="VRTRG", evaluated_at=now, trigger_type="breakout",
-                       close=1010.0, volume=100000, pivot_price=1000.0,
-                       result={"decision": "wait", "confidence": 0.5, "reasoning": "t"},
-                       prior_classification_at=now, llm_meta=_LLM_META, analyzed_for_date=as_of)
-    w = _fetch_one(db, "SELECT sanity_warnings FROM trigger_evaluation_log WHERE symbol='VRTRG'")
-    assert (VOLUME_REGIME_TAG in (w or [])) is tagged
+        cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol='VRF2'")
+    insert_trigger_log(db, symbol="VRF2", evaluated_at=now, trigger_type="breakout", close=1010.0, volume=1, pivot_price=1000.0,
+                       result={"decision": "wait", "confidence": 0.5, "reasoning": "t"}, prior_classification_at=now,
+                       llm_meta=_LLM_META, analyzed_for_date=as_of)
+    f, w = _one(db, "SELECT volume_regime_flag, sanity_warnings FROM trigger_evaluation_log WHERE symbol='VRF2'")
+    assert f == flag and w is None
 
 
-@pytest.mark.parametrize("as_of,tagged", BOUNDARY_CASES)
-def test_insert_entry_params_tags_known_warnings(db, as_of, tagged):
+@pytest.mark.parametrize("as_of,flag", CASES)
+def test_entry_params_flag_column_and_clean_known_warnings(db, as_of, flag):
     from kr_pipeline.llm_runner.store import insert_entry_params
-    now = datetime(AT.year, AT.month, AT.day, 1, 0, tzinfo=timezone.utc)
+    now = datetime(B.year, B.month, B.day, 1, tzinfo=timezone.utc)
     with db.cursor() as cur:
-        cur.execute("DELETE FROM entry_params WHERE symbol='VRENT'")
-    insert_entry_params(db, symbol="VRENT", signal_at=now, result=_s9_result(observed_breakout_volume_ratio=1.8),
-                        trigger_evaluation_at=now, prior_classification_at=now, llm_meta=_LLM_META, analyzed_for_date=as_of)
-    w = _fetch_one(db, "SELECT known_warnings FROM entry_params WHERE symbol='VRENT' AND signal_at=%s", now)
-    assert (VOLUME_REGIME_TAG in (w or [])) is tagged
+        cur.execute("DELETE FROM entry_params WHERE symbol='VRF3'")
+    insert_entry_params(db, symbol="VRF3", signal_at=now, result=_s9_result(), trigger_evaluation_at=now,
+                        prior_classification_at=now, llm_meta=_LLM_META, analyzed_for_date=as_of)
+    f, kw = _one(db, "SELECT volume_regime_flag, known_warnings FROM entry_params WHERE symbol='VRF3' AND signal_at=%s", now)
+    assert f == flag and "volume_regime_unverified_#207" not in (kw or [])
+
+
+@pytest.mark.parametrize("as_of,flag", CASES)
+def test_position_evaluations_flag_column(db, as_of, flag):
+    from kr_pipeline.trade_management.runner import _insert_climax_eval, _insert_decline_eval
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('VRF4','VRF4','KOSPI') ON CONFLICT (ticker) DO NOTHING")
+        cur.execute("DELETE FROM positions WHERE symbol='VRF4'")
+        cur.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity, status) VALUES ('VRF4', %s, 1000, 1, 'open') RETURNING id", (as_of,))
+        pid = cur.fetchone()[0]
+    assert _insert_climax_eval(db, position_id=pid, as_of=as_of, fired=False, suppressed=False, hold_days=1, triggers=[],
+                               anchor_week=None, weeks_since=None, maturity_ok=None, p2_accel_ok=None, scope_active=None, mode="quality")
+    assert _insert_decline_eval(db, position_id=pid, as_of=as_of, fired=False, hold_days=1, signals=[], anchor_week=None,
+                                weeks_since=None, maturity_ok=None, ta_max_decline_now=None, ta_d_daily_max_decline_now=None,
+                                mode="quality", climax_also_fired=False)
+    assert _one(db, "SELECT volume_regime_flag FROM position_climax_evaluations WHERE position_id=%s", pid)[0] == flag
+    assert _one(db, "SELECT volume_regime_flag FROM position_decline_evaluations WHERE position_id=%s", pid)[0] == flag
 
 
 def test_tripwire4_volume_breakout_count_warns_over_max(db):
