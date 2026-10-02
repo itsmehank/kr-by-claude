@@ -38,8 +38,8 @@ def test_regime_window_state_and_flag():
     assert regime_window_state(["extended", "mixed"]) == "mixed"            # 주봉 mixed 포함
     assert window_flag(["regular"] * 50) is None and window_flag(["extended"] * 50) is None
     assert window_flag(["regular", "extended"]) == "mixed"
-    from kr_pipeline.common.thresholds import CLIMAX_ANCHOR_VOL_AVG_WEEKS
-    assert VOLUME_WINDOW_DAILY_BARS == 50
+    from kr_pipeline.common.thresholds import CLIMAX_ANCHOR_VOL_AVG_WEEKS, VOLUME_AVG_WINDOW_DAYS
+    assert VOLUME_WINDOW_DAILY_BARS == VOLUME_AVG_WINDOW_DAYS == 50   # SSOT(indicators avg_volume_50d 와 같은 창)
     assert VOLUME_WINDOW_WEEKLY_WEEKS == CLIMAX_ANCHOR_VOL_AVG_WEEKS + 1      # C3 = vols[i] ÷ avg(vols[i-W:i]) → 행 W+1 개(리뷰 #222)
 
 

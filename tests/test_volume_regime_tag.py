@@ -128,9 +128,9 @@ def test_entry_params_flag_column_and_clean_known_warnings(db, straddle, flag):
 
 @pytest.mark.parametrize("anchor_offset_weeks,flag", [(-3, FLAG_MIXED), (0, None), (None, None)])
 def test_position_evaluations_flag_from_anchor_window(db, anchor_offset_weeks, flag):
-    """T2 창 = 앵커 주 ~ 평가 주(spec D7): 경계 전 앵커 → mixed, 경계 후 앵커 → NULL, 앵커 없음 → NULL. flag 는 run_daily_eval 이 1회
-    계산해 climax 행에 넘기고, decline 행은 거래량 입력이 없어(T-A·TA-d = 가격 낙폭) 항상 NULL(리뷰 #222)."""
-    from kr_pipeline.common.regime_windows import weekly_range_flag
+    """T2 창 = 앵커 주 ~ 평가 주(spec D7): 경계 전 앵커 → mixed, 경계 후 앵커 → NULL, 앵커 없음 → NULL. flag 는 run_daily_eval 이
+    gates.week_ends 로 1회 계산해 climax 행에 넘기고, decline 행은 거래량 입력이 없어(T-A·TA-d = 가격 낙폭) 항상 NULL(리뷰 #222)."""
+    from kr_pipeline.common.regime_windows import range_flag_from_week_ends
     from kr_pipeline.trade_management.runner import _insert_climax_eval, _insert_decline_eval
     eval_week = B + timedelta(days=4)                                  # 10-02(금)
     fridays = [eval_week + timedelta(weeks=i) for i in range(-6, 1)]
@@ -140,7 +140,7 @@ def test_position_evaluations_flag_from_anchor_window(db, anchor_offset_weeks, f
         cur.execute("DELETE FROM positions WHERE symbol='VRF4'")
         cur.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity, status) VALUES ('VRF4', %s, 1000, 1, 'open') RETURNING id", (eval_week,))
         pid = cur.fetchone()[0]
-    vr = weekly_range_flag(db, "VRF4", anchor, eval_week)
+    vr = range_flag_from_week_ends([f.isoformat() for f in fridays], anchor)   # 러너는 gates.week_ends 로 DB 없이 유도
     assert vr == flag
     assert _insert_climax_eval(db, position_id=pid, as_of=eval_week, fired=False, suppressed=False, hold_days=1, triggers=[],
                                anchor_week=anchor, weeks_since=None, maturity_ok=None, p2_accel_ok=None, scope_active=None, mode="quality",
@@ -150,6 +150,27 @@ def test_position_evaluations_flag_from_anchor_window(db, anchor_offset_weeks, f
                                 mode="quality", climax_also_fired=False)
     assert _one(db, "SELECT volume_regime_flag FROM position_climax_evaluations WHERE position_id=%s", pid)[0] == flag
     assert _one(db, "SELECT volume_regime_flag FROM position_decline_evaluations WHERE position_id=%s", pid)[0] is None
+
+
+def test_run_daily_eval_wires_window_flag_into_climax_row_only(db, mocker):
+    """러너 통합(리뷰 #222 2차): gates.week_ends+anchor_week → climax 행 'mixed', decline 행 NULL. as_of ≥ 경계."""
+    from kr_pipeline.trade_management import runner
+    from kr_pipeline.trade_management.store import open_position
+    from tests.test_trade_held_climax import _g, _runner_cleanup, _bar
+    sym, as_of = "VRF8", B + timedelta(days=4)                               # 2026-10-02(금)
+    _runner_cleanup(db, sym)
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,%s,'KOSPI') ON CONFLICT DO NOTHING", (sym, sym))
+    pid = open_position(db, symbol=sym, entry_date=date(2026, 5, 1), entry_price=10000.0, quantity=10); db.commit()
+    week_ends = [(as_of - timedelta(weeks=k)).isoformat() for k in range(10, -1, -1)]       # 07-24 ~ 10-02
+    mocker.patch.object(runner, "compute_held_gates", return_value=_g(anchor_week=week_ends[0], week_ends=week_ends))
+    mocker.patch.object(runner, "notify_stop_triggered"); mocker.patch.object(runner, "notify_sell_into_strength")
+    mocker.patch.object(runner, "notify_sell_on_weakness")
+    _bar(db, sym, as_of, 15000.0)                                              # 스탑 위 → held 경로 진입
+    runner.run_daily_eval(db, as_of=as_of); db.commit()
+    assert _one(db, "SELECT volume_regime_flag FROM position_climax_evaluations WHERE position_id=%s AND eval_date=%s", pid, as_of)[0] == FLAG_MIXED
+    assert _one(db, "SELECT volume_regime_flag FROM position_decline_evaluations WHERE position_id=%s AND eval_date=%s", pid, as_of)[0] is None
+    _runner_cleanup(db, sym)
 
 
 def test_classification_flag_null_after_window_expires(db):

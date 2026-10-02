@@ -32,6 +32,7 @@ from kr_pipeline.common.thresholds import (
 CALC_VERSION = "deterministic:entry_params_calc/v1"  # entry_params.llm_model 컬럼 표기
 
 _STANDARD_PATTERNS = {"flat_base", "cup_with_handle", "double_bottom"}
+PP_RECENT_SESSIONS = 5   # pocket_pivot 탐색 창(최근 N 세션 중 최신 PP 일) — regime_windows.entry_window_flag 가 import(#222 리뷰)
 _PP_BASE_PATTERNS = {"flat_base", "cup_with_handle", "vcp", "double_bottom"}
 
 # §2/§3 (#153) 리스크 역산 — 상수는 전부 thresholds.py SSOT(SIZING_*·TRADE_STOP_INITIAL_PCT·
@@ -116,7 +117,7 @@ def calculate_entry_params(payload: dict) -> dict:
     entry_mode = "pivot_breakout"
     pp_row = None
     if pp_claimed and pattern in _PP_BASE_PATTERNS:
-        recent5 = rdi[-5:]
+        recent5 = rdi[-PP_RECENT_SESSIONS:]
         flagged = [r for r in recent5 if r.get("pocket_pivot_flag")]
         if flagged:
             entry_mode = "pocket_pivot"

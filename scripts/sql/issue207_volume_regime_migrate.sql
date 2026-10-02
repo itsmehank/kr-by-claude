@@ -26,3 +26,6 @@ UPDATE trigger_evaluation_log SET sanity_warnings = NULLIF(sanity_warnings - 'vo
 UPDATE entry_params SET known_warnings = known_warnings - 'volume_regime_unverified_#207'
  WHERE known_warnings ? 'volume_regime_unverified_#207';
 UPDATE weekly_classification        SET volume_regime_flag = NULL    WHERE volume_regime_flag IS NOT NULL AND source LIKE 'system\_%';
+-- PR-2 임시 규칙이 찍었으나 PR-3 writer 가 만들 수 없는 값(리뷰 #222): decline 행(거래량 입력 없음)·앵커 없는 climax 행 → NULL
+UPDATE position_decline_evaluations SET volume_regime_flag = NULL WHERE volume_regime_flag IS NOT NULL;
+UPDATE position_climax_evaluations  SET volume_regime_flag = NULL WHERE volume_regime_flag IS NOT NULL AND anchor_week IS NULL;

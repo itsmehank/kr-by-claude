@@ -55,10 +55,10 @@ weekly_prices 는 재집계 대신 `week_end_date >= '2026-10-02'` → extended,
 
 | 소비처 | 창 | 유도 입력 | flag 기록 위치 |
 |---|---|---|---|
-| 분류(weekly_classification) | 주간 C3 W+1 주(분자 주 포함, W=CLIMAX_ANCHOR_VOL_AVG_WEEKS) + 일간 volume_ratio_50d 50봉 → **둘 중 하나라도 mixed 면 mixed** | payload 의 weekly/daily 봉 regime | store.insert_classification(+backfill 계열) |
+| 분류(weekly_classification) | 주간 C3 W+1 주(분자 주 포함, W=CLIMAX_ANCHOR_VOL_AVG_WEEKS) + 일간 volume_ratio_50d 50봉 + **앵커 주~평가 주**(T2/P2 는 앵커 기준, 리뷰 #222 2차) → **하나라도 mixed 면 mixed** | payload 의 weekly/daily 봉 regime | store.insert_classification(+backfill 계열) |
 | 트리거(trigger_evaluation_log) | 일간 50봉(gate_precompute volume_band 입력 = daily_indicators.volume_ratio_50d) | as_of 기준 최근 50 일봉 regime | store.insert_trigger_log |
 | 진입(entry_params) | 일간 50봉 + PP 탐색 4봉(pocket_pivot 분기의 비율은 최근 5세션 중 PP 일에서 끝나는 창, 리뷰 #222) | 동일 | store.insert_entry_params |
-| 보유 climax(T2) | 앵커 주 ~ 평가 주 | weekly regime(날짜 규칙) | run_daily_eval 1회 계산 → position_climax_evaluations. **기록(리뷰 #222)**: 앵커 선정 자체의 C3 분모(앵커 −W주)는 창 밖 — 전문가 판정 후보([Q]) |
+| 보유 climax(T2) | 앵커 주 ~ 평가 주 | gates.week_ends(T2 가 쓴 주, zero-bar 제외) → 날짜 규칙, DB 0 | run_daily_eval 1회 계산 → position_climax_evaluations. **기록(리뷰 #222)**: 앵커 선정 자체의 C3 분모(앵커 −W주)는 창 밖 — 전문가 판정 후보([Q]) |
 | 보유 decline | — (**정정 10-02, 리뷰 #222**: decline 판정 T-A·TA-d 는 가격 낙폭만, 거래량 입력 없음 → flag 항상 NULL) | — | position_decline_evaluations.volume_regime_flag = NULL |
 
 유도 함수(순수): `regime_window_state(regimes: Iterable[str]) -> Literal["clean","mixed","new"]` — 빈 입력은 clean. 창 봉 조회는

@@ -1100,7 +1100,7 @@ ALTER TABLE daily_prices  ADD COLUMN IF NOT EXISTS volume_regime VARCHAR(8) NOT 
 ALTER TABLE index_daily   ADD COLUMN IF NOT EXISTS volume_regime VARCHAR(8) NOT NULL DEFAULT 'regular';
 ALTER TABLE weekly_prices ADD COLUMN IF NOT EXISTS volume_regime VARCHAR(8) NOT NULL DEFAULT 'regular';
 -- 판정 행 표지(전용 컬럼, 회신 21 Q-5c 3): 계산 창이 경계에 걸친 판정만 'mixed', 그 외 NULL. sanity_warnings/known_warnings 와 의미 분리.
--- (2026-10-02 PR-3, Q-5c 2) 값 = 판정의 거래량 창(분류: 주간 50주 ∪ 일간 50봉 / 트리거·진입: 일간 50봉 / 보유 T2·T-D: 앵커 주~평가 주)이
+-- (2026-10-02 PR-3, Q-5c 2) 값 = 판정의 거래량 창(분류: 주간 W+1주 ∪ 일간 50봉 ∪ 앵커~평가 주 / 트리거: 일간 50봉 / 진입: +PP 4봉 / 보유 climax T2: 앵커 주~평가 주, decline 은 NULL)이
 --   경계에 걸칠 때만 'mixed' — common/regime_windows.py 가 봉 날짜로 유도(저장 컬럼 비의존). 판정 시점 사실이라 사후 갱신 없음, 자연 만료.
 ALTER TABLE weekly_classification        ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
 ALTER TABLE trigger_evaluation_log       ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);

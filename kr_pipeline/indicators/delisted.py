@@ -18,6 +18,7 @@ from psycopg import Connection
 
 from kr_pipeline.common.security_group import UNRESOLVED, is_gated_out
 from kr_pipeline.common.thresholds import (
+    VOLUME_AVG_WINDOW_DAYS,
     C8_RS_RATING_MIN, RS_LINE_DECLINE_GATE_WEEKS, RS_LINE_UPTREND_LONG_WEEKS,
     RS_LINE_UPTREND_SHORT_WEEKS,
 )
@@ -73,7 +74,7 @@ def compute_delisted_rows(ticker: str, df_daily: pd.DataFrame, df_idx: pd.DataFr
     df = df.set_index("date").sort_index()
     adj_close = df["adj_close"]
     adj_volume = df["adj_volume"]
-    avg_vol_50 = avg_volume(adj_volume, window=50, min_periods=40)
+    avg_vol_50 = avg_volume(adj_volume, window=VOLUME_AVG_WINDOW_DAYS, min_periods=40)
     vol_ratio_50 = volume_ratio(adj_volume, avg_vol_50)
     is_up = adj_close > adj_close.shift(1)
     is_down = adj_close < adj_close.shift(1)

@@ -1,9 +1,10 @@
-"""#207 회신 21 Q-5c 2 — 판정 창(일봉 50/주봉 50/앵커~평가) 날짜로 volume_regime_flag 유도."""
+"""#207 회신 21 Q-5c 2 — 판정 창(일봉 50/주봉 W+1/앵커~평가) 날짜로 volume_regime_flag 유도."""
 from datetime import date, timedelta
 
-from kr_pipeline.common.data_regimes import VOLUME_REGIME_BOUNDARY as B
+from kr_pipeline.common.data_regimes import FLAG_MIXED, VOLUME_REGIME_BOUNDARY as B
 from kr_pipeline.common.regime_windows import (
-    classification_flag, daily_window_flag, entry_window_flag, weekly_range_flag, weekly_window_flag,
+    DAILY_WINDOW_MAX_CAL_DAYS, WEEKLY_WINDOW_MAX_CAL_DAYS, classification_flag, daily_window_flag, entry_window_flag,
+    range_flag_from_week_ends, weekly_window_flag,
 )
 
 
@@ -15,12 +16,14 @@ def _seed_daily(db, ticker, dates):
                         [(ticker, d) for d in dates])
 
 
-def _seed_weekly(db, ticker, week_ends):
+def _seed_weekly(db, ticker, week_ends, zero_bar_weeks=()):
     with db.cursor() as cur:
         cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,%s,'KOSPI') ON CONFLICT (ticker) DO NOTHING", (ticker, ticker))
         cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (ticker,))
         cur.executemany("INSERT INTO weekly_prices (ticker, week_end_date, open, high, low, close, adj_close, volume, value, trading_days) "
-                        "VALUES (%s,%s,1,1,1,1,1,1,1,5)", [(ticker, d) for d in week_ends])
+                        "VALUES (%s,%s,%s,%s,%s,1,1,%s,1,5)",
+                        [(ticker, d, 0 if d in zero_bar_weeks else 1, 0 if d in zero_bar_weeks else 1, 0 if d in zero_bar_weeks else 1,
+                          0 if d in zero_bar_weeks else 1) for d in week_ends])
 
 
 def _weekdays(start, n):
@@ -37,7 +40,7 @@ def test_daily_window_flag_mixed_only_while_window_straddles_boundary(db):
     _seed_daily(db, "RWD1", days)
     before = [d for d in days if d < B]
     after = [d for d in days if d >= B]
-    assert daily_window_flag(db, "RWD1", before[-1]) is None                  # 경계 전: clean
+    assert daily_window_flag(db, "RWD1", before[-1]) is None                  # 경계 전: clean(DB 0)
     assert daily_window_flag(db, "RWD1", after[0]) == "mixed"                 # 경계 당일: 49 regular + 1 extended
     assert daily_window_flag(db, "RWD1", after[48]) == "mixed"                # 50번째 봉 직전까지 mixed
     assert daily_window_flag(db, "RWD1", after[49]) is None                   # 경계 + 50봉: 전부 extended → new → NULL(자연 만료)
@@ -50,19 +53,58 @@ def test_daily_window_flag_with_fewer_bars_than_window(db):
     assert daily_window_flag(db, "RWD2", days[0]) is None
 
 
-def test_weekly_window_and_range_flags(db):
+def test_weekly_window_flag_and_zero_bar_weeks_excluded(db):
     fridays = [date(2025, 10, 3) + timedelta(weeks=i) for i in range(60)]     # 금요일 60주(2025-10 ~ 2026-11)
-    _seed_weekly(db, "RWW1", fridays)
     last_before = max(f for f in fridays if f < B)
     first_after = min(f for f in fridays if f >= B)
+    _seed_weekly(db, "RWW1", fridays)
     assert weekly_window_flag(db, "RWW1", last_before) is None
     assert weekly_window_flag(db, "RWW1", first_after) == "mixed"
-    assert weekly_range_flag(db, "RWW1", None, first_after) is None            # 앵커 없음 → 창 없음
-    assert weekly_range_flag(db, "RWW1", first_after.isoformat(), first_after) is None   # 앵커=평가 주(extended 1주) → new
-    assert weekly_range_flag(db, "RWW1", last_before.isoformat(), first_after) == "mixed"
+    # zero-bar(거래정지) 주는 산술(_fetch_weekly_full)과 같이 제외 — 창 51주가 할트 주로 채워져도 경계 전 실제 주를 본다
+    post = [f for f in fridays if f >= B]
+    _seed_weekly(db, "RWW2", fridays, zero_bar_weeks=set(post[1:]))
+    assert weekly_window_flag(db, "RWW2", post[-1], n=2) == "mixed"            # 비할트 최근 2주 = (경계 전 주, 경계 첫 주)
+    _seed_weekly(db, "RWW3", fridays)
+    assert weekly_window_flag(db, "RWW3", post[-1], n=2) is None               # 할트 없으면 최근 2주 모두 extended
 
 
-def test_classification_flag_combines_daily_and_weekly(db):
+def test_range_flag_from_week_ends_is_pure():
+    fridays = [date(2026, 8, 7) + timedelta(weeks=i) for i in range(12)]      # 08-07 ~ 10-23
+    after = [f for f in fridays if f >= B]
+    assert range_flag_from_week_ends(fridays, None) is None                    # 앵커 없음
+    assert range_flag_from_week_ends([f.isoformat() for f in fridays], "2026-08-21") == "mixed"
+    assert range_flag_from_week_ends(fridays, after[0]) is None                # 앵커 = 경계 첫 주 → 전부 extended
+    assert range_flag_from_week_ends([], "2026-08-21") is None                 # 창 비어 있음
+
+
+def test_flags_short_circuit_without_db_before_boundary_and_after_cap(db, monkeypatch):
+    """as_of < 경계(전부 regular) 또는 경계 + 상한 초과(전부 extended)면 DB 를 읽지 않는다."""
+    import kr_pipeline.common.regime_windows as rw
+    monkeypatch.setattr(rw, "price_source", lambda *a, **k: (_ for _ in ()).throw(AssertionError("DB 접근 금지")))
+    d = B - timedelta(days=1)
+    assert daily_window_flag(db, "ANY", d) is None and weekly_window_flag(db, "ANY", d) is None
+    assert classification_flag(db, "ANY", d, anchor_week="2026-08-07") is None and entry_window_flag(db, "ANY", d) is None
+    far = B + timedelta(days=WEEKLY_WINDOW_MAX_CAL_DAYS + 1)
+    assert daily_window_flag(db, "ANY", B + timedelta(days=DAILY_WINDOW_MAX_CAL_DAYS + 1)) is None
+    assert weekly_window_flag(db, "ANY", far) is None
+    assert classification_flag(db, "ANY", far, anchor_week=(far - timedelta(days=7)).isoformat()) is None   # 앵커 ≥ 경계 → 조회 불요
+
+
+def test_flags_fail_soft_conservative_mixed_and_keep_transaction_usable(db, monkeypatch, caplog):
+    """관측 전용 헬퍼의 SQL 오류가 본 INSERT 를 막으면 안 된다(store #39) — SAVEPOINT 격리. 값은 보수 'mixed'(오류 ≠ 깨끗함)."""
+    import logging
+    import kr_pipeline.common.regime_windows as rw
+    from kr_pipeline.common.price_source import PriceSource
+    monkeypatch.setattr(rw, "price_source", lambda *a, **k: PriceSource("no_such_table_x", "no_such_table_y", "", "", False))
+    with caplog.at_level(logging.WARNING, logger="kr_pipeline.common.regime_windows"):
+        assert daily_window_flag(db, "RWX1", B) == FLAG_MIXED
+        assert classification_flag(db, "RWX1", B) == FLAG_MIXED
+    assert "regime_window_flag_failed" in caplog.text
+    with db.cursor() as cur:                                   # 트랜잭션 오염 없음
+        cur.execute("SELECT 1"); assert cur.fetchone()[0] == 1
+
+
+def test_classification_flag_combines_daily_weekly_and_anchor_range(db):
     days = _weekdays(B - timedelta(days=10), 52)                               # 일간 창(마지막 50봉): 경계 걸침
     _seed_daily(db, "RWJ1", days)
     fridays = [B + timedelta(days=4) + timedelta(weeks=i) for i in range(3)]   # 주간 창: 전부 extended
@@ -70,30 +112,16 @@ def test_classification_flag_combines_daily_and_weekly(db):
     as_of = days[-1]
     assert classification_flag(db, "RWJ1", as_of) == "mixed"
     assert weekly_window_flag(db, "RWJ1", as_of) is None
-
-
-def test_flags_short_circuit_before_boundary_without_db(db, monkeypatch):
-    """as_of < 경계면 창의 모든 봉이 regular 라 DB 를 읽지 않고 NULL(백필 수천 셀의 무의미한 왕복 제거, 리뷰 #222)."""
-    import kr_pipeline.common.regime_windows as rw
-    monkeypatch.setattr(rw, "price_source", lambda *a, **k: (_ for _ in ()).throw(AssertionError("DB 접근 금지")))
-    d = B - timedelta(days=1)
-    assert daily_window_flag(db, "ANY", d) is None and weekly_window_flag(db, "ANY", d) is None
-    assert classification_flag(db, "ANY", d) is None and entry_window_flag(db, "ANY", d) is None
-    assert weekly_range_flag(db, "ANY", (d - timedelta(days=30)).isoformat(), d) is None
-
-
-def test_flags_fail_soft_and_keep_transaction_usable(db, monkeypatch, caplog):
-    """관측 전용 헬퍼의 SQL 오류가 본 INSERT(LLM 비용 지출분)를 막으면 안 된다(store #39 규약) — SAVEPOINT 격리 후 None."""
-    import logging
-    import kr_pipeline.common.regime_windows as rw
-    from kr_pipeline.common.price_source import PriceSource
-    monkeypatch.setattr(rw, "price_source", lambda *a, **k: PriceSource("no_such_table_x", "no_such_table_y", "", "", False))
-    with caplog.at_level(logging.WARNING, logger="kr_pipeline.common.regime_windows"):
-        assert daily_window_flag(db, "RWX1", B) is None
-        assert weekly_range_flag(db, "RWX1", B.isoformat(), B) is None
-    assert "regime_window_flag_failed" in caplog.text
-    with db.cursor() as cur:                                   # 트랜잭션 오염 없음
-        cur.execute("SELECT 1"); assert cur.fetchone()[0] == 1
+    # 앵커 구간: 일간·주간 창이 만료돼도 앵커가 경계 전이면 T2/P2 입력이 혼재 → mixed(리뷰 #222 2차)
+    days2 = _weekdays(B - timedelta(days=200), 240)
+    _seed_daily(db, "RWJ2", days2)
+    fridays2 = [date(2025, 10, 3) + timedelta(weeks=i) for i in range(75)]      # ~2027-03
+    _seed_weekly(db, "RWJ2", fridays2)
+    late = max(f for f in fridays2 if f <= B + timedelta(days=200))              # 경계 + ~200일(일간 창 만료, 주간 51주는 아직 걸침)
+    assert daily_window_flag(db, "RWJ2", late) is None
+    assert classification_flag(db, "RWJ2", late, anchor_week=None) == "mixed"    # 주간 51주 창은 아직 mixed
+    far = fridays2[-1]                                                            # ~2027-03: 주간 51주도 아직 걸침(≈2027-09 만료)
+    assert classification_flag(db, "RWJ2", far, anchor_week="2026-08-07") == "mixed"
 
 
 def test_entry_window_flag_covers_pocket_pivot_lookback(db):

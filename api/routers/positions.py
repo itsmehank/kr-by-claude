@@ -26,7 +26,7 @@ def list_positions(
                    e.triggered, e.warnings,
                    p.signal_at, p.pivot_price, p.signal_stop_price, p.chase_pct,
                    p.chase_over_limit, p.signal_gap_days,
-                   COALESCE(c.volume_regime_flag, d.volume_regime_flag)
+                   c.volume_regime_flag
               FROM positions p
               LEFT JOIN stocks s ON s.ticker = p.symbol
               LEFT JOIN LATERAL (
@@ -37,15 +37,11 @@ def list_positions(
                  ORDER BY eval_date DESC
                  LIMIT 1
               ) e ON true
-              -- (#207 Q-5c 2, PR-3) 최신 보유 평가의 창 경계 표지 — 표시 전용. 값은 climax(T2) 행, decline 행은 항상 NULL(거래량 입력 없음)
+              -- (#207 Q-5c 2, PR-3) 최신 보유 climax(T2) 평가의 창 경계 표지 — 표시 전용(decline 행은 거래량 입력이 없어 flag 없음)
               LEFT JOIN LATERAL (
                 SELECT volume_regime_flag FROM position_climax_evaluations
                  WHERE position_id = p.id ORDER BY eval_date DESC LIMIT 1
               ) c ON true
-              LEFT JOIN LATERAL (
-                SELECT volume_regime_flag FROM position_decline_evaluations
-                 WHERE position_id = p.id ORDER BY eval_date DESC LIMIT 1
-              ) d ON true
              WHERE (%s = 'all' OR p.status = %s)
              ORDER BY p.status DESC, p.entry_date DESC, p.id DESC
             """,

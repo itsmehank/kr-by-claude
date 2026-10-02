@@ -18,6 +18,7 @@ from kr_pipeline.indicators.compute.rs_line import (
     compute_rs_line_not_declining,
 )
 from kr_pipeline.common.thresholds import (
+    VOLUME_AVG_WINDOW_DAYS,
     RS_LINE_UPTREND_SHORT_WEEKS, RS_LINE_UPTREND_LONG_WEEKS, RS_LINE_DECLINE_GATE_WEEKS,
 )
 from kr_pipeline.indicators.compute.rs_rating import compute_ibd_strength_factor, assign_rs_rating_percentiles
@@ -154,7 +155,7 @@ def _process_ticker_daily(
 
     # V3: daily_prices.adj_volume 직접 읽기 (split-adjusted volume 재계산 제거)
     adj_volume = df["adj_volume"]
-    avg_vol_50 = avg_volume(adj_volume, window=50, min_periods=40)  # halt(NULL) 거래일 ≤10 허용·실평균 (min_periods=설계판단, book 근거 아님)
+    avg_vol_50 = avg_volume(adj_volume, window=VOLUME_AVG_WINDOW_DAYS, min_periods=40)  # halt(NULL) 거래일 ≤10 허용·실평균 (min_periods=설계판단, book 근거 아님)
     vol_ratio_50 = volume_ratio(adj_volume, avg_vol_50)
 
     is_up = adj_close > adj_close.shift(1)

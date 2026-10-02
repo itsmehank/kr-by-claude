@@ -20,7 +20,7 @@ from datetime import date
 
 from psycopg import Connection
 
-from kr_pipeline.common.regime_windows import weekly_range_flag
+from kr_pipeline.common.regime_windows import range_flag_from_week_ends
 from kr_pipeline.common.thresholds import SELL_HALF_ENABLED
 from kr_pipeline.llm_runner.slack import (
     notify_sell_half, notify_sell_into_strength, notify_sell_on_weakness, notify_stop_triggered,
@@ -184,8 +184,9 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
             continue
         hd = evaluate_held_decline(gates, p["entry_date"], as_of)
         hc = evaluate_held_climax(gates, p["entry_date"], as_of)
-        # (#207 Q-5c 2) T2 창(앵커 주~평가 주)의 거래량 정의 경계 표지 — 1회 계산, climax 행에만 기록(decline 은 거래량 입력 없음)
-        vr_flag = weekly_range_flag(conn, p["symbol"], gates.get("anchor_week"), as_of)
+        # (#207 Q-5c 2) T2 창(앵커 주~평가 주)의 거래량 정의 경계 표지 — gates 가 동봉한 week_ends(T2 가 실제로 쓴 주)로 DB 없이
+        # 1회 계산, climax 행에만 기록(decline 은 거래량 입력 없음)
+        vr_flag = range_flag_from_week_ends(gates.get("week_ends") or [], gates.get("anchor_week"))
 
         # (#164) 약세 매도 — 스탑 다음 우선. 기록은 항상, 알림은 발화 ∧ 신규 INSERT 시.
         hd_inserted = _insert_decline_eval(
