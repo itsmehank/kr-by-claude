@@ -20,7 +20,7 @@ from datetime import date
 
 from psycopg import Connection
 
-from kr_pipeline.common.data_regimes import regime_flag_for_as_of
+from kr_pipeline.common.regime_windows import weekly_range_flag
 from kr_pipeline.common.thresholds import SELL_HALF_ENABLED
 from kr_pipeline.llm_runner.slack import (
     notify_sell_half, notify_sell_into_strength, notify_sell_on_weakness, notify_stop_triggered,
@@ -187,7 +187,7 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
 
         # (#164) 약세 매도 — 스탑 다음 우선. 기록은 항상, 알림은 발화 ∧ 신규 INSERT 시.
         hd_inserted = _insert_decline_eval(
-            conn, position_id=p["id"], as_of=as_of, fired=hd.fired, hold_days=hd.hold_days, signals=hd.signals,
+            conn, position_id=p["id"], symbol=p["symbol"], as_of=as_of, fired=hd.fired, hold_days=hd.hold_days, signals=hd.signals,
             anchor_week=hd.anchor_week, weeks_since=hd.weeks_since, maturity_ok=hd.maturity_ok,
             ta_max_decline_now=hd.ta_max_decline_now, ta_d_daily_max_decline_now=hd.ta_d_daily_max_decline_now,
             mode=hd.mode, climax_also_fired=bool(hc.fired))
@@ -213,7 +213,7 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
 
         # (항목 ③) 강세 매도 — 기록은 항상(병기), 알림은 decline 미발화일에만.
         hc_inserted = _insert_climax_eval(
-            conn, position_id=p["id"], as_of=as_of, fired=hc.fired, suppressed=hc.suppressed, hold_days=hc.hold_days,
+            conn, position_id=p["id"], symbol=p["symbol"], as_of=as_of, fired=hc.fired, suppressed=hc.suppressed, hold_days=hc.hold_days,
             triggers=hc.triggers, anchor_week=hc.anchor_week, weeks_since=hc.weeks_since, maturity_ok=hc.maturity_ok,
             p2_accel_ok=hc.p2_accel_ok, scope_active=hc.scope_active, mode=hc.mode)
         if hd.fired:
@@ -262,9 +262,9 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
             "skipped": skipped}
 
 
-def _insert_decline_eval(conn: Connection, *, position_id: int, as_of: date, fired, hold_days, signals, anchor_week, weeks_since,
+def _insert_decline_eval(conn: Connection, *, position_id: int, symbol: str, as_of: date, fired, hold_days, signals, anchor_week, weeks_since,
                          maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode, climax_also_fired) -> bool:
-    """position_decline_evaluations INSERT(멱등). volume_regime_flag(#207 회신 21) = 거래량 정의 경계 표지(T-D 창)."""
+    """position_decline_evaluations INSERT(멱등). volume_regime_flag(#207 Q-5c 2) = T-D 창(앵커 주~평가 주)이 경계에 걸치면 'mixed', 앵커 없음 → NULL."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -277,14 +277,14 @@ def _insert_decline_eval(conn: Connection, *, position_id: int, as_of: date, fir
             """,
             (position_id, as_of, fired, hold_days, json.dumps(list(signals)), anchor_week, weeks_since,
              maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode, climax_also_fired,
-             regime_flag_for_as_of(as_of)),
+             weekly_range_flag(conn, symbol, anchor_week, as_of)),
         )
         return cur.rowcount == 1
 
 
-def _insert_climax_eval(conn: Connection, *, position_id: int, as_of: date, fired, suppressed, hold_days, triggers, anchor_week,
+def _insert_climax_eval(conn: Connection, *, position_id: int, symbol: str, as_of: date, fired, suppressed, hold_days, triggers, anchor_week,
                         weeks_since, maturity_ok, p2_accel_ok, scope_active, mode) -> bool:
-    """position_climax_evaluations INSERT(멱등). volume_regime_flag(#207 회신 21) = 거래량 정의 경계 표지(T2 창)."""
+    """position_climax_evaluations INSERT(멱등). volume_regime_flag(#207 Q-5c 2) = T2 창(앵커 주~평가 주)이 경계에 걸치면 'mixed', 앵커 없음 → NULL."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -295,6 +295,6 @@ def _insert_climax_eval(conn: Connection, *, position_id: int, as_of: date, fire
             ON CONFLICT (position_id, eval_date) DO NOTHING
             """,
             (position_id, as_of, fired, suppressed, hold_days, json.dumps(list(triggers)), anchor_week, weeks_since,
-             maturity_ok, p2_accel_ok, scope_active, mode, regime_flag_for_as_of(as_of)),
+             maturity_ok, p2_accel_ok, scope_active, mode, weekly_range_flag(conn, symbol, anchor_week, as_of)),
         )
         return cur.rowcount == 1

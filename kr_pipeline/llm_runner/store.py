@@ -9,7 +9,7 @@ import json
 
 from psycopg import Connection
 
-from kr_pipeline.common.data_regimes import regime_flag_for_as_of
+from kr_pipeline.common.regime_windows import judgment_flag
 from kr_pipeline.common.thresholds import (
     ENTRY_STOP_PCT_FROM_PIVOT_FLOOR,
     ENTRY_TARGET_PCT_MIN,
@@ -431,7 +431,7 @@ def insert_classification(
                 pivot_continuity,
                 verdict_original,
                 llm_meta.get("prompt_version"),
-                regime_flag_for_as_of(analyzed_for_date),   # (#207 회신 21) 전용 표지 컬럼(mixed|NULL)
+                judgment_flag(conn, symbol, analyzed_for_date, daily=True, weekly=True),   # (#207 Q-5c 2) 분류 창 = 주간 C3 50주 ∪ 일간 50봉
             ),
         )
         # (#1) same-base 재판독 경고는 행이 실제 저장된 경우에만 — ON CONFLICT 로
@@ -553,7 +553,7 @@ def insert_backfill_classification(
                 verdict_original,
                 json.dumps(sanity_warnings) if sanity_warnings else None,
                 llm_meta.get("prompt_version"),
-                regime_flag_for_as_of(analyzed_for_date),   # (#207 회신 21) 전용 표지 컬럼(mixed|NULL)
+                judgment_flag(conn, symbol, analyzed_for_date, daily=True, weekly=True),   # (#207 Q-5c 2) 분류 창 = 주간 C3 50주 ∪ 일간 50봉
             ),
         )
 
@@ -675,7 +675,7 @@ def insert_trigger_log(
                 llm_meta.get("model"),
                 wait_reason,
                 llm_meta.get("prompt_version"),
-                regime_flag_for_as_of(analyzed_for_date),   # (#207 회신 21) 전용 표지 컬럼(mixed|NULL)
+                judgment_flag(conn, symbol, analyzed_for_date),   # (#207 Q-5c 2) 트리거 창 = 일간 50봉(volume_ratio_50d)
             ),
         )
 
@@ -869,6 +869,6 @@ def insert_entry_params(
                 trigger_evaluation_at, prior_classification_at,
                 llm_meta.get("duration_s"), llm_meta.get("input_tokens"), llm_meta.get("output_tokens"),
                 llm_meta.get("model"),
-                regime_flag_for_as_of(analyzed_for_date),   # (#207 회신 21) 전용 표지 컬럼(mixed|NULL)
+                judgment_flag(conn, symbol, analyzed_for_date),   # (#207 Q-5c 2) 진입 창 = 일간 50봉(observed_breakout_volume_ratio)
             ),
         )

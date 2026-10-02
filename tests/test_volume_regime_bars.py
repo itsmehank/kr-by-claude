@@ -2,8 +2,8 @@
 from datetime import date, datetime, timedelta, timezone
 
 from kr_pipeline.common.data_regimes import (
-    FLAG_MIXED, REGIME_EXTENDED, REGIME_MIXED, REGIME_REGULAR, VOLUME_REGIME_BOUNDARY,
-    VOLUME_REGIME_UNVERIFIED_FROM, regime_flag_for_as_of, regime_for_date, regime_for_week,
+    FLAG_MIXED, REGIME_EXTENDED, REGIME_MIXED, REGIME_REGULAR, VOLUME_REGIME_BOUNDARY, VOLUME_REGIME_UNVERIFIED_FROM,
+    VOLUME_WINDOW_DAILY_BARS, VOLUME_WINDOW_WEEKLY_WEEKS, regime_for_date, regime_for_week, regime_window_state, window_flag,
 )
 
 B = VOLUME_REGIME_BOUNDARY
@@ -30,12 +30,20 @@ def test_regime_for_week_rule(monkeypatch):
     assert regime_for_week(date(2026, 10, 9)) == "extended"
 
 
-def test_regime_flag_for_as_of_pr2_rule():
-    assert regime_flag_for_as_of(None) is None
-    assert regime_flag_for_as_of(B - timedelta(days=1)) is None
-    assert regime_flag_for_as_of(B) == "mixed"
-    assert regime_flag_for_as_of(datetime(B.year, B.month, B.day, 9, tzinfo=timezone.utc)) == "mixed"
-    assert regime_flag_for_as_of(B.isoformat()) == "mixed"
+def test_regime_window_state_and_flag():
+    assert regime_window_state([]) == "clean"
+    assert regime_window_state(["regular"] * 50) == "clean"
+    assert regime_window_state(["extended"] * 50) == "new"
+    assert regime_window_state(["regular"] * 49 + ["extended"]) == "mixed"
+    assert regime_window_state(["extended", "mixed"]) == "mixed"            # 주봉 mixed 포함
+    assert window_flag(["regular"] * 50) is None and window_flag(["extended"] * 50) is None
+    assert window_flag(["regular", "extended"]) == "mixed"
+    assert (VOLUME_WINDOW_DAILY_BARS, VOLUME_WINDOW_WEEKLY_WEEKS) == (50, 50)
+
+
+def test_pr2_interim_rule_is_gone():
+    import kr_pipeline.common.data_regimes as m
+    assert not hasattr(m, "regime_flag_for_as_of")
 
 
 def test_schema_columns_exist(db):

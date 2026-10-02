@@ -61,3 +61,21 @@ def test_list_evaluations(client, seed_position):
     assert r.status_code == 200
     rows = r.json()
     assert len(rows) == 1 and rows[0]["close"] == 10500.0
+
+
+def test_list_positions_exposes_volume_regime_flag(client, seed_position, db):
+    """최신 보유 평가(climax/decline)의 volume_regime_flag 를 노출 — 둘 중 하나라도 mixed 면 mixed(spec D9 PR-3)."""
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO position_climax_evaluations (position_id, eval_date, fired, suppressed, hold_days, triggers, mode, volume_regime_flag) "
+                    "VALUES (%s, '2026-10-01', FALSE, FALSE, 1, '[]', 'quality', NULL)", (seed_position,))
+        cur.execute("INSERT INTO position_decline_evaluations (position_id, eval_date, fired, hold_days, signals, mode, climax_also_fired, volume_regime_flag) "
+                    "VALUES (%s, '2026-10-01', FALSE, 1, '[]', 'quality', FALSE, 'mixed')", (seed_position,))
+    db.commit()
+    try:
+        p = [x for x in client.get("/api/positions?status=open").json() if x["symbol"] == "APITEST1"][0]
+        assert p["volume_regime_flag"] == "mixed"
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM position_climax_evaluations WHERE position_id=%s", (seed_position,))
+            cur.execute("DELETE FROM position_decline_evaluations WHERE position_id=%s", (seed_position,))
+        db.commit()

@@ -1,6 +1,6 @@
 # 거래량 정의 경계(volume_regime) — 봉 단위 저장 + 창 유도 표지 — 설계 spec
 
-작성 2026-09-30. 상태: **사용자 검토 대기**. 근거: #207 회신 21 Q-5c(1·2·3)·회신 20 (ii)·Q-4c.
+작성 2026-09-30. 상태: **PR-2 머지(#220, 10-02) · PR-3 구현(브랜치 issue207-volume-regime-pr3, plan 2026-10-02-volume-regime-pr3.md)**. 근거: #207 회신 21 Q-5c(1·2·3)·회신 20 (ii)·Q-4c.
 선행: PR #217(행 문자열 표지 `volume_regime_unverified_#207`, 트립와이어 (4)), PR #219(Q-5a, 머지 대기).
 
 ## 1. 목표
@@ -62,7 +62,7 @@ weekly_prices 는 재집계 대신 `week_end_date >= '2026-10-02'` → extended,
 | 보유 decline(T-D) | 앵커 주 ~ 평가 주 | weekly regime | trade_management/held_decline 저장 |
 
 유도 함수(순수): `regime_window_state(regimes: Iterable[str]) -> Literal["clean","mixed","new"]` — 빈 입력은 clean. 창 봉 조회는
-각 소비처의 기존 로더가 이미 읽는 프레임에 `volume_regime` 컬럼을 추가해 얻는다(추가 SQL 0 목표).
+각 소비처의 기존 로더가 이미 읽는 프레임에 `volume_regime` 컬럼을 추가해 얻는다(추가 SQL 0 목표). **PR-3 실제(10-02)**: 프레임이 writer(store.insert_*)까지 전달되지 않아 writer 가 `conn·symbol·as_of` 로 창 봉 **날짜**를 1쿼리(LIMIT 50) 읽어 날짜 규칙으로 유도(`common/regime_windows.py`) — 저장 컬럼 비의존(#220 2차 리뷰 전례).
 **자연 만료**: 일간 창은 경계 후 50 거래일(≈2026-12 중순), 주간 창은 50주(≈2027-09)에 mixed 가 사라진다.
 
 ## 6. 경계일 비교 무효화(D6)
@@ -76,7 +76,7 @@ regime 이 다르면 해당 일은 분배일 후보·FTD 후보에서 제외(기
 - **PR-2 (Q-5c 1·3)**: schema 8 ALTER + 소급 UPDATE · 수집기·주봉 집계 regime 기록 · D6 · 전용 컬럼 + D5 이관(문자열 제거) ·
   flag 초기 규칙 = "as_of ≥ 경계 → mixed"(PR-3 전까지 현행 표지 범위와 동일) · 웹 배지. 테스트: writer 값·주봉 유도·경계일
   비교 제외·이관 멱등.
-- **PR-3 (Q-5c 2)**: `regime_window_state` + 소비처 5곳 창 유도로 flag 축소(new → NULL) · 보유 평가 flag · **Positions 카드 배지(D9 잔여)** · 만료 검증 테스트
+- **PR-3 (Q-5c 2, 2026-10-02 구현)**: `regime_window_state`/`window_flag` + `common/regime_windows.py` 로 소비처 5곳 창 유도(new → NULL) · 보유 평가 flag(앵커 주~평가 주, 앵커 없음 NULL) · **Positions 카드 배지(D9 잔여)** · 만료 검증 테스트(경계+50봉 → NULL). PR-2 임시 규칙 `regime_flag_for_as_of` 삭제, 기존 행 되돌림 불요(만료 전 전부 mixed 동일)
   (경계 + 50봉/50주 이후 NULL). 완료 후 백테스트 금지 해제 별건 판정 요청.
 
 ## 8. 테스트·검증
