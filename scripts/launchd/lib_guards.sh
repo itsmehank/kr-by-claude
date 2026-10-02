@@ -59,7 +59,7 @@ print(expected_latest_trading_day(datetime.now(ZoneInfo('Asia/Seoul'))))
 #   trading_calendar.py:10 → ohlcv/fetch.py:9 → pykrx → webio.py:12 build_krx_session()
 #   이므로 "캐시만 읽는" 호출이 매시간 KRX 로그인 POST 를 낸다(#92 실측 확인).
 # ⚠️ 정확일치 키로 읽지 않는다. 캐시를 쓰는 주체는 저녁 체인(키 D:post)뿐이라
-#   D+1 00:00~16:59 의 키 D+1:pre 는 항상 미스가 된다(#88 이 지키려는 탐지 구간).
+#   D+1 00:00~20:24 의 키 D+1:pre 는 항상 미스가 된다(#88 이 지키려는 탐지 구간).
 #   값의 신선도 판정은 이 함수가 아니라 eltd_cache_fresh_today(오늘 INTRADAY_LOCK_END 이후 기록 =
 #   오늘의 목표일) / eltd_cache_older_than_prev_workday_close(아침 결측 탐지)가 담당한다
 #   — 값은 "체인이 마지막으로 돈 시점의 목표일"일 뿐이므로(3차 H-1).
@@ -77,7 +77,10 @@ eltd_cached_latest() {
 # 그 전 기록은 키 D:pre·값=직전 거래일이라 오늘 판정에 쓰면 저녁 1회 결측이 조용히 통과한다
 # (실측: 26.5h 캐시가 E=어제로 miss.* 3종 전부 무발화. 구 17:00 상수 잔존 시 17:00~20:24 창에서 같은 구멍).
 # rc=0 = fresh(오늘 목표일) / rc=1 = stale 또는 캐시 없음
-_close_buffer_hms() { printf "%02d:%02d:00" "$INTRADAY_LOCK_END_HOUR" "$INTRADAY_LOCK_END_MIN"; }
+# 10# — bash printf %02d 는 선행 0(08) 을 8진수로 읽어 'invalid number'(2차 리뷰 실측). intraday_lock 의 $((10#$m)) 와 동일.
+_close_buffer_hms() { printf "%02d:%02d:00" "$((10#$INTRADAY_LOCK_END_HOUR))" "$((10#$INTRADAY_LOCK_END_MIN))"; }
+# SQL interval 표기 — evening_chain 몫 판정(daily-eval·market_context)·watch miss.eval 의 "대상일 + 마감버퍼" 하한(구 '17 hours').
+close_buffer_sql_interval() { printf "interval '%d hours %d minutes'" "$((10#$INTRADAY_LOCK_END_HOUR))" "$((10#$INTRADAY_LOCK_END_MIN))"; }
 eltd_cache_fresh_today() {
   local m tcb
   m=$(stat -f %m "$ELTD_CACHE" 2>/dev/null) || return 1

@@ -240,8 +240,9 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
     ④ 트립와이어 (2): 유도 결과 봉 포함 관계 → 위반 시 예외(지표 전)."""
     successes, failures = fetch_raw_datewise(tickers, start, end)
     # ⓪ 당일 봉 잠정값 방어(회신 21 ③) — 커밋 전, 값 기반(시각 방어 CLOSE_BUFFER 와 독립)
+    prov_warnings: list[str] = []
     if end == date.today():
-        successes = provisional.guard_today(successes, end, refetch=fetch_market_snapshot)
+        successes = provisional.guard_today(successes, end, refetch=fetch_market_snapshot, warnings=prov_warnings)
     blocked = {date.fromisoformat(ident.split("snapshot:", 1)[1]) for ident, _ in failures if ident.startswith("snapshot:")}
     batch_dates = {d for raw in successes.values() if not raw.empty for d in raw["date"]}
     calendar = adjust.trading_days(conn, start - timedelta(days=45)) | batch_dates | blocked   # 거래일(또는 미확인) 집합
@@ -288,6 +289,7 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
         conn.commit()
 
     warnings = _empty_fetch_warning(empties, len(tickers))
+    warnings.extend(prov_warnings)   # ⓪ 재조회 스냅샷 부재로 제거된 오늘 행(2차 리뷰 — 로그만으로는 pipeline_runs 에 안 남음)
     # 스냅샷 결측 날짜 승격 (#94 리뷰) — 창 중간 하루 차단/실패는 어떤 종목도
     # raw.empty 로 만들지 않아 empty_fetch 가 못 잡는다. failures 는 run warnings
     # 에 영속되지 않으므로(run_tracking 은 warnings 만 기록) 여기서 승격한다.

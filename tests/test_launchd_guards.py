@@ -489,6 +489,22 @@ def test_close_buffer_equals_intraday_lock_end_and_precedes_evening_fire():
     assert CLOSE_BUFFER < _time(eh, em)
 
 
+def test_close_buffer_helpers_decimal_and_sql_interval():
+    """INTRADAY_LOCK_END 를 쓰는 셸 헬퍼: 선행 0(08) 을 8진수로 읽지 않고(printf %02d — 2차 리뷰 실측 'invalid number'),
+    SQL interval 문자열은 같은 상수에서 나온다(evening_chain 멱등 경계·watch miss.eval 경계의 구 '17 hours' 대체)."""
+    r = run_guard('echo "$(_close_buffer_hms) | $(close_buffer_sql_interval)"')
+    assert r.stdout.strip() == "20:25:00 | interval '20 hours 25 minutes'", r.stdout + r.stderr
+    r = run_guard('INTRADAY_LOCK_END_HOUR=20; INTRADAY_LOCK_END_MIN=08; echo "$(_close_buffer_hms) | $(close_buffer_sql_interval)"')
+    assert r.stdout.strip() == "20:08:00 | interval '20 hours 8 minutes'", r.stdout + r.stderr
+
+
+def test_no_hardcoded_17_hour_boundary_in_launchd_scripts():
+    """구 CLOSE_BUFFER 17:00 의 잔존 리터럴 금지 — 코드 줄 한정(주석 제외). #219 2차 리뷰: evening_chain·watch 의 interval '17 hours'."""
+    for path in sorted((REPO / "scripts" / "launchd").glob("*.sh")):
+        for n, line in _code_lines(path):
+            assert "17 hours" not in line and "17:00" not in line, f"{path.name}:{n}: {line.strip()}"
+
+
 _VAR_NONASCII = re.compile(r"\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]")
 
 

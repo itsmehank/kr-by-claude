@@ -1,4 +1,5 @@
 """#207 회신 21 Q-5a ③ — 당일 스냅샷 잠정값 방어(커밋 전 검사·10분 대기·재조회 1회·저장 0)."""
+import pathlib
 from datetime import date, timedelta
 
 import pandas as pd
@@ -83,7 +84,54 @@ def test_guard_today_refetch_missing_ticker_is_counted_not_silently_dropped(monk
     frames = {"A": _frame([(TODAY, 10, 12, 9, 13, 50)]), "B": _frame([(TODAY, 20, 22, 19, 21, 10)])}
     with caplog.at_level(logging.WARNING, logger="kr_pipeline.ohlcv.provisional"):
         out = provisional.guard_today(frames, TODAY, refetch=lambda d: _snap([("A", TODAY, 10, 12, 9, 11, 60)]), wait_s=1)
-    assert out["B"].empty and "오늘 행 제거 1종목" in caplog.text
+    assert out["B"].empty and "provisional_dropped_today: 1 종목" in caplog.text and "'B'" in caplog.text
+
+
+def test_guard_today_dropped_tickers_promoted_to_run_warnings(monkeypatch):
+    """스냅샷에 없어 오늘 행이 제거된 종목 수는 로그만이 아니라 run warnings 에도 남는다(pipeline_runs 영속, 2차 리뷰)."""
+    monkeypatch.setattr(provisional, "_sleep", lambda s: None)
+    frames = {"A": _frame([(TODAY, 10, 12, 9, 13, 50)]), "B": _frame([(YDAY, 20, 22, 19, 21, 10), (TODAY, 20, 22, 19, 21, 10)])}
+    warnings: list[str] = []
+    out = provisional.guard_today(frames, TODAY, refetch=lambda d: _snap([("A", TODAY, 10, 12, 9, 11, 60)]), wait_s=1, warnings=warnings)
+    assert list(out["B"]["date"]) == [YDAY]
+    assert len(warnings) == 1 and warnings[0].startswith("provisional_dropped_today: 1") and "B" in warnings[0]
+
+
+def test_guard_today_refetch_transport_error_becomes_tripwire(monkeypatch):
+    """재조회 전송 예외(with_retry reraise)는 날 traceback 이 아니라 provisional_snapshot 트립와이어로 수렴(두 계수 로그 포함)."""
+    monkeypatch.setattr(provisional, "_sleep", lambda s: None)
+    frames = {"A": _frame([(TODAY, 10, 12, 9, 13, 50)])}
+    def boom(d): raise TimeoutError("read timed out")
+    with pytest.raises(AdjustmentTripwireError, match="재조회 실패.*read timed out"):
+        provisional.guard_today(frames, TODAY, refetch=boom, wait_s=1)
+
+
+def test_replace_today_rows_fills_ticker_absent_from_first_snapshot():
+    """초회 스냅샷에 없던 종목(빈 프레임)이 재조회에 있으면 그 오늘 행을 받는다."""
+    frames = {"X": pd.DataFrame(columns=["date", "open", "high", "low", "close", "volume", "value", "change_pct"])}
+    out = provisional.replace_today_rows(frames, _snap([("X", TODAY, 1, 2, 1, 1.5, 10)]), TODAY)
+    assert len(out["X"]) == 1 and out["X"]["date"].iloc[0] == TODAY
+
+
+def test_guard_today_persists_evidence_before_raising(monkeypatch):
+    """저장 0 경로에서도 KRX 응답은 파일로 남긴다(운영 규칙 5) — 초회 오늘 행 + 재조회 스냅샷."""
+    monkeypatch.setattr(provisional, "_sleep", lambda s: None)
+    saved = []
+    monkeypatch.setattr(provisional, "_persist_evidence", lambda today, first, snap, reason: saved.append((today, len(first), 0 if snap is None else len(snap), reason)))
+    frames = {"A": _frame([(YDAY, 10, 12, 9, 11, 100), (TODAY, 10, 12, 9, 13, 50)]), "B": _frame([(TODAY, 20, 22, 19, 21, 10)])}
+    with pytest.raises(AdjustmentTripwireError):
+        provisional.guard_today(frames, TODAY, refetch=lambda d: _snap([("A", TODAY, 10, 12, 9, 12.5, 60)]), wait_s=1)
+    assert saved == [(TODAY, 2, 1, "still_provisional")]      # first = 오늘 행 2개(A·B), snap 1행
+
+
+def test_persist_evidence_writes_json(tmp_path, monkeypatch):
+    monkeypatch.setenv("KR_VERIFICATION_DIR", str(tmp_path))
+    first = _snap([("A", TODAY, 10, 12, 9, 13, 50)]); snap = _snap([("A", TODAY, 10, 12, 9, 12.5, 60)])
+    path = provisional._persist_evidence(TODAY, first, snap, "still_provisional")
+    import json
+    doc = json.loads(pathlib.Path(path).read_text())
+    assert doc["reason"] == "still_provisional" and len(doc["first_today_rows"]) == 1 and len(doc["refetch_rows"]) == 1
+    assert str(tmp_path) in path and "20260930" in path
 
 
 def test_run_upsert_step0_blocks_provisional_today(monkeypatch, db):
@@ -98,6 +146,7 @@ def test_run_upsert_step0_blocks_provisional_today(monkeypatch, db):
     monkeypatch.setattr(modes, "fetch_raw_datewise", lambda tickers, s, e: (prov, []))
     monkeypatch.setattr(modes, "fetch_market_snapshot", lambda d: _snap([("PRV1", today, 100, 110, 95, 118, 1100)]))
     monkeypatch.setattr(provisional, "_sleep", lambda s: None)
+    monkeypatch.setattr(provisional, "_persist_evidence", lambda *a, **k: None)
     monkeypatch.setattr(modes, "fetch_index", lambda code, s, e: pd.DataFrame())
     monkeypatch.setattr(modes, "_run_sanity_checks", lambda conn, mode: [])
     with pytest.raises(AdjustmentTripwireError, match="provisional_snapshot"):

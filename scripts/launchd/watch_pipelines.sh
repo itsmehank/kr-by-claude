@@ -3,7 +3,7 @@
 # PR #89 리뷰 반영: wake 유예는 miss.* 판정만 보류(failed/stuck 은 항상 수행 — 차단 6),
 # failed/stuck 은 24h 창(자정 롤오버 미탐 방지), DB 자체 불통도 알림.
 # #92: 결측 판정 기준이 라이브 ELTD → **캐시**로 바뀜(KRX 접촉 0). 캐시 값은 "체인이
-# 마지막으로 돈 시점의 목표일"이라 오늘 17시 이후 기록일 때만 miss.* 정밀 판정에 쓰고,
+# 마지막으로 돈 시점의 목표일"이라 오늘 INTRADAY_LOCK_END(20:25) 이후 기록일 때만 miss.* 정밀 판정에 쓰고,
 # 그 외엔 mtime 자체가 신호다(stale 분기). PR #89 가 제거했던 DOW/HOUR 게이트는
 # stale 분기(체인 미발화 알림)에 한정해 부활 — miss.* 판정은 여전히 목표일 기준.
 source "$(dirname "${BASH_SOURCE[0]}")/lib_guards.sh"
@@ -68,7 +68,7 @@ done
 
 # ── 3. 저녁 몫 결측 — 캐시 기준. 라이브 조회하지 않는다(#92).
 #    캐시는 체인이 발화할 때마다 갱신된다(공휴일에도 평일 스케줄로 발화 → 갱신).
-#    오늘 17시 이후 기록일 때만 캐시 값이 오늘의 목표일이다(3차 H-1) — 어제 기록으로
+#    오늘 INTRADAY_LOCK_END(20:25) 이후 기록일 때만 캐시 값이 오늘의 목표일이다(3차 H-1) — 어제 기록으로
 #    판정하면 저녁 1회 결측이 조용히 통과한다(실측: E=어제 → miss.* 3종 무발화).
 CACHED=$(eltd_cached_latest) || CACHED=""
 E=""; AGE=999999
@@ -80,12 +80,12 @@ if [ -n "$E" ] && eltd_cache_fresh_today; then
     [ "$MAXI" \< "$E" ] && alert "miss.data.$E" "데이터 체인 미완료 (대상 거래일 $E, 지표 최신 $MAXI)"
     N=$(q "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='llm_daily_delta' AND mode='full-daily' AND status IN ('success','running') AND params->>'as_of'='$E'")
     [ "${N:-0}" -gt 0 ] || alert "miss.llm.$E" "LLM full-daily 미시작 (대상 $E)"
-    N=$(q "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='trade_management' AND mode='daily-eval' AND status='success' AND started_at >= '$E'::date + interval '17 hours'")
+    N=$(q "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='trade_management' AND mode='daily-eval' AND status='success' AND started_at >= '$E'::date + $(close_buffer_sql_interval)")
     [ "${N:-0}" -gt 0 ] || alert "miss.eval.$E" "포지션 일일 평가 미실행 (대상 $E — 소급 불가 항목)"
   fi
 else
   # 체인 미발화 의심. 알림 시점 = ①당일 WATCH_DUE_HOUR 시 이후(저녁 슬롯이 지났는데 미갱신)
-  # ②캐시가 직전 평일 17시보다 오래됨(그 저녁 통째 결측 — 아침에도 즉시. 3차 보완:
+  # ②캐시가 직전 평일 INTRADAY_LOCK_END(20:25)보다 오래됨(그 저녁 통째 결측 — 아침에도 즉시. 3차 보완:
   #   이 조건이 없으면 "화 저녁 수면 → 수 아침 기상" 에서 수요일 체인이 성공하는 순간
   #   화요일 daily-eval(소급 불가) 소실이 영구 무알림이 된다. 기준이 '어제'가 아니라
   #   '직전 평일'인 이유 = 월요일 오탐 방지, 4차 검토).
