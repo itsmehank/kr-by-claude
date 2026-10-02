@@ -15,7 +15,7 @@ def _patch_fetch(monkeypatch, days, *, raises=False):
 
 def test_eltd_today_after_buffer(monkeypatch):
     _patch_fetch(monkeypatch, [date(2026, 6, 8), date(2026, 6, 9), date(2026, 6, 10)])
-    assert tc.expected_latest_trading_day(datetime(2026, 6, 10, 18, 0)) == date(2026, 6, 10)
+    assert tc.expected_latest_trading_day(datetime(2026, 6, 10, 21, 0)) == date(2026, 6, 10)
 
 
 def test_eltd_today_before_buffer(monkeypatch):
@@ -25,51 +25,51 @@ def test_eltd_today_before_buffer(monkeypatch):
 
 def test_eltd_holiday(monkeypatch):
     _patch_fetch(monkeypatch, [date(2026, 6, 4), date(2026, 6, 5)])
-    assert tc.expected_latest_trading_day(datetime(2026, 6, 6, 18, 0)) == date(2026, 6, 5)
+    assert tc.expected_latest_trading_day(datetime(2026, 6, 6, 21, 0)) == date(2026, 6, 5)
 
 
 def test_unavailable_on_empty(monkeypatch):
     monkeypatch.setattr(tc, "fetch_index", lambda *a, **k: pd.DataFrame())
     with pytest.raises(tc.TradingCalendarUnavailable):
-        tc.expected_latest_trading_day(datetime(2026, 6, 10, 18, 0))
+        tc.expected_latest_trading_day(datetime(2026, 6, 10, 21, 0))
 
 
 def test_unavailable_on_exception(monkeypatch):
     _patch_fetch(monkeypatch, [], raises=True)
     with pytest.raises(tc.TradingCalendarUnavailable):
-        tc.expected_latest_trading_day(datetime(2026, 6, 10, 18, 0))
+        tc.expected_latest_trading_day(datetime(2026, 6, 10, 21, 0))
 
 
 def test_assert_fresh_passes(monkeypatch):
     _patch_fetch(monkeypatch, [date(2026, 6, 9), date(2026, 6, 10)])
-    tc.assert_data_fresh(date(2026, 6, 10), datetime(2026, 6, 10, 18, 0))
+    tc.assert_data_fresh(date(2026, 6, 10), datetime(2026, 6, 10, 21, 0))
 
 
 def test_assert_fresh_stale_raises(monkeypatch):
     _patch_fetch(monkeypatch, [date(2026, 6, 9), date(2026, 6, 10)])
     with pytest.raises(tc.StaleDataError):
-        tc.assert_data_fresh(date(2026, 6, 9), datetime(2026, 6, 10, 18, 0))
+        tc.assert_data_fresh(date(2026, 6, 9), datetime(2026, 6, 10, 21, 0))
 
 
 def test_assert_fresh_calendar_unavailable_propagates(monkeypatch):
     _patch_fetch(monkeypatch, [], raises=True)
     with pytest.raises(tc.TradingCalendarUnavailable):
-        tc.assert_data_fresh(date(2026, 6, 10), datetime(2026, 6, 10, 18, 0))
+        tc.assert_data_fresh(date(2026, 6, 10), datetime(2026, 6, 10, 21, 0))
 
 
 # ─── #92 ELTD 파일 캐시 ────────────────────────────────────────────
 
 def test_cache_key_distinguishes_close_buffer():
-    """17시 경계로 키가 갈린다 — CLOSE_BUFFER=17:00 때문에 답이 다르다."""
-    assert tc.cache_key(datetime(2026, 6, 10, 16, 59)).endswith(":pre")
-    assert tc.cache_key(datetime(2026, 6, 10, 17, 0)).endswith(":post")
-    assert tc.cache_key(datetime(2026, 6, 10, 17, 0)).startswith("2026-06-10")
+    """20:25 경계로 키가 갈린다 — CLOSE_BUFFER=20:25(#207 회신 21) 때문에 답이 다르다."""
+    assert tc.cache_key(datetime(2026, 6, 10, 20, 24)).endswith(":pre")
+    assert tc.cache_key(datetime(2026, 6, 10, 20, 25)).endswith(":post")
+    assert tc.cache_key(datetime(2026, 6, 10, 20, 25)).startswith("2026-06-10")
 
 
 def test_expected_latest_writes_cache(monkeypatch):
     """라이브 조회 성공 시 캐시에 쓴다."""
     _patch_fetch(monkeypatch, [date(2026, 6, 9), date(2026, 6, 10)])
-    now = datetime(2026, 6, 10, 18, 0)
+    now = datetime(2026, 6, 10, 21, 0)
     assert tc.expected_latest_trading_day(now) == date(2026, 6, 10)
     assert tc.cached_eltd(now) == date(2026, 6, 10)
 
@@ -81,13 +81,13 @@ def test_cached_eltd_never_calls_live(monkeypatch):
         raise AssertionError("cached_eltd 가 라이브를 호출했다")
 
     monkeypatch.setattr(tc, "fetch_index", boom)
-    assert tc.cached_eltd(datetime(2026, 6, 10, 18, 0)) is None
+    assert tc.cached_eltd(datetime(2026, 6, 10, 21, 0)) is None
 
 
 def test_failure_is_not_cached(monkeypatch):
     """실패는 캐시하지 않는다 — negative 캐시는 fail-closed 체인을 마비시킨다."""
     _patch_fetch(monkeypatch, [], raises=True)
-    now = datetime(2026, 6, 10, 18, 0)
+    now = datetime(2026, 6, 10, 21, 0)
     with pytest.raises(tc.TradingCalendarUnavailable):
         tc.expected_latest_trading_day(now)
     assert tc.cached_eltd(now) is None
@@ -106,7 +106,7 @@ def test_cache_io_failure_degrades_to_live(monkeypatch, tmp_path):
     try:
         monkeypatch.setenv("ELTD_CACHE", str(ro / "sub" / "eltd.cache"))
         _patch_fetch(monkeypatch, [date(2026, 6, 9), date(2026, 6, 10)])
-        assert tc.expected_latest_trading_day(datetime(2026, 6, 10, 18, 0)) == date(2026, 6, 10)
+        assert tc.expected_latest_trading_day(datetime(2026, 6, 10, 21, 0)) == date(2026, 6, 10)
     finally:
         ro.chmod(0o700)
 
@@ -122,7 +122,7 @@ def test_corrupt_cache_self_heals(monkeypatch, tmp_path):
     p.write_bytes(b"\xff\xfe bad\n")
     monkeypatch.setenv("ELTD_CACHE", str(p))
     _patch_fetch(monkeypatch, [date(2026, 6, 9), date(2026, 6, 10)])
-    now = datetime(2026, 6, 10, 18, 0)
+    now = datetime(2026, 6, 10, 21, 0)
     assert tc.expected_latest_trading_day(now) == date(2026, 6, 10)
     assert tc.cached_eltd(now) == date(2026, 6, 10), "손상 캐시가 자기치유되지 않았다"
 
@@ -130,7 +130,7 @@ def test_corrupt_cache_self_heals(monkeypatch, tmp_path):
 def test_assert_fresh_uses_cache_without_live_call(monkeypatch):
     """캐시가 있으면 assert_data_fresh 가 라이브를 부르지 않는다(결정 1)."""
     _patch_fetch(monkeypatch, [date(2026, 6, 9), date(2026, 6, 10)])
-    now = datetime(2026, 6, 10, 18, 0)
+    now = datetime(2026, 6, 10, 21, 0)
     tc.expected_latest_trading_day(now)          # 캐시 채우기(라이브 1회)
 
     def boom(*a, **k):
@@ -146,7 +146,7 @@ def test_assert_fresh_falls_back_to_live_on_cache_miss(monkeypatch):
     """캐시가 없으면 라이브로 폴백한다 — fail-closed 유지."""
     _patch_fetch(monkeypatch, [], raises=True)
     with pytest.raises(tc.TradingCalendarUnavailable):
-        tc.assert_data_fresh(date(2026, 6, 10), datetime(2026, 6, 10, 18, 0))
+        tc.assert_data_fresh(date(2026, 6, 10), datetime(2026, 6, 10, 21, 0))
 
 
 def test_write_cache_keeps_newest_entry_last(monkeypatch, tmp_path):
@@ -156,12 +156,12 @@ def test_write_cache_keeps_newest_entry_last(monkeypatch, tmp_path):
     """
     p = tmp_path / "eltd.cache"
     monkeypatch.setenv("ELTD_CACHE", str(p))
-    tc._write_cache(datetime(2026, 6, 9, 18, 0), date(2026, 6, 9))
-    tc._write_cache(datetime(2026, 6, 10, 18, 0), date(2026, 6, 10))
+    tc._write_cache(datetime(2026, 6, 9, 21, 0), date(2026, 6, 9))
+    tc._write_cache(datetime(2026, 6, 10, 21, 0), date(2026, 6, 10))
     lines = p.read_text().splitlines()
     assert lines[-1] == "2026-06-10:post|2026-06-10", f"마지막 줄이 최신이 아니다: {lines}"
     # 같은 키 재기록도 마지막 줄이 새 값이어야 한다
-    tc._write_cache(datetime(2026, 6, 10, 18, 0), date(2026, 6, 11))
+    tc._write_cache(datetime(2026, 6, 10, 21, 0), date(2026, 6, 11))
     lines = p.read_text().splitlines()
     assert lines[-1] == "2026-06-10:post|2026-06-11"
     assert len([ln for ln in lines if ln.startswith("2026-06-10:post|")]) == 1
@@ -172,4 +172,4 @@ def test_cached_eltd_skips_corrupt_line_and_uses_valid_one(monkeypatch, tmp_path
     p = tmp_path / "eltd.cache"
     p.write_text("2026-06-10:post|2026-06-10\n2026-06-10:post|NOTADATE\n")
     monkeypatch.setenv("ELTD_CACHE", str(p))
-    assert tc.cached_eltd(datetime(2026, 6, 10, 18, 0)) == date(2026, 6, 10)
+    assert tc.cached_eltd(datetime(2026, 6, 10, 21, 0)) == date(2026, 6, 10)

@@ -46,14 +46,15 @@ else
 fi
 
 # ── 2. 포지션 일일 평가 (내부 (position_id, eval_date) 멱등)
-if has_success_since trade_management "'$ELTD'::date + interval '17 hours'" daily-eval; then
+# 몫 판정 하한 = 대상일 + CLOSE_BUFFER(20:25): 그 전(장중·애프터마켓 잠정 창)의 실행은 end=어제 자동 제외라 '오늘 몫' 이 아니다(2차 리뷰 — 구 17 hours 는 17:00~20:24 실행을 오늘 몫으로 오판).
+if has_success_since trade_management "'$ELTD'::date + $(close_buffer_sql_interval)" daily-eval; then
   log "daily-eval 몫 완료 — skip"
 else
   uv run python -m kr_pipeline.trade_management --mode=daily-eval || log "daily-eval 실패(비차단 — 계속)"
 fi
 
 # ── 3. 시장 지표 (30일 증분 — 내부 upsert 멱등)
-if has_success_since market_context "'$ELTD'::date + interval '17 hours'" incremental; then
+if has_success_since market_context "'$ELTD'::date + $(close_buffer_sql_interval)" incremental; then
   log "market_context 몫 완료 — skip"
 else
   uv run python -m kr_pipeline.market_context --mode=incremental --window-days=30 || log "market_context 실패(비차단 — 계속)"

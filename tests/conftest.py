@@ -111,6 +111,13 @@ def db(test_db_url):
 
 
 @pytest.fixture(autouse=True)
+def _verification_dir_isolated(tmp_path, monkeypatch):
+    """ohlcv.provisional 의 저장 0 경로 증거 보존(data/verification/provisional_*.json)이 테스트에서 리포 작업트리를
+    더럽히지 않게 임시 디렉터리로 돌린다(#219 2차 리뷰 반영 시 9파일 오염 실측)."""
+    monkeypatch.setenv("KR_VERIFICATION_DIR", str(tmp_path / "verification"))
+
+
+@pytest.fixture(autouse=True)
 def _trade_api_db_override(test_db_url):
     """trade_api.deps.get_conn 을 kr_test 로 강제 라우팅(#187 리뷰 — 운영 DB 폴백 구조 차단).
 

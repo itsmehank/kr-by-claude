@@ -9,11 +9,12 @@ import os
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
+from kr_pipeline.common.market_hours import CLOSE_BUFFER  # noqa: F401 — 단일 정의 재수출(#207 회신 21)
 from kr_pipeline.ohlcv.fetch import fetch_index
 
 log = logging.getLogger("kr_pipeline.common.trading_calendar")
 
-CLOSE_BUFFER = time(17, 0)   # KST. KRX 마감 15:30 후 pykrx EOD 안정화 시점.
+# CLOSE_BUFFER 는 common/market_hours.py 단일 정의(20:25, #207 회신 21) — 구 17:00 은 09-28 부터 부적합.
 _KOSPI_INDEX = "1001"
 _LOOKBACK_DAYS = 14          # 최근 거래일 목록 확보(연휴 대비 충분).
 _CACHE_DEFAULT = "~/.kr-by-claude/state/eltd.cache"
@@ -27,7 +28,7 @@ def eltd_cache_path() -> Path:
 def cache_key(now: datetime) -> str:
     """캐시 키 = 날짜 + 마감버퍼 구간.
 
-    17시 전후로 ELTD 가 달라지므로(아래 expected_latest_trading_day 분기) 날짜만으로는
+    CLOSE_BUFFER(20:25) 전후로 ELTD 가 달라지므로(아래 expected_latest_trading_day 분기) 날짜만으로는
     부족하다. 같은 키의 캐시값은 라이브 조회 결과와 정의상 동일하다.
     """
     return f"{now.date().isoformat()}:{'post' if now.time() >= CLOSE_BUFFER else 'pre'}"

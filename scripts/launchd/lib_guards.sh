@@ -59,9 +59,9 @@ print(expected_latest_trading_day(datetime.now(ZoneInfo('Asia/Seoul'))))
 #   trading_calendar.py:10 → ohlcv/fetch.py:9 → pykrx → webio.py:12 build_krx_session()
 #   이므로 "캐시만 읽는" 호출이 매시간 KRX 로그인 POST 를 낸다(#92 실측 확인).
 # ⚠️ 정확일치 키로 읽지 않는다. 캐시를 쓰는 주체는 저녁 체인(키 D:post)뿐이라
-#   D+1 00:00~16:59 의 키 D+1:pre 는 항상 미스가 된다(#88 이 지키려는 탐지 구간).
-#   값의 신선도 판정은 이 함수가 아니라 eltd_cache_fresh_today(오늘 17시 이후 기록 =
-#   오늘의 목표일) / eltd_cache_older_than_prev_workday17(아침 결측 탐지)가 담당한다
+#   D+1 00:00~20:24 의 키 D+1:pre 는 항상 미스가 된다(#88 이 지키려는 탐지 구간).
+#   값의 신선도 판정은 이 함수가 아니라 eltd_cache_fresh_today(오늘 INTRADAY_LOCK_END 이후 기록 =
+#   오늘의 목표일) / eltd_cache_older_than_prev_workday_close(아침 결측 탐지)가 담당한다
 #   — 값은 "체인이 마지막으로 돈 시점의 목표일"일 뿐이므로(3차 H-1).
 eltd_cached_latest() {
   local v m
@@ -72,19 +72,24 @@ eltd_cached_latest() {
   echo "$v $(( $(date +%s) - m ))"
 }
 
-# 캐시가 "오늘 17:00 이후"에 쓰였는가 — 그때만 캐시 값이 **오늘의** 목표일이다(#92 3차 H-1).
-# 캐시 값은 "체인이 마지막으로 돈 시점의 목표일"이라, 어제 기록을 오늘 판정에 쓰면
-# 저녁 1회 결측이 조용히 통과한다(실측: 26.5h 캐시가 E=어제로 miss.* 3종 전부 무발화).
+# 캐시가 "오늘 INTRADAY_LOCK_END(20:25) 이후"에 쓰였는가 — 그때만 캐시 값이 **오늘의** 목표일이다(#92 3차 H-1).
+# 경계는 Python trading_calendar.cache_key 의 CLOSE_BUFFER 와 같아야 한다(테스트가 고정, #219 리뷰):
+# 그 전 기록은 키 D:pre·값=직전 거래일이라 오늘 판정에 쓰면 저녁 1회 결측이 조용히 통과한다
+# (실측: 26.5h 캐시가 E=어제로 miss.* 3종 전부 무발화. 구 17:00 상수 잔존 시 17:00~20:24 창에서 같은 구멍).
 # rc=0 = fresh(오늘 목표일) / rc=1 = stale 또는 캐시 없음
+# 10# — bash printf %02d 는 선행 0(08) 을 8진수로 읽어 'invalid number'(2차 리뷰 실측). intraday_lock 의 $((10#$m)) 와 동일.
+_close_buffer_hms() { printf "%02d:%02d:00" "$((10#$INTRADAY_LOCK_END_HOUR))" "$((10#$INTRADAY_LOCK_END_MIN))"; }
+# SQL interval 표기 — evening_chain 몫 판정(daily-eval·market_context)·watch miss.eval 의 "대상일 + 마감버퍼" 하한(구 '17 hours').
+close_buffer_sql_interval() { printf "interval '%d hours %d minutes'" "$((10#$INTRADAY_LOCK_END_HOUR))" "$((10#$INTRADAY_LOCK_END_MIN))"; }
 eltd_cache_fresh_today() {
-  local m t17
+  local m tcb
   m=$(stat -f %m "$ELTD_CACHE" 2>/dev/null) || return 1
-  t17=$(date -j -f "%Y-%m-%d %H:%M:%S" "$(date +%F) 17:00:00" +%s 2>/dev/null) || return 1
-  [ "$m" -ge "$t17" ]
+  tcb=$(date -j -f "%Y-%m-%d %H:%M:%S" "$(date +%F) $(_close_buffer_hms)" +%s 2>/dev/null) || return 1
+  [ "$m" -ge "$tcb" ]
 }
 
-# 캐시가 "직전 평일 17:00 이전"에 멈춰 있는가 — 다음날 아침 결측 탐지(#92 3차 보완).
-# 직전 평일 저녁 체인이 정상이었다면 mtime ≥ 그날 17시다. 그보다 오래됐으면 그 저녁이
+# 캐시가 "직전 평일 INTRADAY_LOCK_END(20:25) 이전"에 멈춰 있는가 — 다음날 아침 결측 탐지(#92 3차 보완).
+# 직전 평일 저녁 체인(20:30)이 정상이었다면 mtime ≥ 그날 20:25 다. 그보다 오래됐으면 그 저녁이
 # 통째로 빠진 것이므로 21시를 기다리지 않고 아침에도 알린다(구 라이브 방식과 동일 시점).
 #
 # ⚠️ 기준이 단순 '어제'면 안 된다(4차 전체검토 실측) — 월요일의 어제는 일요일이라,
@@ -92,12 +97,12 @@ eltd_cache_fresh_today() {
 #   **매주 월요일 아침 오탐**이 난다. 월요일만 -3d(금), 그 외 평일 -1d.
 #   주말(토·일)은 호출부의 DOW 게이트가 걸러 이 함수까지 오지 않는다.
 # 캐시 없음은 "오래됨"으로 치지 않는다(rc=1) — 재개 당일 아침 오탐 방지, 21시 경로가 담당.
-eltd_cache_older_than_prev_workday17() {
-  local m p17 off
+eltd_cache_older_than_prev_workday_close() {
+  local m pcb off
   m=$(stat -f %m "$ELTD_CACHE" 2>/dev/null) || return 1
   case "$(date +%w)" in 1) off="-3d";; *) off="-1d";; esac
-  p17=$(date -j -f "%Y-%m-%d %H:%M:%S" "$(date -j -v"$off" +%F) 17:00:00" +%s 2>/dev/null) || return 1
-  [ "$m" -lt "$p17" ]
+  pcb=$(date -j -f "%Y-%m-%d %H:%M:%S" "$(date -j -v"$off" +%F) $(_close_buffer_hms)" +%s 2>/dev/null) || return 1
+  [ "$m" -lt "$pcb" ]
 }
 
 # 잠정값 창(09:00 ~ INTRADAY_LOCK_END 20:25 전) = 0(차단), 그 외 = 1(허용).

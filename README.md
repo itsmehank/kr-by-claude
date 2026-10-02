@@ -13,8 +13,8 @@ KOSPI / KOSDAQ 일봉 데이터 적재 파이프라인 및 후속 분석 도구.
 ## 실행
 - 종목 마스터: `uv run python -m kr_pipeline.universe`
 - 일봉 백필: `uv run python -m kr_pipeline.ohlcv --mode=backfill --years=2`
-- 일봉 증분: `uv run python -m kr_pipeline.ohlcv --mode=incremental --window-days=30` (기본 end=오늘; 마감 후 cron 정상 동작)
-  - 장중 수동 실행 시: `--exclude-today` 추가 → end=어제 (오늘 미확정 부분봉 회피)
+- 일봉 증분: `uv run python -m kr_pipeline.ohlcv --mode=incremental --window-days=30` (기본 end=자동: 20:25 전이면 어제, 이후 오늘 — `common/market_hours.CLOSE_BUFFER`, #207)
+  - `--exclude-today` 는 20:25 이후에도 오늘을 강제 제외할 때만(장중 수동 실행은 자동으로 어제까지)
 - 수정종가 재적재: `uv run python -m kr_pipeline.ohlcv --mode=full-refresh`
 - 주봉 백필: `uv run python -m kr_pipeline.weekly --mode=backfill`
 - 주봉 증분: `uv run python -m kr_pipeline.weekly --mode=incremental --window-weeks=4`
@@ -77,7 +77,7 @@ scripts/launchd/install.sh   # crontab 백업·제거 → 구 LLM plist 정리 �
 | monthly-chain | 매월 1일 06:30 | universe → corp_code 매핑 (순서 고정) |
 | pipeline-watch | 1시간마다 | 결측·failed·좌초 감시 → Slack 알림 |
 
-공통 가드: 시간 자물쇠(장중 09~17시 실행 금지 — 부분봉 오염 방지) ·
+공통 가드: 시간 자물쇠(09:00~20:25 실행 금지 — 정규장 부분봉 + 애프터마켓 20분 지연 잠정값 오염 방지, schedule.env INTRADAY_LOCK_END) ·
 멱등(대상 거래일 몫 완료 시 skip) · 원자 락 직렬화(data/llm 2계열, /tmp — flock 은 macOS 미탑재) ·
 RunAtLoad(재부팅 복구) · **ELTD 파일 캐시**(체인만 라이브 조회, 감시는 순수 bash 로 캐시만 읽어
 KRX 접촉 0 — #92) · **시도 상한**(전 종목 스윕: data_daily 하루 2회·간격 6h, data_weekly·universe 하루 1회. 웹 UI `/runner`의 data-daily/data-weekly *체인* 실행은 같은 상한을 소모하지만 **standalone ohlcv/weekly 실행은 상한 밖** — 재개 기간엔 UI 실행 버튼 금지). 전제: **저녁 전원(AC) 연결** + `pmset repeat

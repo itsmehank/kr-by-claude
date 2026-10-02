@@ -15,6 +15,8 @@ adj 재유도 **전**에 (1′)(3) 검사 → 위반 시 AdjustmentTripwireError
      이후 행만: adj_high ≤ raw_high×계수 · adj_low ≥ raw_low×계수(계수 = adj_close/close). 기준선 2026-06-01~09-11 비할트
      176,076행 중 1행. 시임 이후 유도는 raw×F 정확식 → 위반 = 다른 writer(연장시간 봉 등) 유입 신호.
 (3)  raw 봉 low ≤ close ≤ high(비할트, high>0) — 정의상 검사, 임계 없음(기준선 전 이력 5,284,501행 0).
+     당일 봉은 (3) 이전에 ohlcv/provisional.guard_today 가 커밋 전 같은 검사를 하고(회신 21 ③, 접두어 provisional_snapshot)
+     10분 대기·재조회 1회 후에도 위반이면 저장 0 으로 중단한다 — (3)은 과거 봉·다른 writer 대비 2차 방어로 남는다.
 (4)  VOLUME_BREAKOUT_DAILY_MAX = 1,361 — (회신 20, 2026-09-29) 일별 "volume_ratio_50d ≥ BREAKOUT_VOL_FLOOR(1.4) 비할트 종목 수"의
      2026-01-02~09-11 171거래일 **실측 최댓값**(03-04; p50 307 · p95 805 · 최소 136; 09-14~09-28 은 267~401). 목적 = KRX 일별
      거래량에 애프터마켓이 합산되기 시작(09-28 추정)한 뒤 거래량 배수 규칙의 가짜 돌파 폭증 감지. **경고형**(fail-closed 아님) —
