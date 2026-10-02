@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from kr_pipeline.common.data_regimes import (
     FLAG_MIXED, REGIME_EXTENDED, REGIME_MIXED, REGIME_REGULAR, VOLUME_REGIME_BOUNDARY,
-    VOLUME_REGIME_UNVERIFIED_FROM, regime_flag_for_as_of, regime_for_date,
+    VOLUME_REGIME_UNVERIFIED_FROM, regime_flag_for_as_of, regime_for_date, regime_for_week,
 )
 
 B = VOLUME_REGIME_BOUNDARY
@@ -17,6 +17,17 @@ def test_constants_and_alias():
 def test_regime_for_date_boundary():
     assert regime_for_date(B - timedelta(days=1)) == "regular"
     assert regime_for_date(B) == "extended"
+
+
+def test_regime_for_week_rule(monkeypatch):
+    """주봉: 주의 월요일(ISO)·금요일(week_end) 과 경계 — 둘 다 전 regular / 월요일 ≥ 경계 extended / 그 외 mixed.
+    달력 월요일 기준(그 주 첫 거래일이 휴일이어도)은 보수적(mixed 쪽) 선택 — 2차 리뷰 기록."""
+    assert regime_for_week(date(2026, 9, 25)) == "regular"
+    assert regime_for_week(date(2026, 10, 2)) == "extended"
+    import kr_pipeline.common.data_regimes as m
+    monkeypatch.setattr(m, "VOLUME_REGIME_BOUNDARY", date(2026, 9, 30))      # 수요일 경계(가상)
+    assert regime_for_week(date(2026, 10, 2)) == "mixed"
+    assert regime_for_week(date(2026, 10, 9)) == "extended"
 
 
 def test_regime_flag_for_as_of_pr2_rule():
@@ -91,9 +102,9 @@ def test_upsert_weekly_prices_regime_regular_extended(db):
 
 
 def test_weekly_regime_mixed_when_week_straddles_boundary(db, monkeypatch):
-    """경계를 수요일(가상)로 두면 그 주는 mixed — SQL 규칙(월요일 < 경계 ≤ week_end) 검증."""
-    import kr_pipeline.weekly.store as ws
-    monkeypatch.setattr(ws, "VOLUME_REGIME_BOUNDARY", date(2026, 9, 30))
+    """경계를 수요일(가상)로 두면 그 주는 mixed — writer 가 Python regime_for_week 값을 저장(SQL CASE 아님)."""
+    import kr_pipeline.common.data_regimes as m
+    monkeypatch.setattr(m, "VOLUME_REGIME_BOUNDARY", date(2026, 9, 30))     # writer 는 regime_for_week(Python) 를 쓴다
     with db.cursor() as cur:
         cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('VRW2','VRW2','KOSPI') ON CONFLICT (ticker) DO NOTHING")
         cur.execute("DELETE FROM weekly_prices WHERE ticker='VRW2'")
@@ -116,8 +127,9 @@ def test_migration_script_is_idempotent_and_moves_tags(db):
                     "VALUES ('VRM1', %s, 1,1,1,1,1,1,1,'regular')", (B,))
         cur.execute("INSERT INTO weekly_classification (symbol, classified_at, market, classification, pattern, source, analyzed_for_date, sanity_warnings) "
                     "VALUES ('VRM1', now(), 'KOSPI', 'watch', 'flat_base', 'weekend', %s, %s)", (B, '["x", "volume_regime_unverified_#207"]'))
-    import psycopg
-    assert "BEGIN" not in sql.upper().split("--")[0] or "BEGIN;" not in sql, "스크립트는 트랜잭션 문을 갖지 않는다(psql -1 로 감쌈)"
+    import psycopg, re
+    code = re.sub(r"--[^\n]*", "", sql).upper()
+    assert "BEGIN" not in code and "COMMIT" not in code, "스크립트는 트랜잭션 문을 갖지 않는다(psql -1 로 감쌈)"
     for _ in range(2):                       # 2회 실행 = 멱등
         with db.cursor() as cur:
             cur.execute(sql)
@@ -128,3 +140,42 @@ def test_migration_script_is_idempotent_and_moves_tags(db):
         cur.execute("SELECT volume_regime FROM daily_prices WHERE ticker='VRM1' AND date=%s", (B,)); assert cur.fetchone()[0] == "extended"
         cur.execute("SELECT volume_regime_flag, sanity_warnings FROM weekly_classification WHERE symbol='VRM1'")
         f, w = cur.fetchone(); assert f == "mixed" and w == ["x"]
+
+
+def test_migration_sql_date_literals_equal_boundary_constant():
+    """이관 SQL 의 날짜 리터럴은 전부 VOLUME_REGIME_BOUNDARY — 상수만 옮기고 SQL 을 안 고치면 재실행이 경계 사이 행을 되돌린다(2차 리뷰)."""
+    import re
+    sql = (Path(__file__).parent.parent / "scripts" / "sql" / "issue207_volume_regime_migrate.sql").read_text(encoding="utf-8")
+    code = re.sub(r"--[^\n]*", "", sql)
+    lits = set(re.findall(r"'(\d{4}-\d{2}-\d{2})'", code))
+    assert lits == {B.isoformat()}, lits
+
+
+def test_migration_does_not_flag_system_rows_and_unflags_them(db):
+    """시스템 writer(system_disqualify·universe 배제)는 flag 를 쓰지 않는다 — 이관 SQL 이 그 행을 'mixed' 로 찍으면 안 되고,
+    이미 찍힌 행(운영 8행 실측)은 NULL 로 되돌린다."""
+    sql = (Path(__file__).parent.parent / "scripts" / "sql" / "issue207_volume_regime_migrate.sql").read_text(encoding="utf-8")
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('VRM2','VRM2','KOSPI') ON CONFLICT (ticker) DO NOTHING")
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='VRM2'")
+        cur.execute("INSERT INTO weekly_classification (symbol, classified_at, market, classification, pattern, source, analyzed_for_date, volume_regime_flag) "
+                    "VALUES ('VRM2', now(), 'KOSPI', 'disqualified', NULL, 'system_disqualify', %s, 'mixed')", (B,))
+        cur.execute("INSERT INTO weekly_classification (symbol, classified_at, market, classification, pattern, source, analyzed_for_date, volume_regime_flag) "
+                    "VALUES ('VRM2', now() - interval '1 day', 'KOSPI', 'watch', 'flat_base', 'daily_delta', %s, NULL)", (B,))
+        cur.execute(sql)
+        cur.execute("SELECT source, volume_regime_flag FROM weekly_classification WHERE symbol='VRM2' ORDER BY source")
+        assert cur.fetchall() == [("daily_delta", "mixed"), ("system_disqualify", None)]
+
+
+def test_ohlcv_sanity_warns_on_regime_column_mismatch(db):
+    """저장된 volume_regime 이 날짜 규칙과 다르면 경고(운영 실측: 컬럼 선적용 + 구 writer → 09-30·10-01 'regular')."""
+    from kr_pipeline.ohlcv import modes
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('VRS1','VRS1','KOSPI') ON CONFLICT (ticker) DO NOTHING")
+        cur.execute("DELETE FROM daily_prices WHERE ticker='VRS1'")
+        cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value, volume_regime) "
+                    "VALUES ('VRS1', %s, 1,1,1,1,1,1,1,'regular')", (B,))
+    warns = modes._run_sanity_checks(db, modes.Mode.INCREMENTAL)
+    # 예시 종목 5개는 알파벳순이라 다른 테스트가 커밋한 기본값 행(예: PRV1)에 밀릴 수 있음 → 건수(≥1)만 단언
+    hit = [w for w in warns if w.startswith("volume_regime_mismatch:")]
+    assert hit and int(hit[0].split("daily_prices ")[1].split("행")[0]) >= 1, warns

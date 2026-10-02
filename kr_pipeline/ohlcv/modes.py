@@ -7,6 +7,7 @@ import pandas as pd
 from psycopg import Connection
 
 from kr_pipeline.db.runs import run_tracking
+from kr_pipeline.common.data_regimes import VOLUME_REGIME_BOUNDARY
 from kr_pipeline.ohlcv import adjust, tripwires
 from kr_pipeline.ohlcv.fetch import fetch_raw_datewise, fetch_index
 from kr_pipeline.ohlcv.transform import (
@@ -116,6 +117,8 @@ def _run_sanity_checks(conn: Connection, mode: Mode) -> list[str]:
     3. (#49) 수정 봉 불변식: adj_close 가 adj_high 초과 또는 adj_low 미만인 행
        카운트 — pykrx 유래 관측 전용. 강조는 최근 30일 급증(우선) 또는
        절대 기준(_ADJ_INVARIANT_BASELINE) 초과 시.
+    4. (#207 회신 21) volume_regime 정합: 최근 60일 daily_prices·index_daily 의 저장값이 날짜 규칙(regime_for_date)과
+       다르면 경고 — 컬럼 선적용 + 구 writer 로 09-30·10-01 이 'regular' 로 남은 운영 실측(2차 리뷰). 교정 = 이관 SQL 재실행.
 
     full-refresh 모드는 새 행을 추가하지 않으므로 커버리지 검증을 건너뜀.
     """
@@ -180,6 +183,25 @@ def _run_sanity_checks(conn: Connection, mode: Mode) -> list[str]:
                     f"소스 동작 변화 의심"
                 )
             warnings.append(msg)
+
+        # 검증 4: volume_regime 저장값 vs 날짜 규칙(최근 60일)
+        cur.execute("""
+            SELECT COUNT(*), COALESCE(string_agg(DISTINCT ticker, ',' ORDER BY ticker) FILTER (WHERE rn <= 5), '')
+              FROM (SELECT ticker, row_number() OVER (ORDER BY ticker) rn
+                      FROM daily_prices
+                     WHERE date >= CURRENT_DATE - 60
+                       AND volume_regime <> CASE WHEN date >= %s THEN 'extended' ELSE 'regular' END) t
+        """, (VOLUME_REGIME_BOUNDARY,))
+        mism, sample = cur.fetchone()
+        cur.execute("""
+            SELECT COUNT(*) FROM index_daily
+             WHERE date >= CURRENT_DATE - 60 AND volume_regime <> CASE WHEN date >= %s THEN 'extended' ELSE 'regular' END
+        """, (VOLUME_REGIME_BOUNDARY,))
+        mism_idx = cur.fetchone()[0] or 0
+        if mism or mism_idx:
+            warnings.append(
+                f"volume_regime_mismatch: 최근 60일 daily_prices {mism}행(예: {sample}) · index_daily {mism_idx}행이 날짜 규칙과 다름 — "
+                f"이관 SQL 재실행(psql -1 -f scripts/sql/issue207_volume_regime_migrate.sql)")
 
     return warnings
 

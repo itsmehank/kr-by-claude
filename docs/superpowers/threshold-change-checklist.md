@@ -165,5 +165,10 @@ P2-1a (한국시장 FTD/distribution 임계 σ 보정) 가 *작성 당시 이 �
     | `MARKET_DISTRIBUTION_LOOKBACK_DAYS`=25 (count_distribution_days) | 불가(세션 수) | **있음 (bounded)** — 창에 경계가 들면 계수 가능 쌍 25→24(09-28 하루 비교 불가). 분배일 1개 과소 가능(그날이 분배일이었을 때만). 창이 경계를 벗어나는 ~11-03 이후 자연 소멸 | book TLOND 25 세션 유지(계수 대상만 축소) | 모니터링: 09-28 재계산 결과 #207 기록(그날 KOSPI/KOSDAQ 분배일 여부 1회 확인) |
     | `MARKET_STALL_CLOSE_RANGE_POS_MAX`=0.5 (정체일) | 불가 | **있음 (bounded)** — 같은 쌍 skip 으로 정체일 판정도 그날 불가 | 유지 | 위 행과 동일 |
     | `STATUS_FTD_RECENT_DAYS`=90 (detect_last_ftd) | 불가(세션 수) | **있음 (bounded)** — 09-28 은 FTD 후보 자체가 될 수 없음(거래량 비교 불가). 그날 지수가 FTD 조건이었다면 미검출 → status 가 ~90 세션 동안 '최근 FTD 없음' 쪽으로 편향 | book 유지(FTD 는 거래량 증가 조건이 핵심이라 정의 불일치 시 판정 불가가 책 취지) | 모니터링: 09-28 KOSPI/KOSDAQ 등락·거래량으로 FTD 조건 성립 여부 1회 확인해 #207 기록 |
+    | `DISTRIBUTION_PCT_BASE`=-0.2 (분배일 하락 컷, σ 보정) | 불가 | **미미** — skip 된 쌍은 컷 비교 자체를 안 함(컷 값·보정 불변). 경계일 외 영향 0 | 유지 | — |
+    | `FTD_PCT_BASE`=1.4 (FTD 상승 컷, σ 보정) | 불가 | **미미** — 09-28 하루만 후보 제외, 컷 불변 | 유지 | — |
+    | `FTD_RALLY_WINDOW_MIN_DAYS`=3·`FTD_RALLY_WINDOW_MAX_DAYS`=15 (저점 후 랠리 일수 창) | 불가(세션 수) | **미미** — skip 일은 창 안의 '날'로는 남고 후보 자격만 잃음(창 길이 불변). 저점이 09-28 이면 그 저점 기준 FTD 후보는 다음 날부터 — 책 규칙(4일 이후) 유지 | 유지 | — |
+    | `FTD_LOW_LOOKBACK_DAYS`=15 (저점 탐색 창) | 불가(세션 수) | **미미** — 저점 탐색은 가격만 봄(거래량 비교 없음) → skip 과 무관 | 유지 | — |
     | `STATUS_DIST_COUNT_FOR_FTD_INVALIDATION`=6 · `STATUS_FTD_INVALIDATION_DAYS`=10 (status) | 불가 | 미미 — 입력(dist_count·last_ftd)이 위 두 행으로만 간접 영향 | 유지 | 모니터링(위 행 관측에 포함) |
     | `VOLUME_BREAKOUT_DAILY_MAX`=1361 (트립와이어 4) | 불가(건수) | 없음 — PR-2 는 표지·비교 제외만, 돌파 거래량 계수 로직 불변 | — | — |
+  - 2026-10-02 2차 리뷰 반영: 봉 writer 3곳의 SQL CASE → Python `regime_for_date`/`regime_for_week` 값 저장(규칙 사본 = 이관 SQL 1곳, 날짜 리터럴 == 상수 테스트) · market_context load 는 저장 컬럼 대신 날짜 규칙으로 유도(운영 실측: 09-30·10-01 'regular' 오저장) + ohlcv sanity 검증 4(volume_regime_mismatch 경고, 최근 60일) · 이관 SQL 이 시스템 writer 행(source system_%)을 flag 하지 않고 기존 8행 되돌림 · 되돌림 UPDATE 스캔 범위 경계 -60일 · 배지 TSX 공용 컴포넌트(`VolumeRegimeBadge`) · 테스트 허수 단언(주석 split) 수정 · 위 FTD/분배 컷·창 상수 5행 추가. **기록만**: `regime_flag_for_as_of` 만료 없음(PR-3 전제, ≈2026-12-10 경 50세션 경과) · 주봉 달력 월요일 기준(첫 거래일 휴일 시 mixed 쪽 보수).

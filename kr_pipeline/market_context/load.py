@@ -5,6 +5,8 @@ from datetime import date
 import pandas as pd
 from psycopg import Connection
 
+from kr_pipeline.common.data_regimes import regime_for_date
+
 
 def load_index_daily_with_sma200(
     conn: Connection,
@@ -18,12 +20,13 @@ def load_index_daily_with_sma200(
     high/low 는 stalling 분배일 판정(일중 마감 위치, 이슈 #55)에 사용.
 
     return columns: date, close, volume, high, low, volume_regime, sma_50, sma_200, yearly_high
-    volume_regime(#207 회신 21): 'regular'/'extended' 문자열 — distribution_day/follow_through 가 전일과 다르면 비교 제외.
+    volume_regime(#207 회신 21): 날짜 규칙(data_regimes.regime_for_date)에서 유도한 'regular'/'extended' — distribution_day/
+    follow_through 가 전일과 다르면 비교 제외.
     """
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT date, close, volume, high, low, volume_regime
+            SELECT date, close, volume, high, low
               FROM index_daily
              WHERE index_code = %s AND date BETWEEN %s AND %s
              ORDER BY date
@@ -39,6 +42,9 @@ def load_index_daily_with_sma200(
     df["volume"] = df["volume"].astype(float)
     df["high"] = df["high"].astype(float)
     df["low"] = df["low"].astype(float)
+    # (#207 회신 21, 2차 리뷰) 저장 컬럼이 아니라 날짜 규칙에서 유도 — 컬럼 선적용/구 writer 로 저장값이 틀려도(09-30·10-01 실측)
+    # 경계 비교(regime_comparable)가 깨지지 않는다. 저장 컬럼 정합은 ohlcv sanity 검증 4 가 감시.
+    df["volume_regime"] = [regime_for_date(d) for d in df["date"]]
     df["sma_50"] = df["close"].rolling(window=50, min_periods=50).mean()
     df["sma_200"] = df["close"].rolling(window=200, min_periods=200).mean()
     df["yearly_high"] = df["close"].rolling(window=252, min_periods=1).max()

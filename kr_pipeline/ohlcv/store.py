@@ -3,7 +3,7 @@ import logging
 
 from psycopg import Connection
 
-from kr_pipeline.common.data_regimes import VOLUME_REGIME_BOUNDARY
+from kr_pipeline.common.data_regimes import regime_for_date
 
 log = logging.getLogger("kr_pipeline.ohlcv.store")
 
@@ -48,8 +48,7 @@ def upsert_daily_prices(conn: Connection, rows: list[tuple], *, adj_from: date |
             INSERT INTO daily_prices
               (ticker, date, open, high, low, close, adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value, change_pct,
                volume_regime, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    CASE WHEN %s >= %s THEN 'extended' ELSE 'regular' END, NOW())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (ticker, date) DO UPDATE
                SET open = EXCLUDED.open,
                    high = EXCLUDED.high,
@@ -66,7 +65,7 @@ def upsert_daily_prices(conn: Connection, rows: list[tuple], *, adj_from: date |
                    volume_regime = EXCLUDED.volume_regime,   -- (#207 회신 21) 날짜의 함수 — 모든 writer 가 같은 값
                    updated_at = NOW()
             """,
-            [(*r[:14], r[1], VOLUME_REGIME_BOUNDARY, *([r[14]] * 5)) for r in prepared],
+            [(*r[:14], regime_for_date(r[1]), *([r[14]] * 5)) for r in prepared],   # (#207 회신 21) 날짜의 함수 — Python 단일 정의
         )
         return cur.rowcount
 
@@ -151,7 +150,7 @@ def upsert_index_daily(conn: Connection, rows: list[tuple]) -> int:
         cur.executemany(
             """
             INSERT INTO index_daily (index_code, date, open, high, low, close, volume, value, volume_regime, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CASE WHEN %s >= %s THEN 'extended' ELSE 'regular' END, NOW())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (index_code, date) DO UPDATE
                SET open = EXCLUDED.open, high = EXCLUDED.high,
                    low = EXCLUDED.low, close = EXCLUDED.close,
@@ -159,6 +158,6 @@ def upsert_index_daily(conn: Connection, rows: list[tuple]) -> int:
                    volume_regime = EXCLUDED.volume_regime,
                    updated_at = NOW()
             """,
-            [(*r, r[1], VOLUME_REGIME_BOUNDARY) for r in rows],
+            [(*r, regime_for_date(r[1])) for r in rows],
         )
         return cur.rowcount

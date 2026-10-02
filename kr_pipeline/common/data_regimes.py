@@ -19,7 +19,7 @@
 from __future__ import annotations
 
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Final, Iterable
 
 VOLUME_REGIME_BOUNDARY: Final[date] = date(2026, 9, 28)        # KRX 일별 거래량에 애프터마켓 합산 시작(관측 추정, 회신 21)
@@ -42,12 +42,25 @@ def _as_date(v) -> date | None:
 
 
 def regime_for_date(d: date) -> str:
-    """봉 날짜 → 정의. 저장 SQL 의 CASE(ohlcv/store·weekly/store)와 같은 규칙(테스트가 둘의 일치를 고정)."""
+    """봉 날짜 → 정의. 일봉·지수 writer(ohlcv/store)가 이 값을 그대로 저장한다(SQL CASE 사본 없음 — 2차 리뷰로 단일화).
+    이관 SQL(scripts/sql/issue207_volume_regime_migrate.sql)만 같은 규칙의 SQL 사본이며 날짜 리터럴 == VOLUME_REGIME_BOUNDARY 를
+    테스트가 고정한다."""
     return REGIME_EXTENDED if d >= VOLUME_REGIME_BOUNDARY else REGIME_REGULAR
 
 
+def regime_for_week(week_end: date) -> str:
+    """주봉 → 정의(weekly/store 가 저장). 그 주의 달력 월요일(ISO)과 week_end 가 모두 경계 전이면 regular, 월요일 ≥ 경계면 extended,
+    그 외 mixed. 달력 월요일 기준이라 그 주 첫 거래일이 휴일이면 mixed 쪽으로 보수적(2차 리뷰 기록; 실제 첫 봉 기준은 PR-3 후보)."""
+    if week_end < VOLUME_REGIME_BOUNDARY:
+        return REGIME_REGULAR
+    monday = week_end - timedelta(days=week_end.weekday())
+    return REGIME_EXTENDED if monday >= VOLUME_REGIME_BOUNDARY else REGIME_MIXED
+
+
 def regime_flag_for_as_of(as_of) -> str | None:
-    """판정 행 표지(PR-2 규칙): as_of ≥ 경계 → 'mixed'. PR-3 에서 계산 창 유도로 축소(new → NULL)."""
+    """판정 행 표지(PR-2 규칙): as_of ≥ 경계 → 'mixed'. PR-3 에서 계산 창 유도로 축소(new → NULL).
+    ⚠ 만료 없음(2차 리뷰 기록): 경계 + ~50 세션(≈2026-12-10) 이후에도 'mixed' 를 찍는다 — PR-3 가 그 전에 창 유도로 대체해야 하고,
+    되돌림(mixed → NULL)은 이관 SQL 이 하지 않으므로 PR-3 가 별도 UPDATE 를 동반한다."""
     d = _as_date(as_of)
     if d is None or d < VOLUME_REGIME_BOUNDARY:
         return None

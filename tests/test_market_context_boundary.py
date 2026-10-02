@@ -46,3 +46,16 @@ def test_follow_through_skipped_when_regime_differs():
     n = len(same) - 1
     assert detect_last_ftd(same, n, pct_threshold=1.0, lookback_days=25) == ftd_day
     assert detect_last_ftd(diff, n, pct_threshold=1.0, lookback_days=25) is None
+
+
+def test_load_index_daily_derives_regime_from_date_not_stored_column(db):
+    """load 는 저장 컬럼이 아니라 날짜 규칙(regime_for_date)으로 volume_regime 을 채운다 — 운영 실측(컬럼 선적용 + 구 writer 가
+    09-30·10-01 을 'regular' 로 저장)처럼 저장값이 틀려도 경계 비교가 깨지지 않는다(2차 리뷰)."""
+    from kr_pipeline.common.data_regimes import VOLUME_REGIME_BOUNDARY as B
+    from kr_pipeline.market_context.load import load_index_daily_with_sma200
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM index_daily WHERE index_code='VRLD'")
+        cur.execute("INSERT INTO index_daily (index_code, date, open, high, low, close, volume, value, volume_regime) VALUES "
+                    "('VRLD', %s, 1,1,1,1,1,1,'regular'), ('VRLD', %s, 1,1,1,1,1,1,'regular')", (B - timedelta(days=3), B))
+    df = load_index_daily_with_sma200(db, "VRLD", B - timedelta(days=10), B)
+    assert list(df["volume_regime"]) == ["regular", "extended"]
