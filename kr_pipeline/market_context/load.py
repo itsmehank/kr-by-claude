@@ -17,7 +17,8 @@ def load_index_daily_with_sma200(
     index_daily 에는 sma 가 없으므로, 함수 내에서 rolling 으로 직접 계산.
     high/low 는 stalling 분배일 판정(일중 마감 위치, 이슈 #55)에 사용.
 
-    return columns: date, close, volume, high, low, sma_50, sma_200, yearly_high
+    return columns: date, close, volume, high, low, volume_regime, sma_50, sma_200, yearly_high
+    volume_regime(#207 회신 21): 'regular'/'extended' 문자열 — distribution_day/follow_through 가 전일과 다르면 비교 제외.
     """
     with conn.cursor() as cur:
         cur.execute(

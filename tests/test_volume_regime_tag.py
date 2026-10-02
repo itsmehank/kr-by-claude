@@ -3,7 +3,9 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from kr_pipeline.common.data_regimes import FLAG_MIXED, VOLUME_REGIME_BOUNDARY
+from kr_pipeline.common.data_regimes import (
+    ALLOW_EXCLUDED_REGIME_ENV, BACKTEST_EXCLUDED_FROM, FLAG_MIXED, VOLUME_REGIME_BOUNDARY, assert_backtest_range_allowed,
+)
 from tests.test_llm_runner_store import _cls_result, _s9_result
 
 B = VOLUME_REGIME_BOUNDARY
@@ -15,6 +17,31 @@ def _one(db, sql, *args):
     with db.cursor() as cur:
         cur.execute(sql, args)
         return cur.fetchone()
+
+
+def test_backtest_guard(monkeypatch):
+    """회신 20 Q-4c: BACKTEST_EXCLUDED_FROM(09-28) 이후 봉은 백테스트 금지 — 명시 env 우회만 허용. (#220 리뷰: 삭제됐던 커버리지 복원)"""
+    monkeypatch.delenv(ALLOW_EXCLUDED_REGIME_ENV, raising=False)
+    assert_backtest_range_allowed(None)
+    assert_backtest_range_allowed(BACKTEST_EXCLUDED_FROM - timedelta(days=1))
+    with pytest.raises(ValueError, match="BACKTEST_EXCLUDED_FROM"):
+        assert_backtest_range_allowed(BACKTEST_EXCLUDED_FROM)
+    with pytest.raises(ValueError):
+        assert_backtest_range_allowed(str(BACKTEST_EXCLUDED_FROM + timedelta(days=30)))
+    monkeypatch.setenv(ALLOW_EXCLUDED_REGIME_ENV, "1")
+    assert_backtest_range_allowed(BACKTEST_EXCLUDED_FROM)          # 명시 우회만 허용
+
+
+def test_backfill_entrypoints_refuse_excluded_range(db, monkeypatch):
+    """세 진입점 중 두 곳(llm_runner.backfill·backtest.backfill)이 가드를 실제로 호출한다."""
+    monkeypatch.delenv(ALLOW_EXCLUDED_REGIME_ENV, raising=False)
+    from kr_pipeline.llm_runner import backfill as llm_backfill
+    from kr_pipeline.backtest import backfill as bt_backfill
+    with pytest.raises(ValueError):
+        llm_backfill.run(db, start=BACKTEST_EXCLUDED_FROM, end=BACKTEST_EXCLUDED_FROM + timedelta(days=6))
+    with pytest.raises(ValueError):
+        bt_backfill.run_backtest_backfill(db, start=BACKTEST_EXCLUDED_FROM, end=BACKTEST_EXCLUDED_FROM + timedelta(days=6),
+                                          tickers=["005930"])
 
 
 def test_text_tag_helpers_are_gone():

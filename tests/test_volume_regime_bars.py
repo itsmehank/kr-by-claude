@@ -116,9 +116,14 @@ def test_migration_script_is_idempotent_and_moves_tags(db):
                     "VALUES ('VRM1', %s, 1,1,1,1,1,1,1,'regular')", (B,))
         cur.execute("INSERT INTO weekly_classification (symbol, classified_at, market, classification, pattern, source, analyzed_for_date, sanity_warnings) "
                     "VALUES ('VRM1', now(), 'KOSPI', 'watch', 'flat_base', 'weekend', %s, %s)", (B, '["x", "volume_regime_unverified_#207"]'))
-    for _ in range(2):                       # 2회 실행 = 멱등(같은 트랜잭션 안에서 BEGIN/COMMIT 은 무해)
+    import psycopg
+    assert "BEGIN" not in sql.upper().split("--")[0] or "BEGIN;" not in sql, "스크립트는 트랜잭션 문을 갖지 않는다(psql -1 로 감쌈)"
+    for _ in range(2):                       # 2회 실행 = 멱등
         with db.cursor() as cur:
             cur.execute(sql)
+    # db 픽스처 격리 계약(conftest: 트랜잭션 → ROLLBACK). 스크립트 안의 COMMIT 은 이 트랜잭션을 실제 커밋해 시드 행을
+    # kr_test 에 영구 남긴다(#220 리뷰 실측: VRM1 잔존) → 실행 뒤에도 트랜잭션이 열려 있어야 한다.
+    assert db.info.transaction_status == psycopg.pq.TransactionStatus.INTRANS
     with db.cursor() as cur:
         cur.execute("SELECT volume_regime FROM daily_prices WHERE ticker='VRM1' AND date=%s", (B,)); assert cur.fetchone()[0] == "extended"
         cur.execute("SELECT volume_regime_flag, sanity_warnings FROM weekly_classification WHERE symbol='VRM1'")

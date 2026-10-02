@@ -31,7 +31,7 @@
 | D6 | 경계일 전일 비교 | 분배일(`distribution_day`)·FTD(`follow_through`)에서 today/yesterday 의 `volume_regime` 이 다르면 **비교 불가 → 그날 분배일·FTD 아님(NULL 취급)**, `computation_notes` 에 사유 기록. 대상 = 09-25→09-28 1쌍(지수 2종) | 회신 21 Q-5c 1 |
 | D7 | 보유 종목 평가 | T2(`t2_max_volume_now`, 주간 거래량 최대)·T-D(`td_max_down_volume_now`, 주간 하락일 거래량 최대)의 창(앵커 주~현재)에 대해 D3 로 상태 유도 → mixed 면 평가 행 flag. **발화 판정 자체는 불변**(억제 아님) | 회신 21 "자동 적용" = 표지 자동 부착. TA-d 는 가격 낙폭 신호라 거래량 무관(정정) |
 | D8 | 백테스트 | `BACKTEST_EXCLUDED_FROM` 유지·가드 유지 | 회신 21 마지막 절 |
-| D9 | 웹 | Signals·Positions 카드에 flag 배지("거래량 혼재 창 — 09-28 정의 경계, 비율 상향 편향 가능"). `known_warnings` 칩에서는 사라짐 | D5 |
+| D9 | 웹 | flag 배지("거래량 혼재 창 — 09-28 정의 경계, 비율 상향 편향 가능"). **PR-2 = Signals 카드(EntrySignalCard·SignalsPage)**, `known_warnings` 칩에서는 사라짐. **Positions 카드는 PR-3** — position_*_evaluations.volume_regime_flag 는 PR-2 에서 쓰기만 하고 노출은 PR-3 창 유도(T2·T-D)와 함께(#220 리뷰: spec·구현 불일치 정정) | D5 |
 
 ## 4. 데이터 모델
 
@@ -76,7 +76,7 @@ regime 이 다르면 해당 일은 분배일 후보·FTD 후보에서 제외(기
 - **PR-2 (Q-5c 1·3)**: schema 8 ALTER + 소급 UPDATE · 수집기·주봉 집계 regime 기록 · D6 · 전용 컬럼 + D5 이관(문자열 제거) ·
   flag 초기 규칙 = "as_of ≥ 경계 → mixed"(PR-3 전까지 현행 표지 범위와 동일) · 웹 배지. 테스트: writer 값·주봉 유도·경계일
   비교 제외·이관 멱등.
-- **PR-3 (Q-5c 2)**: `regime_window_state` + 소비처 5곳 창 유도로 flag 축소(new → NULL) · 보유 평가 flag · 만료 검증 테스트
+- **PR-3 (Q-5c 2)**: `regime_window_state` + 소비처 5곳 창 유도로 flag 축소(new → NULL) · 보유 평가 flag · **Positions 카드 배지(D9 잔여)** · 만료 검증 테스트
   (경계 + 50봉/50주 이후 NULL). 완료 후 백테스트 금지 해제 별건 판정 요청.
 
 ## 8. 테스트·검증

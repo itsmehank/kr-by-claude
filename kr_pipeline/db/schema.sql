@@ -1088,8 +1088,9 @@ CREATE TABLE IF NOT EXISTS issue_briefs (
     observed_at     TIMESTAMPTZ  NOT NULL           -- 마지막 gh 관측 시각
 );
 
--- (#207 회신 20, 2026-09-29) 거래량 정의 미확정 표지 — trigger_evaluation_log 에도 sanity_warnings(weekly_classification 과
--- 동일 의미, SOFT·쓰기 전용). 09-28 이후 analyzed_for_date 행에 'volume_regime_unverified_#207'(data_regimes.py).
+-- (#207 회신 20, 2026-09-29) trigger_evaluation_log.sanity_warnings — weekly_classification 과 동일 의미(SOFT). 당초 문자열 표지
+-- 'volume_regime_unverified_#207' 용으로 추가됐으나 회신 21 Q-5c 3(2026-09-30)으로 표지가 전용 컬럼 volume_regime_flag(아래)로
+-- 이관돼 현재 store 는 이 컬럼을 쓰지 않는다(이관 SQL 이 기존 표지 제거). 컬럼은 향후 SOFT 경고용으로 유지.
 ALTER TABLE trigger_evaluation_log
   ADD COLUMN IF NOT EXISTS sanity_warnings JSONB;
 

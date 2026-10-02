@@ -271,7 +271,7 @@ position_size_pct (prompt §3.1-3.3):
 12. position_size_basis (산식 텍스트)
 13. breakout_volume_requirement (ge_1.3x / 1.4x / 1.5x_50day_avg / 1.5x_strict(#74) / pocket_pivot_signature)
 14. observed_breakout_volume_ratio
-15. known_warnings (JSONB 15 화이트리스트 + 저장 단계 시스템 표지 volume_regime_unverified_#207·sanity_*)
+15. known_warnings (JSONB 15 화이트리스트 + 저장 단계 sanity_* 마커) · volume_regime_flag (전용 컬럼, 2026-09-28 거래량 정의 경계 — #207 회신 21)
 16. other_warnings
 17. notes (50-600자)`,
     insertPolicy: "PK: (symbol, signal_at)",
