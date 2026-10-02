@@ -210,7 +210,18 @@ def test_migration_reverts_pr2_window_rows_that_pr3_writes_null(db):
         pid = cur.fetchone()[0]
         cur.execute("INSERT INTO position_climax_evaluations (position_id, eval_date, fired, suppressed, hold_days, triggers, mode, anchor_week, volume_regime_flag) "
                     "VALUES (%s, %s, FALSE, FALSE, 1, '[]', 'quality', %s, 'mixed')", (pid, B + timedelta(days=2), (B + timedelta(days=4)).isoformat()))
+        # 경계 전 앵커 + 평가일(09-30)까지 경계 이후 주봉 없음(10-02 주봉은 나중에 생김) → T2 창 전부 regular → NULL. 평가일 이후 주봉은 무관(4차)
+        cur.execute("DELETE FROM positions WHERE symbol='VRM3'")
+        cur.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity, status) VALUES ('VRM3', %s, 1000, 1, 'open') RETURNING id", (B,))
+        pid3 = cur.fetchone()[0]
+        cur.execute("DELETE FROM weekly_prices WHERE ticker='VRM3'")
+        cur.execute("INSERT INTO weekly_prices (ticker, week_end_date, open, high, low, close, adj_close, volume, value, trading_days) VALUES "
+                    "('VRM3', %s, 1,1,1,1,1,1,1,5), ('VRM3', %s, 1,1,1,1,1,1,1,5)", (B - timedelta(days=3), B + timedelta(days=4)))
+        cur.execute("INSERT INTO position_climax_evaluations (position_id, eval_date, fired, suppressed, hold_days, triggers, mode, anchor_week, volume_regime_flag) "
+                    "VALUES (%s, %s, FALSE, FALSE, 1, '[]', 'quality', %s, 'mixed')", (pid3, B + timedelta(days=2), (B - timedelta(days=31)).isoformat()))
         cur.execute(sql)
+        cur.execute("SELECT volume_regime_flag FROM position_climax_evaluations WHERE position_id=%s", (pid3,))
+        assert cur.fetchone()[0] is None
         cur.execute("SELECT symbol, volume_regime_flag FROM trigger_evaluation_log WHERE symbol IN ('VRM3','VRM4') ORDER BY symbol")
         assert cur.fetchall() == [("VRM3", "mixed"), ("VRM4", None)]
         cur.execute("SELECT volume_regime_flag FROM position_climax_evaluations WHERE position_id=%s", (pid,))

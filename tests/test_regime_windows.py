@@ -137,6 +137,35 @@ def test_classification_flag_combines_daily_weekly_and_anchor_range(db):
     assert classification_flag(db, "RWJ2", far, anchor_week=late_anchor.isoformat()) is None
 
 
+def test_classification_anchor_range_uses_last_weekly_bar_not_as_of(db):
+    """앵커~평가 창의 우측 끝 = 집계의 MAX(week_end_date)(find_anchor 가 본 마지막 주). as_of 가 수요일 09-30 이고 주봉이 09-25 까지만
+    있으면 T2/P2 는 regular 주만 봤으므로 NULL — as_of 달력 주(extended)로 판정하면 오표지(리뷰 #222 4차)."""
+    days = _weekdays(B - timedelta(days=120), 80)                                # 일봉: 전부 경계 전
+    days = [d for d in days if d < B]
+    _seed_daily(db, "RWA1", days)
+    fridays = [date(2025, 10, 3) + timedelta(weeks=i) for i in range(52) if date(2025, 10, 3) + timedelta(weeks=i) < B]   # ≤ 09-25
+    _seed_weekly(db, "RWA1", fridays)
+    as_of = B + timedelta(days=2)                                                 # 수요일 09-30
+    assert classification_flag(db, "RWA1", as_of, anchor_week="2026-08-07") is None
+
+
+def test_guarded_returns_conservative_when_connection_already_in_error(db, caplog):
+    """선행 문 실패로 연결이 INERROR 면 SAVEPOINT 를 열지 않고 보수값 — psycopg 트랜잭션 카운터 누수 없이 호출자 rollback 이 동작(4차)."""
+    import logging, psycopg
+    with db.cursor() as cur:
+        try:
+            cur.execute("SELECT 1/0")
+        except psycopg.Error:
+            pass
+    assert db.info.transaction_status == psycopg.pq.TransactionStatus.INERROR
+    with caplog.at_level(logging.WARNING, logger="kr_pipeline.common.regime_windows"):
+        assert daily_window_flag(db, "ANY", B) == FLAG_MIXED
+    assert "INERROR" in caplog.text
+    db.rollback()                                                                 # 카운터 누수 시 ProgrammingError
+    with db.cursor() as cur:
+        cur.execute("SELECT 1"); assert cur.fetchone()[0] == 1
+
+
 def test_entry_window_flag_covers_pocket_pivot_lookback(db):
     """진입 창: pocket_pivot 분기는 관측 비율이 PP 일(최근 5세션 중 최신)에서 끝나는 50봉 창 — as_of 창 + 4봉을 더 보아 보수적(mixed 쪽)."""
     days = _weekdays(B - timedelta(days=200), 240)
@@ -144,4 +173,5 @@ def test_entry_window_flag_covers_pocket_pivot_lookback(db):
     after = [d for d in days if d >= B]
     assert daily_window_flag(db, "RWE1", after[49]) is None                    # as_of 50봉 창은 만료
     assert entry_window_flag(db, "RWE1", after[49]) == "mixed"                 # PP 일이 4봉 전이면 그 창은 아직 걸침
-    assert entry_window_flag(db, "RWE1", after[53]) is None                    # +4봉 뒤 만료
+    assert entry_window_flag(db, "RWE1", after[53]) == "mixed"                 # 할트 여유(10행)까지 보수적으로 유지
+    assert entry_window_flag(db, "RWE1", after[63]) is None                    # +4봉 +10행 뒤 만료

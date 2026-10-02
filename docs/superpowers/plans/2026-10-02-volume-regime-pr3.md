@@ -383,6 +383,10 @@ LEFT JOIN LATERAL (SELECT volume_regime_flag FROM position_decline_evaluations W
 
 `judgment_flag` → `classification_flag`/`daily_window_flag`/`entry_window_flag`(PP 탐색 +4봉), 주봉 창 W+1(SSOT import), decline 행 flag NULL(거래량 입력 없음 — spec D7 정정), run_daily_eval 이 T2 flag 1회 계산해 climax kwarg 로 전달, SAVEPOINT fail-soft·경계 전 DB 0, 이관 SQL flag 소급 삭제, `_as_date` 재사용·FLAG_MIXED·COALESCE. 기록만: 앵커 C3 분모 창(spec D7 범위).
 
+## 리뷰 4차 반영(10-02)
+
+이관 SQL 되돌림을 날짜 창 없이 규칙 기반(climax 는 eval_date 기준 주봉)으로, 분류 앵커 창의 우측 끝 = 주간 집계 MAX(as_of 달력 주 아님)·첫 mixed 즉시 반환·anchor_week 파싱 fail-soft, `_guarded` INERROR 선검사(psycopg 카운터 누수 방지), 진입 창 할트 여유(min_periods 40 → 10행), climax kwarg 필수·decline INSERT 컬럼 제거, `ZERO_BAR_SQL` 양의 형태로 fetcher 3곳 공유, 미사용 import 정리, spec §9 에 LLM 원시 봉 범위 밖 기록.
+
 ## 리뷰 3차 반영(10-02)
 
 분류 창에 앵커에서 끝나는 C3 W+1 주 추가(앵커 적격 판정 분모), 앵커~평가 주는 (앵커, as_of) 양 끝 순수 유도(상한 버그 제거·SQL 0), `_guarded` 가 psycopg.Error 만 보수 'mixed'(프로그래밍 오류 전파), `PP_RECENT_SESSIONS` thresholds 승격(common→llm_runner 역방향 import 제거), zero-bar 술어 `price_source.NOT_ZERO_BAR_SQL` 공유, export_thresholds 재생성, 이관 SQL 에 PR-2 창(09-28~10-02) 되돌림 4문, 문서 모순 6건 정정·소비 경계 1줄.

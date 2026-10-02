@@ -268,25 +268,25 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
 def _insert_decline_eval(conn: Connection, *, position_id: int, as_of: date, fired, hold_days, signals, anchor_week, weeks_since,
                          maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode, climax_also_fired) -> bool:
     """position_decline_evaluations INSERT(멱등). volume_regime_flag 는 항상 NULL — decline 판정(T-A·TA-d)은 가격 낙폭만 쓰고 거래량
-    입력이 없다(held_decline.HELD_DECLINE_SIGNALS; spec D7 의 'T-D' 는 오기, 리뷰 #222). 컬럼은 스키마 호환으로 유지."""
+    입력이 없다(held_decline.HELD_DECLINE_SIGNALS; spec D7 의 'T-D' 는 오기, 리뷰 #222). 컬럼은 스키마 호환으로 남기되 INSERT 에서 제외(DEFAULT NULL)."""
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO position_decline_evaluations
               (position_id, eval_date, fired, hold_days, signals, anchor_week, weeks_since,
                maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode,
-               climax_also_fired, volume_regime_flag)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+               climax_also_fired)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (position_id, eval_date) DO NOTHING
             """,
             (position_id, as_of, fired, hold_days, json.dumps(list(signals)), anchor_week, weeks_since,
-             maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode, climax_also_fired, None),
+             maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode, climax_also_fired),
         )
         return cur.rowcount == 1
 
 
 def _insert_climax_eval(conn: Connection, *, position_id: int, as_of: date, fired, suppressed, hold_days, triggers, anchor_week,
-                        weeks_since, maturity_ok, p2_accel_ok, scope_active, mode, volume_regime_flag: str | None = None) -> bool:
+                        weeks_since, maturity_ok, p2_accel_ok, scope_active, mode, volume_regime_flag: str | None) -> bool:
     """position_climax_evaluations INSERT(멱등). volume_regime_flag(#207 Q-5c 2) = 호출자가 range_flag_from_week_ends(gates.week_ends, 앵커 주)로 1회 계산해 전달
     ('mixed' | None). 앵커 없음 → NULL."""
     with conn.cursor() as cur:

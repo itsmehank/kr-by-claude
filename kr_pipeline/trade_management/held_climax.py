@@ -31,7 +31,7 @@ from api.services.payload_builder import (
     _daily_row,
     _fetch_weekly_full,
 )
-from kr_pipeline.common.price_source import price_source
+from kr_pipeline.common.price_source import ZERO_BAR_SQL, price_source
 from kr_pipeline.common.thresholds import TRADE_HOLD_MIN_DAYS
 from kr_pipeline.llm_runner.compute.climax_topping import (
     _DAILY_KEYS,
@@ -69,7 +69,7 @@ def fetch_daily_flagged(conn: Connection, ticker: str, on_date: date) -> list[di
     with conn.cursor() as cur:
         cur.execute(f"""
             SELECT {_DAILY_OHLCV_COLS},
-                   (open = 0 AND high = 0 AND low = 0 AND volume = 0) AS zero_bar,
+                   {ZERO_BAR_SQL} AS zero_bar,
                    (adj_high IS NOT NULL AND adj_low IS NOT NULL)     AS adj_hl
               FROM {src.daily}
              WHERE ticker = %s AND date <= %s
