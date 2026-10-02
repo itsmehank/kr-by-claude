@@ -260,16 +260,18 @@ def _set_mtime(path: Path, dt) -> None:
 
 
 def test_eltd_cache_fresh_today_boundary(tmp_path):
-    """오늘 17시 이후 기록만 fresh — 어제 기록으로 오늘을 판정하면 결측이 통과한다(H-1)."""
+    """오늘 INTRADAY_LOCK_END(20:25, =Python CLOSE_BUFFER) 이후 기록만 fresh — 그 전 기록은 D:pre(값=어제)라 오늘 판정에 쓰면 결측이 통과한다(H-1·#219 리뷰)."""
     from datetime import datetime, time, timedelta, date as _date
 
     cache = tmp_path / "eltd.cache"
     cache.write_text("2026-08-03:post|2026-08-03\n")
     env = {"ELTD_CACHE": str(cache)}
     cases = [
-        (datetime.combine(_date.today(), time(18, 0)), "FRESH"),               # 오늘 18시
+        (datetime.combine(_date.today(), time(20, 25)), "FRESH"),              # 오늘 20:25 = INTRADAY_LOCK_END(=CLOSE_BUFFER)
+        (datetime.combine(_date.today(), time(20, 24)), "STALE"),              # 그 직전 — Python cache_key 는 아직 D:pre(값=어제)
+        (datetime.combine(_date.today(), time(18, 0)), "STALE"),               # 구 17:00 기준이면 FRESH 였던 창(#219 리뷰)
         (datetime.combine(_date.today(), time(10, 0)), "STALE"),               # 오늘 아침
-        (datetime.combine(_date.today() - timedelta(days=1), time(18, 30)), "STALE"),  # 어제 저녁
+        (datetime.combine(_date.today() - timedelta(days=1), time(20, 30)), "STALE"),  # 어제 저녁
     ]
     for dt, want in cases:
         _set_mtime(cache, dt)
@@ -290,53 +292,53 @@ _DATE_SHADOW = """date() {{
     *) command date "$@";;
   esac
 }}
-eltd_cache_older_than_prev_workday17 && echo OLD || echo OK"""
+eltd_cache_older_than_prev_workday_close && echo OLD || echo OK"""
 
 
 def _shadow(dow: int, d1: str, d3: str) -> str:
     return _DATE_SHADOW.format(dow=dow, d1=d1, d3=d3)
 
 
-def test_older_than_prev_workday17_monday_normal_weekend_is_ok(tmp_path):
-    """정상 주말(금 18:30 기록) 뒤 월요일 아침 → 오탐 없어야 한다.
+def test_older_than_prev_workday_close_monday_normal_weekend_is_ok(tmp_path):
+    """정상 주말(금 20:30 기록) 뒤 월요일 아침 → 오탐 없어야 한다.
 
     기준이 단순 '어제(일요일) 17시'면 금 18:30 < 일 17:00 이라 매주 월요일 오탐
-    (4차 전체검토 실측 재현). 월요일의 기준은 직전 평일 = 금요일 17시다.
+    (4차 전체검토 실측 재현). 월요일의 기준은 직전 평일 = 금요일 20:25 다.
     """
     cache = tmp_path / "eltd.cache"
     cache.write_text("2026-08-07:post|2026-08-07\n")
-    _set_mtime(cache, __import__("datetime").datetime(2026, 8, 7, 18, 30))  # 금 18:30
+    _set_mtime(cache, __import__("datetime").datetime(2026, 8, 7, 20, 30))  # 금 20:30
     r = run_guard(_shadow(1, "2026-08-09", "2026-08-07"), {"ELTD_CACHE": str(cache)})
     assert "OK" in r.stdout, f"정상 주말이 월요일 아침 오탐: {r.stdout!r} {r.stderr!r}"
 
 
-def test_older_than_prev_workday17_monday_catches_weekend_outage(tmp_path):
+def test_older_than_prev_workday_close_monday_catches_weekend_outage(tmp_path):
     """목요일에 멈춘 캐시 → 월요일 아침 알림(금요일 저녁까지 통째 결측)."""
     cache = tmp_path / "eltd.cache"
     cache.write_text("2026-08-06:post|2026-08-06\n")
-    _set_mtime(cache, __import__("datetime").datetime(2026, 8, 6, 18, 30))  # 목 18:30
+    _set_mtime(cache, __import__("datetime").datetime(2026, 8, 6, 20, 30))  # 목 20:30
     r = run_guard(_shadow(1, "2026-08-09", "2026-08-07"), {"ELTD_CACHE": str(cache)})
     assert "OLD" in r.stdout, f"주말 통째 결측을 월요일 아침에 못 잡음: {r.stdout!r}"
 
 
-def test_older_than_prev_workday17_tuesday(tmp_path):
-    """화요일: 월 18:30 기록 = 정상(OK), 금 18:30 에 멈춤 = 월요일 결측(OLD)."""
+def test_older_than_prev_workday_close_tuesday(tmp_path):
+    """화요일: 월 20:30 기록 = 정상(OK), 금 20:30 에 멈춤 = 월요일 결측(OLD)."""
     from datetime import datetime as _dt
 
     cache = tmp_path / "eltd.cache"
     cache.write_text("2026-08-10:post|2026-08-10\n")
     env = {"ELTD_CACHE": str(cache)}
-    _set_mtime(cache, _dt(2026, 8, 10, 18, 30))          # 월 18:30 — 정상
+    _set_mtime(cache, _dt(2026, 8, 10, 20, 30))          # 월 20:30 — 정상
     r = run_guard(_shadow(2, "2026-08-10", "2026-08-08"), env)
     assert "OK" in r.stdout, f"정상 화요일 아침 오탐: {r.stdout!r}"
-    _set_mtime(cache, _dt(2026, 8, 7, 18, 30))           # 금 18:30 — 월요일 결측
+    _set_mtime(cache, _dt(2026, 8, 7, 20, 30))           # 금 20:30 — 월요일 결측
     r = run_guard(_shadow(2, "2026-08-10", "2026-08-08"), env)
     assert "OLD" in r.stdout, f"월요일 결측을 화요일 아침에 못 잡음: {r.stdout!r}"
 
 
-def test_older_than_prev_workday17_absent_cache_is_ok(tmp_path):
+def test_older_than_prev_workday_close_absent_cache_is_ok(tmp_path):
     """캐시 없음은 '오래됨'으로 치지 않는다 — 재개 당일 아침 오탐 방지."""
-    r = run_guard("eltd_cache_older_than_prev_workday17 && echo OLD || echo OK",
+    r = run_guard("eltd_cache_older_than_prev_workday_close && echo OLD || echo OK",
                   {"ELTD_CACHE": str(tmp_path / "absent.cache")})
     assert "OK" in r.stdout, "캐시 없음이 OLD 로 판정 — 재개 당일 아침 오탐"
 
@@ -474,6 +476,33 @@ def test_schedule_env_single_source_is_consistent():
     assert (int(lh), int(lm)) < (int(eh), int(em)) <= (int(wd), 0)
     assert int(wd) - int(eh) >= 2                       # 데이터 체인 최대 2h10m 실측 여유
     assert wake < f"{eh}:{em}:00"                       # 기상은 발화 전
+
+
+def test_close_buffer_equals_intraday_lock_end_and_precedes_evening_fire():
+    """20:25 는 Python(market_hours.CLOSE_BUFFER)과 셸(schedule.env INTRADAY_LOCK_END) 두 곳에 적힌다 — 한쪽만 개정(Q-5b 20:55)하면
+    20:30 발화가 ELTD=어제로 '몫 완료 skip' 하는 무음 결측(#219 리뷰). 둘을 같게, 그리고 발화 시각보다 앞서게 고정한다."""
+    from datetime import time as _time
+    from kr_pipeline.common.market_hours import CLOSE_BUFFER          # stdlib 전용 모듈 — pykrx 미로드
+    r = run_guard('echo "$EVENING_HOUR $EVENING_MIN $INTRADAY_LOCK_END_HOUR $INTRADAY_LOCK_END_MIN"')
+    eh, em, lh, lm = (int(x) for x in r.stdout.split())
+    assert _time(lh, lm) == CLOSE_BUFFER
+    assert CLOSE_BUFFER < _time(eh, em)
+
+
+def test_close_buffer_helpers_decimal_and_sql_interval():
+    """INTRADAY_LOCK_END 를 쓰는 셸 헬퍼: 선행 0(08) 을 8진수로 읽지 않고(printf %02d — 2차 리뷰 실측 'invalid number'),
+    SQL interval 문자열은 같은 상수에서 나온다(evening_chain 멱등 경계·watch miss.eval 경계의 구 '17 hours' 대체)."""
+    r = run_guard('echo "$(_close_buffer_hms) | $(close_buffer_sql_interval)"')
+    assert r.stdout.strip() == "20:25:00 | interval '20 hours 25 minutes'", r.stdout + r.stderr
+    r = run_guard('INTRADAY_LOCK_END_HOUR=20; INTRADAY_LOCK_END_MIN=08; echo "$(_close_buffer_hms) | $(close_buffer_sql_interval)"')
+    assert r.stdout.strip() == "20:08:00 | interval '20 hours 8 minutes'", r.stdout + r.stderr
+
+
+def test_no_hardcoded_17_hour_boundary_in_launchd_scripts():
+    """구 CLOSE_BUFFER 17:00 의 잔존 리터럴 금지 — 코드 줄 한정(주석 제외). #219 2차 리뷰: evening_chain·watch 의 interval '17 hours'."""
+    for path in sorted((REPO / "scripts" / "launchd").glob("*.sh")):
+        for n, line in _code_lines(path):
+            assert "17 hours" not in line and "17:00" not in line, f"{path.name}:{n}: {line.strip()}"
 
 
 _VAR_NONASCII = re.compile(r"\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]")

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from enum import Enum
 import logging
 
@@ -7,8 +7,9 @@ import pandas as pd
 from psycopg import Connection
 
 from kr_pipeline.db.runs import run_tracking
-from kr_pipeline.ohlcv import adjust, tripwires
-from kr_pipeline.ohlcv.fetch import fetch_raw_datewise, fetch_index
+from kr_pipeline.common.market_hours import today_bar_final
+from kr_pipeline.ohlcv import adjust, provisional, tripwires
+from kr_pipeline.ohlcv.fetch import fetch_market_snapshot, fetch_raw_datewise, fetch_index
 from kr_pipeline.ohlcv.transform import (
     to_price_rows, to_index_rows, nullify_halt_adj,
 )
@@ -37,19 +38,26 @@ def compute_date_range(
     years: int = 2,
     window_days: int = 30,
     conn: Connection | None = None,
-    exclude_today: bool = False,
+    exclude_today: bool | None = None,
+    now: datetime | None = None,
 ) -> tuple[date, date]:
     """모드별 일봉 fetch 범위.
 
-    exclude_today: INCREMENTAL 에서 end 를 어제로 당김 (장중 수동 실행 시 오늘 *미확정*
-        부분봉 회피용 opt-in). 기본 False = end=today — 마감 후 cron 이 당일 확정봉을
-        같은 날 적재하는 동작을 보존. BACKFILL/FULL_REFRESH 는 이미 end=어제라 무영향.
+    exclude_today: INCREMENTAL 의 end.
+        None(기본, #207 회신 21 ②) = **now < CLOSE_BUFFER(20:25) 면 어제**, 이후면 오늘 — 경로(launchd·터미널·웹·직접
+        실행) 무관하게 잠정값 창(애프터마켓 20분 지연)과 장중 부분봉을 받지 않는다.
+        True = 항상 어제(구 opt-in 유지). False = 항상 오늘(테스트·명시 강제 전용).
+        BACKFILL/FULL_REFRESH 는 이미 end=어제라 무영향.
+    now: 테스트 주입(기본 datetime.now()).
     """
-    today = date.today()
+    now = now or datetime.now()
+    today = now.date()
     yesterday = today - timedelta(days=1)
     if mode == Mode.BACKFILL:
         return today - timedelta(days=365 * years), yesterday
     if mode == Mode.INCREMENTAL:
+        if exclude_today is None:
+            exclude_today = not today_bar_final(now)
         return today - timedelta(days=window_days), (yesterday if exclude_today else today)
     if mode == Mode.FULL_REFRESH:
         return _get_db_min_date(conn), yesterday
@@ -192,13 +200,13 @@ def run(
     window_days: int = 30,
     limit_tickers: int | None = None,
     max_workers: int = 3,
-    exclude_today: bool = False,
+    exclude_today: bool | None = None,
 ) -> RunStats:
     params = {
         "years": years if mode == Mode.BACKFILL else None,
         "window_days": window_days if mode == Mode.INCREMENTAL else None,
         "limit_tickers": limit_tickers,
-        "exclude_today": exclude_today if (mode == Mode.INCREMENTAL and exclude_today) else None,
+        "exclude_today": exclude_today if mode == Mode.INCREMENTAL else None,   # None = CLOSE_BUFFER 자동
     }
     params = {k: v for k, v in params.items() if v is not None}
 
@@ -222,6 +230,8 @@ def run(
 
 def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
     """#207 A안: raw(KRX) 만 수집, 수정 OHLCV 는 자체 계수(adjust)로 산출 — Naver 접촉 0. 4단계(회신 17 조건 = 예외 위치):
+    ⓪ (회신 21 ③) end 가 오늘이면 오늘 봉만 in-memory 고저 검사 → 위반 시 10분 대기·재조회 1회 → 여전히 위반이면 예외(저장 0).
+       잠정 스냅샷은 KRX 봉이 아니므로 ①의 fail-open 과 충돌 없음. 과거 날짜 봉은 아래 순서 그대로.
     ① raw 적재(fail-open): 종목별 조정일 후보 검출(직전 거래일 결측이면 보류) → 배치 행 adj = raw × F(기록된 이벤트만) → upsert
        (시임 이전 기존 행 adj 보존) → commit. 당일 KRX 봉은 여기서 전부 저장된다.
     ② 트립와이어 (1′)(3): 후보 이벤트 일별 수 · raw 봉 정합 → 위반 시 AdjustmentTripwireError(이벤트 기록·소급·재유도 **전**,
@@ -229,6 +239,10 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
     ③ 이벤트 유도: adjust.ingest_events(기록 → 정책 소급 → 시임 이후 재유도) → adjusted_tickers.
     ④ 트립와이어 (2): 유도 결과 봉 포함 관계 → 위반 시 예외(지표 전)."""
     successes, failures = fetch_raw_datewise(tickers, start, end)
+    # ⓪ 당일 봉 잠정값 방어(회신 21 ③) — 커밋 전, 값 기반(시각 방어 CLOSE_BUFFER 와 독립)
+    prov_warnings: list[str] = []
+    if end == date.today():
+        successes = provisional.guard_today(successes, end, refetch=fetch_market_snapshot, warnings=prov_warnings)
     blocked = {date.fromisoformat(ident.split("snapshot:", 1)[1]) for ident, _ in failures if ident.startswith("snapshot:")}
     batch_dates = {d for raw in successes.values() if not raw.empty for d in raw["date"]}
     calendar = adjust.trading_days(conn, start - timedelta(days=45)) | batch_dates | blocked   # 거래일(또는 미확인) 집합
@@ -275,6 +289,7 @@ def _run_upsert(conn, tickers, start, end, max_workers, mode: Mode) -> RunStats:
         conn.commit()
 
     warnings = _empty_fetch_warning(empties, len(tickers))
+    warnings.extend(prov_warnings)   # ⓪ 재조회 스냅샷 부재로 제거된 오늘 행(2차 리뷰 — 로그만으로는 pipeline_runs 에 안 남음)
     # 스냅샷 결측 날짜 승격 (#94 리뷰) — 창 중간 하루 차단/실패는 어떤 종목도
     # raw.empty 로 만들지 않아 empty_fetch 가 못 잡는다. failures 는 run warnings
     # 에 영속되지 않으므로(run_tracking 은 warnings 만 기록) 여기서 승격한다.

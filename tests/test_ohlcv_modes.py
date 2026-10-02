@@ -14,18 +14,34 @@ def test_backfill_range_for_2_years():
     assert end == date(2026, 5, 14)
 
 
-@freeze_time("2026-05-15")
+@freeze_time("2026-05-15 21:00:00")
 def test_incremental_range_for_30_days():
     start, end = compute_date_range(Mode.INCREMENTAL, window_days=30)
     assert start == date(2026, 4, 15)
     assert end == date(2026, 5, 15)
 
 
-@freeze_time("2026-05-15")
-def test_incremental_default_includes_today():
-    """기본값: end=today (마감 후 cron 정확성 보존)."""
+@freeze_time("2026-05-15 21:00:00")
+def test_incremental_default_includes_today_after_close_buffer():
+    """기본값(None): now ≥ CLOSE_BUFFER(20:25) → end=today (20:30 저녁 체인이 당일 확정봉 적재)."""
     _, end = compute_date_range(Mode.INCREMENTAL, window_days=30)
     assert end == date(2026, 5, 15)
+
+
+@freeze_time("2026-05-15 20:24:59")
+def test_incremental_default_excludes_today_before_close_buffer():
+    """(#207 회신 21 ②) now < CLOSE_BUFFER → end=어제. 경로 무관(웹 /runner·직접 실행 포함) 잠정값·장중 부분봉 차단."""
+    start, end = compute_date_range(Mode.INCREMENTAL, window_days=30)
+    assert start == date(2026, 4, 15)
+    assert end == date(2026, 5, 14)
+
+
+def test_incremental_now_injection_and_explicit_false():
+    from datetime import datetime
+    _, end = compute_date_range(Mode.INCREMENTAL, window_days=30, now=datetime(2026, 5, 15, 9, 5))
+    assert end == date(2026, 5, 14)
+    _, end = compute_date_range(Mode.INCREMENTAL, window_days=30, now=datetime(2026, 5, 15, 9, 5), exclude_today=False)
+    assert end == date(2026, 5, 15)          # 명시 강제만 오늘 포함
 
 
 @freeze_time("2026-05-15")
