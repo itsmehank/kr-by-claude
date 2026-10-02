@@ -5,7 +5,7 @@ from psycopg import Connection
 from api.services.market_context_builder import build_market_context
 from api.services.corporate_actions_builder import build_corporate_actions
 from api.services.minervini_detail_builder import build_minervini_detail
-from kr_pipeline.common.price_source import price_source
+from kr_pipeline.common.price_source import price_source, NOT_ZERO_BAR_SQL
 from kr_pipeline.llm_runner.compute.climax_topping import (
     compute_climax_gates,
     compute_daily_extremes,
@@ -291,7 +291,7 @@ _DAILY_OHLCV_COLS = """date,
                    COALESCE(adj_close, close)  AS c,
                    COALESCE(adj_volume,volume) AS v"""
 # 거래정지/무거래일(OHLV·volume 0) 제외: 0-저가/0-거래량 바 LLM 노출·산술 오염 방지
-_DAILY_NOT_ZERO_BAR = "NOT (open = 0 AND high = 0 AND low = 0 AND volume = 0)"
+_DAILY_NOT_ZERO_BAR = NOT_ZERO_BAR_SQL   # 정의 = kr_pipeline/common/price_source.NOT_ZERO_BAR_SQL(regime_windows 와 공유)
 
 
 def _daily_row(r) -> dict:

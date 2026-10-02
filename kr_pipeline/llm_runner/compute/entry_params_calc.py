@@ -18,6 +18,7 @@ confidence ×0.7·3.0 바닥·absolute/logical/sma50 스탑 후보·클램프는
 from __future__ import annotations
 
 from kr_pipeline.common.thresholds import (
+    PP_RECENT_SESSIONS,
     BREAKOUT_VOL_FLOOR,
     BREAKOUT_VOL_PREFERRED,
     ENTRY_TARGET_PCT_MAX,
@@ -32,7 +33,6 @@ from kr_pipeline.common.thresholds import (
 CALC_VERSION = "deterministic:entry_params_calc/v1"  # entry_params.llm_model 컬럼 표기
 
 _STANDARD_PATTERNS = {"flat_base", "cup_with_handle", "double_bottom"}
-PP_RECENT_SESSIONS = 5   # pocket_pivot 탐색 창(최근 N 세션 중 최신 PP 일) — regime_windows.entry_window_flag 가 import(#222 리뷰)
 _PP_BASE_PATTERNS = {"flat_base", "cup_with_handle", "vcp", "double_bottom"}
 
 # §2/§3 (#153) 리스크 역산 — 상수는 전부 thresholds.py SSOT(SIZING_*·TRADE_STOP_INITIAL_PCT·

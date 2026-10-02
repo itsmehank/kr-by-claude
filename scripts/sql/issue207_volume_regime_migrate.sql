@@ -29,3 +29,20 @@ UPDATE weekly_classification        SET volume_regime_flag = NULL    WHERE volum
 -- PR-2 임시 규칙이 찍었으나 PR-3 writer 가 만들 수 없는 값(리뷰 #222): decline 행(거래량 입력 없음)·앵커 없는 climax 행 → NULL
 UPDATE position_decline_evaluations SET volume_regime_flag = NULL WHERE volume_regime_flag IS NOT NULL;
 UPDATE position_climax_evaluations  SET volume_regime_flag = NULL WHERE volume_regime_flag IS NOT NULL AND anchor_week IS NULL;
+-- PR-2 창(2026-09-28 ~ +4일 = 10-02, PR-3 배포 전)에 찍힌 'mixed' 중 창 유도로는 NULL 인 행(리뷰 #222 3차):
+--   climax: 주봉이 경계 이후 주를 아직 못 본 종목(T2 창 전부 regular) 또는 앵커 ≥ 경계(전부 extended)
+--   분류·트리거·진입: 경계 이후 상장(경계 전 일봉 0 → 창 전부 extended)
+UPDATE position_climax_evaluations c SET volume_regime_flag = NULL
+ WHERE c.volume_regime_flag IS NOT NULL AND c.eval_date BETWEEN '2026-09-28' AND '2026-09-28'::date + 4
+   AND (c.anchor_week >= '2026-09-28' OR NOT EXISTS (
+        SELECT 1 FROM weekly_prices w JOIN positions p ON p.symbol = w.ticker
+         WHERE p.id = c.position_id AND w.week_end_date >= '2026-09-28'));
+UPDATE weekly_classification SET volume_regime_flag = NULL
+ WHERE volume_regime_flag IS NOT NULL AND analyzed_for_date BETWEEN '2026-09-28' AND '2026-09-28'::date + 4
+   AND NOT EXISTS (SELECT 1 FROM daily_prices d WHERE d.ticker = weekly_classification.symbol AND d.date < '2026-09-28');
+UPDATE trigger_evaluation_log SET volume_regime_flag = NULL
+ WHERE volume_regime_flag IS NOT NULL AND analyzed_for_date BETWEEN '2026-09-28' AND '2026-09-28'::date + 4
+   AND NOT EXISTS (SELECT 1 FROM daily_prices d WHERE d.ticker = trigger_evaluation_log.symbol AND d.date < '2026-09-28');
+UPDATE entry_params SET volume_regime_flag = NULL
+ WHERE volume_regime_flag IS NOT NULL AND analyzed_for_date BETWEEN '2026-09-28' AND '2026-09-28'::date + 4
+   AND NOT EXISTS (SELECT 1 FROM daily_prices d WHERE d.ticker = entry_params.symbol AND d.date < '2026-09-28');

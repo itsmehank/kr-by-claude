@@ -189,3 +189,29 @@ def test_ohlcv_sanity_warns_on_regime_column_mismatch(db):
     # 예시 종목 5개는 알파벳순이라 다른 테스트가 커밋한 기본값 행(예: PRV1)에 밀릴 수 있음 → 건수(≥1)만 단언
     hit = [w for w in warns if w.startswith("volume_regime_mismatch:")]
     assert hit and int(hit[0].split("daily_prices ")[1].split("행")[0]) >= 1, warns
+
+
+def test_migration_reverts_pr2_window_rows_that_pr3_writes_null(db):
+    """PR-2 창(경계~+4일)에 'mixed' 로 찍혔으나 창 유도로는 NULL 인 유형 되돌림: 경계 후 상장 종목의 트리거 행, 경계 후 앵커의 climax 행.
+    경계 전 일봉이 있는 종목(창 걸침)은 그대로 둔다(리뷰 #222 3차)."""
+    sql = (Path(__file__).parent.parent / "scripts" / "sql" / "issue207_volume_regime_migrate.sql").read_text(encoding="utf-8")
+    with db.cursor() as cur:
+        for t in ("VRM3", "VRM4"):
+            cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,%s,'KOSPI') ON CONFLICT (ticker) DO NOTHING", (t, t))
+            cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,)); cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol=%s", (t,))
+        cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value) VALUES ('VRM3', %s, 1,1,1,1,1,1,1)", (B - timedelta(days=3),))
+        cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value) VALUES ('VRM4', %s, 1,1,1,1,1,1,1)", (B + timedelta(days=1),))
+        for t in ("VRM3", "VRM4"):
+            cur.execute("INSERT INTO trigger_evaluation_log (symbol, evaluated_at, trigger_type, decision, prior_classification_at, close, volume, "
+                        "pivot_price, analyzed_for_date, volume_regime_flag) VALUES (%s, now(), 'breakout', 'wait', now(), 1, 1, 1, %s, 'mixed')",
+                        (t, B + timedelta(days=1)))
+        cur.execute("DELETE FROM positions WHERE symbol='VRM4'")
+        cur.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity, status) VALUES ('VRM4', %s, 1000, 1, 'open') RETURNING id", (B,))
+        pid = cur.fetchone()[0]
+        cur.execute("INSERT INTO position_climax_evaluations (position_id, eval_date, fired, suppressed, hold_days, triggers, mode, anchor_week, volume_regime_flag) "
+                    "VALUES (%s, %s, FALSE, FALSE, 1, '[]', 'quality', %s, 'mixed')", (pid, B + timedelta(days=2), (B + timedelta(days=4)).isoformat()))
+        cur.execute(sql)
+        cur.execute("SELECT symbol, volume_regime_flag FROM trigger_evaluation_log WHERE symbol IN ('VRM3','VRM4') ORDER BY symbol")
+        assert cur.fetchall() == [("VRM3", "mixed"), ("VRM4", None)]
+        cur.execute("SELECT volume_regime_flag FROM position_climax_evaluations WHERE position_id=%s", (pid,))
+        assert cur.fetchone()[0] is None

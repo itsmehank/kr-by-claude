@@ -287,7 +287,7 @@ def _insert_decline_eval(conn: Connection, *, position_id: int, as_of: date, fir
 
 def _insert_climax_eval(conn: Connection, *, position_id: int, as_of: date, fired, suppressed, hold_days, triggers, anchor_week,
                         weeks_since, maturity_ok, p2_accel_ok, scope_active, mode, volume_regime_flag: str | None = None) -> bool:
-    """position_climax_evaluations INSERT(멱등). volume_regime_flag(#207 Q-5c 2) = 호출자가 weekly_range_flag(앵커 주~평가 주)로 1회 계산해 전달
+    """position_climax_evaluations INSERT(멱등). volume_regime_flag(#207 Q-5c 2) = 호출자가 range_flag_from_week_ends(gates.week_ends, 앵커 주)로 1회 계산해 전달
     ('mixed' | None). 앵커 없음 → NULL."""
     with conn.cursor() as cur:
         cur.execute(

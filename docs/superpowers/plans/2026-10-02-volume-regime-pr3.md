@@ -1,5 +1,7 @@
 # volume_regime PR-3 — 창 유도 표지(Q-5c 2) Implementation Plan
 
+> ⚠️ **실행 완료·리뷰 3회 반영(10-02, PR #222)** — Task 본문의 세부(주봉 창 50, decline T-D flag, `weekly_range_flag(symbol=)`, Positions COALESCE, '이관 SQL 변경 0', '2축 표 트리거 아님')는 **아래 '리뷰 반영' 절이 대체**한다. 미체크 Step 을 그대로 재실행하지 말 것.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 판정 행 `volume_regime_flag` 를 "as_of ≥ 경계 → mixed"(PR-2 임시 규칙)에서 "그 판정의 거래량 창이 경계에 걸칠 때만 mixed"(창 유도)로 바꾸고, 보유 평가 flag 를 Positions 카드에 노출한다.
@@ -15,9 +17,9 @@
 - 판정 규칙·숫자 변경 0(spec §1). flag 는 표시 전용 — 발화·게이트 불변(D7).
 - 창 길이 = 소비처 상수 그대로: 일간 50봉(`daily_indicators.volume_ratio_50d`), 주간 50주(C3), T2/T-D = 앵커 주~평가 주(spec §5).
 - flag 값: `'mixed'` 또는 NULL 만(D4). clean/new 는 저장하지 않는다.
-- 기존 PR-2 행 되돌림 불요: 판정 시점의 flag 는 사실 기록이며, 현재까지의 모든 as_of ≥ 09-28 판정은 50봉/50주 창이 경계에 걸쳐 창 유도로도 'mixed'(만료 전). 이관 SQL 변경 0.
+- 기존 PR-2 행: 판정 시점의 flag 는 사실 기록이나, PR-2 창(09-28~10-02)에 찍힌 'mixed' 중 창 유도로는 NULL 인 유형(decline 행·앵커 없는/경계 후 앵커 climax·경계 후 상장)은 이관 SQL 이 되돌린다(리뷰 반영 — 초안의 '되돌림 불요·이관 SQL 변경 0' 은 철회).
 - 운영 규칙(CLAUDE.md): 브랜치 `issue207-volume-regime-pr3`(worktree vr-pr3), `git add` 명시 경로, suite 판정 전 `pgrep -f pytest`, KRX 접촉 0, Co-Authored-By 트레일러 금지(사용자 CLAUDE.md).
-- thresholds.py·소비 룰 산술 미변경 → 2축 표 트리거 아님. checklist 이력 1줄만(governance 4-5 인용).
+- 산술 변경 0. 단 리뷰 반영으로 thresholds 소비처 추가·SSOT 승격(VOLUME_AVG_WINDOW_DAYS·PP_RECENT_SESSIONS)이 생겨 checklist 2축 표(축2 '없음') 작성(초안의 '트리거 아님' 철회).
 
 ---
 
@@ -28,7 +30,7 @@
 - Test: `tests/test_volume_regime_bars.py` (test_regime_flag_for_as_of_pr2_rule 교체)
 
 **Interfaces:**
-- Produces: `regime_window_state(regimes: Iterable[str]) -> Literal["clean","mixed","new"]`, `window_flag(regimes: Iterable[str]) -> str | None` ('mixed' | None), `VOLUME_WINDOW_DAILY_BARS: Final[int] = 50`, `VOLUME_WINDOW_WEEKLY_WEEKS: Final[int] = 50`.
+- Produces: `regime_window_state(regimes: Iterable[str]) -> Literal["clean","mixed","new"]`, `window_flag(regimes: Iterable[str]) -> str | None` ('mixed' | None), `VOLUME_WINDOW_DAILY_BARS = VOLUME_AVG_WINDOW_DAYS`(50), `VOLUME_WINDOW_WEEKLY_WEEKS = CLIMAX_ANCHOR_VOL_AVG_WEEKS + 1`(51, 리뷰 반영).
 
 - [ ] **Step 1: 실패 테스트** — `tests/test_volume_regime_bars.py` 의 `test_regime_flag_for_as_of_pr2_rule` 를 아래로 교체하고 import 에 `regime_window_state, window_flag, VOLUME_WINDOW_DAILY_BARS, VOLUME_WINDOW_WEEKLY_WEEKS` 추가, `regime_flag_for_as_of` import 제거.
 
@@ -54,7 +56,7 @@ def test_pr2_interim_rule_is_gone():
 
 ```python
 VOLUME_WINDOW_DAILY_BARS: Final[int] = 50     # daily_indicators.volume_ratio_50d / observed_breakout_volume_ratio 창(indicators/compute/volume.py)
-VOLUME_WINDOW_WEEKLY_WEEKS: Final[int] = 50   # C3 주간 거래량 50주 평균 창(find_anchor)
+VOLUME_WINDOW_WEEKLY_WEEKS: Final[int] = CLIMAX_ANCHOR_VOL_AVG_WEEKS + 1   # (리뷰 반영) C3 분자 주 포함 W+1
 
 
 def regime_window_state(regimes: Iterable[str]) -> str:
@@ -380,6 +382,10 @@ LEFT JOIN LATERAL (SELECT volume_regime_flag FROM position_decline_evaluations W
 ## 리뷰 반영(10-02, PR #222)
 
 `judgment_flag` → `classification_flag`/`daily_window_flag`/`entry_window_flag`(PP 탐색 +4봉), 주봉 창 W+1(SSOT import), decline 행 flag NULL(거래량 입력 없음 — spec D7 정정), run_daily_eval 이 T2 flag 1회 계산해 climax kwarg 로 전달, SAVEPOINT fail-soft·경계 전 DB 0, 이관 SQL flag 소급 삭제, `_as_date` 재사용·FLAG_MIXED·COALESCE. 기록만: 앵커 C3 분모 창(spec D7 범위).
+
+## 리뷰 3차 반영(10-02)
+
+분류 창에 앵커에서 끝나는 C3 W+1 주 추가(앵커 적격 판정 분모), 앵커~평가 주는 (앵커, as_of) 양 끝 순수 유도(상한 버그 제거·SQL 0), `_guarded` 가 psycopg.Error 만 보수 'mixed'(프로그래밍 오류 전파), `PP_RECENT_SESSIONS` thresholds 승격(common→llm_runner 역방향 import 제거), zero-bar 술어 `price_source.NOT_ZERO_BAR_SQL` 공유, export_thresholds 재생성, 이관 SQL 에 PR-2 창(09-28~10-02) 되돌림 4문, 문서 모순 6건 정정·소비 경계 1줄.
 
 ## 리뷰 2차 반영(10-02)
 

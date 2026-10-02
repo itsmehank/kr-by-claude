@@ -55,7 +55,7 @@ weekly_prices 는 재집계 대신 `week_end_date >= '2026-10-02'` → extended,
 
 | 소비처 | 창 | 유도 입력 | flag 기록 위치 |
 |---|---|---|---|
-| 분류(weekly_classification) | 주간 C3 W+1 주(분자 주 포함, W=CLIMAX_ANCHOR_VOL_AVG_WEEKS) + 일간 volume_ratio_50d 50봉 + **앵커 주~평가 주**(T2/P2 는 앵커 기준, 리뷰 #222 2차) → **하나라도 mixed 면 mixed** | payload 의 weekly/daily 봉 regime | store.insert_classification(+backfill 계열) |
+| 분류(weekly_classification) | 주간 C3 W+1 주(분자 주 포함, W=CLIMAX_ANCHOR_VOL_AVG_WEEKS) + 일간 volume_ratio_50d 50봉 + **앵커 주~평가 주**(T2/P2 는 앵커 기준) + **앵커에서 끝나는 C3 W+1 주**(앵커 적격 판정 분모 — 리뷰 #222 3차; 따라서 경계 전 앵커가 유지되는 한 자연 만료되지 않음) → **하나라도 mixed 면 mixed** | payload 의 weekly/daily 봉 regime | store.insert_classification(+backfill 계열) |
 | 트리거(trigger_evaluation_log) | 일간 50봉(gate_precompute volume_band 입력 = daily_indicators.volume_ratio_50d) | as_of 기준 최근 50 일봉 regime | store.insert_trigger_log |
 | 진입(entry_params) | 일간 50봉 + PP 탐색 4봉(pocket_pivot 분기의 비율은 최근 5세션 중 PP 일에서 끝나는 창, 리뷰 #222) | 동일 | store.insert_entry_params |
 | 보유 climax(T2) | 앵커 주 ~ 평가 주 | gates.week_ends(T2 가 쓴 주, zero-bar 제외) → 날짜 규칙, DB 0 | run_daily_eval 1회 계산 → position_climax_evaluations. **기록(리뷰 #222)**: 앵커 선정 자체의 C3 분모(앵커 −W주)는 창 밖 — 전문가 판정 후보([Q]) |
@@ -76,7 +76,7 @@ regime 이 다르면 해당 일은 분배일 후보·FTD 후보에서 제외(기
 - **PR-2 (Q-5c 1·3)**: schema 8 ALTER + 소급 UPDATE · 수집기·주봉 집계 regime 기록 · D6 · 전용 컬럼 + D5 이관(문자열 제거) ·
   flag 초기 규칙 = "as_of ≥ 경계 → mixed"(PR-3 전까지 현행 표지 범위와 동일) · 웹 배지. 테스트: writer 값·주봉 유도·경계일
   비교 제외·이관 멱등.
-- **PR-3 (Q-5c 2, 2026-10-02 구현)**: `regime_window_state`/`window_flag` + `common/regime_windows.py` 로 소비처 창 유도(new → NULL) · 보유 climax flag(앵커 주~평가 주, 앵커 없음 NULL; decline 은 NULL) · **Positions 카드 배지(D9 잔여)** · 만료 검증 테스트(경계+50봉 → NULL). PR-2 임시 규칙 `regime_flag_for_as_of` 삭제, 기존 행 되돌림 불요(만료 전 전부 mixed 동일)
+- **PR-3 (Q-5c 2, 2026-10-02 구현)**: `regime_window_state`/`window_flag` + `common/regime_windows.py` 로 소비처 창 유도(new → NULL) · 보유 climax flag(앵커 주~평가 주, 앵커 없음 NULL; decline 은 NULL) · **Positions 카드 배지(D9 잔여)** · 만료 검증 테스트(경계+50봉 → NULL). PR-2 임시 규칙 `regime_flag_for_as_of` 삭제, PR-2 창(09-28~10-02)에 찍힌 'mixed' 중 창 유도로 NULL 인 유형은 이관 SQL 이 되돌림
   (경계 + 50봉/50주 이후 NULL). 완료 후 백테스트 금지 해제 별건 판정 요청.
 
 ## 8. 테스트·검증

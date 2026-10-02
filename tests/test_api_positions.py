@@ -64,7 +64,7 @@ def test_list_evaluations(client, seed_position):
 
 
 def test_list_positions_exposes_volume_regime_flag(client, seed_position, db):
-    """최신 보유 평가의 volume_regime_flag 를 노출(spec D9 PR-3) — 값은 climax(T2) 행에서 오고 decline 행은 항상 NULL(COALESCE)."""
+    """최신 보유 climax(T2) 평가의 volume_regime_flag 를 노출(spec D9 PR-3). decline 행은 읽지 않는다(거래량 입력 없음)."""
     with db.cursor() as cur:
         cur.execute("INSERT INTO position_climax_evaluations (position_id, eval_date, fired, suppressed, hold_days, triggers, mode, volume_regime_flag) "
                     "VALUES (%s, '2026-10-01', FALSE, FALSE, 1, '[]', 'quality', 'mixed')", (seed_position,))
@@ -74,6 +74,12 @@ def test_list_positions_exposes_volume_regime_flag(client, seed_position, db):
     try:
         p = [x for x in client.get("/api/positions?status=open").json() if x["symbol"] == "APITEST1"][0]
         assert p["volume_regime_flag"] == "mixed"
+        with db.cursor() as cur:                                  # decline 행의 값은 노출에 영향 없음
+            cur.execute("UPDATE position_climax_evaluations SET volume_regime_flag = NULL WHERE position_id=%s", (seed_position,))
+            cur.execute("UPDATE position_decline_evaluations SET volume_regime_flag = 'mixed' WHERE position_id=%s", (seed_position,))
+        db.commit()
+        p = [x for x in client.get("/api/positions?status=open").json() if x["symbol"] == "APITEST1"][0]
+        assert p["volume_regime_flag"] is None
     finally:
         with db.cursor() as cur:
             cur.execute("DELETE FROM position_climax_evaluations WHERE position_id=%s", (seed_position,))

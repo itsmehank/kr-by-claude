@@ -26,6 +26,8 @@ LIVE = PriceSource("daily_prices", "weekly_prices", "daily_indicators", "daily_i
 DELISTED = PriceSource("delisted_daily_prices_adj", "delisted_weekly_prices",
                        "delisted_daily_indicators", "delisted_daily_indicators", True)
 BT_RS_TABLE = "bt_rs_daily"
+# 거래정지 봉(OHLV=0) 제외 술어 — payload_builder(_DAILY_NOT_ZERO_BAR)·regime_windows 가 공유(정의 1곳, #222 리뷰 3차)
+NOT_ZERO_BAR_SQL = "NOT (open = 0 AND high = 0 AND low = 0 AND volume = 0)"
 
 
 def is_delisted_isolated(conn: Connection, ticker: str) -> bool:

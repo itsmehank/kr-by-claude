@@ -87,12 +87,16 @@ def test_flags_short_circuit_without_db_before_boundary_and_after_cap(db, monkey
     far = B + timedelta(days=WEEKLY_WINDOW_MAX_CAL_DAYS + 1)
     assert daily_window_flag(db, "ANY", B + timedelta(days=DAILY_WINDOW_MAX_CAL_DAYS + 1)) is None
     assert weekly_window_flag(db, "ANY", far) is None
-    assert classification_flag(db, "ANY", far, anchor_week=(far - timedelta(days=7)).isoformat()) is None   # 앵커 ≥ 경계 → 조회 불요
+    assert classification_flag(db, "ANY", far, anchor_week=far.isoformat()) is None   # 앵커 ≥ 경계·앵커 끝 C3 창도 상한 초과 → 조회 불요
+    # 앵커 기준 창은 상한 없음(리뷰 #222 3차): 경계 전 앵커면 상한을 아무리 넘겨도 순수 유도로 mixed(DB 0)
+    assert classification_flag(db, "ANY", far, anchor_week="2026-08-07") == FLAG_MIXED
 
 
 def test_flags_fail_soft_conservative_mixed_and_keep_transaction_usable(db, monkeypatch, caplog):
-    """관측 전용 헬퍼의 SQL 오류가 본 INSERT 를 막으면 안 된다(store #39) — SAVEPOINT 격리. 값은 보수 'mixed'(오류 ≠ 깨끗함)."""
+    """서버측 SQL 오류(psycopg.Error)가 본 INSERT 를 막으면 안 된다(store #39) — SAVEPOINT 격리. 값은 보수 'mixed'(오류 ≠ 깨끗함).
+    프로그래밍 오류(TypeError 등)는 삼키지 않고 전파(리뷰 #222 3차)."""
     import logging
+    import pytest
     import kr_pipeline.common.regime_windows as rw
     from kr_pipeline.common.price_source import PriceSource
     monkeypatch.setattr(rw, "price_source", lambda *a, **k: PriceSource("no_such_table_x", "no_such_table_y", "", "", False))
@@ -102,6 +106,9 @@ def test_flags_fail_soft_conservative_mixed_and_keep_transaction_usable(db, monk
     assert "regime_window_flag_failed" in caplog.text
     with db.cursor() as cur:                                   # 트랜잭션 오염 없음
         cur.execute("SELECT 1"); assert cur.fetchone()[0] == 1
+    monkeypatch.setattr(rw, "price_source", lambda *a, **k: (_ for _ in ()).throw(TypeError("programming error")))
+    with pytest.raises(TypeError):
+        daily_window_flag(db, "RWX1", B)
 
 
 def test_classification_flag_combines_daily_weekly_and_anchor_range(db):
@@ -115,13 +122,19 @@ def test_classification_flag_combines_daily_weekly_and_anchor_range(db):
     # 앵커 구간: 일간·주간 창이 만료돼도 앵커가 경계 전이면 T2/P2 입력이 혼재 → mixed(리뷰 #222 2차)
     days2 = _weekdays(B - timedelta(days=200), 240)
     _seed_daily(db, "RWJ2", days2)
-    fridays2 = [date(2025, 10, 3) + timedelta(weeks=i) for i in range(75)]      # ~2027-03
+    fridays2 = [date(2025, 10, 3) + timedelta(weeks=i) for i in range(110)]     # ~2027-11
     _seed_weekly(db, "RWJ2", fridays2)
     late = max(f for f in fridays2 if f <= B + timedelta(days=200))              # 경계 + ~200일(일간 창 만료, 주간 51주는 아직 걸침)
     assert daily_window_flag(db, "RWJ2", late) is None
     assert classification_flag(db, "RWJ2", late, anchor_week=None) == "mixed"    # 주간 51주 창은 아직 mixed
-    far = fridays2[-1]                                                            # ~2027-03: 주간 51주도 아직 걸침(≈2027-09 만료)
-    assert classification_flag(db, "RWJ2", far, anchor_week="2026-08-07") == "mixed"
+    far = max(f for f in fridays2 if f <= B + timedelta(days=370))               # ~2027-10: 일간·주간 고정 창 모두 만료
+    assert weekly_window_flag(db, "RWJ2", far) is None
+    assert classification_flag(db, "RWJ2", far, anchor_week=None) is None
+    assert classification_flag(db, "RWJ2", far, anchor_week="2026-08-07") == "mixed"      # 앵커~평가 주(경계 전 앵커)
+    # 앵커에서 끝나는 C3 창(앵커 적격 판정 분모): 앵커 2026-12-04(extended) 의 51주 창은 2025-12~ → 경계 걸침(리뷰 #222 3차)
+    assert classification_flag(db, "RWJ2", far, anchor_week="2026-12-04") == "mixed"
+    late_anchor = max(f for f in fridays2 if f <= B + timedelta(days=365))        # 2027-09: 51주 창이 경계 이후로만 → NULL
+    assert classification_flag(db, "RWJ2", far, anchor_week=late_anchor.isoformat()) is None
 
 
 def test_entry_window_flag_covers_pocket_pivot_lookback(db):

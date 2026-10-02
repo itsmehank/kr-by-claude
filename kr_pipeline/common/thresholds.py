@@ -65,6 +65,10 @@ laggard. 7개월≈30주(설계 §9.1, 현행 28주에서 변경). 게이트는 
 
 # ===== Pocket Pivot (kr_pipeline/indicators/compute/volume.py) =====
 
+PP_RECENT_SESSIONS: Final[int] = 5
+"""pocket_pivot 진입 탐색 창(최근 N 세션 중 최신 PP 일) — 프롬프트 'past 5 sessions'(calculate_entry_params_v2_0 §, analyze_chart_v3)와
+수동 동기. 소비: llm_runner/compute/entry_params_calc(rdi[-N:]) · common/regime_windows.entry_window_flag(+N-1봉).
+2026-10-02 (#207 PR-3, 리뷰 #222 3차): entry_params_calc 사설 상수를 SSOT 승격(값 변경 0) — common → llm_runner 역방향 import 제거."""
 PP_DOWN_VOL_LOOKBACK_DAYS: Final[int] = 10
 """Pocket pivot 의 직전 down-day 거래량 비교 lookback.
 책: Morales & Kacher TLOND Ch.5 p.133 — 기본 10 일.
