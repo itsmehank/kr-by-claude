@@ -31,7 +31,7 @@ from api.services.payload_builder import (
     _daily_row,
     _fetch_weekly_full,
 )
-from kr_pipeline.common.price_source import price_source
+from kr_pipeline.common.price_source import ZERO_BAR_SQL, price_source
 from kr_pipeline.common.thresholds import TRADE_HOLD_MIN_DAYS
 from kr_pipeline.llm_runner.compute.climax_topping import (
     _DAILY_KEYS,
@@ -69,7 +69,7 @@ def fetch_daily_flagged(conn: Connection, ticker: str, on_date: date) -> list[di
     with conn.cursor() as cur:
         cur.execute(f"""
             SELECT {_DAILY_OHLCV_COLS},
-                   (open = 0 AND high = 0 AND low = 0 AND volume = 0) AS zero_bar,
+                   {ZERO_BAR_SQL} AS zero_bar,
                    (adj_high IS NOT NULL AND adj_low IS NOT NULL)     AS adj_hl
               FROM {src.daily}
              WHERE ticker = %s AND date <= %s
@@ -112,7 +112,9 @@ def gates_from_series(weekly: list[dict], daily: list[dict]) -> dict:
           else compute_topping_gates(weekly, None, anchor)["ta_max_decline_now"])
     return {**climax, **ext, "ta_max_decline_now": ta, "anchor_week": anchor["anchor_week"],
             "left_censored": anchor["left_censored"], "no_transition": anchor["no_transition"],
-            "weeks_since": anchor["weeks_since"]}
+            "weeks_since": anchor["weeks_since"],
+            # (#207 Q-5c 2) T2 산술이 실제로 쓴 주(zero-bar 제외) — 러너가 거래량 정의 창 flag 를 DB 없이 유도(리뷰 #222)
+            "week_ends": [w["week_end"] for w in weekly]}
 
 
 def compute_held_gates(conn: Connection, symbol: str, as_of: date) -> dict:

@@ -25,7 +25,8 @@ def list_positions(
                    e.eval_date, e.close, e.sma_50, e.effective_stop, e.binding,
                    e.triggered, e.warnings,
                    p.signal_at, p.pivot_price, p.signal_stop_price, p.chase_pct,
-                   p.chase_over_limit, p.signal_gap_days
+                   p.chase_over_limit, p.signal_gap_days,
+                   c.volume_regime_flag
               FROM positions p
               LEFT JOIN stocks s ON s.ticker = p.symbol
               LEFT JOIN LATERAL (
@@ -36,6 +37,11 @@ def list_positions(
                  ORDER BY eval_date DESC
                  LIMIT 1
               ) e ON true
+              -- (#207 Q-5c 2, PR-3) 최신 보유 climax(T2) 평가의 창 경계 표지 — 표시 전용(decline 행은 거래량 입력이 없어 flag 없음)
+              LEFT JOIN LATERAL (
+                SELECT volume_regime_flag FROM position_climax_evaluations
+                 WHERE position_id = p.id ORDER BY eval_date DESC LIMIT 1
+              ) c ON true
              WHERE (%s = 'all' OR p.status = %s)
              ORDER BY p.status DESC, p.entry_date DESC, p.id DESC
             """,
@@ -56,6 +62,8 @@ def list_positions(
             # (#162) 시그널 연결 — 참고 표기(판정 무관), 전부 nullable
             "signal_at": r[18], "pivot_price": _f(r[19]), "signal_stop_price": _f(r[20]),
             "chase_pct": _f(r[21]), "chase_over_limit": r[22], "signal_gap_days": r[23],
+            # (#207 Q-5c 2) T2 창이 경계(09-28)에 걸친 최신 평가가 있으면 'mixed' — 배지 전용, 판정 무관(값 도메인 mixed|NULL)
+            "volume_regime_flag": r[24],
         }
         for r in rows
     ]

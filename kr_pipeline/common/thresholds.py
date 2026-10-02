@@ -65,6 +65,10 @@ laggard. 7개월≈30주(설계 §9.1, 현행 28주에서 변경). 게이트는 
 
 # ===== Pocket Pivot (kr_pipeline/indicators/compute/volume.py) =====
 
+PP_RECENT_SESSIONS: Final[int] = 5
+"""pocket_pivot 진입 탐색 창(최근 N 세션 중 최신 PP 일) — 프롬프트 'past 5 sessions'(calculate_entry_params_v2_0 §, analyze_chart_v3)와
+수동 동기. 소비: llm_runner/compute/entry_params_calc(rdi[-N:]) · common/regime_windows.entry_window_flag(+N-1봉).
+2026-10-02 (#207 PR-3, 리뷰 #222 3차): entry_params_calc 사설 상수를 SSOT 승격(값 변경 0) — common → llm_runner 역방향 import 제거."""
 PP_DOWN_VOL_LOOKBACK_DAYS: Final[int] = 10
 """Pocket pivot 의 직전 down-day 거래량 비교 lookback.
 책: Morales & Kacher TLOND Ch.5 p.133 — 기본 10 일.
@@ -83,6 +87,12 @@ BREAKOUT_VOL_PREFERRED: Final[float] = 1.5
 책: O'Neil HMMS p.117 / p.185 — '40% to 50% above normal', 선호 50%+.
 TLOND p.134 — 'standard breakout = 50% above average or more'.
 2026-05-22 (P0-1): 디폴트를 1.4× → 1.5× 로 상향, 1.4× 는 허용 하한."""
+
+VOLUME_AVG_WINDOW_DAYS: Final[int] = 50
+"""일간 평균 거래량 창(세션 수) — daily_indicators.avg_volume_50d/volume_ratio_50d 의 분모.
+책: O'Neil HMMS p.117 '50-day average volume', TLOND p.134 (breakout 비교 기준 = 50일 평균).
+2026-10-02 (#207 PR-3, 리뷰 #222): indicators/modes.py·delisted.py 의 리터럴 50 을 SSOT 승격(값 변경 0), data_regimes 의
+거래량 정의 창(VOLUME_WINDOW_DAILY_BARS)도 여기서 import — 창 길이가 한 곳에서만 바뀌게."""
 
 # ===== Entry Params 검증 임계 (kr_pipeline/llm_runner/store.py sanity ↔
 # compute/entry_params_calc.py 산출 — 구 §1.3/§2/§3/§4, 프롬프트는 #21 은퇴 아카이브) =====

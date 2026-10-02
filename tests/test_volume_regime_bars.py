@@ -2,8 +2,8 @@
 from datetime import date, datetime, timedelta, timezone
 
 from kr_pipeline.common.data_regimes import (
-    FLAG_MIXED, REGIME_EXTENDED, REGIME_MIXED, REGIME_REGULAR, VOLUME_REGIME_BOUNDARY,
-    VOLUME_REGIME_UNVERIFIED_FROM, regime_flag_for_as_of, regime_for_date, regime_for_week,
+    FLAG_MIXED, REGIME_EXTENDED, REGIME_MIXED, REGIME_REGULAR, VOLUME_REGIME_BOUNDARY, VOLUME_REGIME_UNVERIFIED_FROM,
+    VOLUME_WINDOW_DAILY_BARS, VOLUME_WINDOW_WEEKLY_WEEKS, regime_for_date, regime_for_week, regime_window_state, window_flag,
 )
 
 B = VOLUME_REGIME_BOUNDARY
@@ -30,12 +30,22 @@ def test_regime_for_week_rule(monkeypatch):
     assert regime_for_week(date(2026, 10, 9)) == "extended"
 
 
-def test_regime_flag_for_as_of_pr2_rule():
-    assert regime_flag_for_as_of(None) is None
-    assert regime_flag_for_as_of(B - timedelta(days=1)) is None
-    assert regime_flag_for_as_of(B) == "mixed"
-    assert regime_flag_for_as_of(datetime(B.year, B.month, B.day, 9, tzinfo=timezone.utc)) == "mixed"
-    assert regime_flag_for_as_of(B.isoformat()) == "mixed"
+def test_regime_window_state_and_flag():
+    assert regime_window_state([]) == "clean"
+    assert regime_window_state(["regular"] * 50) == "clean"
+    assert regime_window_state(["extended"] * 50) == "new"
+    assert regime_window_state(["regular"] * 49 + ["extended"]) == "mixed"
+    assert regime_window_state(["extended", "mixed"]) == "mixed"            # 주봉 mixed 포함
+    assert window_flag(["regular"] * 50) is None and window_flag(["extended"] * 50) is None
+    assert window_flag(["regular", "extended"]) == "mixed"
+    from kr_pipeline.common.thresholds import CLIMAX_ANCHOR_VOL_AVG_WEEKS, VOLUME_AVG_WINDOW_DAYS
+    assert VOLUME_WINDOW_DAILY_BARS == VOLUME_AVG_WINDOW_DAYS == 50   # SSOT(indicators avg_volume_50d 와 같은 창)
+    assert VOLUME_WINDOW_WEEKLY_WEEKS == CLIMAX_ANCHOR_VOL_AVG_WEEKS + 1      # C3 = vols[i] ÷ avg(vols[i-W:i]) → 행 W+1 개(리뷰 #222)
+
+
+def test_pr2_interim_rule_is_gone():
+    import kr_pipeline.common.data_regimes as m
+    assert not hasattr(m, "regime_flag_for_as_of")
 
 
 def test_schema_columns_exist(db):
@@ -139,7 +149,7 @@ def test_migration_script_is_idempotent_and_moves_tags(db):
     with db.cursor() as cur:
         cur.execute("SELECT volume_regime FROM daily_prices WHERE ticker='VRM1' AND date=%s", (B,)); assert cur.fetchone()[0] == "extended"
         cur.execute("SELECT volume_regime_flag, sanity_warnings FROM weekly_classification WHERE symbol='VRM1'")
-        f, w = cur.fetchone(); assert f == "mixed" and w == ["x"]
+        f, w = cur.fetchone(); assert f is None and w == ["x"]      # (PR-3) 이관 SQL 은 flag 를 찍지 않는다(창 유도 writer 의 NULL 을 덮으면 안 됨)
 
 
 def test_migration_sql_date_literals_equal_boundary_constant():
@@ -152,8 +162,8 @@ def test_migration_sql_date_literals_equal_boundary_constant():
 
 
 def test_migration_does_not_flag_system_rows_and_unflags_them(db):
-    """시스템 writer(system_disqualify·universe 배제)는 flag 를 쓰지 않는다 — 이관 SQL 이 그 행을 'mixed' 로 찍으면 안 되고,
-    이미 찍힌 행(운영 8행 실측)은 NULL 로 되돌린다."""
+    """(PR-3) 이관 SQL 은 어떤 판정 행에도 flag 를 찍지 않는다(as_of 규칙 폐기 — writer 가 창 유도로 NULL 을 쓴 행을 재실행이
+    'mixed' 로 덮던 경로 차단, 리뷰 #222). 시스템 writer 행에 남은 'mixed'(운영 8행 실측)만 NULL 로 되돌린다."""
     sql = (Path(__file__).parent.parent / "scripts" / "sql" / "issue207_volume_regime_migrate.sql").read_text(encoding="utf-8")
     with db.cursor() as cur:
         cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('VRM2','VRM2','KOSPI') ON CONFLICT (ticker) DO NOTHING")
@@ -164,7 +174,7 @@ def test_migration_does_not_flag_system_rows_and_unflags_them(db):
                     "VALUES ('VRM2', now() - interval '1 day', 'KOSPI', 'watch', 'flat_base', 'daily_delta', %s, NULL)", (B,))
         cur.execute(sql)
         cur.execute("SELECT source, volume_regime_flag FROM weekly_classification WHERE symbol='VRM2' ORDER BY source")
-        assert cur.fetchall() == [("daily_delta", "mixed"), ("system_disqualify", None)]
+        assert cur.fetchall() == [("daily_delta", None), ("system_disqualify", None)]
 
 
 def test_ohlcv_sanity_warns_on_regime_column_mismatch(db):
@@ -179,3 +189,40 @@ def test_ohlcv_sanity_warns_on_regime_column_mismatch(db):
     # 예시 종목 5개는 알파벳순이라 다른 테스트가 커밋한 기본값 행(예: PRV1)에 밀릴 수 있음 → 건수(≥1)만 단언
     hit = [w for w in warns if w.startswith("volume_regime_mismatch:")]
     assert hit and int(hit[0].split("daily_prices ")[1].split("행")[0]) >= 1, warns
+
+
+def test_migration_reverts_pr2_window_rows_that_pr3_writes_null(db):
+    """PR-2 창(경계~+4일)에 'mixed' 로 찍혔으나 창 유도로는 NULL 인 유형 되돌림: 경계 후 상장 종목의 트리거 행, 경계 후 앵커의 climax 행.
+    경계 전 일봉이 있는 종목(창 걸침)은 그대로 둔다(리뷰 #222 3차)."""
+    sql = (Path(__file__).parent.parent / "scripts" / "sql" / "issue207_volume_regime_migrate.sql").read_text(encoding="utf-8")
+    with db.cursor() as cur:
+        for t in ("VRM3", "VRM4"):
+            cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,%s,'KOSPI') ON CONFLICT (ticker) DO NOTHING", (t, t))
+            cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,)); cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol=%s", (t,))
+        cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value) VALUES ('VRM3', %s, 1,1,1,1,1,1,1)", (B - timedelta(days=3),))
+        cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value) VALUES ('VRM4', %s, 1,1,1,1,1,1,1)", (B + timedelta(days=1),))
+        for t in ("VRM3", "VRM4"):
+            cur.execute("INSERT INTO trigger_evaluation_log (symbol, evaluated_at, trigger_type, decision, prior_classification_at, close, volume, "
+                        "pivot_price, analyzed_for_date, volume_regime_flag) VALUES (%s, now(), 'breakout', 'wait', now(), 1, 1, 1, %s, 'mixed')",
+                        (t, B + timedelta(days=1)))
+        cur.execute("DELETE FROM positions WHERE symbol='VRM4'")
+        cur.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity, status) VALUES ('VRM4', %s, 1000, 1, 'open') RETURNING id", (B,))
+        pid = cur.fetchone()[0]
+        cur.execute("INSERT INTO position_climax_evaluations (position_id, eval_date, fired, suppressed, hold_days, triggers, mode, anchor_week, volume_regime_flag) "
+                    "VALUES (%s, %s, FALSE, FALSE, 1, '[]', 'quality', %s, 'mixed')", (pid, B + timedelta(days=2), (B + timedelta(days=4)).isoformat()))
+        # 경계 전 앵커 + 평가일(09-30)까지 경계 이후 주봉 없음(10-02 주봉은 나중에 생김) → T2 창 전부 regular → NULL. 평가일 이후 주봉은 무관(4차)
+        cur.execute("DELETE FROM positions WHERE symbol='VRM3'")
+        cur.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity, status) VALUES ('VRM3', %s, 1000, 1, 'open') RETURNING id", (B,))
+        pid3 = cur.fetchone()[0]
+        cur.execute("DELETE FROM weekly_prices WHERE ticker='VRM3'")
+        cur.execute("INSERT INTO weekly_prices (ticker, week_end_date, open, high, low, close, adj_close, volume, value, trading_days) VALUES "
+                    "('VRM3', %s, 1,1,1,1,1,1,1,5), ('VRM3', %s, 1,1,1,1,1,1,1,5)", (B - timedelta(days=3), B + timedelta(days=4)))
+        cur.execute("INSERT INTO position_climax_evaluations (position_id, eval_date, fired, suppressed, hold_days, triggers, mode, anchor_week, volume_regime_flag) "
+                    "VALUES (%s, %s, FALSE, FALSE, 1, '[]', 'quality', %s, 'mixed')", (pid3, B + timedelta(days=2), (B - timedelta(days=31)).isoformat()))
+        cur.execute(sql)
+        cur.execute("SELECT volume_regime_flag FROM position_climax_evaluations WHERE position_id=%s", (pid3,))
+        assert cur.fetchone()[0] is None
+        cur.execute("SELECT symbol, volume_regime_flag FROM trigger_evaluation_log WHERE symbol IN ('VRM3','VRM4') ORDER BY symbol")
+        assert cur.fetchall() == [("VRM3", "mixed"), ("VRM4", None)]
+        cur.execute("SELECT volume_regime_flag FROM position_climax_evaluations WHERE position_id=%s", (pid,))
+        assert cur.fetchone()[0] is None

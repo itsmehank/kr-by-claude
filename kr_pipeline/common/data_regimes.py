@@ -22,6 +22,8 @@ import os
 from datetime import date, datetime, timedelta
 from typing import Final, Iterable
 
+from kr_pipeline.common.thresholds import CLIMAX_ANCHOR_VOL_AVG_WEEKS, VOLUME_AVG_WINDOW_DAYS
+
 VOLUME_REGIME_BOUNDARY: Final[date] = date(2026, 9, 28)        # KRX 일별 거래량에 애프터마켓 합산 시작(관측 추정, 회신 21)
 VOLUME_REGIME_UNVERIFIED_FROM: Final[date] = VOLUME_REGIME_BOUNDARY   # PR #217 호환 별칭
 BACKTEST_EXCLUDED_FROM: Final[date] = date(2026, 9, 28)
@@ -57,14 +59,24 @@ def regime_for_week(week_end: date) -> str:
     return REGIME_EXTENDED if monday >= VOLUME_REGIME_BOUNDARY else REGIME_MIXED
 
 
-def regime_flag_for_as_of(as_of) -> str | None:
-    """판정 행 표지(PR-2 규칙): as_of ≥ 경계 → 'mixed'. PR-3 에서 계산 창 유도로 축소(new → NULL).
-    ⚠ 만료 없음(2차 리뷰 기록): 경계 + ~50 세션(≈2026-12-10) 이후에도 'mixed' 를 찍는다 — PR-3 가 그 전에 창 유도로 대체해야 하고,
-    되돌림(mixed → NULL)은 이관 SQL 이 하지 않으므로 PR-3 가 별도 UPDATE 를 동반한다."""
-    d = _as_date(as_of)
-    if d is None or d < VOLUME_REGIME_BOUNDARY:
-        return None
-    return FLAG_MIXED
+VOLUME_WINDOW_DAILY_BARS: Final[int] = VOLUME_AVG_WINDOW_DAYS   # daily_indicators.volume_ratio_50d / observed_breakout_volume_ratio 창(SSOT import)
+VOLUME_WINDOW_WEEKLY_WEEKS: Final[int] = CLIMAX_ANCHOR_VOL_AVG_WEEKS + 1   # C3 = vols[i] ÷ avg(vols[i-W:i]) → 분자 주 포함 W+1 행(find_anchor, 리뷰 #222)
+
+
+def regime_window_state(regimes: Iterable[str]) -> str:
+    """창 안 봉들의 regime → clean(전부 regular) / new(전부 extended) / mixed(혼재 또는 주봉 mixed 포함). 빈 입력 = clean(spec D3).
+    (#207 회신 21 Q-5c 2, PR-3) 저장하지 않는다 — 소비처가 자기 창의 봉 날짜로 호출(common/regime_windows.py)."""
+    seen = set(regimes)
+    if not seen or seen == {REGIME_REGULAR}:
+        return "clean"
+    if seen == {REGIME_EXTENDED}:
+        return "new"
+    return "mixed"
+
+
+def window_flag(regimes: Iterable[str]) -> str | None:
+    """판정 행 volume_regime_flag(D4): mixed 창만 'mixed', 그 외 NULL. 자연 만료 = 창이 전부 extended 가 되는 시점(일간 경계+50봉)."""
+    return FLAG_MIXED if regime_window_state(regimes) == "mixed" else None
 
 
 ALLOW_EXCLUDED_REGIME_ENV: Final[str] = "KR_ALLOW_EXCLUDED_REGIME"

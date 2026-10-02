@@ -18,6 +18,7 @@ confidence ×0.7·3.0 바닥·absolute/logical/sma50 스탑 후보·클램프는
 from __future__ import annotations
 
 from kr_pipeline.common.thresholds import (
+    PP_RECENT_SESSIONS,
     BREAKOUT_VOL_FLOOR,
     BREAKOUT_VOL_PREFERRED,
     ENTRY_TARGET_PCT_MAX,
@@ -116,7 +117,7 @@ def calculate_entry_params(payload: dict) -> dict:
     entry_mode = "pivot_breakout"
     pp_row = None
     if pp_claimed and pattern in _PP_BASE_PATTERNS:
-        recent5 = rdi[-5:]
+        recent5 = rdi[-PP_RECENT_SESSIONS:]
         flagged = [r for r in recent5 if r.get("pocket_pivot_flag")]
         if flagged:
             entry_mode = "pocket_pivot"

@@ -16,17 +16,34 @@ UPDATE weekly_prices SET volume_regime = CASE WHEN week_end_date < '2026-09-28' 
    AND volume_regime IS DISTINCT FROM CASE WHEN week_end_date < '2026-09-28' THEN 'regular'
                                             WHEN (week_end_date - (EXTRACT(ISODOW FROM week_end_date)::int - 1)) >= '2026-09-28' THEN 'extended'
                                             ELSE 'mixed' END;
--- 판정 행: 문자열 표지 제거 + flag 이관(PR-2 규칙 as_of ≥ 경계). 시스템 writer 행(source 'system_%': disqualify·universe gate)은
--- 거래량 입력이 없어 flag 대상이 아니다 — 찍지 않고, 이미 찍힌 행은 NULL 로 되돌린다(2차 리뷰, 운영 8행 실측).
+-- 판정 행: 문자열 표지 제거(PR-2). flag 는 writer 가 판정 창으로 유도해 기록하는 판정 시점 사실(PR-3) — 이 스크립트는 **찍지 않는다**
+-- (구 "as_of ≥ 경계 → mixed" 소급은 2026-09-30 1회 적용 완료; 재실행이 writer 의 NULL 을 덮던 경로 차단, 리뷰 #222).
+-- 시스템 writer 행(source 'system_%': disqualify·universe gate)은 거래량 입력이 없어 flag 대상이 아니다 — 남은 'mixed' 는 NULL 로 되돌린다.
 UPDATE weekly_classification SET sanity_warnings = NULLIF(sanity_warnings - 'volume_regime_unverified_#207', '[]'::jsonb)
  WHERE sanity_warnings ? 'volume_regime_unverified_#207';
 UPDATE trigger_evaluation_log SET sanity_warnings = NULLIF(sanity_warnings - 'volume_regime_unverified_#207', '[]'::jsonb)
  WHERE sanity_warnings ? 'volume_regime_unverified_#207';
 UPDATE entry_params SET known_warnings = known_warnings - 'volume_regime_unverified_#207'
  WHERE known_warnings ? 'volume_regime_unverified_#207';
-UPDATE weekly_classification        SET volume_regime_flag = 'mixed' WHERE analyzed_for_date >= '2026-09-28' AND volume_regime_flag IS NULL AND source NOT LIKE 'system\_%';
 UPDATE weekly_classification        SET volume_regime_flag = NULL    WHERE volume_regime_flag IS NOT NULL AND source LIKE 'system\_%';
-UPDATE trigger_evaluation_log       SET volume_regime_flag = 'mixed' WHERE analyzed_for_date >= '2026-09-28' AND volume_regime_flag IS NULL;
-UPDATE entry_params                 SET volume_regime_flag = 'mixed' WHERE analyzed_for_date >= '2026-09-28' AND volume_regime_flag IS NULL;
-UPDATE position_climax_evaluations  SET volume_regime_flag = 'mixed' WHERE eval_date >= '2026-09-28' AND volume_regime_flag IS NULL;
-UPDATE position_decline_evaluations SET volume_regime_flag = 'mixed' WHERE eval_date >= '2026-09-28' AND volume_regime_flag IS NULL;
+-- PR-2 임시 규칙이 찍었으나 PR-3 writer 가 만들 수 없는 값(리뷰 #222): decline 행(거래량 입력 없음)·앵커 없는 climax 행 → NULL
+UPDATE position_decline_evaluations SET volume_regime_flag = NULL WHERE volume_regime_flag IS NOT NULL;
+UPDATE position_climax_evaluations  SET volume_regime_flag = NULL WHERE volume_regime_flag IS NOT NULL AND anchor_week IS NULL;
+-- PR-2 임시 규칙(as_of ≥ 경계 → 'mixed')이 찍었으나 창 유도로는 **어느 시점이든** NULL 인 유형 되돌림(리뷰 #222 3·4차 — 날짜 창 없이
+-- 규칙 자체로 판정하므로 PR-3 배포가 늦어져 구 writer 가 더 돌아도 재실행으로 교정된다):
+--   climax: 앵커 ≥ 경계(T2 창 전부 extended) 또는 평가일까지의 주봉이 경계 이후 주를 못 본 종목(T2 창 전부 regular — eval_date 기준)
+--   분류·트리거·진입: 경계 이후 상장(경계 전 일봉 0 → 창 전부 extended)
+UPDATE position_climax_evaluations c SET volume_regime_flag = NULL
+ WHERE c.volume_regime_flag IS NOT NULL
+   AND (c.anchor_week >= '2026-09-28' OR NOT EXISTS (
+        SELECT 1 FROM weekly_prices w JOIN positions p ON p.symbol = w.ticker
+         WHERE p.id = c.position_id AND w.week_end_date >= '2026-09-28' AND w.week_end_date <= c.eval_date));
+UPDATE weekly_classification SET volume_regime_flag = NULL
+ WHERE volume_regime_flag IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM daily_prices d WHERE d.ticker = weekly_classification.symbol AND d.date < '2026-09-28');
+UPDATE trigger_evaluation_log SET volume_regime_flag = NULL
+ WHERE volume_regime_flag IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM daily_prices d WHERE d.ticker = trigger_evaluation_log.symbol AND d.date < '2026-09-28');
+UPDATE entry_params SET volume_regime_flag = NULL
+ WHERE volume_regime_flag IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM daily_prices d WHERE d.ticker = entry_params.symbol AND d.date < '2026-09-28');
