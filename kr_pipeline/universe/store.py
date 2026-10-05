@@ -61,7 +61,8 @@ def save_universe_raw_snapshot(conn: Connection, snapshot_date: date, df: pd.Dat
 # [design judgment] 1회 폐지 비율 상한 — book 근거 아님. 월 1회 정상 폐지는
 # 수십 건 이하(활성 ~2,550 의 1% 미만)라 2% 는 넉넉한 안전마진. 초과는 부분
 # fetch(한 시장 누락 등) 의심 → 파괴적 UPDATE 전에 fail-closed.
-_MAX_DELIST_RATIO = 0.02
+MAX_DELIST_RATIO = 0.02     # __main__._raw_complete(원본 급감 fail-closed)도 같은 상수를 import — 부분 응답 판정 기준 1곳(리뷰 #223 4차)
+_MAX_DELIST_RATIO = MAX_DELIST_RATIO
 
 
 def mark_delisted(conn: Connection, *, current_tickers: set[str], on_date: date) -> int:

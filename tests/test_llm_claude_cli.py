@@ -554,3 +554,34 @@ def test_call_claude_json_result_mentioning_rate_limit_is_not_usage_limit(mocker
     mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout=envelope, stderr="")
     out = call_claude(prompt_file="analyze_chart_v3.md", attachments=["/tmp/fake.zip"])
     assert out == answer and mock_run.call_count == 1
+
+
+def test_call_claude_tools_default_read_only_and_opt_in_web(mocker):
+    """(#221) tools 기본 'Read'(분류 결정론 불변). 조사 보고서만 opt-in 으로 웹 도구를 연다."""
+    from kr_pipeline.llm_runner.llm.claude_cli import call_claude
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout='{"ok": true}', stderr="")
+    call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1})
+    cmd = mock_run.call_args.args[0]
+    assert cmd[cmd.index("--tools") + 1] == "Read"
+    from kr_pipeline.llm_runner.llm.claude_cli import TOOLS_WEBSEARCH
+    call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1}, tools=TOOLS_WEBSEARCH)
+    cmd = mock_run.call_args.args[0]
+    assert cmd[cmd.index("--tools") + 1] == "WebSearch"
+    for bad in ("Read,WebSearch", "Read,WebSearch,WebFetch", "Bash"):   # 검색 외 어떤 조합도 열지 않는다(리뷰 #223 1·2차)
+        with pytest.raises(ValueError, match="허용 안 됨"):
+            call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1}, tools=bad)
+
+
+def test_call_claude_max_attempts_caps_internal_retries(mocker):
+    """(#221) 보고서는 CLI 내부 재시도 없이 1회 — 호출자가 전체 예산을 묶는다."""
+    from kr_pipeline.llm_runner.llm.claude_cli import ClaudeCLIError, call_claude
+    mocker.patch("time.sleep")
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="boom")
+    with pytest.raises(ClaudeCLIError, match="after 1 attempts"):
+        call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1}, max_attempts=1)
+    assert mock_run.call_count == 1
+    for bad in (0, -1):                                                   # 0 이 '기본 4회' 로 풀리던 함정(리뷰 #223 4차)
+        with pytest.raises(ValueError, match="max_attempts"):
+            call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1}, max_attempts=bad)

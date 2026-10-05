@@ -193,6 +193,12 @@ def _mock_calculate_entry_params() -> dict:
     }
 
 
+# (#221) --tools 허용 집합. 분류·판정 = TOOLS_READ(결정론·시점 무결성). 조사 보고서 = TOOLS_WEBSEARCH 만(검색 결과 스니펫만 — 임의 URL 접촉
+# 불가, 파일 Read 도 없음: subprocess cwd 가 리포라 .env 등이 읽히는 경로 차단). 호출처는 이 이름으로 참조(리터럴 재입력 금지).
+TOOLS_READ = "Read"
+TOOLS_WEBSEARCH = "WebSearch"
+ALLOWED_TOOLSETS = frozenset({TOOLS_READ, TOOLS_WEBSEARCH})
+
 _MOCK_GENERATORS = {
     "analyze_chart_v3.md": _mock_analyze_chart_v3,
     "evaluate_pivot_trigger_v1.md": _mock_evaluate_pivot_trigger,
@@ -222,6 +228,8 @@ def call_claude(
     dry_run: bool = False,
     timeout_seconds: int = 600,
     meta_out: dict | None = None,
+    tools: str = TOOLS_READ,
+    max_attempts: int | None = None,
 ) -> dict:
     """Claude CLI 호출.
 
@@ -238,6 +246,10 @@ def call_claude(
         meta_out: dict 를 주면 호출 메타를 채움 — model(별칭이 아닌 실제 해석된
             모델 ID, 예: claude-sonnet-5), input_tokens, output_tokens.
             봉투 파싱 실패(플레인 stdout 폴백) 시 미채움.
+        tools: --tools 값. 기본 "Read"(분류·판정 호출: 외부 조회 불가 = 시점 무결성·결정론).
+            (#221) 조사 보고서처럼 웹 근거가 필요한 **비판정** 호출만 TOOLS_WEBSEARCH("WebSearch") 로 opt-in. 허용 집합 ALLOWED_TOOLSETS
+            밖은 ValueError — WebFetch(임의 URL)·Bash 는 어떤 호출에도 열지 않는다(KRX 도메인 접촉을 도구 층에서 차단, 운영 규칙 5).
+        max_attempts: CLI 시도 횟수 상한(기본 None = 1 + len(RETRY_DELAYS) = 4). 호출자가 전체 예산을 묶을 때(#221 보고서: 1) 사용.
 
     Returns:
         parsed JSON dict
@@ -245,6 +257,10 @@ def call_claude(
     Raises:
         ClaudeCLIError: 3회 재시도 후 실패 시
     """
+    if tools not in ALLOWED_TOOLSETS:
+        raise ValueError(f"tools={tools!r} 허용 안 됨 — {sorted(ALLOWED_TOOLSETS)}")
+    if max_attempts is not None and max_attempts < 1:
+        raise ValueError(f"max_attempts={max_attempts} — 1 이상이어야 함(None = 기본 {len(RETRY_DELAYS) + 1}회)")
     if dry_run:
         gen = _MOCK_GENERATORS.get(prompt_file)
         if gen is None:
@@ -274,18 +290,18 @@ def call_claude(
                 + "\n```"
             )
 
-    # --tools Read: default-deny tool surface. Classification reads only the
+    # --tools: default-deny tool surface. Classification(기본 "Read") reads only the
     # attached chart PNGs (@absolute_path → Read); web/news/external lookups must
-    # NOT be reachable (point-in-time integrity + determinism). Web*/Bash/etc. are
-    # not even exposed. bypassPermissions keeps the non-interactive --print flow
-    # from prompting on the allowed Read.
+    # NOT be reachable (point-in-time integrity + determinism). (#221) 조사 보고서만
+    # "WebSearch"(Read 없음) — WebFetch/Bash 는 ALLOWED_TOOLSETS 가 어떤 호출에도 열지 않는다.
+    # bypassPermissions keeps the non-interactive --print flow from prompting on the allowed tools.
     # --output-format json: 봉투(modelUsage/usage)로 실제 사용 모델·토큰을 기록
     # 가능하게 한다 — 별칭 'sonnet' 핀이 어느 버전으로 해석됐는지 사후 추적용.
     # --exclude-dynamic-system-prompt-sections: cwd/git status 등 호출마다 변할 수
     # 있는 섹션을 system prompt 앞부분에서 첫 user 메시지로 밀어낸다 — 이게 없으면
     # append 한 정적 프롬프트 앞의 동적 텍스트가 캐시 프리픽스를 계속 깨뜨린다.
     cmd = ["claude", "--print", "--permission-mode", "bypassPermissions",
-           "--tools", "Read", "--output-format", "json",
+           "--tools", tools, "--output-format", "json",
            "--append-system-prompt", prompt_text,
            "--exclude-dynamic-system-prompt-sections"]
 
@@ -312,7 +328,8 @@ def call_claude(
     )
 
     last_error = None
-    for attempt, delay in enumerate([0] + RETRY_DELAYS):
+    delays = ([0] + RETRY_DELAYS)[: max_attempts] if max_attempts is not None else [0] + RETRY_DELAYS
+    for attempt, delay in enumerate(delays):
         if delay > 0:
             log.warning("claude CLI retry attempt %d after %ds", attempt, delay)
             time.sleep(delay)
@@ -396,5 +413,5 @@ def call_claude(
             last_error = RuntimeError(f"rc={result.returncode}: {diag}")
 
     raise ClaudeCLIError(
-        f"claude CLI failed after {len(RETRY_DELAYS) + 1} attempts: {last_error}"
+        f"claude CLI failed after {len(delays)} attempts: {last_error}"
     )

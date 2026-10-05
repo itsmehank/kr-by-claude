@@ -170,7 +170,7 @@ def test_fetch_security_groups_raises_on_partial_response(monkeypatch):
 # ---------- 가드 4: 적재 후 회귀 가드 [3-b] (SECUGRP 필터 Task 4) ----------
 import pandas as pd
 from kr_pipeline.universe.guards import (
-    UniverseGuardError, count_active, verify_universe_after_load, write_exclusion_snapshot,
+    UniverseGuardError, count_active, preflight_exclusion_diff, verify_universe_after_load, write_exclusion_snapshot,
 )
 from kr_pipeline.universe.store import upsert_stocks
 
@@ -240,3 +240,123 @@ def test_guard_c_records_count_delta_without_threshold(db, clean_universe):
     _seed(db, [{"ticker": "T9", "name": "신규", "market": "KOSDAQ", "security_group": "주권"}])
     info = verify_universe_after_load(db, snapshot_date=date(2026, 9, 15), excluded=_excluded())
     assert info["active_after"] >= before + 1      # 기록만, 임계 없음(별도 판정 사안)
+
+
+# ---------- (#221) 배제 집합 변동 자동 판정 ----------
+def test_snapshot_auto_accepts_delisted_and_new_listing(db, clean_universe):
+    """상폐(raw 에 없음)·신규 상장 배제(stocks 에 없던 spac)만 변동이면 실패하지 않고 details 에 기록."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
+    ex1 = _excluded(("465320", "교보15호스팩", "KOSDAQ", "주권", "spac"))
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=ex1, raw_tickers={"T1", "465320"})
+    ex2 = _excluded(("0200G0", "한국제17호스팩", "KOSDAQ", "주권", "spac"))
+    info = verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "0200G0"})
+    assert info["exclusion_auto_accepted"] == {"removed_delisted": ["465320"], "added_new_listing": ["0200G0"]}
+    assert info["exclusion_unexplained"] == {"added": [], "removed": []}
+    assert info["exclusion_added"] == ["0200G0"] and info["exclusion_removed"] == ["465320"]
+    with db.cursor() as cur:
+        cur.execute("SELECT ticker FROM universe_exclusion_snapshot WHERE snapshot_date='2026-10-01'")
+        assert [r[0] for r in cur.fetchall()] == ["0200G0"]
+
+
+def test_snapshot_unexplained_raises_with_diff_attached(db, clean_universe):
+    """기존 활성 종목(#199 유형)이 새로 배제되면 실패 — 예외에 판정(diff)이 붙어 보고서 입력이 된다."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"},
+               {"ticker": "088980", "name": "맵스리얼티", "market": "KOSPI", "security_group": "주권"}])
+    base = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"))     # 빈 배제 집합은 스냅샷을 쓰지 않으므로 기준선 1행
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=base, raw_tickers={"T1", "P1", "088980"})
+    ex2 = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"), ("088980", "맵스리얼티", "KOSPI", "투자회사", "security_group"))
+    with db.cursor() as cur:   # 가드 (b) 를 통과시키기 위해 활성에서는 제외(이번 적재 전 배제 대상이 됐다는 시나리오)
+        cur.execute("UPDATE stocks SET delisted_at = CURRENT_DATE WHERE ticker='088980'")
+    with pytest.raises(UniverseGuardError, match="088980") as ei:
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "P1", "088980"})
+    assert ei.value.diff is not None and [u["ticker"] for u in ei.value.diff.unexplained_added] == ["088980"]
+    assert "#199" in ei.value.diff.unexplained_added[0]["reason"] and ei.value.prev_date == date(2026, 9, 22)
+
+
+def test_snapshot_strict_mode_fails_even_auto_types(db, clean_universe):
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=_excluded(("465320", "스팩", "KOSDAQ", "주권", "spac")),
+                               raw_tickers={"T1", "465320"})
+    with pytest.raises(UniverseGuardError, match="465320"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(), raw_tickers={"T1"}, auto_accept=False)
+    info = verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(), raw_tickers={"T1"},
+                                      accept_exclusion_diff=True)     # 명시 수용은 종전대로(strict 와 동시 지정은 ValueError — 별도 테스트)
+    assert info["exclusion_removed"] == ["465320"]
+
+
+def test_snapshot_without_raw_tickers_treats_removed_as_unexplained(db, clean_universe):
+    """raw 미제공(구 호출처)이면 상폐 판정 불가 → removed 는 잔여(보수)."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=_excluded(("465320", "스팩", "KOSDAQ", "주권", "spac")))
+    with pytest.raises(UniverseGuardError, match="465320"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded())
+
+
+def test_snapshot_accept_and_strict_together_is_an_error(db, clean_universe):
+    with pytest.raises(ValueError, match="동시 지정 불가"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(), accept_exclusion_diff=True, auto_accept=False)
+
+
+def test_snapshot_accept_marks_unexplained_as_human_accepted(db, clean_universe):
+    """accept 로 통과한 잔여는 info.exclusion_accepted_unexplained=True — 호출자가 warnings 로 pipeline_runs 에 남긴다."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=_excluded(("R1", "리츠", "KOSPI", "부동산투자회사", "security_group")),
+                               raw_tickers={"T1", "R1"})
+    info = verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(), raw_tickers={"T1", "R1"},
+                                      accept_exclusion_diff=True)
+    assert info["exclusion_accepted_unexplained"] is True and info["exclusion_unexplained"]["removed"] == ["R1"]
+
+
+def test_snapshot_round_trip_ticker_is_unexplained_not_new_listing(db, clean_universe):
+    """상폐로 자동 수용된 스팩이 다음 달 원본에 다시 나타나면(부분 응답 왕복) 신규 상장으로 자동 수용하지 않는다 — 이전 스냅샷 기억."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
+    P = ("P1", "가우", "KOSPI", "주권", "preferred")                          # 빈 배제 집합은 스냅샷을 쓰지 않으므로 고정 1행 유지
+    verify_universe_after_load(db, snapshot_date=date(2026, 8, 22), excluded=_excluded(P, ("S1", "스팩1", "KOSDAQ", "주권", "spac")), raw_tickers={"T1", "P1", "S1"})
+    info = verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=_excluded(P), raw_tickers={"T1", "P1"})    # S1 부재 → 상폐 자동
+    assert info["exclusion_auto_accepted"]["removed_delisted"] == ["S1"]
+    with pytest.raises(UniverseGuardError, match="S1"):                                                                   # 재등장 → 잔여
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 22), excluded=_excluded(P, ("S1", "스팩1", "KOSDAQ", "주권", "spac")), raw_tickers={"T1", "P1", "S1"})
+
+
+def test_snapshot_accept_refuses_199_type(db, clean_universe):
+    """#199 유형(기존 활성 종목 → 신규 배제)은 --accept-exclusion-diff 로도 수용 불가 — 수용 시 mark_delisted 가 상장 종목을 폐지 처리(리뷰 #223 3차)."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"},
+               {"ticker": "088980", "name": "맵스리얼티", "market": "KOSPI", "security_group": "주권"}])
+    base = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"))
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=base, raw_tickers={"T1", "P1", "088980"})
+    with db.cursor() as cur:
+        cur.execute("UPDATE stocks SET delisted_at = CURRENT_DATE WHERE ticker='088980'")
+    ex2 = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"), ("088980", "맵스리얼티", "KOSPI", "투자회사", "security_group"))
+    with pytest.raises(UniverseGuardError, match="#199 유형.*수용 불가"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "P1", "088980"}, accept_exclusion_diff=True)
+
+
+def test_preflight_raises_without_writing_snapshot(db, clean_universe):
+    """쓰기 전 판정: 잔여면 예외, 통과해도 스냅샷을 쓰지 않는다(적재 후 verify 가 기록)."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
+    base = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"))
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=base, raw_tickers={"T1", "P1"})
+    d = preflight_exclusion_diff(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(base.iloc[0].tolist(), ("S9", "스팩9", "KOSDAQ", "주권", "spac")),
+                                 raw_tickers={"T1", "P1", "S9"})
+    assert d.added_new_listing == ["S9"]
+    with db.cursor() as cur:
+        cur.execute("SELECT count(*) FROM universe_exclusion_snapshot WHERE snapshot_date='2026-10-01'")
+        assert cur.fetchone()[0] == 0
+    with pytest.raises(UniverseGuardError, match="X1"):
+        preflight_exclusion_diff(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(base.iloc[0].tolist(), ("X1", "뭔가", "KOSPI", "주권", "etf")),
+                                 raw_tickers={"T1", "P1", "X1"})
+
+
+def test_snapshot_accept_allows_late_resolution_of_unresolved_row(db, clean_universe):
+    """UNRESOLVED 로 적재돼 있던 행이 배제 그룹으로 분류됨 = 늦은 분류 — 잔여(보고)지만 accept 로 수용 가능(#199 아님)."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"},
+               {"ticker": "R7", "name": "리츠7", "market": "KOSPI", "security_group": "UNRESOLVED"}])
+    base = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"))
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=base, raw_tickers={"T1", "P1", "R7"})
+    with db.cursor() as cur:
+        cur.execute("UPDATE stocks SET delisted_at = CURRENT_DATE WHERE ticker='R7'")
+    ex2 = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"), ("R7", "리츠7", "KOSPI", "부동산투자회사", "security_group"))
+    with pytest.raises(UniverseGuardError, match="R7"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "P1", "R7"})
+    info = verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "P1", "R7"}, accept_exclusion_diff=True)
+    assert info["exclusion_accepted_unexplained"] is True
