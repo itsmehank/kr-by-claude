@@ -6,7 +6,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from kr_pipeline.universe.exclusion_diff import SYSTEMIC_CAP_DELISTED, SYSTEMIC_RAW_SHRUNK, ExclusionDiff, classify_exclusion_diff
+from kr_pipeline.universe.exclusion_diff import SYSTEMIC_CAP_DELISTED, ExclusionDiff, classify_exclusion_diff
 from kr_pipeline.universe.report import (
     CALL_MAX_ATTEMPTS, MAX_LLM_ITEMS, MAX_SLACK_ITEMS, PROMPT_FILE, REPORT_TOOLS, ReportFailed, build_local_facts, format_report,
     make_report, report_last_failed, send_text,
@@ -140,10 +140,10 @@ def test_report_last_failed_ignores_runs_before_last_success(db):
 def test_report_last_failed_systemic_skips_llm_and_posts_facts(db):
     posted = []
     bulk = ExclusionDiff(unexplained_removed=[{"ticker": f"S{i:05d}", "reason": "상한"} for i in range(12)],
-                         systemic=[SYSTEMIC_CAP_DELISTED, SYSTEMIC_RAW_SHRUNK])
+                         systemic=[SYSTEMIC_CAP_DELISTED, "security_group_unavailable"])
     _seed_failed_run(db, _details(bulk))
     out = report_last_failed(db, commit=False, call=lambda *a, **k: (_ for _ in ()).throw(AssertionError("LLM 호출 금지")), post=lambda t: posted.append(t))
-    assert out == "sent" and SYSTEMIC_CAP_DELISTED in posted[0] and SYSTEMIC_RAW_SHRUNK in posted[0] and "LLM 조사 없음" in posted[0]
+    assert out == "sent" and SYSTEMIC_CAP_DELISTED in posted[0] and "security_group_unavailable" in posted[0] and "LLM 조사 없음" in posted[0]
 
 
 def test_report_last_failed_llm_failure_still_posts_rule_facts(db):
@@ -178,3 +178,24 @@ def test_report_last_failed_never_raises(db, caplog, monkeypatch):
     with caplog.at_level(logging.WARNING, logger="kr_pipeline.universe.report"):
         out = report_last_failed(db, commit=False, call=lambda *a, **k: _GOOD, post=lambda t: None)
     assert out == "failed" and "exclusion_report_failed" in caplog.text
+
+
+def test_report_last_failed_strict_row_does_not_mask_older_residue(db):
+    """strict 실패(report_key=[])가 더 최근이어도, 잔여가 있는 옛 실패 run 의 미전송 보고서를 가리지 않는다(리뷰 #223 4차)."""
+    posted = []
+    _seed_failed_run(db, _details(_diff()), minutes_ago=30)
+    _seed_failed_run(db, {**ExclusionDiff(removed_delisted=["S1"]).summary(), "snapshot_prev_date": "2026-09-22", "strict": True}, minutes_ago=5)
+    assert report_last_failed(db, commit=False, call=lambda *a, **k: _GOOD, post=lambda t: posted.append(t)) == "sent" and "088980" in posted[0]
+
+
+def test_report_last_failed_facts_only_is_retried_next_day(db):
+    """LLM 실패로 사실만 보낸 전송은 당일만 dedup — 날짜가 지나면 같은 키라도 LLM 조사를 다시 시도(한도·CLI 장애 복구)."""
+    posted = []
+    _seed_failed_run(db, {**_details(_diff()), "report_sent_at": "2026-10-01T06:40:00+00:00", "report_key_sent": ["+088980", "-R9"], "report_kind": "facts_only"}, minutes_ago=60)
+    _seed_failed_run(db, _details(_diff()), minutes_ago=5)
+    assert report_last_failed(db, commit=False, call=lambda *a, **k: _GOOD, post=lambda t: posted.append(t)) == "sent"
+    assert "axis_change" in posted[0]                                            # 이번엔 LLM 보고서
+    with db.cursor() as cur:
+        cur.execute("SELECT details->>'report_kind' FROM pipeline_runs WHERE pipeline='universe' AND status='failed' AND details ? 'report_sent_at' "
+                    "ORDER BY started_at DESC LIMIT 1")
+        assert cur.fetchone()[0] == "full"

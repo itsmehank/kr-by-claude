@@ -582,3 +582,6 @@ def test_call_claude_max_attempts_caps_internal_retries(mocker):
     with pytest.raises(ClaudeCLIError, match="after 1 attempts"):
         call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1}, max_attempts=1)
     assert mock_run.call_count == 1
+    for bad in (0, -1):                                                   # 0 이 '기본 4회' 로 풀리던 함정(리뷰 #223 4차)
+        with pytest.raises(ValueError, match="max_attempts"):
+            call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1}, max_attempts=bad)

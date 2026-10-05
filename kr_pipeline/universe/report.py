@@ -186,13 +186,23 @@ def _last_failed_run(conn: Connection) -> tuple[dict | None, set[str]]:
         cur.execute("""
             SELECT id, started_at, params, details FROM pipeline_runs
              WHERE pipeline = 'universe' AND status = 'failed' AND details ? 'report_key'
+               AND details->'report_key' <> '[]'::jsonb
                AND started_at > COALESCE((SELECT MAX(started_at) FROM pipeline_runs WHERE pipeline = 'universe' AND status = 'success'),
                                          '1970-01-01')
              ORDER BY started_at DESC""")
-        rows = cur.fetchall()
+        rows = cur.fetchall()      # report_key=[] (strict 실패·잔여 없음)는 제외 — 잔여 있는 옛 run 을 가리지 않는다(리뷰 #223 4차)
     if not rows:
         return None, set()
-    sent = {json.dumps(r["details"]["report_key_sent"]) for r in rows if (r["details"] or {}).get("report_sent_at") and "report_key_sent" in r["details"]}
+    today = datetime.now(timezone.utc).date().isoformat()
+    sent = set()
+    for r in rows:
+        d = r["details"] or {}
+        if not d.get("report_sent_at") or "report_key_sent" not in d:
+            continue
+        # 사실만 전송(facts_only)은 당일만 dedup — 다음 날엔 LLM 조사를 다시 시도한다(한도·CLI 일시 장애 복구)
+        if d.get("report_kind") == "facts_only" and not str(d["report_sent_at"]).startswith(today):
+            continue
+        sent.add(json.dumps(d["report_key_sent"]))
     return rows[0], sent
 
 
@@ -215,13 +225,25 @@ def _end_read_txn(conn: Connection, commit: bool) -> None:
         conn.commit()
 
 
-def _mark_sent(conn: Connection, run_id: int, key: list[str], *, commit: bool) -> None:
-    with conn.cursor() as cur:
-        cur.execute("UPDATE pipeline_runs SET details = COALESCE(details, '{}'::jsonb) || %s::jsonb WHERE id = %s",
-                    (json.dumps({"report_sent_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "report_key_sent": key}), run_id))
-    if commit:
-        conn.commit()
-
+def _mark_sent(conn: Connection, run_id: int, key: list[str], *, kind: str, commit: bool) -> None:
+    """전송 마커. Slack 은 이미 갔으므로 DB 일시 장애로 마커를 놓치면 다음 발화에 중복 전송된다 — 짧은 재시도 3회로 창을 줄인다(리뷰 #223 4차)."""
+    payload = json.dumps({"report_sent_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "report_key_sent": key, "report_kind": kind})
+    last: Exception | None = None
+    for _ in range(3):
+        try:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE pipeline_runs SET details = COALESCE(details, '{}'::jsonb) || %s::jsonb WHERE id = %s", (payload, run_id))
+            if commit:
+                conn.commit()
+            return
+        except psycopg.Error as e:
+            last = e
+            try:
+                conn.rollback()
+            except psycopg.Error:
+                pass
+    log.warning("exclusion_report: 전송 마커 기록 실패(3회) — 다음 발화에 중복 전송 가능: %s", last)
+    raise last  # noqa: TRY201
 
 def report_last_failed(conn: Connection, *, call: Callable[..., dict] = call_claude,
                        post: Callable[[str], None] = notify_universe_exclusion_report, commit: bool = True) -> str:
@@ -246,9 +268,11 @@ def report_last_failed(conn: Connection, *, call: Callable[..., dict] = call_cla
         prev = d.get("snapshot_prev_date")
         prev_date = date.fromisoformat(prev) if prev else None
         text: str
+        kind = "full"
         if diff.systemic or len(diff.unexplained_tickers) > MAX_LLM_ITEMS:
             _end_read_txn(conn, commit)
             text = format_facts_only(diff, snapshot_date, ",".join(diff.systemic) or f"잔여 {len(diff.unexplained_tickers)} > {MAX_LLM_ITEMS}")
+            kind = "systemic"
         else:
             facts = build_local_facts(conn, diff, snapshot_date=snapshot_date, prev_snapshot_date=prev_date, raw_now=d.get("exclusion_raw_now"))
             _end_read_txn(conn, commit)                    # LLM 대기 전에 읽기 트랜잭션 종료
@@ -259,9 +283,10 @@ def report_last_failed(conn: Connection, *, call: Callable[..., dict] = call_cla
             except Exception as e:  # noqa: BLE001 — LLM 단계 실패(한도·CLI 부재·타임아웃·스키마)여도 잔여 목록은 사람에게 보낸다(리뷰 #223 3차)
                 log.warning("exclusion_report: LLM 단계 실패 — 사실만 전송: %s", e)
                 text = format_facts_only(diff, snapshot_date, f"LLM 조사 실패: {type(e).__name__}")
+                kind = "facts_only"
         if not send_text(text, post=post):
             return "failed"
-        _mark_sent(conn, run["id"], key, commit=commit)
+        _mark_sent(conn, run["id"], key, kind=kind, commit=commit)
         return "sent"
     except Exception as e:  # noqa: BLE001 — 비차단(월간 체인은 이미 실패로 기록됨)
         log.warning("exclusion_report_failed: %s", e)

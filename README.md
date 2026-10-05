@@ -11,7 +11,7 @@ KOSPI / KOSDAQ 일봉 데이터 적재 파이프라인 및 후속 분석 도구.
    - 셸에서 한 번에: `set -a; source .env; set +a; psql "$DATABASE_URL" -f kr_pipeline/db/schema.sql`
 
 ## 실행
-- 종목 마스터: `uv run python -m kr_pipeline.universe` — (#221) 배제 집합 변동 중 상폐·신규 상장 배제는 자동 수용, 그 외(예: 기존 종목이 새로 배제, #199 유형)는 실패로 기록 → 월간 체인이 `--report-last-failed` 로 조사 보고서(claude -p 웹 검색, KRX 접촉 0)를 Slack 에 전송. 확인 후 `--accept-exclusion-diff`, 자동 수용을 끄려면 `--strict-exclusion-diff`
+- 종목 마스터: `uv run python -m kr_pipeline.universe` — (#221) 배제 집합 변동 중 상폐·신규 상장 배제는 자동 수용, 그 외(예: 기존 종목이 새로 배제, #199 유형)는 실패로 기록 → 월간 체인이 `scripts/universe_exclusion_report.py`(수동은 `python -m kr_pipeline.universe --report-last-failed`)로 조사 보고서(claude -p 웹 검색, KRX 접촉 0)를 Slack 에 전송. 확인 후 `--accept-exclusion-diff`(단 #199 유형 = security_group 이 확정돼 있던 기존 종목이 새로 배제되는 경우는 accept 불가 — #199 착수가 해소 경로, 그 달 universe·corp_code 매핑은 멈춤). 자동 수용을 끄려면 `--strict-exclusion-diff`. 원본이 직전 대비 2% 넘게 줄면 적재 전 중단(재실행)
 - 일봉 백필: `uv run python -m kr_pipeline.ohlcv --mode=backfill --years=2`
 - 일봉 증분: `uv run python -m kr_pipeline.ohlcv --mode=incremental --window-days=30` (기본 end=자동: 20:25 전이면 어제, 이후 오늘 — `common/market_hours.CLOSE_BUFFER`, #207)
   - `--exclude-today` 는 20:25 이후에도 오늘을 강제 제외할 때만(장중 수동 실행은 자동으로 어제까지)

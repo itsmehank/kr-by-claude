@@ -2,8 +2,8 @@
 import pandas as pd
 
 from kr_pipeline.universe.exclusion_diff import (
-    AUTO_ACCEPT_AXES, KIND_199, MAX_AUTO_DELISTED, MAX_AUTO_NEW_LISTING, SYSTEMIC_CAP_DELISTED, SYSTEMIC_CAP_NEW_LISTING,
-    SYSTEMIC_RAW_SHRUNK, classify_exclusion_diff,
+    AUTO_ACCEPT_AXES, KIND_199, KIND_LATE_RESOLUTION, MAX_AUTO_DELISTED, MAX_AUTO_NEW_LISTING, SYSTEMIC_CAP_DELISTED,
+    SYSTEMIC_CAP_NEW_LISTING, classify_exclusion_diff,
 )
 
 
@@ -82,11 +82,14 @@ def test_added_seen_in_prior_snapshot_is_not_new_listing():
     assert d.report_key() == ["+0004Y0"]
 
 
-def test_raw_incomplete_holds_delisted_auto_accept():
-    """이번 원본이 직전 대비 급감(부분 응답 의심)이면 '원본에 없음' 만으로 상폐 자동 수용하지 않는다(리뷰 #223 3차)."""
-    d = classify_exclusion_diff(prev_set={"S1", "S2"}, excluded=_ex(), raw_tickers=set(), ever_in_stocks=set(), raw_complete=False)
-    assert d.removed_delisted == [] and len(d.unexplained_removed) == 2 and "급감" in d.unexplained_removed[0]["reason"]
-    assert d.systemic == [SYSTEMIC_RAW_SHRUNK]
+def test_added_that_was_unresolved_in_stocks_is_late_resolution_not_199():
+    """UNRESOLVED 로 적재돼 있던 행이 다음 달 배제 그룹으로 분류되는 것은 조회 지연이지 규칙 변경이 아니다 — accept 가능(리뷰 #223 4차)."""
+    d = classify_exclusion_diff(prev_set=set(), excluded=_ex(("R7", "리츠7", "KOSPI", "부동산투자회사", "security_group")),
+                                raw_tickers={"R7"}, ever_in_stocks={"R7": "UNRESOLVED"})
+    assert d.unexplained_added[0]["kind"] == KIND_LATE_RESOLUTION and not d.has_199
+    d2 = classify_exclusion_diff(prev_set=set(), excluded=_ex(("R7", "리츠7", "KOSPI", "부동산투자회사", "security_group")),
+                                 raw_tickers={"R7"}, ever_in_stocks={"R7": "주권"})
+    assert d2.unexplained_added[0]["kind"] == KIND_199 and d2.has_199
 
 
 def test_multiple_systemic_causes_are_all_recorded():

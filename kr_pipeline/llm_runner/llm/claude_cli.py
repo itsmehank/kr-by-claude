@@ -259,6 +259,8 @@ def call_claude(
     """
     if tools not in ALLOWED_TOOLSETS:
         raise ValueError(f"tools={tools!r} 허용 안 됨 — {sorted(ALLOWED_TOOLSETS)}")
+    if max_attempts is not None and max_attempts < 1:
+        raise ValueError(f"max_attempts={max_attempts} — 1 이상이어야 함(None = 기본 {len(RETRY_DELAYS) + 1}회)")
     if dry_run:
         gen = _MOCK_GENERATORS.get(prompt_file)
         if gen is None:
@@ -326,7 +328,7 @@ def call_claude(
     )
 
     last_error = None
-    delays = ([0] + RETRY_DELAYS)[: max_attempts] if max_attempts else [0] + RETRY_DELAYS
+    delays = ([0] + RETRY_DELAYS)[: max_attempts] if max_attempts is not None else [0] + RETRY_DELAYS
     for attempt, delay in enumerate(delays):
         if delay > 0:
             log.warning("claude CLI retry attempt %d after %ds", attempt, delay)

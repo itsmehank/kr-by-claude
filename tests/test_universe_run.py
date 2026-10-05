@@ -7,6 +7,7 @@ import pytest
 
 from kr_pipeline.universe import __main__ as um
 from kr_pipeline.universe.guards import UniverseGuardError, write_exclusion_snapshot
+from kr_pipeline.universe.store import MAX_DELIST_RATIO
 
 
 def _raw(rows):
@@ -55,8 +56,9 @@ def test_run_universe_reproduces_2026_10_01_and_auto_accepts(db, quiet_universe,
 
 def _seed_199(db, monkeypatch):
     _seed_prev(db, ("0004Y0", "디비금융제14호스팩", "KOSDAQ", "주권", "spac"))
-    with db.cursor() as cur:   # 기존 종목(폐지 이력) → 이번에 배제 축에 걸림 = #199 유형
-        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('088980','맵스리얼티','KOSPI') ON CONFLICT (ticker) DO NOTHING")
+    with db.cursor() as cur:   # 기존 종목(security_group 확정, 폐지 이력) → 이번에 배제 축에 걸림 = #199 유형(UNRESOLVED 였으면 늦은 분류)
+        cur.execute("INSERT INTO stocks (ticker, name, market, security_group) VALUES ('088980','맵스리얼티','KOSPI','주권') "
+                    "ON CONFLICT (ticker) DO UPDATE SET security_group = '주권'")
     raw = _raw([("U221X0", "유이이일", "KOSPI"), ("0004Y0", "디비금융제14호스팩", "KOSDAQ"), ("088980", "맵스리얼티", "KOSPI")])
     monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
     monkeypatch.setattr(um, "_security_groups_fail_open",
@@ -73,7 +75,11 @@ def test_run_universe_unexplained_fails_and_persists_full_judgment(db, quiet_uni
     assert d["exclusion_unexplained_detail"]["088980"]["reason"].startswith("기존 활성")
     assert d["exclusion_raw_now"] == {"088980": {"name": "맵스리얼티", "market": "KOSPI", "security_group": "부동산투자회사"}}
     assert d["snapshot_prev_date"] == "2026-09-22" and d["exclusion_systemic"] == [] and d["strict"] is False
-    assert d["raw_file"] and d["raw_file"].endswith("universe_raw_20261001.json")        # 운영 규칙 5: 응답 파일 보존(KR_VERIFICATION_DIR)
+    import re
+    assert d["raw_file"] and re.search(r"universe_raw_20261001_\d{6}\.json$", d["raw_file"])   # 운영 규칙 5: 시각 포함(같은 날 재실행이 덮지 않음)
+    with db.cursor() as cur:                                                           # preflight 가 막았으므로 어떤 쓰기도 없음
+        cur.execute("SELECT count(*) FROM universe_raw_snapshot WHERE snapshot_date='2026-10-01'")
+        assert cur.fetchone()[0] == 0
 
 
 def test_run_universe_strict_records_details_even_for_auto_types(db, quiet_universe, monkeypatch):
@@ -122,20 +128,19 @@ def test_run_universe_rejects_accept_with_strict_before_any_fetch(db, quiet_univ
         um.run_universe(db, today=date(2026, 10, 1), accept_exclusion_diff=True, strict=True)
 
 
-def test_run_universe_raw_shrink_holds_delisted_auto_accept(db, quiet_universe, monkeypatch):
-    """직전 원본 대비 시장별 2% 넘게 줄면 부분 응답 의심 — '원본에 없음' 상폐를 자동 수용하지 않고 systemic raw_shrunk(리뷰 #223 3차)."""
+def test_run_universe_raw_shrink_fails_closed_before_any_write(db, quiet_universe, monkeypatch):
+    """직전 원본 대비 시장별 MAX_DELIST_RATIO 넘게 줄면 부분 응답 의심 — upsert·mark_delisted·스냅샷 전부 전에 중단(리뷰 #223 4차)."""
     _seed_prev(db, ("S1", "스팩1", "KOSDAQ", "주권", "spac"))
     with db.cursor() as cur:   # 직전 원본 스냅샷: KOSDAQ 100 종목
         cur.execute("DELETE FROM universe_raw_snapshot WHERE snapshot_date='2026-09-22'")
         cur.executemany("INSERT INTO universe_raw_snapshot (snapshot_date, ticker, name, market, security_group) VALUES ('2026-09-22', %s, %s, 'KOSDAQ', '주권')",
                         [(f"Q{i:05d}", f"q{i}") for i in range(100)])
-    raw = _raw([(f"Q{i:05d}", f"q{i}", "KOSDAQ") for i in range(90)])            # 10% 급감, S1 부재
+    raw = _raw([(f"Q{i:05d}", f"q{i}", "KOSDAQ") for i in range(90)])            # 10% 급감 > 2%
     monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
-    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {t: "주권" for t in raw["ticker"]})
-    with pytest.raises(UniverseGuardError, match="S1"):
+    monkeypatch.setattr(um, "upsert_stocks", lambda conn, df: (_ for _ in ()).throw(AssertionError("쓰기 금지")))
+    with pytest.raises(um.UniverseRawIncomplete, match="급감"):
         um.run_universe(db, today=date(2026, 10, 1))
-    d = quiet_universe["state"]["details"]
-    assert d["exclusion_systemic"] == ["raw_shrunk"] and d["exclusion_auto_accepted"]["removed_delisted"] == []
+    assert MAX_DELIST_RATIO == 0.02
 
 
 def test_report_path_does_not_import_pykrx():
@@ -146,3 +151,14 @@ def test_report_path_does_not_import_pykrx():
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, timeout=120)
     assert out.returncode == 0, out.stderr[-500:]
     assert out.stdout.strip() == "False"
+
+
+def test_monthly_chain_reports_before_gate_and_sweeps_after():
+    """(#221, 리뷰 #223 4차) 미전송 보고서는 attempt_allowed 게이트 **앞**(KRX 접촉 0·멱등), 대량 스윕은 게이트 **뒤**(#92 안전 계약).
+    보고서 전용 스크립트를 쓰는 이유 = 모듈 호출 토큰이 게이트 앞에 놓이면 test_launchd_guards.test_wrapper_gates_before_sweep 가 깨진다."""
+    from pathlib import Path
+    text = (Path(__file__).parent.parent / "scripts" / "launchd" / "monthly_chain.sh").read_text()
+    i_report, i_gate, i_sweep = (text.find("scripts/universe_exclusion_report.py"), text.find("attempt_allowed universe"),
+                                 text.find("python -m kr_pipeline.universe"))
+    assert -1 < i_report < i_gate < i_sweep
+    assert "--report-last-failed" not in text                      # 게이트 앞 호출은 전용 스크립트만

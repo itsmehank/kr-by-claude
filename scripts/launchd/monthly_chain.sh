@@ -10,6 +10,12 @@ MONTH_START="date_trunc('month', now())"
 
 if ! acquire_lock data 7200; then log "data 락 획득 실패(2h) — 중단"; exit 1; fi
 
+# (#221) 이번 달 universe 가 아직 성공 전이면, 직전 실패 run 의 잔여 조사 보고서가 미전송 상태일 수 있다(웹훅 일시 장애 등) — 시도 상한과
+# 무관하게 매 발화마다 전송 시도(KRX 접촉 0·락 불요·이미 전송됐으면 즉시 no-op). universe 재시도 전에 돌려 사람이 더 일찍 본다.
+if ! has_success_since universe "$MONTH_START"; then
+  uv run python scripts/universe_exclusion_report.py || log "exclusion 보고서 단계 실패(비차단)"
+fi
+
 if has_success_since universe "$MONTH_START"; then  # universe 는 단일 mode
   log "universe 이번 달 몫 완료 — skip"
 elif ! attempt_allowed universe 1; then   # max=1 → 하루 1회. gap 인자는 발화 불가라 제거(3차 검토)
@@ -26,7 +32,7 @@ else
     # 놓는다 — LLM 대기(report.py 예산: 2회 × 1시도 × 240s ≤ 8분) 동안 morning_corp 등 다른 체인을 막지 않는다. 마지막 성공 이후 이미 전송된
     # 잔여 키(details.report_key_sent)는 생략되므로 RunAtLoad 재발화에 안전. LLM 실패여도 규칙 판정만으로 Slack 은 간다.
     release_lock data
-    uv run python -m kr_pipeline.universe --report-last-failed || log "exclusion 보고서 단계 실패(비차단)"
+    uv run python scripts/universe_exclusion_report.py || log "exclusion 보고서 단계 실패(비차단)"
     exit 1
   fi
 fi

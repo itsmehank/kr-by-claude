@@ -170,7 +170,7 @@ def test_fetch_security_groups_raises_on_partial_response(monkeypatch):
 # ---------- 가드 4: 적재 후 회귀 가드 [3-b] (SECUGRP 필터 Task 4) ----------
 import pandas as pd
 from kr_pipeline.universe.guards import (
-    UniverseGuardError, count_active, verify_universe_after_load, write_exclusion_snapshot,
+    UniverseGuardError, count_active, preflight_exclusion_diff, verify_universe_after_load, write_exclusion_snapshot,
 )
 from kr_pipeline.universe.store import upsert_stocks
 
@@ -331,8 +331,32 @@ def test_snapshot_accept_refuses_199_type(db, clean_universe):
         verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "P1", "088980"}, accept_exclusion_diff=True)
 
 
-def test_snapshot_raw_incomplete_blocks_delisted_auto(db, clean_universe):
+def test_preflight_raises_without_writing_snapshot(db, clean_universe):
+    """쓰기 전 판정: 잔여면 예외, 통과해도 스냅샷을 쓰지 않는다(적재 후 verify 가 기록)."""
     _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
-    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=_excluded(("S1", "스팩", "KOSDAQ", "주권", "spac")), raw_tickers={"T1", "S1"})
-    with pytest.raises(UniverseGuardError, match="S1"):
-        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(), raw_tickers={"T1"}, raw_complete=False)
+    base = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"))
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=base, raw_tickers={"T1", "P1"})
+    d = preflight_exclusion_diff(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(base.iloc[0].tolist(), ("S9", "스팩9", "KOSDAQ", "주권", "spac")),
+                                 raw_tickers={"T1", "P1", "S9"})
+    assert d.added_new_listing == ["S9"]
+    with db.cursor() as cur:
+        cur.execute("SELECT count(*) FROM universe_exclusion_snapshot WHERE snapshot_date='2026-10-01'")
+        assert cur.fetchone()[0] == 0
+    with pytest.raises(UniverseGuardError, match="X1"):
+        preflight_exclusion_diff(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(base.iloc[0].tolist(), ("X1", "뭔가", "KOSPI", "주권", "etf")),
+                                 raw_tickers={"T1", "P1", "X1"})
+
+
+def test_snapshot_accept_allows_late_resolution_of_unresolved_row(db, clean_universe):
+    """UNRESOLVED 로 적재돼 있던 행이 배제 그룹으로 분류됨 = 늦은 분류 — 잔여(보고)지만 accept 로 수용 가능(#199 아님)."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"},
+               {"ticker": "R7", "name": "리츠7", "market": "KOSPI", "security_group": "UNRESOLVED"}])
+    base = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"))
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=base, raw_tickers={"T1", "P1", "R7"})
+    with db.cursor() as cur:
+        cur.execute("UPDATE stocks SET delisted_at = CURRENT_DATE WHERE ticker='R7'")
+    ex2 = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"), ("R7", "리츠7", "KOSPI", "부동산투자회사", "security_group"))
+    with pytest.raises(UniverseGuardError, match="R7"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "P1", "R7"})
+    info = verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "P1", "R7"}, accept_exclusion_diff=True)
+    assert info["exclusion_accepted_unexplained"] is True

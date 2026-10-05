@@ -62,12 +62,13 @@ def _latest_snapshot(conn: Connection, before: date) -> tuple[date | None, set[s
         return d, {r[0] for r in cur.fetchall()}
 
 
-def _ever_in_stocks(conn: Connection, tickers: set[str]) -> set[str]:
+def _ever_in_stocks(conn: Connection, tickers: set[str]) -> dict[str, str | None]:
+    """stocks 에 존재한 적 있는 티커 → security_group. UNRESOLVED 였던 행은 #199 유형이 아니라 '늦은 분류'(exclusion_diff)."""
     if not tickers:
-        return set()
+        return {}
     with conn.cursor() as cur:
-        cur.execute("SELECT ticker FROM stocks WHERE ticker = ANY(%s)", (sorted(tickers),))
-        return {r[0] for r in cur.fetchall()}
+        cur.execute("SELECT ticker, security_group FROM stocks WHERE ticker = ANY(%s)", (sorted(tickers),))
+        return {r[0]: r[1] for r in cur.fetchall()}
 
 
 def _ever_seen(conn: Connection, tickers: set[str], before: date) -> set[str]:
@@ -81,13 +82,53 @@ def _ever_seen(conn: Connection, tickers: set[str], before: date) -> set[str]:
         return {r[0] for r in cur.fetchall()}
 
 
+def _snapshot_diff(conn: Connection, *, snapshot_date: date, excluded: pd.DataFrame, raw_tickers: set[str] | None,
+                   accept_exclusion_diff: bool, auto_accept: bool) -> tuple[date | None, list[str], list[str], ExclusionDiff]:
+    """스냅샷 대조 + 3분류 + 거부 판정(공통). 반환 (prev_date, added, removed, diff). 거부면 UniverseGuardError(diff, prev_date)."""
+    if accept_exclusion_diff and not auto_accept:
+        raise ValueError("--accept-exclusion-diff 와 --strict-exclusion-diff 는 동시 지정 불가(의미 충돌)")
+    prev_date, prev_set = _latest_snapshot(conn, snapshot_date)
+    cur_set = set(excluded["ticker"]) if not excluded.empty else set()
+    added, removed = sorted(cur_set - prev_set), sorted(prev_set - cur_set)
+    diff = ExclusionDiff()
+    if prev_date is not None and (added or removed):
+        diff = classify_exclusion_diff(prev_set=prev_set, excluded=excluded, raw_tickers=raw_tickers,
+                                       ever_in_stocks=_ever_in_stocks(conn, set(added)),
+                                       ever_seen=_ever_seen(conn, set(added), snapshot_date))
+        if accept_exclusion_diff and diff.has_199:
+            t199 = [u["ticker"] for u in diff.unexplained_added if u.get("kind") == "199"]
+            raise UniverseGuardError(
+                f"guard(snapshot) #199 유형(security_group 확정 상태였던 기존 종목 → 신규 배제) {t199[:20]} 은 --accept-exclusion-diff 로 수용 불가 — "
+                f"배제 의미 정정 + 상태 컬럼(#199) 선행", diff, prev_date)
+        if not accept_exclusion_diff:
+            if not auto_accept:
+                raise UniverseGuardError(
+                    f"guard(snapshot) 배제 집합 변동 (기준 {prev_date}, strict): +{added[:20]} -{removed[:20]} "
+                    f"— --strict-exclusion-diff 해제 또는 원인 확인 후 --accept-exclusion-diff", diff, prev_date)
+            if diff.unexplained:
+                ua = [u["ticker"] for u in diff.unexplained_added]; ur = [u["ticker"] for u in diff.unexplained_removed]
+                raise UniverseGuardError(
+                    f"guard(snapshot) 배제 집합 변동 미설명 (기준 {prev_date}): +{ua[:20]} -{ur[:20]} "
+                    f"(자동 수용 +{len(diff.added_new_listing)} -{len(diff.removed_delisted)}) "
+                    f"— 조사 보고서(Slack) 확인 후 --accept-exclusion-diff 로 재실행", diff, prev_date)
+    return prev_date, added, removed, diff
+
+
+def preflight_exclusion_diff(conn: Connection, *, snapshot_date: date, excluded: pd.DataFrame, raw_tickers: set[str] | None,
+                             accept_exclusion_diff: bool = False, auto_accept: bool = True) -> ExclusionDiff:
+    """(#221, 리뷰 #223 4차) 어떤 쓰기(upsert·mark_delisted·스냅샷)보다 **먼저** 스냅샷 판정만 수행 — 잔여/strict 변동/#199 accept 는 여기서
+    실패해 오폐지가 커밋될 경로를 없앤다. 스냅샷은 쓰지 않는다(verify_universe_after_load 가 적재 후 재확인·기록)."""
+    return _snapshot_diff(conn, snapshot_date=snapshot_date, excluded=excluded, raw_tickers=raw_tickers,
+                          accept_exclusion_diff=accept_exclusion_diff, auto_accept=auto_accept)[3]
+
+
 def verify_universe_after_load(conn: Connection, *, snapshot_date: date, excluded: pd.DataFrame,
                                accept_exclusion_diff: bool = False, raw_tickers: set[str] | None = None,
-                               auto_accept: bool = True, raw_complete: bool = True) -> dict:
+                               auto_accept: bool = True) -> dict:
     """(#221) 스냅샷 대조: 변동을 exclusion_diff 로 3분류 — 상폐·신규 상장 배제는 자동 수용(auto_accept, 기본), 잔여가 있으면
-    UniverseGuardError(diff 첨부). accept_exclusion_diff=True 는 사람이 원인 확인 후 수용 — 단 #199 유형(기존 활성 → 신규 배제)은
-    accept 로도 거부(의미 정정·상태 컬럼 선행, #199 wake 절; 리뷰 #223 3차: 수용 시 mark_delisted 가 상장 종목을 폐지 처리). raw_tickers
-    미제공이면 removed 는 전부 잔여(보수), raw_complete=False 면 상폐 자동 수용 보류."""
+    UniverseGuardError(diff 첨부). accept_exclusion_diff=True 는 사람이 원인 확인 후 수용 — 단 #199 유형(security_group 확정 상태였던
+    기존 종목 → 신규 배제)은 accept 로도 거부(의미 정정·상태 컬럼 선행, #199 wake 절; UNRESOLVED 였던 행의 늦은 분류는 accept 가능).
+    raw_tickers 미제공이면 removed 는 전부 잔여(보수). 원본 완전성(급감)은 __main__._raw_complete 가 쓰기 전에 fail-closed."""
     with conn.cursor() as cur:
         cur.execute("SELECT ticker, name, security_group FROM stocks WHERE delisted_at IS NULL")
         active = cur.fetchall()
@@ -104,32 +145,8 @@ def verify_universe_after_load(conn: Connection, *, snapshot_date: date, exclude
         raise UniverseGuardError(f"guard(b) 활성 유니버스에 적재 전 배제 축 종목 잔존 {len(hits)}건: {hits[:10]}")
 
     # (신규) 스냅샷 대조
-    if accept_exclusion_diff and not auto_accept:
-        raise ValueError("--accept-exclusion-diff 와 --strict-exclusion-diff 는 동시 지정 불가(의미 충돌)")
-    prev_date, prev_set = _latest_snapshot(conn, snapshot_date)
-    cur_set = set(excluded["ticker"]) if not excluded.empty else set()
-    added, removed = sorted(cur_set - prev_set), sorted(prev_set - cur_set)
-    diff = ExclusionDiff()
-    if prev_date is not None and (added or removed):
-        diff = classify_exclusion_diff(prev_set=prev_set, excluded=excluded, raw_tickers=raw_tickers,
-                                       ever_in_stocks=_ever_in_stocks(conn, set(added)),
-                                       ever_seen=_ever_seen(conn, set(added), snapshot_date), raw_complete=raw_complete)
-        if accept_exclusion_diff and diff.has_199:
-            t199 = [u["ticker"] for u in diff.unexplained_added if u.get("kind") == "199"]
-            raise UniverseGuardError(
-                f"guard(snapshot) #199 유형(기존 활성 → 신규 배제) {t199[:20]} 은 --accept-exclusion-diff 로 수용 불가 — "
-                f"배제 의미 정정 + 상태 컬럼(#199) 선행", diff, prev_date)
-        if not accept_exclusion_diff:
-            if not auto_accept:
-                raise UniverseGuardError(
-                    f"guard(snapshot) 배제 집합 변동 (기준 {prev_date}, strict): +{added[:20]} -{removed[:20]} "
-                    f"— --strict-exclusion-diff 해제 또는 원인 확인 후 --accept-exclusion-diff", diff, prev_date)
-            if diff.unexplained:
-                ua = [u["ticker"] for u in diff.unexplained_added]; ur = [u["ticker"] for u in diff.unexplained_removed]
-                raise UniverseGuardError(
-                    f"guard(snapshot) 배제 집합 변동 미설명 (기준 {prev_date}): +{ua[:20]} -{ur[:20]} "
-                    f"(자동 수용 +{len(diff.added_new_listing)} -{len(diff.removed_delisted)}) "
-                    f"— 조사 보고서(Slack) 확인 후 --accept-exclusion-diff 로 재실행", diff, prev_date)
+    prev_date, added, removed, diff = _snapshot_diff(conn, snapshot_date=snapshot_date, excluded=excluded, raw_tickers=raw_tickers,
+                                                     accept_exclusion_diff=accept_exclusion_diff, auto_accept=auto_accept)
     write_exclusion_snapshot(conn, snapshot_date, excluded)
 
     unresolved = sum(1 for _, _, g in active if g == UNRESOLVED)
