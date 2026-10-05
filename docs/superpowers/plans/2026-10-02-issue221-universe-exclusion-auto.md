@@ -10,11 +10,12 @@
 
 **Tech Stack:** Python(psycopg, pandas), Claude CLI 래퍼(`llm_runner/llm/claude_cli.call_claude` — `tools` 파라미터 신설, 기본 "Read" 불변), Slack webhook(`llm_runner/slack._post`).
 
-**Spec:** GitHub issue #221 본문(해결 방법 1~3·완료 조건 5). governance 원칙 2(권한 분리: 보고서는 자료, 수용은 규칙/사람).
+**Spec:** GitHub issue #221 본문(해결 방법 1~3·완료 조건 5). 권한 분리는 governance 2-1(리포 자동 규칙 우선)·2-2(질의 필요 경우)·2-3(질의 양식) 인용 — 보고서는 자료, 수용은 규칙/사람.
 
 ## Global Constraints
 
-- #199 wake 절("기존 포함 → 신규 배제 차분은 --accept-exclusion-diff 단독 수용 금지")을 코드로 고정 — 권한 분리는 governance 2-1/2-2 인용.
+- #199 wake 절("기존 포함 → 신규 배제 차분은 --accept-exclusion-diff 단독 수용 금지")을 코드로 고정 — governance 2-1/2-2 인용.
+- 자동 수용 상한 `MAX_AUTO_DELISTED=10`·`MAX_AUTO_NEW_LISTING=30`(리뷰 #223 반영) 은 spec 에 없는 수치 — governance 2-2 에 따라 **[Q] 전문가 판정 대기**(잠정값, 초과 시 fail-closed 라 보수 방향). PR #223 본문에 질의 기재.
 - 분류 규칙(이슈 본문): removed ∧ raw 에 없음 → 상폐 자동 / added ∧ stocks 에 없던 티커 ∧ axis ∈ {spac, preferred, security_group} → 신규 상장 배제 자동 / 그 외 잔여.
 - 접촉 정책 = CLAUDE.md 운영 규칙 5 인용. 보고서 사실은 로컬 DB 만; LLM 도구는 `claude_cli.ALLOWED_TOOLSETS`("Read,WebSearch", WebFetch 미개방)로 도구 층에서 제한(리뷰 #223).
 - `call_claude` 기본 동작(tools="Read", 분류 결정론) 불변 — 새 `tools` 인자는 opt-in.
@@ -52,6 +53,10 @@
 
 - [ ] RED: 10-01 재현(raw 에 0200G0·0209J0 추가, 465320 제거, 직전 스냅샷 09-22) → run success·details.exclusion_auto_accepted 기록·보고서 미전송. 잔여 케이스 → 실패 + report 호출 1회.
 - [ ] GREEN → 통과. 전체 suite·커밋·push·PR(`gh pr create`), 이슈 #221 코멘트.
+
+## 리뷰 2차 반영(10-05)
+
+보고서를 `--report-last-failed` 별도 단계로(실패 run 의 details 에 판정 + 원본 행 사본 보존 → monthly_chain 이 data 락 해제 후 호출 → 커밋된 상태에서 사실 수집 → 전송 성공 시 `details.report_sent_at`·`report_key_sent` 로 dedup), `ever_seen`(이전 배제/원본 스냅샷) 으로 재등장 왕복 차단, 상한 초과·security_group 조회 실패는 systemic 으로 LLM 생략·사실만 Slack, 보고서 도구 WebSearch 만, Slack 본문 20건 상한, 성공·실패 details 키 통일(`ExclusionDiff.summary`), accept/strict 충돌을 KRX 접촉 전에 검사, `UniverseGuardError.prev_date`, `_post(raise_on_error)` 공유, dict_row·집합 질의.
 
 ## Self-Review
 - 완료 조건 1(분류·자동 수용 테스트 3케이스) → T1·T2; 2(잔여 → 실패 + Slack 보고서, 프롬프트 파일) → T3; 3(details·로그) → T2·T4; 4(#199 유형 금지 테스트) → T1·T2; 5(10-01 재현) → T1·T4.

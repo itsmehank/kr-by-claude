@@ -20,7 +20,14 @@ elif ! attempt_allowed universe 1; then   # max=1 → 하루 1회. gap 인자는
   exit 0
 else
   log "universe 실행"
-  uv run python -m kr_pipeline.universe || { log "universe 실패 — 매핑 단계 중단(순서 보전). (#221) 배제 집합 잔여 변동이면 조사 보고서가 Slack 으로 갔는지 확인 후 --accept-exclusion-diff"; exit 1; }
+  if ! uv run python -m kr_pipeline.universe; then
+    log "universe 실패 — 매핑 단계 중단(순서 보전)"
+    # (#221) 배제 집합 잔여 변동이면 조사 보고서(claude -p 웹 검색 + Slack, KRX 접촉 0). data 락을 먼저 놓는다 — LLM 대기(최대 ~10분)
+    # 동안 morning_corp 등 다른 체인을 막지 않는다. 이미 전송된 잔여(details.report_sent_at)는 생략되므로 RunAtLoad 재발화에 안전.
+    release_lock data
+    uv run python -m kr_pipeline.universe --report-last-failed || log "exclusion 보고서 단계 실패(비차단)"
+    exit 1
+  fi
 fi
 
 # refresh-mapping 도 corporate_actions pipeline 으로 기록되므로 mode 로 구분

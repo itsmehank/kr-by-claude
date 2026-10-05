@@ -11,12 +11,14 @@ from kr_pipeline.db.connection import connect
 from kr_pipeline.db.runs import run_tracking
 from kr_pipeline.universe.fetch import fetch_universe, fetch_sectors, fetch_security_groups
 from kr_pipeline.universe.guards import UniverseGuardError, count_active, verify_universe_after_load
-from kr_pipeline.universe.report import build_local_facts, report_unexplained
+from kr_pipeline.universe.report import report_last_failed
 from kr_pipeline.universe.transform import split_universe
 from kr_pipeline.universe.store import upsert_stocks, mark_delisted, save_universe_raw_snapshot
 
 
 log = logging.getLogger("kr_pipeline.universe")
+
+SYSTEMIC_SECURITY_GROUP_UNAVAILABLE = "security_group_unavailable"
 
 
 def _security_groups_fail_open(today: date, warnings: list[str]) -> dict[str, str]:
@@ -40,26 +42,19 @@ def parse_args() -> argparse.Namespace:
                    help="배제 집합 스냅샷 변동을 설명된 것으로 수용(원인 확인 후에만 — 잔여분이 있을 때)")
     g.add_argument("--strict-exclusion-diff", action="store_true",
                    help="(#221) 상폐·신규 상장 배제의 자동 수용을 끈다(모든 변동을 사람 확인으로)")
+    g.add_argument("--report-last-failed", action="store_true",
+                   help="(#221) 유니버스 갱신 없이, 마지막 성공 이후 가장 최근 실패 run 의 잔여 변동 조사 보고서를 Slack 으로 전송(KRX 접촉 0)")
     return p.parse_args()
 
 
-def run_universe(conn, *, today: date, accept_exclusion_diff: bool = False, strict: bool = False, report=report_unexplained) -> dict:
-    """유니버스 갱신 1회. (#221) guard(snapshot) 잔여분이 있으면 (1) 트랜잭션 안에서 로컬 사실만 수집·details 보존 → (2) run_tracking 이
-    rollback·failed 기록을 끝낸 **뒤** 조사 보고서(LLM·Slack, 비차단) → 예외 재발생. 직전 실패 run 의 잔여 집합과 같으면 보고서 생략(RunAtLoad
-    재발화마다 같은 Slack 이 반복되는 것 방지 — 리뷰 #223)."""
-    pending: dict | None = None
-    try:
-        with run_tracking(conn, pipeline="universe", mode="full", params={"on_date": today.isoformat()}) as state:
-            pending = _run_universe_inner(conn, state, today=today, accept_exclusion_diff=accept_exclusion_diff, strict=strict)
-            return pending
-    except UniverseGuardError as e:
-        facts = getattr(e, "facts", None)
-        if facts is not None and e.diff is not None:
-            if facts.get("same_as_previous_failed_run"):
-                log.warning("exclusion_report: 직전 실패 run 과 잔여 집합 동일 — 보고서 생략(이미 전송됨)")
-            else:
-                report(e.diff, facts, snapshot_date=today)
-        raise
+def run_universe(conn, *, today: date, accept_exclusion_diff: bool = False, strict: bool = False) -> dict:
+    """유니버스 갱신 1회. (#221) guard(snapshot) 잔여분이 있으면 판정 전체(+이번 원본 행 사본)를 실패 run 의 details 에 남기고 예외.
+    조사 보고서(LLM·Slack)는 이 함수 밖 — `--report-last-failed`(monthly_chain 이 data 락 해제 후 호출)가 커밋된 상태에서 수행(리뷰 #223 2차:
+    롤백될 쓰기를 사실로 읽던 문제·행 잠금 보유·보고서 미전송 dedup 오판 해소)."""
+    if accept_exclusion_diff and strict:
+        raise ValueError("--accept-exclusion-diff 와 --strict-exclusion-diff 는 동시 지정 불가(의미 충돌)")   # KRX 접촉 전에 거른다
+    with run_tracking(conn, pipeline="universe", mode="full", params={"on_date": today.isoformat()}) as state:
+        return _run_universe_inner(conn, state, today=today, accept_exclusion_diff=accept_exclusion_diff, strict=strict)
 
 
 def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff: bool, strict: bool) -> dict:
@@ -69,10 +64,13 @@ def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff
     raw_tickers = set(df["ticker"])          # (#221) 필터 전 원본 — removed 가 상폐인지(원본에도 없음) 판정
 
     groups = _security_groups_fail_open(today, state["warnings"])
+    sg_unavailable = not groups
     df["security_group"] = df["ticker"].map(groups).fillna(UNRESOLVED)
     # (#195 커밋2 부수) 필터 전 원본 전량 저장 — #191 판정 전제(KRX 재접촉 없이 차집합 계산).
     raw_saved = save_universe_raw_snapshot(conn, today, df)
     log.info(f"Saved raw universe snapshot: {raw_saved} rows")
+    raw_by_ticker = {r.ticker: {"name": r.name, "market": r.market, "security_group": r.security_group}
+                     for r in df[["ticker", "name", "market", "security_group"]].itertuples(index=False)}
     df, excluded = split_universe(df)
     log.info(f"After pre-load exclusion: {len(df)} kept / {len(excluded)} excluded "
              f"{excluded['axis'].value_counts().to_dict() if not excluded.empty else {}}")
@@ -106,14 +104,15 @@ def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff
         info = verify_universe_after_load(conn, snapshot_date=today, excluded=excluded, raw_tickers=raw_tickers,
                                           accept_exclusion_diff=accept_exclusion_diff, auto_accept=not strict)
     except UniverseGuardError as e:
-        if e.diff is not None and e.diff.unexplained:
-            prev_date = _prev_snapshot_date(conn, today)
-            # (리뷰 #223) 실패 행에도 전체 판정을 남긴다(오류 문자열은 20개 절단) — 사람이 무엇을 수용할지 재구성할 근거
-            state["details"] = {**e.diff.summary(), "snapshot_prev_date": prev_date.isoformat() if prev_date else None,
-                                "unexplained_added": e.diff.unexplained_added, "unexplained_removed": e.diff.unexplained_removed}
-            # 로컬 사실은 트랜잭션 안에서(같은 스냅샷 뷰), LLM·Slack 은 run_tracking 종료 후(잠금 미보유)
-            e.facts = build_local_facts(conn, e.diff, snapshot_date=today, prev_snapshot_date=prev_date)
-            e.facts["same_as_previous_failed_run"] = _same_as_previous_failed_run(conn, e.diff.summary()["unexplained"])
+        if e.diff is not None:
+            # (리뷰 #223) 실패 행에도 판정 전체를 성공 행과 같은 키 모양으로 남긴다(오류 문자열은 20개 절단) — 보고서·사람 수용의 근거.
+            # 이번 원본 행은 롤백되므로 잔여 티커분만 사본 보존. security_group 조회 실패면 배제 축 풀림은 구조적 원인 — LLM 조사 대상 아님.
+            if sg_unavailable and e.diff.unexplained and e.diff.systemic is None:
+                e.diff.systemic = SYSTEMIC_SECURITY_GROUP_UNAVAILABLE
+            state["details"] = {**e.diff.summary(),
+                                "snapshot_prev_date": e.prev_date.isoformat() if e.prev_date else None,
+                                "exclusion_raw_now": {t: raw_by_ticker[t] for t in e.diff.unexplained_tickers if t in raw_by_ticker},
+                                "strict": strict}
         raise
     info["active_before"] = active_before
     if info.get("exclusion_accepted_unexplained"):
@@ -134,26 +133,15 @@ def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff
     return info
 
 
-def _prev_snapshot_date(conn, before: date):
-    with conn.cursor() as cur:
-        cur.execute("SELECT max(snapshot_date) FROM universe_exclusion_snapshot WHERE snapshot_date < %s", (before,))
-        return cur.fetchone()[0]
-
-
-def _same_as_previous_failed_run(conn, unexplained: list[str]) -> bool:
-    """직전 universe 실패 run 의 details.unexplained 와 같은 집합이면 True(보고서 이미 전송됨 — 반복 Slack 방지)."""
-    with conn.cursor() as cur:
-        cur.execute("SELECT details FROM pipeline_runs WHERE pipeline = 'universe' AND status = 'failed' ORDER BY started_at DESC LIMIT 1")
-        row = cur.fetchone()
-    prev = (row[0] or {}).get("unexplained") if row else None
-    return prev is not None and sorted(prev) == sorted(unexplained)
-
-
 def main() -> int:
     args = parse_args()
     cfg = Config.load()
     setup_logging(cfg.log_level)
     with connect(cfg.database_url) as conn:
+        if args.report_last_failed:
+            outcome = report_last_failed(conn)
+            log.info(f"exclusion report: {outcome}")
+            return 0
         run_universe(conn, today=date.today(), accept_exclusion_diff=args.accept_exclusion_diff, strict=args.strict_exclusion_diff)
     return 0
 

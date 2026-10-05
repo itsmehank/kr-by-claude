@@ -1,7 +1,9 @@
 """#221 — 배제 집합 변동의 3분류(상폐 자동 / 신규 상장 배제 자동 / 잔여)."""
 import pandas as pd
 
-from kr_pipeline.universe.exclusion_diff import AUTO_ACCEPT_AXES, MAX_AUTO_DELISTED, MAX_AUTO_NEW_LISTING, classify_exclusion_diff
+from kr_pipeline.universe.exclusion_diff import (
+    AUTO_ACCEPT_AXES, MAX_AUTO_DELISTED, MAX_AUTO_NEW_LISTING, SYSTEMIC_CAP_DELISTED, classify_exclusion_diff,
+)
 
 
 def _ex(*rows):
@@ -51,7 +53,8 @@ def test_2026_10_01_real_diff_is_fully_auto_accepted():
     d = classify_exclusion_diff(prev_set=prev, excluded=cur, raw_tickers=raw, ever_in_stocks={"005930"})
     assert d.removed_delisted == ["465320"] and sorted(d.added_new_listing) == ["0200G0", "0209J0"] and not d.unexplained
     s = d.summary()
-    assert s["removed_delisted"] == ["465320"] and s["unexplained"] == []
+    assert s["exclusion_auto_accepted"]["removed_delisted"] == ["465320"] and s["exclusion_unexplained"] == {"added": [], "removed": []}
+    assert s["report_key"] == [] and s["exclusion_systemic"] is None
 
 
 def test_mass_removed_exceeding_cap_is_not_auto_delisted():
@@ -59,6 +62,7 @@ def test_mass_removed_exceeding_cap_is_not_auto_delisted():
     prev = {f"S{i:05d}" for i in range(MAX_AUTO_DELISTED + 1)}
     d = classify_exclusion_diff(prev_set=prev, excluded=_ex(), raw_tickers=set(), ever_in_stocks=set())
     assert d.removed_delisted == [] and len(d.unexplained_removed) == MAX_AUTO_DELISTED + 1 and "상한" in d.unexplained_removed[0]["reason"]
+    assert d.systemic == SYSTEMIC_CAP_DELISTED                       # 원인 기지 → 보고서는 LLM 생략
     small = {f"S{i:05d}" for i in range(MAX_AUTO_DELISTED)}
     assert len(classify_exclusion_diff(prev_set=small, excluded=_ex(), raw_tickers=set(), ever_in_stocks=set()).removed_delisted) == MAX_AUTO_DELISTED
 
@@ -67,3 +71,11 @@ def test_mass_added_exceeding_cap_is_not_auto_new_listing():
     rows = [(f"N{i:05d}", f"스팩{i}", "KOSDAQ", "주권", "spac") for i in range(MAX_AUTO_NEW_LISTING + 1)]
     d = classify_exclusion_diff(prev_set=set(), excluded=_ex(*rows), raw_tickers={r[0] for r in rows}, ever_in_stocks=set())
     assert d.added_new_listing == [] and len(d.unexplained_added) == MAX_AUTO_NEW_LISTING + 1
+
+
+def test_added_seen_in_prior_snapshot_is_not_new_listing():
+    """이전 배제/원본 스냅샷에 있던 티커의 재등장은 신규 상장이 아니다 — KRX 부분 응답 왕복(removed→added) 차단(리뷰 #223 2차)."""
+    d = classify_exclusion_diff(prev_set=set(), excluded=_ex(("0004Y0", "디비금융제14호스팩", "KOSDAQ", "주권", "spac")),
+                                raw_tickers={"0004Y0"}, ever_in_stocks=set(), ever_seen={"0004Y0"})
+    assert d.added_new_listing == [] and "재등장" in d.unexplained_added[0]["reason"]
+    assert d.report_key() == ["+0004Y0"]

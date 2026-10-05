@@ -193,8 +193,11 @@ def _mock_calculate_entry_params() -> dict:
     }
 
 
-# (#221) --tools 허용 집합. 분류·판정 = "Read" 만(결정론·시점 무결성). 조사 보고서 = "Read,WebSearch"(검색 결과 스니펫만, 임의 URL 접촉 불가).
-ALLOWED_TOOLSETS = frozenset({"Read", "Read,WebSearch"})
+# (#221) --tools 허용 집합. 분류·판정 = TOOLS_READ(결정론·시점 무결성). 조사 보고서 = TOOLS_WEBSEARCH 만(검색 결과 스니펫만 — 임의 URL 접촉
+# 불가, 파일 Read 도 없음: subprocess cwd 가 리포라 .env 등이 읽히는 경로 차단). 호출처는 이 이름으로 참조(리터럴 재입력 금지).
+TOOLS_READ = "Read"
+TOOLS_WEBSEARCH = "WebSearch"
+ALLOWED_TOOLSETS = frozenset({TOOLS_READ, TOOLS_WEBSEARCH})
 
 _MOCK_GENERATORS = {
     "analyze_chart_v3.md": _mock_analyze_chart_v3,
@@ -225,7 +228,7 @@ def call_claude(
     dry_run: bool = False,
     timeout_seconds: int = 600,
     meta_out: dict | None = None,
-    tools: str = "Read",
+    tools: str = TOOLS_READ,
 ) -> dict:
     """Claude CLI 호출.
 
@@ -243,8 +246,8 @@ def call_claude(
             모델 ID, 예: claude-sonnet-5), input_tokens, output_tokens.
             봉투 파싱 실패(플레인 stdout 폴백) 시 미채움.
         tools: --tools 값. 기본 "Read"(분류·판정 호출: 외부 조회 불가 = 시점 무결성·결정론).
-            (#221) 조사 보고서처럼 웹 근거가 필요한 **비판정** 호출만 "Read,WebSearch" 로 opt-in. 허용 집합 ALLOWED_TOOLSETS 밖은
-            ValueError — WebFetch(임의 URL)·Bash 는 어떤 호출에도 열지 않는다(KRX 도메인 접촉을 도구 층에서 차단, 운영 규칙 5).
+            (#221) 조사 보고서처럼 웹 근거가 필요한 **비판정** 호출만 TOOLS_WEBSEARCH("WebSearch") 로 opt-in. 허용 집합 ALLOWED_TOOLSETS
+            밖은 ValueError — WebFetch(임의 URL)·Bash 는 어떤 호출에도 열지 않는다(KRX 도메인 접촉을 도구 층에서 차단, 운영 규칙 5).
 
     Returns:
         parsed JSON dict
@@ -286,7 +289,7 @@ def call_claude(
     # --tools: default-deny tool surface. Classification(기본 "Read") reads only the
     # attached chart PNGs (@absolute_path → Read); web/news/external lookups must
     # NOT be reachable (point-in-time integrity + determinism). (#221) 조사 보고서만
-    # "Read,WebSearch" — WebFetch/Bash 는 ALLOWED_TOOLSETS 가 어떤 호출에도 열지 않는다.
+    # "WebSearch"(Read 없음) — WebFetch/Bash 는 ALLOWED_TOOLSETS 가 어떤 호출에도 열지 않는다.
     # bypassPermissions keeps the non-interactive --print flow from prompting on the allowed tools.
     # --output-format json: 봉투(modelUsage/usage)로 실제 사용 모델·토큰을 기록
     # 가능하게 한다 — 별칭 'sonnet' 핀이 어느 버전으로 해석됐는지 사후 추적용.

@@ -270,7 +270,7 @@ def test_snapshot_unexplained_raises_with_diff_attached(db, clean_universe):
     with pytest.raises(UniverseGuardError, match="088980") as ei:
         verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "P1", "088980"})
     assert ei.value.diff is not None and [u["ticker"] for u in ei.value.diff.unexplained_added] == ["088980"]
-    assert "#199" in ei.value.diff.unexplained_added[0]["reason"]
+    assert "#199" in ei.value.diff.unexplained_added[0]["reason"] and ei.value.prev_date == date(2026, 9, 22)
 
 
 def test_snapshot_strict_mode_fails_even_auto_types(db, clean_universe):
@@ -305,3 +305,14 @@ def test_snapshot_accept_marks_unexplained_as_human_accepted(db, clean_universe)
     info = verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(), raw_tickers={"T1", "R1"},
                                       accept_exclusion_diff=True)
     assert info["exclusion_accepted_unexplained"] is True and info["exclusion_unexplained"]["removed"] == ["R1"]
+
+
+def test_snapshot_round_trip_ticker_is_unexplained_not_new_listing(db, clean_universe):
+    """상폐로 자동 수용된 스팩이 다음 달 원본에 다시 나타나면(부분 응답 왕복) 신규 상장으로 자동 수용하지 않는다 — 이전 스냅샷 기억."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
+    P = ("P1", "가우", "KOSPI", "주권", "preferred")                          # 빈 배제 집합은 스냅샷을 쓰지 않으므로 고정 1행 유지
+    verify_universe_after_load(db, snapshot_date=date(2026, 8, 22), excluded=_excluded(P, ("S1", "스팩1", "KOSDAQ", "주권", "spac")), raw_tickers={"T1", "P1", "S1"})
+    info = verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=_excluded(P), raw_tickers={"T1", "P1"})    # S1 부재 → 상폐 자동
+    assert info["exclusion_auto_accepted"]["removed_delisted"] == ["S1"]
+    with pytest.raises(UniverseGuardError, match="S1"):                                                                   # 재등장 → 잔여
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 22), excluded=_excluded(P, ("S1", "스팩1", "KOSDAQ", "주권", "spac")), raw_tickers={"T1", "P1", "S1"})

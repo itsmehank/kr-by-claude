@@ -564,8 +564,10 @@ def test_call_claude_tools_default_read_only_and_opt_in_web(mocker):
     call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1})
     cmd = mock_run.call_args.args[0]
     assert cmd[cmd.index("--tools") + 1] == "Read"
-    call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1}, tools="Read,WebSearch")
+    from kr_pipeline.llm_runner.llm.claude_cli import TOOLS_WEBSEARCH
+    call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1}, tools=TOOLS_WEBSEARCH)
     cmd = mock_run.call_args.args[0]
-    assert cmd[cmd.index("--tools") + 1] == "Read,WebSearch"
-    with pytest.raises(ValueError, match="허용 안 됨"):             # WebFetch/Bash 는 어떤 호출에도 열지 않는다(리뷰 #223)
-        call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1}, tools="Read,WebSearch,WebFetch")
+    assert cmd[cmd.index("--tools") + 1] == "WebSearch"
+    for bad in ("Read,WebSearch", "Read,WebSearch,WebFetch", "Bash"):   # 검색 외 어떤 조합도 열지 않는다(리뷰 #223 1·2차)
+        with pytest.raises(ValueError, match="허용 안 됨"):
+            call_claude(prompt_file="analyze_chart_v3.md", payload_inline={"x": 1}, tools=bad)

@@ -1,7 +1,7 @@
 # universe_exclusion_report_v1 — 유니버스 배제 집합 변동(잔여분) 조사 보고서
 
 > 이 파일은 **차트 분석 프롬프트가 아니다.** `kr_pipeline/common/thresholds` 값과 무관하고, #197(prompt_version 해시 매핑)의
-> 대상도 아니다. 소비처: `kr_pipeline/universe/report.py`(이슈 #221). 호출 도구: Read·WebSearch 만(분류 호출과 달리 웹 검색 허용, URL 열기(WebFetch)는 없음).
+> 대상도 아니다. 소비처: `kr_pipeline/universe/report.py`(이슈 #221). 호출 도구: WebSearch 만(분류 호출과 달리 웹 검색 허용; 파일 읽기·URL 열기 없음).
 
 ## 역할
 너는 한국 주식 자동 분석 프로그램의 **종목 마스터(유니버스) 갱신** 단계에서, 적재 전 배제 집합(우선주·스팩·비적격 security_group)의
@@ -10,7 +10,7 @@
 
 ## 입력
 - `facts.snapshot_date` / `facts.prev_snapshot_date`: 이번·직전 스냅샷 날짜.
-- `facts.auto_accepted`: 규칙으로 이미 자동 수용된 원소(참고만).
+- `facts.auto_accepted`: 규칙으로 이미 자동 수용된 원소(`removed_delisted`·`added_new_listing`, 참고만 — items 에 넣지 않는다).
 - `facts.unexplained_added[]`: 새로 배제 집합에 들어왔으나 자동 수용 불가(대개 **기존 활성 종목이 새로 배제** — 규칙/분류 변경 의심).
   필드: `ticker, axis_now, security_group_now, in_stocks, stocks{name,market,security_group}, delisted_at, last_daily_bar,
   raw_now{name,market,security_group}, prev_snapshot, corporate_actions[], rule_reason`.

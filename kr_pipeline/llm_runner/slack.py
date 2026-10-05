@@ -10,9 +10,12 @@ import urllib.request
 log = logging.getLogger("kr_pipeline.llm_runner.slack")
 
 
-def _post(payload: dict) -> None:
+def _post(payload: dict, *, raise_on_error: bool = False) -> None:
+    """webhook 전송 1곳. raise_on_error=True 면 미설정·전송 실패를 예외로 올린다(호출자가 비차단 처리·본문 보존 — #221 보고서)."""
     url = os.environ.get("SLACK_WEBHOOK_URL")
     if not url:
+        if raise_on_error:
+            raise RuntimeError("SLACK_WEBHOOK_URL not set")
         log.warning("SLACK_WEBHOOK_URL not set, skipping notification")
         return
     req = urllib.request.Request(
@@ -23,17 +26,15 @@ def _post(payload: dict) -> None:
     try:
         urllib.request.urlopen(req, timeout=10)
     except Exception as e:
+        if raise_on_error:
+            raise
         log.warning("Slack post failed: %s", e)
 
 
 def notify_universe_exclusion_report(text: str) -> None:
     """(#221) 유니버스 배제 집합 변동 조사 보고서 — pipeline-watch 와 같은 webhook(채널 = webhook 생성 시 고정). 실패는 예외로 올려
-    호출자(universe/report.send_report)가 비차단 처리한다."""
-    url = os.environ.get("SLACK_WEBHOOK_URL")
-    if not url:
-        raise RuntimeError("SLACK_WEBHOOK_URL not set")
-    req = urllib.request.Request(url, data=json.dumps({"text": text}).encode(), headers={"Content-Type": "application/json"})
-    urllib.request.urlopen(req, timeout=10)
+    호출자(universe/report.send_text)가 비차단 처리한다."""
+    _post({"text": text}, raise_on_error=True)
 
 
 def notify_signal(*, symbol: str, name: str, entry_price: float, stop_loss: float,

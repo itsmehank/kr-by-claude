@@ -24,9 +24,10 @@ from kr_pipeline.universe.transform import classify_exclusion_axis
 class UniverseGuardError(ValueError):
     """(#221) guard(snapshot) 실패 시 `diff`(ExclusionDiff)가 붙는다 — __main__ 이 조사 보고서 입력으로 쓴다."""
 
-    def __init__(self, msg: str, diff: "ExclusionDiff | None" = None):
+    def __init__(self, msg: str, diff: "ExclusionDiff | None" = None, prev_date: date | None = None):
         super().__init__(msg)
         self.diff = diff
+        self.prev_date = prev_date       # 가드가 비교한 직전 스냅샷 날짜(호출자가 재조회하지 않는다 — 리뷰 #223 2차)
 
 
 _ALLOWED_ACTIVE_GROUPS = QUALIFYING_SECURITY_GROUPS | ROW_KEPT_EXCLUDED_SECURITY_GROUPS | {UNRESOLVED}
@@ -69,6 +70,17 @@ def _ever_in_stocks(conn: Connection, tickers: set[str]) -> set[str]:
         return {r[0] for r in cur.fetchall()}
 
 
+def _ever_seen(conn: Connection, tickers: set[str], before: date) -> set[str]:
+    """이전(before 미만) 배제/원본 스냅샷에 등장한 적 있는 티커 — '신규 상장' 은 어디에도 없던 종목만(재등장 왕복 차단, 리뷰 #223 2차)."""
+    if not tickers:
+        return set()
+    with conn.cursor() as cur:
+        cur.execute("SELECT ticker FROM universe_exclusion_snapshot WHERE snapshot_date < %s AND ticker = ANY(%s) "
+                    "UNION SELECT ticker FROM universe_raw_snapshot WHERE snapshot_date < %s AND ticker = ANY(%s)",
+                    (before, sorted(tickers), before, sorted(tickers)))
+        return {r[0] for r in cur.fetchall()}
+
+
 def verify_universe_after_load(conn: Connection, *, snapshot_date: date, excluded: pd.DataFrame,
                                accept_exclusion_diff: bool = False, raw_tickers: set[str] | None = None,
                                auto_accept: bool = True) -> dict:
@@ -96,21 +108,22 @@ def verify_universe_after_load(conn: Connection, *, snapshot_date: date, exclude
     prev_date, prev_set = _latest_snapshot(conn, snapshot_date)
     cur_set = set(excluded["ticker"]) if not excluded.empty else set()
     added, removed = sorted(cur_set - prev_set), sorted(prev_set - cur_set)
-    diff: ExclusionDiff | None = None
+    diff = ExclusionDiff()
     if prev_date is not None and (added or removed):
         diff = classify_exclusion_diff(prev_set=prev_set, excluded=excluded, raw_tickers=raw_tickers,
-                                       ever_in_stocks=_ever_in_stocks(conn, set(added)))
+                                       ever_in_stocks=_ever_in_stocks(conn, set(added)),
+                                       ever_seen=_ever_seen(conn, set(added), snapshot_date))
         if not accept_exclusion_diff:
             if not auto_accept:
                 raise UniverseGuardError(
                     f"guard(snapshot) 배제 집합 변동 (기준 {prev_date}, strict): +{added[:20]} -{removed[:20]} "
-                    f"— --strict-exclusion-diff 해제 또는 원인 확인 후 --accept-exclusion-diff", diff)
+                    f"— --strict-exclusion-diff 해제 또는 원인 확인 후 --accept-exclusion-diff", diff, prev_date)
             if diff.unexplained:
                 ua = [u["ticker"] for u in diff.unexplained_added]; ur = [u["ticker"] for u in diff.unexplained_removed]
                 raise UniverseGuardError(
                     f"guard(snapshot) 배제 집합 변동 미설명 (기준 {prev_date}): +{ua[:20]} -{ur[:20]} "
                     f"(자동 수용 +{len(diff.added_new_listing)} -{len(diff.removed_delisted)}) "
-                    f"— 조사 보고서(Slack) 확인 후 --accept-exclusion-diff 로 재실행", diff)
+                    f"— 조사 보고서(Slack) 확인 후 --accept-exclusion-diff 로 재실행", diff, prev_date)
     write_exclusion_snapshot(conn, snapshot_date, excluded)
 
     unresolved = sum(1 for _, _, g in active if g == UNRESOLVED)
@@ -123,11 +136,8 @@ def verify_universe_after_load(conn: Connection, *, snapshot_date: date, exclude
         "exclusion_added": added if prev_date is not None else [],
         "exclusion_removed": removed if prev_date is not None else [],
         "snapshot_prev_date": prev_date.isoformat() if prev_date else None,
-        # (#221) 자동 수용 내역·잔여(accept_exclusion_diff 로 수용된 경우 잔여도 여기 남는다 — 사람 수용의 기록)
-        "exclusion_auto_accepted": {"removed_delisted": sorted(diff.removed_delisted) if diff else [],
-                                    "added_new_listing": sorted(diff.added_new_listing) if diff else []},
-        "exclusion_unexplained": {"added": [u["ticker"] for u in diff.unexplained_added] if diff else [],
-                                  "removed": [u["ticker"] for u in diff.unexplained_removed] if diff else []},
-        # accept 로 통과한 잔여(사람 수용) — 호출자가 warnings 로 승격해 pipeline_runs 에 남긴다(리뷰 #223: 보고된 적 없는 잔여의 무음 수용 방지)
-        "exclusion_accepted_unexplained": bool(diff and diff.unexplained and accept_exclusion_diff),
+        # (#221) 자동 수용 내역·잔여(성공·실패 행이 같은 키 모양 — ExclusionDiff.summary). accept 로 통과한 잔여(사람 수용)는
+        # exclusion_accepted_unexplained=True 로 표시 — 호출자가 warnings 로 승격해 pipeline_runs 에 남긴다(리뷰 #223)
+        **diff.summary(),
+        "exclusion_accepted_unexplained": bool(diff.unexplained and accept_exclusion_diff),
     }
