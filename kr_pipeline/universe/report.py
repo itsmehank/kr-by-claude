@@ -177,7 +177,9 @@ def format_report(report: dict, snapshot_date: date, diff: ExclusionDiff | None 
     for it in items[:MAX_SLACK_ITEMS]:
         # accept 불가 종목은 LLM 권고와 무관하게 hold 로 표시 — 모델은 kind 를 보지 않아 accept 를 권할 수 있다(PR-B 리뷰: 운영자가 따르면
         # KRX 전량 재조회 1회를 쓰고서야 preflight 에서 거부된다)
-        reco = "hold(accept 불가)" if it["ticker"] in refused else it["recommend"]
+        # 불가 종목이 하나라도 있으면 run 전체가 accept 로 통과하지 못한다(guards) — 나머지의 accept 권고도 그달엔 실행 불가임을 표시
+        reco = ("hold(accept 불가)" if it["ticker"] in refused
+                else f"{it['recommend']}(이번 달 불가 — 동반 거부)" if refused and it["recommend"] == "accept" else it["recommend"])
         lines.append(f"• {it['ticker']} — {it['verdict']} / 권고 {reco}: {it['evidence'].strip()[:400]}")
     if len(items) > MAX_SLACK_ITEMS:
         lines.append(f"… 외 {len(items) - MAX_SLACK_ITEMS}건 — pipeline_runs.details.exclusion_unexplained_detail 참조")

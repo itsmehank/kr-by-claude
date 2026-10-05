@@ -220,6 +220,11 @@ def test_facts_only_dedup_uses_kst_day(db, monkeypatch):
     assert posted == []
 
 
+def _diff_no_refused():
+    return classify_exclusion_diff(prev_set={"R9"}, excluded=pd.DataFrame(columns=["ticker", "name", "market", "security_group", "axis"]),
+                                   raw_tickers={"R9"}, ever_in_stocks=set())
+
+
 def test_accept_hint_names_refused_tickers():
     """accept 불가 유형(#199·late_resolution)이 섞이면 Slack 안내가 그 종목을 명시 — accept 재실행이 거부될 것을 미리 알린다(회신 23 Q-G)."""
     from kr_pipeline.universe.report import format_facts_only, format_report
@@ -233,5 +238,8 @@ def test_accept_hint_names_refused_tickers():
         assert "변동이 실재하면" not in text                                 # 불가 안내와 모순되는 수용 권유 없음
     assert "• R7 — axis_change / 권고 hold(accept 불가)" in format_report(good, date(2026, 11, 1), late)   # LLM 의 accept 권고 덮음
     assert "권고 hold:" in format_report(good, date(2026, 11, 1), late)                                  # R9 는 LLM 권고 그대로
+    both_accept = {**good, "items": [good["items"][0], {**good["items"][1], "recommend": "accept"}]}
+    assert "R9 — unknown / 권고 accept(이번 달 불가 — 동반 거부)" in format_report(both_accept, date(2026, 11, 1), late)
+    assert "권고 accept:" in format_report(both_accept, date(2026, 11, 1), _diff_no_refused())        # 불가 없으면 그대로
     plain = _diff()                                                    # 088980 은 확정 그룹 → 199, R9 는 축 풀림
     assert "R9" not in format_facts_only(plain, date(2026, 11, 1), "x").split("accept 불가", 1)[1]
