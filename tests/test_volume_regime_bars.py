@@ -192,8 +192,9 @@ def test_ohlcv_sanity_warns_on_regime_column_mismatch(db):
 
 
 def test_migration_reverts_pr2_window_rows_that_pr3_writes_null(db):
-    """PR-2 창(경계~+4일)에 'mixed' 로 찍혔으나 창 유도로는 NULL 인 유형 되돌림: 경계 후 상장 종목의 트리거 행, 경계 후 앵커의 climax 행.
-    경계 전 일봉이 있는 종목(창 걸침)은 그대로 둔다(리뷰 #222 3차)."""
+    """PR-2 창(경계~+4일)에 'mixed' 로 찍혔으나 창 유도로는 NULL 인 유형 되돌림: 경계 후 상장 종목의 트리거 행, 평가일까지 경계 후 주봉이
+    없는 보유 행·앵커 없는 보유 행(climax·decline 같은 규칙). 경계 전 일봉이 있는 종목(창 걸침)과, 경계 후 앵커라도 C3 분모가 경계를
+    걸치는 보유 행(회신 22 Q-A·23 Q-D — writer 가 'mixed' 를 쓰는 값)은 그대로 둔다(PR-A 리뷰: 종전 '앵커 ≥ 경계 → NULL' 이 지우던 경로)."""
     sql = (Path(__file__).parent.parent / "scripts" / "sql" / "issue207_volume_regime_migrate.sql").read_text(encoding="utf-8")
     with db.cursor() as cur:
         for t in ("VRM3", "VRM4"):
@@ -208,8 +209,15 @@ def test_migration_reverts_pr2_window_rows_that_pr3_writes_null(db):
         cur.execute("DELETE FROM positions WHERE symbol='VRM4'")
         cur.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity, status) VALUES ('VRM4', %s, 1000, 1, 'open') RETURNING id", (B,))
         pid = cur.fetchone()[0]
-        cur.execute("INSERT INTO position_climax_evaluations (position_id, eval_date, fired, suppressed, hold_days, triggers, mode, anchor_week, volume_regime_flag) "
-                    "VALUES (%s, %s, FALSE, FALSE, 1, '[]', 'quality', %s, 'mixed')", (pid, B + timedelta(days=2), (B + timedelta(days=4)).isoformat()))
+        cur.execute("DELETE FROM weekly_prices WHERE ticker='VRM4'")
+        cur.execute("INSERT INTO weekly_prices (ticker, week_end_date, open, high, low, close, adj_close, volume, value, trading_days) VALUES "
+                    "('VRM4', %s, 1,1,1,1,1,1,1,5)", (B + timedelta(days=4),))
+        for tbl, cols, vals in (("position_climax_evaluations", "suppressed, triggers", "FALSE, '[]'"),
+                                ("position_decline_evaluations", "signals, climax_also_fired", "'[]', FALSE")):
+            # 경계 후 앵커(10-02) = 경계 첫 주, 평가 10-02 — C3 분모가 경계 전 → writer 값 'mixed' 유지 / 같은 행 다음 날, 앵커 없음 → NULL
+            cur.execute(f"INSERT INTO {tbl} (position_id, eval_date, fired, hold_days, {cols}, mode, anchor_week, volume_regime_flag) "
+                        f"VALUES (%s, %s, FALSE, 1, {vals}, 'quality', %s, 'mixed'), (%s, %s, FALSE, 1, {vals}, 'quality', NULL, 'mixed')",
+                        (pid, B + timedelta(days=4), (B + timedelta(days=4)).isoformat(), pid, B + timedelta(days=5)))
         # 경계 전 앵커 + 평가일(09-30)까지 경계 이후 주봉 없음(10-02 주봉은 나중에 생김) → T2 창 전부 regular → NULL. 평가일 이후 주봉은 무관(4차)
         cur.execute("DELETE FROM positions WHERE symbol='VRM3'")
         cur.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity, status) VALUES ('VRM3', %s, 1000, 1, 'open') RETURNING id", (B,))
@@ -219,10 +227,13 @@ def test_migration_reverts_pr2_window_rows_that_pr3_writes_null(db):
                     "('VRM3', %s, 1,1,1,1,1,1,1,5), ('VRM3', %s, 1,1,1,1,1,1,1,5)", (B - timedelta(days=3), B + timedelta(days=4)))
         cur.execute("INSERT INTO position_climax_evaluations (position_id, eval_date, fired, suppressed, hold_days, triggers, mode, anchor_week, volume_regime_flag) "
                     "VALUES (%s, %s, FALSE, FALSE, 1, '[]', 'quality', %s, 'mixed')", (pid3, B + timedelta(days=2), (B - timedelta(days=31)).isoformat()))
+        cur.execute("INSERT INTO position_decline_evaluations (position_id, eval_date, fired, hold_days, signals, mode, climax_also_fired, anchor_week, volume_regime_flag) "
+                    "VALUES (%s, %s, FALSE, 1, '[]', 'quality', FALSE, %s, 'mixed')", (pid3, B + timedelta(days=2), (B - timedelta(days=31)).isoformat()))
         cur.execute(sql)
-        cur.execute("SELECT volume_regime_flag FROM position_climax_evaluations WHERE position_id=%s", (pid3,))
-        assert cur.fetchone()[0] is None
+        for tbl in ("position_climax_evaluations", "position_decline_evaluations"):
+            cur.execute(f"SELECT volume_regime_flag FROM {tbl} WHERE position_id=%s", (pid3,))
+            assert cur.fetchone()[0] is None, tbl
+            cur.execute(f"SELECT eval_date, volume_regime_flag FROM {tbl} WHERE position_id=%s ORDER BY eval_date", (pid,))
+            assert cur.fetchall() == [(B + timedelta(days=4), "mixed"), (B + timedelta(days=5), None)], tbl
         cur.execute("SELECT symbol, volume_regime_flag FROM trigger_evaluation_log WHERE symbol IN ('VRM3','VRM4') ORDER BY symbol")
         assert cur.fetchall() == [("VRM3", "mixed"), ("VRM4", None)]
-        cur.execute("SELECT volume_regime_flag FROM position_climax_evaluations WHERE position_id=%s", (pid,))
-        assert cur.fetchone()[0] is None

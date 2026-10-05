@@ -26,18 +26,21 @@ UPDATE trigger_evaluation_log SET sanity_warnings = NULLIF(sanity_warnings - 'vo
 UPDATE entry_params SET known_warnings = known_warnings - 'volume_regime_unverified_#207'
  WHERE known_warnings ? 'volume_regime_unverified_#207';
 UPDATE weekly_classification        SET volume_regime_flag = NULL    WHERE volume_regime_flag IS NOT NULL AND source LIKE 'system\_%';
--- PR-2 임시 규칙이 찍었으나 PR-3 writer 가 만들 수 없는 값(리뷰 #222): decline 행(거래량 입력 없음)·앵커 없는 climax 행 → NULL
-UPDATE position_decline_evaluations SET volume_regime_flag = NULL WHERE volume_regime_flag IS NOT NULL;
-UPDATE position_climax_evaluations  SET volume_regime_flag = NULL WHERE volume_regime_flag IS NOT NULL AND anchor_week IS NULL;
--- PR-2 임시 규칙(as_of ≥ 경계 → 'mixed')이 찍었으나 창 유도로는 **어느 시점이든** NULL 인 유형 되돌림(리뷰 #222 3·4차 — 날짜 창 없이
--- 규칙 자체로 판정하므로 PR-3 배포가 늦어져 구 writer 가 더 돌아도 재실행으로 교정된다):
---   climax: 앵커 ≥ 경계(T2 창 전부 extended) 또는 평가일까지의 주봉이 경계 이후 주를 못 본 종목(T2 창 전부 regular — eval_date 기준)
---   분류·트리거·진입: 경계 이후 상장(경계 전 일봉 0 → 창 전부 extended)
+-- PR-2 임시 규칙이 찍었으나 writer 가 만들 수 없는 값 → NULL. 보유 climax·decline 은 같은 창(앵커 C3 분모 ~ 평가 주, 회신 22 Q-A·23 Q-D —
+-- PR #222 의 'decline 항상 NULL' 번복, 10-05)이므로 두 테이블에 같은 규칙: 앵커 없음, 또는 평가일까지의 주봉이 경계 이후 주를 못 본 종목
+-- (창 전부 regular — eval_date 기준, 리뷰 #222 3·4차). 경계 후 앵커는 C3 분모(앵커 직전 W주)가 경계를 걸치는 동안(≈2027-09) mixed 가
+-- 정답이므로 종전의 "anchor_week ≥ 경계 → NULL" 규칙은 삭제(재실행이 writer 의 'mixed' 를 지우던 경로, PR-A 리뷰).
 UPDATE position_climax_evaluations c SET volume_regime_flag = NULL
  WHERE c.volume_regime_flag IS NOT NULL
-   AND (c.anchor_week >= '2026-09-28' OR NOT EXISTS (
+   AND (c.anchor_week IS NULL OR NOT EXISTS (
         SELECT 1 FROM weekly_prices w JOIN positions p ON p.symbol = w.ticker
          WHERE p.id = c.position_id AND w.week_end_date >= '2026-09-28' AND w.week_end_date <= c.eval_date));
+UPDATE position_decline_evaluations c SET volume_regime_flag = NULL
+ WHERE c.volume_regime_flag IS NOT NULL
+   AND (c.anchor_week IS NULL OR NOT EXISTS (
+        SELECT 1 FROM weekly_prices w JOIN positions p ON p.symbol = w.ticker
+         WHERE p.id = c.position_id AND w.week_end_date >= '2026-09-28' AND w.week_end_date <= c.eval_date));
+-- 분류·트리거·진입: 경계 이후 상장(경계 전 일봉 0 → 창 전부 extended)
 UPDATE weekly_classification SET volume_regime_flag = NULL
  WHERE volume_regime_flag IS NOT NULL
    AND NOT EXISTS (SELECT 1 FROM daily_prices d WHERE d.ticker = weekly_classification.symbol AND d.date < '2026-09-28');

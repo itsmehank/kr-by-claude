@@ -31,7 +31,7 @@
 | D6 | 경계일 전일 비교 | 분배일(`distribution_day`)·FTD(`follow_through`)에서 today/yesterday 의 `volume_regime` 이 다르면 **비교 불가 → 그날 분배일·FTD 아님(NULL 취급)**, `computation_notes` 에 사유 기록. 대상 = 09-25→09-28 1쌍(지수 2종) | 회신 21 Q-5c 1 |
 | D7 | 보유 종목 평가 | **(갱신 10-05, 회신 22 Q-A·23 Q-D)** 보유 climax·decline 평가 행 모두 창 = **앵커 C3 분모(앵커 직전 W주) ~ 평가 주**에 대해 D3 로 상태 유도 → mixed 면 평가 행 flag(두 행 같은 값). **발화 판정 자체는 불변**(억제 아님). 종전(회신 21): 창 = 앵커 주~현재, decline 은 NULL(PR #222) — 상류 판정(앵커 선정)의 창 포함 여부를 명시하지 않은 빈틈(회신 22 인정) | 원칙(회신 22): **표지 창 = 판정이 직접·간접 의존하는 모든 계산 창의 합집합**. find_anchor 는 마지막 주부터 거꾸로 각 주의 C3(W주 평균)를 보고 앵커를 고르므로 앵커 선택이 [앵커−W, 마지막 주] 거래량에 의존. T2(거래량)·T-A/TA-d(가격 낙폭)는 그 앵커를 기준 구간 시작점으로 쓴다 → decline 도 간접 의존(PR #222 'decline 항상 NULL' 번복). 태그 design-judgment |
 | D8 | 백테스트 | `BACKTEST_EXCLUDED_FROM` 유지·가드 유지 | 회신 21 마지막 절 |
-| D9 | 웹 | flag 배지("거래량 혼재 창 — 09-28 정의 경계, 비율 상향 편향 가능"). **PR-2 = Signals 카드(EntrySignalCard·SignalsPage)**, `known_warnings` 칩에서는 사라짐. **Positions 카드는 PR-3** — position_*_evaluations.volume_regime_flag 는 PR-2 에서 쓰기만 하고 노출은 PR-3 창 유도(T2·T-D)와 함께(#220 리뷰: spec·구현 불일치 정정) | D5 |
+| D9 | 웹 | flag 배지("거래량 혼재 창 — 09-28 정의 경계, 비율 상향 편향 가능"). **PR-2 = Signals 카드(EntrySignalCard·SignalsPage)**, `known_warnings` 칩에서는 사라짐. **Positions 카드는 PR-3** — position_*_evaluations.volume_regime_flag 는 PR-2 에서 쓰기만 하고 노출은 PR-3 창 유도(보유 창 = 앵커 C3 분모~평가 주, D7 갱신)와 함께(#220 리뷰: spec·구현 불일치 정정) | D5 |
 
 ## 4. 데이터 모델
 
