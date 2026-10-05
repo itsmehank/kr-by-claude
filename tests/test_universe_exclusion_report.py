@@ -228,6 +228,10 @@ def test_accept_hint_names_refused_tickers():
     good = {"summary": "s", "items": [{"ticker": "R7", "verdict": "axis_change", "evidence": "e", "recommend": "accept"},
                                       {"ticker": "R9", "verdict": "unknown", "evidence": "e", "recommend": "hold"}]}
     for text in (format_report(good, date(2026, 11, 1), late), format_facts_only(late, date(2026, 11, 1), "x")):
-        assert "accept 불가" in text and "R7" in text.split("accept 불가", 1)[1]
+        tail = text.split("accept 불가", 1)[1]
+        assert "R7" in tail and "R9" not in tail.split("\n")[-1]            # R9 = 축 풀림(accept 가능) — 불가 목록에 없음
+        assert "변동이 실재하면" not in text                                 # 불가 안내와 모순되는 수용 권유 없음
+    assert "• R7 — axis_change / 권고 hold(accept 불가)" in format_report(good, date(2026, 11, 1), late)   # LLM 의 accept 권고 덮음
+    assert "권고 hold:" in format_report(good, date(2026, 11, 1), late)                                  # R9 는 LLM 권고 그대로
     plain = _diff()                                                    # 088980 은 확정 그룹 → 199, R9 는 축 풀림
     assert "R9" not in format_facts_only(plain, date(2026, 11, 1), "x").split("accept 불가", 1)[1]

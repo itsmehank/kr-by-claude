@@ -172,7 +172,7 @@ def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff
     #   따라서 적재 전 배제 축에 새 구분을 넣으면 기존 활성 종목이 "상장 원본에 없음"과 같은 취급으로 폐지 처리된다
     #   (의미 정정 필요: 원본 목록 기준). (2) 시세 수집 대상은 stocks.delisted_at IS NULL 기반(ohlcv/modes._load_active_tickers)
     #   → "상장 중·대상 아님" 상태는 기존 필드 전용이 아니라 컬럼 추가 방향. 둘은 동시에만 가능.
-    #   (#221) 배제 집합 스냅샷 가드가 "기존 포함 → 신규 배제" 차분을 잡으면 exclusion_diff 가 kind='199' 잔여로 분류해 자동 수용하지 않고
+    #   (#221) 배제 집합 스냅샷 가드가 "기존 포함 → 신규 배제" 차분을 잡으면 exclusion_diff 가 kind='199'(확정 그룹이던 행)·'late_resolution'(UNRESOLVED 이던 행) 잔여로 분류해 자동 수용하지 않고
     #   --accept-exclusion-diff 로도 거부한다(preflight, 쓰기 전) — 의미 정정 + 상태 컬럼 동시 착수 전까지 그 달의 universe 는 멈춘다(설계된 멈춤).
     delisted = mark_delisted(conn, current_tickers=set(kept["ticker"]), on_date=today)
     log.info(f"Marked {delisted} as delisted")

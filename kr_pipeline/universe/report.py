@@ -171,10 +171,14 @@ def make_report(diff: ExclusionDiff, facts: dict, *, call: Callable[..., dict] =
 # ───────────────────────── Slack 본문 ─────────────────────────
 def format_report(report: dict, snapshot_date: date, diff: ExclusionDiff | None = None) -> str:
     items = report["items"]
+    refused = set(diff.accept_refused_tickers) if diff is not None else set()
     lines = [f"[kr-pipeline universe] {snapshot_date} 배제 집합 변동 — 자동 수용 불가 {len(items)}건 (조사 보고서, 결정 아님)",
              report["summary"].strip()]
     for it in items[:MAX_SLACK_ITEMS]:
-        lines.append(f"• {it['ticker']} — {it['verdict']} / 권고 {it['recommend']}: {it['evidence'].strip()[:400]}")
+        # accept 불가 종목은 LLM 권고와 무관하게 hold 로 표시 — 모델은 kind 를 보지 않아 accept 를 권할 수 있다(PR-B 리뷰: 운영자가 따르면
+        # KRX 전량 재조회 1회를 쓰고서야 preflight 에서 거부된다)
+        reco = "hold(accept 불가)" if it["ticker"] in refused else it["recommend"]
+        lines.append(f"• {it['ticker']} — {it['verdict']} / 권고 {reco}: {it['evidence'].strip()[:400]}")
     if len(items) > MAX_SLACK_ITEMS:
         lines.append(f"… 외 {len(items) - MAX_SLACK_ITEMS}건 — pipeline_runs.details.exclusion_unexplained_detail 참조")
     lines.append(accept_hint(diff))
@@ -190,8 +194,8 @@ def format_facts_only(diff: ExclusionDiff, snapshot_date: date, reason: str) -> 
     return "\n".join([
         f"[kr-pipeline universe] {snapshot_date} 배제 집합 변동 — 자동 수용 불가 {n}건 ({reason}) — LLM 조사 없음, 규칙 판정만",
         " ".join(added + removed) + (f" … 외 {n - shown}건" if n > shown else ""),
-        "KRX 응답 완전성(종목 수)·security_group 조회 성공 여부를 확인한 뒤 재실행. 변동이 실재하면 " + ACCEPT_HINT.split(": ", 1)[1],
-        *([accept_hint(diff)] if diff.has_accept_refused else []),
+        "KRX 응답 완전성(종목 수)·security_group 조회 성공 여부를 확인한 뒤 재실행. "
+        + (accept_hint(diff) if diff.has_accept_refused else "변동이 실재하면 " + ACCEPT_HINT.split(": ", 1)[1]),
     ])
 
 

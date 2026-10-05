@@ -102,7 +102,7 @@ def classify_exclusion_diff(*, prev_set: set[str], excluded: pd.DataFrame, raw_t
         axis = getattr(r, "axis", None)
         if t in in_stocks:
             if (in_stocks[t] or UNRESOLVED) == UNRESOLVED:
-                out.unexplained_added.append(_added(r, "UNRESOLVED 로 적재돼 있던 종목의 늦은 security_group 분류 — 원인은 조회 지연이나 수용 시 상장폐지 오기록, accept 불가(#199 선행)",
+                out.unexplained_added.append(_added(r, f"UNRESOLVED 로 적재돼 있던 종목이 배제 축 '{r.axis}' 에 걸림(늦은 분류) — 수용 시 상장폐지 오기록, accept 불가(#199 선행)",
                                                     KIND_LATE_RESOLUTION))
             else:
                 out.unexplained_added.append(_added(r, "기존 활성(또는 폐지 이력, security_group 확정) 종목이 새로 배제 — #199 유형, 자동·accept 수용 금지", KIND_199))
