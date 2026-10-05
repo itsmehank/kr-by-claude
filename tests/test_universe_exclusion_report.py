@@ -218,3 +218,16 @@ def test_facts_only_dedup_uses_kst_day(db, monkeypatch):
     _seed_failed_run(db, _details(_diff()), minutes_ago=5)
     assert report_last_failed(db, commit=False, call=lambda *a, **k: _GOOD, post=lambda t: posted.append(t)) == "already_sent"
     assert posted == []
+
+
+def test_accept_hint_names_refused_tickers():
+    """accept 불가 유형(#199·late_resolution)이 섞이면 Slack 안내가 그 종목을 명시 — accept 재실행이 거부될 것을 미리 알린다(회신 23 Q-G)."""
+    from kr_pipeline.universe.report import format_facts_only, format_report
+    ex = pd.DataFrame([("R7", "리츠7", "KOSPI", "부동산투자회사", "security_group")], columns=["ticker", "name", "market", "security_group", "axis"])
+    late = classify_exclusion_diff(prev_set={"R9"}, excluded=ex, raw_tickers={"R7", "R9"}, ever_in_stocks={"R7": "UNRESOLVED"})
+    good = {"summary": "s", "items": [{"ticker": "R7", "verdict": "axis_change", "evidence": "e", "recommend": "accept"},
+                                      {"ticker": "R9", "verdict": "unknown", "evidence": "e", "recommend": "hold"}]}
+    for text in (format_report(good, date(2026, 11, 1), late), format_facts_only(late, date(2026, 11, 1), "x")):
+        assert "accept 불가" in text and "R7" in text.split("accept 불가", 1)[1]
+    plain = _diff()                                                    # 088980 은 확정 그룹 → 199, R9 는 축 풀림
+    assert "R9" not in format_facts_only(plain, date(2026, 11, 1), "x").split("accept 불가", 1)[1]

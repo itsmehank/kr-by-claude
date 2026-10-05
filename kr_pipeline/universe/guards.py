@@ -63,7 +63,7 @@ def _latest_snapshot(conn: Connection, before: date) -> tuple[date | None, set[s
 
 
 def _ever_in_stocks(conn: Connection, tickers: set[str]) -> dict[str, str | None]:
-    """stocks 에 존재한 적 있는 티커 → security_group. UNRESOLVED 였던 행은 #199 유형이 아니라 '늦은 분류'(exclusion_diff)."""
+    """stocks 에 존재한 적 있는 티커 → security_group. UNRESOLVED 였던 행은 '늦은 분류'(exclusion_diff, kind 구분 — 둘 다 accept 불가)."""
     if not tickers:
         return {}
     with conn.cursor() as cur:
@@ -95,11 +95,11 @@ def _snapshot_diff(conn: Connection, *, snapshot_date: date, excluded: pd.DataFr
         diff = classify_exclusion_diff(prev_set=prev_set, excluded=excluded, raw_tickers=raw_tickers,
                                        ever_in_stocks=_ever_in_stocks(conn, set(added)),
                                        ever_seen=_ever_seen(conn, set(added), snapshot_date))
-        if accept_exclusion_diff and diff.has_199:
-            t199 = [u["ticker"] for u in diff.unexplained_added if u.get("kind") == "199"]
+        if accept_exclusion_diff and diff.has_accept_refused:
+            refused = diff.accept_refused_tickers
             raise UniverseGuardError(
-                f"guard(snapshot) #199 유형(security_group 확정 상태였던 기존 종목 → 신규 배제) {t199[:20]} 은 --accept-exclusion-diff 로 수용 불가 — "
-                f"배제 의미 정정 + 상태 컬럼(#199) 선행", diff, prev_date)
+                f"guard(snapshot) stocks 행이 있는 종목의 신규 배제(#199 유형·늦은 분류) {refused[:20]} 는 --accept-exclusion-diff 로 수용 불가 — "
+                f"수용하면 mark_delisted 가 상장 종목을 폐지로 기록. 배제 의미 정정 + 상태 컬럼(#199) 선행", diff, prev_date)
         if not accept_exclusion_diff:
             if not auto_accept:
                 raise UniverseGuardError(
@@ -127,7 +127,7 @@ def verify_universe_after_load(conn: Connection, *, snapshot_date: date, exclude
                                auto_accept: bool = True) -> dict:
     """(#221) 스냅샷 대조: 변동을 exclusion_diff 로 3분류 — 상폐·신규 상장 배제는 자동 수용(auto_accept, 기본), 잔여가 있으면
     UniverseGuardError(diff 첨부). accept_exclusion_diff=True 는 사람이 원인 확인 후 수용 — 단 #199 유형(security_group 확정 상태였던
-    기존 종목 → 신규 배제)은 accept 로도 거부(의미 정정·상태 컬럼 선행, #199 wake 절; UNRESOLVED 였던 행의 늦은 분류는 accept 가능).
+    기존 종목 → 신규 배제)과 UNRESOLVED 였던 행의 늦은 분류는 accept 로도 거부(의미 정정·상태 컬럼 선행, #199 wake 절; 회신 23 Q-G).
     raw_tickers 미제공이면 removed 는 전부 잔여(보수). 원본 완전성(급감)은 __main__._raw_complete 가 쓰기 전에 fail-closed."""
     with conn.cursor() as cur:
         cur.execute("SELECT ticker, name, security_group FROM stocks WHERE delisted_at IS NULL")

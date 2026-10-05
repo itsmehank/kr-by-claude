@@ -37,7 +37,7 @@ def test_added_that_was_ever_in_stocks_is_unexplained_199_type():
     d = classify_exclusion_diff(prev_set=set(), excluded=_ex(("088980", "맵스리얼티", "KOSPI", "투자회사", "security_group")),
                                 raw_tickers={"088980"}, ever_in_stocks={"088980"})
     assert d.added_new_listing == [] and [u["ticker"] for u in d.unexplained_added] == ["088980"]
-    assert d.unexplained_added[0]["reason"].startswith("기존 활성") and d.unexplained_added[0]["kind"] == KIND_199 and d.has_199
+    assert d.unexplained_added[0]["reason"].startswith("기존 활성") and d.unexplained_added[0]["kind"] == KIND_199 and d.has_accept_refused
 
 
 def test_added_with_unknown_axis_is_unexplained():
@@ -82,14 +82,18 @@ def test_added_seen_in_prior_snapshot_is_not_new_listing():
     assert d.report_key() == ["+0004Y0"]
 
 
-def test_added_that_was_unresolved_in_stocks_is_late_resolution_not_199():
-    """UNRESOLVED 로 적재돼 있던 행이 다음 달 배제 그룹으로 분류되는 것은 조회 지연이지 규칙 변경이 아니다 — accept 가능(리뷰 #223 4차)."""
+def test_added_that_was_unresolved_in_stocks_is_late_resolution_and_accept_refused():
+    """UNRESOLVED 로 적재돼 있던 행의 늦은 분류는 kind 로는 #199 와 구분(원인 = 조회 지연)하되, 결과(행 있는 종목 배제 → mark_delisted 가
+    상장폐지로 오기록)가 같아 --accept 로도 수용 불가(회신 23 Q-G, 회신 10·12)."""
     d = classify_exclusion_diff(prev_set=set(), excluded=_ex(("R7", "리츠7", "KOSPI", "부동산투자회사", "security_group")),
                                 raw_tickers={"R7"}, ever_in_stocks={"R7": "UNRESOLVED"})
-    assert d.unexplained_added[0]["kind"] == KIND_LATE_RESOLUTION and not d.has_199
+    assert d.unexplained_added[0]["kind"] == KIND_LATE_RESOLUTION and d.has_accept_refused
+    assert d.accept_refused_tickers == ["R7"]
     d2 = classify_exclusion_diff(prev_set=set(), excluded=_ex(("R7", "리츠7", "KOSPI", "부동산투자회사", "security_group")),
                                  raw_tickers={"R7"}, ever_in_stocks={"R7": "주권"})
-    assert d2.unexplained_added[0]["kind"] == KIND_199 and d2.has_199
+    assert d2.unexplained_added[0]["kind"] == KIND_199 and d2.has_accept_refused
+    d3 = classify_exclusion_diff(prev_set={"R9"}, excluded=_ex(), raw_tickers={"R9"}, ever_in_stocks=set())   # 축 풀림 = accept 가능
+    assert d3.unexplained and not d3.has_accept_refused
 
 
 def test_multiple_systemic_causes_are_all_recorded():

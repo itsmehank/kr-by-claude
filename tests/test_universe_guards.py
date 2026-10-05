@@ -347,8 +347,9 @@ def test_preflight_raises_without_writing_snapshot(db, clean_universe):
                                  raw_tickers={"T1", "P1", "X1"})
 
 
-def test_snapshot_accept_allows_late_resolution_of_unresolved_row(db, clean_universe):
-    """UNRESOLVED 로 적재돼 있던 행이 배제 그룹으로 분류됨 = 늦은 분류 — 잔여(보고)지만 accept 로 수용 가능(#199 아님)."""
+def test_snapshot_accept_refuses_late_resolution_of_unresolved_row(db, clean_universe):
+    """UNRESOLVED 로 적재돼 있던 행이 배제 그룹으로 분류됨 = 늦은 분류 — 잔여(보고)이고 accept 로도 거부(회신 23 Q-G: 수용하면
+    mark_delisted 가 상장 종목을 폐지로 기록 — #199 와 결과 동일). 첫 발생 = #199 착수 신호."""
     _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"},
                {"ticker": "R7", "name": "리츠7", "market": "KOSPI", "security_group": "UNRESOLVED"}])
     base = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"))
@@ -358,5 +359,5 @@ def test_snapshot_accept_allows_late_resolution_of_unresolved_row(db, clean_univ
     ex2 = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"), ("R7", "리츠7", "KOSPI", "부동산투자회사", "security_group"))
     with pytest.raises(UniverseGuardError, match="R7"):
         verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "P1", "R7"})
-    info = verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "P1", "R7"}, accept_exclusion_diff=True)
-    assert info["exclusion_accepted_unexplained"] is True
+    with pytest.raises(UniverseGuardError, match=r"R7.*accept-exclusion-diff 로 수용 불가"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "P1", "R7"}, accept_exclusion_diff=True)
