@@ -42,15 +42,45 @@ db_query() {
 }
 
 # 대상 거래일(ELTD). 실패 시 빈 문자열(호출부 fail-closed).
+# (#228) stderr 를 버리지 않는다 — 실패하면 ELTD_ERR_LOG 에 시각과 마지막 30줄을 남기고 체인 로그에 마지막 줄 1개를 낸다
+# (09-30·10-02 결측 모두 사유가 사라져 원인 미확정). 성공 시 stderr 는 버린다(uv 진행 표시 등 소음).
+ELTD_ERR_LOG="${ELTD_ERR_LOG:-$_KR_HOME/.kr-by-claude/state/eltd_err.log}"
+# ELTD_UV_BIN = 테스트 전용 대체 실행 파일(이 파일이 PATH 를 고정하므로 PATH 앞에 가짜 uv 를 두는 방식은 통하지 않는다 —
+# 실제 pykrx 조회가 나간다, #228 개발 중 실측). 운영은 미설정(uv).
 eltd() {
+  local errf out
+  errf=$(mktemp "${TMPDIR:-/tmp}/eltd_err.XXXXXX") || errf=/dev/null
   # config import = .env 로드(KRX 인증 — 미로드 시 pykrx 에러 문구가 stdout 오염, 07-31 실전 발견)
-  uv run python -c "
+  out=$("${ELTD_UV_BIN:-uv}" run python -c "
 from kr_pipeline.common import config  # noqa: F401 — load_dotenv
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from kr_pipeline.common.trading_calendar import expected_latest_trading_day
 print(expected_latest_trading_day(datetime.now(ZoneInfo('Asia/Seoul'))))
-" 2>/dev/null | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+" 2>"$errf" | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+  if [ -z "$out" ] && [ "$errf" != /dev/null ]; then
+    { echo "[$(date '+%Y-%m-%d %H:%M:%S')] eltd 실패"; tail -30 "$errf"; } >> "$ELTD_ERR_LOG" 2>/dev/null
+    log "ELTD 실패 사유: $(grep -v '^[[:space:]]*$' "$errf" | tail -1 | cut -c1-200) (전문: $ELTD_ERR_LOG)"
+  fi
+  [ "$errf" != /dev/null ] && rm -f "$errf"
+  [ -n "$out" ] && echo "$out"
+  return 0
+}
+
+# (#228) ELTD 재시도 — 기상 직후 네트워크 미준비 같은 일시 장애 1회가 그날 데이터 결측으로 확정되던 경로(09-30·10-02).
+# ELTD_RETRY_ATTEMPTS(3)회, 사이 ELTD_RETRY_SLEEP(120)초. 각 시도 = pykrx 거래일 조회 1회(KRX 접촉 상한 = 시도 수).
+# 전부 실패하면 빈 출력 + rc=1(호출부 fail-closed 유지).
+eltd_with_retry() {
+  local i v n="${ELTD_RETRY_ATTEMPTS:-3}"
+  for ((i = 1; i <= n; i++)); do
+    v=$(eltd)
+    if [ -n "$v" ]; then echo "$v"; return 0; fi
+    if [ "$i" -lt "$n" ]; then
+      log "ELTD 산출 실패 $i/$n — ${ELTD_RETRY_SLEEP:-120}s 후 재시도"
+      sleep "${ELTD_RETRY_SLEEP:-120}"
+    fi
+  done
+  return 1
 }
 
 # 캐시 최신 1건과 그 나이(초)를 "<date> <age_sec>" 로 출력. 미스/손상이면 rc=1.
@@ -103,6 +133,21 @@ eltd_cache_older_than_prev_workday_close() {
   case "$(date +%w)" in 1) off="-3d";; *) off="-1d";; esac
   pcb=$(date -j -f "%Y-%m-%d %H:%M:%S" "$(date -j -v"$off" +%F) $(_close_buffer_hms)" +%s 2>/dev/null) || return 1
   [ "$m" -lt "$pcb" ]
+}
+
+# (#228) 캐시 **값**(목표일 E)의 결측 판정 시점(E + WATCH_DUE_HOUR 시)이 지났으면 E 출력·rc=0, 아니면 rc=1. 캐시 mtime·키와 무관.
+# 값은 쓴 시점에 이미 마감된 거래일(D:pre = 직전 거래일, D:post = 당일 20:25 이후)이므로 판정 시점 이후엔 지표가 있어야 한다.
+# 이유: 토 03:17 주말 체인이 캐시를 '10-03:pre|10-02' 로 새로 쓰면 mtime 기반 eltd_cache_older_than_prev_workday_close 가
+#   금요일 저녁 결측(10-02 ELTD 실패)을 가린다 — 월요일까지 miss.data·eltd_stale 무알림(10-05 실측).
+# $1 = 현재 epoch(테스트용, 생략 시 now). 순수 bash(Python·pykrx 금지 — eltd_cached_latest 와 같은 이유).
+eltd_cache_value_overdue() {
+  local now="${1:-$(date +%s)}" c e due
+  c=$(eltd_cached_latest) || return 1
+  e=${c%% *}
+  due=$(date -j -f "%Y-%m-%d %H:%M:%S" "$e 00:00:00" +%s 2>/dev/null) || return 1
+  due=$((due + 10#$WATCH_DUE_HOUR * 3600))
+  [ "$now" -ge "$due" ] || return 1
+  echo "$e"
 }
 
 # 잠정값 창(09:00 ~ INTRADAY_LOCK_END 20:25 전) = 0(차단), 그 외 = 1(허용).

@@ -541,3 +541,83 @@ def test_evening_chain_log_lines_expand_under_utf8_locale():
     r = subprocess.run(["bash", "-u", "-c", body], capture_output=True, encoding="utf-8", errors="replace", env=env)
     assert r.returncode == 0, r.stderr
     assert "2552행" in r.stdout, r.stdout
+
+
+# ─── #228: ELTD 실패 재시도·사유 보존, 캐시 값 기준 데이터 결측 ─────────────────
+
+def _epoch(y, mo, d, h, mi):
+    from datetime import datetime
+    return int(datetime(y, mo, d, h, mi).timestamp())
+
+
+def test_eltd_cache_value_overdue_detects_miss_masked_by_weekend_cache(tmp_path):
+    """10-02 사건 재현: 금 20:43 ELTD 실패 → 토 03:17 주말 체인이 캐시를 '10-03:pre|10-02' 로 새로 써 mtime 기반 stale 판정
+    (eltd_cache_older_than_prev_workday_close)이 결측을 가렸다. 캐시 **값**(목표일)이 판정 시점(목표일 + WATCH_DUE_HOUR)을 지났으면
+    mtime·키와 무관하게 그 목표일을 낸다 — 값은 쓴 시점에 이미 마감된 거래일이므로 지표가 있어야 한다."""
+    cache = tmp_path / "eltd.cache"
+    cache.write_text("2026-10-01:post|2026-10-01\n2026-10-03:pre|2026-10-02\n")
+    env = {"ELTD_CACHE": str(cache)}
+    r = run_guard(f"eltd_cache_value_overdue {_epoch(2026, 10, 5, 13, 49)} && echo RC0 || echo RC1", env)
+    assert r.stdout.split() == ["2026-10-02", "RC0"], r.stdout + r.stderr
+    r = run_guard(f"eltd_cache_value_overdue {_epoch(2026, 10, 2, 22, 0)} && echo RC0 || echo RC1", env)   # 판정 시점(23시) 전
+    assert r.stdout.split() == ["RC1"], r.stdout + r.stderr
+    r = run_guard(f"eltd_cache_value_overdue {_epoch(2026, 10, 2, 23, 0)} && echo RC0 || echo RC1", env)   # 경계 = 23:00 포함
+    assert r.stdout.split() == ["2026-10-02", "RC0"], r.stdout + r.stderr
+    r = run_guard("eltd_cache_value_overdue 9999999999 && echo RC0 || echo RC1", {"ELTD_CACHE": str(tmp_path / "absent")})
+    assert r.stdout.split() == ["RC1"]
+
+
+def test_eltd_cache_value_overdue_never_runs_python():
+    body = run_guard("declare -f eltd_cache_value_overdue").stdout
+    assert body.strip() and all(f not in body for f in ("uv run", "python", "pykrx"))
+
+
+def test_watch_checks_data_miss_from_cache_value():
+    """watch 가 캐시 값 기준 miss.data 를 'fresh_today' 분기 밖에서도 판정한다(같은 dedupe 키 — 중복 알림 없음)."""
+    text = (LAUNCHD / "watch_pipelines.sh").read_text()
+    i = text.index("eltd_cache_value_overdue")
+    block = text[i:i + 600]
+    assert 'alert "miss.data.$' in block and "daily_indicators" in block
+
+
+def test_eltd_with_retry_retries_then_succeeds(tmp_path):
+    cnt = tmp_path / "n"
+    stub = f'eltd() {{ n=$(cat "{cnt}" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "{cnt}"; [ $n -ge 3 ] && echo 2026-10-02; return 0; }}'
+    r = run_guard(f"{stub}\nv=$(eltd_with_retry); echo \"V=$v\"", {"ELTD_RETRY_SLEEP": "0"})
+    assert "V=2026-10-02" in r.stdout and cnt.read_text().strip() == "3", r.stdout + r.stderr
+    assert r.stderr.count("재시도") == 2, r.stderr
+
+
+def test_eltd_with_retry_gives_up_after_attempts(tmp_path):
+    cnt = tmp_path / "n"
+    stub = f'eltd() {{ n=$(cat "{cnt}" 2>/dev/null || echo 0); echo $((n+1)) > "{cnt}"; return 0; }}'
+    r = run_guard(f"{stub}\nv=$(eltd_with_retry) && echo OK || echo FAIL; echo \"V=$v\"", {"ELTD_RETRY_SLEEP": "0"})
+    assert "FAIL" in r.stdout and "V=" in r.stdout and "V=2" not in r.stdout
+    assert cnt.read_text().strip() == "3"
+
+
+def test_eltd_failure_reason_is_preserved(tmp_path):
+    """eltd() 가 stderr 를 버리면 실패 원인이 사라진다(09-30·10-02 원인 미확정) — 실패 시 ELTD_ERR_LOG 에 남긴다."""
+    fake = tmp_path / "bin"; fake.mkdir()
+    (fake / "uv").write_text("#!/bin/bash\necho 'ConnectionError: KRX unreachable' >&2\nexit 1\n"); (fake / "uv").chmod(0o755)
+    err = tmp_path / "eltd_err.log"
+    marker = tmp_path / "fake_uv_ran"
+    (fake / "uv").write_text(f"#!/bin/bash\ntouch '{marker}'\necho 'ConnectionError: KRX unreachable' >&2\nexit 1\n")
+    # PATH 앞에 두는 방식은 lib_guards 의 PATH 고정 때문에 실제 uv(→ pykrx KRX 조회)를 부른다 — ELTD_UV_BIN 으로만 대체(#228 실측)
+    r = run_guard("v=$(eltd); echo \"V=$v\"", {"ELTD_UV_BIN": str(fake / "uv"), "ELTD_ERR_LOG": str(err)})
+    assert marker.exists(), "가짜 uv 가 실행되지 않았다 — 실제 KRX 조회 위험"
+    assert "V=" in r.stdout and "V=2" not in r.stdout
+    assert "ConnectionError: KRX unreachable" in err.read_text()
+    assert "ELTD 실패 사유: ConnectionError: KRX unreachable" in r.stderr
+
+
+def test_evening_chain_uses_retry():
+    text = (LAUNCHD / "evening_chain.sh").read_text()
+    assert "ELTD=$(eltd_with_retry)" in text and "ELTD=$(eltd)" not in text
+
+
+def test_suite_eltd_is_contact_free_by_default():
+    """conftest 가 ELTD_UV_BIN=/usr/bin/false 로 두므로 테스트에서 eltd() 가 불려도 pykrx·KRX 를 타지 않는다(#228 개발 중 실측 사고 재발 방지)."""
+    assert os.environ.get("ELTD_UV_BIN") == "/usr/bin/false"
+    r = run_guard('v=$(eltd); echo "V=$v"')
+    assert r.stdout.strip() == "V=", r.stdout + r.stderr

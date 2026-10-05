@@ -97,6 +97,10 @@ def _isolate_eltd_cache(tmp_path, monkeypatch):
     ② 격리가 없으면 suite 가 운영 캐시(~/.kr-by-claude/state/eltd.cache)를 오염시킨다.
     """
     monkeypatch.setenv("ELTD_CACHE", str(tmp_path / "eltd.cache"))
+    # (#228) lib_guards.eltd() 는 PATH 를 고정하고 실제 uv → pykrx 지수 조회(KRX)를 탄다 — 테스트에서 실수로 불리면 KRX 접촉.
+    # 기본값을 즉시 실패하는 실행 파일로 두어 접촉 0 을 보장(대체가 필요한 테스트는 ELTD_UV_BIN 을 다시 지정). 실패 사유 로그도 tmp.
+    monkeypatch.setenv("ELTD_UV_BIN", "/usr/bin/false")
+    monkeypatch.setenv("ELTD_ERR_LOG", str(tmp_path / "eltd_err.log"))
 
 
 @pytest.fixture
