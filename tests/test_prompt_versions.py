@@ -36,7 +36,7 @@ def test_versions_header_keeps_cutover_warning():
 
 
 def test_versions_file_is_not_loaded_as_a_prompt():
-    """VERSIONS.md 는 프롬프트가 아니다 — call_claude 호출처가 이 이름을 쓰지 않는다."""
+    """VERSIONS.md 는 프롬프트가 아니다 — 코드(kr_pipeline·api·scripts)가 이 이름을 쓰지 않는다(변수 인자 호출까지는 못 잡는 약한 가드)."""
     root = Path(__file__).parent.parent
-    hits = [p for p in (root / "kr_pipeline").rglob("*.py") if "VERSIONS.md" in p.read_text(encoding="utf-8")]
+    hits = [p for d in ("kr_pipeline", "api", "scripts") for p in (root / d).rglob("*.py") if "VERSIONS.md" in p.read_text(encoding="utf-8")]
     assert hits == []
