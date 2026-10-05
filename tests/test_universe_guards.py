@@ -316,3 +316,23 @@ def test_snapshot_round_trip_ticker_is_unexplained_not_new_listing(db, clean_uni
     assert info["exclusion_auto_accepted"]["removed_delisted"] == ["S1"]
     with pytest.raises(UniverseGuardError, match="S1"):                                                                   # 재등장 → 잔여
         verify_universe_after_load(db, snapshot_date=date(2026, 10, 22), excluded=_excluded(P, ("S1", "스팩1", "KOSDAQ", "주권", "spac")), raw_tickers={"T1", "P1", "S1"})
+
+
+def test_snapshot_accept_refuses_199_type(db, clean_universe):
+    """#199 유형(기존 활성 종목 → 신규 배제)은 --accept-exclusion-diff 로도 수용 불가 — 수용 시 mark_delisted 가 상장 종목을 폐지 처리(리뷰 #223 3차)."""
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"},
+               {"ticker": "088980", "name": "맵스리얼티", "market": "KOSPI", "security_group": "주권"}])
+    base = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"))
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=base, raw_tickers={"T1", "P1", "088980"})
+    with db.cursor() as cur:
+        cur.execute("UPDATE stocks SET delisted_at = CURRENT_DATE WHERE ticker='088980'")
+    ex2 = _excluded(("P1", "가우", "KOSPI", "주권", "preferred"), ("088980", "맵스리얼티", "KOSPI", "투자회사", "security_group"))
+    with pytest.raises(UniverseGuardError, match="#199 유형.*수용 불가"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=ex2, raw_tickers={"T1", "P1", "088980"}, accept_exclusion_diff=True)
+
+
+def test_snapshot_raw_incomplete_blocks_delisted_auto(db, clean_universe):
+    _seed(db, [{"ticker": "T1", "name": "정상", "market": "KOSPI", "security_group": "주권"}])
+    verify_universe_after_load(db, snapshot_date=date(2026, 9, 22), excluded=_excluded(("S1", "스팩", "KOSDAQ", "주권", "spac")), raw_tickers={"T1", "S1"})
+    with pytest.raises(UniverseGuardError, match="S1"):
+        verify_universe_after_load(db, snapshot_date=date(2026, 10, 1), excluded=_excluded(), raw_tickers={"T1"}, raw_complete=False)

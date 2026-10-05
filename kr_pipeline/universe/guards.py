@@ -83,10 +83,11 @@ def _ever_seen(conn: Connection, tickers: set[str], before: date) -> set[str]:
 
 def verify_universe_after_load(conn: Connection, *, snapshot_date: date, excluded: pd.DataFrame,
                                accept_exclusion_diff: bool = False, raw_tickers: set[str] | None = None,
-                               auto_accept: bool = True) -> dict:
+                               auto_accept: bool = True, raw_complete: bool = True) -> dict:
     """(#221) 스냅샷 대조: 변동을 exclusion_diff 로 3분류 — 상폐·신규 상장 배제는 자동 수용(auto_accept, 기본), 잔여가 있으면
-    UniverseGuardError(diff 첨부). accept_exclusion_diff=True 는 종전대로 전부 수용(사람이 원인 확인 후). raw_tickers 미제공이면
-    removed 는 전부 잔여(보수)."""
+    UniverseGuardError(diff 첨부). accept_exclusion_diff=True 는 사람이 원인 확인 후 수용 — 단 #199 유형(기존 활성 → 신규 배제)은
+    accept 로도 거부(의미 정정·상태 컬럼 선행, #199 wake 절; 리뷰 #223 3차: 수용 시 mark_delisted 가 상장 종목을 폐지 처리). raw_tickers
+    미제공이면 removed 는 전부 잔여(보수), raw_complete=False 면 상폐 자동 수용 보류."""
     with conn.cursor() as cur:
         cur.execute("SELECT ticker, name, security_group FROM stocks WHERE delisted_at IS NULL")
         active = cur.fetchall()
@@ -112,7 +113,12 @@ def verify_universe_after_load(conn: Connection, *, snapshot_date: date, exclude
     if prev_date is not None and (added or removed):
         diff = classify_exclusion_diff(prev_set=prev_set, excluded=excluded, raw_tickers=raw_tickers,
                                        ever_in_stocks=_ever_in_stocks(conn, set(added)),
-                                       ever_seen=_ever_seen(conn, set(added), snapshot_date))
+                                       ever_seen=_ever_seen(conn, set(added), snapshot_date), raw_complete=raw_complete)
+        if accept_exclusion_diff and diff.has_199:
+            t199 = [u["ticker"] for u in diff.unexplained_added if u.get("kind") == "199"]
+            raise UniverseGuardError(
+                f"guard(snapshot) #199 유형(기존 활성 → 신규 배제) {t199[:20]} 은 --accept-exclusion-diff 로 수용 불가 — "
+                f"배제 의미 정정 + 상태 컬럼(#199) 선행", diff, prev_date)
         if not accept_exclusion_diff:
             if not auto_accept:
                 raise UniverseGuardError(

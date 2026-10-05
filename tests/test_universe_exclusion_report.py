@@ -6,10 +6,10 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from kr_pipeline.universe.exclusion_diff import SYSTEMIC_CAP_DELISTED, ExclusionDiff, classify_exclusion_diff
+from kr_pipeline.universe.exclusion_diff import SYSTEMIC_CAP_DELISTED, SYSTEMIC_RAW_SHRUNK, ExclusionDiff, classify_exclusion_diff
 from kr_pipeline.universe.report import (
-    MAX_LLM_ITEMS, MAX_SLACK_ITEMS, PROMPT_FILE, REPORT_TOOLS, ReportFailed, build_local_facts, format_report, make_report,
-    report_last_failed, send_text,
+    CALL_MAX_ATTEMPTS, MAX_LLM_ITEMS, MAX_SLACK_ITEMS, PROMPT_FILE, REPORT_TOOLS, ReportFailed, build_local_facts, format_report,
+    make_report, report_last_failed, send_text,
 )
 
 
@@ -54,12 +54,12 @@ def test_make_report_validates_schema_and_retries_once():
     calls = []
 
     def fake(prompt_file, payload_inline=None, **kw):
-        calls.append((prompt_file, kw.get("tools")))
+        calls.append((prompt_file, kw.get("tools"), kw.get("max_attempts")))
         return {"bad": 1} if len(calls) == 1 else _GOOD
 
     rep, meta = make_report(_diff(), {"unexplained_added": [], "unexplained_removed": []}, call=fake)
     assert rep["items"][0]["verdict"] == "axis_change" and len(calls) == 2
-    assert calls[0] == (PROMPT_FILE, REPORT_TOOLS)
+    assert calls[0] == (PROMPT_FILE, REPORT_TOOLS, CALL_MAX_ATTEMPTS) and CALL_MAX_ATTEMPTS == 1     # CLI 내부 재시도 없음(예산 ≤ 8분)
     with pytest.raises(ReportFailed):
         make_report(_diff(), {}, call=lambda *a, **k: {"nope": True})
 
@@ -139,15 +139,42 @@ def test_report_last_failed_ignores_runs_before_last_success(db):
 
 def test_report_last_failed_systemic_skips_llm_and_posts_facts(db):
     posted = []
-    bulk = ExclusionDiff(unexplained_removed=[{"ticker": f"S{i:05d}", "reason": "상한"} for i in range(12)], systemic=SYSTEMIC_CAP_DELISTED)
+    bulk = ExclusionDiff(unexplained_removed=[{"ticker": f"S{i:05d}", "reason": "상한"} for i in range(12)],
+                         systemic=[SYSTEMIC_CAP_DELISTED, SYSTEMIC_RAW_SHRUNK])
     _seed_failed_run(db, _details(bulk))
     out = report_last_failed(db, commit=False, call=lambda *a, **k: (_ for _ in ()).throw(AssertionError("LLM 호출 금지")), post=lambda t: posted.append(t))
-    assert out == "sent" and "구조적" in posted[0] and SYSTEMIC_CAP_DELISTED in posted[0] and "LLM 조사 생략" in posted[0]
+    assert out == "sent" and SYSTEMIC_CAP_DELISTED in posted[0] and SYSTEMIC_RAW_SHRUNK in posted[0] and "LLM 조사 없음" in posted[0]
 
 
-def test_report_last_failed_never_raises(db, caplog):
-    import logging
+def test_report_last_failed_llm_failure_still_posts_rule_facts(db):
+    """LLM 단계 실패(한도·CLI 부재·타임아웃)여도 잔여 목록·accept 안내는 Slack 으로 간다(리뷰 #223 3차)."""
+    posted = []
     _seed_failed_run(db, _details(_diff()))
+    out = report_last_failed(db, commit=False, call=lambda *a, **k: (_ for _ in ()).throw(RuntimeError("usage limit")), post=lambda t: posted.append(t))
+    assert out == "sent" and "LLM 조사 실패" in posted[0] and "+088980" in posted[0] and "-R9" in posted[0] and "accept-exclusion-diff" in posted[0]
+
+
+def test_report_last_failed_dedups_across_daily_retries(db):
+    """매일 재시도로 새 실패 run 이 생겨도(마커 없음) 같은 잔여 키가 마지막 성공 이후 이미 전송됐으면 생략(리뷰 #223 3차)."""
+    posted = []
+    older = _seed_failed_run(db, {**_details(_diff()), "report_sent_at": "2026-10-01T06:40:00+00:00", "report_key_sent": ["+088980", "-R9"]}, minutes_ago=60)
+    _seed_failed_run(db, _details(_diff()), minutes_ago=5)
+    assert report_last_failed(db, commit=False, call=lambda *a, **k: _GOOD, post=lambda t: posted.append(t)) == "already_sent"
+    assert posted == []
+    different = classify_exclusion_diff(prev_set=set(), excluded=pd.DataFrame([("X9", "엑스", "KOSPI", "주권", "etf")], columns=["ticker", "name", "market", "security_group", "axis"]),
+                                        raw_tickers={"X9"}, ever_in_stocks=set())
+    _seed_failed_run(db, _details(different), minutes_ago=1)
+    out = report_last_failed(db, commit=False, call=lambda *a, **k: {"summary": "s", "items": [{"ticker": "X9", "verdict": "unknown", "evidence": "e", "recommend": "hold"}]},
+                             post=lambda t: posted.append(t))
+    assert out == "sent" and len(posted) == 1
+
+
+def test_report_last_failed_never_raises(db, caplog, monkeypatch):
+    """DB 단계 예외(조회 실패)도 올리지 않는다 — 'failed' + 경고(LLM 단계 실패는 사실만 전송으로 'sent', 별도 테스트)."""
+    import logging
+    import kr_pipeline.universe.report as rp
+    _seed_failed_run(db, _details(_diff()))
+    monkeypatch.setattr(rp, "_last_failed_run", lambda conn: (_ for _ in ()).throw(RuntimeError("db down")))
     with caplog.at_level(logging.WARNING, logger="kr_pipeline.universe.report"):
-        out = report_last_failed(db, commit=False, call=lambda *a, **k: (_ for _ in ()).throw(RuntimeError("claude down")), post=lambda t: None)
+        out = report_last_failed(db, commit=False, call=lambda *a, **k: _GOOD, post=lambda t: None)
     assert out == "failed" and "exclusion_report_failed" in caplog.text

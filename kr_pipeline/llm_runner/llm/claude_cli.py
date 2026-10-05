@@ -229,6 +229,7 @@ def call_claude(
     timeout_seconds: int = 600,
     meta_out: dict | None = None,
     tools: str = TOOLS_READ,
+    max_attempts: int | None = None,
 ) -> dict:
     """Claude CLI 호출.
 
@@ -248,6 +249,7 @@ def call_claude(
         tools: --tools 값. 기본 "Read"(분류·판정 호출: 외부 조회 불가 = 시점 무결성·결정론).
             (#221) 조사 보고서처럼 웹 근거가 필요한 **비판정** 호출만 TOOLS_WEBSEARCH("WebSearch") 로 opt-in. 허용 집합 ALLOWED_TOOLSETS
             밖은 ValueError — WebFetch(임의 URL)·Bash 는 어떤 호출에도 열지 않는다(KRX 도메인 접촉을 도구 층에서 차단, 운영 규칙 5).
+        max_attempts: CLI 시도 횟수 상한(기본 None = 1 + len(RETRY_DELAYS) = 4). 호출자가 전체 예산을 묶을 때(#221 보고서: 1) 사용.
 
     Returns:
         parsed JSON dict
@@ -324,7 +326,8 @@ def call_claude(
     )
 
     last_error = None
-    for attempt, delay in enumerate([0] + RETRY_DELAYS):
+    delays = ([0] + RETRY_DELAYS)[: max_attempts] if max_attempts else [0] + RETRY_DELAYS
+    for attempt, delay in enumerate(delays):
         if delay > 0:
             log.warning("claude CLI retry attempt %d after %ds", attempt, delay)
             time.sleep(delay)
@@ -408,5 +411,5 @@ def call_claude(
             last_error = RuntimeError(f"rc={result.returncode}: {diag}")
 
     raise ClaudeCLIError(
-        f"claude CLI failed after {len(RETRY_DELAYS) + 1} attempts: {last_error}"
+        f"claude CLI failed after {len(delays)} attempts: {last_error}"
     )

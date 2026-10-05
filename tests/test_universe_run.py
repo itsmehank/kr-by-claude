@@ -72,7 +72,8 @@ def test_run_universe_unexplained_fails_and_persists_full_judgment(db, quiet_uni
     assert d["exclusion_unexplained"] == {"added": ["088980"], "removed": []} and d["report_key"] == ["+088980"]
     assert d["exclusion_unexplained_detail"]["088980"]["reason"].startswith("기존 활성")
     assert d["exclusion_raw_now"] == {"088980": {"name": "맵스리얼티", "market": "KOSPI", "security_group": "부동산투자회사"}}
-    assert d["snapshot_prev_date"] == "2026-09-22" and d["exclusion_systemic"] is None and d["strict"] is False
+    assert d["snapshot_prev_date"] == "2026-09-22" and d["exclusion_systemic"] == [] and d["strict"] is False
+    assert d["raw_file"] and d["raw_file"].endswith("universe_raw_20261001.json")        # 운영 규칙 5: 응답 파일 보존(KR_VERIFICATION_DIR)
 
 
 def test_run_universe_strict_records_details_even_for_auto_types(db, quiet_universe, monkeypatch):
@@ -95,17 +96,53 @@ def test_run_universe_security_group_unavailable_marks_systemic(db, quiet_univer
     with pytest.raises(UniverseGuardError, match="R1"):
         um.run_universe(db, today=date(2026, 10, 1))
     d = quiet_universe["state"]["details"]
-    assert d["exclusion_unexplained"]["removed"] == ["R1"] and d["exclusion_systemic"] == um.SYSTEMIC_SECURITY_GROUP_UNAVAILABLE
+    assert d["exclusion_unexplained"]["removed"] == ["R1"] and d["exclusion_systemic"] == [um.SYSTEMIC_SECURITY_GROUP_UNAVAILABLE]
 
 
 def test_run_universe_accept_with_unexplained_records_warning(db, quiet_universe, monkeypatch):
-    _seed_199(db, monkeypatch)
+    """accept 로 통과한(#199 아닌) 잔여 — 예: 배제 축이 풀린 종목 — 는 pipeline_runs warnings 에 남는다."""
+    _seed_prev(db, ("0004Y0", "디비금융제14호스팩", "KOSDAQ", "주권", "spac"), ("R1", "리츠", "KOSPI", "부동산투자회사", "security_group"))
+    raw = _raw([("U221X0", "유이이일", "KOSPI"), ("0004Y0", "디비금융제14호스팩", "KOSDAQ"), ("R1", "리츠", "KOSPI")])
+    monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
+    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {"U221X0": "주권", "0004Y0": "주권", "R1": "주권"})   # 축 풀림
     info = um.run_universe(db, today=date(2026, 10, 1), accept_exclusion_diff=True)
-    assert info["exclusion_unexplained"]["added"] == ["088980"]
+    assert info["exclusion_unexplained"]["removed"] == ["R1"]
     assert any(w.startswith("exclusion_accepted_unexplained") for w in quiet_universe["state"]["warnings"])
+
+
+def test_run_universe_accept_refuses_199_type(db, quiet_universe, monkeypatch):
+    _seed_199(db, monkeypatch)
+    with pytest.raises(UniverseGuardError, match="#199 유형"):
+        um.run_universe(db, today=date(2026, 10, 1), accept_exclusion_diff=True)
 
 
 def test_run_universe_rejects_accept_with_strict_before_any_fetch(db, quiet_universe, monkeypatch):
     monkeypatch.setattr(um, "fetch_universe", lambda d: (_ for _ in ()).throw(AssertionError("KRX 접촉 금지")))
     with pytest.raises(ValueError, match="동시 지정 불가"):
         um.run_universe(db, today=date(2026, 10, 1), accept_exclusion_diff=True, strict=True)
+
+
+def test_run_universe_raw_shrink_holds_delisted_auto_accept(db, quiet_universe, monkeypatch):
+    """직전 원본 대비 시장별 2% 넘게 줄면 부분 응답 의심 — '원본에 없음' 상폐를 자동 수용하지 않고 systemic raw_shrunk(리뷰 #223 3차)."""
+    _seed_prev(db, ("S1", "스팩1", "KOSDAQ", "주권", "spac"))
+    with db.cursor() as cur:   # 직전 원본 스냅샷: KOSDAQ 100 종목
+        cur.execute("DELETE FROM universe_raw_snapshot WHERE snapshot_date='2026-09-22'")
+        cur.executemany("INSERT INTO universe_raw_snapshot (snapshot_date, ticker, name, market, security_group) VALUES ('2026-09-22', %s, %s, 'KOSDAQ', '주권')",
+                        [(f"Q{i:05d}", f"q{i}") for i in range(100)])
+    raw = _raw([(f"Q{i:05d}", f"q{i}", "KOSDAQ") for i in range(90)])            # 10% 급감, S1 부재
+    monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
+    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {t: "주권" for t in raw["ticker"]})
+    with pytest.raises(UniverseGuardError, match="S1"):
+        um.run_universe(db, today=date(2026, 10, 1))
+    d = quiet_universe["state"]["details"]
+    assert d["exclusion_systemic"] == ["raw_shrunk"] and d["exclusion_auto_accepted"]["removed_delisted"] == []
+
+
+def test_report_path_does_not_import_pykrx():
+    """`--report-last-failed`(및 모듈 import 자체)는 KRX 접촉 0 — pykrx 가 import 되면 로그인 POST 가 나간다(리뷰 #223 3차)."""
+    import os, subprocess, sys
+    env = {**os.environ, "KRX_ID": "", "KRX_PW": ""}
+    code = "import sys; import kr_pipeline.universe.__main__ as m; import kr_pipeline.universe.report; print('pykrx' in sys.modules)"
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, timeout=120)
+    assert out.returncode == 0, out.stderr[-500:]
+    assert out.stdout.strip() == "False"

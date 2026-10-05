@@ -1,12 +1,13 @@
 """(#221) 배제 집합 변동 중 잔여분(자동 수용 불가)의 조사 보고서 — 실패 run 의 details(판정 + 원본 행) → 로컬 사실 + `claude -p`(웹 검색) → Slack.
 
-실행 시점(리뷰 #223 2차): universe run 이 **실패로 기록·rollback 된 뒤** 별도 호출(`python -m kr_pipeline.universe --report-last-failed`,
-monthly_chain 이 data 락 해제 후 실행). 따라서 (1) 트랜잭션·행 잠금을 쥐지 않고 (2) 사실은 커밋된 상태(이번 run 의 upsert/mark_delisted 는
-롤백돼 보이지 않음)에서 읽으며 (3) 이번 run 의 원본(raw) 행은 롤백되므로 details 에 보존된 사본을 쓴다. 전송 성공은 그 run 의
-details.report_sent_at 로 표시해 RunAtLoad 재발화마다 같은 Slack 이 반복되지 않게 한다(보고서가 실제로 간 경우에만).
-보고서는 **자료**다(governance 2-1/2-2): 수용 여부는 사람이 `--accept-exclusion-diff` 로 결정한다. 원인이 이미 알려진 일괄 잔여
-(상한 초과·security_group 조회 실패)는 LLM 없이 사실만 Slack 으로 보낸다. KRX 접촉 0: 사실은 로컬 테이블만, LLM 도구는 WebSearch
-(검색 결과 스니펫)뿐 — URL 열기·파일 읽기 없음(claude_cli.ALLOWED_TOOLSETS).
+실행 시점(리뷰 #223 2·3차): universe run 이 **실패로 기록·rollback 된 뒤** 별도 호출(`python -m kr_pipeline.universe --report-last-failed`,
+monthly_chain 이 data 락 해제 후 실행; 이 경로는 pykrx 를 import 하지 않는다 — __main__ 의 fetch 래퍼가 지연 import). 따라서
+(1) 트랜잭션·행 잠금을 쥐지 않고(사실 읽기 후 즉시 commit 으로 읽기 트랜잭션 종료, LLM 대기는 idle) (2) 사실은 커밋된 상태(이번 run 의
+upsert/mark_delisted 는 롤백돼 보이지 않음)에서 읽으며 (3) 이번 run 의 원본(raw) 행은 롤백되므로 details 에 보존된 사본을 쓴다.
+전송 성공은 그 run 의 details.report_sent_at/report_key_sent 로 표시하고, **마지막 성공 이후 어느 실패 run 이든** 같은 키가 전송됐으면
+생략한다(매일 재시도로 새 실패 run 이 생겨도 같은 Slack 반복 없음). LLM 단계가 실패하면 로컬 사실만으로 Slack 을 보낸다(잔여 목록·accept
+안내는 항상 사람에게 도달). 보고서는 **자료**다(governance 2-1/2-2): 수용 여부는 사람이 결정. 원인이 이미 알려진 일괄 잔여(상한 초과·
+security_group 조회 실패·원본 급감)는 LLM 없이 사실만. KRX 접촉 0: 사실은 로컬 테이블만, LLM 도구는 WebSearch(검색 결과 스니펫)뿐.
 """
 from __future__ import annotations
 
@@ -28,12 +29,14 @@ log = logging.getLogger("kr_pipeline.universe.report")
 
 PROMPT_FILE = "universe_exclusion_report_v1.md"
 REPORT_TOOLS = TOOLS_WEBSEARCH          # 검색만(파일 Read 도 열지 않는다 — cwd=리포의 .env 노출 차단, 리뷰 #223 2차)
-CALL_TIMEOUT_SECONDS = 180
-MAX_LLM_ITEMS = 20                      # 이보다 많은 잔여는 원인이 구조적(부분 응답 등) — LLM 조사 생략, 사실만 전송
+# LLM 예산: 외부 2회(스키마/집합 불일치 재호출) × CLI 1회 시도(재시도 없음) × 240s = 최대 8분 — monthly_chain 의 "LLM 대기 ≤ ~10분" 안.
+CALL_TIMEOUT_SECONDS = 240
+CALL_MAX_ATTEMPTS = 1
+MAX_LLM_ITEMS = 20                      # [Q-1] 잔여가 이보다 많으면 원인이 구조적(부분 응답 등) — LLM 조사 생략, 사실만 전송
 MAX_SLACK_ITEMS = 20
 _VERDICTS = {"delisted", "new_listing", "axis_change", "renamed", "unknown"}
 _RECOMMENDS = {"accept", "hold"}
-ACCEPT_HINT = "수용하려면 원인 확인 후: uv run python -m kr_pipeline.universe --accept-exclusion-diff"
+ACCEPT_HINT = "수용하려면 원인 확인 후: uv run python -m kr_pipeline.universe --accept-exclusion-diff (#199 유형 포함 시 accept 불가 — #199 선행)"
 
 
 class ReportFailed(RuntimeError):
@@ -117,8 +120,8 @@ def build_local_facts(conn: Connection, diff: ExclusionDiff, *, snapshot_date: d
 
 # ───────────────────────── LLM 보고서 ─────────────────────────
 def make_report(diff: ExclusionDiff, facts: dict, *, call: Callable[..., dict] = call_claude) -> tuple[dict, dict]:
-    """claude -p(WebSearch) 1회 + 스키마/티커 집합 불일치 시 1회 재호출. items 의 티커 집합은 잔여 집합과 같아야 한다(과소 보고 방지).
-    잔여 > MAX_LLM_ITEMS 면 호출하지 않는다(호출자가 사실만 전송)."""
+    """claude -p(WebSearch) 1회 + 스키마/티커 집합 불일치 시 1회 재호출(각 호출은 CLI 내부 재시도 없음 — 예산 상한). items 의 티커 집합은
+    잔여 집합과 같아야 한다(과소 보고 방지). 잔여 > MAX_LLM_ITEMS 면 호출하지 않는다(호출자가 사실만 전송)."""
     expected = diff.unexplained_tickers
     if len(expected) > MAX_LLM_ITEMS:
         raise ReportFailed(f"잔여 {len(expected)} > MAX_LLM_ITEMS {MAX_LLM_ITEMS} — LLM 조사 대상 아님(구조적 원인)")
@@ -126,7 +129,8 @@ def make_report(diff: ExclusionDiff, facts: dict, *, call: Callable[..., dict] =
     last: Exception | None = None
     for _ in range(2):
         meta: dict = {}
-        out = call(PROMPT_FILE, payload_inline=payload, tools=REPORT_TOOLS, timeout_seconds=CALL_TIMEOUT_SECONDS, meta_out=meta)
+        out = call(PROMPT_FILE, payload_inline=payload, tools=REPORT_TOOLS, timeout_seconds=CALL_TIMEOUT_SECONDS,
+                   max_attempts=CALL_MAX_ATTEMPTS, meta_out=meta)
         try:
             rep = Report.model_validate(out)
         except ValidationError as e:
@@ -153,13 +157,16 @@ def format_report(report: dict, snapshot_date: date) -> str:
     return "\n".join(lines)
 
 
-def format_systemic(diff: ExclusionDiff, snapshot_date: date, reason: str) -> str:
+def format_facts_only(diff: ExclusionDiff, snapshot_date: date, reason: str) -> str:
+    """LLM 없이 규칙 판정·건수·예시만 — 구조적 원인(상한·security_group·원본 급감) 또는 LLM 단계 실패 시. 잔여는 항상 사람에게 도달."""
     n = len(diff.unexplained_tickers)
-    sample = sorted(diff.unexplained_tickers)[:MAX_SLACK_ITEMS]
+    added = [f"+{u['ticker']}({u.get('kind') or u['reason'][:14]})" for u in diff.unexplained_added][:MAX_SLACK_ITEMS]
+    removed = [f"-{u['ticker']}" for u in diff.unexplained_removed][:MAX_SLACK_ITEMS]
+    shown = len(added) + len(removed)
     return "\n".join([
-        f"[kr-pipeline universe] {snapshot_date} 배제 집합 변동 — 자동 수용 불가 {n}건, 원인 구조적({reason}) — LLM 조사 생략",
-        f"예: {', '.join(sample)}" + (f" … 외 {n - len(sample)}건" if n > len(sample) else ""),
-        "KRX 응답 완전성(종목 수)·security_group 조회 성공 여부를 확인한 뒤 재실행. 변동이 실재하면 " + ACCEPT_HINT.split(': ', 1)[1],
+        f"[kr-pipeline universe] {snapshot_date} 배제 집합 변동 — 자동 수용 불가 {n}건 ({reason}) — LLM 조사 없음, 규칙 판정만",
+        " ".join(added + removed) + (f" … 외 {n - shown}건" if n > shown else ""),
+        "KRX 응답 완전성(종목 수)·security_group 조회 성공 여부를 확인한 뒤 재실행. 변동이 실재하면 " + ACCEPT_HINT.split(": ", 1)[1],
     ])
 
 
@@ -173,28 +180,39 @@ def send_text(text: str, *, post: Callable[[str], None] = notify_universe_exclus
 
 
 # ───────────────────────── 실패 run → 보고서 ─────────────────────────
-def _last_failed_run(conn: Connection) -> dict | None:
-    """마지막 성공 이후의 가장 최근 실패 universe run(details 에 판정 있음)."""
+def _last_failed_run(conn: Connection) -> tuple[dict | None, set[str]]:
+    """(마지막 성공 이후 가장 최근 실패 universe run, 그 구간에서 이미 전송된 report_key 집합(JSON 직렬화))."""
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute("""
             SELECT id, started_at, params, details FROM pipeline_runs
              WHERE pipeline = 'universe' AND status = 'failed' AND details ? 'report_key'
                AND started_at > COALESCE((SELECT MAX(started_at) FROM pipeline_runs WHERE pipeline = 'universe' AND status = 'success'),
                                          '1970-01-01')
-             ORDER BY started_at DESC LIMIT 1""")
-        return cur.fetchone()
+             ORDER BY started_at DESC""")
+        rows = cur.fetchall()
+    if not rows:
+        return None, set()
+    sent = {json.dumps(r["details"]["report_key_sent"]) for r in rows if (r["details"] or {}).get("report_sent_at") and "report_key_sent" in r["details"]}
+    return rows[0], sent
 
 
 def _diff_from_details(d: dict) -> ExclusionDiff:
     det = d.get("exclusion_unexplained_detail") or {}
     ux = d.get("exclusion_unexplained") or {"added": [], "removed": []}
+    sysm = d.get("exclusion_systemic") or []
     return ExclusionDiff(
         added_new_listing=list((d.get("exclusion_auto_accepted") or {}).get("added_new_listing", [])),
         removed_delisted=list((d.get("exclusion_auto_accepted") or {}).get("removed_delisted", [])),
         unexplained_added=[det[t] for t in ux["added"] if t in det],
         unexplained_removed=[det[t] for t in ux["removed"] if t in det],
-        systemic=d.get("exclusion_systemic"),
+        systemic=list(sysm) if isinstance(sysm, list) else [sysm],
     )
+
+
+def _end_read_txn(conn: Connection, commit: bool) -> None:
+    """읽기만 한 암묵 트랜잭션을 닫아 LLM 대기 중 'idle in transaction' 을 피한다(테스트 commit=False 는 격리 유지)."""
+    if commit:
+        conn.commit()
 
 
 def _mark_sent(conn: Connection, run_id: int, key: list[str], *, commit: bool) -> None:
@@ -210,29 +228,40 @@ def report_last_failed(conn: Connection, *, call: Callable[..., dict] = call_cla
     """마지막 성공 이후 가장 최근 실패 run 의 잔여를 보고. 반환 = 'sent' | 'already_sent' | 'nothing' | 'failed'. 어떤 예외도 올리지 않는다.
     commit=False 는 테스트(db 픽스처 ROLLBACK 격리) 전용."""
     try:
-        run = _last_failed_run(conn)
+        run, sent_keys = _last_failed_run(conn)
         if run is None:
+            _end_read_txn(conn, commit)
             return "nothing"
         d = run["details"] or {}
-        if d.get("report_sent_at") and d.get("report_key_sent") == d.get("report_key"):
-            log.info("exclusion_report: run %s 이미 전송(%s) — 생략", run["id"], d["report_sent_at"])
+        key = d.get("report_key") or []
+        if json.dumps(key) in sent_keys:
+            _end_read_txn(conn, commit)
+            log.info("exclusion_report: 잔여 키 %s 는 마지막 성공 이후 이미 전송됨 — 생략", key)
             return "already_sent"
         diff = _diff_from_details(d)
         if not diff.unexplained:
+            _end_read_txn(conn, commit)
             return "nothing"
         snapshot_date = date.fromisoformat((run["params"] or {}).get("on_date") or run["started_at"].date().isoformat())
         prev = d.get("snapshot_prev_date")
         prev_date = date.fromisoformat(prev) if prev else None
+        text: str
         if diff.systemic or len(diff.unexplained_tickers) > MAX_LLM_ITEMS:
-            text = format_systemic(diff, snapshot_date, diff.systemic or f"잔여 {len(diff.unexplained_tickers)} > {MAX_LLM_ITEMS}")
+            _end_read_txn(conn, commit)
+            text = format_facts_only(diff, snapshot_date, ",".join(diff.systemic) or f"잔여 {len(diff.unexplained_tickers)} > {MAX_LLM_ITEMS}")
         else:
             facts = build_local_facts(conn, diff, snapshot_date=snapshot_date, prev_snapshot_date=prev_date, raw_now=d.get("exclusion_raw_now"))
-            report, meta = make_report(diff, facts, call=call)
-            text = format_report(report, snapshot_date)
-            log.warning("exclusion_report: %s 잔여 %d건 보고서 생성(model=%s)", snapshot_date, len(report["items"]), meta.get("model"))
+            _end_read_txn(conn, commit)                    # LLM 대기 전에 읽기 트랜잭션 종료
+            try:
+                report, meta = make_report(diff, facts, call=call)
+                text = format_report(report, snapshot_date)
+                log.warning("exclusion_report: %s 잔여 %d건 보고서 생성(model=%s)", snapshot_date, len(report["items"]), meta.get("model"))
+            except Exception as e:  # noqa: BLE001 — LLM 단계 실패(한도·CLI 부재·타임아웃·스키마)여도 잔여 목록은 사람에게 보낸다(리뷰 #223 3차)
+                log.warning("exclusion_report: LLM 단계 실패 — 사실만 전송: %s", e)
+                text = format_facts_only(diff, snapshot_date, f"LLM 조사 실패: {type(e).__name__}")
         if not send_text(text, post=post):
             return "failed"
-        _mark_sent(conn, run["id"], d.get("report_key") or [], commit=commit)
+        _mark_sent(conn, run["id"], key, commit=commit)
         return "sent"
     except Exception as e:  # noqa: BLE001 — 비차단(월간 체인은 이미 실패로 기록됨)
         log.warning("exclusion_report_failed: %s", e)

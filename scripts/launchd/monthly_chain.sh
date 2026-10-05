@@ -22,8 +22,9 @@ else
   log "universe 실행"
   if ! uv run python -m kr_pipeline.universe; then
     log "universe 실패 — 매핑 단계 중단(순서 보전)"
-    # (#221) 배제 집합 잔여 변동이면 조사 보고서(claude -p 웹 검색 + Slack, KRX 접촉 0). data 락을 먼저 놓는다 — LLM 대기(최대 ~10분)
-    # 동안 morning_corp 등 다른 체인을 막지 않는다. 이미 전송된 잔여(details.report_sent_at)는 생략되므로 RunAtLoad 재발화에 안전.
+    # (#221) 배제 집합 잔여 변동이면 조사 보고서(claude -p 웹 검색 + Slack, KRX 접촉 0 — 보고서 경로는 pykrx 미import). data 락을 먼저
+    # 놓는다 — LLM 대기(report.py 예산: 2회 × 1시도 × 240s ≤ 8분) 동안 morning_corp 등 다른 체인을 막지 않는다. 마지막 성공 이후 이미 전송된
+    # 잔여 키(details.report_key_sent)는 생략되므로 RunAtLoad 재발화에 안전. LLM 실패여도 규칙 판정만으로 Slack 은 간다.
     release_lock data
     uv run python -m kr_pipeline.universe --report-last-failed || log "exclusion 보고서 단계 실패(비차단)"
     exit 1

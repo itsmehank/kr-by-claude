@@ -58,6 +58,10 @@
 
 보고서를 `--report-last-failed` 별도 단계로(실패 run 의 details 에 판정 + 원본 행 사본 보존 → monthly_chain 이 data 락 해제 후 호출 → 커밋된 상태에서 사실 수집 → 전송 성공 시 `details.report_sent_at`·`report_key_sent` 로 dedup), `ever_seen`(이전 배제/원본 스냅샷) 으로 재등장 왕복 차단, 상한 초과·security_group 조회 실패는 systemic 으로 LLM 생략·사실만 Slack, 보고서 도구 WebSearch 만, Slack 본문 20건 상한, 성공·실패 details 키 통일(`ExclusionDiff.summary`), accept/strict 충돌을 KRX 접촉 전에 검사, `UniverseGuardError.prev_date`, `_post(raise_on_error)` 공유, dict_row·집합 질의.
 
+## 리뷰 3차 반영(10-05)
+
+보고서 경로의 pykrx import 제거(`__main__` fetch 래퍼 지연 import, 테스트가 subprocess 로 고정), #199 유형은 `--accept` 로도 거부(`ExclusionDiff.has_199`), dedup 을 마지막 성공 이후 **모든** 실패 run 의 `report_key_sent` 와 비교, LLM 단계 실패 시 규칙 판정만으로 Slack(`format_facts_only`)·`main()` 은 failed 에 rc 1, 원본 응답 파일 보존(`universe_raw_<date>.json`, 운영 규칙 5), 부분 응답 2차 신호(`_raw_complete`: 직전 원본 대비 시장별 2% 급감 → 상폐 자동 수용 보류·systemic `raw_shrunk`), `systemic` 복수(list), 읽기 트랜잭션을 LLM 대기 전 종료, CLI 재시도 예산(`call_claude(max_attempts=1)`, 2×240s ≤ 8분), [Q-1] 양식으로 상한 3종 질의.
+
 ## Self-Review
 - 완료 조건 1(분류·자동 수용 테스트 3케이스) → T1·T2; 2(잔여 → 실패 + Slack 보고서, 프롬프트 파일) → T3; 3(details·로그) → T2·T4; 4(#199 유형 금지 테스트) → T1·T2; 5(10-01 재현) → T1·T4.
 - 타입: `ExclusionDiff` 필드명·`classify_exclusion_diff` kwargs·`report_unexplained(conn, diff, snapshot_date, *, call, post)` 를 T2~T4 가 동일 사용.

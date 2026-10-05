@@ -2,7 +2,8 @@
 import pandas as pd
 
 from kr_pipeline.universe.exclusion_diff import (
-    AUTO_ACCEPT_AXES, MAX_AUTO_DELISTED, MAX_AUTO_NEW_LISTING, SYSTEMIC_CAP_DELISTED, classify_exclusion_diff,
+    AUTO_ACCEPT_AXES, KIND_199, MAX_AUTO_DELISTED, MAX_AUTO_NEW_LISTING, SYSTEMIC_CAP_DELISTED, SYSTEMIC_CAP_NEW_LISTING,
+    SYSTEMIC_RAW_SHRUNK, classify_exclusion_diff,
 )
 
 
@@ -36,7 +37,7 @@ def test_added_that_was_ever_in_stocks_is_unexplained_199_type():
     d = classify_exclusion_diff(prev_set=set(), excluded=_ex(("088980", "맵스리얼티", "KOSPI", "투자회사", "security_group")),
                                 raw_tickers={"088980"}, ever_in_stocks={"088980"})
     assert d.added_new_listing == [] and [u["ticker"] for u in d.unexplained_added] == ["088980"]
-    assert d.unexplained_added[0]["reason"].startswith("기존 활성")
+    assert d.unexplained_added[0]["reason"].startswith("기존 활성") and d.unexplained_added[0]["kind"] == KIND_199 and d.has_199
 
 
 def test_added_with_unknown_axis_is_unexplained():
@@ -54,7 +55,7 @@ def test_2026_10_01_real_diff_is_fully_auto_accepted():
     assert d.removed_delisted == ["465320"] and sorted(d.added_new_listing) == ["0200G0", "0209J0"] and not d.unexplained
     s = d.summary()
     assert s["exclusion_auto_accepted"]["removed_delisted"] == ["465320"] and s["exclusion_unexplained"] == {"added": [], "removed": []}
-    assert s["report_key"] == [] and s["exclusion_systemic"] is None
+    assert s["report_key"] == [] and s["exclusion_systemic"] == []
 
 
 def test_mass_removed_exceeding_cap_is_not_auto_delisted():
@@ -62,7 +63,7 @@ def test_mass_removed_exceeding_cap_is_not_auto_delisted():
     prev = {f"S{i:05d}" for i in range(MAX_AUTO_DELISTED + 1)}
     d = classify_exclusion_diff(prev_set=prev, excluded=_ex(), raw_tickers=set(), ever_in_stocks=set())
     assert d.removed_delisted == [] and len(d.unexplained_removed) == MAX_AUTO_DELISTED + 1 and "상한" in d.unexplained_removed[0]["reason"]
-    assert d.systemic == SYSTEMIC_CAP_DELISTED                       # 원인 기지 → 보고서는 LLM 생략
+    assert d.systemic == [SYSTEMIC_CAP_DELISTED]                     # 원인 기지 → 보고서는 LLM 생략
     small = {f"S{i:05d}" for i in range(MAX_AUTO_DELISTED)}
     assert len(classify_exclusion_diff(prev_set=small, excluded=_ex(), raw_tickers=set(), ever_in_stocks=set()).removed_delisted) == MAX_AUTO_DELISTED
 
@@ -79,3 +80,17 @@ def test_added_seen_in_prior_snapshot_is_not_new_listing():
                                 raw_tickers={"0004Y0"}, ever_in_stocks=set(), ever_seen={"0004Y0"})
     assert d.added_new_listing == [] and "재등장" in d.unexplained_added[0]["reason"]
     assert d.report_key() == ["+0004Y0"]
+
+
+def test_raw_incomplete_holds_delisted_auto_accept():
+    """이번 원본이 직전 대비 급감(부분 응답 의심)이면 '원본에 없음' 만으로 상폐 자동 수용하지 않는다(리뷰 #223 3차)."""
+    d = classify_exclusion_diff(prev_set={"S1", "S2"}, excluded=_ex(), raw_tickers=set(), ever_in_stocks=set(), raw_complete=False)
+    assert d.removed_delisted == [] and len(d.unexplained_removed) == 2 and "급감" in d.unexplained_removed[0]["reason"]
+    assert d.systemic == [SYSTEMIC_RAW_SHRUNK]
+
+
+def test_multiple_systemic_causes_are_all_recorded():
+    rows = [(f"N{i:05d}", f"스팩{i}", "KOSDAQ", "주권", "spac") for i in range(MAX_AUTO_NEW_LISTING + 1)]
+    prev = {f"S{i:05d}" for i in range(MAX_AUTO_DELISTED + 1)}
+    d = classify_exclusion_diff(prev_set=prev, excluded=_ex(*rows), raw_tickers={r[0] for r in rows}, ever_in_stocks=set())
+    assert d.systemic == [SYSTEMIC_CAP_DELISTED, SYSTEMIC_CAP_NEW_LISTING]
