@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Callable
 
 import psycopg
@@ -26,6 +27,18 @@ from kr_pipeline.llm_runner.slack import notify_universe_exclusion_report
 from kr_pipeline.universe.exclusion_diff import ExclusionDiff
 
 log = logging.getLogger("kr_pipeline.universe.report")
+KST = ZoneInfo("Asia/Seoul")
+
+
+def _kst_date(iso: str) -> date | None:
+    """report_sent_at(UTC ISO) → KST 날짜. 파싱 불가면 None(= 당일 아님 → 재시도 허용, 보수)."""
+    try:
+        dt = datetime.fromisoformat(str(iso))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(KST).date()
 
 PROMPT_FILE = "universe_exclusion_report_v1.md"
 REPORT_TOOLS = TOOLS_WEBSEARCH          # 검색만(파일 Read 도 열지 않는다 — cwd=리포의 .env 노출 차단, 리뷰 #223 2차)
@@ -193,14 +206,14 @@ def _last_failed_run(conn: Connection) -> tuple[dict | None, set[str]]:
         rows = cur.fetchall()      # report_key=[] (strict 실패·잔여 없음)는 제외 — 잔여 있는 옛 run 을 가리지 않는다(리뷰 #223 4차)
     if not rows:
         return None, set()
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = datetime.now(KST).date()           # 운영 시각은 KST — UTC 날짜면 09:00 KST 에 '다음 날'이 돼 같은 아침 재발화가 재시도·중복 전송(리뷰 #223 5차)
     sent = set()
     for r in rows:
         d = r["details"] or {}
         if not d.get("report_sent_at") or "report_key_sent" not in d:
             continue
         # 사실만 전송(facts_only)은 당일만 dedup — 다음 날엔 LLM 조사를 다시 시도한다(한도·CLI 일시 장애 복구)
-        if d.get("report_kind") == "facts_only" and not str(d["report_sent_at"]).startswith(today):
+        if d.get("report_kind") == "facts_only" and _kst_date(d["report_sent_at"]) != today:
             continue
         sent.add(json.dumps(d["report_key_sent"]))
     return rows[0], sent

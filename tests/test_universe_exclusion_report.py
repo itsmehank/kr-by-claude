@@ -199,3 +199,22 @@ def test_report_last_failed_facts_only_is_retried_next_day(db):
         cur.execute("SELECT details->>'report_kind' FROM pipeline_runs WHERE pipeline='universe' AND status='failed' AND details ? 'report_sent_at' "
                     "ORDER BY started_at DESC LIMIT 1")
         assert cur.fetchone()[0] == "full"
+
+
+def test_facts_only_dedup_uses_kst_day(db, monkeypatch):
+    """사실만 전송의 '당일' 은 KST 기준 — 06:30 KST(=전날 21:30 UTC) 전송 후 같은 아침 10:00 KST 재발화는 같은 날로 본다(리뷰 #223 5차)."""
+    import kr_pipeline.universe.report as rp
+    from datetime import datetime as _dt
+
+    class _FixedNow(_dt):
+        @classmethod
+        def now(cls, tz=None):
+            return _dt(2026, 11, 2, 1, 0, tzinfo=rp.timezone.utc).astimezone(tz) if tz else _dt(2026, 11, 2, 1, 0)   # = 11-02 10:00 KST
+
+    monkeypatch.setattr(rp, "datetime", _FixedNow)
+    posted = []
+    _seed_failed_run(db, {**_details(_diff()), "report_sent_at": "2026-11-01T21:30:00+00:00",     # = 11-02 06:30 KST
+                          "report_key_sent": ["+088980", "-R9"], "report_kind": "facts_only"}, minutes_ago=60)
+    _seed_failed_run(db, _details(_diff()), minutes_ago=5)
+    assert report_last_failed(db, commit=False, call=lambda *a, **k: _GOOD, post=lambda t: posted.append(t)) == "already_sent"
+    assert posted == []

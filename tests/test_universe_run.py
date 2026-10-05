@@ -158,7 +158,7 @@ def test_monthly_chain_reports_before_gate_and_sweeps_after():
     보고서 전용 스크립트를 쓰는 이유 = 모듈 호출 토큰이 게이트 앞에 놓이면 test_launchd_guards.test_wrapper_gates_before_sweep 가 깨진다."""
     from pathlib import Path
     text = (Path(__file__).parent.parent / "scripts" / "launchd" / "monthly_chain.sh").read_text()
-    i_report, i_gate, i_sweep = (text.find("scripts/universe_exclusion_report.py"), text.find("attempt_allowed universe"),
-                                 text.find("python -m kr_pipeline.universe"))
-    assert -1 < i_report < i_gate < i_sweep
+    i_report, i_lock, i_gate, i_sweep = (text.find("scripts/universe_exclusion_report.py"), text.find("acquire_lock data"),
+                                         text.find("attempt_allowed universe"), text.find("python -m kr_pipeline.universe"))
+    assert -1 < i_report < i_lock < i_gate < i_sweep          # 사전 보고서는 data 락 획득 전(리뷰 #223 5차)
     assert "--report-last-failed" not in text                      # 게이트 앞 호출은 전용 스크립트만

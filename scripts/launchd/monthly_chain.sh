@@ -8,13 +8,14 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_guards.sh"
 log "monthly_chain 시작"
 MONTH_START="date_trunc('month', now())"
 
-if ! acquire_lock data 7200; then log "data 락 획득 실패(2h) — 중단"; exit 1; fi
-
 # (#221) 이번 달 universe 가 아직 성공 전이면, 직전 실패 run 의 잔여 조사 보고서가 미전송 상태일 수 있다(웹훅 일시 장애 등) — 시도 상한과
-# 무관하게 매 발화마다 전송 시도(KRX 접촉 0·락 불요·이미 전송됐으면 즉시 no-op). universe 재시도 전에 돌려 사람이 더 일찍 본다.
+# 무관하게 매 발화마다 전송 시도(KRX 접촉 0·이미 전송됐으면 즉시 no-op). data 락 **획득 전**에 돌린다 — LLM 재시도(사실만 전송 다음 날)는
+# 최대 ~8분이라 락을 쥐면 morning_corp 등 다른 체인을 막는다(리뷰 #223 5차). universe 재시도 전에 돌려 사람이 더 일찍 본다.
 if ! has_success_since universe "$MONTH_START"; then
   uv run python scripts/universe_exclusion_report.py || log "exclusion 보고서 단계 실패(비차단)"
 fi
+
+if ! acquire_lock data 7200; then log "data 락 획득 실패(2h) — 중단"; exit 1; fi
 
 if has_success_since universe "$MONTH_START"; then  # universe 는 단일 mode
   log "universe 이번 달 몫 완료 — skip"
