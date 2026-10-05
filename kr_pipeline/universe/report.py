@@ -45,11 +45,22 @@ REPORT_TOOLS = TOOLS_WEBSEARCH          # 검색만(파일 Read 도 열지 않�
 # LLM 예산: 외부 2회(스키마/집합 불일치 재호출) × CLI 1회 시도(재시도 없음) × 240s = 최대 8분 — monthly_chain 의 "LLM 대기 ≤ ~10분" 안.
 CALL_TIMEOUT_SECONDS = 240
 CALL_MAX_ATTEMPTS = 1
-MAX_LLM_ITEMS = 20                      # [Q-1] 잔여가 이보다 많으면 원인이 구조적(부분 응답 등) — LLM 조사 생략, 사실만 전송
+MAX_LLM_ITEMS = 20                      # 잠정(회신 22 Q-C A, exclusion_diff 상한과 같은 재설정 절차). 잔여가 이보다 많으면 원인이 구조적(부분 응답 등) — LLM 조사 생략, 사실만 전송
 MAX_SLACK_ITEMS = 20
 _VERDICTS = {"delisted", "new_listing", "axis_change", "renamed", "unknown"}
 _RECOMMENDS = {"accept", "hold"}
-ACCEPT_HINT = "수용하려면 원인 확인 후: uv run python -m kr_pipeline.universe --accept-exclusion-diff (#199 유형 포함 시 accept 불가 — #199 선행)"
+ACCEPT_HINT = "수용하려면 원인 확인 후: uv run python -m kr_pipeline.universe --accept-exclusion-diff"
+
+
+def accept_hint(diff: ExclusionDiff | None) -> str:
+    """수용 안내 + accept 로도 수용 불가한 종목(#199 유형·늦은 분류 — 회신 23 Q-G) 명시. 그런 종목이 있으면 그 달 universe 는 #199 착수까지
+    멈추므로 accept 재실행을 권하지 않는다."""
+    refused = diff.accept_refused_tickers if diff is not None else []
+    if not refused:
+        return ACCEPT_HINT
+    more = f" 외 {len(refused) - MAX_SLACK_ITEMS}건" if len(refused) > MAX_SLACK_ITEMS else ""
+    return (f"accept 불가(#199 선행 — 수용 시 상장 종목이 폐지로 기록됨): {', '.join(refused[:MAX_SLACK_ITEMS])}{more} — #199 착수 신호. "
+            f"이 종목이 해소되기 전까지 --accept-exclusion-diff 재실행도 거부된다.")
 
 
 class ReportFailed(RuntimeError):
@@ -158,15 +169,21 @@ def make_report(diff: ExclusionDiff, facts: dict, *, call: Callable[..., dict] =
 
 
 # ───────────────────────── Slack 본문 ─────────────────────────
-def format_report(report: dict, snapshot_date: date) -> str:
+def format_report(report: dict, snapshot_date: date, diff: ExclusionDiff | None = None) -> str:
     items = report["items"]
+    refused = set(diff.accept_refused_tickers) if diff is not None else set()
     lines = [f"[kr-pipeline universe] {snapshot_date} 배제 집합 변동 — 자동 수용 불가 {len(items)}건 (조사 보고서, 결정 아님)",
              report["summary"].strip()]
     for it in items[:MAX_SLACK_ITEMS]:
-        lines.append(f"• {it['ticker']} — {it['verdict']} / 권고 {it['recommend']}: {it['evidence'].strip()[:400]}")
+        # accept 불가 종목은 LLM 권고와 무관하게 hold 로 표시 — 모델은 kind 를 보지 않아 accept 를 권할 수 있다(PR-B 리뷰: 운영자가 따르면
+        # KRX 전량 재조회 1회를 쓰고서야 preflight 에서 거부된다)
+        # 불가 종목이 하나라도 있으면 run 전체가 accept 로 통과하지 못한다(guards) — 나머지의 accept 권고도 그달엔 실행 불가임을 표시
+        reco = ("hold(accept 불가)" if it["ticker"] in refused
+                else f"{it['recommend']}(이번 달 불가 — 동반 거부)" if refused and it["recommend"] == "accept" else it["recommend"])
+        lines.append(f"• {it['ticker']} — {it['verdict']} / 권고 {reco}: {it['evidence'].strip()[:400]}")
     if len(items) > MAX_SLACK_ITEMS:
         lines.append(f"… 외 {len(items) - MAX_SLACK_ITEMS}건 — pipeline_runs.details.exclusion_unexplained_detail 참조")
-    lines.append(ACCEPT_HINT)
+    lines.append(accept_hint(diff))
     return "\n".join(lines)
 
 
@@ -179,7 +196,8 @@ def format_facts_only(diff: ExclusionDiff, snapshot_date: date, reason: str) -> 
     return "\n".join([
         f"[kr-pipeline universe] {snapshot_date} 배제 집합 변동 — 자동 수용 불가 {n}건 ({reason}) — LLM 조사 없음, 규칙 판정만",
         " ".join(added + removed) + (f" … 외 {n - shown}건" if n > shown else ""),
-        "KRX 응답 완전성(종목 수)·security_group 조회 성공 여부를 확인한 뒤 재실행. 변동이 실재하면 " + ACCEPT_HINT.split(": ", 1)[1],
+        "KRX 응답 완전성(종목 수)·security_group 조회 성공 여부를 확인한 뒤 재실행. "
+        + (accept_hint(diff) if diff.has_accept_refused else "변동이 실재하면 " + ACCEPT_HINT.split(": ", 1)[1]),
     ])
 
 
@@ -291,7 +309,7 @@ def report_last_failed(conn: Connection, *, call: Callable[..., dict] = call_cla
             _end_read_txn(conn, commit)                    # LLM 대기 전에 읽기 트랜잭션 종료
             try:
                 report, meta = make_report(diff, facts, call=call)
-                text = format_report(report, snapshot_date)
+                text = format_report(report, snapshot_date, diff)
                 log.warning("exclusion_report: %s 잔여 %d건 보고서 생성(model=%s)", snapshot_date, len(report["items"]), meta.get("model"))
             except Exception as e:  # noqa: BLE001 — LLM 단계 실패(한도·CLI 부재·타임아웃·스키마)여도 잔여 목록은 사람에게 보낸다(리뷰 #223 3차)
                 log.warning("exclusion_report: LLM 단계 실패 — 사실만 전송: %s", e)

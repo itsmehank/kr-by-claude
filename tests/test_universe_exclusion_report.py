@@ -218,3 +218,28 @@ def test_facts_only_dedup_uses_kst_day(db, monkeypatch):
     _seed_failed_run(db, _details(_diff()), minutes_ago=5)
     assert report_last_failed(db, commit=False, call=lambda *a, **k: _GOOD, post=lambda t: posted.append(t)) == "already_sent"
     assert posted == []
+
+
+def _diff_no_refused():
+    return classify_exclusion_diff(prev_set={"R9"}, excluded=pd.DataFrame(columns=["ticker", "name", "market", "security_group", "axis"]),
+                                   raw_tickers={"R9"}, ever_in_stocks=set())
+
+
+def test_accept_hint_names_refused_tickers():
+    """accept 불가 유형(#199·late_resolution)이 섞이면 Slack 안내가 그 종목을 명시 — accept 재실행이 거부될 것을 미리 알린다(회신 23 Q-G)."""
+    from kr_pipeline.universe.report import format_facts_only, format_report
+    ex = pd.DataFrame([("R7", "리츠7", "KOSPI", "부동산투자회사", "security_group")], columns=["ticker", "name", "market", "security_group", "axis"])
+    late = classify_exclusion_diff(prev_set={"R9"}, excluded=ex, raw_tickers={"R7", "R9"}, ever_in_stocks={"R7": "UNRESOLVED"})
+    good = {"summary": "s", "items": [{"ticker": "R7", "verdict": "axis_change", "evidence": "e", "recommend": "accept"},
+                                      {"ticker": "R9", "verdict": "unknown", "evidence": "e", "recommend": "hold"}]}
+    for text in (format_report(good, date(2026, 11, 1), late), format_facts_only(late, date(2026, 11, 1), "x")):
+        tail = text.split("accept 불가", 1)[1]
+        assert "R7" in tail and "R9" not in tail.split("\n")[-1]            # R9 = 축 풀림(accept 가능) — 불가 목록에 없음
+        assert "변동이 실재하면" not in text                                 # 불가 안내와 모순되는 수용 권유 없음
+    assert "• R7 — axis_change / 권고 hold(accept 불가)" in format_report(good, date(2026, 11, 1), late)   # LLM 의 accept 권고 덮음
+    assert "권고 hold:" in format_report(good, date(2026, 11, 1), late)                                  # R9 는 LLM 권고 그대로
+    both_accept = {**good, "items": [good["items"][0], {**good["items"][1], "recommend": "accept"}]}
+    assert "R9 — unknown / 권고 accept(이번 달 불가 — 동반 거부)" in format_report(both_accept, date(2026, 11, 1), late)
+    assert "권고 accept:" in format_report(both_accept, date(2026, 11, 1), _diff_no_refused())        # 불가 없으면 그대로
+    plain = _diff()                                                    # 088980 은 확정 그룹 → 199, R9 는 축 풀림
+    assert "R9" not in format_facts_only(plain, date(2026, 11, 1), "x").split("accept 불가", 1)[1]

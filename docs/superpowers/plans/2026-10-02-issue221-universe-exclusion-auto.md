@@ -69,3 +69,9 @@
 ## Self-Review
 - 완료 조건 1(분류·자동 수용 테스트 3케이스) → T1·T2; 2(잔여 → 실패 + Slack 보고서, 프롬프트 파일) → T3; 3(details·로그) → T2·T4; 4(#199 유형 금지 테스트) → T1·T2; 5(10-01 재현) → T1·T4.
 - 타입: `ExclusionDiff` 필드명·`classify_exclusion_diff` kwargs·`report_unexplained(conn, diff, snapshot_date, *, call, post)` 를 T2~T4 가 동일 사용.
+
+## 후속 (2026-10-05, 회신 23 Q-G — 위 4차 반영의 일부 superseded)
+
+늦은 분류(`late_resolution`)도 `--accept-exclusion-diff` 로 **수용 불가**로 변경 — 금지 사유는 원인(조회 지연 vs 규칙 변경)이 아니라 결과(stocks 행이 있는
+종목을 배제하면 `mark_delisted` 가 상장 종목을 폐지로 기록)이며 두 유형이 같다(회신 10·12). `ExclusionDiff.has_199` → `has_accept_refused`/`accept_refused_tickers`
+(`ACCEPT_REFUSED_KINDS`). 첫 발생 = #199 착수 신호(의미 정정 + 상태 컬럼 동시). 상한 10/30/20 은 회신 22 Q-C 로 A 채택(잠정, 6회 누적 후 재설정).

@@ -5,8 +5,8 @@ guard(snapshot)(guards.verify_universe_after_load)은 "이번 배제 집합 ≠ 
   (1) removed ∧ 이번 원본(raw) 목록에도 없음 → 상장폐지로 배제 집합에서 자연 탈락(원본 완전성은 __main__._raw_complete 가 먼저 fail-closed).
   (2) added ∧ 어디에도 본 적 없음(stocks·이전 배제 스냅샷·이전 원본 스냅샷) ∧ 배제 축 ∈ AUTO_ACCEPT_AXES → 신규 상장 배제 대상.
 그 외는 잔여 — 특히 #199 가 자동 수용을 금지한 "기존 활성 종목(security_group 이 확정돼 있던) → 신규 배제"(kind='199': --accept 로도
-수용 불가, 상태 컬럼·의미 정정 동반 사안), "UNRESOLVED 로 들어와 있던 행의 늦은 분류"(kind='late_resolution': 규칙 변경이 아니라 조회 지연 —
-사람 확인 후 accept 가능), "원본에는 있는데 배제에서만 빠짐"(배제 축이 풀림 = 규칙/분류 변경), "이전에 본 종목의 재등장"(왕복 — 부분 응답 의심).
+수용 불가, 상태 컬럼·의미 정정 동반 사안), "UNRESOLVED 로 들어와 있던 행의 늦은 분류"(kind='late_resolution': 원인은 조회 지연이지만 결과가 #199 와 같아 — 행 있는 종목을
+배제하면 mark_delisted 가 상장폐지로 오기록 — --accept 로도 수용 불가, 첫 발생 = #199 착수 신호, 회신 23 Q-G), "원본에는 있는데 배제에서만 빠짐"(배제 축이 풀림 = 규칙/분류 변경), "이전에 본 종목의 재등장"(왕복 — 부분 응답 의심).
 잔여는 report.py 가 조사 보고서(자료)를 만들고 사람이 --accept-exclusion-diff 로 수용한다(governance 2-1/2-2 권한 분리 — LLM 은
 결정하지 않는다). 원인이 이미 알려진 일괄 잔여는 systemic 에 쌓인다(복수 가능). 순수 함수: DB 접근 없음.
 """
@@ -19,7 +19,9 @@ import pandas as pd
 from kr_pipeline.common.security_group import UNRESOLVED
 
 AUTO_ACCEPT_AXES = frozenset({"spac", "preferred", "security_group"})   # transform.classify_exclusion_axis 의 축 이름
-# 자동 수용 상한 — spec 에 없는 수치, [Q-1] 전문가 판정 대기(PR #223). KRX 부분 응답(스로틀)으로 수백 종목이 통째로 빠지면 removed 가
+# 자동 수용 상한 — **잠정, 2026-10-01 실측 1회(상폐 1·신규 2) 기반**. 회신 22 Q-C 로 A(10/30, report.MAX_LLM_ITEMS=20) 채택, 책 근거 없음
+# (design-judgment). 월간 유형별 실측 건수(pipeline_runs universe details.exclusion_auto_accepted)를 6회 누적(≈2027-04)한 뒤 실측 최댓값
+# 기준으로 재설정(threshold-change-checklist 절차). KRX 부분 응답(스로틀)으로 수백 종목이 통째로 빠지면 removed 가
 # "원본에 없음" 조건을 전부 만족한다 — mark_delisted 의 2% 가드는 stocks 행이 없는 배제 축 종목을 못 본다. 월간 실측 규모(10-01: 상폐 1·
 # 신규 2)의 여유분으로 상한을 두고, 넘으면 그 유형 전부를 잔여로 돌린다(fail-closed). 상한 이하의 부분 응답은 __main__._raw_complete
 # (직전 원본 대비 시장별 급감 → 쓰기 전 fail-closed)가 2차 신호, 재등장 왕복은 ever_seen 이 막는다.
@@ -29,6 +31,9 @@ SYSTEMIC_CAP_DELISTED = "cap_delisted"
 SYSTEMIC_CAP_NEW_LISTING = "cap_new_listing"
 KIND_199 = "199"
 KIND_LATE_RESOLUTION = "late_resolution"
+# --accept-exclusion-diff 로도 수용 불가한 잔여 유형 — 둘 다 "stocks 행이 있는 종목 → 신규 배제"라 수용하면 적재 대상(kept)에서 빠진 그
+# 종목을 mark_delisted 가 delisted_at=오늘로 기록한다(상장 중인데 폐지). 회신 10·12(#199)·23 Q-G: 금지 사유는 원인이 아니라 결과.
+ACCEPT_REFUSED_KINDS = frozenset({KIND_199, KIND_LATE_RESOLUTION})
 
 
 @dataclass
@@ -52,9 +57,13 @@ class ExclusionDiff:
         return {u["ticker"] for u in self.unexplained_added} | {u["ticker"] for u in self.unexplained_removed}
 
     @property
-    def has_199(self) -> bool:
-        """#199 유형(security_group 확정 상태였던 기존 종목 → 신규 배제) 포함 여부 — --accept-exclusion-diff 로도 수용 불가."""
-        return any(u.get("kind") == KIND_199 for u in self.unexplained_added)
+    def accept_refused_tickers(self) -> list[str]:
+        """--accept-exclusion-diff 로도 수용 불가한 잔여(#199 유형 + 늦은 분류) 티커 — 해소 경로는 #199(의미 정정 + 상태 컬럼)."""
+        return sorted(u["ticker"] for u in self.unexplained_added if u.get("kind") in ACCEPT_REFUSED_KINDS)
+
+    @property
+    def has_accept_refused(self) -> bool:
+        return bool(self.accept_refused_tickers)
 
     def report_key(self) -> list[str]:
         """방향 포함 잔여 키(보고서 dedup 용): ['+088980', '-R9']."""
@@ -82,7 +91,7 @@ def classify_exclusion_diff(*, prev_set: set[str], excluded: pd.DataFrame, raw_t
     """prev_set = 직전 스냅샷의 배제 티커, excluded = 이번 배제 df(ticker,name,market,security_group,axis),
     raw_tickers = 이번 fetch_universe 원본 전량(필터 전; None 이면 removed 전부 잔여 — 상폐 판정 불가),
     ever_in_stocks = stocks 에 존재한 적 있는 티커 → 그 행의 security_group(dict; set 이면 전부 확정 취급). UNRESOLVED 였던 행은
-    kind='late_resolution'(늦은 분류, accept 가능), 확정 그룹이었던 행은 kind='199'(accept 불가).
+    kind='late_resolution'(늦은 분류), 확정 그룹이었던 행은 kind='199' — 둘 다 accept 불가(ACCEPT_REFUSED_KINDS).
     ever_seen = 이전 배제/원본 스냅샷에 등장한 티커(재등장 = 왕복 의심)."""
     cur = {} if excluded is None or excluded.empty else {r.ticker: r for r in excluded.itertuples(index=False)}
     seen = ever_seen or set()
@@ -93,7 +102,7 @@ def classify_exclusion_diff(*, prev_set: set[str], excluded: pd.DataFrame, raw_t
         axis = getattr(r, "axis", None)
         if t in in_stocks:
             if (in_stocks[t] or UNRESOLVED) == UNRESOLVED:
-                out.unexplained_added.append(_added(r, "UNRESOLVED 로 적재돼 있던 종목의 늦은 security_group 분류 — 규칙 변경 아님(조회 지연), 확인 후 accept 가능",
+                out.unexplained_added.append(_added(r, f"UNRESOLVED 로 적재돼 있던 종목이 배제 축 '{axis}' 에 걸림(늦은 분류) — 수용 시 상장폐지 오기록, accept 불가(#199 선행)",
                                                     KIND_LATE_RESOLUTION))
             else:
                 out.unexplained_added.append(_added(r, "기존 활성(또는 폐지 이력, security_group 확정) 종목이 새로 배제 — #199 유형, 자동·accept 수용 금지", KIND_199))
