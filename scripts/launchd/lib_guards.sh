@@ -8,7 +8,7 @@ REPO="${KR_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/schedule.env"
 # 락은 /tmp — 재부팅 시 소거돼 죽은 PID 의 stale lock 이 영구 차단하지 않게
 # (bt_backfill_loop_c.sh 의 기존 교훈과 동일)
-LOCK_DIR="/tmp/kr-by-claude-locks"
+LOCK_DIR="${LOCK_DIR:-/tmp/kr-by-claude-locks}"   # 테스트가 tmp 로 재지정(#228)
 mkdir -p "$LOCK_DIR"
 # ── #92: 접촉 빈도 제한 설정 ──────────────────────────────────────
 KR_DB="${KR_DB:-kr_pipeline}"
@@ -61,9 +61,14 @@ print(expected_latest_trading_day(datetime.now(ZoneInfo('Asia/Seoul'))))
   out=$(printf '%s\n' "$raw" | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
   if [ -z "$out" ] && [ "$errf" != /dev/null ]; then
     # pykrx 는 KRX 인증 실패 등을 stdout 으로 찍기도 한다(07-31) — 날짜가 아닌 stdout 줄도 사유로 함께 남긴다(PR 리뷰)
-    printf '%s\n' "$raw" | grep -vE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$|^[[:space:]]*$' >> "$errf"
-    { echo "[$(date '+%Y-%m-%d %H:%M:%S')] eltd 실패"; tail -30 "$errf"; } >> "$ELTD_ERR_LOG" 2>/dev/null
-    log "ELTD 실패 사유: $(grep -v '^[[:space:]]*$' "$errf" | tail -1 | cut -c1-200) (전문: $ELTD_ERR_LOG)"
+    { echo "[$(date '+%Y-%m-%d %H:%M:%S')] eltd 실패"
+      printf '%s\n' "$raw" | grep -vE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$|^[[:space:]]*$' | tail -10 | sed 's/^/[stdout] /'
+      tail -30 "$errf" | sed 's/^/[stderr] /'; } >> "$ELTD_ERR_LOG" 2>/dev/null
+    # 사유 1줄 = stderr 마지막 줄(파이썬 예외), 없으면 stdout 마지막 줄(pykrx 가 stdout 으로 찍는 인증 실패 등)
+    local reason
+    reason=$(grep -v '^[[:space:]]*$' "$errf" | tail -1)
+    [ -z "$reason" ] && reason=$(printf '%s\n' "$raw" | grep -vE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$|^[[:space:]]*$' | tail -1)
+    log "ELTD 실패 사유: ${reason:0:200} (전문: $ELTD_ERR_LOG)"
   fi
   [ "$errf" != /dev/null ] && rm -f "$errf"
   [ -n "$out" ] && echo "$out"
@@ -168,6 +173,17 @@ intraday_lock() {
 bt_loop_alive() {
   local pf="/tmp/bt_loop_c.pid"
   [ -f "$pf" ] && kill -0 "$(cat "$pf" 2>/dev/null)" 2>/dev/null
+}
+
+# (#228) 데이터 체인이 지금 data 락을 쥐고 있는가 — 감시가 "적재 중"을 결측으로 오판하지 않게 판정을 다음 시각으로 미룬다.
+# pid 가 죽은 stale 락은 쥔 것으로 치지 않는다(SIGKILL·전원 차단 잔존 락이 알림을 무기한 막지 않게). pid 파일이 아직 없으면
+# (mkdir 직후 찰나) 쥔 것으로 본다.
+data_lock_held() {
+  local d="$LOCK_DIR/data.d" pid
+  [ -d "$d" ] || return 1
+  pid=$(cat "$d/pid" 2>/dev/null) || return 0
+  [ -z "$pid" ] && return 0
+  kill -0 "$pid" 2>/dev/null
 }
 
 # mkdir 원자 락. acquire_lock <name> <timeout_sec>. stale(pid 사망) 자동 회수.

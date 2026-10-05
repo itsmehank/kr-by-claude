@@ -578,7 +578,22 @@ def test_watch_checks_data_miss_from_cache_value():
     i = text.index("eltd_cache_value_overdue")
     block = text[i:i + 600]
     assert 'alert "miss.data.$' in block and "daily_indicators" in block
-    assert '[ ! -d "$LOCK_DIR/data.d" ]' in block and '[ -n "$MAXV" ]' in block    # 적재 중 보류·조회 실패 오탐 방지(PR 리뷰)
+    assert "! data_lock_held" in block and '[ -n "$MAXV" ]' in block                 # 적재 중 보류·조회 실패 오탐 방지(PR 리뷰)
+    sec3 = text[text.index('if [ "$DUE" = "1" ]'):][:700]
+    assert "data_lock_held ||" in sec3 and '[ -n "$MAXI" ]' in sec3                  # 3 의 같은 키 알림도 같은 가드(재리뷰)
+
+
+def test_data_lock_held_ignores_stale_lock(tmp_path):
+    """적재 중(살아 있는 pid)만 보류 — 죽은 pid 의 잔존 락은 알림을 막지 않는다(재리뷰: SIGKILL 잔존 락이 3a 를 무기한 끄던 경로)."""
+    env = {"LOCK_DIR": str(tmp_path)}
+    chk = "data_lock_held && echo HELD || echo FREE"
+    assert "FREE" in run_guard(chk, env).stdout                                       # 락 없음
+    d = tmp_path / "data.d"; d.mkdir()
+    assert "HELD" in run_guard(chk, env).stdout                                       # pid 기록 전 찰나
+    (d / "pid").write_text(str(os.getpid()))
+    assert "HELD" in run_guard(chk, env).stdout                                       # 살아 있는 pid
+    (d / "pid").write_text("999999")
+    assert "FREE" in run_guard(chk, env).stdout                                       # 죽은 pid = stale
 
 
 def test_eltd_with_retry_retries_then_succeeds(tmp_path):
@@ -609,7 +624,9 @@ def test_eltd_failure_reason_is_preserved(tmp_path):
     assert marker.exists(), "가짜 uv 가 실행되지 않았다 — 실제 KRX 조회 위험"
     assert "V=" in r.stdout and "V=2" not in r.stdout
     assert "ConnectionError: KRX unreachable" in err.read_text()
-    assert "KRX 로그인 실패: 비밀번호 변경 필요" in err.read_text()          # pykrx 가 stdout 으로 찍는 사유도 보존(PR 리뷰)
+    assert "[stdout] KRX 로그인 실패: 비밀번호 변경 필요" in err.read_text()   # pykrx 가 stdout 으로 찍는 사유도 보존(PR 리뷰)
+    assert "[stderr] ConnectionError: KRX unreachable" in err.read_text()
+    assert "ELTD 실패 사유: ConnectionError: KRX unreachable" in r.stderr      # 사유 1줄 = stderr 예외 우선(재리뷰)
 
 
 def test_evening_chain_uses_retry():
