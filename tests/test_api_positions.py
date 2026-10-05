@@ -64,7 +64,7 @@ def test_list_evaluations(client, seed_position):
 
 
 def test_list_positions_exposes_volume_regime_flag(client, seed_position, db):
-    """최신 보유 climax(T2) 평가의 volume_regime_flag 를 노출(spec D9 PR-3). decline 행은 읽지 않는다(거래량 입력 없음)."""
+    """최신 보유 climax(T2) 평가의 volume_regime_flag 를 노출(spec D9 PR-3). decline 행은 읽지 않는다(같은 창·같은 값 — 회신 23 Q-D)."""
     with db.cursor() as cur:
         cur.execute("INSERT INTO position_climax_evaluations (position_id, eval_date, fired, suppressed, hold_days, triggers, mode, volume_regime_flag) "
                     "VALUES (%s, '2026-10-01', FALSE, FALSE, 1, '[]', 'quality', 'mixed')", (seed_position,))

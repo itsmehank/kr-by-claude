@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from kr_pipeline.common.data_regimes import FLAG_MIXED, VOLUME_REGIME_BOUNDARY as B
 from kr_pipeline.common.regime_windows import (
     DAILY_WINDOW_MAX_CAL_DAYS, WEEKLY_WINDOW_MAX_CAL_DAYS, classification_flag, daily_window_flag, entry_window_flag,
-    range_flag_from_week_ends, weekly_window_flag,
+    held_window_flag, weekly_window_flag,
 )
 
 
@@ -68,13 +68,27 @@ def test_weekly_window_flag_and_zero_bar_weeks_excluded(db):
     assert weekly_window_flag(db, "RWW3", post[-1], n=2) is None               # 할트 없으면 최근 2주 모두 extended
 
 
-def test_range_flag_from_week_ends_is_pure():
+def test_held_window_flag_is_pure():
     fridays = [date(2026, 8, 7) + timedelta(weeks=i) for i in range(12)]      # 08-07 ~ 10-23
     after = [f for f in fridays if f >= B]
-    assert range_flag_from_week_ends(fridays, None) is None                    # 앵커 없음
-    assert range_flag_from_week_ends([f.isoformat() for f in fridays], "2026-08-21") == "mixed"
-    assert range_flag_from_week_ends(fridays, after[0]) is None                # 앵커 = 경계 첫 주 → 전부 extended
-    assert range_flag_from_week_ends([], "2026-08-21") is None                 # 창 비어 있음
+    assert held_window_flag(fridays, None) is None                             # 앵커 없음
+    assert held_window_flag([f.isoformat() for f in fridays], "2026-08-21") == "mixed"
+    assert held_window_flag([], "2026-08-21") is None                          # 창 비어 있음
+    assert held_window_flag(after, after[0]) is None                           # 앵커 앞 주봉이 없고 전부 extended
+
+
+def test_held_window_flag_includes_anchor_c3_denominator():
+    """회신 22 Q-A·23 Q-D: 창 = 앵커를 적격 판정한 C3 분모(앵커 직전 W주) ~ 평가 주. find_anchor 는 마지막 주부터 거꾸로 각 주의 C3 를
+    본 뒤 앵커를 고르므로 앵커 선택 자체가 [앵커 − W, 마지막 주] 거래량에 의존한다."""
+    from kr_pipeline.common.thresholds import CLIMAX_ANCHOR_VOL_AVG_WEEKS as W
+    first = B - timedelta(days=B.weekday()) + timedelta(days=4) - timedelta(weeks=W + 10)   # 경계 주 금요일 − (W+10)주
+    fridays = [first + timedelta(weeks=i) for i in range(2 * W + 20)]
+    after = [f for f in fridays if f >= B]
+    assert held_window_flag(fridays, after[0]) == FLAG_MIXED                   # 경계 후 앵커지만 C3 분모가 경계 전 → mixed(종전 NULL)
+    assert held_window_flag(fridays, after[W - 1]) == FLAG_MIXED               # 분모 W주 중 1주가 경계 전
+    assert held_window_flag(fridays, after[W]) is None                         # 분모 W주 전부 경계 후 → 창 전체 extended
+    off_grid = (after[W] - timedelta(days=1)).isoformat()                      # 목록에 없는 앵커(방어) → 그 이후 첫 주 기준
+    assert held_window_flag(fridays, off_grid) is None
 
 
 def test_flags_short_circuit_without_db_before_boundary_and_after_cap(db, monkeypatch):
