@@ -8,7 +8,7 @@ REPO="${KR_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/schedule.env"
 # 락은 /tmp — 재부팅 시 소거돼 죽은 PID 의 stale lock 이 영구 차단하지 않게
 # (bt_backfill_loop_c.sh 의 기존 교훈과 동일)
-LOCK_DIR="${LOCK_DIR:-/tmp/kr-by-claude-locks}"   # 테스트가 tmp 로 재지정(#228)
+LOCK_DIR="${KR_LOCK_DIR:-/tmp/kr-by-claude-locks}"   # 테스트가 KR_LOCK_DIR 로 재지정(#228) — 일반 이름 LOCK_DIR 상속 충돌 방지
 mkdir -p "$LOCK_DIR"
 # ── #92: 접촉 빈도 제한 설정 ──────────────────────────────────────
 KR_DB="${KR_DB:-kr_pipeline}"

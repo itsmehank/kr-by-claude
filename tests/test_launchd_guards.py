@@ -585,7 +585,7 @@ def test_watch_checks_data_miss_from_cache_value():
 
 def test_data_lock_held_ignores_stale_lock(tmp_path):
     """적재 중(살아 있는 pid)만 보류 — 죽은 pid 의 잔존 락은 알림을 막지 않는다(재리뷰: SIGKILL 잔존 락이 3a 를 무기한 끄던 경로)."""
-    env = {"LOCK_DIR": str(tmp_path)}
+    env = {"KR_LOCK_DIR": str(tmp_path)}
     chk = "data_lock_held && echo HELD || echo FREE"
     assert "FREE" in run_guard(chk, env).stdout                                       # 락 없음
     d = tmp_path / "data.d"; d.mkdir()
@@ -639,3 +639,12 @@ def test_suite_eltd_is_contact_free_by_default():
     assert os.environ.get("ELTD_UV_BIN") == "/usr/bin/false"
     r = run_guard('v=$(eltd); echo "V=$v"')
     assert r.stdout.strip() == "V=", r.stdout + r.stderr
+
+
+def test_eltd_failure_reason_falls_back_to_stdout(tmp_path):
+    """stderr 가 비면 사유 1줄은 pykrx 가 stdout 으로 찍은 줄(인증 실패 등)."""
+    fake = tmp_path / "uv"; marker = tmp_path / "ran"
+    fake.write_text(f"#!/bin/bash\ntouch '{marker}'\necho 'KRX 로그인 실패: 비밀번호 변경 필요'\nexit 0\n"); fake.chmod(0o755)
+    r = run_guard('v=$(eltd); echo "V=$v"', {"ELTD_UV_BIN": str(fake), "ELTD_ERR_LOG": str(tmp_path / "e.log")})
+    assert marker.exists() and r.stdout.strip() == "V="
+    assert "ELTD 실패 사유: KRX 로그인 실패: 비밀번호 변경 필요" in r.stderr
