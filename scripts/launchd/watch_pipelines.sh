@@ -66,6 +66,16 @@ done
 
 [ "$GRACE" = "1" ] && exit 0
 
+# ── 3a. (#228) 캐시 **값** 기준 데이터 결측 — 아래 3 의 fresh_today/stale 분기는 캐시 mtime 에 의존해, 다른 체인(토 03:17 주말 체인)이
+#    캐시를 새로 쓰면 직전 평일 저녁 결측이 가려진다(10-02 ELTD 실패 → 10-05 까지 무알림). 값(목표일)이 판정 시점을 지났는데 지표가
+#    없으면 요일·mtime 과 무관하게 알린다. dedupe 키는 3 의 miss.data 와 같다(중복 없음).
+#    체인이 data 락을 쥐고 있으면(23시 넘어 도는 늦은 catch-up·kickstart) 적재 중이라 판정을 다음 시각으로 미룬다. 조회 실패(빈 값)는
+#    결측으로 보지 않는다 — DB 불통은 위의 db_down 이 담당(PR 리뷰: 빈 문자열 < 날짜가 참이라 오탐).
+if EV=$(eltd_cache_value_overdue) && ! data_lock_held; then
+  MAXV=$(q "SELECT COALESCE(MAX(date)::text,'0001-01-01') FROM daily_indicators")
+  [ -n "$MAXV" ] && [ "$MAXV" \< "$EV" ] && alert "miss.data.$EV" "데이터 체인 미완료 (대상 거래일 $EV, 지표 최신 $MAXV — 캐시 값 기준)"
+fi
+
 # ── 3. 저녁 몫 결측 — 캐시 기준. 라이브 조회하지 않는다(#92).
 #    캐시는 체인이 발화할 때마다 갱신된다(공휴일에도 평일 스케줄로 발화 → 갱신).
 #    오늘 INTRADAY_LOCK_END(20:25) 이후 기록일 때만 캐시 값이 오늘의 목표일이다(3차 H-1) — 어제 기록으로
@@ -77,7 +87,8 @@ if [ -n "$E" ] && eltd_cache_fresh_today; then
   DUE=$(q "SELECT (now() >= '$E'::date + interval '$WATCH_DUE_HOUR hours')::int")   # 대상일 WATCH_DUE_HOUR(23)시 이후 판정 — schedule.env(발화 20:30 + 데이터 체인 최대 2h10m + 여유)
   if [ "$DUE" = "1" ]; then
     MAXI=$(q "SELECT COALESCE(MAX(date)::text,'0001-01-01') FROM daily_indicators")
-    [ "$MAXI" \< "$E" ] && alert "miss.data.$E" "데이터 체인 미완료 (대상 거래일 $E, 지표 최신 $MAXI)"
+    # (#228 재리뷰) 23시 넘어 같은 날 데이터를 아직 적재 중이면(data 락 보유) 3a 와 같게 보류, 조회 실패(빈 값)는 결측 아님
+    data_lock_held || { [ -n "$MAXI" ] && [ "$MAXI" \< "$E" ] && alert "miss.data.$E" "데이터 체인 미완료 (대상 거래일 $E, 지표 최신 $MAXI)"; }
     N=$(q "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='llm_daily_delta' AND mode='full-daily' AND status IN ('success','running') AND params->>'as_of'='$E'")
     [ "${N:-0}" -gt 0 ] || alert "miss.llm.$E" "LLM full-daily 미시작 (대상 $E)"
     N=$(q "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='trade_management' AND mode='daily-eval' AND status='success' AND started_at >= '$E'::date + $(close_buffer_sql_interval)")

@@ -541,3 +541,110 @@ def test_evening_chain_log_lines_expand_under_utf8_locale():
     r = subprocess.run(["bash", "-u", "-c", body], capture_output=True, encoding="utf-8", errors="replace", env=env)
     assert r.returncode == 0, r.stderr
     assert "2552행" in r.stdout, r.stdout
+
+
+# ─── #228: ELTD 실패 재시도·사유 보존, 캐시 값 기준 데이터 결측 ─────────────────
+
+def _epoch(y, mo, d, h, mi):
+    from datetime import datetime
+    return int(datetime(y, mo, d, h, mi).timestamp())
+
+
+def test_eltd_cache_value_overdue_detects_miss_masked_by_weekend_cache(tmp_path):
+    """10-02 사건 재현: 금 20:43 ELTD 실패 → 토 03:17 주말 체인이 캐시를 '10-03:pre|10-02' 로 새로 써 mtime 기반 stale 판정
+    (eltd_cache_older_than_prev_workday_close)이 결측을 가렸다. 캐시 **값**(목표일)이 판정 시점(목표일 + WATCH_DUE_HOUR)을 지났으면
+    mtime·키와 무관하게 그 목표일을 낸다 — 값은 쓴 시점에 이미 마감된 거래일이므로 지표가 있어야 한다."""
+    cache = tmp_path / "eltd.cache"
+    cache.write_text("2026-10-01:post|2026-10-01\n2026-10-03:pre|2026-10-02\n")
+    env = {"ELTD_CACHE": str(cache)}
+    r = run_guard(f"eltd_cache_value_overdue {_epoch(2026, 10, 5, 13, 49)} && echo RC0 || echo RC1", env)
+    assert r.stdout.split() == ["2026-10-02", "RC0"], r.stdout + r.stderr
+    r = run_guard(f"eltd_cache_value_overdue {_epoch(2026, 10, 2, 22, 0)} && echo RC0 || echo RC1", env)   # 판정 시점(23시) 전
+    assert r.stdout.split() == ["RC1"], r.stdout + r.stderr
+    r = run_guard(f"eltd_cache_value_overdue {_epoch(2026, 10, 2, 23, 0)} && echo RC0 || echo RC1", env)   # 경계 = 23:00 포함
+    assert r.stdout.split() == ["2026-10-02", "RC0"], r.stdout + r.stderr
+    r = run_guard("eltd_cache_value_overdue 9999999999 && echo RC0 || echo RC1", {"ELTD_CACHE": str(tmp_path / "absent")})
+    assert r.stdout.split() == ["RC1"]
+
+
+def test_eltd_cache_value_overdue_never_runs_python():
+    body = run_guard("declare -f eltd_cache_value_overdue").stdout
+    assert body.strip() and all(f not in body for f in ("uv run", "python", "pykrx"))
+
+
+def test_watch_checks_data_miss_from_cache_value():
+    """watch 가 캐시 값 기준 miss.data 를 'fresh_today' 분기 밖에서도 판정한다(같은 dedupe 키 — 중복 알림 없음)."""
+    text = (LAUNCHD / "watch_pipelines.sh").read_text()
+    i = text.index("eltd_cache_value_overdue")
+    block = text[i:i + 600]
+    assert 'alert "miss.data.$' in block and "daily_indicators" in block
+    assert "! data_lock_held" in block and '[ -n "$MAXV" ]' in block                 # 적재 중 보류·조회 실패 오탐 방지(PR 리뷰)
+    sec3 = text[text.index('if [ "$DUE" = "1" ]'):][:700]
+    assert "data_lock_held ||" in sec3 and '[ -n "$MAXI" ]' in sec3                  # 3 의 같은 키 알림도 같은 가드(재리뷰)
+
+
+def test_data_lock_held_ignores_stale_lock(tmp_path):
+    """적재 중(살아 있는 pid)만 보류 — 죽은 pid 의 잔존 락은 알림을 막지 않는다(재리뷰: SIGKILL 잔존 락이 3a 를 무기한 끄던 경로)."""
+    env = {"KR_LOCK_DIR": str(tmp_path)}
+    chk = "data_lock_held && echo HELD || echo FREE"
+    assert "FREE" in run_guard(chk, env).stdout                                       # 락 없음
+    d = tmp_path / "data.d"; d.mkdir()
+    assert "HELD" in run_guard(chk, env).stdout                                       # pid 기록 전 찰나
+    (d / "pid").write_text(str(os.getpid()))
+    assert "HELD" in run_guard(chk, env).stdout                                       # 살아 있는 pid
+    (d / "pid").write_text("999999")
+    assert "FREE" in run_guard(chk, env).stdout                                       # 죽은 pid = stale
+
+
+def test_eltd_with_retry_retries_then_succeeds(tmp_path):
+    cnt = tmp_path / "n"
+    stub = f'eltd() {{ n=$(cat "{cnt}" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "{cnt}"; [ $n -ge 3 ] && echo 2026-10-02; return 0; }}'
+    r = run_guard(f"{stub}\nv=$(eltd_with_retry); echo \"V=$v\"", {"ELTD_RETRY_SLEEP": "0"})
+    assert "V=2026-10-02" in r.stdout and cnt.read_text().strip() == "3", r.stdout + r.stderr
+    assert r.stderr.count("재시도") == 2, r.stderr
+
+
+def test_eltd_with_retry_gives_up_after_attempts(tmp_path):
+    cnt = tmp_path / "n"
+    stub = f'eltd() {{ n=$(cat "{cnt}" 2>/dev/null || echo 0); echo $((n+1)) > "{cnt}"; return 0; }}'
+    r = run_guard(f"{stub}\nv=$(eltd_with_retry) && echo OK || echo FAIL; echo \"V=$v\"", {"ELTD_RETRY_SLEEP": "0"})
+    assert "FAIL" in r.stdout and "V=" in r.stdout and "V=2" not in r.stdout
+    assert cnt.read_text().strip() == "3"
+
+
+def test_eltd_failure_reason_is_preserved(tmp_path):
+    """eltd() 가 stderr 를 버리면 실패 원인이 사라진다(09-30·10-02 원인 미확정) — 실패 시 ELTD_ERR_LOG 에 남긴다."""
+    fake = tmp_path / "bin"; fake.mkdir()
+    err = tmp_path / "eltd_err.log"
+    marker = tmp_path / "fake_uv_ran"
+    (fake / "uv").write_text(f"#!/bin/bash\ntouch '{marker}'\necho 'KRX 로그인 실패: 비밀번호 변경 필요'\necho 'ConnectionError: KRX unreachable' >&2\nexit 1\n")
+    (fake / "uv").chmod(0o755)
+    # PATH 앞에 두는 방식은 lib_guards 의 PATH 고정 때문에 실제 uv(→ pykrx KRX 조회)를 부른다 — ELTD_UV_BIN 으로만 대체(#228 실측)
+    r = run_guard("v=$(eltd); echo \"V=$v\"", {"ELTD_UV_BIN": str(fake / "uv"), "ELTD_ERR_LOG": str(err)})
+    assert marker.exists(), "가짜 uv 가 실행되지 않았다 — 실제 KRX 조회 위험"
+    assert "V=" in r.stdout and "V=2" not in r.stdout
+    assert "ConnectionError: KRX unreachable" in err.read_text()
+    assert "[stdout] KRX 로그인 실패: 비밀번호 변경 필요" in err.read_text()   # pykrx 가 stdout 으로 찍는 사유도 보존(PR 리뷰)
+    assert "[stderr] ConnectionError: KRX unreachable" in err.read_text()
+    assert "ELTD 실패 사유: ConnectionError: KRX unreachable" in r.stderr      # 사유 1줄 = stderr 예외 우선(재리뷰)
+
+
+def test_evening_chain_uses_retry():
+    text = (LAUNCHD / "evening_chain.sh").read_text()
+    assert "ELTD=$(eltd_with_retry)" in text and "ELTD=$(eltd)" not in text
+
+
+def test_suite_eltd_is_contact_free_by_default():
+    """conftest 가 ELTD_UV_BIN=/usr/bin/false 로 두므로 테스트에서 eltd() 가 불려도 pykrx·KRX 를 타지 않는다(#228 개발 중 실측 사고 재발 방지)."""
+    assert os.environ.get("ELTD_UV_BIN") == "/usr/bin/false"
+    r = run_guard('v=$(eltd); echo "V=$v"')
+    assert r.stdout.strip() == "V=", r.stdout + r.stderr
+
+
+def test_eltd_failure_reason_falls_back_to_stdout(tmp_path):
+    """stderr 가 비면 사유 1줄은 pykrx 가 stdout 으로 찍은 줄(인증 실패 등)."""
+    fake = tmp_path / "uv"; marker = tmp_path / "ran"
+    fake.write_text(f"#!/bin/bash\ntouch '{marker}'\necho 'KRX 로그인 실패: 비밀번호 변경 필요'\nexit 0\n"); fake.chmod(0o755)
+    r = run_guard('v=$(eltd); echo "V=$v"', {"ELTD_UV_BIN": str(fake), "ELTD_ERR_LOG": str(tmp_path / "e.log")})
+    assert marker.exists() and r.stdout.strip() == "V="
+    assert "ELTD 실패 사유: KRX 로그인 실패: 비밀번호 변경 필요" in r.stderr

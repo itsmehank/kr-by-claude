@@ -14,12 +14,13 @@ if intraday_lock; then
 fi
 
 # ── 대상 거래일 (fail-closed)
-ELTD=$(eltd)
+# (#228) 재시도 3회(120s 간격) — 기상 직후 일시 장애 1회로 그날 결측이 확정되던 경로(09-30·10-02). 실패 사유는 eltd() 가 로그에 남긴다.
+ELTD=$(eltd_with_retry)
 if [ -z "$ELTD" ]; then
   # #92 결정 4: 중단은 유지하되 종료 코드는 0. exit 1 이면 launchd 가 failed 로 기록하고
   # 감시의 failed.* 알림이 발화마다 울린다(차단 기간엔 같은 알림 반복). 데이터 결측 자체는
-  # miss.data.* 알림이 담당하므로 정보 손실이 없다.
-  log "ELTD 산출 실패(pykrx) — fail-closed 중단(exit 0: launchd failed 소음 회피)"
+  # miss.data.* 알림이 담당한다 — (#228) 캐시 값 기준 판정이 주말 체인의 캐시 갱신에 가려지지 않게 보강됨.
+  log "ELTD 산출 실패(pykrx, ${ELTD_RETRY_ATTEMPTS:-3}회) — fail-closed 중단(exit 0: launchd failed 소음 회피)"
   exit 0
 fi
 log "대상 거래일 ELTD=$ELTD"
