@@ -48,17 +48,20 @@ ELTD_ERR_LOG="${ELTD_ERR_LOG:-$_KR_HOME/.kr-by-claude/state/eltd_err.log}"
 # ELTD_UV_BIN = 테스트 전용 대체 실행 파일(이 파일이 PATH 를 고정하므로 PATH 앞에 가짜 uv 를 두는 방식은 통하지 않는다 —
 # 실제 pykrx 조회가 나간다, #228 개발 중 실측). 운영은 미설정(uv).
 eltd() {
-  local errf out
+  local errf raw out
   errf=$(mktemp "${TMPDIR:-/tmp}/eltd_err.XXXXXX") || errf=/dev/null
   # config import = .env 로드(KRX 인증 — 미로드 시 pykrx 에러 문구가 stdout 오염, 07-31 실전 발견)
-  out=$("${ELTD_UV_BIN:-uv}" run python -c "
+  raw=$("${ELTD_UV_BIN:-uv}" run python -c "
 from kr_pipeline.common import config  # noqa: F401 — load_dotenv
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from kr_pipeline.common.trading_calendar import expected_latest_trading_day
 print(expected_latest_trading_day(datetime.now(ZoneInfo('Asia/Seoul'))))
-" 2>"$errf" | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+" 2>"$errf")
+  out=$(printf '%s\n' "$raw" | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
   if [ -z "$out" ] && [ "$errf" != /dev/null ]; then
+    # pykrx 는 KRX 인증 실패 등을 stdout 으로 찍기도 한다(07-31) — 날짜가 아닌 stdout 줄도 사유로 함께 남긴다(PR 리뷰)
+    printf '%s\n' "$raw" | grep -vE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$|^[[:space:]]*$' >> "$errf"
     { echo "[$(date '+%Y-%m-%d %H:%M:%S')] eltd 실패"; tail -30 "$errf"; } >> "$ELTD_ERR_LOG" 2>/dev/null
     log "ELTD 실패 사유: $(grep -v '^[[:space:]]*$' "$errf" | tail -1 | cut -c1-200) (전문: $ELTD_ERR_LOG)"
   fi

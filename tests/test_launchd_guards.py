@@ -578,6 +578,7 @@ def test_watch_checks_data_miss_from_cache_value():
     i = text.index("eltd_cache_value_overdue")
     block = text[i:i + 600]
     assert 'alert "miss.data.$' in block and "daily_indicators" in block
+    assert '[ ! -d "$LOCK_DIR/data.d" ]' in block and '[ -n "$MAXV" ]' in block    # 적재 중 보류·조회 실패 오탐 방지(PR 리뷰)
 
 
 def test_eltd_with_retry_retries_then_succeeds(tmp_path):
@@ -599,16 +600,16 @@ def test_eltd_with_retry_gives_up_after_attempts(tmp_path):
 def test_eltd_failure_reason_is_preserved(tmp_path):
     """eltd() 가 stderr 를 버리면 실패 원인이 사라진다(09-30·10-02 원인 미확정) — 실패 시 ELTD_ERR_LOG 에 남긴다."""
     fake = tmp_path / "bin"; fake.mkdir()
-    (fake / "uv").write_text("#!/bin/bash\necho 'ConnectionError: KRX unreachable' >&2\nexit 1\n"); (fake / "uv").chmod(0o755)
     err = tmp_path / "eltd_err.log"
     marker = tmp_path / "fake_uv_ran"
-    (fake / "uv").write_text(f"#!/bin/bash\ntouch '{marker}'\necho 'ConnectionError: KRX unreachable' >&2\nexit 1\n")
+    (fake / "uv").write_text(f"#!/bin/bash\ntouch '{marker}'\necho 'KRX 로그인 실패: 비밀번호 변경 필요'\necho 'ConnectionError: KRX unreachable' >&2\nexit 1\n")
+    (fake / "uv").chmod(0o755)
     # PATH 앞에 두는 방식은 lib_guards 의 PATH 고정 때문에 실제 uv(→ pykrx KRX 조회)를 부른다 — ELTD_UV_BIN 으로만 대체(#228 실측)
     r = run_guard("v=$(eltd); echo \"V=$v\"", {"ELTD_UV_BIN": str(fake / "uv"), "ELTD_ERR_LOG": str(err)})
     assert marker.exists(), "가짜 uv 가 실행되지 않았다 — 실제 KRX 조회 위험"
     assert "V=" in r.stdout and "V=2" not in r.stdout
     assert "ConnectionError: KRX unreachable" in err.read_text()
-    assert "ELTD 실패 사유: ConnectionError: KRX unreachable" in r.stderr
+    assert "KRX 로그인 실패: 비밀번호 변경 필요" in err.read_text()          # pykrx 가 stdout 으로 찍는 사유도 보존(PR 리뷰)
 
 
 def test_evening_chain_uses_retry():

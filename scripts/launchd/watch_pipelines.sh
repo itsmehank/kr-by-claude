@@ -69,9 +69,11 @@ done
 # ── 3a. (#228) 캐시 **값** 기준 데이터 결측 — 아래 3 의 fresh_today/stale 분기는 캐시 mtime 에 의존해, 다른 체인(토 03:17 주말 체인)이
 #    캐시를 새로 쓰면 직전 평일 저녁 결측이 가려진다(10-02 ELTD 실패 → 10-05 까지 무알림). 값(목표일)이 판정 시점을 지났는데 지표가
 #    없으면 요일·mtime 과 무관하게 알린다. dedupe 키는 3 의 miss.data 와 같다(중복 없음).
-if EV=$(eltd_cache_value_overdue); then
+#    체인이 data 락을 쥐고 있으면(23시 넘어 도는 늦은 catch-up·kickstart) 적재 중이라 판정을 다음 시각으로 미룬다. 조회 실패(빈 값)는
+#    결측으로 보지 않는다 — DB 불통은 위의 db_down 이 담당(PR 리뷰: 빈 문자열 < 날짜가 참이라 오탐).
+if EV=$(eltd_cache_value_overdue) && [ ! -d "$LOCK_DIR/data.d" ]; then
   MAXV=$(q "SELECT COALESCE(MAX(date)::text,'0001-01-01') FROM daily_indicators")
-  [ "$MAXV" \< "$EV" ] && alert "miss.data.$EV" "데이터 체인 미완료 (대상 거래일 $EV, 지표 최신 $MAXV — 캐시 값 기준)"
+  [ -n "$MAXV" ] && [ "$MAXV" \< "$EV" ] && alert "miss.data.$EV" "데이터 체인 미완료 (대상 거래일 $EV, 지표 최신 $MAXV — 캐시 값 기준)"
 fi
 
 # ── 3. 저녁 몫 결측 — 캐시 기준. 라이브 조회하지 않는다(#92).
