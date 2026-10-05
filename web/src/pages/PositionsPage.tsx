@@ -35,7 +35,7 @@ interface Position {
   chase_pct: number | null;
   chase_over_limit: boolean | null;
   signal_gap_days: number | null;
-  // (#207 Q-5c 2) 최신 보유 climax(T2) 평가의 거래량 창 경계 표지 — 'mixed' | null, 배지 전용(decline 은 거래량 입력 없음)
+  // (#207 Q-5c 2) 최신 보유 climax(T2) 평가의 거래량 창 경계 표지 — 'mixed' | null, 배지 전용(decline 행도 같은 창·같은 값, 회신 23 Q-D)
   volume_regime_flag: string | null;
 }
 

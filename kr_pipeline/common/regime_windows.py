@@ -10,12 +10,14 @@ regime 은 날짜의 함수(data_regimes.regime_for_date/regime_for_week)라 저
 그대로 전파해 첫 실행에서 드러낸다(리뷰 #222 3차).
 주봉은 zero-bar(거래정지) 주를 제외해 find_anchor/C3/T2 가 쓰는 행 집합(_fetch_weekly_full)과 같은 창을 본다(술어 공유 NOT_ZERO_BAR_SQL).
 창(spec §5·D7, 리뷰 #222 정정): 분류 = 일간 50봉 ∪ 주간 W+1 주(as_of 끝) ∪ 앵커 주~마지막 주봉(T2/P2) ∪ **앵커에서 끝나는 C3 W+1 주**
-(앵커를 적격 판정한 분모) / 트리거 = 일간 50봉 / 진입 = 일간 50봉 + PP 탐색 (N-1)봉 / 보유 climax T2 = 앵커 주~평가 주
-(러너가 gates.week_ends 로 DB 0) / 보유 decline = NULL(거래량 입력 없음). 진입은 할트 여유(DAILY_HALT_ALLOWANCE)까지 더 본다.
+(앵커를 적격 판정한 분모) / 트리거 = 일간 50봉 / 진입 = 일간 50봉 + PP 탐색 (N-1)봉 / 보유 climax·decline = 앵커 C3 분모 ~ 평가 주
+(러너가 gates.week_ends 로 DB 0, 회신 22 Q-A·23 Q-D — PR #222 의 'decline 항상 NULL' 번복). 진입은 할트 여유(DAILY_HALT_ALLOWANCE)까지 더 본다.
+원칙(회신 22): 표지 창 = 판정이 직접·간접 의존하는 모든 계산 창의 합집합.
 """
 from __future__ import annotations
 
 import logging
+from bisect import bisect_left
 from datetime import date
 from typing import Callable, Iterable
 
@@ -26,7 +28,7 @@ from kr_pipeline.common.data_regimes import (
     FLAG_MIXED, VOLUME_REGIME_BOUNDARY, VOLUME_WINDOW_WEEKLY_WEEKS, _as_date, regime_for_date, regime_for_week, window_flag,
 )
 from kr_pipeline.common.price_source import NOT_ZERO_BAR_SQL, PriceSource, price_source
-from kr_pipeline.common.thresholds import PP_RECENT_SESSIONS, VOLUME_AVG_WINDOW_DAYS
+from kr_pipeline.common.thresholds import CLIMAX_ANCHOR_VOL_AVG_WEEKS, PP_RECENT_SESSIONS, VOLUME_AVG_WINDOW_DAYS
 
 log = logging.getLogger("kr_pipeline.common.regime_windows")
 
@@ -90,12 +92,18 @@ def weekly_window_flag(conn: Connection, ticker: str, as_of, n: int = VOLUME_WIN
     return _guarded(conn, ticker, d, lambda src: _edges_flag(*_edges(conn, src, ticker, weekly=True, end=d, n=n), regime_for_week))
 
 
-def range_flag_from_week_ends(week_ends: Iterable, anchor_week) -> str | None:
-    """앵커 주 ~ 마지막 주(순수, DB 0): 보유 climax T2 창. 입력 = 산술이 실제로 쓴 주(week_end ISO/date), 앵커 없음 → NULL."""
+def held_window_flag(week_ends: Iterable, anchor_week) -> str | None:
+    """보유 climax·decline 창(순수, DB 0) = 앵커를 적격 판정한 C3 분모(앵커 직전 W주) ~ 마지막 주 — 회신 22 Q-A·23 Q-D
+    ("표지 창 = 판정이 직접·간접 의존하는 모든 계산 창의 합집합"). find_anchor 는 마지막 주부터 거꾸로 각 주의 C3(W주 평균)를 보고
+    앵커를 고르므로 앵커 선택이 [앵커 − W, 마지막 주] 거래량에 의존하고, T2(앵커~평가 주 거래량)·T-A/TA-d(앵커 기준 가격 낙폭)는 그 앵커를
+    시작점으로 쓴다 → climax·decline 같은 창. 입력 = gates.week_ends(산술이 실제로 쓴 주, zero-bar 제외, 오름차순). 앵커가 목록에
+    없으면(방어) 앵커 이후 첫 주를 기준으로 한다. 앵커 없음(no_transition·left_censored) → NULL(판정 신호 자체가 None)."""
     a = _as_date(anchor_week)
     if a is None:
         return None
-    return window_flag(regime_for_week(d) for d in (_as_date(w) for w in week_ends) if d is not None and d >= a)
+    weeks = [d for d in (_as_date(w) for w in week_ends) if d is not None]
+    i = bisect_left(weeks, a)
+    return window_flag(regime_for_week(d) for d in weeks[max(0, i - CLIMAX_ANCHOR_VOL_AVG_WEEKS):])
 
 
 def classification_flag(conn: Connection, ticker: str, as_of, *, anchor_week=None) -> str | None:

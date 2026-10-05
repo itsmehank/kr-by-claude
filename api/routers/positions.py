@@ -37,7 +37,7 @@ def list_positions(
                  ORDER BY eval_date DESC
                  LIMIT 1
               ) e ON true
-              -- (#207 Q-5c 2, PR-3) 최신 보유 climax(T2) 평가의 창 경계 표지 — 표시 전용(decline 행은 거래량 입력이 없어 flag 없음)
+              -- (#207 Q-5c 2, PR-3) 최신 보유 climax(T2) 평가의 창 경계 표지 — 표시 전용(decline 행도 같은 창·같은 값 — 회신 23 Q-D, climax 행만 읽는다)
               LEFT JOIN LATERAL (
                 SELECT volume_regime_flag FROM position_climax_evaluations
                  WHERE position_id = p.id ORDER BY eval_date DESC LIMIT 1

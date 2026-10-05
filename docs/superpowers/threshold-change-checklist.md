@@ -198,3 +198,12 @@ P2-1a (한국시장 FTD/distribution 임계 σ 보정) 가 *작성 당시 이 �
     | `DAILY_WINDOW_MAX_CAL_DAYS`=400 · `WEEKLY_WINDOW_MAX_CAL_DAYS`=800 (regime_windows, DB 0 상한) | 불가(달력일) | **미미** — 경계 후 이 기간을 넘기는 거래정지가 창을 걸치는 극단만 NULL(비보수) — 명시 트레이드오프 | 시스템 자체 | 모니터링 불요 |
     | fail-soft 값 = 'mixed'(보수) | — | **있음(의도)** — 창 유도 실패를 '깨끗함(NULL)'으로 저장하지 않음; 체계적 실패 시 배지 전면 노출로 가시화 | — | 경고 `regime_window_flag_failed` 로그 관측 |
   - 2026-10-02 2차 리뷰 반영: 봉 writer 3곳의 SQL CASE → Python `regime_for_date`/`regime_for_week` 값 저장(규칙 사본 = 이관 SQL 1곳, 날짜 리터럴 == 상수 테스트) · market_context load 는 저장 컬럼 대신 날짜 규칙으로 유도(운영 실측: 09-30·10-01 'regular' 오저장) + ohlcv sanity 검증 4(volume_regime_mismatch 경고, 최근 60일) · 이관 SQL 이 시스템 writer 행(source system_%)을 flag 하지 않고 기존 8행 되돌림 · 되돌림 UPDATE 스캔 범위 경계 -60일 · 배지 TSX 공용 컴포넌트(`VolumeRegimeBadge`) · 테스트 허수 단언(주석 split) 수정 · 위 FTD/분배 컷·창 상수 5행 추가. **기록만**: `regime_flag_for_as_of` 만료 없음(PR-3 전제, ≈2026-12-10 경 50세션 경과) · 주봉 달력 월요일 기준(첫 거래일 휴일 시 mixed 쪽 보수).
+- 2026-10-05: #207 회신 22 Q-A·23 Q-D(보유 평가 표지 창, 브랜치 issue207-flag-anchor-c3) — thresholds.py 변경 0, 판정 산술 변경 0. 트리거 = `CLIMAX_ANCHOR_VOL_AVG_WEEKS` 소비처 추가(`regime_windows.held_window_flag`). 원칙(회신 22): **표지 창 = 판정이 직접·간접 의존하는 모든 계산 창의 합집합**. 보유 climax·decline 창 = 앵커 C3 분모(앵커 직전 W주) ~ 마지막 주 — find_anchor 가 마지막 주부터 거꾸로 각 주의 C3 를 보고 앵커를 고르므로 앵커 선택이 [앵커−W, 마지막 주] 거래량에 의존하고, T2(거래량)·T-A/TA-d(가격 낙폭)가 그 앵커를 시작점으로 쓴다. 종전 `range_flag_from_week_ends`(앵커~평가 주)를 대체하고, PR #222 의 decline 'NULL 고정'을 번복(같은 값 기록). 위 10-02 소비 경계 줄의 "기록만: C3 분모는 T2 창 밖" 은 본 항목으로 해소.
+  - 소비 경계 1줄: `held_climax.gates_from_series.week_ends`(산술이 쓴 주, zero-bar 제외) + `anchor_week` → runner `held_window_flag`(순수, DB 0) → position_climax_evaluations·position_decline_evaluations `volume_regime_flag`(같은 값) → `/api/positions`(climax 행만 읽음 — 같은 값) → `VolumeRegimeBadge`(표시 전용, 판정 비입력).
+  - 2축 판정:
+
+    | 고정 상수 | 축1 환산? | 축2 영향? | 책 정합 | 판정 → 후속 |
+    |---|---|---|---|---|
+    | `CLIMAX_ANCHOR_VOL_AVG_WEEKS`=50 (thresholds, 소비 = held_window_flag 의 앵커 앞 W주) | 불요(같은 상수) | **없음(판정)** / 있음(표지) — 발화·억제 불변. 표지 기간이 늘어남: 경계 후 앵커라도 앵커가 경계+W주(≈2027-09) 전이면 mixed. #184(C3′ 일봉 전환)가 앵커 분모를 바꾸면 이 창도 같이 바꿔야 함 | 책 TLOND 50주 유지 | **#184 착수 시 동반 수정**(창 정의 = C3 분모와 같은 행 집합) — 그 전까지 자동 추종 |
+    | `VOLUME_REGIME_BOUNDARY`=2026-09-28 (data_regimes) | 불가(날짜) | 없음 — 소비 방식 동일(regime_for_week) | measurement-based | — |
+  - 근거 = #207 회신 22(Q-A B 채택·원칙 명문화·회신 21 빈틈 인정)·회신 23(Q-D A 적용). 태그 design-judgment.

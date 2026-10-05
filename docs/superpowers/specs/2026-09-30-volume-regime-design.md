@@ -1,6 +1,6 @@
 # 거래량 정의 경계(volume_regime) — 봉 단위 저장 + 창 유도 표지 — 설계 spec
 
-작성 2026-09-30. 상태: **PR-2 머지(#220, 10-02) · PR-3 구현(브랜치 issue207-volume-regime-pr3, plan 2026-10-02-volume-regime-pr3.md)**. 근거: #207 회신 21 Q-5c(1·2·3)·회신 20 (ii)·Q-4c.
+작성 2026-09-30. 상태: **PR-2 머지(#220, 10-02) · PR-3 머지(#222, 10-02) · 보유 창 갱신(회신 22 Q-A·23 Q-D, 10-05)**. 근거: #207 회신 21 Q-5c(1·2·3)·회신 20 (ii)·Q-4c.
 선행: PR #217(행 문자열 표지 `volume_regime_unverified_#207`, 트립와이어 (4)), PR #219(Q-5a, 머지 대기).
 
 ## 1. 목표
@@ -25,11 +25,11 @@
 |---|---|---|---|
 | D1 | 봉 컬럼 값 | `volume_regime VARCHAR(8) NOT NULL`: 일봉·지수 = `regular`(date < 경계) / `extended`(date ≥ 경계). 주봉 = 구성 일봉이 전부 같으면 그 값, 섞이면 `mixed` | 회신 21 Q-5c 1. 경계 `VOLUME_REGIME_BOUNDARY = 2026-09-28`(data_regimes, 기존 VOLUME_REGIME_UNVERIFIED_FROM 개명) |
 | D2 | 채우는 주체 | 수집기(`to_price_rows`/`to_index_rows` → store upsert)가 날짜로 결정. 소급 = 1회 UPDATE(양쪽 DB). 주봉은 집계(`weekly/transform`)에서 유도 | 값이 날짜의 함수라 writer 가 항상 같은 답. 경계 정정 시 상수 1곳 + UPDATE 1회 |
-| D3 | 창 상태 유도 | `regime_window_state(bars: 창 안 봉들의 regime 목록) → clean(전부 regular) / new(전부 extended) / mixed(혼재)`. 저장하지 않고 소비처가 자기 창의 봉으로 호출 | 회신 21 Q-5c 2(비저장). 창 길이는 소비처 상수 그대로(일간 50 봉, 주간 50 주, T2/T-D = 앵커~현재) |
+| D3 | 창 상태 유도 | `regime_window_state(bars: 창 안 봉들의 regime 목록) → clean(전부 regular) / new(전부 extended) / mixed(혼재)`. 저장하지 않고 소비처가 자기 창의 봉으로 호출 | 회신 21 Q-5c 2(비저장). 창 길이는 소비처 상수 그대로(일간 50 봉, 주간 50 주, 보유 = 앵커 C3 분모~현재 — D7 갱신) |
 | D4 | 표지 대상·형식 | 판정 행 전용 컬럼 `volume_regime_flag VARCHAR(8)`: **mixed 일 때만 'mixed'**, 그 외 NULL. 대상 5 테이블: weekly_classification·trigger_evaluation_log·entry_params·position_climax_evaluations·position_decline_evaluations | 회신 21 Q-5c 2·3. clean/new 는 저장 가치 없음(표지 목적) |
 | D5 | 기존 문자열 표지 | `sanity_warnings`/`known_warnings` 에서 `volume_regime_unverified_#207` 제거(26행 + 이후 신규 행), 같은 행 `volume_regime_flag='mixed'` 로 이관. `with_volume_regime` 헬퍼·`warningLabels` 매핑 삭제 | 회신 21 Q-5c 3(칸 의미 분리) |
 | D6 | 경계일 전일 비교 | 분배일(`distribution_day`)·FTD(`follow_through`)에서 today/yesterday 의 `volume_regime` 이 다르면 **비교 불가 → 그날 분배일·FTD 아님(NULL 취급)**, `computation_notes` 에 사유 기록. 대상 = 09-25→09-28 1쌍(지수 2종) | 회신 21 Q-5c 1 |
-| D7 | 보유 종목 평가 | T2(`t2_max_volume_now`, 주간 거래량 최대)·T-D(`td_max_down_volume_now`, 주간 하락일 거래량 최대)의 창(앵커 주~현재)에 대해 D3 로 상태 유도 → mixed 면 평가 행 flag. **발화 판정 자체는 불변**(억제 아님) | 회신 21 "자동 적용" = 표지 자동 부착. TA-d 는 가격 낙폭 신호라 거래량 무관(정정) |
+| D7 | 보유 종목 평가 | **(갱신 10-05, 회신 22 Q-A·23 Q-D)** 보유 climax·decline 평가 행 모두 창 = **앵커 C3 분모(앵커 직전 W주) ~ 평가 주**에 대해 D3 로 상태 유도 → mixed 면 평가 행 flag(두 행 같은 값). **발화 판정 자체는 불변**(억제 아님). 종전(회신 21): 창 = 앵커 주~현재, decline 은 NULL(PR #222) — 상류 판정(앵커 선정)의 창 포함 여부를 명시하지 않은 빈틈(회신 22 인정) | 원칙(회신 22): **표지 창 = 판정이 직접·간접 의존하는 모든 계산 창의 합집합**. find_anchor 는 마지막 주부터 거꾸로 각 주의 C3(W주 평균)를 보고 앵커를 고르므로 앵커 선택이 [앵커−W, 마지막 주] 거래량에 의존. T2(거래량)·T-A/TA-d(가격 낙폭)는 그 앵커를 기준 구간 시작점으로 쓴다 → decline 도 간접 의존(PR #222 'decline 항상 NULL' 번복). 태그 design-judgment |
 | D8 | 백테스트 | `BACKTEST_EXCLUDED_FROM` 유지·가드 유지 | 회신 21 마지막 절 |
 | D9 | 웹 | flag 배지("거래량 혼재 창 — 09-28 정의 경계, 비율 상향 편향 가능"). **PR-2 = Signals 카드(EntrySignalCard·SignalsPage)**, `known_warnings` 칩에서는 사라짐. **Positions 카드는 PR-3** — position_*_evaluations.volume_regime_flag 는 PR-2 에서 쓰기만 하고 노출은 PR-3 창 유도(T2·T-D)와 함께(#220 리뷰: spec·구현 불일치 정정) | D5 |
 
@@ -58,12 +58,12 @@ weekly_prices 는 재집계 대신 `week_end_date >= '2026-10-02'` → extended,
 | 분류(weekly_classification) | 주간 C3 W+1 주(분자 주 포함, W=CLIMAX_ANCHOR_VOL_AVG_WEEKS) + 일간 volume_ratio_50d 50봉 + **앵커 주~평가 주**(T2/P2 는 앵커 기준) + **앵커에서 끝나는 C3 W+1 주**(앵커 적격 판정 분모 — 리뷰 #222 3차; 따라서 경계 전 앵커가 유지되는 한 자연 만료되지 않음) → **하나라도 mixed 면 mixed** | payload 의 weekly/daily 봉 regime | store.insert_classification(+backfill 계열) |
 | 트리거(trigger_evaluation_log) | 일간 50봉(gate_precompute volume_band 입력 = daily_indicators.volume_ratio_50d) | as_of 기준 최근 50 일봉 regime | store.insert_trigger_log |
 | 진입(entry_params) | 일간 50봉 + PP 탐색 4봉(pocket_pivot 분기의 비율은 최근 5세션 중 PP 일에서 끝나는 창, 리뷰 #222) | 동일 | store.insert_entry_params |
-| 보유 climax(T2) | 앵커 주 ~ 평가 주 | gates.week_ends(T2 가 쓴 주, zero-bar 제외) → 날짜 규칙, DB 0 | run_daily_eval 1회 계산 → position_climax_evaluations. **기록(리뷰 #222)**: 앵커 선정 자체의 C3 분모(앵커 −W주)는 창 밖 — 전문가 판정 후보([Q]) |
-| 보유 decline | — (**정정 10-02, 리뷰 #222**: decline 판정 T-A·TA-d 는 가격 낙폭만, 거래량 입력 없음 → flag 항상 NULL) | — | position_decline_evaluations.volume_regime_flag = NULL |
+| 보유 climax(T2) | **앵커 C3 분모(앵커 −W주) ~ 평가 주**(갱신 10-05, 회신 22 Q-A — 종전 '앵커 주~평가 주'는 앵커 선정 분모를 빠뜨림) | gates.week_ends(산술이 쓴 주, zero-bar 제외) → `regime_windows.held_window_flag`, DB 0 | run_daily_eval 1회 계산 → position_climax_evaluations |
+| 보유 decline | **climax 와 같은 창**(갱신 10-05, 회신 23 Q-D: T-A·TA-d 는 가격 낙폭이지만 기준 구간 시작점 = C3 로 고른 앵커 → 간접 의존. 10-02 의 '항상 NULL' 정정을 번복) | 같은 `held_window_flag` 값 | run_daily_eval → position_decline_evaluations(climax 행과 같은 값) |
 
 유도 함수(순수): `regime_window_state(regimes: Iterable[str]) -> Literal["clean","mixed","new"]` — 빈 입력은 clean. 창 봉 조회는
 각 소비처의 기존 로더가 이미 읽는 프레임에 `volume_regime` 컬럼을 추가해 얻는다(추가 SQL 0 목표). **PR-3 실제(10-02)**: 프레임이 writer(store.insert_*)까지 전달되지 않아 writer 가 `conn·symbol·as_of` 로 창 봉 **날짜**를 읽어 날짜 규칙으로 유도(`common/regime_windows.py`; 경계 전 as_of 는 DB 0, 이후 price_source 1회 + 창당 SELECT 1회, SAVEPOINT fail-soft) — 저장 컬럼 비의존(#220 2차 리뷰 전례).
-**자연 만료**: 일간 창은 경계 후 50 거래일(≈2026-12 중순), 주간 창은 50주(≈2027-09)에 mixed 가 사라진다.
+**자연 만료**: 일간 창은 경계 후 50 거래일(≈2026-12 중순), 주간 창은 50주(≈2027-09)에 mixed 가 사라진다. 앵커 기준 창(분류·보유)은 앵커가 경계 후 W주(≈2027-09) 이후에 잡혀야 사라진다(경계 전 앵커가 유지되는 한 만료 없음).
 
 ## 6. 경계일 비교 무효화(D6)
 
@@ -89,4 +89,5 @@ regime 이 다르면 해당 일은 분배일 후보·FTD 후보에서 제외(기
 
 - 경계 09-28 은 관측 추정(09-14 애프터마켓 개장일과 다름). KRX 문의 회신으로 정정되면 상수 1곳 + UPDATE 1회 + flag 재계산.
 - 트립와이어 (4) 임계(1,361)는 extended 정의 하에서 재측정 후보(별건).
-- (PR-3, 리뷰 #222 4차) flag 는 **결정론 창**(일간 50봉·주간 W+1·앵커 창)만 모델링한다. LLM 프롬프트가 보는 원시 봉(일 60·주 104, inline_builder CSV)은 범위 밖 — 주간 51주 창 만료(≈2027-09) 뒤에도 CSV 에는 regular 정의 주가 ~1년 더 남는다. 필요하면 창을 CSV 길이로 늘리는 별건 판정.
+- (PR-3, 리뷰 #222 4차) flag 는 **결정론 창**(일간 50봉·주간 W+1·앵커 창)만 모델링한다. LLM 프롬프트가 보는 원시 봉(일 60·주 104, inline_builder CSV)은 범위 밖 — 주간 51주 창 만료(≈2027-09) 뒤에도 CSV 에는 regular 정의 주가 ~1년 더 남는다.
+  **판정(10-05, 회신 22 Q-B → 사용자 결정 수용)**: 창 확장(B) 반려(변별력 소실). CSV `vol_regime` 열 + 프롬프트 문장도 **미적용** — 혼재 처리에 책 근거가 없어 문구의 정답을 검증할 수 없고, 같은 시기 프롬프트 변경은 데이터 혼재 효과와 교락돼 mixed/clean 사후 비교를 불가능하게 한다. 사후 비교는 사전등록 문서로 고정(별건). CSV 혼재 여부는 저장하지 않고 분류 날짜로 유도(as_of < 경계 + 104주).
