@@ -208,3 +208,18 @@ def test_relabel_unexplained_from_stored_rows_without_contact(db, monkeypatch):
     with db.cursor() as cur:
         cur.execute("SELECT bsns_year, no_data_reason, no_data_basis FROM dart_fin_raw WHERE ticker='NL2' ORDER BY bsns_year")
         assert cur.fetchall() == [(2020, L.BEFORE_FIRST_FILING, L.BASIS_LISTING_PROXY_FIRST_DAILY_BAR), (2026, L.NOT_YET_DUE, None)]
+
+
+def test_relabel_ignores_filings_received_after_batch_date(db):
+    """재라벨은 적재 당시(batch_date) 사실만 — 그 뒤 들어온 첫 분기보고서가 있어도 '공시 이력 없음' 판단은 batch_date 기준."""
+    _seed_corp(db, "NL3", "C-NL3")
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value) VALUES ('NL3', '2026-09-23', 1,1,1,1,1,1,1)")
+    S.upsert_disclosures(db, "C-NL3", [{"rcept_no": "20261113000001", "rcept_dt": "20261113", "report_nm": "분기보고서 (2026.09)"}],
+                         batch_date=date(2026, 11, 20))
+    S.upsert_fin_raw(db, {"corp_code": "C-NL3", "bsns_year": 2020, "reprt_code": "11011", "ticker": "NL3", "status": "013",
+                          "response": {"status": "013"}, "batch_date": date(2026, 10, 6), "no_data_reason": L.UNEXPLAINED})
+    assert B.relabel_unexplained(db, tickers=["NL3"])["changed"] == 1
+    with db.cursor() as cur:
+        cur.execute("SELECT no_data_reason, no_data_basis FROM dart_fin_raw WHERE ticker='NL3'")
+        assert cur.fetchone() == (L.BEFORE_FIRST_FILING, L.BASIS_LISTING_PROXY_FIRST_DAILY_BAR)

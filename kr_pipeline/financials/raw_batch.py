@@ -235,9 +235,12 @@ def relabel_unexplained(conn: Connection, *, tickers: list[str] | None = None) -
     delisted = _delisted_map(conn, sorted({r[3] for r in rows if r[3]}))
     changed = 0
     for corp, y, rc, t, bd in rows:
+        # 적재 당시 사실만 — 그 뒤 재조회로 늘어난 공시(접수일 > batch_date)는 쓰지 않는다(리뷰: 늦은 공시가 다른 규칙 결과를 만들던 경로)
+        filings = [f for f in raw_store.load_disclosures(conn, corp) if f["rcept_dt"] is None or f["rcept_dt"] <= bd]
+        first_dt = min((f["rcept_dt"] for f in filings if f["rcept_dt"] is not None), default=None)
         label, basis = raw_labels.decide_no_data_with_basis(
-            bsns_year=y, reprt_code=rc, today=bd, first_filing_dt=raw_store.first_filing_dt(conn, corp),
-            delisted_at=delisted.get(t), filings=raw_store.load_disclosures(conn, corp),
+            bsns_year=y, reprt_code=rc, today=bd, first_filing_dt=first_dt,
+            delisted_at=delisted.get(t), filings=filings,
             first_daily_bar=raw_store.first_daily_bar(conn, t) if t else None)
         if label != raw_labels.UNEXPLAINED:
             with conn.cursor() as cur:
@@ -268,7 +271,7 @@ def main() -> int:
     today = date.today()
     if a.relabel_unexplained:
         with psycopg.connect(cfg.database_url) as cn:
-            out = relabel_unexplained(cn)
+            out = relabel_unexplained(cn, tickers=a.tickers.split(",") if a.tickers else None)
             cn.commit()
         print(json.dumps(out, ensure_ascii=False))
         return 0
