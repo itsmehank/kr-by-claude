@@ -204,9 +204,9 @@ def run(conn: Connection, plan_: Plan, *, today: date, cap: int = DAILY_CAP, sav
             if rec["rcept_dt"] and rec["orig_rcept_dt"]:
                 rec["is_correction"] = rec["rcept_dt"] > rec["orig_rcept_dt"]
         elif status == "013":
-            rec["no_data_reason"] = raw_labels.decide_no_data(
+            rec["no_data_reason"], rec["no_data_basis"] = raw_labels.decide_no_data_with_basis(
                 bsns_year=y, reprt_code=rc, today=today, first_filing_dt=raw_store.first_filing_dt(conn, c),
-                delisted_at=delisted.get(t), filings=filings)
+                delisted_at=delisted.get(t), filings=filings, first_daily_bar=raw_store.first_daily_bar(conn, t))
             st["no_data"] += 1
         else:
             st["errors"].append(f"unexpected status {status} {t}/{y}/{rc}"); i += 1; continue   # 미기록(done 오염 금지)
@@ -222,6 +222,31 @@ def run(conn: Connection, plan_: Plan, *, today: date, cap: int = DAILY_CAP, sav
     return st
 
 
+def relabel_unexplained(conn: Connection, *, tickers: list[str] | None = None) -> dict:
+    """(회신 24 Q-I) 이미 적재된 UNEXPLAINED 013 셀을 저장본만으로 재라벨 — DART 재접촉 0. 판정 기준일 = 그 행의 batch_date(적재 당시
+    '오늘'과 같은 기준). 바뀐 규칙은 '정기공시 이력 없음 → 첫 일봉 대체' 하나라 UNEXPLAINED 외 행은 결과가 같다(대상 제외)."""
+    q = "SELECT corp_code, bsns_year, reprt_code, ticker, batch_date FROM dart_fin_raw WHERE status = '013' AND no_data_reason = %s"
+    args: list = [raw_labels.UNEXPLAINED]
+    if tickers:
+        q += " AND ticker = ANY(%s)"; args.append(tickers)
+    with conn.cursor() as cur:
+        cur.execute(q, args)
+        rows = cur.fetchall()
+    delisted = _delisted_map(conn, sorted({r[3] for r in rows if r[3]}))
+    changed = 0
+    for corp, y, rc, t, bd in rows:
+        label, basis = raw_labels.decide_no_data_with_basis(
+            bsns_year=y, reprt_code=rc, today=bd, first_filing_dt=raw_store.first_filing_dt(conn, corp),
+            delisted_at=delisted.get(t), filings=raw_store.load_disclosures(conn, corp),
+            first_daily_bar=raw_store.first_daily_bar(conn, t) if t else None)
+        if label != raw_labels.UNEXPLAINED:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE dart_fin_raw SET no_data_reason = %s, no_data_basis = %s "
+                            "WHERE corp_code = %s AND bsns_year = %s AND reprt_code = %s", (label, basis, corp, y, rc))
+            changed += 1
+    return {"checked": len(rows), "changed": changed, "remaining_unexplained": len(rows) - changed}
+
+
 def _delisted_map(conn: Connection, tickers: list[str]) -> dict[str, date | None]:
     with conn.cursor() as cur:
         cur.execute("SELECT ticker, delisted_at FROM stocks WHERE ticker = ANY(%s)", (tickers,))
@@ -232,6 +257,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--plan", action="store_true", help="대상·셀 수만 계산(접촉 0)")
     ap.add_argument("--run", action="store_true")
+    ap.add_argument("--relabel-unexplained", action="store_true", help="적재된 unexplained 013 셀 재라벨(저장본만, DART 접촉 0, 회신 24 Q-I)")
     ap.add_argument("--cap", type=int, default=DAILY_CAP)
     ap.add_argument("--max-calls", type=int, default=None)
     ap.add_argument("--save-dir", default="data/dart_raw")
@@ -240,6 +266,12 @@ def main() -> int:
     from kr_pipeline.common.config import Config
     cfg = Config.load()
     today = date.today()
+    if a.relabel_unexplained:
+        with psycopg.connect(cfg.database_url) as cn:
+            out = relabel_unexplained(cn)
+            cn.commit()
+        print(json.dumps(out, ensure_ascii=False))
+        return 0
     with psycopg.connect(cfg.database_url) as cn:
         p = plan(cn, years=(YEAR_START, today.year), today=today, tickers=a.tickers.split(",") if a.tickers else None)
         print(json.dumps({"targets": len(p.targets), "parity_tickers": len(p.parity_tickers), "cells": len(p.cells),

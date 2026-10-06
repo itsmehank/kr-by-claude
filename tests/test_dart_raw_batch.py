@@ -175,3 +175,36 @@ def test_transient_kind_labels():
     assert B._transient_kind(urllib.error.URLError(TimeoutError("t"))) == "TimeoutError"
     assert B._transient_kind(urllib.error.URLError("no route")) == "URLError"
     assert B._transient_kind(ValueError("Expecting value")) == "ValueError"
+
+
+def test_run_labels_new_listing_via_first_daily_bar_and_records_basis(db, tmp_path, monkeypatch):
+    """회신 24 Q-I: 공시 목록이 빈 신규 상장 종목 — 첫 일봉 이전 기한의 013 셀은 BEFORE_FIRST_FILING + 근거 컬럼."""
+    TODAY = date(2026, 10, 6)
+    _seed_corp(db, "NL1", "C-NL1")
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value) VALUES ('NL1', '2026-09-23', 1,1,1,1,1,1,1)")
+    monkeypatch.setattr(B, "fetch_single_account", lambda *a: {"status": "013", "message": "조회된 데이타가 없습니다."})
+    monkeypatch.setattr(B, "fetch_disclosures", lambda *a: []); monkeypatch.setattr(B, "_SLEEP", 0)
+    plan = B.plan(db, years=(2024, 2024), today=TODAY, tickers=["NL1"])
+    B.run(db, plan, today=TODAY, cap=100, save_dir=tmp_path, api_key="k")
+    with db.cursor() as cur:
+        cur.execute("SELECT reprt_code, no_data_reason, no_data_basis FROM dart_fin_raw WHERE ticker='NL1' ORDER BY reprt_code")
+        rows = cur.fetchall()
+    assert rows and all(r[1] == L.BEFORE_FIRST_FILING and r[2] == L.BASIS_LISTING_PROXY_FIRST_DAILY_BAR for r in rows), rows
+
+
+def test_relabel_unexplained_from_stored_rows_without_contact(db, monkeypatch):
+    """1일차 적재분(0010S0 46셀)의 재라벨 — 저장된 공시 목록·첫 일봉만 사용(DART 호출 0). UNEXPLAINED 행만 대상."""
+    _seed_corp(db, "NL2", "C-NL2")
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value) VALUES ('NL2', '2026-09-23', 1,1,1,1,1,1,1)")
+    for y, rc, reason in ((2020, "11011", L.UNEXPLAINED), (2026, "11014", L.NOT_YET_DUE)):
+        S.upsert_fin_raw(db, {"corp_code": "C-NL2", "bsns_year": y, "reprt_code": rc, "ticker": "NL2", "status": "013",
+                              "response": {"status": "013"}, "batch_date": date(2026, 10, 6), "no_data_reason": reason})
+    boom = lambda *a: (_ for _ in ()).throw(AssertionError("DART 호출 금지"))
+    monkeypatch.setattr(B, "fetch_single_account", boom); monkeypatch.setattr(B, "fetch_disclosures", boom)
+    out = B.relabel_unexplained(db, tickers=["NL2"])
+    assert out == {"checked": 1, "changed": 1, "remaining_unexplained": 0}
+    with db.cursor() as cur:
+        cur.execute("SELECT bsns_year, no_data_reason, no_data_basis FROM dart_fin_raw WHERE ticker='NL2' ORDER BY bsns_year")
+        assert cur.fetchall() == [(2020, L.BEFORE_FIRST_FILING, L.BASIS_LISTING_PROXY_FIRST_DAILY_BAR), (2026, L.NOT_YET_DUE, None)]

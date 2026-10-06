@@ -14,7 +14,7 @@ from psycopg import Connection
 from psycopg.types.json import Jsonb
 
 _FIN_COLS = ("corp_code", "bsns_year", "reprt_code", "ticker", "status", "rcept_no", "rcept_dt", "orig_rcept_dt",
-             "is_correction", "no_data_reason", "response", "batch_date")
+             "is_correction", "no_data_reason", "no_data_basis", "response", "batch_date")
 
 
 def upsert_fin_raw(conn: Connection, rec: dict) -> None:
@@ -63,6 +63,15 @@ def load_disclosures(conn: Connection, corp_code: str) -> list[dict]:
 def first_filing_dt(conn: Connection, corp_code: str) -> date | None:
     with conn.cursor() as cur:
         cur.execute("SELECT min(rcept_dt) FROM dart_disclosure_raw WHERE corp_code = %s", (corp_code,))
+        row = cur.fetchone()
+    return row[0] if row else None
+
+
+def first_daily_bar(conn: Connection, ticker: str) -> date | None:
+    """첫 일봉 = 라이브·격리 일봉의 MIN(date) — 정기공시 이력 없는 종목의 상장일 대체(회신 24 Q-I)."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT LEAST((SELECT MIN(date) FROM daily_prices WHERE ticker = %s), "
+                    "(SELECT MIN(date) FROM delisted_daily_prices WHERE ticker = %s))", (ticker, ticker))
         row = cur.fetchone()
     return row[0] if row else None
 
