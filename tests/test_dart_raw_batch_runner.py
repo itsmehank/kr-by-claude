@@ -41,12 +41,17 @@ def test_loop_skips_after_latest_start(tmp_path):
     log = tmp_path / "run.log"
     env = {**os.environ, "HOME": str(home), "UV_BIN": str(fake), "START_HHMM": "0000", "LATEST_HHMM": "0000",
            "DART186_LOG": str(log), "DART186_NO_NOTIFY": "1"}
-    p = subprocess.Popen(["bash", str(SCRIPT), "_loop"], env=env)
-    import time
-    time.sleep(1.5); (st / "dart186.stop").write_text("")
+    import signal, time
+    p = subprocess.Popen(["bash", str(SCRIPT), "_loop"], env=env, start_new_session=True)   # 그룹째 종료 — sleep 300 고아 방지(재리뷰)
     try:
-        p.wait(timeout=1)          # 첫 대기(sleep 300) 중이라 STOP 을 아직 못 봤을 수 있다 → 종료
-    except subprocess.TimeoutExpired:
-        p.kill()
-    assert "RAN" not in log.read_text() and "실행 시작" not in log.read_text()
+        for _ in range(100):                          # 루프가 분기에 도달했는지 확인(조기 사망으로 무의미 통과 방지)
+            if log.exists() and "루프 시작" in log.read_text():
+                break
+            time.sleep(0.1)
+        time.sleep(0.5)
+    finally:
+        os.killpg(p.pid, signal.SIGKILL); p.wait()
+    text = log.read_text()
+    assert "루프 시작" in text
+    assert "RAN" not in text and "실행 시작" not in text
     assert not (st / "dart186.last_run").exists()
