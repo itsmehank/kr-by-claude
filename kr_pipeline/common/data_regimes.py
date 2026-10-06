@@ -9,7 +9,9 @@
   소비처: llm_runner/store.py insert_classification·insert_trigger_evaluation·insert_entry_params. 앵커 C3(climax_topping)는
   LLM payload 에 새 키를 넣게 되어(프롬프트 입력 변경) 넣지 않고 분류 행 표지로 덮는다.
 - BACKTEST_EXCLUDED_FROM: 백테스트 사용 금지 시작일. 회신 20 Q-4c — 09-14~09-23 은 가격 재산출(A안)·거래량 정규장이라 해제,
-  09-28 이후 금지 유지. **강제 지점** = assert_backtest_range_allowed(end): llm_runner/backfill.run · backtest/backfill.run_backtest_backfill ·
+  09-28 이후 금지 유지. **회신 24 Q-H(10-06): A 유지** — 사유는 정의 미확정이 아니라 거래량 창 혼재(일간 ≈2026-12, 주간·앵커 ≈2027-09 만료).
+  재판정 wake = 종료일 ≥ 09-28 백테스트 또는 holdout 판독 계획 최초 등록. 해제 경로 사전 지정 = C(포트폴리오 시뮬 trigger_sim·
+  trigger_gate·held 판정에 진입·청산 창 표지 유도 + mixed/clean 층 분리 보고 구현 선행). 표본 C 재개봉(#108)도 같은 조건. **강제 지점** = assert_backtest_range_allowed(end): llm_runner/backfill.run · backtest/backfill.run_backtest_backfill ·
   backtest/portfolio.main 이 종료일 ≥ 경계면 거부(우회 = 환경변수 KR_ALLOW_EXCLUDED_REGIME=1, 탐색 전용·holdout 원장 기입 선행).
   판정 행 표지는 전용 컬럼 volume_regime_flag(회신 21).
 - 같은 계열의 다른 경계: ohlcv/adjust.ADJ_SELF_START(2026-09-14, 수정주가 자체 산출 시임)·security_group.SECURITY_GROUP_GATE_EFFECTIVE_DATE.
@@ -90,6 +92,7 @@ def assert_backtest_range_allowed(end) -> None:
     if os.environ.get(ALLOW_EXCLUDED_REGIME_ENV) == "1":
         return
     raise ValueError(
-        f"backtest/backfill end={d} ≥ BACKTEST_EXCLUDED_FROM {BACKTEST_EXCLUDED_FROM}: 09-28 이후 봉은 거래량 정의 미확정(#207 회신 20 Q-4c) — "
-        f"사용 금지. 탐색 전용으로 강행하려면 {ALLOW_EXCLUDED_REGIME_ENV}=1 (holdout 원장 기입 선행)."
+        f"backtest/backfill end={d} ≥ BACKTEST_EXCLUDED_FROM {BACKTEST_EXCLUDED_FROM}: 거래량 창 혼재(일간 ≈2026-12, 주간·앵커 ≈2027-09 만료) — "
+        f"사용 금지(#207 회신 20 Q-4c·24 Q-H). 해제 경로 = 포트폴리오 시뮬 진입·청산 창 표지 + mixed/clean 층 분리 보고 구현 선행(회신 24 C). "
+        f"탐색 전용으로 강행하려면 {ALLOW_EXCLUDED_REGIME_ENV}=1 (holdout 원장 기입 선행)."
     )

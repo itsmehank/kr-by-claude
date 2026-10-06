@@ -78,6 +78,11 @@ regime 이 다르면 해당 일은 분배일 후보·FTD 후보에서 제외(기
   비교 제외·이관 멱등.
 - **PR-3 (Q-5c 2, 2026-10-02 구현)**: `regime_window_state`/`window_flag` + `common/regime_windows.py` 로 소비처 창 유도(new → NULL) · 보유 climax flag(앵커 주~평가 주, 앵커 없음 NULL; decline 은 NULL — **10-05 D7 갱신으로 번복**: 두 행 모두 앵커 C3 분모~평가 주) · **Positions 카드 배지(D9 잔여)** · 만료 검증 테스트(경계+50봉 → NULL). PR-2 임시 규칙 `regime_flag_for_as_of` 삭제, PR-2 창(09-28~10-02)에 찍힌 'mixed' 중 창 유도로 NULL 인 유형은 이관 SQL 이 되돌림
   (경계 + 50봉/50주 이후 NULL). 완료 후 백테스트 금지 해제 별건 판정 요청.
+- **백테스트 금지 판정(회신 24 Q-H, 2026-10-06): A 유지.** B(전면 해제) 반려 — 포트폴리오 시뮬(trigger_sim·trigger_gate)이 표지 없이
+  거래량 비율로 돌파를 판정해 부풀려진 돌파가 성과 수치에 구분 불가하게 혼입. D(일간 창 만료 후 단계 해제) 반려 — 주간·앵커 창 ≈2027-09 까지 혼재.
+  조건: (1) 가드 사유 문구 = "거래량 창 혼재(일간 ≈2026-12, 주간·앵커 ≈2027-09 만료)"(`data_regimes.assert_backtest_range_allowed`)
+  (2) 재판정 wake = 종료일 ≥ 09-28 백테스트 또는 holdout 판독 계획 최초 등록 (3) **해제 경로 사전 지정 = C** — 포트폴리오 시뮬 진입·청산
+  창 표지 유도 + mixed/clean 층 분리 보고 구현이 선행 조건. **표본 C 재개봉(#108)도 동일 조건.** 태그 design-judgment.
 
 ## 8. 테스트·검증
 

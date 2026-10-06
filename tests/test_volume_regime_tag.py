@@ -50,8 +50,11 @@ def test_backtest_guard(monkeypatch):
     monkeypatch.delenv(ALLOW_EXCLUDED_REGIME_ENV, raising=False)
     assert_backtest_range_allowed(None)
     assert_backtest_range_allowed(BACKTEST_EXCLUDED_FROM - timedelta(days=1))
-    with pytest.raises(ValueError, match="BACKTEST_EXCLUDED_FROM"):
+    with pytest.raises(ValueError, match="BACKTEST_EXCLUDED_FROM") as ei:
         assert_backtest_range_allowed(BACKTEST_EXCLUDED_FROM)
+    # 회신 24 Q-H (1): 사유 = 창 혼재(정의는 회신 21 로 확정) — 구 문구 "거래량 정의 미확정" 금지, 해제 경로 C 명시
+    assert "거래량 창 혼재(일간 ≈2026-12, 주간·앵커 ≈2027-09 만료)" in str(ei.value) and "정의 미확정" not in str(ei.value)
+    assert "층 분리" in str(ei.value)
     with pytest.raises(ValueError):
         assert_backtest_range_allowed(str(BACKTEST_EXCLUDED_FROM + timedelta(days=30)))
     monkeypatch.setenv(ALLOW_EXCLUDED_REGIME_ENV, "1")
