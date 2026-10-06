@@ -17,6 +17,11 @@ BEFORE_FIRST_FILING = "before_first_filing"      # 첫 정기공시 이전(상�
 FILED_BUT_API_MISSING = "filed_but_api_missing"  # 접수됐으나 API 부재
 NOT_FILED_OR_EXEMPT = "not_filed_or_exempt"      # 미제출·면제
 UNEXPLAINED = "unexplained"
+# (회신 24 Q-I, 2026-10-06) 정기공시 이력이 전혀 없는 종목(신규 상장 — 0010S0 사례)은 첫 정기공시일로 상장일을 대체할 수 없다.
+# 그때만 첫 일봉(daily_prices ∪ delisted_daily_prices MIN(date))으로 대체하고, 그 라벨 행에 근거를 기록한다.
+# 가드: 첫 일봉 > DATA_COLLECTION_START 일 때만 — 첫 일봉이 수집 시작일(이하)이면 그 전부터 상장했을 수 있어(좌측 절단) 대체 금지.
+DATA_COLLECTION_START = date(2016, 6, 13)        # MIN(daily_prices.date) 실측(격리 테이블은 2015-06-15 시작 — 그 이전 날짜도 대체 금지)
+BASIS_LISTING_PROXY_FIRST_DAILY_BAR = "listing_proxy=first_daily_bar"
 LABELS = (NOT_YET_DUE, AFTER_DELISTING, BEFORE_FIRST_FILING, FILED_BUT_API_MISSING, NOT_FILED_OR_EXEMPT, UNEXPLAINED)
 
 _PERIOD_END_MONTH = {"11013": 3, "11012": 6, "11014": 9, "11011": 12}
@@ -44,18 +49,31 @@ def _matches_report(report_nm: str, reprt_code: str, p_end: date) -> bool:
 
 
 def decide_no_data(*, bsns_year: int, reprt_code: str, today: date, first_filing_dt: date | None,
-                   delisted_at: date | None, filings: list[dict], fiscal_end: date | None = None) -> str:
+                   delisted_at: date | None, filings: list[dict], fiscal_end: date | None = None,
+                   first_daily_bar: date | None = None) -> str:
     """status 013 셀의 라벨. filings = 공시 목록 항목 [{report_nm, rcept_dt(date)}] (정정 포함 — 접수 사실 판별용)."""
+    return decide_no_data_with_basis(bsns_year=bsns_year, reprt_code=reprt_code, today=today, first_filing_dt=first_filing_dt,
+                                     delisted_at=delisted_at, filings=filings, fiscal_end=fiscal_end,
+                                     first_daily_bar=first_daily_bar)[0]
+
+
+def decide_no_data_with_basis(*, bsns_year: int, reprt_code: str, today: date, first_filing_dt: date | None,
+                              delisted_at: date | None, filings: list[dict], fiscal_end: date | None = None,
+                              first_daily_bar: date | None = None) -> tuple[str, str | None]:
+    """(라벨, 근거). 근거는 대체 규칙을 쓴 경우만(BASIS_LISTING_PROXY_FIRST_DAILY_BAR), 그 외 None. 우선순위·라벨 집합 불변(회신 24 C 반려)."""
     p_end = fiscal_end or period_end(bsns_year, reprt_code)
     due = due_date(p_end, reprt_code)
     if due > today:
-        return NOT_YET_DUE
+        return NOT_YET_DUE, None
     if delisted_at is not None and p_end > delisted_at:
-        return AFTER_DELISTING
+        return AFTER_DELISTING, None
     if first_filing_dt is not None and due < first_filing_dt:
-        return BEFORE_FIRST_FILING
+        return BEFORE_FIRST_FILING, None
+    if (first_filing_dt is None and not filings and first_daily_bar is not None
+            and first_daily_bar > DATA_COLLECTION_START and due < first_daily_bar):
+        return BEFORE_FIRST_FILING, BASIS_LISTING_PROXY_FIRST_DAILY_BAR   # 회신 24 Q-I B — 기한 경과 후 무공시는 아래로(UNEXPLAINED 유지)
     if any(_matches_report(f.get("report_nm", ""), reprt_code, p_end) for f in filings):
-        return FILED_BUT_API_MISSING
+        return FILED_BUT_API_MISSING, None
     if filings:   # 다른 정기공시는 있으나 이 보고서는 없음 → 미제출·면제(예: 분기보고서 면제 대상)
-        return NOT_FILED_OR_EXEMPT
-    return UNEXPLAINED
+        return NOT_FILED_OR_EXEMPT, None
+    return UNEXPLAINED, None

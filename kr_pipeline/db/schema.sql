@@ -1045,6 +1045,8 @@ CREATE TABLE IF NOT EXISTS dart_fin_raw (
     PRIMARY KEY (corp_code, bsns_year, reprt_code)
 );
 CREATE INDEX IF NOT EXISTS idx_dart_fin_raw_ticker ON dart_fin_raw(ticker);
+-- (회신 24 Q-I, 2026-10-06) 라벨 근거 — 정기공시 이력 없는 종목을 첫 일봉으로 상장일 대체한 경우만 'listing_proxy=first_daily_bar', 그 외 NULL.
+ALTER TABLE dart_fin_raw ADD COLUMN IF NOT EXISTS no_data_basis VARCHAR(40);
 
 -- 공시검색(list.json, pblntf_ty=A 정기공시) 원본 — no_data 라벨 근거(제출 여부·제출일)와 원공시 접수일.
 CREATE TABLE IF NOT EXISTS dart_disclosure_raw (

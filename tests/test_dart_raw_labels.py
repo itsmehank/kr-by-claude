@@ -61,3 +61,38 @@ def test_labels_are_mutually_exclusive_priority_order():
     """규칙 우선순위 고정: 기한 미도래 > 상폐 이후 > 첫 공시 이전 > 접수됨 > 미제출 > unexplained."""
     assert L.LABELS == (L.NOT_YET_DUE, L.AFTER_DELISTING, L.BEFORE_FIRST_FILING, L.FILED_BUT_API_MISSING, L.NOT_FILED_OR_EXEMPT, L.UNEXPLAINED)
     assert "etc" not in L.LABELS and "기타" not in L.LABELS
+
+
+# ─── 회신 24 Q-I(B + 가드): 정기공시 이력 없음 → 첫 일봉으로 상장일 대체 ───────────
+
+def _fb(**kw):
+    base = dict(bsns_year=2020, reprt_code="11011", today=date(2026, 10, 6), first_filing_dt=None,
+                delisted_at=None, filings=[], fiscal_end=None)
+    base.update(kw)
+    return L.decide_no_data_with_basis(**base)
+
+
+def test_no_filings_uses_first_daily_bar_as_listing_proxy():
+    """0010S0(첫 일봉 2026-09-23, 공시 목록 빈 응답) — 기한 < 첫 일봉이면 상장 전(BEFORE_FIRST_FILING), 근거 기록."""
+    assert _fb(first_daily_bar=date(2026, 9, 23)) == (L.BEFORE_FIRST_FILING, L.BASIS_LISTING_PROXY_FIRST_DAILY_BAR)
+    assert L.BASIS_LISTING_PROXY_FIRST_DAILY_BAR == "listing_proxy=first_daily_bar"
+
+
+def test_no_filings_after_listing_due_passed_stays_unexplained():
+    """상장(첫 일봉) 이후 기한이 지났는데 공시가 없으면 진짜 이상 신호 — UNEXPLAINED 유지."""
+    assert _fb(bsns_year=2025, reprt_code="11011", first_daily_bar=date(2025, 1, 10)) == (L.UNEXPLAINED, None)
+
+
+def test_first_daily_bar_at_collection_start_is_left_censored_no_proxy():
+    """첫 일봉 = 수집 시작일(2016-06-13)이면 좌측 절단 가능 — 대체 금지(가드). 그 이전 날짜(격리 테이블 2015-06-15 시작)도 금지."""
+    assert L.DATA_COLLECTION_START == date(2016, 6, 13)
+    assert _fb(bsns_year=2015, first_daily_bar=date(2016, 6, 13)) == (L.UNEXPLAINED, None)
+    assert _fb(bsns_year=2015, first_daily_bar=date(2015, 6, 15)) == (L.UNEXPLAINED, None)
+    assert _fb(bsns_year=2015, first_daily_bar=date(2016, 6, 14))[0] == L.BEFORE_FIRST_FILING
+
+
+def test_proxy_not_used_when_filings_exist_or_bar_unknown():
+    """공시 이력이 있으면 기존 규칙(첫 정기공시일) 그대로, 첫 일봉 모르면 대체 없음 — 기존 라벨 불변."""
+    assert _fb(first_daily_bar=None) == (L.UNEXPLAINED, None)
+    assert _fb(first_filing_dt=date(2022, 3, 30), first_daily_bar=date(2026, 9, 23)) == (L.BEFORE_FIRST_FILING, None)   # 기존 규칙(첫 정기공시일) 경로 — 근거 없음
+    assert _f(bsns_year=2020, reprt_code="11011", first_filing_dt=None, filings=[]) == L.UNEXPLAINED   # 구 시그니처 호환
