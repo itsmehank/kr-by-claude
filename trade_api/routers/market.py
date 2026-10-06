@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, Query
 from psycopg import Connection
 
+from kr_pipeline.common.sql_text import escape_like
 from kr_trading.toss.client import TossClient
 from kr_trading.toss.errors import GuardError
 from kr_trading.toss.models import BuyingPowerResponse, SellableQuantityResponse
@@ -12,14 +13,9 @@ from trade_api.schemas import QuoteOut, SearchHit, kr_int_str
 router = APIRouter(prefix="/trade-api", tags=["market"])
 
 
-def _escape_ilike(q: str) -> str:
-    """ILIKE 와일드카드(`\\ % _`)를 리터럴로 이스케이프 — `ESCAPE '\\'` 와 짝지어 사용."""
-    return q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-
-
 @router.get("/search", response_model=list[SearchHit])
 def search(q: str = Query(..., min_length=1, max_length=30), conn: Connection = Depends(get_conn)) -> list[SearchHit]:
-    esc = _escape_ilike(q)
+    esc = escape_like(q)
     like = f"%{esc}%"
     rows = conn.execute(
         """

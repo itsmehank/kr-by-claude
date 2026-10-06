@@ -3,6 +3,7 @@ from psycopg import Connection
 
 from api.deps import get_conn
 from api.schemas.stock import StockOut
+from kr_pipeline.common.sql_text import escape_like
 
 
 router = APIRouter(prefix="/api/stocks", tags=["stocks"])
@@ -21,8 +22,10 @@ def list_stocks(market: str | None = None, sector: str | None = None,
         sql += " AND sector = %s"
         params.append(sector)
     if q:
-        sql += " AND (ticker ILIKE %s OR name ILIKE %s)"
-        params.extend([f"%{q}%", f"%{q}%"])
+        # (#189) 사용자 입력의 % _ \ 는 리터럴 — 이스케이프 없으면 '_' 한 글자가 전 종목에 매칭됐다
+        sql += " AND (ticker ILIKE %s ESCAPE '\\' OR name ILIKE %s ESCAPE '\\')"
+        like = f"%{escape_like(q)}%"
+        params.extend([like, like])
     sql += " ORDER BY ticker LIMIT %s"
     params.append(limit)
     with conn.cursor() as cur:
