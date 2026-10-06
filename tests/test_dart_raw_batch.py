@@ -111,3 +111,67 @@ def test_run_parity_gate_blocks_rest_until_pass(db, tmp_path, monkeypatch):
     assert st["stopped"] == "parity" and st["parity"]["passed"] is False and st["parity"]["unattributed"] == 1
     with db.cursor() as cur:
         cur.execute("SELECT count(*) FROM dart_fin_raw WHERE corp_code='C-PA2'"); assert cur.fetchone()[0] == 0
+
+
+def test_run_retries_transient_timeout_then_continues(db, tmp_path, monkeypatch):
+    """(10-06 1일차 실측) URLError timeout 1회가 배치 전체를 크래시시키던 경로 — 일시 네트워크 실패는 백오프 재시도 후 이어간다.
+    각 시도는 호출 1건으로 센다(서버 도달 여부 불명 — 한도 보수)."""
+    import urllib.error
+    TODAY = date(2026, 10, 6)
+    _seed_corp(db, "RT1", "C-RT1")
+    n = {"single": 0}
+    def flaky(key, corp, year, rc):
+        n["single"] += 1
+        if n["single"] == 1:
+            raise urllib.error.URLError(TimeoutError("timed out"))
+        return _resp()
+    monkeypatch.setattr(B, "fetch_single_account", flaky); monkeypatch.setattr(B, "fetch_disclosures", lambda *a: [])
+    monkeypatch.setattr(B, "_SLEEP", 0); monkeypatch.setattr(B, "TRANSIENT_BACKOFF_S", (0, 0, 0))
+    plan = B.plan(db, years=(2024, 2024), today=TODAY, tickers=["RT1"])
+    st = B.run(db, plan, today=TODAY, cap=100, save_dir=tmp_path, api_key="k")
+    assert st["stopped"] == "complete" and st["cells_done"] == len(plan.cells) and st["errors"] == []
+    assert st["transient_retries"] == 1
+    assert S.calls_today(db, TODAY)[0] == st["calls"] == 1 + len(plan.cells) + 1      # list 1 + 셀 + 실패 시도 1
+
+
+def test_run_stops_gracefully_after_transient_retries_exhausted(db, tmp_path, monkeypatch):
+    import socket
+    TODAY = date(2026, 10, 6)
+    _seed_corp(db, "RT2", "C-RT2")
+    def dead(key, corp, year, rc):
+        raise socket.timeout("timed out")
+    monkeypatch.setattr(B, "fetch_single_account", dead); monkeypatch.setattr(B, "fetch_disclosures", lambda *a: [])
+    monkeypatch.setattr(B, "_SLEEP", 0); monkeypatch.setattr(B, "TRANSIENT_BACKOFF_S", (0, 0, 0))
+    plan = B.plan(db, years=(2024, 2024), today=TODAY, tickers=["RT2"])
+    st = B.run(db, plan, today=TODAY, cap=100, save_dir=tmp_path, api_key="k")     # 예외가 새지 않는다
+    assert st["stopped"] == "transient:TimeoutError" and st["cells_done"] == 0
+    assert len(st["errors"]) == 1 and "timed out" in st["errors"][0]
+    assert st["calls"] == 1 + 1 + len(B.TRANSIENT_BACKOFF_S)                         # list 1 + 첫 시도 + 재시도
+
+
+def test_main_returns_nonzero_when_stopped_abnormally(monkeypatch, capsys):
+    """래퍼 rc 가 0 으로 남던 문제 — cap/max_calls/완주는 0, transient·fatal·020·parity 중단은 1."""
+    for stopped, rc in ((None, 0), ("complete", 0), ("cap", 0), ("max_calls", 0), ("020", 1), ("parity", 1), ("transient:TimeoutError", 1), ("fatal:800", 1)):
+        assert B.exit_code_for({"stopped": stopped}) == rc, stopped
+
+
+def test_run_transient_on_list_call_and_http_error_label(db, tmp_path, monkeypatch):
+    """목록(list) 호출의 일시 실패도 같은 경로 — HTTPError 는 'HTTPError503' 라벨(종전 'str'), 소진 시 계정이 커밋돼 있다."""
+    import urllib.error
+    TODAY = date(2026, 10, 6)
+    _seed_corp(db, "RT3", "C-RT3")
+    def down(*a):
+        raise urllib.error.HTTPError("u", 503, "Service Unavailable", {}, None)
+    monkeypatch.setattr(B, "fetch_disclosures", down); monkeypatch.setattr(B, "fetch_single_account", lambda *a: _resp())
+    monkeypatch.setattr(B, "_SLEEP", 0); monkeypatch.setattr(B, "TRANSIENT_BACKOFF_S", (0, 0))
+    plan = B.plan(db, years=(2024, 2024), today=TODAY, tickers=["RT3"])
+    st = B.run(db, plan, today=TODAY, cap=100, save_dir=tmp_path, api_key="k")
+    assert st["stopped"] == "transient:HTTPError503" and st["cells_done"] == 0 and st["calls"] == 3
+    assert S.calls_today(db, TODAY)[0] == 3
+
+
+def test_transient_kind_labels():
+    import urllib.error
+    assert B._transient_kind(urllib.error.URLError(TimeoutError("t"))) == "TimeoutError"
+    assert B._transient_kind(urllib.error.URLError("no route")) == "URLError"
+    assert B._transient_kind(ValueError("Expecting value")) == "ValueError"

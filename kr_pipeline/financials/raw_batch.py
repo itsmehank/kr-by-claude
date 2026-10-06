@@ -10,11 +10,14 @@
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import logging
 import os
 import sys
+import ssl
 import time
+import urllib.error
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -33,6 +36,11 @@ REPRTS = ("11011", "11013", "11012", "11014")
 YEAR_START = 2015            # OpenDART 재무 제공 시작 연도(회신 12)
 DAILY_CAP = 18_000           # 회신 ①: 20,000 중 2,000 은 타 소비자(평일 공시 조회) 예약
 _SLEEP = 0.08                # 기존 재무 러너와 동일 페이싱
+# 일시 네트워크 실패(timeout·연결 끊김) — DartApiError(서버가 status 로 답한 환경성 실패)와 달리 응답 자체가 없다.
+# 10-06 1일차 실측: urlopen 20s timeout 1회가 미처리 예외로 배치 전체를 크래시. 백오프 재시도 후에도 실패면 정상 중단(재개는 멱등).
+# + 본문 읽기 중 SSL 오류(urlopen 은 연결 단계만 URLError 로 감싼다), 점검 페이지 HTML 등 잘린/비JSON 본문(ValueError ⊃ JSONDecodeError) — 리뷰.
+TRANSIENT_ERRORS = (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException, ssl.SSLError, ValueError)
+TRANSIENT_BACKOFF_S = (10, 60, 300)
 
 
 @dataclass
@@ -103,9 +111,18 @@ def _parity_check(conn: Connection, plan_: Plan) -> dict:
     return summary
 
 
+def _transient_kind(e: BaseException) -> str:
+    """중단 사유 라벨 — URLError 는 reason 이 예외면 그 타입(TimeoutError 등), HTTPError 는 'HTTPError<코드>'(reason 이 문자열이라
+    type 이름이 'str' 로 찍히던 문제, 리뷰)."""
+    if isinstance(e, urllib.error.HTTPError):
+        return f"HTTPError{e.code}"
+    r = getattr(e, "reason", None)
+    return type(r).__name__ if isinstance(r, BaseException) else type(e).__name__
+
+
 def run(conn: Connection, plan_: Plan, *, today: date, cap: int = DAILY_CAP, save_dir: Path, api_key: str,
         max_calls: int | None = None) -> dict:
-    st = {"calls": 0, "cells_done": 0, "no_data": 0, "stopped": None, "parity": None, "errors": []}
+    st = {"calls": 0, "cells_done": 0, "no_data": 0, "stopped": None, "parity": None, "errors": [], "transient_retries": 0}
     parity_set = set(plan_.parity_tickers)
     parity_passed = not parity_set   # 파리티 종목이 없으면 게이트 없음
     lists_done: set[str] = set()
@@ -118,21 +135,39 @@ def run(conn: Connection, plan_: Plan, *, today: date, cap: int = DAILY_CAP, sav
             st["stopped"] = "cap"; return False
         return True
 
+    def _count_call() -> None:
+        raw_store.add_calls(conn, today, 1, cap=cap); st["calls"] += 1
+
     def _call(endpoint: str, fn, *args) -> dict | list | None:
-        try:
-            out = fn(*args)
-        except DartApiError as e:
-            if e.status == "020":
-                raw_store.mark_stopped_020(conn, today, cap=cap); conn.commit()
-                st["stopped"] = "020"
-            else:
-                st["stopped"] = f"fatal:{e.status}"; st["errors"].append(str(e))
-            return None
-        finally:
-            raw_store.add_calls(conn, today, 1, cap=cap); st["calls"] += 1
-        _save(save_dir, today, {"endpoint": endpoint, "args": [str(a) for a in args[1:]], "response": out})
-        time.sleep(_SLEEP)
-        return out
+        for attempt in range(len(TRANSIENT_BACKOFF_S) + 1):
+            try:
+                out = fn(*args)
+            except DartApiError as e:
+                _count_call()
+                if e.status == "020":
+                    raw_store.mark_stopped_020(conn, today, cap=cap); conn.commit()
+                    st["stopped"] = "020"
+                else:
+                    st["stopped"] = f"fatal:{e.status}"; st["errors"].append(str(e))
+                return None
+            except TRANSIENT_ERRORS as e:
+                _count_call(); conn.commit()     # 시도도 호출로 센다(서버 도달 여부 불명 — 한도 보수), 크래시돼도 계정 보존
+                kind = _transient_kind(e)
+                if attempt < len(TRANSIENT_BACKOFF_S) and _budget():
+                    st["transient_retries"] += 1
+                    log.warning("transient %s %s (%s) — %ss 후 재시도 %d/%d", endpoint, kind, e, TRANSIENT_BACKOFF_S[attempt],
+                                attempt + 1, len(TRANSIENT_BACKOFF_S))
+                    time.sleep(TRANSIENT_BACKOFF_S[attempt])
+                    continue
+                if st["stopped"] is None:            # _budget() 이 cap/max_calls 로 먼저 표시했으면 그 사유 유지
+                    st["stopped"] = f"transient:{kind}"
+                st["errors"].append(f"{endpoint} {kind}: {e}")
+                return None
+            _count_call()
+            _save(save_dir, today, {"endpoint": endpoint, "args": [str(a) for a in args[1:]], "response": out})
+            time.sleep(_SLEEP)
+            return out
+        return None
 
     i = 0
     cells = plan_.cells
@@ -215,7 +250,12 @@ def main() -> int:
             print("DART_ALLOW_BATCH=1 없이는 실행하지 않는다(외부 접촉 승인 게이트)."); return 2
         st = run(cn, p, today=today, cap=a.cap, save_dir=Path(a.save_dir), api_key=cfg.dart_api_key, max_calls=a.max_calls)
         print(json.dumps(st, ensure_ascii=False, default=str, indent=1))
-    return 0
+    return exit_code_for(st)
+
+
+def exit_code_for(st: dict) -> int:
+    """완주(complete)·일 cap·max_calls 는 0(정상 — 다음 날 이어감), 020·fatal·parity·transient 중단은 1(사람 확인)."""
+    return 0 if st.get("stopped") in (None, "complete", "cap", "max_calls") else 1
 
 
 if __name__ == "__main__":
