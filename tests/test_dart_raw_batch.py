@@ -153,3 +153,25 @@ def test_main_returns_nonzero_when_stopped_abnormally(monkeypatch, capsys):
     """래퍼 rc 가 0 으로 남던 문제 — cap/max_calls/완주는 0, transient·fatal·020·parity 중단은 1."""
     for stopped, rc in ((None, 0), ("complete", 0), ("cap", 0), ("max_calls", 0), ("020", 1), ("parity", 1), ("transient:TimeoutError", 1), ("fatal:800", 1)):
         assert B.exit_code_for({"stopped": stopped}) == rc, stopped
+
+
+def test_run_transient_on_list_call_and_http_error_label(db, tmp_path, monkeypatch):
+    """목록(list) 호출의 일시 실패도 같은 경로 — HTTPError 는 'HTTPError503' 라벨(종전 'str'), 소진 시 계정이 커밋돼 있다."""
+    import urllib.error
+    TODAY = date(2026, 10, 6)
+    _seed_corp(db, "RT3", "C-RT3")
+    def down(*a):
+        raise urllib.error.HTTPError("u", 503, "Service Unavailable", {}, None)
+    monkeypatch.setattr(B, "fetch_disclosures", down); monkeypatch.setattr(B, "fetch_single_account", lambda *a: _resp())
+    monkeypatch.setattr(B, "_SLEEP", 0); monkeypatch.setattr(B, "TRANSIENT_BACKOFF_S", (0, 0))
+    plan = B.plan(db, years=(2024, 2024), today=TODAY, tickers=["RT3"])
+    st = B.run(db, plan, today=TODAY, cap=100, save_dir=tmp_path, api_key="k")
+    assert st["stopped"] == "transient:HTTPError503" and st["cells_done"] == 0 and st["calls"] == 3
+    assert S.calls_today(db, TODAY)[0] == 3
+
+
+def test_transient_kind_labels():
+    import urllib.error
+    assert B._transient_kind(urllib.error.URLError(TimeoutError("t"))) == "TimeoutError"
+    assert B._transient_kind(urllib.error.URLError("no route")) == "URLError"
+    assert B._transient_kind(ValueError("Expecting value")) == "ValueError"

@@ -13,7 +13,7 @@ def _run_loop(tmp_path, body: str, last_run: str | None = None):
         (home / ".kr-by-claude" / "state" / "dart186.last_run").write_text(last_run + "\n")
     fake = tmp_path / "uv"; fake.write_text("#!/bin/bash\n" + body); fake.chmod(0o755)
     log = tmp_path / "run.log"
-    env = {**os.environ, "HOME": str(home), "UV_BIN": str(fake), "START_HHMM": "0000", "DART186_LOG": str(log), "DART186_NO_NOTIFY": "1"}
+    env = {**os.environ, "HOME": str(home), "UV_BIN": str(fake), "START_HHMM": "0000", "LATEST_HHMM": "2400", "DART186_LOG": str(log), "DART186_NO_NOTIFY": "1"}
     r = subprocess.run(["bash", str(SCRIPT), "_loop"], env=env, capture_output=True, text=True, timeout=20)
     return r, log.read_text(), home / ".kr-by-claude" / "state"
 
@@ -32,3 +32,21 @@ def test_loop_ends_on_abnormal_stop(tmp_path):
 def test_loop_passes_dart_gate_env(tmp_path):
     r, log, _ = _run_loop(tmp_path, 'echo "GATE=$DART_ALLOW_BATCH ARGS=$*"\necho \'{"stopped": "complete"}\'\n')
     assert "GATE=1 ARGS=run python -m kr_pipeline.financials.raw_batch --run" in log
+
+
+def test_loop_skips_after_latest_start(tmp_path):
+    """시작 창 밖(LATEST_HHMM 이후)이면 실행하지 않고 대기 — 자정 넘김 방지. STOP 파일로 대기 루프를 빠져나오게 해 검증."""
+    home = tmp_path / "home"; st = home / ".kr-by-claude" / "state"; st.mkdir(parents=True)
+    fake = tmp_path / "uv"; fake.write_text("#!/bin/bash\necho RAN\n"); fake.chmod(0o755)
+    log = tmp_path / "run.log"
+    env = {**os.environ, "HOME": str(home), "UV_BIN": str(fake), "START_HHMM": "0000", "LATEST_HHMM": "0000",
+           "DART186_LOG": str(log), "DART186_NO_NOTIFY": "1"}
+    p = subprocess.Popen(["bash", str(SCRIPT), "_loop"], env=env)
+    import time
+    time.sleep(1.5); (st / "dart186.stop").write_text("")
+    try:
+        p.wait(timeout=1)          # 첫 대기(sleep 300) 중이라 STOP 을 아직 못 봤을 수 있다 → 종료
+    except subprocess.TimeoutExpired:
+        p.kill()
+    assert "RAN" not in log.read_text() and "실행 시작" not in log.read_text()
+    assert not (st / "dart186.last_run").exists()
