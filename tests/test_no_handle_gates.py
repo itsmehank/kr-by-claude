@@ -20,9 +20,13 @@ def _active_row(symbol, *, close, pivot=80.0, classification="entry",
     }
 
 
+from tests.market_gate_helpers import allow_market
+
+
 def _run_with(db, mocker, active, *, held=frozenset()):
     import kr_pipeline.llm_runner.evaluate_pivot as ev
     mocker.patch.object(ev, "get_active_with_current", return_value=active)
+    allow_market(mocker, ev)   # (#109) 시장 게이트 통과 고정
     mocker.patch.object(ev, "get_open_positions",
                         return_value=[{"symbol": s} for s in sorted(held)])
     llm_calls = []

@@ -207,3 +207,13 @@ P2-1a (한국시장 FTD/distribution 임계 σ 보정) 가 *작성 당시 이 �
     | `CLIMAX_ANCHOR_VOL_AVG_WEEKS`=50 (thresholds, 소비 = held_window_flag 의 앵커 앞 W주) | 불요(같은 상수) | **없음(판정)** / 있음(표지) — 발화·억제 불변. 표지 기간이 늘어남: 경계 후 앵커라도 앵커가 경계+W주(≈2027-09) 전이면 mixed. #184(C3′ 일봉 전환)가 앵커 분모를 바꾸면 이 창도 같이 바꿔야 함 | 책 TLOND 50주 유지 | **#184 착수 시 동반 수정**(창 정의 = C3 분모와 같은 행 집합) — 그 전까지 자동 추종 |
     | `VOLUME_REGIME_BOUNDARY`=2026-09-28 (data_regimes) | 불가(날짜) | 없음 — 소비 방식 동일(regime_for_week) | measurement-based | — |
   - 근거 = #207 회신 22(Q-A B 채택·원칙 명문화·회신 21 빈틈 인정)·회신 23(Q-D A 적용). 태그 design-judgment.
+- 2026-10-08: #109 entry 경로 트리거 당일 시장 게이트(브랜치 issue109-entry-market-gate) — thresholds.py 변경 0. 트리거 = `STATUS_FTD_RECENT_DAYS` 소비처 추가(`kr_pipeline/common/market_gate.force_watch`/`entry_market_gate`). 분류층 §3.5 `payload_builder._market_direction_gate` 의 force_watch 를 공용 함수로 승격(동작 동일 — 규칙 사본 제거)하고, evaluate_pivot 결정론 wait 체인 ④(① 보유 억제 → ② extended → ③ strict → ④ 시장 → LLM)에서 entry 분류 'breakout' 을 LLM 없이 차단. 근거 HMMS Ch.9(FTD 없이 새 상승장 없음) — 책-의무 정합성 수리(governance 3-5), 회신 2026-10-08 Q-J B·Q-K A·Q-L·A·Q-M A.
+  - 소비 경계 1줄: `market_context_daily`(as-of, build_market_context) → `entry_market_gate`(순수) → evaluate_pivot ④ → `trigger_evaluation_log.wait_reason` ∈ {market_gate, market_gate_null, market_gate_stale}(LLM 미호출 — 회신 7 동치 `wait_reason IS NOT NULL ⇔ llm_call_duration_s IS NULL` 유지) · null/stale 차단이 있으면 run warning `market_gate_data_missing`(전건이면 `_all`) + 복구 절차(market_context 적재 후 같은 as_of 로 evaluate·entry 재실행 — 결측 행은 '평가 완료'로 치지 않아 해당 종목만 재판정, 결측 행 교체). 백테스트(trigger_gate·portfolio·recall) 불변 — entry 경로 미시뮬레이션(#236).
+  - 2축 판정:
+
+    | 고정 상수 | 축1 환산? | 축2 영향? | 책 정합 | 판정 → 후속 |
+    |---|---|---|---|---|
+    | `STATUS_FTD_RECENT_DAYS`=90 (thresholds, 소비 = force_watch 의 '최근 FTD' 창 — status.py·분류층과 동일) | 불요(같은 상수) | **있음** — rally_attempt 에서 FTD 경과 ≤90일(∧ FTD 날짜 기록 존재)이면 entry 돌파 통과, 91일+·부재면 차단. 분류층 §3.5 와 같은 함수·같은 입력(has_last_ftd 포함)이라 두 층 판정이 일치 | 분류층 §3.5 와 동일(HMMS Ch.9 '최근 FTD', 일수는 시스템 정의 — EXTENDS) | 모니터링 불요: 상수 변경 시 status.py·분류층·트리거층이 함께 추종(단일 정의) |
+    | `MARKET_DIST_DEMOTION_COUNT_25S` (분류층 confidence 페널티) | — | **없음** — 트리거층 게이트 입력 아님(회신 Q-L ①: 분배일은 경고, 매수 금지 명문은 조정/하락·FTD 부재) | HMMS Ch.9 | — |
+    | 결측·대체 처리(null/stale = 보수 차단) | — | **있음(의도)** — market_context 적재 실패일엔 entry 돌파 전부 차단 + run warning | governance 4-2 | 관측 #237 |
+  - 기록: 체인 ④가 ②·③ 뒤라 extended·strict 와 겹치는 시장 차단은 앞 사유로 기록 — 시장 차단 건수 과소 집계(수용, 필요 시 순수 함수를 market_context_daily as-of 로 기존 행에 사후 적용). 포켓 피봇 예외 포함 entry 경로 go_now 전부 대상 — TLOND 조정장 포켓 피봇 서술과의 충돌은 **해소: HMMS 우선**(Q-L ②).

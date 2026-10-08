@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from psycopg import Connection
 
 from api.services.market_context_builder import build_market_context
+from kr_pipeline.common.market_gate import KNOWN_MARKET_STATUSES, force_watch as _force_watch
 from api.services.corporate_actions_builder import build_corporate_actions
 from api.services.minervini_detail_builder import build_minervini_detail
 from kr_pipeline.common.price_source import NOT_ZERO_BAR_SQL, ZERO_BAR_SQL, price_source
@@ -15,7 +16,6 @@ from kr_pipeline.llm_runner.compute.climax_topping import (
 from kr_pipeline.common.thresholds import (
     MARKET_DIST_DEMOTION_COUNT_25S,
     MARKET_DIST_NORMAL_MAX_25S,
-    STATUS_FTD_RECENT_DAYS,
     TT_MARGINAL_DEMOTION_COUNT,
 )
 from kr_pipeline.llm_runner.compute.recent_transition import (
@@ -49,9 +49,7 @@ def _conditions_summary(conditions_detail: dict) -> dict:
     }
 
 
-_KNOWN_MARKET_STATUSES = frozenset(
-    {"confirmed_uptrend", "rally_attempt", "downtrend", "correction"}
-)
+_KNOWN_MARKET_STATUSES = KNOWN_MARKET_STATUSES   # (#109) 공용 정의
 
 
 def _market_direction_gate(market_context: dict) -> dict:
@@ -77,18 +75,11 @@ def _market_direction_gate(market_context: dict) -> dict:
     last_ftd = market_context.get("last_follow_through_day")
     ftd_age = market_context.get("days_since_follow_through")
 
+    # (#109) force_watch 판정은 트리거층 entry 게이트와 공유(kr_pipeline.common.market_gate) — 규칙 사본 금지
+    force_watch = _force_watch(status, ftd_age, has_last_ftd=last_ftd is not None)
     if status is None or status not in _KNOWN_MARKET_STATUSES:
-        force_watch = None
         normal_range = None
     else:
-        ftd_recent = (
-            last_ftd is not None
-            and ftd_age is not None
-            and ftd_age <= STATUS_FTD_RECENT_DAYS
-        )
-        force_watch = status in ("downtrend", "correction") or (
-            status == "rally_attempt" and not ftd_recent
-        )
         if status != "confirmed_uptrend":
             normal_range = False  # 전제(confirmed_uptrend) 거짓 — dist 무관 확정
         elif dist is not None:

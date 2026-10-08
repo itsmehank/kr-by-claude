@@ -5,6 +5,8 @@ from datetime import date, datetime, timezone
 
 import pytest
 
+from tests.market_gate_helpers import allow_market
+
 
 def test_wait_reason_column_exists(db):
     """(#45) trigger_evaluation_log.wait_reason VARCHAR 컬럼 존재."""
@@ -74,6 +76,7 @@ def _active_row(symbol, *, close, pivot=80.0, classification="entry",
 def _run_with(db, mocker, active, *, dry_run=False):
     import kr_pipeline.llm_runner.evaluate_pivot as ev
     mocker.patch.object(ev, "get_active_with_current", return_value=active)
+    allow_market(mocker, ev)   # (#109) 시장 게이트 통과 고정 — 이 파일은 extended 게이트 검증
     llm_calls = []
     mocker.patch.object(
         ev, "_process_one",
@@ -191,6 +194,7 @@ def _run_real_process(db, mocker, active):
     """_process_one 실경로 — build_for_5b·call_claude 만 대체, payload 캡처."""
     import kr_pipeline.llm_runner.evaluate_pivot as ev
     mocker.patch.object(ev, "get_active_with_current", return_value=active)
+    allow_market(mocker, ev)   # (#109) 시장 게이트 통과 고정 — 이 파일은 extended 게이트 검증
     mocker.patch.object(ev, "build_for_5b",
                         side_effect=lambda conn, s, trigger_type, as_of: {"base": "x"})
     captured = {}

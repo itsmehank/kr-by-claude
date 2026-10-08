@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 from kr_pipeline.common.config import Config
 from kr_pipeline.db.connection import connect
 from kr_pipeline.db.runs import run_tracking
-from kr_pipeline.llm_runner.run_status import check_all_failed
+from kr_pipeline.llm_runner.run_status import check_all_failed, collect_stage_warnings
 from kr_pipeline.llm_runner import (
     weekend, daily_delta, evaluate_pivot, entry_params, performance, backfill, disqualify,
 )
@@ -133,6 +133,7 @@ def main() -> int:
                 state["details"] = result
                 # #201: 성공 행 0(전량 실패)이면 success 로 남기지 않는다 — 예외 → run_tracking failed(details 보존)
                 #       → 비-0 종료 → 체인 중단 → watch_pipelines 알림. 부분 실패는 success 유지(임계 신설 금지).
+                state["warnings"].extend(collect_stage_warnings(result))               # (#109) 단계 warnings — 전량 실패 raise 전에 수집(리뷰)
                 state["warnings"].extend(check_all_failed(result, mode=args.mode))   # 대상 0 단계 = 'no_targets' 경고
 
     logging.getLogger("kr_pipeline.llm_runner").info(

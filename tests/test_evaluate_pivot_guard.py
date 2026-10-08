@@ -10,6 +10,8 @@ def test_run_does_not_skip_null_stop_loss(mocker):
         "sma_50": 78000, "stop_loss": None,
     }]
     mocker.patch.object(ep, "get_active_with_current", return_value=active)
+    from tests.market_gate_helpers import allow_market
+    allow_market(mocker, ep)   # (#109) 시장 게이트 통과 고정
     proc = mocker.patch.object(ep, "_process_one")  # avoid build_for_5b / LLM / DB
     conn = mocker.MagicMock()  # conn.commit() is a no-op mock
 
