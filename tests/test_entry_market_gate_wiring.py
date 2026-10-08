@@ -101,3 +101,48 @@ def test_collect_stage_warnings_promotes_nested_lists():
     assert collect_stage_warnings(r) == ["market_gate_data_missing_all: x"]
     assert collect_stage_warnings({"warnings": ["a", "a"], "s": {"warnings": ["b"]}}) == ["a", "b"]
     assert collect_stage_warnings(None) == []
+
+
+def test_partial_missing_warns_without_all_prefix(db, mocker):
+    """한 시장만 stale, 다른 시장은 통과 → 'market_gate_data_missing'(전건 아님) 경고 + 복구 명령 안내(리뷰)."""
+    market = {"KOSPI": _mc("confirmed_uptrend", as_of=date(2026, 10, 6)), "KOSDAQ": _mc("confirmed_uptrend")}
+    result, calls, rows, _ = _run(db, mocker, [_row("MP1", market="KOSPI"), _row("MP2", market="KOSDAQ")], market)
+    assert calls == [("MP2", "breakout")] and rows["MP1"][1] == "market_gate_stale"
+    w = [x for x in result["warnings"] if x.startswith("market_gate_data_missing")]
+    assert len(w) == 1 and w[0].startswith("market_gate_data_missing:") and "--mode=evaluate --date 2026-10-07" in w[0]
+
+
+def test_rerun_after_market_context_loaded_reevaluates_only_missing_rows(db, mocker):
+    """결측 행은 '평가 완료'가 아니다 — 같은 as_of 재실행 시 그 종목만 재판정하고 결측 행은 교체(1종목 1행), 정상 판정 종목은 skip."""
+    first = {"KOSPI": _mc(None, as_of=None)}
+    _, calls1, rows1, _ = _run(db, mocker, [_row("MR1")], first)
+    assert rows1["MR1"][1] == "market_gate_null" and calls1 == []
+    import kr_pipeline.llm_runner.evaluate_pivot as ev
+    mocker.patch.object(ev, "build_market_context", side_effect=lambda conn, m, d: _mc("downtrend"))
+    ev.run(db, as_of=AS_OF)                                   # market_context 적재 후 재실행
+    with db.cursor() as cur:
+        cur.execute("SELECT wait_reason FROM trigger_evaluation_log WHERE symbol='MR1'")
+        assert [r[0] for r in cur.fetchall()] == ["market_gate"]
+
+
+def test_dry_run_records_nothing_but_counts(db, mocker):
+    import kr_pipeline.llm_runner.evaluate_pivot as ev
+    mocker.patch.object(ev, "get_active_with_current", return_value=[_row("MD1")])
+    mocker.patch.object(ev, "get_open_positions", return_value=[])
+    mocker.patch.object(ev, "_process_one")
+    mocker.patch.object(ev, "build_market_context", side_effect=lambda conn, m, d: _mc("correction"))
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol='MD1'")
+    r = ev.run(db, dry_run=True, as_of=AS_OF)
+    assert r["market_gate_blocked"]["market_gate"] == 1
+    with db.cursor() as cur:
+        cur.execute("SELECT count(*) FROM trigger_evaluation_log WHERE symbol='MD1'")
+        assert cur.fetchone()[0] == 0
+
+
+def test_missing_last_ftd_record_matches_classification_layer(db, mocker):
+    """경과일은 있는데 FTD 날짜 기록이 없으면 분류층처럼 '최근 FTD 확인 불가' — rally_attempt 차단(리뷰: 두 층 입력 일치)."""
+    mc = _mc("rally_attempt", ftd=10)
+    mc["last_follow_through_day"] = None
+    _, calls, rows, _ = _run(db, mocker, [_row("ML1")], {"KOSPI": mc})
+    assert calls == [] and rows["ML1"][1] == "market_gate"

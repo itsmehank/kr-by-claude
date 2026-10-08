@@ -37,12 +37,12 @@ class EntryMarketGate:
 
 
 def entry_market_gate(*, current_status: str | None, days_since_ftd: int | None,
-                      as_of_date: date | None, trigger_date: date) -> EntryMarketGate:
+                      as_of_date: date | None, trigger_date: date, has_last_ftd: bool = True) -> EntryMarketGate:
     """entry 경로 트리거(go_now 가능) 당일 시장 차단. 우선순위: null(행 부재·상태 결측/미지) → stale(직전일 대체) → 국면 규칙."""
     if as_of_date is None or current_status is None or current_status not in KNOWN_MARKET_STATUSES:
         return EntryMarketGate(True, REASON_MARKET_GATE_NULL)
     if as_of_date < trigger_date:
         return EntryMarketGate(True, REASON_MARKET_GATE_STALE)
-    if force_watch(current_status, days_since_ftd):
+    if force_watch(current_status, days_since_ftd, has_last_ftd=has_last_ftd):
         return EntryMarketGate(True, REASON_MARKET_GATE)
     return EntryMarketGate(False, None)

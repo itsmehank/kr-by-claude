@@ -45,6 +45,7 @@ POSITION_SUPPRESSED_WAIT_REASON = "suppressed_position_held"
 # ②·③ 뒤에 두어 #45·#74 사전등록 코호트 분모 불변 — 겹치면 앞 게이트 사유로 기록되어 시장 차단 건수는 과소 집계(수용·명시).
 _ENTRY_MARKET_GATE_TRIGGERS = frozenset({"breakout"})
 _MARKET_GATE_REASONS = (REASON_MARKET_GATE, REASON_MARKET_GATE_NULL, REASON_MARKET_GATE_STALE)
+_MARKET_DATA_MISSING_REASONS = (REASON_MARKET_GATE_NULL, REASON_MARKET_GATE_STALE)
 _UPWARD_TRIGGERS = frozenset({"breakout", "breakout_from_watch", "promotion"})
 
 
@@ -52,13 +53,27 @@ log = logging.getLogger("kr_pipeline.llm_runner.evaluate_pivot")
 
 
 def _already_evaluated_symbols(conn, as_of) -> set:
+    """as_of 로 이미 평가된 종목(멱등 재개). (#109) 시장 데이터 결측·대체로 막힌 행(market_gate_null/stale)은 '평가 완료'로 치지
+    않는다 — market_context 적재 후 같은 as_of 로 재실행하면 그 종목만 다시 판정된다(나머지는 skip, --force 전체 재평가 불요)."""
     with conn.cursor() as cur:
         cur.execute(
             "SELECT symbol FROM trigger_evaluation_log "
-            "WHERE COALESCE(analyzed_for_date, (evaluated_at AT TIME ZONE 'UTC')::date) = %s",
-            (as_of,),
+            "WHERE COALESCE(analyzed_for_date, (evaluated_at AT TIME ZONE 'UTC')::date) = %s "
+            "AND (wait_reason IS NULL OR wait_reason <> ALL(%s))",
+            (as_of, list(_MARKET_DATA_MISSING_REASONS)),
         )
         return {r[0] for r in cur.fetchall()}
+
+
+def _clear_market_data_missing_rows(conn, symbol, as_of) -> None:
+    """(#109) 재판정 전에 같은 (종목, as_of)의 market_gate_null/stale 행을 지운다 — 재실행 후 한 종목에 결측 행과 새 판정 행이
+    함께 남지 않게(그날 판정 = 1행 유지)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "DELETE FROM trigger_evaluation_log WHERE symbol = %s "
+            "AND COALESCE(analyzed_for_date, (evaluated_at AT TIME ZONE 'UTC')::date) = %s AND wait_reason = ANY(%s)",
+            (symbol, as_of, list(_MARKET_DATA_MISSING_REASONS)),
+        )
 
 
 def _aborted_since_classification(conn, active: list[dict]) -> set:
@@ -165,6 +180,8 @@ def run(
     failed = []
     for a, trig in triggered:
         try:
+            if not dry_run:
+                _clear_market_data_missing_rows(conn, a["symbol"], as_of)   # (#109) 결측 재실행 시 이전 결측 행 교체
             # (#74) 보유 억제 — 상향 트리거는 보유 중 재트리거가 전부 노이즈
             # (단순 abort 모델·피라미딩 없음). invalidation 은 통과(하향 신호).
             # 체인 최선행: 억제분이 extended/strict(F4 분모) 기록에 안 섞이게.
@@ -220,6 +237,7 @@ def run(
                 mc = market_ctx[mkt]
                 g = entry_market_gate(
                     current_status=mc.get("current_status"),
+                    has_last_ftd=mc.get("last_follow_through_day") is not None,   # 분류층 force_watch 와 같은 입력(리뷰)
                     days_since_ftd=mc.get("days_since_follow_through"),
                     as_of_date=date.fromisoformat(mc["as_of_date"]) if mc.get("as_of_date") else None,
                     trigger_date=as_of,
@@ -260,17 +278,20 @@ def run(
         "strict_vol_blocked": strict_vol_blocked,
         "position_suppressed": position_suppressed,
         "market_gate_blocked": market_blocked,
-        "warnings": _market_gate_warnings(market_blocked, market_gate_reached),
+        "warnings": _market_gate_warnings(market_blocked, market_gate_reached, as_of),
     }
 
 
-def _market_gate_warnings(blocked: dict, reached: int) -> list[str]:
-    """(#109 회신 Q-L ③·A) 시장 게이트에 도달한 entry 돌파가 하루 전건 null/stale 로 차단 → run warning(시장 데이터 적재 실패 신호)."""
+def _market_gate_warnings(blocked: dict, reached: int, as_of) -> list[str]:
+    """(#109 회신 Q-L ③·A) 시장 데이터 결측·직전일 대체로 막힌 entry 돌파가 있으면 run warning. 전건이면 접두어 _all(회신의 '하루 전건'),
+    일부만이어도 경고(한 시장만 stale 인 경우 등 — 리뷰). 메시지에 복구 절차 포함."""
     missing = blocked[REASON_MARKET_GATE_NULL] + blocked[REASON_MARKET_GATE_STALE]
-    if reached and missing == reached:
-        return [f"market_gate_data_missing_all: entry 돌파 {reached}건 전건 시장 데이터 결측/직전일 대체로 차단 "
-                f"(null {blocked[REASON_MARKET_GATE_NULL]}·stale {blocked[REASON_MARKET_GATE_STALE]}) — market_context 적재 확인"]
-    return []
+    if not missing:
+        return []
+    tag = "market_gate_data_missing_all" if missing == reached else "market_gate_data_missing"
+    return [f"{tag}: entry 돌파 {missing}/{reached}건 시장 데이터 결측/직전일 대체로 차단 "
+            f"(null {blocked[REASON_MARKET_GATE_NULL]}·stale {blocked[REASON_MARKET_GATE_STALE]}) — market_context 적재 후 "
+            f"`python -m kr_pipeline.llm_runner --mode=evaluate --date {as_of}` → `--mode=entry --date {as_of}` 재실행(해당 종목만 재판정)"]
 
 
 def _record_deterministic_wait(conn, active_row, trig_type, *, dry_run, as_of,

@@ -73,3 +73,17 @@ def test_pure_function_has_no_db_or_clock_access():
     src = inspect.getsource(m)
     for forbidden in ("psycopg", "conn", "date.today", "datetime.now", "import os"):
         assert forbidden not in src, forbidden
+
+
+def test_force_watch_matches_pre_refactor_rule_table():
+    """리팩터 전 _market_direction_gate 의 force_watch 식을 그대로 옮긴 기대표(순환 비교 아님, 리뷰):
+    status ∉ known → None / downtrend·correction → True / rally_attempt → not(last_ftd ∧ days≠None ∧ days≤R) / confirmed → False."""
+    def old(status, days, last_ftd):
+        if status is None or status not in ("confirmed_uptrend", "rally_attempt", "downtrend", "correction"):
+            return None
+        recent = last_ftd is not None and days is not None and days <= R
+        return status in ("downtrend", "correction") or (status == "rally_attempt" and not recent)
+    for status in (None, "", "bull", "confirmed_uptrend", "rally_attempt", "downtrend", "correction"):
+        for days in (None, -1, 0, 1, R - 1, R, R + 1, 1000):
+            for last_ftd in (None, "2026-09-01"):
+                assert force_watch(status, days, has_last_ftd=last_ftd is not None) == old(status, days, last_ftd), (status, days, last_ftd)

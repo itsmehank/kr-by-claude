@@ -632,7 +632,7 @@ def insert_trigger_log(
 ) -> None:
     """trigger_evaluation_log 에 (5b) 결과 INSERT.
 
-    wait_reason: (#45) 결정론 extended 게이트 전용 사유('extended_past_buy_range').
+    wait_reason: 결정론 wait 체인(LLM 미호출)의 사유 — #74 보유 억제·#45 extended·#74 strict·#109 시장 게이트(schema.sql 주석 목록).
     LLM 평가 행은 None. 사전등록 코호트 질의의 동등비교 키.
     """
     decision = _validate_decision(result)
