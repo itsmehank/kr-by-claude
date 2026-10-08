@@ -53,3 +53,16 @@ def check_all_failed(result: dict, *, mode: str) -> list[str]:
     if msgs:
         raise AllAttemptsFailedError("; ".join(msgs))
     return warns
+
+
+def collect_stage_warnings(result) -> list[str]:
+    """(#109) 결과 dict(또는 한 단계 아래 하위 단계 dict)의 'warnings' 리스트를 모은다 — 단계가 직접 올린 경고(예: 시장 데이터 결측
+    전건 차단)를 pipeline_runs warnings 로 승격. 중복 제거·순서 보존."""
+    if not isinstance(result, dict):
+        return []
+    out: list[str] = []
+    for d in [result, *[v for v in result.values() if isinstance(v, dict)]]:
+        w = d.get("warnings")
+        if isinstance(w, list):
+            out.extend(str(x) for x in w if x)
+    return list(dict.fromkeys(out))

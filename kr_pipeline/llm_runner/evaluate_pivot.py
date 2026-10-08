@@ -17,6 +17,10 @@ from kr_pipeline.llm_runner.compute.payload_lite import build_for_5b
 from kr_pipeline.llm_runner.compute.trigger_gate import evaluate as evaluate_gate
 from kr_pipeline.llm_runner.llm.claude_cli import call_claude, UsageLimitError
 from kr_pipeline.llm_runner.load import get_active_with_current
+from api.services.market_context_builder import build_market_context
+from kr_pipeline.common.market_gate import (
+    REASON_MARKET_GATE, REASON_MARKET_GATE_NULL, REASON_MARKET_GATE_STALE, entry_market_gate,
+)
 from kr_pipeline.llm_runner.store import insert_trigger_log
 from kr_pipeline.trade_management.store import get_open_positions
 
@@ -34,6 +38,13 @@ STRICT_NH_WAIT_REASON = "volume_below_strict_no_handle"
 # (#74) 보유 억제(dedupe) — 상향 트리거 전부. invalidation(하향)은 보유자 필수
 # 신호라 절대 비억제. 체인 순서 = dedupe → extended → strict (F4 분모 오염 방지).
 POSITION_SUPPRESSED_WAIT_REASON = "suppressed_position_held"
+
+# (#109, 회신 2026-10-08 Q-J B·Q-M A) entry 경로 트리거 당일 시장 게이트 — 결정론 wait 체인 ④(① 보유 억제 → ② extended →
+# ③ strict → ④ 시장 → LLM). 대상 = entry 분류의 'breakout'(go_now 가능, 포켓 피봇 예외 포함 — TLOND 조정장 포켓 피봇 서술과 충돌 시
+# 해소: HMMS 우선). breakout_from_watch 는 watch §3.5(프롬프트 집행) — 범위 밖(#235). production 하드 ON(설정 없음).
+# ②·③ 뒤에 두어 #45·#74 사전등록 코호트 분모 불변 — 겹치면 앞 게이트 사유로 기록되어 시장 차단 건수는 과소 집계(수용·명시).
+_ENTRY_MARKET_GATE_TRIGGERS = frozenset({"breakout"})
+_MARKET_GATE_REASONS = (REASON_MARKET_GATE, REASON_MARKET_GATE_NULL, REASON_MARKET_GATE_STALE)
 _UPWARD_TRIGGERS = frozenset({"breakout", "breakout_from_watch", "promotion"})
 
 
@@ -148,6 +159,9 @@ def run(
     extended_blocked = 0
     strict_vol_blocked = 0
     position_suppressed = 0
+    market_blocked = dict.fromkeys(_MARKET_GATE_REASONS, 0)
+    market_gate_reached = 0
+    market_ctx: dict = {}          # 시장별 1회 조회(같은 as_of)
     failed = []
     for a, trig in triggered:
         try:
@@ -197,6 +211,29 @@ def run(
                         strict_vol_blocked += 1
                         conn.commit()
                         continue
+            # (#109) ④ entry 경로 시장 게이트 — 당일 시장 상태로 결정론 차단(LLM 미호출).
+            if trig in _ENTRY_MARKET_GATE_TRIGGERS:
+                market_gate_reached += 1
+                mkt = a.get("market")
+                if mkt not in market_ctx:
+                    market_ctx[mkt] = build_market_context(conn, mkt, as_of)
+                mc = market_ctx[mkt]
+                g = entry_market_gate(
+                    current_status=mc.get("current_status"),
+                    days_since_ftd=mc.get("days_since_follow_through"),
+                    as_of_date=date.fromisoformat(mc["as_of_date"]) if mc.get("as_of_date") else None,
+                    trigger_date=as_of,
+                )
+                if g.blocked:
+                    _record_deterministic_wait(
+                        conn, a, trig, dry_run=dry_run, as_of=as_of, wait_reason=g.reason,
+                        reasoning=(f"deterministic entry market gate (#109, HMMS Ch.9): {mkt} status="
+                                   f"{mc.get('current_status')} days_since_ftd={mc.get('days_since_follow_through')} "
+                                   f"market_as_of={mc.get('as_of_date')} → {g.reason}"),
+                    )
+                    market_blocked[g.reason] += 1
+                    conn.commit()
+                    continue
             _process_one(conn, a, trig, dry_run=dry_run, as_of=as_of)
             evaluated += 1
             conn.commit()
@@ -222,7 +259,18 @@ def run(
         "extended_blocked": extended_blocked,
         "strict_vol_blocked": strict_vol_blocked,
         "position_suppressed": position_suppressed,
+        "market_gate_blocked": market_blocked,
+        "warnings": _market_gate_warnings(market_blocked, market_gate_reached),
     }
+
+
+def _market_gate_warnings(blocked: dict, reached: int) -> list[str]:
+    """(#109 회신 Q-L ③·A) 시장 게이트에 도달한 entry 돌파가 하루 전건 null/stale 로 차단 → run warning(시장 데이터 적재 실패 신호)."""
+    missing = blocked[REASON_MARKET_GATE_NULL] + blocked[REASON_MARKET_GATE_STALE]
+    if reached and missing == reached:
+        return [f"market_gate_data_missing_all: entry 돌파 {reached}건 전건 시장 데이터 결측/직전일 대체로 차단 "
+                f"(null {blocked[REASON_MARKET_GATE_NULL]}·stale {blocked[REASON_MARKET_GATE_STALE]}) — market_context 적재 확인"]
+    return []
 
 
 def _record_deterministic_wait(conn, active_row, trig_type, *, dry_run, as_of,

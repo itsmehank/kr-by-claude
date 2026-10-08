@@ -382,6 +382,8 @@ CREATE TABLE IF NOT EXISTS trigger_evaluation_log (
 -- 'extended_past_buy_range' (close > pivot × PIVOT_EXTENDED_BAND_MULT 로 LLM 없이
 -- 차단). weekly watch_reason='extended'(주 단위)와 별개 값(일 단위 경로) — 사전등록
 -- 코호트 질의는 이 컬럼 동등비교만 사용(LIKE 금지). NULL = LLM 평가 행.
+-- 현행 값(결정론 wait 체인 순서): suppressed_position_held(#74) → extended_past_buy_range(#45) → volume_below_strict_no_handle(#74)
+-- → market_gate / market_gate_null / market_gate_stale(#109 entry 경로 당일 시장 게이트, 2026-10-08). 주석만 — DDL 불변.
 ALTER TABLE trigger_evaluation_log
   ADD COLUMN IF NOT EXISTS wait_reason VARCHAR(60);
 

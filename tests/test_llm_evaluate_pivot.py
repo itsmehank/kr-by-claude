@@ -95,6 +95,8 @@ def test_evaluate_aborts_on_usage_limit(db, mocker):
         for s in ("UL1", "UL2", "UL3")
     ]
     mocker.patch.object(ev, "get_active_with_current", return_value=active)
+    from tests.market_gate_helpers import allow_market
+    allow_market(mocker, ev)   # (#109) 시장 게이트 통과 고정
     mocker.patch.object(ev, "evaluate_gate", return_value="breakout")
     mocker.patch.object(ev, "_already_evaluated_symbols", return_value=set())
     mocker.patch.object(ev, "_aborted_since_classification", return_value=set())
