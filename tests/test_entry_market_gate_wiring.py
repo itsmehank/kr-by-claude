@@ -114,15 +114,17 @@ def test_partial_missing_warns_without_all_prefix(db, mocker):
 
 def test_rerun_after_market_context_loaded_reevaluates_only_missing_rows(db, mocker):
     """결측 행은 '평가 완료'가 아니다 — 같은 as_of 재실행 시 그 종목만 재판정하고 결측 행은 교체(1종목 1행), 정상 판정 종목은 skip."""
-    first = {"KOSPI": _mc(None, as_of=None)}
-    _, calls1, rows1, _ = _run(db, mocker, [_row("MR1")], first)
-    assert rows1["MR1"][1] == "market_gate_null" and calls1 == []
+    first = {"KOSPI": _mc(None, as_of=None), "KOSDAQ": _mc("correction")}
+    _, calls1, rows1, _ = _run(db, mocker, [_row("MR1"), _row("MR2", market="KOSDAQ")], first)
+    assert rows1["MR1"][1] == "market_gate_null" and rows1["MR2"][1] == "market_gate" and calls1 == []
     import kr_pipeline.llm_runner.evaluate_pivot as ev
     mocker.patch.object(ev, "build_market_context", side_effect=lambda conn, m, d: _mc("downtrend"))
     ev.run(db, as_of=AS_OF)                                   # market_context 적재 후 재실행
     with db.cursor() as cur:
         cur.execute("SELECT wait_reason FROM trigger_evaluation_log WHERE symbol='MR1'")
         assert [r[0] for r in cur.fetchall()] == ["market_gate"]
+        cur.execute("SELECT count(*) FROM trigger_evaluation_log WHERE symbol='MR2'")
+        assert cur.fetchone()[0] == 1                         # 정상 판정 종목은 skip — 행 유지(재판정 없음)
 
 
 def test_dry_run_records_nothing_but_counts(db, mocker):
@@ -133,11 +135,17 @@ def test_dry_run_records_nothing_but_counts(db, mocker):
     mocker.patch.object(ev, "build_market_context", side_effect=lambda conn, m, d: _mc("correction"))
     with db.cursor() as cur:
         cur.execute("DELETE FROM trigger_evaluation_log WHERE symbol='MD1'")
+    from kr_pipeline.llm_runner.store import insert_trigger_log
+    insert_trigger_log(db, symbol="MD1", evaluated_at=datetime(2026, 10, 7, 12, tzinfo=timezone.utc), trigger_type="breakout",
+                       close=83.0, volume=2_000_000, pivot_price=80.0,
+                       result={"decision": "wait", "confidence": None, "reasoning": "t", "abort_reason": None},
+                       prior_classification_at=datetime(2026, 10, 3, 3, tzinfo=timezone.utc), llm_meta={},
+                       analyzed_for_date=AS_OF, wait_reason="market_gate_null")
     r = ev.run(db, dry_run=True, as_of=AS_OF)
     assert r["market_gate_blocked"]["market_gate"] == 1
     with db.cursor() as cur:
-        cur.execute("SELECT count(*) FROM trigger_evaluation_log WHERE symbol='MD1'")
-        assert cur.fetchone()[0] == 0
+        cur.execute("SELECT wait_reason FROM trigger_evaluation_log WHERE symbol='MD1'")
+        assert [x[0] for x in cur.fetchall()] == ["market_gate_null"]      # dry_run 은 기존 결측 행도 지우지 않음
 
 
 def test_missing_last_ftd_record_matches_classification_layer(db, mocker):

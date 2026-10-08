@@ -291,7 +291,7 @@ def _market_gate_warnings(blocked: dict, reached: int, as_of) -> list[str]:
     tag = "market_gate_data_missing_all" if missing == reached else "market_gate_data_missing"
     return [f"{tag}: entry 돌파 {missing}/{reached}건 시장 데이터 결측/직전일 대체로 차단 "
             f"(null {blocked[REASON_MARKET_GATE_NULL]}·stale {blocked[REASON_MARKET_GATE_STALE]}) — market_context 적재 후 "
-            f"`python -m kr_pipeline.llm_runner --mode=evaluate --date {as_of}` → `--mode=entry --date {as_of}` 재실행(해당 종목만 재판정)"]
+            f"`python -m kr_pipeline.llm_runner --mode=evaluate --date {as_of}` → `--mode=entry --date {as_of}` 재실행(해당 종목만 재판정 — 다음 주말 재분류 전에)"]
 
 
 def _record_deterministic_wait(conn, active_row, trig_type, *, dry_run, as_of,
