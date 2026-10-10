@@ -1,7 +1,7 @@
 """daily_prices 최신 일봉 날짜 — 공용 조회(#204 리뷰 1차: 같은 SQL 이 5곳에 흩어져 있어 정의 변경 시 누락 위험).
 
-기존 호출처(weekly/modes.py·trade_management/runner.py·indicators/completeness.py·ohlcv/modes.py)는 `SELECT MAX(date) FROM daily_prices`
-직접 실행 — 이 PR 범위(#204)에서는 universe 만 이 헬퍼로 옮기고 나머지는 별건(동작 동일, 기계적 교체).
+호출처: universe(기준일, upto=today)·weekly/modes 신선도 게이트·trade_management/runner as-of·indicators/completeness. ohlcv/modes.py 는
+큰 SQL 안의 서브쿼리라 그대로 둔다(동일 의미).
 """
 from __future__ import annotations
 

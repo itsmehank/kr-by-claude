@@ -47,37 +47,33 @@ def test_fetch_sectors_maps_pykrx_columns(mocker):
 
 # ---------- 종목명 1회 조회 ----------
 
-def test_fetch_names_reads_listed_table_once(monkeypatch):
-    """ticker→종목명 사전 = pykrx StockTicker.listed(상장종목검색) — get_market_ticker_name 과 같은 출처."""
-    listed = pd.DataFrame({"티커": ["095570", "005930"], "종목": ["AJ네트웍스", "삼성전자"]}).set_index("티커")
+def test_fetch_names_reads_listing_search_once(monkeypatch):
+    """ticker→종목명 사전 = pykrx 상장종목검색 원응답(short_code·codeName) 1회 — get_market_ticker_name 이 StockTicker.listed 로 쓰는
+    것과 같은 화면·같은 컬럼(리뷰 2차: 싱글턴 내부 _instance 조작·상폐종목검색 불필요 요청 제거)."""
     calls = []
 
-    class _Ticker:
-        def __init__(self):
-            calls.append(1)
-            self.listed = listed
+    def _listed():
+        calls.append(1)
+        return pd.DataFrame({"short_code": ["095570", "005930", "0NAN00"], "codeName": ["AJ네트웍스", "삼성전자", float("nan")],
+                             "marketName": ["유가증권", "유가증권", "코스닥"]})
 
-    monkeypatch.setattr(uf, "_stock_ticker", lambda: _Ticker())
+    monkeypatch.setattr(uf, "_listed_frame", _listed)
 
-    assert uf.fetch_names() == {"095570": "AJ네트웍스", "005930": "삼성전자"}
+    assert uf.fetch_names() == {"095570": "AJ네트웍스", "005930": "삼성전자"}   # NaN 이름은 'nan' 문자열이 아니라 미해결로 남긴다
     assert calls == [1]
 
 
 def test_fetch_names_empty_table_raises_clear_error(monkeypatch):
-    """pykrx 는 상장종목검색 실패(throttle·JSON 오류)를 빈 DataFrame 으로 삼키고 싱글턴에 캐시한다 — KeyError('종목') 대신 원인 문구."""
-    class _Ticker:
-        listed = pd.DataFrame()
-
-    monkeypatch.setattr(uf, "_stock_ticker", lambda: _Ticker())
+    """상장종목검색 실패(throttle·JSON 오류)가 빈 DataFrame 으로 삼켜져도 KeyError 대신 원인 문구 — with_retry 가 실제 재조회."""
+    monkeypatch.setattr(uf, "_listed_frame", lambda: pd.DataFrame())
 
     with pytest.raises(ValueError, match=r"상장종목검색.*비어"):
         uf.fetch_names.retry_with(wait=wait_none())()
 
 
-def test_fetch_universe_uses_name_map_without_per_ticker_calls(monkeypatch):
+def test_fetch_universe_uses_name_map(monkeypatch):
     monkeypatch.setattr(uf, "fetch_tickers", lambda market, on_date: {"KOSPI": ["095570"], "KOSDAQ": ["060310", "054620"]}[market])
     monkeypatch.setattr(uf, "fetch_names", lambda: {"095570": "AJ네트웍스", "060310": "3S", "054620": "APS"})
-    monkeypatch.setattr(uf, "fetch_name", lambda ticker: (_ for _ in ()).throw(AssertionError(f"종목별 호출 금지: {ticker}")))
 
     df = uf.fetch_universe(date(2026, 10, 1))
 
@@ -88,25 +84,12 @@ def test_fetch_universe_uses_name_map_without_per_ticker_calls(monkeypatch):
     ]
 
 
-def test_fetch_universe_falls_back_to_single_lookup_when_name_missing(monkeypatch):
-    """표에 없는 종목(당일 신규 상장 등)만 기존 종목별 조회로 보완 — 이름 NULL 로 적재되지 않게."""
-    monkeypatch.setattr(uf, "fetch_tickers", lambda market, on_date: {"KOSPI": ["095570", "0NEW00"], "KOSDAQ": []}[market])
-    monkeypatch.setattr(uf, "fetch_names", lambda: {"095570": "AJ네트웍스"})
-    looked_up = []
-    monkeypatch.setattr(uf, "fetch_name", lambda ticker: looked_up.append(ticker) or "신규상장")
-
-    df = uf.fetch_universe(date(2026, 10, 1))
-
-    assert looked_up == ["0NEW00"]
-    assert dict(zip(df["ticker"], df["name"])) == {"095570": "AJ네트웍스", "0NEW00": "신규상장"}
-
-
 def test_fetch_universe_fails_closed_when_name_unresolvable(monkeypatch):
-    """pykrx get_market_ticker_name 은 모르는 종목에 빈 DataFrame 을 돌려준다(dataframe_empty_handler) — 그대로 name 에 들어가면
-    upsert 에서 'cannot adapt type DataFrame' 로 터진다(KRX 접촉을 다 쓴 뒤). 쓰기 전에 종목을 지목해 fail-closed."""
+    """전종목시세에는 있고 상장종목검색에는 없는 종목(피드 지연 등)은 종목별 보완이 불가능하다 — get_market_ticker_name 도 같은 표를
+    읽고 모르는 종목엔 빈 DataFrame 을 돌려줘(dataframe_empty_handler) 이전엔 upsert 'cannot adapt type DataFrame' 로 터졌다(KRX 접촉을 다
+    쓴 뒤). 쓰기 전에 종목을 지목해 fail-closed(리뷰 2차: 보완 경로는 죽은 코드라 제거)."""
     monkeypatch.setattr(uf, "fetch_tickers", lambda market, on_date: {"KOSPI": ["095570", "0NEW00"], "KOSDAQ": []}[market])
     monkeypatch.setattr(uf, "fetch_names", lambda: {"095570": "AJ네트웍스"})
-    monkeypatch.setattr(uf, "fetch_name", lambda ticker: pd.DataFrame())
 
     with pytest.raises(ValueError, match=r"종목명.*0NEW00"):
         uf.fetch_universe(date(2026, 10, 1))

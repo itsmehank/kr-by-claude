@@ -177,31 +177,33 @@ def _seed_daily(db, ticker, *days):
                         "VALUES (%s, %s, 1, 1, 1, 1, 1, 1, 1)", (ticker, d))
 
 
-def test_sector_as_of_is_latest_daily_bar_not_after_today(db):
+def test_as_of_trading_day_is_latest_daily_bar_not_after_today(db):
     with db.cursor() as cur:   # kr_test 에 커밋된 다른 일봉에 좌우되지 않게(리뷰 1차) — 트랜잭션 안이라 ROLLBACK 으로 복원
         cur.execute("DELETE FROM daily_prices")
     _seed_daily(db, "204T00", date(2026, 9, 29), date(2026, 9, 30), date(2026, 10, 2))
-    assert um._sector_as_of(db, date(2026, 10, 1)) == date(2026, 9, 30)   # 매월 1일 06:30 — 전일 종가 기준
-    assert um._sector_as_of(db, date(2026, 10, 2)) == date(2026, 10, 2)   # 당일 일봉이 이미 있으면 당일
+    assert um._as_of_trading_day(db, date(2026, 10, 1)) == date(2026, 9, 30)   # 매월 1일 06:30 — 전일 종가 기준
+    assert um._as_of_trading_day(db, date(2026, 10, 2)) == date(2026, 10, 2)   # 당일 일봉이 이미 있으면 당일
 
 
-def test_sector_as_of_falls_back_to_today_without_daily_bars(db):
+def test_as_of_trading_day_falls_back_to_today_without_daily_bars(db):
     with db.cursor() as cur:
         cur.execute("DELETE FROM daily_prices")
-    assert um._sector_as_of(db, date(2026, 10, 1)) == date(2026, 10, 1)
+    assert um._as_of_trading_day(db, date(2026, 10, 1)) == date(2026, 10, 1)
 
 
 def test_run_universe_fetches_sectors_as_of_latest_bar(db, quiet_universe, monkeypatch):
     raw = _raw([("U221X0", "유이이일", "KOSPI")])
     monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
-    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {"U221X0": "주권"})
-    monkeypatch.setattr(um, "_sector_as_of", lambda conn, today: date(2026, 9, 30))
+    sg_from = []
+    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: sg_from.append(today) or {"U221X0": "주권"})
+    monkeypatch.setattr(um, "_as_of_trading_day", lambda conn, today: date(2026, 9, 30))
     asked = []
     monkeypatch.setattr(um, "fetch_sectors", lambda d, m: asked.append((d, m)) or pd.DataFrame(columns=["ticker", "sector"]))
 
     um.run_universe(db, today=date(2026, 10, 1))
 
     assert asked == [(date(2026, 9, 30), "KOSPI"), (date(2026, 9, 30), "KOSDAQ")]
+    assert sg_from == [date(2026, 9, 30)]   # 증권구분 걸어내리기도 같은 기준일에서 시작(리뷰 2차: '오늘' 비거래 시점 3회 재시도 낭비 제거)
     # 증거 파일(운영 규칙 5)에 업종 기준일 기록 — fetched_for(today) 와 다르므로 감사 시 재구성 가능해야 한다(리뷰 1차)
     files = sorted(glob.glob(os.path.join(os.environ["KR_VERIFICATION_DIR"], "universe_raw_20261001_*.json")))
     assert files, "universe_raw 증거 파일이 저장되지 않았다"
@@ -212,20 +214,41 @@ def test_run_universe_fetches_sectors_as_of_latest_bar(db, quiet_universe, monke
 
 def test_run_universe_warns_when_kept_tickers_lack_sector(db, quiet_universe, monkeypatch):
     """기준일(최신 일봉) 이후 상장된 종목은 업종 응답에 없어 NULL 로 적재된다 — 조용히 넘기지 않고 run warning 으로 수를 남긴다(리뷰 1차)."""
-    raw = _raw([("U221X0", "유이이일", "KOSPI"), ("U221Y0", "유이이이", "KOSPI")])
+    raw = _raw([("U221X0", "유이이일", "KOSPI"), ("U221Y0", "유이이이", "KOSPI"), ("U221Z0", "유이이삼", "KOSDAQ")])
     monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
-    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {"U221X0": "주권", "U221Y0": "주권"})
-    monkeypatch.setattr(um, "_sector_as_of", lambda conn, today: date(2026, 9, 30))
-    monkeypatch.setattr(um, "fetch_sectors",
-                        lambda d, m: pd.DataFrame([("U221X0", "서비스업")], columns=["ticker", "sector"]) if m == "KOSPI"
-                        else pd.DataFrame(columns=["ticker", "sector"]))
+    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {"U221X0": "주권", "U221Y0": "주권", "U221Z0": "주권"})
+    monkeypatch.setattr(um, "_as_of_trading_day", lambda conn, today: date(2026, 9, 30))
+
+    def _sectors(d, m):
+        if m == "KOSDAQ":
+            raise ValueError("empty sector response for KOSDAQ")   # 한 시장 실패 — 그 시장 전 종목을 '누락' 으로 세면 오귀속(리뷰 2차)
+        return pd.DataFrame([("U221X0", "서비스업")], columns=["ticker", "sector"])
+
+    monkeypatch.setattr(um, "fetch_sectors", _sectors)
 
     um.run_universe(db, today=date(2026, 10, 1))
 
-    assert "sector_missing: 1종목 (as_of=2026-09-30) U221Y0" in quiet_universe["state"]["warnings"]
+    w = quiet_universe["state"]["warnings"]
+    assert "sector_missing: 1종목 (as_of=2026-09-30) U221Y0" in w          # 응답이 온 KOSPI 안에서만 센다
+    assert any(x.startswith("sector_fetch_failed: KOSDAQ (as_of=2026-09-30)") for x in w)   # 실패는 로그만이 아니라 run warning
     with db.cursor() as cur:
-        cur.execute("SELECT ticker, sector FROM stocks WHERE ticker IN ('U221X0','U221Y0') ORDER BY 1")
-        assert cur.fetchall() == [("U221X0", "서비스업"), ("U221Y0", None)]
+        cur.execute("SELECT ticker, sector FROM stocks WHERE ticker IN ('U221X0','U221Y0','U221Z0') ORDER BY 1")
+        assert cur.fetchall() == [("U221X0", "서비스업"), ("U221Y0", None), ("U221Z0", None)]
+
+
+def test_run_universe_records_sector_as_of_even_when_all_sector_fetches_fail(db, quiet_universe, monkeypatch):
+    raw = _raw([("U221X0", "유이이일", "KOSPI")])
+    monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
+    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {"U221X0": "주권"})
+    monkeypatch.setattr(um, "_as_of_trading_day", lambda conn, today: date(2026, 9, 30))
+    monkeypatch.setattr(um, "fetch_sectors", lambda d, m: (_ for _ in ()).throw(ValueError("empty")))
+
+    um.run_universe(db, today=date(2026, 10, 1))
+
+    files = sorted(glob.glob(os.path.join(os.environ["KR_VERIFICATION_DIR"], "universe_raw_20261001_*.json")))
+    with open(files[-1], encoding="utf-8") as f:
+        doc = json.load(f)
+    assert doc["sector_as_of"] == "2026-09-30" and "sectors" not in doc   # 증거 파일만으로 '어느 날짜를 물었는지' 재구성 가능(운영 규칙 5)
 
 
 def test_latest_daily_bar_date_helper(db):

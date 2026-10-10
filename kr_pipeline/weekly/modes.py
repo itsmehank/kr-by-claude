@@ -6,6 +6,7 @@ import logging
 
 from psycopg import Connection
 
+from kr_pipeline.common.daily_bars import latest_daily_bar_date
 from kr_pipeline.common.trading_calendar import (
     expected_latest_trading_day, StaleDataError, TradingCalendarUnavailable,
 )
@@ -159,10 +160,7 @@ def _assert_daily_fresh(conn: Connection) -> str | None:
         msg = f"freshness_gate: 거래 캘린더 조회 실패 — 게이트 생략하고 진행 ({e})"
         log.warning(msg)
         return msg
-    with conn.cursor() as cur:
-        cur.execute("SELECT MAX(date) FROM daily_prices")
-        row = cur.fetchone()
-    max_daily = row[0] if row else None
+    max_daily = latest_daily_bar_date(conn)   # 공용 정의(#204) — 동작 동일
     if max_daily is None or max_daily < eltd:
         raise StaleDataError(
             f"일봉 최신 {max_daily} < 기대 최신 거래일 {eltd} — 부분 주봉 방지 위해 중단"

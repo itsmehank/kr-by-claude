@@ -20,6 +20,7 @@ from datetime import date
 
 from psycopg import Connection
 
+from kr_pipeline.common.daily_bars import latest_daily_bar_date
 from kr_pipeline.common.regime_windows import held_window_flag
 from kr_pipeline.common.thresholds import SELL_HALF_ENABLED
 from kr_pipeline.llm_runner.slack import (
@@ -37,10 +38,7 @@ log = logging.getLogger("kr_pipeline.trade_management")
 
 
 def _latest_bar_date(conn: Connection) -> date | None:
-    with conn.cursor() as cur:
-        cur.execute("SELECT MAX(date) FROM daily_prices")
-        row = cur.fetchone()
-    return row[0] if row else None
+    return latest_daily_bar_date(conn)   # 공용 정의(#204) — 동작 동일
 
 
 def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:

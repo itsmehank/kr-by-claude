@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from psycopg import Connection
 
+from kr_pipeline.common.daily_bars import latest_daily_bar_date
+
 DEFAULT_COVERAGE_THRESHOLD = 0.90
 
 
@@ -22,11 +24,10 @@ def check_daily_ohlcv_complete(
     """
     if active_count == 0:
         raise IncompleteIngestionError("활성 종목 없음 — stocks 테이블 확인 필요")
+    latest = latest_daily_bar_date(conn)   # 공용 정의(#204) — 동작 동일
+    if latest is None:
+        raise IncompleteIngestionError("daily_prices 비어 있음 — 적재 선행 필요")
     with conn.cursor() as cur:
-        cur.execute("SELECT MAX(date) FROM daily_prices")
-        latest = cur.fetchone()[0]
-        if latest is None:
-            raise IncompleteIngestionError("daily_prices 비어 있음 — 적재 선행 필요")
         cur.execute("SELECT count(*) FROM daily_prices WHERE date = %s", (latest,))
         rows = cur.fetchone()[0]
     coverage = rows / active_count

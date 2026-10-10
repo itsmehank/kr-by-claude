@@ -31,57 +31,43 @@ def fetch_tickers(market: str, on_date: date) -> list[str]:
     return tickers
 
 
-@with_retry(attempts=3)
-def fetch_name(ticker: str) -> str:
-    """종목 1건 이름 — fetch_names 표에 없는 종목(당일 신규 상장 등)의 보완 경로."""
-    return stock.get_market_ticker_name(ticker)
+def _listed_frame() -> pd.DataFrame:
+    """pykrx 상장종목검색 원응답(short_code·codeName·marketName…) 1회 — 지연 import(테스트 monkeypatch 지점, #92 관례).
 
-
-def _stock_ticker():
-    """pykrx StockTicker(상장종목검색·상폐종목검색 각 1회) — 지연 import(테스트 격리·monkeypatch 지점).
-
-    pykrx 의 @singleton 은 첫 생성 결과를 프로세스 수명 동안 봉인(_sealed)하고, 생성 중 실패(throttle·JSON 오류)는
-    dataframe_empty_handler 가 **빈 DataFrame 으로 삼켜 그대로 캐시**한다 → 재시도가 같은 빈 표를 다시 읽는 무의미한 루프가 된다
-    (리뷰 1차). 호출마다 _instance 를 비워 실제 재조회가 일어나게 한다(이 함수는 fetch_universe 당 1회만 불린다 — 요청 수 불변)."""
-    from pykrx.website.krx.market.ticker import StockTicker
-    StockTicker._instance = None
-    return StockTicker()
+    get_market_ticker_name 이 종목마다 읽는 StockTicker.listed 가 **이 화면 그대로**(컬럼명만 바꿈)다. StockTicker 를 쓰지 않는 이유(리뷰 2차):
+    @singleton 이 실패(throttle·JSON 오류)를 dataframe_empty_handler 의 빈 DataFrame 으로 삼켜 프로세스 수명 동안 봉인하고,
+    생성마다 상폐종목검색까지 1회 더 부른다. 직접 호출이면 재시도 1회 = 요청 1회, pykrx 내부 _instance 조작 불필요."""
+    from pykrx.website.krx.market.core import 상장종목검색
+    return 상장종목검색().fetch("ALL")
 
 
 @with_retry(attempts=3)
 def fetch_names() -> dict[str, str]:
-    """ticker → 종목명 전표. (#204, 사용자 결정 (a)) get_market_ticker_name 이 종목마다 쓰는 것과 **같은 표**
-    (StockTicker.listed = 상장종목검색)를 한 번에 받는다 — 이름 값 동일 → 스팩 축('스팩' 이름 키워드) 판정 영향 0. 종목별 루프만 제거.
-    (b) 전종목시세 ISU_ABBRV 재사용(요청 −2)은 두 화면의 종목명 동일성이 미감사라 보류 — 감사 후 별건.
-    빈 표(상장종목검색 실패가 삼켜진 경우)는 명시 예외 → with_retry 가 _stock_ticker 재조회로 재시도."""
-    listed = _stock_ticker().listed
-    if listed is None or listed.empty or "종목" not in listed.columns:
+    """ticker → 종목명 전표. (#204, 사용자 결정 (a)) get_market_ticker_name 과 **같은 화면·같은 컬럼**(상장종목검색 codeName)을 한 번에
+    받는다 — 이름 값 동일 → 스팩 축('스팩' 이름 키워드) 판정 영향 0. 종목별 루프만 제거.
+    (b) 전종목시세 ISU_ABBRV 재사용(요청 −1)은 두 화면의 종목명 동일성이 미감사라 보류 — 감사 후 별건.
+    빈 표(실패가 삼켜진 경우)는 명시 예외 → with_retry 재조회. 이름이 문자열이 아닌 행(NaN)은 사전에서 빼서 미해결로 남긴다
+    (str() 강제 시 'nan' 이 이름으로 적재됨 — 리뷰 2차)."""
+    df = _listed_frame()
+    if df is None or df.empty or not {"short_code", "codeName"} <= set(df.columns):
         raise ValueError("종목명 표(pykrx 상장종목검색) 응답이 비어 있음 — KRX throttle/응답 오류 의심")
-    return {str(t): str(n) for t, n in listed["종목"].items()}
-
-
-def _resolve_name(ticker: str, names: dict[str, str]) -> str | None:
-    """표 우선, 없으면 종목별 조회로 보완. pykrx get_market_ticker_name 은 모르는 종목에 **빈 DataFrame** 을 돌려주므로
-    (dataframe_empty_handler) 문자열이 아니면 미해결(None)로 본다."""
-    name = names.get(ticker)
-    if not name:
-        name = fetch_name(ticker)
-    return name if isinstance(name, str) and name else None
+    return {str(t): n for t, n in zip(df["short_code"], df["codeName"]) if isinstance(n, str) and n}
 
 
 def fetch_universe(on_date: date) -> pd.DataFrame:
-    """모든 KOSPI/KOSDAQ ticker + 이름 + 시장. 종목명 미해결이 하나라도 있으면 어떤 쓰기보다 앞에서 fail-closed
-    (이전엔 DataFrame 값이 name 에 들어가 upsert 에서 'cannot adapt type' 로 터졌다 — KRX 접촉을 다 쓴 뒤)."""
+    """모든 KOSPI/KOSDAQ ticker + 이름 + 시장. 종목명 미해결(전종목시세엔 있고 상장종목검색엔 없음·이름 NaN)이 하나라도 있으면
+    어떤 쓰기보다 앞에서 fail-closed. 종목별 보완 경로는 두지 않는다 — get_market_ticker_name 도 같은 표를 읽어 해결 불가하고,
+    모르는 종목엔 빈 DataFrame 을 돌려줘 이전엔 upsert 'cannot adapt type DataFrame' 로 터졌다(KRX 접촉을 다 쓴 뒤)."""
     names = fetch_names()
     rows, unresolved = [], []
     for market in ("KOSPI", "KOSDAQ"):
         for ticker in fetch_tickers(market, on_date):
-            name = _resolve_name(ticker, names)
-            if name is None:
+            name = names.get(ticker)
+            if not name:
                 unresolved.append(ticker)
             rows.append({"ticker": ticker, "name": name, "market": market})
     if unresolved:
-        raise ValueError(f"종목명 미해결 {len(unresolved)}종목(상장종목검색·종목별 조회 모두 없음): {unresolved[:20]}")
+        raise ValueError(f"종목명 미해결 {len(unresolved)}종목(상장종목검색 응답에 없음·이름 결측): {unresolved[:20]}")
     return pd.DataFrame(rows)
 
 

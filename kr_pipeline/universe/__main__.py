@@ -44,11 +44,12 @@ def fetch_security_groups(d: date) -> dict[str, str]:
     return f(d)
 
 
-def _sector_as_of(conn, today: date) -> date:
-    """(#204) 업종 조회 기준일 = DB 에 있는 최신 일봉 날짜(≤ today). 월간 체인은 매월 1일 06:30(장 전)에 돌아 '오늘' 로 조회하면
-    종가 전부 0 → pykrx 빈 응답 → 매달 'Sector fetch failed'(06-28·07-17·09-01·10-01 실측). 업종은 영속 속성이라 직전 거래일 기준으로
-    충분(fetch_security_groups 와 같은 전제). KRX 접촉 0. 일봉이 없으면(빈 DB) 기존 동작(today) 유지.
-    한계: 기준일 이후 상장된 종목(장중 수동 재실행 당일 신규 상장 등)은 응답에 없어 sector NULL — 아래 sector_missing 경고로 수를 남긴다."""
+def _as_of_trading_day(conn, today: date) -> date:
+    """(#204) 속성 조회(업종·증권구분) 기준일 = DB 에 있는 최신 일봉 날짜(≤ today). 월간 체인은 매월 1일 06:30(장 전)에 돌아 '오늘' 로
+    조회하면 종가 전부 0 → pykrx 빈 응답 → 매달 'Sector fetch failed'(06-28·07-17·09-01·10-01 실측). 업종·증권구분은 영속 속성이라
+    직전 거래일 기준으로 충분. 증권구분 걸어내리기(_security_groups_fail_open)도 여기서 시작해 비거래 시점 '오늘' 에 재시도 3회를 쓰지
+    않는다(리뷰 2차 — 월간 로그에 파이썬 로거 출력이 없어 낭비 실측은 못 했으나 무해). KRX 접촉 0. 일봉이 없으면(빈 DB) today.
+    한계: 기준일 이후 상장된 종목(장중 수동 재실행 당일 신규 상장 등)은 응답에 없어 sector NULL — sector_missing 경고로 수를 남긴다."""
     return latest_daily_bar_date(conn, upto=today) or today
 
 
@@ -137,7 +138,10 @@ def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff
     raw_tickers = set(df["ticker"])                      # (#221) 필터 전 원본 — removed 가 상폐인지(원본에도 없음) 판정
     _raw_complete(conn, df, today)                       # 부분 응답 의심이면 여기서 끝(쓰기 0)
 
-    groups = _security_groups_fail_open(today, state["warnings"])
+    as_of = _as_of_trading_day(conn, today)                # (#204) 속성 조회 기준일 — 업종·증권구분 공통
+    log.info(f"Attribute as-of date: {as_of} (today={today})")
+    ev.save(sector_as_of=as_of.isoformat())                # 조회 성공 여부와 무관하게 '어느 날짜를 물었는지' 를 먼저 남긴다(운영 규칙 5)
+    groups = _security_groups_fail_open(as_of, state["warnings"])
     ev.save(security_groups=groups)
     sg_unavailable = not groups
     df["security_group"] = df["ticker"].map(groups).fillna(UNRESOLVED)
@@ -160,21 +164,23 @@ def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff
     log.info(f"Saved raw universe snapshot: {raw_saved} rows (file: {raw_path})")
 
     # 섹터 머지 — 기준일은 '오늘' 이 아니라 종가가 있는 최신 거래일(#204)
-    sector_date = _sector_as_of(conn, today)
-    log.info(f"Sector as-of date: {sector_date} (today={today})")
-    sectors = []
+    sectors, sector_markets = [], []
     for market in ("KOSPI", "KOSDAQ"):
         try:
-            sectors.append(fetch_sectors(sector_date, market))
+            sectors.append(fetch_sectors(as_of, market))
+            sector_markets.append(market)
         except Exception as e:
-            log.warning(f"Sector fetch failed for {market} (as_of={sector_date}): {e}")
+            log.warning(f"Sector fetch failed for {market} (as_of={as_of}): {e}")
+            state["warnings"].append(f"sector_fetch_failed: {market} (as_of={as_of.isoformat()}) {e}")
     if sectors:
         sec = pd.concat(sectors, ignore_index=True)
-        ev.save(sectors=sec, sector_as_of=sector_date.isoformat())   # 증거 파일에 기준일 — fetched_for(today) 와 다름(감사 재구성용)
+        ev.save(sectors=sec)
         kept = kept.merge(sec, on="ticker", how="left")
-        missing = sorted(kept.loc[kept["sector"].isna(), "ticker"].tolist())
+        # 응답이 온 시장 안에서만 센다 — 실패한 시장의 전 종목을 '기준일 이후 상장' 으로 오귀속하지 않게(리뷰 2차)
+        answered = kept["market"].isin(sector_markets)
+        missing = sorted(kept.loc[answered & kept["sector"].isna(), "ticker"].tolist())
         if missing:   # 기준일 이후 상장 등 — NULL 적재(COALESCE 로 기존 값 유지)는 그대로, 수만 남긴다
-            state["warnings"].append(f"sector_missing: {len(missing)}종목 (as_of={sector_date.isoformat()}) {' '.join(missing[:20])}")
+            state["warnings"].append(f"sector_missing: {len(missing)}종목 (as_of={as_of.isoformat()}) {' '.join(missing[:20])}")
     else:
         kept["sector"] = None
 
