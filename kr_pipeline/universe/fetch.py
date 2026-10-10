@@ -33,17 +33,33 @@ def fetch_tickers(market: str, on_date: date) -> list[str]:
 
 @with_retry(attempts=3)
 def fetch_name(ticker: str) -> str:
+    """종목 1건 이름 — fetch_names 표에 없는 종목(당일 신규 상장 등)의 보완 경로."""
     return stock.get_market_ticker_name(ticker)
+
+
+def _stock_ticker():
+    """pykrx StockTicker(싱글턴, 상장종목검색·상폐종목검색 각 1회) — 지연 import(테스트 격리·monkeypatch 지점)."""
+    from pykrx.website.krx.market.ticker import StockTicker
+    return StockTicker()
+
+
+@with_retry(attempts=3)
+def fetch_names() -> dict[str, str]:
+    """ticker → 종목명 전표. (#204) get_market_ticker_name 이 종목마다 쓰는 것과 **같은 표**(StockTicker.listed = 상장종목검색)를
+    한 번에 받는다 — 이름 값 동일(스팩 축 '이름 키워드' 판정 영향 0), 종목별 루프만 제거. KRX 요청 수는 기존과 같다(싱글턴 캐시)."""
+    listed = _stock_ticker().listed
+    return {str(t): str(n) for t, n in listed["종목"].items()}
 
 
 def fetch_universe(on_date: date) -> pd.DataFrame:
     """모든 KOSPI/KOSDAQ ticker + 이름 + 시장."""
+    names = fetch_names()
     rows = []
     for market in ("KOSPI", "KOSDAQ"):
         for ticker in fetch_tickers(market, on_date):
             rows.append({
                 "ticker": ticker,
-                "name": fetch_name(ticker),
+                "name": names.get(ticker) or fetch_name(ticker),
                 "market": market,
             })
     return pd.DataFrame(rows)
@@ -51,8 +67,18 @@ def fetch_universe(on_date: date) -> pd.DataFrame:
 
 @with_retry(attempts=3)
 def fetch_sectors(on_date: date, market: str) -> pd.DataFrame:
-    """ticker → sector 매핑. 컬럼: ticker, sector."""
+    """ticker → sector 매핑. 컬럼: ticker, sector.
+
+    (#204) on_date 는 **종가가 있는 거래일**이어야 한다. pykrx 는 응답 종가가 전부 0(장 전·휴장일 조회)이면 빈 DataFrame 을
+    돌려주고, 그대로 두면 컬럼 부재 KeyError 로만 보여 원인이 묻힌다(06-28·07-17·09-01·10-01 월간 체인 06:30 실측). 호출부는
+    _sector_as_of(DB 최신 일봉 날짜)로 넘긴다. 빈 응답은 명시 예외 — with_retry 가 재시도 후 전파, 호출부 경고 처리는 불변.
+    """
     df = stock.get_market_sector_classifications(on_date.strftime("%Y%m%d"), market=market)
+    if df is None or df.empty:
+        raise ValueError(
+            f"empty sector response for {market} on {on_date.isoformat()} "
+            f"(종가 전부 0 — 비거래 시점 조회 의심; 기준일은 종가가 있는 거래일이어야 함)"
+        )
     df = df.reset_index().rename(columns={"종목코드": "ticker", "업종명": "sector"})
     return df[["ticker", "sector"]]
 

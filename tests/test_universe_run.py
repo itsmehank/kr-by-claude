@@ -162,3 +162,38 @@ def test_monthly_chain_reports_before_gate_and_sweeps_after():
                                          text.find("attempt_allowed universe"), text.find("python -m kr_pipeline.universe"))
     assert -1 < i_report < i_lock < i_gate < i_sweep          # 사전 보고서는 data 락 획득 전(리뷰 #223 5차)
     assert "--report-last-failed" not in text                      # 게이트 앞 호출은 전용 스크립트만
+
+
+# ---------- #204 업종 조회 기준일 = DB 최신 일봉 날짜(비거래 시점 '오늘' 조회 → 빈 응답 재발 방지) ----------
+
+def _seed_daily(db, ticker, *days):
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s, 'x', 'KOSPI') ON CONFLICT (ticker) DO NOTHING", (ticker,))
+        for d in days:
+            cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value) "
+                        "VALUES (%s, %s, 1, 1, 1, 1, 1, 1, 1)", (ticker, d))
+
+
+def test_sector_as_of_is_latest_daily_bar_not_after_today(db):
+    _seed_daily(db, "204T00", date(2026, 9, 29), date(2026, 9, 30), date(2026, 10, 2))
+    assert um._sector_as_of(db, date(2026, 10, 1)) == date(2026, 9, 30)   # 매월 1일 06:30 — 전일 종가 기준
+    assert um._sector_as_of(db, date(2026, 10, 2)) == date(2026, 10, 2)   # 당일 일봉이 이미 있으면 당일
+
+
+def test_sector_as_of_falls_back_to_today_without_daily_bars(db):
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM daily_prices")
+    assert um._sector_as_of(db, date(2026, 10, 1)) == date(2026, 10, 1)
+
+
+def test_run_universe_fetches_sectors_as_of_latest_bar(db, quiet_universe, monkeypatch):
+    raw = _raw([("U221X0", "유이이일", "KOSPI")])
+    monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
+    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {"U221X0": "주권"})
+    monkeypatch.setattr(um, "_sector_as_of", lambda conn, today: date(2026, 9, 30))
+    asked = []
+    monkeypatch.setattr(um, "fetch_sectors", lambda d, m: asked.append((d, m)) or pd.DataFrame(columns=["ticker", "sector"]))
+
+    um.run_universe(db, today=date(2026, 10, 1))
+
+    assert asked == [(date(2026, 9, 30), "KOSPI"), (date(2026, 9, 30), "KOSDAQ")]

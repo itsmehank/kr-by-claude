@@ -43,6 +43,16 @@ def fetch_security_groups(d: date) -> dict[str, str]:
     return f(d)
 
 
+def _sector_as_of(conn, today: date) -> date:
+    """(#204) 업종 조회 기준일 = DB 에 있는 최신 일봉 날짜(≤ today). 월간 체인은 매월 1일 06:30(장 전)에 돌아 '오늘' 로 조회하면
+    종가 전부 0 → pykrx 빈 응답 → 매달 'Sector fetch failed'(06-28·07-17·09-01·10-01 실측). 업종은 영속 속성이라 직전 거래일 기준으로
+    충분(fetch_security_groups 와 같은 전제). KRX 접촉 0. 일봉이 없으면(빈 DB) 기존 동작(today) 유지."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT MAX(date) FROM daily_prices WHERE date <= %s", (today,))
+        row = cur.fetchone()
+    return row[0] if row and row[0] else today
+
+
 def _security_groups_fail_open(today: date, warnings: list[str]) -> dict[str, str]:
     """최근 5일 중 첫 성공 응답. 전부 실패 = 빈 dict(기존 값 유지·신규는 UNRESOLVED) + 경고."""
     for back in range(5):
@@ -150,13 +160,15 @@ def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff
     raw_saved = save_universe_raw_snapshot(conn, today, df)
     log.info(f"Saved raw universe snapshot: {raw_saved} rows (file: {raw_path})")
 
-    # 섹터 머지
+    # 섹터 머지 — 기준일은 '오늘' 이 아니라 종가가 있는 최신 거래일(#204)
+    sector_date = _sector_as_of(conn, today)
+    log.info(f"Sector as-of date: {sector_date} (today={today})")
     sectors = []
     for market in ("KOSPI", "KOSDAQ"):
         try:
-            sectors.append(fetch_sectors(today, market))
+            sectors.append(fetch_sectors(sector_date, market))
         except Exception as e:
-            log.warning(f"Sector fetch failed for {market}: {e}")
+            log.warning(f"Sector fetch failed for {market} (as_of={sector_date}): {e}")
     if sectors:
         sec = pd.concat(sectors, ignore_index=True)
         ev.save(sectors=sec)
