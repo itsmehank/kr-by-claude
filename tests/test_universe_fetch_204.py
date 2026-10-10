@@ -58,6 +58,7 @@ def test_fetch_names_reads_listing_search_once(monkeypatch):
                              "marketName": ["유가증권", "유가증권", "코스닥"]})
 
     monkeypatch.setattr(uf, "_listed_frame", _listed)
+    monkeypatch.setattr(uf, "_MIN_LISTED_NAMES", 1)
 
     assert uf.fetch_names() == {"095570": "AJ네트웍스", "005930": "삼성전자"}   # NaN 이름은 'nan' 문자열이 아니라 미해결로 남긴다
     assert calls == [1]
@@ -77,7 +78,7 @@ def test_fetch_universe_uses_name_map(monkeypatch):
 
     df = uf.fetch_universe(date(2026, 10, 1))
 
-    assert df.to_dict("records") == [
+    assert df[["ticker", "name", "market"]].to_dict("records") == [
         {"ticker": "095570", "name": "AJ네트웍스", "market": "KOSPI"},
         {"ticker": "060310", "name": "3S", "market": "KOSDAQ"},
         {"ticker": "054620", "name": "APS", "market": "KOSDAQ"},
@@ -120,3 +121,64 @@ def test_fetch_universe_returns_none_name_when_unresolved_everywhere(monkeypatch
     df = uf.fetch_universe(date(2026, 10, 1))
 
     assert df.loc[df["ticker"] == "0NEW00", "name"].item() is None
+
+
+def test_fetch_names_small_table_raises_for_retry(monkeypatch):
+    """[design judgment] 상장종목검색 행 수 하한 — 잘린(비어 있지 않은) 응답을 정상 처리하면 수백 종목이 미해결/상폐 표 보완으로 흘러간다."""
+    monkeypatch.setattr(uf, "_listed_frame", lambda: pd.DataFrame({"short_code": ["095570"], "codeName": ["AJ네트웍스"]}))
+
+    with pytest.raises(ValueError, match=r"suspiciously small.*1 <"):
+        uf.fetch_names.retry_with(wait=wait_none())()
+
+
+def test_delisted_names_pick_first_isin_for_reused_code(monkeypatch):
+    """pykrx StockTicker.get 은 재사용 코드(030270 에스마크/가희 11R)를 ISIN 정렬 후 첫 행으로 골랐다 — 같은 선택(리뷰 4차)."""
+    monkeypatch.setattr(uf, "_delisted_frame", lambda: pd.DataFrame(
+        {"short_code": ["030270", "030270"], "codeName": ["에스마크", "가희 11R"], "full_code": ["KR7030270003", "KRA030270151"]}))   # dict 마지막 행 = 가희 → ISIN 첫 행 = 에스마크 여야 함
+
+    assert uf._delisted_names() == {"030270": "에스마크"}
+
+
+def test_fetch_universe_tolerates_transient_empty_delisted_table(monkeypatch):
+    """상폐 표가 비어 오면(throttle) 재시도 후에도 비면 {} 로 진행 — 미해결은 호출부 판정으로(리뷰 4차)."""
+    monkeypatch.setattr(uf, "fetch_tickers", lambda market, on_date: {"KOSPI": ["095570", "0DEL00"], "KOSDAQ": []}[market])
+    monkeypatch.setattr(uf, "fetch_names", lambda: {"095570": "AJ네트웍스"})
+    calls = []
+    monkeypatch.setattr(uf, "_delisted_frame", lambda: calls.append(1) or pd.DataFrame())
+    monkeypatch.setattr(uf, "_delisted_names", uf._delisted_names.retry_with(wait=wait_none()))
+
+    df = uf.fetch_universe(date(2026, 10, 1))
+
+    assert len(calls) == 3                                     # 빈 표는 재시도 대상
+    assert df.loc[df["ticker"] == "0DEL00", "name"].item() is None
+
+
+def test_fetch_universe_marks_name_source(monkeypatch):
+    """어느 표에서 이름이 왔는지 행에 남긴다 — 상폐 표에서 온 이름(코드 재사용 가능)은 호출부가 경고·증거로 추적(리뷰 4차)."""
+    monkeypatch.setattr(uf, "fetch_tickers", lambda market, on_date: {"KOSPI": ["095570", "0DEL00"], "KOSDAQ": []}[market])
+    monkeypatch.setattr(uf, "fetch_names", lambda: {"095570": "AJ네트웍스"})
+    monkeypatch.setattr(uf, "_delisted_frame", lambda: _delisted([("0DEL00", "정리매매종목")]))
+
+    df = uf.fetch_universe(date(2026, 10, 1))
+
+    assert dict(zip(df["ticker"], df["name_source"])) == {"095570": "listed", "0DEL00": "delisted"}
+
+
+def test_fetch_universe_fetches_tickers_before_names(monkeypatch):
+    """종목 목록 하한 가드가 fail-closed 하면 종목명 요청은 쓰지 않는다 — 접촉 최소화 순서(리뷰 4차)."""
+    monkeypatch.setattr(uf, "fetch_tickers", lambda market, on_date: (_ for _ in ()).throw(ValueError("suspiciously small ticker list")))
+    monkeypatch.setattr(uf, "fetch_names", lambda: (_ for _ in ()).throw(AssertionError("목록 실패 뒤 종목명 요청 금지")))
+
+    with pytest.raises(ValueError, match="ticker list"):
+        uf.fetch_universe(date(2026, 10, 1))
+
+
+def test_fetch_sectors_wraps_swallowed_pykrx_error(mocker):
+    """pykrx wrap 은 원응답 오류(throttle HTML·JSON)를 빈 표로 삼키고 stock_api 가 KeyError('종가') 를 낸다 — 경고 문구에 원인 힌트(리뷰 4차)."""
+    stock_mock = mocker.patch.object(uf, "stock")
+    stock_mock.get_market_sector_classifications.side_effect = KeyError("종가")
+    mocker.patch.object(uf, "_fetch_sector_frame", uf._fetch_sector_frame.retry_with(wait=wait_none()))   # 재시도 대기 제거(테스트 속도)
+
+    with pytest.raises(ValueError, match=r"KOSDAQ.*2026-10-30.*삼킨.*컬럼명 변경 아님"):
+        uf.fetch_sectors(date(2026, 10, 30), "KOSDAQ")
+    assert stock_mock.get_market_sector_classifications.call_count == 3   # 예외는 재시도 대상(빈 응답과 달리)

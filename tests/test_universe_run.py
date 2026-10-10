@@ -184,8 +184,22 @@ def test_as_of_trading_day_is_latest_daily_bar_not_after_today(db):
     assert um._as_of_trading_day(db, date(1990, 1, 5)) == date(1990, 1, 5)   # 당일 일봉이 이미 있으면 당일
 
 
-def test_as_of_trading_day_falls_back_to_today_without_daily_bars(db):
-    assert um._as_of_trading_day(db, date(1989, 1, 1)) == date(1989, 1, 1)   # 그 날짜 이하 일봉 없음 → 기존 동작(today)
+def test_as_of_trading_day_is_none_without_daily_bars(db):
+    assert um._as_of_trading_day(db, date(1989, 1, 1)) is None   # 그 날짜 이하 일봉 없음 — 폴백(today)·경고는 호출부(리뷰 4차)
+
+
+def test_run_universe_warns_when_attribute_as_of_falls_back_to_today(db, quiet_universe, monkeypatch):
+    raw = _raw([("U221X0", "유이이일", "KOSPI")])
+    monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
+    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {"U221X0": "주권"})
+    monkeypatch.setattr(um, "_as_of_trading_day", lambda conn, today: None)
+    asked = []
+    monkeypatch.setattr(um, "fetch_sectors", lambda d, m: asked.append(d) or pd.DataFrame(columns=["ticker", "sector"]))
+
+    um.run_universe(db, today=date(2026, 10, 1))
+
+    assert asked == [date(2026, 10, 1), date(2026, 10, 1)]
+    assert any(w.startswith("attribute_as_of_fallback: 2026-10-01") for w in quiet_universe["state"]["warnings"])
 
 
 def test_run_universe_fetches_sectors_as_of_latest_bar(db, quiet_universe, monkeypatch):
@@ -273,6 +287,33 @@ def test_run_universe_fails_closed_on_unresolved_name_after_saving_raw(db, quiet
     with db.cursor() as cur:
         cur.execute("SELECT count(*) FROM stocks WHERE ticker IN ('U221X0','U221N0') AND delisted_at IS NULL")
         assert cur.fetchone()[0] == 0
+
+
+def test_run_universe_keeps_existing_name_for_known_ticker_when_unresolved(db, quiet_universe, monkeypatch):
+    """이미 stocks 에 있는 종목의 이름이 이번 응답에서 결측이면 기존 이름 유지 + 경고 — 신규 종목만 fail-closed(리뷰 4차, sector COALESCE 와 같은 깊이)."""
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market, security_group, delisted_at) VALUES ('U221K0','기존이름','KOSPI','주권', CURRENT_DATE)")
+    raw = pd.DataFrame([("U221X0", "유이이일", "KOSPI"), ("U221K0", None, "KOSPI")], columns=["ticker", "name", "market"])
+    monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
+    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {"U221X0": "주권", "U221K0": "주권"})
+
+    um.run_universe(db, today=date(2026, 10, 1))
+
+    assert "name_unresolved_kept: 1종목 U221K0" in quiet_universe["state"]["warnings"]
+    with db.cursor() as cur:
+        cur.execute("SELECT name, delisted_at FROM stocks WHERE ticker='U221K0'")
+        assert cur.fetchone() == ("기존이름", None)
+
+
+def test_run_universe_warns_names_taken_from_delisted_table(db, quiet_universe, monkeypatch):
+    raw = pd.DataFrame([("U221X0", "유이이일", "KOSPI", "listed"), ("U221D0", "옛회사", "KOSPI", "delisted")],
+                       columns=["ticker", "name", "market", "name_source"])
+    monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
+    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {"U221X0": "주권", "U221D0": "주권"})
+
+    um.run_universe(db, today=date(2026, 10, 1))
+
+    assert "name_from_delisted: 1종목 U221D0" in quiet_universe["state"]["warnings"]
 
 
 def test_security_groups_fail_open_records_walk_back_date(monkeypatch):

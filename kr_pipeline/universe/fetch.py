@@ -1,3 +1,4 @@
+import logging
 import time
 from datetime import date
 
@@ -5,6 +6,8 @@ import pandas as pd
 from pykrx import stock
 
 from kr_pipeline.common.retry import with_retry
+
+log = logging.getLogger("kr_pipeline.universe.fetch")
 
 
 # [design judgment] 시장별 최소 종목 수 하한 — book 근거 아님. KRX throttling 이
@@ -32,7 +35,7 @@ def fetch_tickers(market: str, on_date: date) -> list[str]:
 
 
 def _listed_frame() -> pd.DataFrame:
-    """pykrx 상장종목검색 원응답(short_code·codeName·marketName…) 1회 — 지연 import(테스트 monkeypatch 지점, #92 관례).
+    """pykrx 상장종목검색 원응답(short_code·codeName·full_code·marketName…) 1회 — 지연 import(테스트 monkeypatch 지점, #92 관례).
 
     get_market_ticker_name 이 종목마다 읽는 StockTicker.listed 가 **이 화면 그대로**(컬럼명만 바꿈)다. StockTicker 를 쓰지 않는 이유(리뷰 2차):
     @singleton 이 실패(throttle·JSON 오류)를 dataframe_empty_handler 의 빈 DataFrame 으로 삼켜 프로세스 수명 동안 봉인하고,
@@ -41,49 +44,72 @@ def _listed_frame() -> pd.DataFrame:
     return 상장종목검색().fetch("ALL")
 
 
-@with_retry(attempts=3)
-def fetch_names() -> dict[str, str]:
-    """ticker → 종목명 전표. (#204, 사용자 결정 (a)) get_market_ticker_name 과 **같은 화면·같은 컬럼**(상장종목검색 codeName)을 한 번에
-    받는다 — 이름 값 동일 → 스팩 축('스팩' 이름 키워드) 판정 영향 0. 종목별 루프만 제거.
-    (b) 전종목시세 ISU_ABBRV 재사용(요청 −1)은 두 화면의 종목명 동일성이 미감사라 보류 — 감사 후 별건.
-    빈 표(실패가 삼켜진 경우)는 명시 예외 → with_retry 재조회. 이름이 문자열이 아닌 행(NaN)은 사전에서 빼서 미해결로 남긴다
-    (str() 강제 시 'nan' 이 이름으로 적재됨 — 리뷰 2차)."""
-    df = _listed_frame()
-    if df is None or df.empty or not {"short_code", "codeName"} <= set(df.columns):
-        raise ValueError("종목명 표(pykrx 상장종목검색) 응답이 비어 있음 — KRX throttle/응답 오류 의심")
-    return {str(t): n for t, n in zip(df["short_code"], df["codeName"]) if isinstance(n, str) and n}
-
-
 def _delisted_frame() -> pd.DataFrame:
-    """pykrx 상폐종목검색 원응답(short_code·codeName…) — 지연 import. get_market_ticker_name 이 상장종목검색에 없을 때 보던 두 번째 표
+    """pykrx 상폐종목검색 원응답(short_code·codeName·full_code…) — 지연 import. get_market_ticker_name 이 상장종목검색에 없을 때 보던 두 번째 표
     (StockTicker.get → self.delisted). 미해결 종목이 있을 때만 1회 부른다(리뷰 3차: 정리매매 창 종목 등 기존 해결 범위 유지)."""
     from pykrx.website.krx.market.core import 상폐종목검색
     return 상폐종목검색().fetch("ALL")
 
 
-@with_retry(attempts=3)
-def _delisted_names() -> dict[str, str]:
-    df = _delisted_frame()
+# [design judgment] 상장종목검색 행 수 하한 — book 근거 아님. 실측 규모 ~2,870(STK+KSQ+KNX, 2026-10) 대비 보수적 하한. 잘린(비어 있지 않은)
+# 응답을 정상 처리하면 수백 종목이 미해결 → 상폐 표 보완(코드 재사용 오명명 위험)·fail-closed 로 흘러간다(리뷰 4차). 하한 미달 = 예외(재시도).
+_MIN_LISTED_NAMES = 2000
+
+
+def _names_from_frame(df: pd.DataFrame | None) -> dict[str, str] | None:
+    """종목검색 원응답 → {short_code: codeName}. 빈 표/컬럼 부재 = None(호출부가 재시도·폴백 판단).
+    같은 short_code 가 여러 행(재사용 코드, 예: 030270 에스마크/가희 11R)이면 pykrx StockTicker.get 과 같이 **ISIN(full_code) 정렬 후 첫 행**.
+    이름이 문자열이 아닌 행(NaN)은 제외 — str() 강제 시 'nan' 이 이름으로 적재됨(리뷰 2차)."""
     if df is None or df.empty or not {"short_code", "codeName"} <= set(df.columns):
-        return {}
+        return None
+    if "full_code" in df.columns:
+        df = df.sort_values("full_code", kind="stable").drop_duplicates("short_code", keep="first")
     return {str(t): n for t, n in zip(df["short_code"], df["codeName"]) if isinstance(n, str) and n}
 
 
+@with_retry(attempts=3)
+def fetch_names() -> dict[str, str]:
+    """ticker → 종목명 전표. (#204, 사용자 결정 (a)) get_market_ticker_name 과 **같은 화면·같은 컬럼**(상장종목검색 codeName)을 한 번에
+    받는다 — 이름 값 동일 → 스팩 축('스팩' 이름 키워드) 판정 영향 0. 종목별 루프만 제거.
+    (b) 전종목시세 ISU_ABBRV 재사용(요청 −1)은 두 화면의 종목명 동일성이 미감사라 보류 — 감사 후 별건.
+    빈 표·하한 미달(실패가 삼켜진·잘린 응답)은 명시 예외 → with_retry 재조회."""
+    names = _names_from_frame(_listed_frame())
+    if names is None:
+        raise ValueError("종목명 표(pykrx 상장종목검색) 응답이 비어 있음 — KRX throttle/응답 오류 의심")
+    if len(names) < _MIN_LISTED_NAMES:
+        raise ValueError(f"suspiciously small listed-name table: {len(names)} < {_MIN_LISTED_NAMES} (잘린 응답 의심 — 대량 미해결 방지)")
+    return names
+
+
+@with_retry(attempts=3)
+def _delisted_names() -> dict[str, str]:
+    """상폐종목검색 전표. 빈 표는 일시 오류로 보고 재시도(실제 상폐 표는 수천 행) — 재시도 뒤에도 비면 호출부가 {} 로 진행."""
+    names = _names_from_frame(_delisted_frame())
+    if names is None:
+        raise ValueError("상폐종목검색 응답이 비어 있음 — KRX throttle/응답 오류 의심")
+    return names
+
+
 def fetch_universe(on_date: date) -> pd.DataFrame:
-    """모든 KOSPI/KOSDAQ ticker + 이름 + 시장. 종목명은 상장종목검색 전표 → (미해결이 있을 때만) 상폐종목검색 전표 순 —
-    get_market_ticker_name(StockTicker.get) 과 같은 순서·같은 표. 그래도 없는 종목(이름 NaN 등)은 **name None 으로 반환**하고
-    여기서 raise 하지 않는다: 호출부(_run_universe_inner)가 응답을 파일로 먼저 보존한 뒤 쓰기 전에 fail-closed 한다(운영 규칙 5).
-    이전엔 get_market_ticker_name 의 빈 DataFrame 이 name 에 들어가 upsert 'cannot adapt type DataFrame' 로 터졌다(KRX 접촉을 다 쓴 뒤)."""
+    """모든 KOSPI/KOSDAQ ticker + 이름 + 시장 + name_source('listed'|'delisted'|None).
+
+    순서: 시장별 종목 목록(하한 가드 fail-closed) → 종목명 전표(목록이 실패하면 요청하지 않음, 리뷰 4차) → 미해결이 있을 때만 상폐 표 1회.
+    상장 → 상폐 순서는 get_market_ticker_name(StockTicker.get) 과 같다. 그래도 없는 종목은 **name None 으로 반환**하고 여기서 raise 하지
+    않는다: 호출부(_run_universe_inner)가 응답을 파일로 먼저 보존한 뒤 쓰기 전에 판정한다(운영 규칙 5). 이전엔 get_market_ticker_name 의
+    빈 DataFrame 이 name 에 들어가 upsert 'cannot adapt type DataFrame' 로 터졌다(KRX 접촉을 다 쓴 뒤)."""
+    tickers = [(market, t) for market in ("KOSPI", "KOSDAQ") for t in fetch_tickers(market, on_date)]
     names = fetch_names()
-    rows = []
-    for market in ("KOSPI", "KOSDAQ"):
-        for ticker in fetch_tickers(market, on_date):
-            rows.append({"ticker": ticker, "name": names.get(ticker) or None, "market": market})
+    rows = [{"ticker": t, "name": names.get(t) or None, "market": market, "name_source": "listed" if names.get(t) else None}
+            for market, t in tickers]
     if any(r["name"] is None for r in rows):
-        delisted = _delisted_names()
+        try:
+            delisted = _delisted_names()
+        except Exception as e:  # noqa: BLE001 — 재시도 뒤에도 비면 보완 없이 진행(미해결은 호출부 판정)
+            log.warning(f"delisted-name table unavailable after retries: {e}")
+            delisted = {}
         for r in rows:
-            if r["name"] is None:
-                r["name"] = delisted.get(r["ticker"]) or None
+            if r["name"] is None and delisted.get(r["ticker"]):
+                r["name"], r["name_source"] = delisted[r["ticker"]], "delisted"
     return pd.DataFrame(rows)
 
 
@@ -102,7 +128,13 @@ def fetch_sectors(on_date: date, market: str) -> pd.DataFrame:
     (리뷰 1차: 시장당 3요청 낭비 방지).
     호출부 경고 처리(실패 시 기존 값 COALESCE 유지)는 불변.
     """
-    df = _fetch_sector_frame(on_date, market)
+    try:
+        df = _fetch_sector_frame(on_date, market)
+    except KeyError as e:   # pykrx wrap 이 원응답 오류(throttle HTML·JSON)를 빈 표로 삼키면 stock_api 가 KeyError('종가') 만 남긴다(리뷰 4차)
+        raise ValueError(
+            f"sector response unusable for {market} on {on_date.isoformat()}: KeyError {e} — pykrx dataframe_empty_handler 가 "
+            f"원인(throttle/HTML/JSON 오류)을 삼킨 결과이며 컬럼명 변경 아님"
+        ) from e
     if df is None or df.empty:
         raise ValueError(
             f"empty sector response for {market} on {on_date.isoformat()} "
