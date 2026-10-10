@@ -7,10 +7,10 @@ reset_index/rename 후 ticker·sector 컬럼이 없어 KeyError("None of [Index(
 """
 from datetime import date
 
-import pandas as pd
-import pytest
 from tenacity import wait_none
 
+import pandas as pd
+import pytest
 import kr_pipeline.universe.fetch as uf
 
 
@@ -28,8 +28,9 @@ def test_fetch_sectors_empty_response_raises_clear_error(mocker):
     stock_mock.get_market_sector_classifications.return_value = pd.DataFrame()
 
     with pytest.raises(ValueError, match=r"KOSPI.*2026-10-01.*비거래"):
-        uf.fetch_sectors.retry_with(wait=wait_none())(date(2026, 10, 1), "KOSPI")
-    assert stock_mock.get_market_sector_classifications.call_count == 3   # with_retry(attempts=3) 유지
+        uf.fetch_sectors(date(2026, 10, 1), "KOSPI")
+    # 빈 응답은 결정론적(초 단위로 바뀌지 않음) — 재시도로 KRX 요청을 3배 쓰지 않는다(리뷰 1차). 예외·일시 장애만 재시도.
+    assert stock_mock.get_market_sector_classifications.call_count == 1
 
 
 def test_fetch_sectors_maps_pykrx_columns(mocker):
@@ -62,6 +63,17 @@ def test_fetch_names_reads_listed_table_once(monkeypatch):
     assert calls == [1]
 
 
+def test_fetch_names_empty_table_raises_clear_error(monkeypatch):
+    """pykrx 는 상장종목검색 실패(throttle·JSON 오류)를 빈 DataFrame 으로 삼키고 싱글턴에 캐시한다 — KeyError('종목') 대신 원인 문구."""
+    class _Ticker:
+        listed = pd.DataFrame()
+
+    monkeypatch.setattr(uf, "_stock_ticker", lambda: _Ticker())
+
+    with pytest.raises(ValueError, match=r"상장종목검색.*비어"):
+        uf.fetch_names.retry_with(wait=wait_none())()
+
+
 def test_fetch_universe_uses_name_map_without_per_ticker_calls(monkeypatch):
     monkeypatch.setattr(uf, "fetch_tickers", lambda market, on_date: {"KOSPI": ["095570"], "KOSDAQ": ["060310", "054620"]}[market])
     monkeypatch.setattr(uf, "fetch_names", lambda: {"095570": "AJ네트웍스", "060310": "3S", "054620": "APS"})
@@ -87,3 +99,14 @@ def test_fetch_universe_falls_back_to_single_lookup_when_name_missing(monkeypatc
 
     assert looked_up == ["0NEW00"]
     assert dict(zip(df["ticker"], df["name"])) == {"095570": "AJ네트웍스", "0NEW00": "신규상장"}
+
+
+def test_fetch_universe_fails_closed_when_name_unresolvable(monkeypatch):
+    """pykrx get_market_ticker_name 은 모르는 종목에 빈 DataFrame 을 돌려준다(dataframe_empty_handler) — 그대로 name 에 들어가면
+    upsert 에서 'cannot adapt type DataFrame' 로 터진다(KRX 접촉을 다 쓴 뒤). 쓰기 전에 종목을 지목해 fail-closed."""
+    monkeypatch.setattr(uf, "fetch_tickers", lambda market, on_date: {"KOSPI": ["095570", "0NEW00"], "KOSDAQ": []}[market])
+    monkeypatch.setattr(uf, "fetch_names", lambda: {"095570": "AJ네트웍스"})
+    monkeypatch.setattr(uf, "fetch_name", lambda ticker: pd.DataFrame())
+
+    with pytest.raises(ValueError, match=r"종목명.*0NEW00"):
+        uf.fetch_universe(date(2026, 10, 1))

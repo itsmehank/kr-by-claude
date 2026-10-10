@@ -7,6 +7,7 @@ import logging
 import pandas as pd
 
 from kr_pipeline.common.config import Config
+from kr_pipeline.common.daily_bars import latest_daily_bar_date
 from kr_pipeline.common.logging import setup_logging
 from kr_pipeline.common.security_group import UNRESOLVED
 from kr_pipeline.db.connection import connect
@@ -46,11 +47,9 @@ def fetch_security_groups(d: date) -> dict[str, str]:
 def _sector_as_of(conn, today: date) -> date:
     """(#204) 업종 조회 기준일 = DB 에 있는 최신 일봉 날짜(≤ today). 월간 체인은 매월 1일 06:30(장 전)에 돌아 '오늘' 로 조회하면
     종가 전부 0 → pykrx 빈 응답 → 매달 'Sector fetch failed'(06-28·07-17·09-01·10-01 실측). 업종은 영속 속성이라 직전 거래일 기준으로
-    충분(fetch_security_groups 와 같은 전제). KRX 접촉 0. 일봉이 없으면(빈 DB) 기존 동작(today) 유지."""
-    with conn.cursor() as cur:
-        cur.execute("SELECT MAX(date) FROM daily_prices WHERE date <= %s", (today,))
-        row = cur.fetchone()
-    return row[0] if row and row[0] else today
+    충분(fetch_security_groups 와 같은 전제). KRX 접촉 0. 일봉이 없으면(빈 DB) 기존 동작(today) 유지.
+    한계: 기준일 이후 상장된 종목(장중 수동 재실행 당일 신규 상장 등)은 응답에 없어 sector NULL — 아래 sector_missing 경고로 수를 남긴다."""
+    return latest_daily_bar_date(conn, upto=today) or today
 
 
 def _security_groups_fail_open(today: date, warnings: list[str]) -> dict[str, str]:
@@ -171,8 +170,11 @@ def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff
             log.warning(f"Sector fetch failed for {market} (as_of={sector_date}): {e}")
     if sectors:
         sec = pd.concat(sectors, ignore_index=True)
-        ev.save(sectors=sec)
+        ev.save(sectors=sec, sector_as_of=sector_date.isoformat())   # 증거 파일에 기준일 — fetched_for(today) 와 다름(감사 재구성용)
         kept = kept.merge(sec, on="ticker", how="left")
+        missing = sorted(kept.loc[kept["sector"].isna(), "ticker"].tolist())
+        if missing:   # 기준일 이후 상장 등 — NULL 적재(COALESCE 로 기존 값 유지)는 그대로, 수만 남긴다
+            state["warnings"].append(f"sector_missing: {len(missing)}종목 (as_of={sector_date.isoformat()}) {' '.join(missing[:20])}")
     else:
         kept["sector"] = None
 

@@ -1,6 +1,9 @@
 """#221 — universe 실행 경로(run_universe) 통합: KRX 전부 monkeypatch, 10-01 변동 재현(자동 수용) + 잔여(실패 run details 보존)."""
 from contextlib import contextmanager
 from datetime import date
+import glob
+import json
+import os
 
 import pandas as pd
 import pytest
@@ -175,6 +178,8 @@ def _seed_daily(db, ticker, *days):
 
 
 def test_sector_as_of_is_latest_daily_bar_not_after_today(db):
+    with db.cursor() as cur:   # kr_test 에 커밋된 다른 일봉에 좌우되지 않게(리뷰 1차) — 트랜잭션 안이라 ROLLBACK 으로 복원
+        cur.execute("DELETE FROM daily_prices")
     _seed_daily(db, "204T00", date(2026, 9, 29), date(2026, 9, 30), date(2026, 10, 2))
     assert um._sector_as_of(db, date(2026, 10, 1)) == date(2026, 9, 30)   # 매월 1일 06:30 — 전일 종가 기준
     assert um._sector_as_of(db, date(2026, 10, 2)) == date(2026, 10, 2)   # 당일 일봉이 이미 있으면 당일
@@ -197,3 +202,37 @@ def test_run_universe_fetches_sectors_as_of_latest_bar(db, quiet_universe, monke
     um.run_universe(db, today=date(2026, 10, 1))
 
     assert asked == [(date(2026, 9, 30), "KOSPI"), (date(2026, 9, 30), "KOSDAQ")]
+    # 증거 파일(운영 규칙 5)에 업종 기준일 기록 — fetched_for(today) 와 다르므로 감사 시 재구성 가능해야 한다(리뷰 1차)
+    files = sorted(glob.glob(os.path.join(os.environ["KR_VERIFICATION_DIR"], "universe_raw_20261001_*.json")))
+    assert files, "universe_raw 증거 파일이 저장되지 않았다"
+    with open(files[-1], encoding="utf-8") as f:
+        doc = json.load(f)
+    assert doc["fetched_for"] == "2026-10-01" and doc["sector_as_of"] == "2026-09-30"
+
+
+def test_run_universe_warns_when_kept_tickers_lack_sector(db, quiet_universe, monkeypatch):
+    """기준일(최신 일봉) 이후 상장된 종목은 업종 응답에 없어 NULL 로 적재된다 — 조용히 넘기지 않고 run warning 으로 수를 남긴다(리뷰 1차)."""
+    raw = _raw([("U221X0", "유이이일", "KOSPI"), ("U221Y0", "유이이이", "KOSPI")])
+    monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
+    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {"U221X0": "주권", "U221Y0": "주권"})
+    monkeypatch.setattr(um, "_sector_as_of", lambda conn, today: date(2026, 9, 30))
+    monkeypatch.setattr(um, "fetch_sectors",
+                        lambda d, m: pd.DataFrame([("U221X0", "서비스업")], columns=["ticker", "sector"]) if m == "KOSPI"
+                        else pd.DataFrame(columns=["ticker", "sector"]))
+
+    um.run_universe(db, today=date(2026, 10, 1))
+
+    assert "sector_missing: 1종목 (as_of=2026-09-30) U221Y0" in quiet_universe["state"]["warnings"]
+    with db.cursor() as cur:
+        cur.execute("SELECT ticker, sector FROM stocks WHERE ticker IN ('U221X0','U221Y0') ORDER BY 1")
+        assert cur.fetchall() == [("U221X0", "서비스업"), ("U221Y0", None)]
+
+
+def test_latest_daily_bar_date_helper(db):
+    from kr_pipeline.common.daily_bars import latest_daily_bar_date
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM daily_prices")
+    assert latest_daily_bar_date(db) is None
+    _seed_daily(db, "204T01", date(2026, 9, 29), date(2026, 10, 2))
+    assert latest_daily_bar_date(db) == date(2026, 10, 2)
+    assert latest_daily_bar_date(db, upto=date(2026, 10, 1)) == date(2026, 9, 29)

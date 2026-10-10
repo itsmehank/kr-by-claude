@@ -38,42 +38,68 @@ def fetch_name(ticker: str) -> str:
 
 
 def _stock_ticker():
-    """pykrx StockTicker(싱글턴, 상장종목검색·상폐종목검색 각 1회) — 지연 import(테스트 격리·monkeypatch 지점)."""
+    """pykrx StockTicker(상장종목검색·상폐종목검색 각 1회) — 지연 import(테스트 격리·monkeypatch 지점).
+
+    pykrx 의 @singleton 은 첫 생성 결과를 프로세스 수명 동안 봉인(_sealed)하고, 생성 중 실패(throttle·JSON 오류)는
+    dataframe_empty_handler 가 **빈 DataFrame 으로 삼켜 그대로 캐시**한다 → 재시도가 같은 빈 표를 다시 읽는 무의미한 루프가 된다
+    (리뷰 1차). 호출마다 _instance 를 비워 실제 재조회가 일어나게 한다(이 함수는 fetch_universe 당 1회만 불린다 — 요청 수 불변)."""
     from pykrx.website.krx.market.ticker import StockTicker
+    StockTicker._instance = None
     return StockTicker()
 
 
 @with_retry(attempts=3)
 def fetch_names() -> dict[str, str]:
-    """ticker → 종목명 전표. (#204) get_market_ticker_name 이 종목마다 쓰는 것과 **같은 표**(StockTicker.listed = 상장종목검색)를
-    한 번에 받는다 — 이름 값 동일(스팩 축 '이름 키워드' 판정 영향 0), 종목별 루프만 제거. KRX 요청 수는 기존과 같다(싱글턴 캐시)."""
+    """ticker → 종목명 전표. (#204, 사용자 결정 (a)) get_market_ticker_name 이 종목마다 쓰는 것과 **같은 표**
+    (StockTicker.listed = 상장종목검색)를 한 번에 받는다 — 이름 값 동일 → 스팩 축('스팩' 이름 키워드) 판정 영향 0. 종목별 루프만 제거.
+    (b) 전종목시세 ISU_ABBRV 재사용(요청 −2)은 두 화면의 종목명 동일성이 미감사라 보류 — 감사 후 별건.
+    빈 표(상장종목검색 실패가 삼켜진 경우)는 명시 예외 → with_retry 가 _stock_ticker 재조회로 재시도."""
     listed = _stock_ticker().listed
+    if listed is None or listed.empty or "종목" not in listed.columns:
+        raise ValueError("종목명 표(pykrx 상장종목검색) 응답이 비어 있음 — KRX throttle/응답 오류 의심")
     return {str(t): str(n) for t, n in listed["종목"].items()}
 
 
+def _resolve_name(ticker: str, names: dict[str, str]) -> str | None:
+    """표 우선, 없으면 종목별 조회로 보완. pykrx get_market_ticker_name 은 모르는 종목에 **빈 DataFrame** 을 돌려주므로
+    (dataframe_empty_handler) 문자열이 아니면 미해결(None)로 본다."""
+    name = names.get(ticker)
+    if not name:
+        name = fetch_name(ticker)
+    return name if isinstance(name, str) and name else None
+
+
 def fetch_universe(on_date: date) -> pd.DataFrame:
-    """모든 KOSPI/KOSDAQ ticker + 이름 + 시장."""
+    """모든 KOSPI/KOSDAQ ticker + 이름 + 시장. 종목명 미해결이 하나라도 있으면 어떤 쓰기보다 앞에서 fail-closed
+    (이전엔 DataFrame 값이 name 에 들어가 upsert 에서 'cannot adapt type' 로 터졌다 — KRX 접촉을 다 쓴 뒤)."""
     names = fetch_names()
-    rows = []
+    rows, unresolved = [], []
     for market in ("KOSPI", "KOSDAQ"):
         for ticker in fetch_tickers(market, on_date):
-            rows.append({
-                "ticker": ticker,
-                "name": names.get(ticker) or fetch_name(ticker),
-                "market": market,
-            })
+            name = _resolve_name(ticker, names)
+            if name is None:
+                unresolved.append(ticker)
+            rows.append({"ticker": ticker, "name": name, "market": market})
+    if unresolved:
+        raise ValueError(f"종목명 미해결 {len(unresolved)}종목(상장종목검색·종목별 조회 모두 없음): {unresolved[:20]}")
     return pd.DataFrame(rows)
 
 
 @with_retry(attempts=3)
+def _fetch_sector_frame(on_date: date, market: str) -> pd.DataFrame:
+    """KRX 업종분류현황 원응답(재시도 대상 = 예외·일시 장애만)."""
+    return stock.get_market_sector_classifications(on_date.strftime("%Y%m%d"), market=market)
+
+
 def fetch_sectors(on_date: date, market: str) -> pd.DataFrame:
     """ticker → sector 매핑. 컬럼: ticker, sector.
 
     (#204) on_date 는 **종가가 있는 거래일**이어야 한다. pykrx 는 응답 종가가 전부 0(장 전·휴장일 조회)이면 빈 DataFrame 을
     돌려주고, 그대로 두면 컬럼 부재 KeyError 로만 보여 원인이 묻힌다(06-28·07-17·09-01·10-01 월간 체인 06:30 실측). 호출부는
-    _sector_as_of(DB 최신 일봉 날짜)로 넘긴다. 빈 응답은 명시 예외 — with_retry 가 재시도 후 전파, 호출부 경고 처리는 불변.
+    _sector_as_of(DB 최신 일봉 날짜)로 넘긴다. 빈 응답은 결정론적이라 **재시도 밖**에서 명시 예외(리뷰 1차: 시장당 3요청 낭비 방지).
+    호출부 경고 처리(실패 시 기존 값 COALESCE 유지)는 불변.
     """
-    df = stock.get_market_sector_classifications(on_date.strftime("%Y%m%d"), market=market)
+    df = _fetch_sector_frame(on_date, market)
     if df is None or df.empty:
         raise ValueError(
             f"empty sector response for {market} on {on_date.isoformat()} "
