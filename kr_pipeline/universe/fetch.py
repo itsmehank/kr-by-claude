@@ -99,8 +99,10 @@ def fetch_universe(on_date: date) -> pd.DataFrame:
     빈 DataFrame 이 name 에 들어가 upsert 'cannot adapt type DataFrame' 로 터졌다(KRX 접촉을 다 쓴 뒤)."""
     tickers = [(market, t) for market in ("KOSPI", "KOSDAQ") for t in fetch_tickers(market, on_date)]
     names = fetch_names()
-    rows = [{"ticker": t, "name": names.get(t) or None, "market": market, "name_source": "listed" if names.get(t) else None}
-            for market, t in tickers]
+    rows = []
+    for market, t in tickers:
+        n = names.get(t)   # _names_from_frame 가 빈/비문자열 이름을 이미 걸렀다
+        rows.append({"ticker": t, "name": n, "market": market, "name_source": "listed" if n else None})
     if any(r["name"] is None for r in rows):
         try:
             delisted = _delisted_names()
@@ -140,7 +142,11 @@ def fetch_sectors(on_date: date, market: str) -> pd.DataFrame:
             f"empty sector response for {market} on {on_date.isoformat()} "
             f"(종가 전부 0 — 비거래 시점 조회 의심; 기준일은 종가가 있는 거래일이어야 함)"
         )
-    df = df.reset_index().rename(columns={"종목코드": "ticker", "업종명": "sector"})
+    df = df.reset_index()
+    if not {"종목코드", "업종명"} <= set(df.columns):   # 비어 있지 않은데 컬럼이 다르면 rename 이 무시돼 암호 같은 KeyError 재현(리뷰 5차)
+        raise ValueError(f"sector response for {market} on {on_date.isoformat()} has unexpected columns {list(df.columns)} "
+                         f"(expected 종목코드·업종명 — pykrx/KRX 응답 형식 변경 의심)")
+    df = df.rename(columns={"종목코드": "ticker", "업종명": "sector"})
     return df[["ticker", "sector"]]
 
 

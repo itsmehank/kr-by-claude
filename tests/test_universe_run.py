@@ -289,10 +289,10 @@ def test_run_universe_fails_closed_on_unresolved_name_after_saving_raw(db, quiet
         assert cur.fetchone()[0] == 0
 
 
-def test_run_universe_keeps_existing_name_for_known_ticker_when_unresolved(db, quiet_universe, monkeypatch):
-    """이미 stocks 에 있는 종목의 이름이 이번 응답에서 결측이면 기존 이름 유지 + 경고 — 신규 종목만 fail-closed(리뷰 4차, sector COALESCE 와 같은 깊이)."""
+def test_run_universe_keeps_existing_name_for_active_ticker_when_unresolved(db, quiet_universe, monkeypatch):
+    """이미 **활성** stocks 에 있는 종목의 이름이 이번 응답에서 결측이면 기존 이름 유지 + 경고 — 신규 종목만 fail-closed(리뷰 4차, sector COALESCE 와 같은 깊이)."""
     with db.cursor() as cur:
-        cur.execute("INSERT INTO stocks (ticker, name, market, security_group, delisted_at) VALUES ('U221K0','기존이름','KOSPI','주권', CURRENT_DATE)")
+        cur.execute("INSERT INTO stocks (ticker, name, market, security_group) VALUES ('U221K0','기존이름','KOSPI','주권')")
     raw = pd.DataFrame([("U221X0", "유이이일", "KOSPI"), ("U221K0", None, "KOSPI")], columns=["ticker", "name", "market"])
     monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
     monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {"U221X0": "주권", "U221K0": "주권"})
@@ -303,6 +303,20 @@ def test_run_universe_keeps_existing_name_for_known_ticker_when_unresolved(db, q
     with db.cursor() as cur:
         cur.execute("SELECT name, delisted_at FROM stocks WHERE ticker='U221K0'")
         assert cur.fetchone() == ("기존이름", None)
+
+
+def test_run_universe_does_not_revive_delisted_name_for_unresolved_ticker(db, quiet_universe, monkeypatch):
+    """상폐 이력만 있는 코드(재사용 가능)는 '아는 종목' 이 아니다 — 옛 회사 이름으로 부활시키지 않고 신규처럼 fail-closed(리뷰 5차)."""
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market, security_group, delisted_at) VALUES ('U221R0','옛회사','KOSPI','주권','2024-01-05')")
+    raw = pd.DataFrame([("U221X0", "유이이일", "KOSPI"), ("U221R0", None, "KOSPI")], columns=["ticker", "name", "market"])
+    monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
+
+    with pytest.raises(ValueError, match="U221R0"):
+        um.run_universe(db, today=date(2026, 10, 1))
+    with db.cursor() as cur:
+        cur.execute("SELECT name, delisted_at FROM stocks WHERE ticker='U221R0'")
+        assert cur.fetchone() == ("옛회사", date(2024, 1, 5))
 
 
 def test_run_universe_warns_names_taken_from_delisted_table(db, quiet_universe, monkeypatch):
@@ -327,8 +341,12 @@ def test_security_groups_fail_open_records_walk_back_date(monkeypatch):
     warnings = []
 
     assert um._security_groups_fail_open(date(2026, 10, 30), warnings) == {"U221X0": "주권"}
-    assert warnings == ["security_group_as_of: 2026-10-29 (start 2026-10-30, 1 failed day)"]
+    assert warnings == ["security_group_as_of: 2026-10-29 (start 2026-10-30, 1 failed, 0 skipped weekend)"]
 
     warnings = []
     assert um._security_groups_fail_open(date(2026, 10, 29), warnings) == {"U221X0": "주권"}
     assert warnings == []   # 시작일에 바로 응답 → 기록 없음(= attribute_as_of)
+
+    warnings = []   # 폴백(as_of=today) 경로에서 시작일이 주말이면 '실패 0' 이 아니라 '건너뜀' 으로 읽혀야 한다(리뷰 5차)
+    assert um._security_groups_fail_open(date(2026, 11, 1), warnings) == {"U221X0": "주권"}   # 11-01 일요일 → 10-31 토 건너뜀 → 10-30 실패 → 10-29
+    assert warnings == ["security_group_as_of: 2026-10-29 (start 2026-11-01, 1 failed, 2 skipped weekend)"]

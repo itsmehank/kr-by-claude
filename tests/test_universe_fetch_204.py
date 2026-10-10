@@ -182,3 +182,13 @@ def test_fetch_sectors_wraps_swallowed_pykrx_error(mocker):
     with pytest.raises(ValueError, match=r"KOSDAQ.*2026-10-30.*삼킨.*컬럼명 변경 아님"):
         uf.fetch_sectors(date(2026, 10, 30), "KOSDAQ")
     assert stock_mock.get_market_sector_classifications.call_count == 3   # 예외는 재시도 대상(빈 응답과 달리)
+
+
+def test_fetch_sectors_unexpected_columns_raise_readable_error(mocker):
+    """비어 있지 않은데 컬럼이 다르면(pykrx/KRX 변경) rename 이 무시돼 원래의 암호 같은 KeyError 가 재현된다 — 실제 컬럼을 보여 주는 ValueError(리뷰 5차)."""
+    stock_mock = mocker.patch.object(uf, "stock")
+    stock_mock.get_market_sector_classifications.return_value = pd.DataFrame(
+        [("095570", "서비스업")], columns=["티커", "산업"]).set_index("티커")
+
+    with pytest.raises(ValueError, match=r"KOSPI.*2026-10-30.*unexpected columns.*티커.*산업"):
+        uf.fetch_sectors(date(2026, 10, 30), "KOSPI")
