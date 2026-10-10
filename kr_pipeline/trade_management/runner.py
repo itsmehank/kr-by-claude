@@ -20,6 +20,7 @@ from datetime import date
 
 from psycopg import Connection
 
+from kr_pipeline.common.daily_bars import latest_daily_bar_date
 from kr_pipeline.common.regime_windows import held_window_flag
 from kr_pipeline.common.thresholds import SELL_HALF_ENABLED
 from kr_pipeline.llm_runner.slack import (
@@ -36,13 +37,6 @@ from kr_pipeline.trade_management.store import get_open_positions, update_sell_h
 log = logging.getLogger("kr_pipeline.trade_management")
 
 
-def _latest_bar_date(conn: Connection) -> date | None:
-    with conn.cursor() as cur:
-        cur.execute("SELECT MAX(date) FROM daily_prices")
-        row = cur.fetchone()
-    return row[0] if row else None
-
-
 def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
     """open 포지션 전체를 as_of 종가로 평가. 멱등: (position_id, eval_date).
 
@@ -57,7 +51,7 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
     (decline 행의 climax_also_fired). 자동 청산 없음.
     """
     if as_of is None:
-        as_of = _latest_bar_date(conn)
+        as_of = latest_daily_bar_date(conn)   # 공용 정의(#204)
         if as_of is None:
             return {"as_of": None, "evaluated": 0, "triggered": 0, "skipped": []}
 

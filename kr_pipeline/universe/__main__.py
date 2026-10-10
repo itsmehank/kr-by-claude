@@ -7,6 +7,7 @@ import logging
 import pandas as pd
 
 from kr_pipeline.common.config import Config
+from kr_pipeline.common.daily_bars import latest_daily_bar_date
 from kr_pipeline.common.logging import setup_logging
 from kr_pipeline.common.security_group import UNRESOLVED
 from kr_pipeline.db.connection import connect
@@ -43,16 +44,61 @@ def fetch_security_groups(d: date) -> dict[str, str]:
     return f(d)
 
 
-def _security_groups_fail_open(today: date, warnings: list[str]) -> dict[str, str]:
-    """최근 5일 중 첫 성공 응답. 전부 실패 = 빈 dict(기존 값 유지·신규는 UNRESOLVED) + 경고."""
+def _as_of_trading_day(conn, today: date) -> date | None:
+    """(#204) 속성 조회(업종·증권구분) 기준일 = DB 에 있는 최신 일봉 날짜(≤ today). 월간 체인은 매월 1일 06:30(장 전)에 돌아 '오늘' 로
+    조회하면 종가 전부 0 → pykrx 빈 응답 → 매달 'Sector fetch failed'(06-28·07-17·09-01·10-01 실측). 업종·증권구분은 영속 속성이라
+    직전 거래일 기준으로 충분. 증권구분 걸어내리기(_security_groups_fail_open)도 여기서 시작해 비거래 시점 '오늘' 에 재시도 3회를 쓰지
+    않는다(리뷰 2차 — 월간 로그에 파이썬 로거 출력이 없어 낭비 실측은 못 했으나 무해). KRX 접촉 0. 일봉이 없으면(빈 DB·부트스트랩) None —
+    호출부가 today 로 폴백하고 run warning 을 남긴다(원래 버그를 재현하는 날짜라 조용히 쓰지 않음, 리뷰 4차).
+    한계: 기준일 이후 상장된 종목(장중 수동 재실행 당일 신규 상장 등)은 응답에 없어 sector NULL — sector_missing 경고로 수를 남긴다."""
+    return latest_daily_bar_date(conn, upto=today)
+
+
+def _resolve_unresolved_names(conn, df: pd.DataFrame, warnings: list[str], raw_path: str | None) -> pd.DataFrame:
+    """(#204 리뷰 4차) 응답 보존 뒤·쓰기 전. name None(상장·상폐 종목검색 어디에도 없음·이름 결측):
+    - **활성** stocks 에 이미 있는 종목 → 기존 이름 유지(sector COALESCE 와 같은 깊이) + warning `name_unresolved_kept`.
+    - 신규 종목·상폐 이력만 있는 코드 → fail-closed(이전엔 upsert 'cannot adapt type DataFrame'). 예외 문구에 응답 파일 경로.
+    universe_raw_snapshot.name 은 NOT NULL 이라 스냅샷에는 유지된 이름이 들어간다 — KRX 원문(None)은 증거 JSON, 대상 종목은 warning 에 남는다.
+    상폐 표에서 온 이름(name_source='delisted', 코드 재사용 가능)은 warning `name_from_delisted` 로 추적(증거 파일엔 행마다 name_source)."""
+    if "name_source" in df.columns:
+        from_delisted = sorted(df.loc[df["name_source"] == "delisted", "ticker"].tolist())
+        if from_delisted:
+            warnings.append(f"name_from_delisted: {len(from_delisted)}종목 {' '.join(from_delisted[:20])}")
+    unresolved = sorted(df.loc[df["name"].isna(), "ticker"].tolist())
+    if not unresolved:
+        return df
+    with conn.cursor() as cur:   # 활성 종목만 '아는 종목' — 상폐 이력 코드는 재사용 가능해 옛 이름으로 부활시키지 않는다(리뷰 5차)
+        cur.execute("SELECT ticker, name FROM stocks WHERE delisted_at IS NULL AND ticker = ANY(%s)", (unresolved,))
+        known = dict(cur.fetchall())
+    new_unresolved = [t for t in unresolved if t not in known]
+    if new_unresolved:
+        raise ValueError(f"종목명 미해결(신규·상폐 이력) {len(new_unresolved)}종목 — 상장·상폐 종목검색 응답에 없음·이름 결측, 응답 파일 {raw_path}: "
+                         f"{new_unresolved[:20]}")
+    df = df.copy()
+    df["name"] = [known.get(t) if pd.isna(n) else n for t, n in zip(df["ticker"], df["name"])]   # isna 술어 = 위 unresolved 와 동일
+    warnings.append(f"name_unresolved_kept: {len(unresolved)}종목 {' '.join(unresolved[:20])}")
+    return df
+
+
+def _security_groups_fail_open(start: date, warnings: list[str]) -> dict[str, str]:
+    """start 부터 최근 5일 중 첫 성공 응답. 전부 실패 = 빈 dict(기존 값 유지·신규는 UNRESOLVED) + 경고.
+    (#204) start = 속성 기준일(_as_of_trading_day). 시작일이 아닌 날짜가 응답했으면 run warning 으로 그 날짜를 남긴다 — 증거 파일의
+    attribute_as_of 만으로는 증권구분 응답 날짜를 재구성할 수 없기 때문(리뷰 3차)."""
+    failed = skipped = 0
     for back in range(5):
-        d = today - timedelta(days=back)
+        d = start - timedelta(days=back)
         if d.weekday() >= 5:
+            skipped += 1
             continue
         try:
-            return fetch_security_groups(d)
+            groups = fetch_security_groups(d)
         except Exception as e:  # noqa: BLE001 — fail-open 지속화(Q-1)
             log.warning(f"security_group fetch failed for {d}: {e}")
+            failed += 1
+            continue
+        if d != start:
+            warnings.append(f"security_group_as_of: {d.isoformat()} (start {start.isoformat()}, {failed} failed, {skipped} skipped weekend)")
+        return groups
     warnings.append("security_group_fetch_failed: 5일 내 응답 없음 — 기존 값 유지, 신규 종목 UNRESOLVED")
     return {}
 
@@ -125,10 +171,19 @@ def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff
     df = fetch_universe(today)
     log.info(f"Fetched {len(df)} raw tickers")
     raw_path = ev.save(universe=df)                      # 운영 규칙 5 — 어떤 판정·쓰기보다 먼저 보존
+    df = _resolve_unresolved_names(conn, df, state["warnings"], raw_path)   # (#204) 보존 뒤·쓰기 전: 기존 종목은 이름 유지, 신규는 fail-closed
     raw_tickers = set(df["ticker"])                      # (#221) 필터 전 원본 — removed 가 상폐인지(원본에도 없음) 판정
     _raw_complete(conn, df, today)                       # 부분 응답 의심이면 여기서 끝(쓰기 0)
 
-    groups = _security_groups_fail_open(today, state["warnings"])
+    as_of = _as_of_trading_day(conn, today)                # (#204) 속성 조회 기준일 — 업종·증권구분 공통
+    if as_of is None:                                      # 일봉 없음(부트스트랩 등) — 원래 버그를 재현하는 날짜라 경고와 함께만 쓴다
+        as_of = today
+        msg = f"attribute_as_of_fallback: {today.isoformat()} — daily_prices 에 ≤today 일봉 없음(장 전이면 업종 응답 비어 실패 예상)"
+        log.warning(msg)
+        state["warnings"].append(msg)
+    log.info(f"Attribute as-of date: {as_of} (today={today})")
+    ev.save(attribute_as_of=as_of.isoformat())             # 조회 성공 여부와 무관하게 '어느 날짜를 물었는지' 를 먼저 남긴다(운영 규칙 5)
+    groups = _security_groups_fail_open(as_of, state["warnings"])
     ev.save(security_groups=groups)
     sg_unavailable = not groups
     df["security_group"] = df["ticker"].map(groups).fillna(UNRESOLVED)
@@ -150,17 +205,23 @@ def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff
     raw_saved = save_universe_raw_snapshot(conn, today, df)
     log.info(f"Saved raw universe snapshot: {raw_saved} rows (file: {raw_path})")
 
-    # 섹터 머지
-    sectors = []
+    # 섹터 머지 — 기준일은 '오늘' 이 아니라 종가가 있는 최신 거래일(#204)
+    sectors: list[tuple[str, pd.DataFrame]] = []        # (시장, 응답) — 응답이 온 시장만
     for market in ("KOSPI", "KOSDAQ"):
         try:
-            sectors.append(fetch_sectors(today, market))
+            sectors.append((market, fetch_sectors(as_of, market)))
         except Exception as e:
-            log.warning(f"Sector fetch failed for {market}: {e}")
+            log.warning(f"Sector fetch failed for {market} (as_of={as_of}): {e}")
+            state["warnings"].append(f"sector_fetch_failed: {market} (as_of={as_of.isoformat()}) {e}")
     if sectors:
-        sec = pd.concat(sectors, ignore_index=True)
+        sec = pd.concat([f for _, f in sectors], ignore_index=True)
         ev.save(sectors=sec)
         kept = kept.merge(sec, on="ticker", how="left")
+        # 응답이 온 시장 안에서만 센다 — 실패한 시장의 전 종목을 '기준일 이후 상장' 으로 오귀속하지 않게(리뷰 2차)
+        answered = kept["market"].isin([m for m, _ in sectors])
+        missing = sorted(kept.loc[answered & kept["sector"].isna(), "ticker"].tolist())
+        if missing:   # 기준일 이후 상장 등 — NULL 적재(COALESCE 로 기존 값 유지)는 그대로, 수만 남긴다
+            state["warnings"].append(f"sector_missing: {len(missing)}종목 (as_of={as_of.isoformat()}) {' '.join(missing[:20])}")
     else:
         kept["sector"] = None
 
@@ -195,7 +256,7 @@ def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff
              f"| exclusion +{len(info['exclusion_added'])} -{len(info['exclusion_removed'])} "
              f"(auto: 상폐 {len(auto['removed_delisted'])}·신규배제 {len(auto['added_new_listing'])})")
     if info["unresolved"]:
-        state["warnings"].append(f"security_group_unresolved: {info['unresolved']}종목")
+        state["warnings"].append(f"security_group_unresolved: {info['unresolved']}종목 (as_of={as_of.isoformat()})")
     info["raw_file"] = raw_path
     state["details"] = info
     state["rows_affected"] = affected
