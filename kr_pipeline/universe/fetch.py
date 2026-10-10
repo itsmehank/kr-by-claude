@@ -54,20 +54,36 @@ def fetch_names() -> dict[str, str]:
     return {str(t): n for t, n in zip(df["short_code"], df["codeName"]) if isinstance(n, str) and n}
 
 
+def _delisted_frame() -> pd.DataFrame:
+    """pykrx 상폐종목검색 원응답(short_code·codeName…) — 지연 import. get_market_ticker_name 이 상장종목검색에 없을 때 보던 두 번째 표
+    (StockTicker.get → self.delisted). 미해결 종목이 있을 때만 1회 부른다(리뷰 3차: 정리매매 창 종목 등 기존 해결 범위 유지)."""
+    from pykrx.website.krx.market.core import 상폐종목검색
+    return 상폐종목검색().fetch("ALL")
+
+
+@with_retry(attempts=3)
+def _delisted_names() -> dict[str, str]:
+    df = _delisted_frame()
+    if df is None or df.empty or not {"short_code", "codeName"} <= set(df.columns):
+        return {}
+    return {str(t): n for t, n in zip(df["short_code"], df["codeName"]) if isinstance(n, str) and n}
+
+
 def fetch_universe(on_date: date) -> pd.DataFrame:
-    """모든 KOSPI/KOSDAQ ticker + 이름 + 시장. 종목명 미해결(전종목시세엔 있고 상장종목검색엔 없음·이름 NaN)이 하나라도 있으면
-    어떤 쓰기보다 앞에서 fail-closed. 종목별 보완 경로는 두지 않는다 — get_market_ticker_name 도 같은 표를 읽어 해결 불가하고,
-    모르는 종목엔 빈 DataFrame 을 돌려줘 이전엔 upsert 'cannot adapt type DataFrame' 로 터졌다(KRX 접촉을 다 쓴 뒤)."""
+    """모든 KOSPI/KOSDAQ ticker + 이름 + 시장. 종목명은 상장종목검색 전표 → (미해결이 있을 때만) 상폐종목검색 전표 순 —
+    get_market_ticker_name(StockTicker.get) 과 같은 순서·같은 표. 그래도 없는 종목(이름 NaN 등)은 **name None 으로 반환**하고
+    여기서 raise 하지 않는다: 호출부(_run_universe_inner)가 응답을 파일로 먼저 보존한 뒤 쓰기 전에 fail-closed 한다(운영 규칙 5).
+    이전엔 get_market_ticker_name 의 빈 DataFrame 이 name 에 들어가 upsert 'cannot adapt type DataFrame' 로 터졌다(KRX 접촉을 다 쓴 뒤)."""
     names = fetch_names()
-    rows, unresolved = [], []
+    rows = []
     for market in ("KOSPI", "KOSDAQ"):
         for ticker in fetch_tickers(market, on_date):
-            name = names.get(ticker)
-            if not name:
-                unresolved.append(ticker)
-            rows.append({"ticker": ticker, "name": name, "market": market})
-    if unresolved:
-        raise ValueError(f"종목명 미해결 {len(unresolved)}종목(상장종목검색 응답에 없음·이름 결측): {unresolved[:20]}")
+            rows.append({"ticker": ticker, "name": names.get(ticker) or None, "market": market})
+    if any(r["name"] is None for r in rows):
+        delisted = _delisted_names()
+        for r in rows:
+            if r["name"] is None:
+                r["name"] = delisted.get(r["ticker"]) or None
     return pd.DataFrame(rows)
 
 
@@ -82,7 +98,8 @@ def fetch_sectors(on_date: date, market: str) -> pd.DataFrame:
 
     (#204) on_date 는 **종가가 있는 거래일**이어야 한다. pykrx 는 응답 종가가 전부 0(장 전·휴장일 조회)이면 빈 DataFrame 을
     돌려주고, 그대로 두면 컬럼 부재 KeyError 로만 보여 원인이 묻힌다(06-28·07-17·09-01·10-01 월간 체인 06:30 실측). 호출부는
-    _sector_as_of(DB 최신 일봉 날짜)로 넘긴다. 빈 응답은 결정론적이라 **재시도 밖**에서 명시 예외(리뷰 1차: 시장당 3요청 낭비 방지).
+    universe/__main__._as_of_trading_day(DB 최신 일봉 날짜 ≤ today)로 넘긴다. 빈 응답은 결정론적이라 **재시도 밖**에서 명시 예외
+    (리뷰 1차: 시장당 3요청 낭비 방지).
     호출부 경고 처리(실패 시 기존 값 COALESCE 유지)는 불변.
     """
     df = _fetch_sector_frame(on_date, market)

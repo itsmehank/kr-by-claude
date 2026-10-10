@@ -178,17 +178,14 @@ def _seed_daily(db, ticker, *days):
 
 
 def test_as_of_trading_day_is_latest_daily_bar_not_after_today(db):
-    with db.cursor() as cur:   # kr_test 에 커밋된 다른 일봉에 좌우되지 않게(리뷰 1차) — 트랜잭션 안이라 ROLLBACK 으로 복원
-        cur.execute("DELETE FROM daily_prices")
-    _seed_daily(db, "204T00", date(2026, 9, 29), date(2026, 9, 30), date(2026, 10, 2))
-    assert um._as_of_trading_day(db, date(2026, 10, 1)) == date(2026, 9, 30)   # 매월 1일 06:30 — 전일 종가 기준
-    assert um._as_of_trading_day(db, date(2026, 10, 2)) == date(2026, 10, 2)   # 당일 일봉이 이미 있으면 당일
+    # kr_test 의 다른 일봉과 겹치지 않는 1990 창으로 격리(DELETE 금지 — 전표 행 잠금·교차 세션 경합, 리뷰 3차)
+    _seed_daily(db, "204T00", date(1990, 1, 2), date(1990, 1, 3), date(1990, 1, 5))
+    assert um._as_of_trading_day(db, date(1990, 1, 4)) == date(1990, 1, 3)   # 매월 1일 06:30 — 전일 종가 기준
+    assert um._as_of_trading_day(db, date(1990, 1, 5)) == date(1990, 1, 5)   # 당일 일봉이 이미 있으면 당일
 
 
 def test_as_of_trading_day_falls_back_to_today_without_daily_bars(db):
-    with db.cursor() as cur:
-        cur.execute("DELETE FROM daily_prices")
-    assert um._as_of_trading_day(db, date(2026, 10, 1)) == date(2026, 10, 1)
+    assert um._as_of_trading_day(db, date(1989, 1, 1)) == date(1989, 1, 1)   # 그 날짜 이하 일봉 없음 → 기존 동작(today)
 
 
 def test_run_universe_fetches_sectors_as_of_latest_bar(db, quiet_universe, monkeypatch):
@@ -209,7 +206,7 @@ def test_run_universe_fetches_sectors_as_of_latest_bar(db, quiet_universe, monke
     assert files, "universe_raw 증거 파일이 저장되지 않았다"
     with open(files[-1], encoding="utf-8") as f:
         doc = json.load(f)
-    assert doc["fetched_for"] == "2026-10-01" and doc["sector_as_of"] == "2026-09-30"
+    assert doc["fetched_for"] == "2026-10-01" and doc["attribute_as_of"] == "2026-09-30"
 
 
 def test_run_universe_warns_when_kept_tickers_lack_sector(db, quiet_universe, monkeypatch):
@@ -236,7 +233,7 @@ def test_run_universe_warns_when_kept_tickers_lack_sector(db, quiet_universe, mo
         assert cur.fetchall() == [("U221X0", "서비스업"), ("U221Y0", None), ("U221Z0", None)]
 
 
-def test_run_universe_records_sector_as_of_even_when_all_sector_fetches_fail(db, quiet_universe, monkeypatch):
+def test_run_universe_records_attribute_as_of_even_when_all_sector_fetches_fail(db, quiet_universe, monkeypatch):
     raw = _raw([("U221X0", "유이이일", "KOSPI")])
     monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
     monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: {"U221X0": "주권"})
@@ -248,14 +245,49 @@ def test_run_universe_records_sector_as_of_even_when_all_sector_fetches_fail(db,
     files = sorted(glob.glob(os.path.join(os.environ["KR_VERIFICATION_DIR"], "universe_raw_20261001_*.json")))
     with open(files[-1], encoding="utf-8") as f:
         doc = json.load(f)
-    assert doc["sector_as_of"] == "2026-09-30" and "sectors" not in doc   # 증거 파일만으로 '어느 날짜를 물었는지' 재구성 가능(운영 규칙 5)
+    assert doc["attribute_as_of"] == "2026-09-30" and "sectors" not in doc   # 증거 파일만으로 '어느 날짜를 물었는지' 재구성 가능(운영 규칙 5)
 
 
 def test_latest_daily_bar_date_helper(db):
     from kr_pipeline.common.daily_bars import latest_daily_bar_date
+    assert latest_daily_bar_date(db, upto=date(1989, 1, 1)) is None
+    _seed_daily(db, "204T01", date(1990, 1, 2), date(1990, 1, 5))
+    assert latest_daily_bar_date(db, upto=date(1990, 1, 5)) == date(1990, 1, 5)
+    assert latest_daily_bar_date(db, upto=date(1990, 1, 4)) == date(1990, 1, 2)
+    assert latest_daily_bar_date(db) >= date(1990, 1, 5)   # upto 없음 = 전표 최신(다른 일봉이 있을 수 있어 하한만)
+
+
+def test_run_universe_fails_closed_on_unresolved_name_after_saving_raw(db, quiet_universe, monkeypatch):
+    """종목명 미해결(name None) → 어떤 쓰기보다 앞에서 실패하되, 받은 응답은 먼저 파일로 보존(운영 규칙 5, 리뷰 3차)."""
+    raw = pd.DataFrame([("U221X0", "유이이일", "KOSPI"), ("U221N0", None, "KOSPI")], columns=["ticker", "name", "market"])
+    monkeypatch.setattr(um, "fetch_universe", lambda d: raw.copy())
+    monkeypatch.setattr(um, "_security_groups_fail_open", lambda today, warnings: (_ for _ in ()).throw(AssertionError("미해결이면 여기 오면 안 됨")))
+
+    with pytest.raises(ValueError, match="U221N0"):
+        um.run_universe(db, today=date(2026, 10, 1))
+
+    files = sorted(glob.glob(os.path.join(os.environ["KR_VERIFICATION_DIR"], "universe_raw_20261001_*.json")))
+    with open(files[-1], encoding="utf-8") as f:
+        doc = json.load(f)
+    assert {r["ticker"]: r["name"] for r in doc["universe"]} == {"U221X0": "유이이일", "U221N0": None}
     with db.cursor() as cur:
-        cur.execute("DELETE FROM daily_prices")
-    assert latest_daily_bar_date(db) is None
-    _seed_daily(db, "204T01", date(2026, 9, 29), date(2026, 10, 2))
-    assert latest_daily_bar_date(db) == date(2026, 10, 2)
-    assert latest_daily_bar_date(db, upto=date(2026, 10, 1)) == date(2026, 9, 29)
+        cur.execute("SELECT count(*) FROM stocks WHERE ticker IN ('U221X0','U221N0') AND delisted_at IS NULL")
+        assert cur.fetchone()[0] == 0
+
+
+def test_security_groups_fail_open_records_walk_back_date(monkeypatch):
+    """증권구분 응답을 준 날짜가 시작일과 다르면 run warning 으로 남긴다 — 증거 파일의 attribute_as_of 만으론 재구성 불가(리뷰 3차)."""
+    def _groups(d):
+        if d == date(2026, 10, 30):
+            raise ValueError("suspiciously small")
+        return {"U221X0": "주권"}
+
+    monkeypatch.setattr(um, "fetch_security_groups", _groups)
+    warnings = []
+
+    assert um._security_groups_fail_open(date(2026, 10, 30), warnings) == {"U221X0": "주권"}
+    assert warnings == ["security_group_as_of: 2026-10-29 (start 2026-10-30, 1 failed day)"]
+
+    warnings = []
+    assert um._security_groups_fail_open(date(2026, 10, 29), warnings) == {"U221X0": "주권"}
+    assert warnings == []   # 시작일에 바로 응답 → 기록 없음(= attribute_as_of)

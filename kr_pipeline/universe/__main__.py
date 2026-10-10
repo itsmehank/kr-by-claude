@@ -53,16 +53,24 @@ def _as_of_trading_day(conn, today: date) -> date:
     return latest_daily_bar_date(conn, upto=today) or today
 
 
-def _security_groups_fail_open(today: date, warnings: list[str]) -> dict[str, str]:
-    """최근 5일 중 첫 성공 응답. 전부 실패 = 빈 dict(기존 값 유지·신규는 UNRESOLVED) + 경고."""
+def _security_groups_fail_open(start: date, warnings: list[str]) -> dict[str, str]:
+    """start 부터 최근 5일 중 첫 성공 응답. 전부 실패 = 빈 dict(기존 값 유지·신규는 UNRESOLVED) + 경고.
+    (#204) start = 속성 기준일(_as_of_trading_day). 시작일이 아닌 날짜가 응답했으면 run warning 으로 그 날짜를 남긴다 — 증거 파일의
+    attribute_as_of 만으로는 증권구분 응답 날짜를 재구성할 수 없기 때문(리뷰 3차)."""
+    failed = 0
     for back in range(5):
-        d = today - timedelta(days=back)
+        d = start - timedelta(days=back)
         if d.weekday() >= 5:
             continue
         try:
-            return fetch_security_groups(d)
+            groups = fetch_security_groups(d)
         except Exception as e:  # noqa: BLE001 — fail-open 지속화(Q-1)
             log.warning(f"security_group fetch failed for {d}: {e}")
+            failed += 1
+            continue
+        if d != start:
+            warnings.append(f"security_group_as_of: {d.isoformat()} (start {start.isoformat()}, {failed} failed day{'s' if failed != 1 else ''})")
+        return groups
     warnings.append("security_group_fetch_failed: 5일 내 응답 없음 — 기존 값 유지, 신규 종목 UNRESOLVED")
     return {}
 
@@ -135,12 +143,16 @@ def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff
     df = fetch_universe(today)
     log.info(f"Fetched {len(df)} raw tickers")
     raw_path = ev.save(universe=df)                      # 운영 규칙 5 — 어떤 판정·쓰기보다 먼저 보존
+    unresolved_names = sorted(df.loc[df["name"].isna(), "ticker"].tolist())   # (#204) 상장·상폐 종목검색 어디에도 이름 없음
+    if unresolved_names:                                 # 보존 뒤·쓰기 전 fail-closed(이전엔 upsert 'cannot adapt type DataFrame')
+        raise ValueError(f"종목명 미해결 {len(unresolved_names)}종목(상장·상폐 종목검색 응답에 없음·이름 결측, 응답 파일 {raw_path}): "
+                         f"{unresolved_names[:20]}")
     raw_tickers = set(df["ticker"])                      # (#221) 필터 전 원본 — removed 가 상폐인지(원본에도 없음) 판정
     _raw_complete(conn, df, today)                       # 부분 응답 의심이면 여기서 끝(쓰기 0)
 
     as_of = _as_of_trading_day(conn, today)                # (#204) 속성 조회 기준일 — 업종·증권구분 공통
     log.info(f"Attribute as-of date: {as_of} (today={today})")
-    ev.save(sector_as_of=as_of.isoformat())                # 조회 성공 여부와 무관하게 '어느 날짜를 물었는지' 를 먼저 남긴다(운영 규칙 5)
+    ev.save(attribute_as_of=as_of.isoformat())             # 조회 성공 여부와 무관하게 '어느 날짜를 물었는지' 를 먼저 남긴다(운영 규칙 5)
     groups = _security_groups_fail_open(as_of, state["warnings"])
     ev.save(security_groups=groups)
     sg_unavailable = not groups
@@ -215,7 +227,7 @@ def _run_universe_inner(conn, state: dict, *, today: date, accept_exclusion_diff
              f"| exclusion +{len(info['exclusion_added'])} -{len(info['exclusion_removed'])} "
              f"(auto: 상폐 {len(auto['removed_delisted'])}·신규배제 {len(auto['added_new_listing'])})")
     if info["unresolved"]:
-        state["warnings"].append(f"security_group_unresolved: {info['unresolved']}종목")
+        state["warnings"].append(f"security_group_unresolved: {info['unresolved']}종목 (as_of={as_of.isoformat()})")
     info["raw_file"] = raw_path
     state["details"] = info
     state["rows_affected"] = affected

@@ -37,10 +37,6 @@ from kr_pipeline.trade_management.store import get_open_positions, update_sell_h
 log = logging.getLogger("kr_pipeline.trade_management")
 
 
-def _latest_bar_date(conn: Connection) -> date | None:
-    return latest_daily_bar_date(conn)   # 공용 정의(#204) — 동작 동일
-
-
 def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
     """open 포지션 전체를 as_of 종가로 평가. 멱등: (position_id, eval_date).
 
@@ -55,7 +51,7 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
     (decline 행의 climax_also_fired). 자동 청산 없음.
     """
     if as_of is None:
-        as_of = _latest_bar_date(conn)
+        as_of = latest_daily_bar_date(conn)   # 공용 정의(#204)
         if as_of is None:
             return {"as_of": None, "evaluated": 0, "triggered": 0, "skipped": []}
 

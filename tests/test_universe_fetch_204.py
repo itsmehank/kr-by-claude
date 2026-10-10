@@ -84,12 +84,39 @@ def test_fetch_universe_uses_name_map(monkeypatch):
     ]
 
 
-def test_fetch_universe_fails_closed_when_name_unresolvable(monkeypatch):
-    """전종목시세에는 있고 상장종목검색에는 없는 종목(피드 지연 등)은 종목별 보완이 불가능하다 — get_market_ticker_name 도 같은 표를
-    읽고 모르는 종목엔 빈 DataFrame 을 돌려줘(dataframe_empty_handler) 이전엔 upsert 'cannot adapt type DataFrame' 로 터졌다(KRX 접촉을 다
-    쓴 뒤). 쓰기 전에 종목을 지목해 fail-closed(리뷰 2차: 보완 경로는 죽은 코드라 제거)."""
+def _delisted(rows):
+    return pd.DataFrame(rows, columns=["short_code", "codeName"])
+
+
+def test_fetch_universe_resolves_from_delisted_table_only_when_listed_misses(monkeypatch):
+    """get_market_ticker_name(StockTicker.get) 은 상장종목검색에 없으면 상폐종목검색을 봤다 — 정리매매 창 종목 등. 같은 순서를 유지하되
+    상폐 표는 미해결이 있을 때만 1회(리뷰 3차: 보완 경로 전부 제거는 기존 해결 범위 축소)."""
+    monkeypatch.setattr(uf, "fetch_tickers", lambda market, on_date: {"KOSPI": ["095570", "0DEL00"], "KOSDAQ": []}[market])
+    monkeypatch.setattr(uf, "fetch_names", lambda: {"095570": "AJ네트웍스"})
+    calls = []
+    monkeypatch.setattr(uf, "_delisted_frame", lambda: calls.append(1) or _delisted([("0DEL00", "정리매매종목")]))
+
+    df = uf.fetch_universe(date(2026, 10, 1))
+
+    assert dict(zip(df["ticker"], df["name"])) == {"095570": "AJ네트웍스", "0DEL00": "정리매매종목"}
+    assert calls == [1]
+
+
+def test_fetch_universe_skips_delisted_lookup_when_all_resolved(monkeypatch):
+    monkeypatch.setattr(uf, "fetch_tickers", lambda market, on_date: {"KOSPI": ["095570"], "KOSDAQ": []}[market])
+    monkeypatch.setattr(uf, "fetch_names", lambda: {"095570": "AJ네트웍스"})
+    monkeypatch.setattr(uf, "_delisted_frame", lambda: (_ for _ in ()).throw(AssertionError("불필요한 KRX 요청")))
+
+    assert uf.fetch_universe(date(2026, 10, 1))["name"].tolist() == ["AJ네트웍스"]
+
+
+def test_fetch_universe_returns_none_name_when_unresolved_everywhere(monkeypatch):
+    """미해결은 여기서 raise 하지 않는다 — 호출부가 응답을 파일로 먼저 보존한 뒤 fail-closed(운영 규칙 5, 리뷰 3차). 이전엔 빈 DataFrame 이
+    name 에 들어가 upsert 에서 터졐다."""
     monkeypatch.setattr(uf, "fetch_tickers", lambda market, on_date: {"KOSPI": ["095570", "0NEW00"], "KOSDAQ": []}[market])
     monkeypatch.setattr(uf, "fetch_names", lambda: {"095570": "AJ네트웍스"})
+    monkeypatch.setattr(uf, "_delisted_frame", lambda: _delisted([]))
 
-    with pytest.raises(ValueError, match=r"종목명.*0NEW00"):
-        uf.fetch_universe(date(2026, 10, 1))
+    df = uf.fetch_universe(date(2026, 10, 1))
+
+    assert df.loc[df["ticker"] == "0NEW00", "name"].item() is None
