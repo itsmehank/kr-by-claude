@@ -1,0 +1,33 @@
+[
+ {
+  "population": "live weekly_classification",
+  "rows": 1789,
+  "current": {
+   "anchored": 1660,
+   "no_transition": 60,
+   "left_censored": 69
+  },
+  "no_transition_rows": 60,
+  "c3prime_on_no_transition": {
+   "no_stage1": 14,
+   "anchored_c3p": 43,
+   "no_transition_c3p": 3
+  },
+  "c3prime_anchored_ratio": 0.7166666666666667
+ },
+ {
+  "population": "backtest_classification",
+  "rows": 6023,
+  "current": {
+   "no_transition": 960,
+   "anchored": 5063
+  },
+  "no_transition_rows": 960,
+  "c3prime_on_no_transition": {
+   "no_stage1": 480,
+   "anchored_c3p": 409,
+   "no_transition_c3p": 71
+  },
+  "c3prime_anchored_ratio": 0.42604166666666665
+ }
+]

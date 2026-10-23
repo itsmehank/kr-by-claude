@@ -1,0 +1,453 @@
+{
+ "calc_version": "deterministic:entry_params_calc/v1",
+ "n": 15,
+ "cases": [
+  {
+   "symbol": "000430",
+   "evaluated_at": "2026-06-02T21:01:40.489671+09:00",
+   "calc_rejected": "pattern='none' — none/부재는 pivot 미확정 상태로 C 도달 자체가 상류 규율 위반 (D2a)",
+   "llm_error": "claude CLI failed after 4 attempts: No JSON in envelope result"
+  },
+  {
+   "symbol": "000810",
+   "evaluated_at": "2026-06-10T00:25:08.575237+09:00",
+   "calc": {
+    "entry_mode": "pocket_pivot",
+    "pivot_price": 730000.0,
+    "trigger_price": 730730.0,
+    "current_price": 616000.0,
+    "stop_loss_price": 697150.0,
+    "stop_loss_pct_from_pivot": -4.5,
+    "stop_loss_pct_from_current_price": 13.2,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 839500.0,
+    "expected_target_pct": 15.0,
+    "pattern_basis": "cup_with_handle",
+    "entry_window_days": 1,
+    "max_chase_pct_from_pivot": 2.0,
+    "breakout_volume_requirement": "pocket_pivot_signature",
+    "observed_breakout_volume_ratio": 1.24,
+    "notes": "cup_with_handle (pocket_pivot); pivot 730000.0 -> trigger 730730.0. Stop 697150.0: -4.5% from pivot (absolute binding), 13.2% from current 616000.0. Size 3.0% (pocket fallback tier; multipliers: extended_from_ma×0.7, confidence 0.6×0.7). Target 15.0%. Volume req pocket_pivot_signature, observed 1.24x. Auto-warnings: entry_mode_pocket_pivot, size_floored_due_to_multiple_flags, stop_distance_from_current_price_exceeds_book_limit. Deterministic calc (#21) - no LLM.",
+    "known_warnings": [
+     "entry_mode_pocket_pivot",
+     "size_floored_due_to_multiple_flags",
+     "stop_distance_from_current_price_exceeds_book_limit"
+    ],
+    "other_warnings": []
+   },
+   "llm_error": "claude CLI failed after 4 attempts: No JSON in envelope result"
+  },
+  {
+   "symbol": "005850",
+   "evaluated_at": "2026-05-29T13:58:55.977254+09:00",
+   "calc_rejected": "pattern='none' — none/부재는 pivot 미확정 상태로 C 도달 자체가 상류 규율 위반 (D2a)",
+   "llm_error": "claude CLI failed after 4 attempts: No JSON in envelope result"
+  },
+  {
+   "symbol": "017650",
+   "evaluated_at": "2026-06-02T21:02:20.346644+09:00",
+   "calc": {
+    "entry_mode": "pivot_breakout",
+    "pivot_price": 9780.0,
+    "trigger_price": 9789.78,
+    "current_price": 8890.0,
+    "stop_loss_price": 9242.1,
+    "stop_loss_pct_from_pivot": -5.5,
+    "stop_loss_pct_from_current_price": 4.0,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 11247.0,
+    "expected_target_pct": 15.0,
+    "pattern_basis": "cup_with_handle",
+    "entry_window_days": 1,
+    "max_chase_pct_from_pivot": 2.0,
+    "breakout_volume_requirement": "ge_1.5x_50day_avg",
+    "observed_breakout_volume_ratio": 0.35,
+    "notes": "cup_with_handle (pivot_breakout); pivot 9780.0 -> trigger 9789.78. Stop 9242.1: -5.5% from pivot (absolute binding), 4.0% from current 8890.0. Size 3.0% (risky tier; multipliers: unfavorable_market_context×0.5, confidence 0.5×0.7). Target 15.0%. Volume req ge_1.5x_50day_avg, observed 0.35x. Auto-warnings: absolute_stop_used_due_to_wide_handle, size_floored_due_to_multiple_flags, size_reduced_due_to_unfavorable_market, breakout_volume_below_requirement. Deterministic calc (#21) - no LLM.",
+    "known_warnings": [
+     "absolute_stop_used_due_to_wide_handle",
+     "size_floored_due_to_multiple_flags",
+     "size_reduced_due_to_unfavorable_market",
+     "breakout_volume_below_requirement"
+    ],
+    "other_warnings": [
+     "pocket_pivot claimed in reasoning but no flag in recent indicators — using standard pivot_breakout logic"
+    ]
+   },
+   "llm_error": "claude CLI failed after 4 attempts: No JSON in envelope result"
+  },
+  {
+   "symbol": "028670",
+   "evaluated_at": "2026-06-02T21:03:04.267772+09:00",
+   "calc": {
+    "entry_mode": "pivot_breakout",
+    "pivot_price": 5850.0,
+    "trigger_price": 5855.85,
+    "current_price": 5000.0,
+    "stop_loss_price": 5528.25,
+    "stop_loss_pct_from_pivot": -5.5,
+    "stop_loss_pct_from_current_price": 10.6,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 6727.5,
+    "expected_target_pct": 15.0,
+    "pattern_basis": "cup_with_handle",
+    "entry_window_days": 1,
+    "max_chase_pct_from_pivot": 5.0,
+    "breakout_volume_requirement": "ge_1.5x_50day_avg",
+    "observed_breakout_volume_ratio": 0.62,
+    "notes": "cup_with_handle (pivot_breakout); pivot 5850.0 -> trigger 5855.85. Stop 5528.25: -5.5% from pivot (absolute binding), 10.6% from current 5000.0. Size 3.0% (risky tier; multipliers: volume_contraction_on_advance×0.7, confidence 0.62×0.7). Target 15.0%. Volume req ge_1.5x_50day_avg, observed 0.62x. Auto-warnings: absolute_stop_used_due_to_wide_handle, size_floored_due_to_multiple_flags, breakout_volume_below_requirement, stop_distance_from_current_price_exceeds_book_limit. Deterministic calc (#21) - no LLM.",
+    "known_warnings": [
+     "absolute_stop_used_due_to_wide_handle",
+     "size_floored_due_to_multiple_flags",
+     "breakout_volume_below_requirement",
+     "stop_distance_from_current_price_exceeds_book_limit"
+    ],
+    "other_warnings": []
+   },
+   "llm_error": "claude CLI failed after 4 attempts: No JSON in envelope result"
+  },
+  {
+   "symbol": "033200",
+   "evaluated_at": "2026-05-20T21:58:15.170112+09:00",
+   "error": "payload: No active classification for 033200"
+  },
+  {
+   "symbol": "033780",
+   "evaluated_at": "2026-05-20T21:58:23.534284+09:00",
+   "calc": {
+    "entry_mode": "pocket_pivot",
+    "pivot_price": 178200.0,
+    "trigger_price": 178378.2,
+    "current_price": 178200.0,
+    "stop_loss_price": 171072.0,
+    "stop_loss_pct_from_pivot": -4.0,
+    "stop_loss_pct_from_current_price": -4.0,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 204930.0,
+    "expected_target_pct": 15.0,
+    "pattern_basis": "flat_base",
+    "entry_window_days": 1,
+    "max_chase_pct_from_pivot": 2.0,
+    "breakout_volume_requirement": "pocket_pivot_signature",
+    "observed_breakout_volume_ratio": 2.08,
+    "notes": "flat_base (pocket_pivot); pivot 178200.0 -> trigger 178378.2. Stop 171072.0: -4.0% from pivot (logical binding), -4.0% from current 178200.0. Size 3.0% (pocket fallback tier; multipliers: unfavorable_market_context×0.5, volume_contraction_on_advance×0.7, confidence 0.6×0.7). Target 15.0%. Volume req pocket_pivot_signature, observed 2.08x. Auto-warnings: entry_mode_pocket_pivot, size_floored_due_to_multiple_flags, size_reduced_due_to_unfavorable_market. Deterministic calc (#21) - no LLM.",
+    "known_warnings": [
+     "entry_mode_pocket_pivot",
+     "size_floored_due_to_multiple_flags",
+     "size_reduced_due_to_unfavorable_market"
+    ],
+    "other_warnings": []
+   },
+   "llm": {
+    "entry_mode": "pocket_pivot",
+    "pivot_price": 178200.0,
+    "trigger_price": 178378.2,
+    "current_price": 178200.0,
+    "stop_loss_price": 171072.0,
+    "stop_loss_pct_from_pivot": -4.0,
+    "stop_loss_pct_from_current_price": -4.0,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 204930.0,
+    "expected_target_pct": 15.0,
+    "pattern_basis": "flat_base",
+    "entry_window_days": 1,
+    "max_chase_pct_from_pivot": 2.0,
+    "breakout_volume_requirement": "pocket_pivot_signature",
+    "observed_breakout_volume_ratio": 2.08,
+    "notes": "entry_mode=pocket_pivot (reasoning contains 'pocket pivot'; PP flag confirmed 2026-05-20, most recent of 2 flags in trailing 5 sessions). Pivot=178200 (PP-day close), trigger=178378.2 (+0.1%). Stop 171072.0: logical candidate (-1.7%) was loosest but clamped to pocket-pivot ceiling -4.0% from pivot, -4.0% from current 178200; sma50(-6.9%) and absolute(-4.5%) both looser, not binding. Size: pocket fallback tier 5% x unfavorable_market_context(0.5) x volume_contraction_on_advance(0.7) x confidence 0.6<0.7(0.7) = 1.2%, floored to 3.0% minimum. Target capped 15% (unfavorable market + PP cap). Window 1, chase 2% (unfavorable market conservatism). Observed volume 2.08x 50d avg.",
+    "known_warnings": [
+     "entry_mode_pocket_pivot",
+     "size_floored_due_to_multiple_flags",
+     "size_reduced_due_to_unfavorable_market"
+    ],
+    "other_warnings": []
+   },
+   "diffs": {}
+  },
+  {
+   "symbol": "037760",
+   "evaluated_at": "2026-05-20T02:05:10.696398+09:00",
+   "calc": {
+    "entry_mode": "pivot_breakout",
+    "pivot_price": 2445.1,
+    "trigger_price": 2447.55,
+    "current_price": 2390.0,
+    "stop_loss_price": 2310.62,
+    "stop_loss_pct_from_pivot": -5.5,
+    "stop_loss_pct_from_current_price": -3.3,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 2811.86,
+    "expected_target_pct": 15.0,
+    "pattern_basis": "flat_base",
+    "entry_window_days": 1,
+    "max_chase_pct_from_pivot": 2.0,
+    "breakout_volume_requirement": "ge_1.5x_50day_avg",
+    "observed_breakout_volume_ratio": 0.31,
+    "notes": "flat_base (pivot_breakout); pivot 2445.1 -> trigger 2447.55. Stop 2310.62: -5.5% from pivot (absolute binding), -3.3% from current 2390.0. Size 3.0% (fallback tier; multipliers: unfavorable_market_context×0.5, confidence 0.65×0.7). Target 15.0%. Volume req ge_1.5x_50day_avg, observed 0.31x. Auto-warnings: absolute_stop_used_due_to_wide_handle, size_floored_due_to_multiple_flags, size_reduced_due_to_unfavorable_market, breakout_volume_below_requirement. Deterministic calc (#21) - no LLM.",
+    "known_warnings": [
+     "absolute_stop_used_due_to_wide_handle",
+     "size_floored_due_to_multiple_flags",
+     "size_reduced_due_to_unfavorable_market",
+     "breakout_volume_below_requirement"
+    ],
+    "other_warnings": []
+   },
+   "llm": {
+    "entry_mode": "pivot_breakout",
+    "pivot_price": 2445.1,
+    "trigger_price": 2447.55,
+    "current_price": 2390.0,
+    "stop_loss_price": 2310.62,
+    "stop_loss_pct_from_pivot": -5.5,
+    "stop_loss_pct_from_current_price": -3.3,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 2811.87,
+    "expected_target_pct": 15.0,
+    "pattern_basis": "flat_base",
+    "entry_window_days": 1,
+    "max_chase_pct_from_pivot": 2.0,
+    "breakout_volume_requirement": "ge_1.5x_50day_avg",
+    "observed_breakout_volume_ratio": 0.31,
+    "notes": "flat_base (pivot_breakout); pivot 2445.1 -> trigger 2447.55. Stop 2310.62: -5.5% from pivot (absolute binding), -3.3% from current 2390.0. Size 3.0% (fallback tier; multipliers: unfavorable_market_context×0.5, confidence 0.65×0.7). Target 15.0%. Volume req ge_1.5x_50day_avg, observed 0.31x.",
+    "known_warnings": [
+     "absolute_stop_used_due_to_wide_handle",
+     "size_floored_due_to_multiple_flags",
+     "size_reduced_due_to_unfavorable_market",
+     "breakout_volume_below_requirement"
+    ],
+    "other_warnings": []
+   },
+   "diffs": {
+    "expected_target_price": {
+     "llm": 2811.87,
+     "calc": 2811.86
+    }
+   }
+  },
+  {
+   "symbol": "039740",
+   "evaluated_at": "2026-05-20T02:05:48.500960+09:00",
+   "calc": {
+    "entry_mode": "pivot_breakout",
+    "pivot_price": 4490.0,
+    "trigger_price": 4494.49,
+    "current_price": 4310.0,
+    "stop_loss_price": 4243.05,
+    "stop_loss_pct_from_pivot": -5.5,
+    "stop_loss_pct_from_current_price": -1.6,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 5163.5,
+    "expected_target_pct": 15.0,
+    "pattern_basis": "flat_base",
+    "entry_window_days": 1,
+    "max_chase_pct_from_pivot": 2.0,
+    "breakout_volume_requirement": "ge_1.5x_50day_avg",
+    "observed_breakout_volume_ratio": 0.76,
+    "notes": "flat_base (pivot_breakout); pivot 4490.0 -> trigger 4494.49. Stop 4243.05: -5.5% from pivot (absolute binding), -1.6% from current 4310.0. Size 3.0% (fallback tier; multipliers: extended_from_ma×0.7, late_stage_base×0.7, unfavorable_market_context×0.5, confidence 0.55×0.7). Target 15.0%. Volume req ge_1.5x_50day_avg, observed 0.76x. Auto-warnings: absolute_stop_used_due_to_wide_handle, size_floored_due_to_multiple_flags, size_reduced_due_to_unfavorable_market, size_reduced_due_to_late_stage, breakout_volume_below_requirement. Deterministic calc (#21) - no LLM.",
+    "known_warnings": [
+     "absolute_stop_used_due_to_wide_handle",
+     "size_floored_due_to_multiple_flags",
+     "size_reduced_due_to_unfavorable_market",
+     "size_reduced_due_to_late_stage",
+     "breakout_volume_below_requirement"
+    ],
+    "other_warnings": [
+     "climax_run with classification=entry — contradiction"
+    ]
+   },
+   "llm": {
+    "entry_mode": "pivot_breakout",
+    "pivot_price": 4490.0,
+    "trigger_price": 4494.49,
+    "current_price": 4310.0,
+    "stop_loss_price": 4243.05,
+    "stop_loss_pct_from_pivot": -5.5,
+    "stop_loss_pct_from_current_price": -1.6,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 5163.5,
+    "expected_target_pct": 15.0,
+    "pattern_basis": "flat_base",
+    "entry_window_days": 1,
+    "max_chase_pct_from_pivot": 2.0,
+    "breakout_volume_requirement": "ge_1.5x_50day_avg",
+    "observed_breakout_volume_ratio": 0.76,
+    "notes": "flat_base (pivot_breakout); pivot 4490.0 -> trigger 4494.49. Stop 4243.05: -5.5% from pivot (absolute binding, unfavorable_market_context tightened; logical -15.5% exceeded -10% floor), -1.6% from current 4310.0 (below -3% book band — anomalous input: trigger decision=wait/promotion, not go_now, current sits under pivot). Size floored to 3.0% (fallback 7% x extended_from_ma x late_stage_base x unfavorable_market_context x low confidence). climax_run SHOULD-NOT-REACH override: target 15%, window 1, chase 2.0. Volume 0.76x 50d avg, below 1.5x requirement.",
+    "known_warnings": [
+     "absolute_stop_used_due_to_wide_handle",
+     "size_floored_due_to_multiple_flags",
+     "size_reduced_due_to_unfavorable_market",
+     "size_reduced_due_to_late_stage",
+     "breakout_volume_below_requirement"
+    ],
+    "other_warnings": [
+     "climax_run with classification=entry — contradiction"
+    ]
+   },
+   "diffs": {}
+  },
+  {
+   "symbol": "049960",
+   "evaluated_at": "2026-05-20T21:58:52.112707+09:00",
+   "calc_rejected": "pattern='none' — none/부재는 pivot 미확정 상태로 C 도달 자체가 상류 규율 위반 (D2a)",
+   "llm_error": "claude CLI failed after 4 attempts: No JSON in envelope result"
+  },
+  {
+   "symbol": "054800",
+   "evaluated_at": "2026-06-02T21:04:03.544304+09:00",
+   "calc": {
+    "entry_mode": "pivot_breakout",
+    "pivot_price": 16690.1,
+    "trigger_price": 16706.79,
+    "current_price": 14520.0,
+    "stop_loss_price": 15772.14,
+    "stop_loss_pct_from_pivot": -5.5,
+    "stop_loss_pct_from_current_price": 8.6,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 19193.61,
+    "expected_target_pct": 15.0,
+    "pattern_basis": "vcp",
+    "entry_window_days": 1,
+    "max_chase_pct_from_pivot": 2.0,
+    "breakout_volume_requirement": "ge_1.5x_50day_avg",
+    "observed_breakout_volume_ratio": 1.28,
+    "notes": "vcp (pivot_breakout); pivot 16690.1 -> trigger 16706.79. Stop 15772.14: -5.5% from pivot (absolute binding), 8.6% from current 14520.0. Size 3.0% (fallback tier; multipliers: unfavorable_market_context×0.5, confidence 0.6×0.7). Target 15.0%. Volume req ge_1.5x_50day_avg, observed 1.28x. Auto-warnings: absolute_stop_used_due_to_wide_handle, size_floored_due_to_multiple_flags, size_reduced_due_to_unfavorable_market, breakout_volume_below_requirement, stop_distance_from_current_price_exceeds_book_limit. Deterministic calc (#21) - no LLM.",
+    "known_warnings": [
+     "absolute_stop_used_due_to_wide_handle",
+     "size_floored_due_to_multiple_flags",
+     "size_reduced_due_to_unfavorable_market",
+     "breakout_volume_below_requirement",
+     "stop_distance_from_current_price_exceeds_book_limit"
+    ],
+    "other_warnings": [
+     "pocket_pivot claimed in reasoning but no flag in recent indicators — using standard pivot_breakout logic"
+    ]
+   },
+   "llm_error": "claude CLI failed after 4 attempts: No JSON in envelope result"
+  },
+  {
+   "symbol": "093050",
+   "evaluated_at": "2026-06-02T21:04:27.982079+09:00",
+   "calc": {
+    "entry_mode": "pivot_breakout",
+    "pivot_price": 26460.0,
+    "trigger_price": 26486.46,
+    "current_price": 22100.0,
+    "stop_loss_price": 24607.8,
+    "stop_loss_pct_from_pivot": -7.0,
+    "stop_loss_pct_from_current_price": 11.3,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 31752.0,
+    "expected_target_pct": 20.0,
+    "pattern_basis": "flat_base",
+    "entry_window_days": 3,
+    "max_chase_pct_from_pivot": 5.0,
+    "breakout_volume_requirement": "ge_1.5x_50day_avg",
+    "observed_breakout_volume_ratio": 1.01,
+    "notes": "flat_base (pivot_breakout); pivot 26460.0 -> trigger 26486.46. Stop 24607.8: -7.0% from pivot (absolute binding), 11.3% from current 22100.0. Size 3.0% (fallback tier; multipliers: late_stage_base×0.7, volume_contraction_on_advance×0.7, confidence 0.6×0.7). Target 20.0%. Volume req ge_1.5x_50day_avg, observed 1.01x. Auto-warnings: absolute_stop_used_due_to_wide_handle, size_floored_due_to_multiple_flags, size_reduced_due_to_late_stage, breakout_volume_below_requirement, stop_distance_from_current_price_exceeds_book_limit. Deterministic calc (#21) - no LLM.",
+    "known_warnings": [
+     "absolute_stop_used_due_to_wide_handle",
+     "size_floored_due_to_multiple_flags",
+     "size_reduced_due_to_late_stage",
+     "breakout_volume_below_requirement",
+     "stop_distance_from_current_price_exceeds_book_limit"
+    ],
+    "other_warnings": []
+   },
+   "llm_error": "claude CLI failed after 4 attempts: No JSON in envelope result"
+  },
+  {
+   "symbol": "094860",
+   "evaluated_at": "2026-06-02T21:05:52.630000+09:00",
+   "calc": {
+    "entry_mode": "pivot_breakout",
+    "pivot_price": 1527.1,
+    "trigger_price": 1528.63,
+    "current_price": 1330.0,
+    "stop_loss_price": 1443.11,
+    "stop_loss_pct_from_pivot": -5.5,
+    "stop_loss_pct_from_current_price": 8.5,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 1756.16,
+    "expected_target_pct": 15.0,
+    "pattern_basis": "flat_base",
+    "entry_window_days": 1,
+    "max_chase_pct_from_pivot": 2.0,
+    "breakout_volume_requirement": "ge_1.5x_50day_avg",
+    "observed_breakout_volume_ratio": 0.4,
+    "notes": "flat_base (pivot_breakout); pivot 1527.1 -> trigger 1528.63. Stop 1443.11: -5.5% from pivot (absolute binding), 8.5% from current 1330.0. Size 3.0% (fallback tier; multipliers: unfavorable_market_context×0.5, confidence 0.58×0.7). Target 15.0%. Volume req ge_1.5x_50day_avg, observed 0.4x. Auto-warnings: absolute_stop_used_due_to_wide_handle, size_floored_due_to_multiple_flags, size_reduced_due_to_unfavorable_market, breakout_volume_below_requirement, stop_distance_from_current_price_exceeds_book_limit. Deterministic calc (#21) - no LLM.",
+    "known_warnings": [
+     "absolute_stop_used_due_to_wide_handle",
+     "size_floored_due_to_multiple_flags",
+     "size_reduced_due_to_unfavorable_market",
+     "breakout_volume_below_requirement",
+     "stop_distance_from_current_price_exceeds_book_limit"
+    ],
+    "other_warnings": [
+     "pocket_pivot claimed in reasoning but no flag in recent indicators — using standard pivot_breakout logic"
+    ]
+   },
+   "llm_error": "claude CLI failed after 4 attempts: No JSON in envelope result"
+  },
+  {
+   "symbol": "105560",
+   "evaluated_at": "2026-05-29T14:02:55.896721+09:00",
+   "calc": {
+    "entry_mode": "pivot_breakout",
+    "pivot_price": 166600.0,
+    "trigger_price": 166766.6,
+    "current_price": 150600.0,
+    "stop_loss_price": 154938.0,
+    "stop_loss_pct_from_pivot": -7.0,
+    "stop_loss_pct_from_current_price": 2.9,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 199920.0,
+    "expected_target_pct": 20.0,
+    "pattern_basis": "cup_with_handle",
+    "entry_window_days": 3,
+    "max_chase_pct_from_pivot": 5.0,
+    "breakout_volume_requirement": "ge_1.5x_50day_avg",
+    "observed_breakout_volume_ratio": 1.68,
+    "notes": "cup_with_handle (pivot_breakout); pivot 166600.0 -> trigger 166766.6. Stop 154938.0: -7.0% from pivot (absolute binding), 2.9% from current 150600.0. Size 3.0% (fallback tier; multipliers: late_stage_base×0.7, volume_contraction_on_advance×0.7, confidence 0.62×0.7). Target 20.0%. Volume req ge_1.5x_50day_avg, observed 1.68x. Auto-warnings: absolute_stop_used_due_to_wide_handle, size_floored_due_to_multiple_flags, size_reduced_due_to_late_stage. Deterministic calc (#21) - no LLM.",
+    "known_warnings": [
+     "absolute_stop_used_due_to_wide_handle",
+     "size_floored_due_to_multiple_flags",
+     "size_reduced_due_to_late_stage"
+    ],
+    "other_warnings": [
+     "pocket_pivot claimed in reasoning but no flag in recent indicators — using standard pivot_breakout logic"
+    ]
+   },
+   "llm_error": "claude CLI failed after 4 attempts: No JSON in envelope result"
+  },
+  {
+   "symbol": "126640",
+   "evaluated_at": "2026-05-20T02:06:41.035154+09:00",
+   "calc": {
+    "entry_mode": "pivot_breakout",
+    "pivot_price": 1642.1,
+    "trigger_price": 1643.74,
+    "current_price": 1819.0,
+    "stop_loss_price": 1551.78,
+    "stop_loss_pct_from_pivot": -5.5,
+    "stop_loss_pct_from_current_price": -14.7,
+    "suggested_weight_pct": 3.0,
+    "expected_target_price": 1888.41,
+    "expected_target_pct": 15.0,
+    "pattern_basis": "flat_base",
+    "entry_window_days": 1,
+    "max_chase_pct_from_pivot": 2.0,
+    "breakout_volume_requirement": "ge_1.5x_50day_avg",
+    "observed_breakout_volume_ratio": 1.58,
+    "notes": "flat_base (pivot_breakout); pivot 1642.1 -> trigger 1643.74. Stop 1551.78: -5.5% from pivot (absolute binding), -14.7% from current 1819.0. Size 3.0% (fallback tier; multipliers: extended_from_ma×0.7, unfavorable_market_context×0.5, confidence 0.55×0.7). Target 15.0%. Volume req ge_1.5x_50day_avg, observed 1.58x. Auto-warnings: absolute_stop_used_due_to_wide_handle, size_floored_due_to_multiple_flags, size_reduced_due_to_unfavorable_market, extended_from_pivot_already, stop_distance_from_current_price_exceeds_book_limit. Deterministic calc (#21) - no LLM.",
+    "known_warnings": [
+     "absolute_stop_used_due_to_wide_handle",
+     "size_floored_due_to_multiple_flags",
+     "size_reduced_due_to_unfavorable_market",
+     "extended_from_pivot_already",
+     "stop_distance_from_current_price_exceeds_book_limit"
+    ],
+    "other_warnings": []
+   },
+   "llm_error": "claude CLI failed after 4 attempts: No JSON in envelope result"
+  }
+ ]
+}

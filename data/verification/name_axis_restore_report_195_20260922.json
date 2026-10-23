@@ -1,0 +1,61 @@
+{
+ "dry_run": false,
+ "snapshot_date": "2026-09-22",
+ "generic_candidates(적재대상 ∖ stocks)": [
+  "138930",
+  "159910",
+  "294090",
+  "386380",
+  "458650"
+ ],
+ "generic_minus_explicit(별건)": [
+  "386380"
+ ],
+ "inserted": [
+  [
+   "458650",
+   "성우",
+   "KOSDAQ",
+   "주권"
+  ],
+  [
+   "159910",
+   "에코글로우",
+   "KOSDAQ",
+   "주권"
+  ],
+  [
+   "294090",
+   "이오플로우",
+   "KOSDAQ",
+   "주권"
+  ],
+  [
+   "138930",
+   "BNK금융지주",
+   "KOSPI",
+   "주권"
+  ]
+ ],
+ "snapshot_prev": {
+  "date": "2026-09-15",
+  "rows": 211
+ },
+ "snapshot_diff": {
+  "removed(배제 해제)": [
+   "138930",
+   "159910",
+   "294090",
+   "458650"
+  ],
+  "added": [],
+  "reason": "#195: 우선주 판별 코드 말미 규칙 전환(3) + ETF 축 제거(1) — 전문가 회신 10"
+ },
+ "snapshot_rows": 207,
+ "exclusion_by_axis": {
+  "preferred": 114,
+  "spac": 70,
+  "security_group": 23
+ },
+ "universe_after": 2558
+}
