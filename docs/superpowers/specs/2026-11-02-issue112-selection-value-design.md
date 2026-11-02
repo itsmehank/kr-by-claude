@@ -53,3 +53,11 @@
   `data/backtest/exploratory_issue112_selection_value_YYYYMMDD.json`.
 - 부트스트랩은 `minervini_forward.agg_bootstrap_ci` 와 같은 rng 관례(`random.Random(seed)`,
   sorted tickers 에서 `rng.choice`).
+
+## 7. 실행 후 추가 (리뷰 R1 반영, 사후 — 주 비교 §4-1 수치 불변)
+
+- 군별 단독 CI 보고(§4-1 문언대로, 최초 실행 JSON 에는 누락 → 추가).
+- 연도 층화(기각 셀 수 가중) 차이 + 클러스터 CI — 달력 구성 교락 민감도. 2017~20 은 기각 셀이 연 1~10 뿐이라
+  한 층으로 병합(부트스트랩 빈 군 반복 6,171/10,000 → 0).
+- 한 군의 종목 클러스터 <5 면 CI 억제(`MIN_CLUSTERS=5`) — reverse_split(클러스터 1) 퇴화 방지. 사후 규칙.
+- 미귀속 165셀의 출처 = `frozen_sample_b.EXCLUDED_AT_DRAW` − `FROZEN_SAMPLE`(§2 "기대 0" 정정).

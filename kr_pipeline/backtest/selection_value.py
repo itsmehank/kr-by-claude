@@ -14,7 +14,7 @@ from typing import Iterator
 
 from psycopg import Connection
 
-from kr_pipeline.backtest.minervini_forward import BOOT_B, HORIZONS, SEED
+from kr_pipeline.backtest.minervini_forward import BOOT_B, HORIZONS, SEED, agg_bootstrap_ci
 from kr_pipeline.backtest.phases import INDEX_OF
 
 PriceRow = tuple[date, float]
@@ -104,16 +104,24 @@ def diff_bootstrap(cells: list[dict], *, key: str, sel: str, rej: str,
                  "tickers_sel": len(sel_t), "tickers_rej": len(rej_t),
                  "mean_sel": None, "median_sel": None, "mean_rej": None, "median_rej": None,
                  "pos_rate_sel": None, "pos_rate_rej": None,
+                 "ci95_sel": None, "ci95_rej": None,
                  "diff": None, "ci95": None, "ci_suppressed": None, "skipped_iters": 0}
+    mean_sel = mean_rej = None
     if sel_vals:
-        out["mean_sel"], out["median_sel"] = (round(x, 3) for x in _mean_median(sel_vals))
+        mean_sel, med = _mean_median(sel_vals)
+        out["mean_sel"], out["median_sel"] = round(mean_sel, 3), round(med, 3)
         out["pos_rate_sel"] = round(sum(v > 0 for v in sel_vals) / len(sel_vals), 3)
+        if len(sel_t) >= min_clusters:
+            out["ci95_sel"] = list(agg_bootstrap_ci(sel_t, b=b, seed=seed))
     if rej_vals:
-        out["mean_rej"], out["median_rej"] = (round(x, 3) for x in _mean_median(rej_vals))
+        mean_rej, med = _mean_median(rej_vals)
+        out["mean_rej"], out["median_rej"] = round(mean_rej, 3), round(med, 3)
         out["pos_rate_rej"] = round(sum(v > 0 for v in rej_vals) / len(rej_vals), 3)
+        if len(rej_t) >= min_clusters:
+            out["ci95_rej"] = list(agg_bootstrap_ci(rej_t, b=b, seed=seed))
     if not sel_vals or not rej_vals:
         return out
-    out["diff"] = round(out["mean_sel"] - out["mean_rej"], 3)
+    out["diff"] = round(mean_sel - mean_rej, 3)   # 원값 차 (반올림된 평균의 차 아님)
     if len(rej_t) < min_clusters:
         out["ci_suppressed"] = f"rej_clusters<{min_clusters}"
         return out
@@ -140,6 +148,74 @@ def diff_bootstrap(cells: list[dict], *, key: str, sel: str, rej: str,
             skipped += 1
             continue
         diffs.append(ss / sc - rs / rc)
+    diffs.sort()
+    out["ci95"] = [round(diffs[int(0.025 * b)], 3), round(diffs[min(int(0.975 * b), b - 1)], 3)]
+    out["skipped_iters"] = skipped
+    return out
+
+
+def diff_bootstrap_stratified(cells: list[dict], *, key: str, sel: str, rej: str,
+                              stratum: str, b: int = BOOT_B, seed: int = SEED,
+                              min_clusters: int = MIN_CLUSTERS) -> dict:
+    """층(예: 연도) 안에서 선별−기각 차이를 구한 뒤 **기각 셀 수 가중** 평균 — 달력 구성 교락 민감도.
+
+    가중치는 원 데이터의 층별 기각 셀 비율로 고정. 부트스트랩은 종목 복원추출 1회로 모든 층의
+    (합, 개수)를 재집계하고, 어느 층이든 한 군이 비면 그 반복은 건너뛴다. 양 군 클러스터 수 가드 동일.
+    """
+    strata = sorted({c[stratum] for c in cells if c.get(key) is not None})
+    per: dict[str, dict[str, dict[str, tuple[float, int]]]] = {}
+    n_rej_by: dict[str, int] = {}
+    for st in strata:
+        sub = [c for c in cells if c[stratum] == st]
+        per[st] = {"sel": _by_ticker(sub, key, sel), "rej": _by_ticker(sub, key, rej)}
+        n_rej_by[st] = sum(n for _, n in per[st]["rej"].values())
+    strata = [st for st in strata if n_rej_by[st] > 0 and per[st]["sel"]]
+    n_rej = sum(n_rej_by[st] for st in strata)
+    sel_t = _by_ticker(cells, key, sel)
+    rej_t = _by_ticker(cells, key, rej)
+    out: dict = {"strata": strata, "weights": {}, "diff_by_stratum": {},
+                 "diff": None, "ci95": None, "ci_suppressed": None, "skipped_iters": 0}
+    if not strata:
+        out["ci_suppressed"] = "no_stratum_with_both_groups"
+        return out
+    diff = 0.0
+    for st in strata:
+        w = n_rej_by[st] / n_rej
+        s_sum, s_n = (sum(v[0] for v in per[st]["sel"].values()), sum(v[1] for v in per[st]["sel"].values()))
+        r_sum, r_n = (sum(v[0] for v in per[st]["rej"].values()), sum(v[1] for v in per[st]["rej"].values()))
+        d = s_sum / s_n - r_sum / r_n
+        out["weights"][st] = round(w, 4)
+        out["diff_by_stratum"][st] = {"n_sel": s_n, "n_rej": r_n, "diff": round(d, 3)}
+        diff += w * d
+    out["diff"] = round(diff, 3)
+    if len(rej_t) < min_clusters:
+        out["ci_suppressed"] = f"rej_clusters<{min_clusters}"
+        return out
+    if len(sel_t) < min_clusters:
+        out["ci_suppressed"] = f"sel_clusters<{min_clusters}"
+        return out
+    tickers = sorted(set(sel_t) | set(rej_t))
+    rng = random.Random(seed)
+    diffs: list[float] = []
+    skipped = 0
+    while len(diffs) < b:
+        acc = {st: [0.0, 0, 0.0, 0] for st in strata}
+        for _ in range(len(tickers)):
+            t = rng.choice(tickers)
+            for st in strata:
+                v = per[st]["sel"].get(t)
+                if v:
+                    acc[st][0] += v[0]
+                    acc[st][1] += v[1]
+                v = per[st]["rej"].get(t)
+                if v:
+                    acc[st][2] += v[0]
+                    acc[st][3] += v[1]
+        if any(a[1] == 0 or a[3] == 0 for a in acc.values()):
+            skipped += 1
+            continue
+        diffs.append(sum((n_rej_by[st] / n_rej) * (a[0] / a[1] - a[2] / a[3])
+                         for st, a in acc.items()))
     diffs.sort()
     out["ci95"] = [round(diffs[int(0.025 * b)], 3), round(diffs[min(int(0.975 * b), b - 1)], 3)]
     out["skipped_iters"] = skipped

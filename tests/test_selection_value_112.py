@@ -6,7 +6,7 @@ from datetime import date
 import pytest
 
 from kr_pipeline.backtest.selection_value import (
-    assign_sample, cell_excess, diff_bootstrap, ignore_reason,
+    assign_sample, cell_excess, diff_bootstrap, diff_bootstrap_stratified, ignore_reason,
 )
 
 
@@ -79,9 +79,9 @@ def test_diff_bootstrap_difference_of_means_and_ci_brackets_point():
 def test_diff_bootstrap_deterministic_for_seed():
     cells = [{"ticker": t, "group": g, "x": float(i)}
              for i, (t, g) in enumerate([("A", "sel"), ("B", "sel"), ("C", "rej"), ("D", "rej")])]
-    a = diff_bootstrap(cells, key="x", sel="sel", rej="rej", b=200, seed=7)
-    b_ = diff_bootstrap(cells, key="x", sel="sel", rej="rej", b=200, seed=7)
-    assert a == b_
+    a = diff_bootstrap(cells, key="x", sel="sel", rej="rej", b=200, seed=7, min_clusters=2)
+    b_ = diff_bootstrap(cells, key="x", sel="sel", rej="rej", b=200, seed=7, min_clusters=2)
+    assert a == b_ and a["ci95"] is not None
 
 
 def test_diff_bootstrap_empty_group_returns_n_zero():
@@ -100,3 +100,41 @@ def test_diff_bootstrap_min_clusters_guard_suppresses_ci():
     assert out["ci95"] is None and out["ci_suppressed"] == "rej_clusters<5"
     ok = diff_bootstrap(cells, key="x", sel="sel", rej="rej", b=50, seed=1, min_clusters=2)
     assert ok["ci95"] is not None and ok["ci_suppressed"] is None
+
+
+def test_diff_bootstrap_sel_clusters_guard_and_group_cis():
+    cells = [{"ticker": "A", "group": "sel", "x": 1.0},
+             {"ticker": "B", "group": "rej", "x": 0.0}, {"ticker": "C", "group": "rej", "x": 2.0}]
+    out = diff_bootstrap(cells, key="x", sel="sel", rej="rej", b=50, seed=1, min_clusters=2)
+    assert out["ci_suppressed"] == "sel_clusters<2" and out["ci95"] is None
+    cells += [{"ticker": "D", "group": "sel", "x": 3.0}]
+    ok = diff_bootstrap(cells, key="x", sel="sel", rej="rej", b=200, seed=1, min_clusters=2)
+    # 군별 단독 CI(종목 클러스터) 보고 — 점추정을 포함
+    lo, hi = ok["ci95_sel"]
+    assert lo <= ok["mean_sel"] <= hi
+    lo, hi = ok["ci95_rej"]
+    assert lo <= ok["mean_rej"] <= hi
+
+
+def test_diff_bootstrap_diff_from_unrounded_means():
+    cells = [{"ticker": "A", "group": "sel", "x": 0.0005}, {"ticker": "B", "group": "sel", "x": 0.0005},
+             {"ticker": "C", "group": "rej", "x": -0.0005}, {"ticker": "D", "group": "rej", "x": -0.0005}]
+    out = diff_bootstrap(cells, key="x", sel="sel", rej="rej", b=10, seed=1, min_clusters=2)
+    # 반올림된 평균(0.001, -0.001)의 차 0.002 가 아니라 원값 차 0.001
+    assert out["diff"] == pytest.approx(0.001)
+
+
+def test_stratified_diff_weights_by_rej_count():
+    # 층 y1: sel 10, rej 0 → 차이 +10 (rej 1셀) / 층 y2: sel 0, rej -2 → 차이 +2 (rej 3셀)
+    cells = [{"ticker": "A", "group": "sel", "x": 10.0, "year": "y1"},
+             {"ticker": "B", "group": "rej", "x": 0.0, "year": "y1"},
+             {"ticker": "C", "group": "sel", "x": 0.0, "year": "y2"},
+             {"ticker": "D", "group": "rej", "x": -2.0, "year": "y2"},
+             {"ticker": "E", "group": "rej", "x": -2.0, "year": "y2"},
+             {"ticker": "F", "group": "rej", "x": -2.0, "year": "y2"}]
+    out = diff_bootstrap_stratified(cells, key="x", sel="sel", rej="rej", stratum="year",
+                                    b=100, seed=3, min_clusters=2)
+    # 가중(기각 셀 수) 평균 = (10*1 + 2*3) / 4 = 4.0 ; 비층화 차이는 5 − (−1.5) = 6.5
+    assert out["diff"] == pytest.approx(4.0)
+    assert out["weights"] == {"y1": 0.25, "y2": 0.75}
+    assert out["ci95"] is not None and out["ci95"][0] <= 4.0 <= out["ci95"][1]

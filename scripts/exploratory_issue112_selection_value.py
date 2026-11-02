@@ -17,7 +17,8 @@ from kr_pipeline.backtest.minervini_forward import (
     BOOT_B, HORIZONS, PRIMARY_H, SEED, load_index_closes,
 )
 from kr_pipeline.backtest.selection_value import (
-    assign_sample, attach_excess, diff_bootstrap, hint_of, load_cells,
+    assign_sample, attach_excess, diff_bootstrap, diff_bootstrap_stratified, hint_of,
+    load_cells,
 )
 from kr_pipeline.db.connection import connect
 
@@ -39,6 +40,9 @@ def main() -> int:
         excluded = attach_excess(conn, cells, idx)
     for c in cells:
         c["sample"] = assign_sample(c["ticker"], c["date"], sets)
+        # 층 = 연도. 2017~20 은 기각 셀이 연 1~10 뿐이라(부트스트랩 반복 대부분이 빈 군) 한 층으로 병합
+        y = c["date"].year
+        c["year"] = "2017-20" if y <= 2020 else str(y)
 
     counts = Counter(c["classification"] for c in cells)
     samples = Counter((c["sample"] or "unassigned") for c in cells)
@@ -50,12 +54,16 @@ def main() -> int:
         "n_cells": len(cells), "by_classification": dict(counts),
         "by_sample": dict(samples), "ignore_reasons": dict(reasons),
         "excluded_by_horizon": {str(h): excluded[h] for h in HORIZONS},
+        # 미귀속 = frozen_sample_b.EXCLUDED_AT_DRAW − FROZEN_SAMPLE (표본 A 동결 전 드리프트 잉여 14종목, 리뷰 R1-1)
         "unassigned_tickers": sorted({c["ticker"] for c in cells if c["sample"] is None}),
         "pooled": {str(h): _block(cells, h) for h in HORIZONS},
         # 민감도: frozen 표본 귀속 셀만(미귀속 = 초기 백필 잔여 종목)
         "pooled_assigned_only_h20": _block([c for c in cells if c["sample"] is not None], PRIMARY_H),
         "by_sample_h20": {s: _block([c for c in cells if c["sample"] == s], PRIMARY_H)
                           for s in ("A", "B", "C")},
+        # 연도 층화(기각 셀 수 가중) — 달력 구성 교락 민감도(리뷰 R1-2)
+        "pooled_year_stratified_h20": diff_bootstrap_stratified(
+            cells, key=f"excess_{PRIMARY_H}", sel="sel", rej="rej", stratum="year"),
         "by_ignore_reason_h20": {},
         "entry_only_h20": None,
     }
@@ -67,6 +75,7 @@ def main() -> int:
     ent = [dict(c, group="sel" if c["classification"] == "entry" else c["group"])
            for c in cells if c["classification"] != "watch"]
     out["entry_only_h20"] = _block(ent, PRIMARY_H)
+    out["pooled_year_stratified_h20"]["hint"] = hint_of(out["pooled_year_stratified_h20"]["ci95"])
 
     path = f"data/backtest/exploratory_issue112_selection_value_{date.today():%Y%m%d}.json"
     with open(path, "w") as f:
