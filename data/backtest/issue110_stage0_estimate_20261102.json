@@ -1,0 +1,391 @@
+{
+  "issue": 110,
+  "stage": 0,
+  "grade": "estimate_non_judgment",
+  "as_of": "2026-11-02",
+  "filter": "minervini_pass ∧ rs_line_not_declining_7m ∧ not halted ∧ security_group='주권' ∧ listed now ∧ not in backtest_classification",
+  "assumptions": {
+    "trades_per_cell_from_samples": 0.04165,
+    "sigma2_per_trade_pooled_cluster": 801.4,
+    "mde_formula": "MDE80 = (z0.975+z0.80)·sqrt(sigma2/n_trades); 표본 클러스터 SE 풀링(#116 P2-1)",
+    "mde_target": 3.0,
+    "sunday_cells_plan": 400,
+    "sunday_cells_range_observed": [
+      213,
+      590
+    ],
+    "tokens_per_cell": {
+      "input_pre_103": 215000,
+      "input_post_103": 136000,
+      "output": 13300
+    },
+    "ignore_rate_by_year": {
+      "2017": 0.0033,
+      "2018": 0.0238,
+      "2019": 0.0115,
+      "2020": 0.01,
+      "2021": 0.0898,
+      "2022": 0.0578,
+      "2023": 0.0301,
+      "2024": 0.055
+    }
+  },
+  "trade_variance": {
+    "n_trades_existing": 244,
+    "sigma2_per_trade": 801.4,
+    "sigma_per_trade": 28.31,
+    "trades_per_cell": 0.04165,
+    "sample_cells": 5858,
+    "per_sample": {
+      "A": {
+        "n": 54,
+        "se": 5.8,
+        "sigma2": 1816.6
+      },
+      "B": {
+        "n": 93,
+        "se": 2.723,
+        "sigma2": 689.6
+      },
+      "C": {
+        "n": 97,
+        "se": 1.882,
+        "sigma2": 343.6
+      }
+    }
+  },
+  "trades_needed_for_target": 699,
+  "new_cells_needed_for_target": 10922,
+  "by_year": {
+    "2017": {
+      "qualifying": 4785,
+      "existing": 304,
+      "now_delisted": 31,
+      "non_equity": 27,
+      "new_cells": 4450,
+      "new_tickers": 543,
+      "saturdays": 27,
+      "expected_ignore": 15,
+      "expected_trades": 185.3
+    },
+    "2018": {
+      "qualifying": 7530,
+      "existing": 421,
+      "now_delisted": 94,
+      "non_equity": 79,
+      "new_cells": 7011,
+      "new_tickers": 842,
+      "saturdays": 52,
+      "expected_ignore": 167,
+      "expected_trades": 292.0
+    },
+    "2019": {
+      "qualifying": 6003,
+      "existing": 347,
+      "now_delisted": 60,
+      "non_equity": 105,
+      "new_cells": 5549,
+      "new_tickers": 627,
+      "saturdays": 52,
+      "expected_ignore": 64,
+      "expected_trades": 231.1
+    },
+    "2020": {
+      "qualifying": 10278,
+      "existing": 699,
+      "now_delisted": 43,
+      "non_equity": 67,
+      "new_cells": 9510,
+      "new_tickers": 972,
+      "saturdays": 52,
+      "expected_ignore": 95,
+      "expected_trades": 396.1
+    },
+    "2021": {
+      "qualifying": 14929,
+      "existing": 1792,
+      "now_delisted": 184,
+      "non_equity": 183,
+      "new_cells": 12944,
+      "new_tickers": 1144,
+      "saturdays": 52,
+      "expected_ignore": 1163,
+      "expected_trades": 539.1
+    },
+    "2022": {
+      "qualifying": 4137,
+      "existing": 588,
+      "now_delisted": 32,
+      "non_equity": 23,
+      "new_cells": 3518,
+      "new_tickers": 467,
+      "saturdays": 53,
+      "expected_ignore": 203,
+      "expected_trades": 146.5
+    },
+    "2023": {
+      "qualifying": 9012,
+      "existing": 998,
+      "now_delisted": 49,
+      "non_equity": 125,
+      "new_cells": 7883,
+      "new_tickers": 816,
+      "saturdays": 52,
+      "expected_ignore": 237,
+      "expected_trades": 328.3
+    },
+    "2024": {
+      "qualifying": 7681,
+      "existing": 873,
+      "now_delisted": 57,
+      "non_equity": 149,
+      "new_cells": 6659,
+      "new_tickers": 710,
+      "saturdays": 52,
+      "expected_ignore": 366,
+      "expected_trades": 277.3
+    }
+  },
+  "plans": {
+    "range_2019_2024": {
+      "label": "2019~2024 (이슈 본문)",
+      "years": [
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "new_cells": 46063,
+      "new_tickers_union_upper_bound": 4736,
+      "expected_new_trades": 1919,
+      "expected_trades_incl_existing": 2163,
+      "mde80_new_only": 1.81,
+      "mde80_incl_existing": 1.71,
+      "passes_target": true,
+      "expected_ignore_cells": 2128,
+      "sundays_plan": 116,
+      "sundays_range": [
+        79,
+        217
+      ],
+      "input_tokens_post_103_M": 6265,
+      "output_tokens_M": 613
+    },
+    "range_2017H2_2024": {
+      "label": "2017-H2~2024 (확장)",
+      "years": [
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "new_cells": 57524,
+      "new_tickers_union_upper_bound": 6121,
+      "expected_new_trades": 2396,
+      "expected_trades_incl_existing": 2640,
+      "mde80_new_only": 1.62,
+      "mde80_incl_existing": 1.54,
+      "passes_target": true,
+      "expected_ignore_cells": 2310,
+      "sundays_plan": 144,
+      "sundays_range": [
+        98,
+        271
+      ],
+      "input_tokens_post_103_M": 7823,
+      "output_tokens_M": 765
+    },
+    "slice_2021": {
+      "label": "2021 단독",
+      "years": [
+        2021
+      ],
+      "new_cells": 12944,
+      "new_tickers_union_upper_bound": 1144,
+      "expected_new_trades": 539,
+      "expected_trades_incl_existing": 783,
+      "mde80_new_only": 3.42,
+      "mde80_incl_existing": 2.83,
+      "passes_target": true,
+      "expected_ignore_cells": 1163,
+      "sundays_plan": 33,
+      "sundays_range": [
+        22,
+        61
+      ],
+      "input_tokens_post_103_M": 1760,
+      "output_tokens_M": 172
+    },
+    "slice_2021_2024": {
+      "label": "2021+2024",
+      "years": [
+        2021,
+        2024
+      ],
+      "new_cells": 19603,
+      "new_tickers_union_upper_bound": 1854,
+      "expected_new_trades": 816,
+      "expected_trades_incl_existing": 1060,
+      "mde80_new_only": 2.78,
+      "mde80_incl_existing": 2.44,
+      "passes_target": true,
+      "expected_ignore_cells": 1529,
+      "sundays_plan": 50,
+      "sundays_range": [
+        34,
+        93
+      ],
+      "input_tokens_post_103_M": 2666,
+      "output_tokens_M": 261
+    }
+  },
+  "cumulative_by_ignore_priority": [
+    {
+      "label": "누적 2021",
+      "years": [
+        2021
+      ],
+      "new_cells": 12944,
+      "new_tickers_union_upper_bound": 1144,
+      "expected_new_trades": 539,
+      "expected_trades_incl_existing": 783,
+      "mde80_new_only": 3.42,
+      "mde80_incl_existing": 2.83,
+      "passes_target": true,
+      "expected_ignore_cells": 1163,
+      "sundays_plan": 33,
+      "sundays_range": [
+        22,
+        61
+      ],
+      "input_tokens_post_103_M": 1760,
+      "output_tokens_M": 172
+    },
+    {
+      "label": "누적 2021+2024",
+      "years": [
+        2021,
+        2024
+      ],
+      "new_cells": 19603,
+      "new_tickers_union_upper_bound": 1854,
+      "expected_new_trades": 816,
+      "expected_trades_incl_existing": 1060,
+      "mde80_new_only": 2.78,
+      "mde80_incl_existing": 2.44,
+      "passes_target": true,
+      "expected_ignore_cells": 1529,
+      "sundays_plan": 50,
+      "sundays_range": [
+        34,
+        93
+      ],
+      "input_tokens_post_103_M": 2666,
+      "output_tokens_M": 261
+    },
+    {
+      "label": "누적 2021+2023+2024",
+      "years": [
+        2021,
+        2023,
+        2024
+      ],
+      "new_cells": 27486,
+      "new_tickers_union_upper_bound": 2670,
+      "expected_new_trades": 1145,
+      "expected_trades_incl_existing": 1389,
+      "mde80_new_only": 2.34,
+      "mde80_incl_existing": 2.13,
+      "passes_target": true,
+      "expected_ignore_cells": 1766,
+      "sundays_plan": 69,
+      "sundays_range": [
+        47,
+        130
+      ],
+      "input_tokens_post_103_M": 3738,
+      "output_tokens_M": 366
+    },
+    {
+      "label": "누적 2021+2022+2023+2024",
+      "years": [
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "new_cells": 31004,
+      "new_tickers_union_upper_bound": 3137,
+      "expected_new_trades": 1291,
+      "expected_trades_incl_existing": 1535,
+      "mde80_new_only": 2.21,
+      "mde80_incl_existing": 2.02,
+      "passes_target": true,
+      "expected_ignore_cells": 1969,
+      "sundays_plan": 78,
+      "sundays_range": [
+        53,
+        146
+      ],
+      "input_tokens_post_103_M": 4217,
+      "output_tokens_M": 412
+    },
+    {
+      "label": "누적 2020+2021+2022+2023+2024",
+      "years": [
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "new_cells": 40514,
+      "new_tickers_union_upper_bound": 4109,
+      "expected_new_trades": 1687,
+      "expected_trades_incl_existing": 1931,
+      "mde80_new_only": 1.93,
+      "mde80_incl_existing": 1.8,
+      "passes_target": true,
+      "expected_ignore_cells": 2064,
+      "sundays_plan": 102,
+      "sundays_range": [
+        69,
+        191
+      ],
+      "input_tokens_post_103_M": 5510,
+      "output_tokens_M": 539
+    },
+    {
+      "label": "누적 2019+2020+2021+2022+2023+2024",
+      "years": [
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "new_cells": 46063,
+      "new_tickers_union_upper_bound": 4736,
+      "expected_new_trades": 1919,
+      "expected_trades_incl_existing": 2163,
+      "mde80_new_only": 1.81,
+      "mde80_incl_existing": 1.71,
+      "passes_target": true,
+      "expected_ignore_cells": 2128,
+      "sundays_plan": 116,
+      "sundays_range": [
+        79,
+        217
+      ],
+      "input_tokens_post_103_M": 6265,
+      "output_tokens_M": 613
+    }
+  ]
+}
