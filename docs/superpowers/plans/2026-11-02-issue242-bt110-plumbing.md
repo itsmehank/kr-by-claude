@@ -11,43 +11,30 @@
 | 루프 CLI | `kr_pipeline/backtest/bt110_cli.py` | `status [--kv]` / `pin --head` — 쉘이 SQL 을 갖지 않게 |
 | 러너 | `profitability_cli backfill --population=bt110` | 스냅샷 셀만 처리(`run_backtest_backfill(candidates_by_date=…)`, 기본 None 이면 기존 동작 불변). `MAX_SAMPLE` 가드 우회는 의도(동결 표본 아닌 DB 고정 목록) |
 | 루프 | `scripts/bt_backfill_loop_110.sh` | 일요일 전용·스위치 조회·트립와이어·**23:30 데드라인**·핀 대조·모델 변경 경고·STUCK/서킷 대기 |
-| 워치독 | `scripts/bt_watchdog_110.sh` + `scripts/launchd/com.krbyclaude.bt-110-watchdog.plist` | 30분마다: 일요일 ∧ on ∧ 마커 없음 ∧ 루프 없음 → `caffeinate -s` 로 루프 기동 |
+| 워치독 | `scripts/bt_watchdog_110.sh` (plist 는 `install_bt110.sh` 가 생성) | 30분마다: 일요일 ∧ on ∧ 마커 없음 ∧ 루프 없음 → `caffeinate -s` 로 루프 기동 |
+| 설치 | `scripts/launchd/install_bt110.sh` | 스키마·C 워치독 제거·핀 worktree·plist·스모크를 한 번에(다른 PC 동일) |
 | 라이브 가드 | `scripts/launchd/lib_guards.sh bt_loop_alive` | `/tmp/bt_loop_c.pid`·`/tmp/bt_loop_110.pid` 둘 다 검사 — 일요일 RunAtLoad 체인이 백필 중 skip |
 | API | `api/routers/backfill.py` | `GET /api/backfill/bt110/status`, `POST /api/backfill/bt110/switch {enabled}` |
 | 웹 | `web/src/pages/RunnerPage.tsx` `Bt110Section` | 스위치·진행·핀·트립와이어·모델 종수. 결과 미표시 |
 
-## 2. 설치 절차 (사용자 수동 — 순서 고정)
+## 2. 설치 절차 — `scripts/launchd/install_bt110.sh` 한 번 (다른 PC 도 동일)
 
-1. **스키마 적용(두 DB, 표적 실행 — 라이브 경합 시 전체 재적용 대신 새 테이블만, 운영 교훈)**:
-   ```
-   for db in kr_pipeline kr_test; do
-     psql -d $db -v ON_ERROR_STOP=1 -c "SET lock_timeout='5s'" \
-       -f <(sed -n '/CREATE TABLE IF NOT EXISTS backfill_control/,/^);/p' kr_pipeline/db/schema.sql)
-   done
-   ```
-   (conftest 는 kr_test 를 세션마다 schema.sql 로 재적용하므로 kr_test 는 생략 가능.)
-2. **표본 C 워치독 제거**(교차 kill 방지 — 검토 A-2):
-   `launchctl bootout gui/$(id -u)/com.krbyclaude.bt-c-watchdog && rm ~/Library/LaunchAgents/com.krbyclaude.bt-c-watchdog.plist`
-   (bt-c-run worktree 는 보존 — 기록용. COMPLETE 마커 로그는 그대로.)
-3. **핀 worktree**(머지 커밋 = 시작 커밋):
-   ```
-   cd /Users/hank.es/git/personal/kr-by-claude && git fetch origin
-   git worktree add --detach /Users/hank.es/git/personal/kr-by-claude-worktrees/bt-110-run origin/main
-   git worktree lock /Users/hank.es/git/personal/kr-by-claude-worktrees/bt-110-run
-   cd /Users/hank.es/git/personal/kr-by-claude-worktrees/bt-110-run && uv sync
-   ```
-   `.env` 없음 → 루프가 `DATABASE_URL`·`KR_CLAUDE_MODEL=sonnet` 을 export 한다(Config.load 는 env 우선).
-4. **dry-run 1패스**(비일요일에도 OK — 스위치 꺼짐이면 즉시 종료, 켜짐이면 일요일 아님으로 종료):
-   `BT110_LOGDIR=/tmp/bt110-smoke bash scripts/bt_backfill_loop_110.sh && cat /tmp/bt110-smoke/bt_loop_110.log`
-5. **plist 등록**: `cp scripts/launchd/com.krbyclaude.bt-110-watchdog.plist ~/Library/LaunchAgents/ && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.krbyclaude.bt-110-watchdog.plist`
-6. **웹에서 켜기**(`/runner` → 확장 백필 #110 → 켜기). 켜는 순간 셀 스냅샷·기준선이 동결된다(목표 ≈19,734 — 0단계 견적과 ±수십 차이는 지표 재계산분).
-7. 첫 일요일 뒤 `~/.kr-by-claude/bt_loop_110.log` 의 pass 행(processed/failures)과 웹 진행률만 확인. **BF_LOG·DB 분류 결과는 열람하지 않는다**(3-4·evidence-tier v2).
+스크립트가 순서대로 수행: ① `backfill_control` 표적 CREATE(lock_timeout 5s, `.env` 의 DATABASE_URL) → ② 표본 C 워치독
+bootout(교차 kill 방지, plist 는 `~/.kr-by-claude/` 로 이동) → ③ 핀 worktree `../kr-by-claude-worktrees/bt-110-run`(detached @
+origin/main 또는 `--commit=`, lock, `uv sync`) → ④ 워치독 plist 를 리포 경로 기준으로 생성·bootstrap(환경변수 `BT110_RUN_DIR`·
+`DATABASE_URL` 주입) → ⑤ 격리 스모크 1패스. 멱등(재실행 시 worktree 유지, plist 재로드).
+
+새 PC: `git clone` → README 셋업(uv sync·.env·schema.sql — `backfill_control` 포함) → `scripts/launchd/install.sh`(실전 체인) →
+`scripts/launchd/install_bt110.sh` → 웹 `/runner` 에서 켜기. 스냅샷은 켜는 순간 그 DB 기준으로 동결된다.
+
+재핀(코드 갱신): 웹 off → 루프 종료 확인(`/tmp/bt_loop_110.pid` 없음) → `install_bt110.sh --repin` (worktree 재생성·
+`pinned_commit` NULL) → on. 스냅샷·진행은 유지(멱등 재개).
 
 ## 3. 운영 규칙
 
 - 스위치 off = 다음 패스에서 종료(진행 중 패스는 데드라인 23:30 까지 계속). on = 멱등 재개(스냅샷 유지).
 - 종결 마커(`=== COMPLETE|STUCK|TRIPWIRE|PIN_MISMATCH`) 가 로그에 있으면 워치독은 기동하지 않는다. 재개하려면 로그를 날짜 접미로 옮긴다(마커 보존).
-- 재핀(코드 수정 반영): 스위치 off → 루프 종료 확인 → worktree unlock·remove → 새 커밋으로 3번 재실행 → `UPDATE backfill_control SET pinned_commit=NULL WHERE key='bt110'`(사용자 psql) → on.
+- 재핀(코드 수정 반영): §2 의 `install_bt110.sh --repin`.
 - 2차 조각(2023): 1차 COMPLETE → `#110` 코멘트·LOOK_LOG("미열람 — 생산만") → 사용자 지시로 `slice` 변경 + `cells=NULL`(재스냅샷) → on.
 - 일요일 백필 중 `/api/issues/refresh` 금지(같은 claude 시그니처). 1일=일요일(다음 2027-08-01)은 monthly-chain 과 쿼터 공유.
 - 처리량 전제: 일요일 중앙값 344셀(213~590), TRIP_SLEEP 30분 → 1차 ≈58회.
