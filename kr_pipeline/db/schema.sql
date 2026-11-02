@@ -1115,3 +1115,18 @@ ALTER TABLE position_decline_evaluations ADD COLUMN IF NOT EXISTS volume_regime_
 ALTER TABLE classification_backfill      ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
 ALTER TABLE backtest_classification      ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
 ALTER TABLE recall_audit_classification  ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+
+-- (#242, 2026-11-02) #110 확장 백필 제어 — 웹 스위치는 이 행의 값만 바꾼다(cron/launchd 등록 금지, #86).
+-- cells = 스위치 on 시점에 동결한 대상 셀 스냅샷 [[ticker, saturday, market], …] — 상장·지표가 라이브값이라
+-- 14개월 캠페인 중 모집단이 표류하지 않게 한다. baseline = on 시점 backtest_classification 기준선(트립와이어 대조).
+CREATE TABLE IF NOT EXISTS backfill_control (
+    key             VARCHAR(20)  PRIMARY KEY,
+    enabled         BOOLEAN      NOT NULL DEFAULT FALSE,
+    slice           JSONB        NOT NULL,           -- [["2021-01-02","2021-12-25"], …]
+    cells           JSONB,                           -- 스냅샷(on 시 1회 생성, off/on 반복해도 유지 = 멱등 재개)
+    baseline        JSONB,                           -- {"total_rows","slice_rows","symbols","at"}
+    pinned_commit   VARCHAR(40),                     -- 루프 첫 패스가 기록, 이후 패스는 HEAD 와 대조
+    switched_at     TIMESTAMPTZ,
+    note            TEXT,
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);

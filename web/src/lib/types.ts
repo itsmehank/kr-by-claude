@@ -220,6 +220,30 @@ export interface CronPreview {
   new_crontab_preview: string;
 }
 
+// (#242) #110 확장 백필 제어 — 건수·모델 종수만(미열람 보존: 분류 결과 없음)
+export interface Bt110Progress {
+  target: number;
+  done: number;
+  remaining: number;
+  complete: boolean;
+  models_in_slice: Record<string, number>;
+  last_row_at: string | null;
+}
+
+export interface Bt110Status {
+  key: string;
+  exists: boolean;
+  enabled: boolean;
+  slice: [string, string][];
+  cells_count: number;
+  baseline: { total_rows: number; slice_rows: number; symbols: number; at: string } | null;
+  pinned_commit: string | null;
+  switched_at: string | null;
+  note?: string | null;
+  progress: Bt110Progress | null;
+  tripwire: string[];
+}
+
 export interface RunResponse {
   pipeline_id: string;
   mode_id: string;

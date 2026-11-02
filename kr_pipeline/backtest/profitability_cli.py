@@ -67,7 +67,38 @@ def cmd_sample(conn, kind: str) -> int:
     return 0
 
 
+def cmd_backfill_bt110(conn, dry_run: bool) -> int:
+    """(#242) #110 확장 백필 — backfill_control 스냅샷 셀만 처리(모집단 동결).
+
+    MAX_SAMPLE 가드 우회가 의도: 이 모드의 모집단은 동결 표본이 아니라 on 시점 스냅샷(backfill_control.cells)이며,
+    라이브 재추첨이 아니라 DB 에 기록된 고정 목록이다(이슈 #242 설계 §2·검토 B-12). 슬라이스(start/end)도 제어 행에서 온다.
+    출력 = 범위별 agg + 합산 1줄(루프가 processed/failures/circuit_broken 을 grep)."""
+    from kr_pipeline.backtest import bt110
+    ctl = bt110.get_control(conn)
+    if not ctl or not ctl.get("cells"):
+        raise SystemExit("bt110: backfill_control 스냅샷 없음 — 웹 스위치를 먼저 켜라(on 시 셀 동결)")
+    cbd = bt110.candidates_by_date(ctl)
+    ranges = [(date.fromisoformat(a), date.fromisoformat(b)) for a, b in ctl["slice"]]
+    per_range, total = [], {"processed": 0, "failures": 0, "skipped_existing": 0, "weeks": 0,
+                            "circuit_broken": False, "ranges": len(ranges)}
+    for a, b in ranges:
+        r = run_backtest_backfill(conn, start=a, end=b, tickers=[], dry_run=dry_run, candidates_by_date=cbd)
+        per_range.append({"start": str(a), "end": str(b), **{k: r[k] for k in
+                          ("weeks", "processed", "skipped_existing", "failures", "circuit_broken")},
+                          "failed": r["failed"]})
+        for k in ("processed", "failures", "skipped_existing", "weeks"):
+            total[k] += r[k]
+        total["circuit_broken"] = total["circuit_broken"] or r["circuit_broken"]
+        if r["circuit_broken"]:
+            break   # 서킷 → 나머지 범위는 다음 패스(멱등 재개)
+    print(json.dumps({"mode": "bt110", "per_range": per_range}, ensure_ascii=False, indent=2))
+    print(json.dumps(total, ensure_ascii=False))
+    return 0
+
+
 def cmd_backfill(conn, dry_run: bool, kind: str, start: date, end: date) -> int:
+    if kind == "bt110":
+        return cmd_backfill_bt110(conn, dry_run)
     sample = _sample(conn, kind)
     if len(set(sample)) > MAX_SAMPLE:
         raise SystemExit(
@@ -111,6 +142,8 @@ def main() -> int:
     cmd = sys.argv[1] if len(sys.argv) > 1 else "sample"
     dry_run = "--dry-run" in sys.argv
     kind = _flag("sample", "a")
+    if _flag("population", "") == "bt110":   # (#242) --population=bt110 — 스냅샷 모집단, 슬라이스는 backfill_control
+        kind = "bt110"
     start = date.fromisoformat(_flag("start", str(START)))
     end = date.fromisoformat(_flag("end", str(END)))
     # 표본 C 기간 명시 강제 — 기본 2021 윈도로 독립 구간 아닌 기간을 돌리는 오발사 방지

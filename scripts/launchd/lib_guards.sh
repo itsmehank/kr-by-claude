@@ -170,9 +170,15 @@ intraday_lock() {
   [ "$h" -eq "$INTRADAY_LOCK_END_HOUR" ] && [ "$((10#$m))" -lt "$INTRADAY_LOCK_END_MIN" ]
 }
 
+# 백테스트 백필 루프가 살아 있는가 — 표본 C(/tmp/bt_loop_c.pid) 또는 #110 확장 백필(/tmp/bt_loop_110.pid, #242).
+# 둘 중 하나라도 살아 있으면 라이브 LLM 체인은 건너뛴다(쿼터·pkill 충돌 회피).
+# 테스트는 BT_LOOP_PIDFILES(공백 구분)로 격리 경로를 주입한다(실제 /tmp pidfile 을 건드리면 일요일 워치독 2중 기동 위험).
 bt_loop_alive() {
-  local pf="/tmp/bt_loop_c.pid"
-  [ -f "$pf" ] && kill -0 "$(cat "$pf" 2>/dev/null)" 2>/dev/null
+  local pf
+  for pf in ${BT_LOOP_PIDFILES:-/tmp/bt_loop_c.pid /tmp/bt_loop_110.pid}; do
+    [ -f "$pf" ] && kill -0 "$(cat "$pf" 2>/dev/null)" 2>/dev/null && return 0
+  done
+  return 1
 }
 
 # (#228) 데이터 체인이 지금 data 락을 쥐고 있는가 — 감시가 "적재 중"을 결측으로 오판하지 않게 판정을 다음 시각으로 미룬다.

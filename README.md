@@ -86,6 +86,19 @@ wakeorpoweron MTWRFS 20:25:00`(schedule.env WAKE_TIME) + `pmset -c sleep 0`.
 `crontab < ~/.kr-by-claude/cron-backups/<백업파일>`.
 (구 `scripts/cron.example` 은 참고용 유산 — 신규 등록 금지.)
 
+### 확장 백필 #110 워치독 (선택 — #242)
+
+과거 구간(1차 2021+2024) LLM 분류를 **일요일에만** 돌리는 보조 작업. 웹 `/runner` 의 "확장 백필 #110" 스위치(기본 꺼짐)가
+DB 값만 바꾸고, 30분 주기 워치독이 일요일에 그 값을 읽어 루프를 띄운다(웹은 예약 등록을 하지 않는다 — #86).
+스키마는 `kr_pipeline/db/schema.sql` 의 `backfill_control` 에 포함돼 있어 셋업 3단계로 함께 생성된다.
+
+```bash
+scripts/launchd/install_bt110.sh            # 스키마 표적 적용 → 표본 C 워치독 제거 → 핀 worktree(../kr-by-claude-worktrees/bt-110-run) → plist 로드 → 스모크
+scripts/launchd/install_bt110.sh --repin    # 코드 갱신 반영(스위치 끄고 루프 종료 후)
+```
+
+운영 규칙·재개·2차 조각 전환은 `docs/superpowers/plans/2026-11-02-issue242-bt110-plumbing.md`. 백필 결과는 완결 전 열람하지 않는다(건수만).
+
 ## 운영 점검 쿼리
 
 ```sql

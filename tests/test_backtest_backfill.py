@@ -45,3 +45,37 @@ def test_run_backtest_backfill_dry_run_no_insert(db, monkeypatch):
     with db.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM backtest_classification WHERE symbol='BD2'")
         assert cur.fetchone()[0] == 0   # dry_run 은 적재 안 함
+
+
+def test_run_backtest_backfill_candidates_by_date_overrides_live_query(db, monkeypatch):
+    """(#242) 스냅샷 후보 주입 — 라이브 get_qualifying_tickers 를 호출하지 않고, 주어진 토요일만 돈다."""
+    from kr_pipeline.backtest import backfill as bt
+    called = []
+    monkeypatch.setattr(bt, "get_qualifying_tickers",
+                        lambda conn, as_of, tickers=None: called.append(as_of) or [])
+    seen = []
+    monkeypatch.setattr(bt, "run_parallel_batch",
+                        lambda **kw: seen.append((kw["as_of"], [c["symbol"] for c in kw["candidates"]])) or
+                        {"processed": 0, "failed_tickers": [], "integrity_skipped": [],
+                         "usage_limited": False, "usage_error": None})
+    cbd = {date(2023, 6, 24): [{"symbol": "BD3", "market": "KOSPI"}],
+           date(2023, 7, 8): [{"symbol": "BD3", "market": "KOSPI"}, {"symbol": "BD4", "market": "KOSDAQ"}]}
+    r = bt.run_backtest_backfill(db, start=date(2023, 6, 1), end=date(2023, 7, 31), tickers=[],
+                                 dry_run=True, concurrency=1, candidates_by_date=cbd)
+    assert called == []                                   # 라이브 조회 0
+    assert seen == [(date(2023, 6, 24), ["BD3"]), (date(2023, 7, 8), ["BD3", "BD4"])]
+    assert r["weeks"] == 2
+
+
+def test_run_backtest_backfill_candidates_by_date_respects_window(db, monkeypatch):
+    from kr_pipeline.backtest import backfill as bt
+    seen = []
+    monkeypatch.setattr(bt, "run_parallel_batch",
+                        lambda **kw: seen.append(kw["as_of"]) or
+                        {"processed": 0, "failed_tickers": [], "integrity_skipped": [],
+                         "usage_limited": False, "usage_error": None})
+    cbd = {date(2023, 6, 24): [{"symbol": "BD3", "market": "KOSPI"}],
+           date(2024, 1, 6): [{"symbol": "BD3", "market": "KOSPI"}]}
+    bt.run_backtest_backfill(db, start=date(2023, 6, 1), end=date(2023, 7, 31), tickers=[],
+                             dry_run=True, concurrency=1, candidates_by_date=cbd)
+    assert seen == [date(2023, 6, 24)]                    # 창 밖 토요일 제외

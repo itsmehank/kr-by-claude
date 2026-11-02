@@ -75,11 +75,18 @@ def _process_one(conn: Connection, symbol: str, market: str, *, dry_run: bool, a
 
 
 def run_backtest_backfill(conn: Connection, *, start: date, end: date, tickers: list[str],
-                          dry_run: bool = False, concurrency: int | None = None) -> dict:
+                          dry_run: bool = False, concurrency: int | None = None,
+                          candidates_by_date: dict[date, list[dict]] | None = None) -> dict:
     """기간 × 매주 토요일, 지정 tickers 중 그 주 qualifying 종목을 분류해 BT_TABLE 에 적재.
-    멱등: 이미 적재된 (symbol, 토요일)은 skip. 사용량 한도 시 abort(다음 실행이 이어감)."""
+    멱등: 이미 적재된 (symbol, 토요일)은 skip. 사용량 한도 시 abort(다음 실행이 이어감).
+
+    candidates_by_date (#242 #110 스냅샷 모드): 주어지면 라이브 get_qualifying_tickers 를 호출하지 않고
+    그 사전의 토요일(창 안)만 그 후보로 돈다 — 모집단 동결. None(기본)이면 기존 동작 불변."""
     assert_backtest_range_allowed(end)   # (#207 회신 20 Q-4c)
-    saturdays = _enumerate_saturdays(start, end)
+    if candidates_by_date is None:
+        saturdays = _enumerate_saturdays(start, end)
+    else:
+        saturdays = sorted(d for d in candidates_by_date if start <= d <= end)
     concurrency = concurrency or BT_CONCURRENCY
     agg = {"weeks": 0, "processed": 0, "skipped_existing": 0, "failures": 0,
            "failed": [], "integrity_skipped": [], "start": str(start), "end": str(end),
@@ -91,7 +98,10 @@ def run_backtest_backfill(conn: Connection, *, start: date, end: date, tickers: 
     for as_of in saturdays:
         if abort.is_set():
             break
-        candidates = get_qualifying_tickers(conn, as_of=as_of, tickers=tickers)
+        if candidates_by_date is None:
+            candidates = get_qualifying_tickers(conn, as_of=as_of, tickers=tickers)
+        else:
+            candidates = list(candidates_by_date.get(as_of, []))
         done = already_done(conn, as_of)
         skipped = [c for c in candidates if c["symbol"] in done]
         candidates = [c for c in candidates if c["symbol"] not in done]
