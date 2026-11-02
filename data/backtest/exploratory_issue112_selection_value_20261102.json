@@ -267,26 +267,36 @@
       "2017-20": {
         "n_sel": 1749,
         "n_rej": 22,
+        "tickers_sel": 100,
+        "tickers_rej": 14,
         "diff": -1.782
       },
       "2021": {
         "n_sel": 1632,
         "n_rej": 161,
+        "tickers_sel": 152,
+        "tickers_rej": 64,
         "diff": -0.769
       },
       "2022": {
         "n_sel": 554,
         "n_rej": 34,
+        "tickers_sel": 70,
+        "tickers_rej": 16,
         "diff": 0.798
       },
       "2023": {
         "n_sel": 968,
         "n_rej": 30,
+        "tickers_sel": 115,
+        "tickers_rej": 17,
         "diff": 4.783
       },
       "2024": {
         "n_sel": 825,
         "n_rej": 48,
+        "tickers_sel": 84,
+        "tickers_rej": 24,
         "diff": 5.564
       }
     },

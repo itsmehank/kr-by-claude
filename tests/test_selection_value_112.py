@@ -117,10 +117,10 @@ def test_diff_bootstrap_sel_clusters_guard_and_group_cis():
 
 
 def test_diff_bootstrap_diff_from_unrounded_means():
-    cells = [{"ticker": "A", "group": "sel", "x": 0.0005}, {"ticker": "B", "group": "sel", "x": 0.0005},
-             {"ticker": "C", "group": "rej", "x": -0.0005}, {"ticker": "D", "group": "rej", "x": -0.0005}]
+    cells = [{"ticker": "A", "group": "sel", "x": 0.0006}, {"ticker": "B", "group": "sel", "x": 0.0006},
+             {"ticker": "C", "group": "rej", "x": -0.0006}, {"ticker": "D", "group": "rej", "x": -0.0006}]
     out = diff_bootstrap(cells, key="x", sel="sel", rej="rej", b=10, seed=1, min_clusters=2)
-    # 반올림된 평균(0.001, -0.001)의 차 0.002 가 아니라 원값 차 0.001
+    # 반올림된 평균(0.001, -0.001)의 차 0.002 가 아니라 원값 차 0.0012 → 0.001
     assert out["diff"] == pytest.approx(0.001)
 
 

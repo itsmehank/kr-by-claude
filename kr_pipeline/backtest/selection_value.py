@@ -185,7 +185,9 @@ def diff_bootstrap_stratified(cells: list[dict], *, key: str, sel: str, rej: str
         r_sum, r_n = (sum(v[0] for v in per[st]["rej"].values()), sum(v[1] for v in per[st]["rej"].values()))
         d = s_sum / s_n - r_sum / r_n
         out["weights"][st] = round(w, 4)
-        out["diff_by_stratum"][st] = {"n_sel": s_n, "n_rej": r_n, "diff": round(d, 3)}
+        out["diff_by_stratum"][st] = {"n_sel": s_n, "n_rej": r_n,
+                                      "tickers_sel": len(per[st]["sel"]), "tickers_rej": len(per[st]["rej"]),
+                                      "diff": round(d, 3)}
         diff += w * d
     out["diff"] = round(diff, 3)
     if len(rej_t) < min_clusters:
