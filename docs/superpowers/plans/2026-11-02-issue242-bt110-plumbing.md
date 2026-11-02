@@ -18,7 +18,14 @@
 
 ## 2. 설치 절차 (사용자 수동 — 순서 고정)
 
-1. **스키마 적용(두 DB)**: `psql -d kr_pipeline -f kr_pipeline/db/schema.sql` / `psql -d kr_test -f …` (conftest 는 kr_test 를 자동 재적용).
+1. **스키마 적용(두 DB, 표적 실행 — 라이브 경합 시 전체 재적용 대신 새 테이블만, 운영 교훈)**:
+   ```
+   for db in kr_pipeline kr_test; do
+     psql -d $db -v ON_ERROR_STOP=1 -c "SET lock_timeout='5s'" \
+       -f <(sed -n '/CREATE TABLE IF NOT EXISTS backfill_control/,/^);/p' kr_pipeline/db/schema.sql)
+   done
+   ```
+   (conftest 는 kr_test 를 세션마다 schema.sql 로 재적용하므로 kr_test 는 생략 가능.)
 2. **표본 C 워치독 제거**(교차 kill 방지 — 검토 A-2):
    `launchctl bootout gui/$(id -u)/com.krbyclaude.bt-c-watchdog && rm ~/Library/LaunchAgents/com.krbyclaude.bt-c-watchdog.plist`
    (bt-c-run worktree 는 보존 — 기록용. COMPLETE 마커 로그는 그대로.)

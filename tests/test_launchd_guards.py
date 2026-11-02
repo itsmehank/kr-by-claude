@@ -652,21 +652,19 @@ def test_eltd_failure_reason_falls_back_to_stdout(tmp_path):
 
 # ─── (#242) bt_loop_alive — 표본 C·#110 두 pidfile ──────────────────────────
 
-@pytest.mark.parametrize("pidfile", ["/tmp/bt_loop_c.pid", "/tmp/bt_loop_110.pid"])
-def test_bt_loop_alive_detects_either_pidfile(pidfile, tmp_path):
-    """라이브 체인의 '백필 돌고 있으면 skip' 가드가 #110 루프(/tmp/bt_loop_110.pid)도 본다."""
-    backup = Path(pidfile + ".bak-test")
-    existed = Path(pidfile).exists()
-    if existed:
-        Path(pidfile).rename(backup)
-    try:
-        Path(pidfile).write_text(str(os.getpid()))   # 살아 있는 pid
-        r = run_guard("bt_loop_alive && echo ALIVE || echo DEAD")
-        assert r.stdout.strip() == "ALIVE", r.stderr
-        Path(pidfile).write_text("999999999")         # 죽은 pid
-        r = run_guard("bt_loop_alive && echo ALIVE || echo DEAD")
-        assert r.stdout.strip() == "DEAD"
-    finally:
-        Path(pidfile).unlink(missing_ok=True)
-        if existed:
-            backup.rename(pidfile)
+@pytest.mark.parametrize("which", ["c", "110"])
+def test_bt_loop_alive_detects_either_pidfile(which, tmp_path):
+    """라이브 체인의 '백필 돌고 있으면 skip' 가드가 두 루프 pidfile 중 어느 쪽이든 본다.
+    실제 /tmp pidfile 은 건드리지 않는다(BT_LOOP_PIDFILES 격리 — 일요일 워치독 2중 기동 방지, 리뷰 R1-4)."""
+    pf_c, pf_110 = tmp_path / "bt_loop_c.pid", tmp_path / "bt_loop_110.pid"
+    env = {"BT_LOOP_PIDFILES": f"{pf_c} {pf_110}"}
+    target = pf_c if which == "c" else pf_110
+    target.write_text(str(os.getpid()))              # 살아 있는 pid
+    r = run_guard("bt_loop_alive && echo ALIVE || echo DEAD", env)
+    assert r.stdout.strip() == "ALIVE", r.stderr
+    target.write_text("999999999")                    # 죽은 pid
+    r = run_guard("bt_loop_alive && echo ALIVE || echo DEAD", env)
+    assert r.stdout.strip() == "DEAD"
+    target.unlink()
+    r = run_guard("bt_loop_alive && echo ALIVE || echo DEAD", env)
+    assert r.stdout.strip() == "DEAD"

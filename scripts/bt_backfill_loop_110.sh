@@ -51,6 +51,7 @@ PIN=$(uv run python -m kr_pipeline.backtest.bt110_cli pin --head "$HEAD" 2>>"$LO
 case "$PIN" in
   pinned) log "코드 버전 핀 기록: $HEAD";;
   ok) ;;
+  no_row) log "제어 행 없음 — 웹 스위치를 먼저 켜라(종료, 마커 아님)"; exit 0;;
   *) log "=== PIN_MISMATCH — HEAD=$HEAD vs $PIN (재핀 절차 필요, 이슈 #242) ==="; exit 1;;
 esac
 
@@ -86,7 +87,7 @@ while true; do
   fi
 
   # ④ 데드라인까지 남은 초
-  now_s=$(date +%s); dl_s=$(date -j -f "%Y-%m-%d %H:%M" "$(date +%Y-%m-%d) $DEADLINE_HHMM" +%s 2>/dev/null || echo 0)
+  now_s=$(date +%s); dl_s=$(date -j -f "%Y-%m-%d %H:%M:%S" "$(date +%Y-%m-%d) $DEADLINE_HHMM:00" +%s 2>/dev/null || echo 0)
   remain=$((dl_s - now_s))
   if [ "$remain" -le 60 ]; then log "데드라인($DEADLINE_HHMM) 도달 — 오늘 종료(마커 아님)"; break; fi
 
@@ -96,12 +97,12 @@ while true; do
   ( sleep "$remain"; kill -TERM "$bfpid" 2>/dev/null && echo "[$(date '+%F %T')] DEADLINE TERM pid=$bfpid" >> "$LOG" ) &
   killer=$!
   wait "$bfpid"; rc=$?
-  kill "$killer" 2>/dev/null
+  pkill -P "$killer" 2>/dev/null; kill "$killer" 2>/dev/null   # 서브셸과 그 sleep 둘 다 정리(고아 sleep 방지)
   cat "$out" >> "$BF_LOG"
-  total=$(tail -1 "$out")
-  processed=$(echo "$total" | grep -o '"processed": [0-9]*' | grep -o '[0-9]*$')
-  failures=$(echo "$total" | grep -o '"failures": [0-9]*' | grep -o '[0-9]*$')
-  circuit=$(echo "$total" | grep -c '"circuit_broken": true')
+  # 합산 JSON 은 마지막 출력이지만 stderr 경고가 뒤에 붙을 수 있어 grep … | tail -1(표본 C 관례)로 읽는다
+  processed=$(grep -o '"processed": [0-9]*' "$out" | tail -1 | grep -o '[0-9]*$')
+  failures=$(grep -o '"failures": [0-9]*' "$out" | tail -1 | grep -o '[0-9]*$')
+  circuit=$(grep -c '"circuit_broken": true' "$out")
   rm -f "$out"
   log "pass#$iter rc=$rc processed=${processed:-?} failures=${failures:-?} circuit=$circuit done_before=$done_n/$target"
 

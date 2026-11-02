@@ -107,6 +107,10 @@ def set_switch(conn: Connection, enabled: bool, *, slice_: list[list[str]] | Non
     slice_use = slice_ or (cur_ctl["slice"] if cur_ctl else DEFAULT_SLICE)
     cells = cur_ctl["cells"] if cur_ctl else None
     base = cur_ctl["baseline"] if cur_ctl else None
+    if cur_ctl and slice_ and slice_ != cur_ctl["slice"]:
+        # 슬라이스 변경(2차 조각 전환) = 새 모집단 — 구 스냅샷·기준선을 버리고 on 시 재생성(리뷰 R1-2: 구 쌍으로
+        # 새 범위를 판정하면 tripwire 오탐). 구 조각의 COMPLETE 기록은 로그·#110 코멘트에 남는다.
+        cells, base = None, None
     if enabled and cells is None:
         base = baseline(conn, slice_use)
         cells = enumerate_cells(conn, slice_use)
@@ -187,9 +191,11 @@ def tripwire(conn: Connection, control: dict) -> list[str]:
 
 
 def check_or_pin_commit(conn: Connection, head: str, key: str = KEY) -> str:
-    """첫 패스: HEAD 기록("pinned"). 이후: 일치 "ok" / 불일치 "mismatch:<pinned>"."""
+    """첫 패스: HEAD 기록("pinned"). 이후: 일치 "ok" / 불일치 "mismatch:<pinned>". 제어 행 없음: "no_row"."""
     ctl = get_control(conn, key)
-    pinned = ctl.get("pinned_commit") if ctl else None
+    if ctl is None:
+        return "no_row"
+    pinned = ctl.get("pinned_commit")
     if not pinned:
         with conn.cursor() as cur:
             cur.execute("UPDATE backfill_control SET pinned_commit = %s, updated_at = now() WHERE key = %s",
@@ -205,8 +211,9 @@ def status(conn: Connection, key: str = KEY) -> dict:
         return {"key": key, "exists": False, "enabled": False, "slice": DEFAULT_SLICE, "cells_count": 0,
                 "baseline": None, "pinned_commit": None, "switched_at": None, "progress": None, "tripwire": []}
     prog = progress(conn, ctl)
+    base_pub = {k: v for k, v in (ctl.get("baseline") or {}).items() if k != "slice_pairs"} or None  # 웹 폴링 경량화
     return {"key": key, "exists": True, "enabled": ctl["enabled"], "slice": ctl["slice"],
-            "cells_count": len(ctl.get("cells") or []), "baseline": ctl.get("baseline"),
+            "cells_count": len(ctl.get("cells") or []), "baseline": base_pub,
             "pinned_commit": ctl.get("pinned_commit"), "switched_at": ctl.get("switched_at"),
             "note": ctl.get("note"), "progress": prog, "tripwire": tripwire(conn, ctl)}
 

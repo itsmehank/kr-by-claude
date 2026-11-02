@@ -261,12 +261,12 @@ function Bt110Section() {
           onClick={() => {
             if (!s) return;
             const next = !s.enabled;
-            if (next && !s.exists && !window.confirm("켜는 순간 대상 셀(종목×토요일)을 스냅샷으로 동결합니다. 진행할까요?")) return;
+            if (next && s.cells_count === 0 && !window.confirm("켜는 순간 대상 셀(종목×토요일)을 스냅샷으로 동결합니다(약 20초). 진행할까요?")) return;
             mutation.mutate(next);
           }}
           className={`chip ${s?.enabled ? "bg-success-soft text-success" : "bg-tint-stone text-muted"}`}
         >
-          {s?.enabled ? "켜짐 — 끄기" : "꺼짐 — 켜기"}
+          {mutation.isPending ? "처리 중(스냅샷 생성 시 약 20초)…" : s?.enabled ? "켜짐 — 끄기" : "꺼짐 — 켜기"}
         </button>
       </div>
       {statusQ.isError && <div className="text-data-xs text-danger">상태 조회 실패</div>}

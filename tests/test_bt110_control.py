@@ -105,6 +105,37 @@ def test_pin_commit_first_pass_then_compare(seeded):
     assert bt110.check_or_pin_commit(seeded, "def456") == "mismatch:abc123"
 
 
+def test_pin_without_control_row_reports_no_row(db):
+    assert bt110.check_or_pin_commit(db, "abc") == "no_row"
+
+
+def test_set_switch_slice_change_resnapshots(seeded):
+    c = bt110.set_switch(seeded, True, slice_=RANGES)
+    assert c["cells"] == [["T1", "2021-03-06", "KOSPI"]]
+    _bt_row(seeded, "T1", SAT)                                      # 1차 조각 완료
+    c2 = bt110.set_switch(seeded, True, slice_=[["2021-03-07", "2021-03-13"]])   # 2차 조각
+    assert c2["slice"] == [["2021-03-07", "2021-03-13"]]
+    assert c2["cells"] == [["T1", "2021-03-13", "KOSPI"], ["T6", "2021-03-13", "KOSPI"]]   # 재스냅샷
+    assert c2["baseline"]["slice_rows"] == 0 and bt110.tripwire(seeded, c2) == []  # 구 쌍으로 오탐 없음
+
+
+def test_tripwire_rows_over_and_symbols_over(seeded):
+    c = bt110.set_switch(seeded, True, slice_=RANGES)       # 기준선: 행 1(T6)·종목 1, 스냅샷: T1 1셀
+    _bt_row(seeded, "T1", SAT)                               # 스냅샷 적재 — 정상
+    assert bt110.tripwire(seeded, bt110.get_control(seeded)) == []
+    _seed(seeded, "T8")
+    _bt_row(seeded, "T8", date(2020, 1, 4))                  # 슬라이스 밖 외부 적재: 총량 +2 > 스냅샷 1, 종목 3 > 1+1
+    v = bt110.tripwire(seeded, bt110.get_control(seeded))
+    assert any(x.startswith("rows_over_snapshot") for x in v) and any(x.startswith("symbols_over") for x in v)
+    assert not any(x.startswith("outside_snapshot") for x in v)   # 슬라이스 밖이라 outside 는 아님
+
+
+def test_status_omits_slice_pairs(seeded):
+    bt110.set_switch(seeded, True, slice_=RANGES)
+    st = bt110.status(seeded)
+    assert "slice_pairs" not in st["baseline"] and st["baseline"]["slice_rows"] == 1
+
+
 def test_cli_status_kv_and_pin(seeded, monkeypatch, capsys):
     from kr_pipeline.backtest import bt110_cli
     import contextlib
