@@ -16,6 +16,7 @@ import type {
   PipelineSummary,
   CronStatus,
   CronPreview,
+  Bt110Status,
 } from "../lib/types";
 import { relativeTime, formatDuration, formatKst } from "../lib/utils";
 import { Modal } from "../components/ui/Modal";
@@ -214,6 +215,83 @@ function CronManagerSection() {
 }
 
 
+// (#242) #110 확장 백필 스위치 — DB 플래그만 바꾼다(cron/launchd 등록 없음, #86). 일요일 워치독이 읽어 기동.
+// 미열람 보존: 건수·모델 종수·트립와이어만 표시(분류 결과 없음).
+function Bt110Section() {
+  const qc = useQueryClient();
+  const statusQ = useQuery<Bt110Status>({
+    queryKey: ["bt110-status"],
+    queryFn: () => api<Bt110Status>("/backfill/bt110/status"),
+    refetchInterval: 60_000,
+  });
+  const mutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await fetch(apiUrl("/backfill/bt110/switch"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["bt110-status"] }),
+  });
+  const s = statusQ.data;
+  const p = s?.progress;
+  const pct = p && p.target > 0 ? Math.round((p.done / p.target) * 1000) / 10 : 0;
+  const models = p ? Object.keys(p.models_in_slice).length : 0;
+
+  return (
+    <section className="bento p-6 mt-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-tint-violet">
+            <Settings size={16} className="text-accent" strokeWidth={2} />
+          </div>
+          <div>
+            <div className="text-data font-medium">확장 백필 #110 — 일요일 자동 (2021+2024)</div>
+            <div className="text-data-xs text-muted">
+              스위치는 DB 값만 바꿉니다. 일요일 워치독(30분)이 켜짐을 읽어 루프를 띄우고, 끄면 다음 패스에서
+              멈춥니다(진행 중 패스는 일요일 23:30 데드라인까지 계속). 결과는 보지 않습니다 — 건수만.
+            </div>
+          </div>
+        </div>
+        <button
+          disabled={mutation.isPending || !s}
+          onClick={() => {
+            if (!s) return;
+            const next = !s.enabled;
+            if (next && !s.exists && !window.confirm("켜는 순간 대상 셀(종목×토요일)을 스냅샷으로 동결합니다. 진행할까요?")) return;
+            mutation.mutate(next);
+          }}
+          className={`chip ${s?.enabled ? "bg-success-soft text-success" : "bg-tint-stone text-muted"}`}
+        >
+          {s?.enabled ? "켜짐 — 끄기" : "꺼짐 — 켜기"}
+        </button>
+      </div>
+      {statusQ.isError && <div className="text-data-xs text-danger">상태 조회 실패</div>}
+      {s && (
+        <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-data-xs">
+          <div className="text-muted">대상 셀(스냅샷)</div><div>{s.cells_count.toLocaleString()}</div>
+          <div className="text-muted">진행</div>
+          <div>{p ? `${p.done.toLocaleString()} / ${p.target.toLocaleString()} (${pct}%)` : "—"}{p?.complete ? " · 완결" : ""}</div>
+          <div className="text-muted">마지막 적재</div><div>{p?.last_row_at ? formatKst(p.last_row_at) : "—"}</div>
+          <div className="text-muted">모델(슬라이스 내 종수)</div>
+          <div>{models}{models > 1 ? " — 별칭 sonnet 이 새 버전으로 이동함(분석 시 층 구분)" : ""}</div>
+          <div className="text-muted">코드 핀</div><div className="font-mono">{s.pinned_commit ?? "— (첫 패스가 기록)"}</div>
+          <div className="text-muted">스위치 변경</div><div>{s.switched_at ? formatKst(s.switched_at) : "—"}</div>
+          <div className="text-muted">트립와이어</div>
+          <div className={s.tripwire.length ? "text-danger" : ""}>{s.tripwire.length ? s.tripwire.join(", ") : "정상"}</div>
+        </div>
+      )}
+      <div className="text-data-xs text-faint mt-3">
+        일요일 백필 중에는 이슈 페이지의 갱신 버튼을 누르지 마세요(같은 claude 호출 시그니처). 설치·재핀 절차는 이슈 #242.
+      </div>
+    </section>
+  );
+}
+
+
 export default function RunnerPage() {
   const qc = useQueryClient();
   const summaryQ = useQuery<RunSummaryResponse>({
@@ -350,6 +428,7 @@ export default function RunnerPage() {
       </section>
 
       <CronManagerSection />
+      <Bt110Section />
 
       <RunDialog pipeline={runPipeline} onClose={() => setRunPipeline(null)} />
     </div>

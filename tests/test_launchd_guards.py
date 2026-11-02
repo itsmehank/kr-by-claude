@@ -648,3 +648,25 @@ def test_eltd_failure_reason_falls_back_to_stdout(tmp_path):
     r = run_guard('v=$(eltd); echo "V=$v"', {"ELTD_UV_BIN": str(fake), "ELTD_ERR_LOG": str(tmp_path / "e.log")})
     assert marker.exists() and r.stdout.strip() == "V="
     assert "ELTD 실패 사유: KRX 로그인 실패: 비밀번호 변경 필요" in r.stderr
+
+
+# ─── (#242) bt_loop_alive — 표본 C·#110 두 pidfile ──────────────────────────
+
+@pytest.mark.parametrize("pidfile", ["/tmp/bt_loop_c.pid", "/tmp/bt_loop_110.pid"])
+def test_bt_loop_alive_detects_either_pidfile(pidfile, tmp_path):
+    """라이브 체인의 '백필 돌고 있으면 skip' 가드가 #110 루프(/tmp/bt_loop_110.pid)도 본다."""
+    backup = Path(pidfile + ".bak-test")
+    existed = Path(pidfile).exists()
+    if existed:
+        Path(pidfile).rename(backup)
+    try:
+        Path(pidfile).write_text(str(os.getpid()))   # 살아 있는 pid
+        r = run_guard("bt_loop_alive && echo ALIVE || echo DEAD")
+        assert r.stdout.strip() == "ALIVE", r.stderr
+        Path(pidfile).write_text("999999999")         # 죽은 pid
+        r = run_guard("bt_loop_alive && echo ALIVE || echo DEAD")
+        assert r.stdout.strip() == "DEAD"
+    finally:
+        Path(pidfile).unlink(missing_ok=True)
+        if existed:
+            backup.rename(pidfile)
