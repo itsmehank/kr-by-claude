@@ -1,0 +1,274 @@
+{
+  "issue": 112,
+  "spec": "docs/superpowers/specs/2026-11-02-issue112-selection-value-design.md",
+  "grade": "exploratory",
+  "seed": 20260721,
+  "b": 10000,
+  "horizons": [
+    20,
+    40,
+    65
+  ],
+  "primary_h": 20,
+  "n_cells": 6023,
+  "by_classification": {
+    "watch": 5702,
+    "entry": 26,
+    "ignore": 295
+  },
+  "by_sample": {
+    "C": 1771,
+    "A": 2135,
+    "B": 1952,
+    "unassigned": 165
+  },
+  "ignore_reasons": {
+    "climax": 242,
+    "topping": 51,
+    "reverse_split": 2
+  },
+  "excluded_by_horizon": {
+    "20": 0,
+    "40": 0,
+    "65": 0
+  },
+  "unassigned_tickers": [
+    "242040",
+    "251630",
+    "261200",
+    "274090",
+    "277070",
+    "299900",
+    "309930",
+    "313760",
+    "317770",
+    "322000",
+    "340570",
+    "348350",
+    "361610",
+    "368770"
+  ],
+  "pooled": {
+    "20": {
+      "n_sel": 5728,
+      "n_rej": 295,
+      "tickers_sel": 308,
+      "tickers_rej": 113,
+      "mean_sel": -0.184,
+      "median_sel": -2.235,
+      "mean_rej": -0.759,
+      "median_rej": -2.345,
+      "pos_rate_sel": 0.429,
+      "pos_rate_rej": 0.417,
+      "diff": 0.575,
+      "ci95": [
+        -2.315,
+        3.514
+      ],
+      "ci_suppressed": null,
+      "skipped_iters": 0,
+      "hint": "구분 불가"
+    },
+    "40": {
+      "n_sel": 5728,
+      "n_rej": 295,
+      "tickers_sel": 308,
+      "tickers_rej": 113,
+      "mean_sel": -0.684,
+      "median_sel": -3.493,
+      "mean_rej": -4.55,
+      "median_rej": -5.445,
+      "pos_rate_sel": 0.422,
+      "pos_rate_rej": 0.346,
+      "diff": 3.866,
+      "ci95": [
+        0.059,
+        7.378
+      ],
+      "ci_suppressed": null,
+      "skipped_iters": 0,
+      "hint": "선별 가치 단서"
+    },
+    "65": {
+      "n_sel": 5728,
+      "n_rej": 295,
+      "tickers_sel": 308,
+      "tickers_rej": 113,
+      "mean_sel": -0.352,
+      "median_sel": -4.25,
+      "mean_rej": -4.35,
+      "median_rej": -7.266,
+      "pos_rate_sel": 0.424,
+      "pos_rate_rej": 0.346,
+      "diff": 3.998,
+      "ci95": [
+        -0.257,
+        8.029
+      ],
+      "ci_suppressed": null,
+      "skipped_iters": 0,
+      "hint": "구분 불가"
+    }
+  },
+  "pooled_assigned_only_h20": {
+    "n_sel": 5574,
+    "n_rej": 284,
+    "tickers_sel": 294,
+    "tickers_rej": 110,
+    "mean_sel": -0.366,
+    "median_sel": -2.277,
+    "mean_rej": -0.466,
+    "median_rej": -1.957,
+    "pos_rate_sel": 0.427,
+    "pos_rate_rej": 0.426,
+    "diff": 0.1,
+    "ci95": [
+      -2.786,
+      3.102
+    ],
+    "ci_suppressed": null,
+    "skipped_iters": 0,
+    "hint": "구분 불가"
+  },
+  "by_sample_h20": {
+    "A": {
+      "n_sel": 2015,
+      "n_rej": 120,
+      "tickers_sel": 100,
+      "tickers_rej": 45,
+      "mean_sel": 0.234,
+      "median_sel": -1.425,
+      "mean_rej": 0.662,
+      "median_rej": -1.686,
+      "pos_rate_sel": 0.446,
+      "pos_rate_rej": 0.45,
+      "diff": -0.428,
+      "ci95": [
+        -5.378,
+        4.975
+      ],
+      "ci_suppressed": null,
+      "skipped_iters": 0,
+      "hint": "구분 불가"
+    },
+    "B": {
+      "n_sel": 1810,
+      "n_rej": 142,
+      "tickers_sel": 100,
+      "tickers_rej": 51,
+      "mean_sel": -0.4,
+      "median_sel": -2.871,
+      "mean_rej": -1.609,
+      "median_rej": -3.176,
+      "pos_rate_sel": 0.415,
+      "pos_rate_rej": 0.387,
+      "diff": 1.209,
+      "ci95": [
+        -2.381,
+        5.148
+      ],
+      "ci_suppressed": null,
+      "skipped_iters": 0,
+      "hint": "구분 불가"
+    },
+    "C": {
+      "n_sel": 1749,
+      "n_rej": 22,
+      "tickers_sel": 100,
+      "tickers_rej": 14,
+      "mean_sel": -1.024,
+      "median_sel": -2.608,
+      "mean_rej": 0.758,
+      "median_rej": 2.399,
+      "pos_rate_sel": 0.416,
+      "pos_rate_rej": 0.545,
+      "diff": -1.782,
+      "ci95": [
+        -7.215,
+        4.463
+      ],
+      "ci_suppressed": null,
+      "skipped_iters": 0,
+      "hint": "구분 불가"
+    }
+  },
+  "by_ignore_reason_h20": {
+    "climax": {
+      "n_sel": 5728,
+      "n_rej": 242,
+      "tickers_sel": 308,
+      "tickers_rej": 88,
+      "mean_sel": -0.184,
+      "median_sel": -2.235,
+      "mean_rej": -0.429,
+      "median_rej": -2.654,
+      "pos_rate_sel": 0.429,
+      "pos_rate_rej": 0.417,
+      "diff": 0.245,
+      "ci95": [
+        -3.064,
+        3.621
+      ],
+      "ci_suppressed": null,
+      "skipped_iters": 0,
+      "hint": "구분 불가"
+    },
+    "reverse_split": {
+      "n_sel": 5728,
+      "n_rej": 2,
+      "tickers_sel": 308,
+      "tickers_rej": 1,
+      "mean_sel": -0.184,
+      "median_sel": -2.235,
+      "mean_rej": -1.771,
+      "median_rej": -1.771,
+      "pos_rate_sel": 0.429,
+      "pos_rate_rej": 0.0,
+      "diff": 1.587,
+      "ci95": null,
+      "ci_suppressed": "rej_clusters<5",
+      "skipped_iters": 0,
+      "hint": "측정 불가(소표본 또는 빈 군)"
+    },
+    "topping": {
+      "n_sel": 5728,
+      "n_rej": 51,
+      "tickers_sel": 308,
+      "tickers_rej": 40,
+      "mean_sel": -0.184,
+      "median_sel": -2.235,
+      "mean_rej": -2.287,
+      "median_rej": -0.838,
+      "pos_rate_sel": 0.429,
+      "pos_rate_rej": 0.431,
+      "diff": 2.103,
+      "ci95": [
+        -2.096,
+        7.017
+      ],
+      "ci_suppressed": null,
+      "skipped_iters": 0,
+      "hint": "구분 불가"
+    }
+  },
+  "entry_only_h20": {
+    "n_sel": 26,
+    "n_rej": 295,
+    "tickers_sel": 22,
+    "tickers_rej": 113,
+    "mean_sel": 1.772,
+    "median_sel": -3.419,
+    "mean_rej": -0.759,
+    "median_rej": -2.345,
+    "pos_rate_sel": 0.385,
+    "pos_rate_rej": 0.417,
+    "diff": 2.531,
+    "ci95": [
+      -3.514,
+      9.537
+    ],
+    "ci_suppressed": null,
+    "skipped_iters": 0,
+    "hint": "구분 불가"
+  }
+}
