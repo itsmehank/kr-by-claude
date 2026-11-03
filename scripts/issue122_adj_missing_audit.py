@@ -12,8 +12,9 @@ missing 은 raw 종가 갭으로 실재를 재확인해 status 를 나눈다:
 missing·size_mismatch 건은 오염 창(권리락일~+380일) 내 minervini_pass 일수를
 daily_indicators 에서 집계해 소급 표기한다(판정 뒤집기 아님 — 표본 누락 방향).
 
-양성 대조군: 221800·232830·388610(#114 11차 ③ 확정 무상증자 누락)이 missing 으로
-나오지 않으면 종료 코드 2 — 검출기 자체 결함으로 간주.
+양성 대조군: 221800·232830·388610(#114 11차 ③ 확정 무상증자 누락)은 missing 으로
+검출되거나(재적재 전), adj_factor_events 에 재적재 기록이 있고 matched 로 돌아와야(재적재 후,
+2026-11-03 #122 adj_reload 적용) 통과. 둘 다 아니면 종료 코드 2 — 검출기 결함으로 간주.
 
 상세 미보유 종목(DART 미조회)은 검사 불가로 분리 집계하고, 그중 corporate_actions
 에 조정성 공시(bonus_issue·capital_reduction·rights_offering)가 있는 종목을
@@ -33,7 +34,7 @@ import psycopg
 
 from kr_pipeline.ohlcv.adj_missing_audit import (
     contamination_window, expected_events, is_pending, match_expected,
-    raw_gap_evidence, resume_offset,
+    positive_control_verdict, raw_gap_evidence, resume_offset,
 )
 from kr_pipeline.ohlcv.adj_reconstruct import db_factor_jumps
 
@@ -172,7 +173,16 @@ def main() -> int:
     confirmed = [r for r in rows if r["status"] == "missing_confirmed"]
     confirmed_tickers = sorted({r["ticker"] for r in confirmed})
     confirmed_keys = {(r["ticker"], r["ex_date"]) for r in confirmed}
-    control_ok = all(k in confirmed_keys for k in POSITIVE_CONTROL)
+    nonmatched_keys = {(r["ticker"], r["ex_date"]) for r in rows}   # rows = 비-matched 만 보존
+    # 재적재(#122 adj_reload) 기록 — 대조군이 수리된 뒤에는 matched 가 기대 상태
+    with psycopg.connect(DB) as conn, conn.cursor() as cur:
+        cur.execute("SELECT ticker, date::text FROM adj_factor_events WHERE ticker = ANY(%s)",
+                    ([t for t, _ in POSITIVE_CONTROL],))
+        repaired_keys = {(t, d) for t, d in cur.fetchall()}
+    control = positive_control_verdict(POSITIVE_CONTROL, confirmed_keys=confirmed_keys,
+                                       nonmatched_keys=nonmatched_keys,
+                                       repaired_keys=repaired_keys)
+    control_ok = control["ok"]
 
     out = {
         "issue": 122, "generated": date.today().isoformat(),
@@ -201,7 +211,7 @@ def main() -> int:
                   "judgments": r["judgments_in_window"]}
                  for r in confirmed if r["judgments_in_window"]],
         },
-        "positive_control": {"events": [list(k) for k in POSITIVE_CONTROL], "ok": control_ok},
+        "positive_control": {"events": [list(k) for k in POSITIVE_CONTROL], **control},
         "phase2_targets": phase2_targets,
         "rows": sorted(rows, key=lambda r: (r["class"], r["ticker"], r["ex_date"])),
     }
@@ -214,7 +224,8 @@ def main() -> int:
                      ensure_ascii=False, indent=1))
     print("saved:", path)
     if not control_ok:
-        print("양성 대조군 미검출 — 검출기 결함", file=sys.stderr)
+        print(f"양성 대조군 실패 {control['failed']} — 검출 안 됨(검출기 결함) 또는 재적재 기록 없이 "
+              "사라짐/기록 후에도 비-matched", file=sys.stderr)
         return 2
     return 0
 

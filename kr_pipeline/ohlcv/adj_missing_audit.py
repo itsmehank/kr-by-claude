@@ -247,3 +247,25 @@ def contamination_window(ex: date, passes: dict[date, bool],
     return {"window_end": end, "window_days": len(in_w),
             "window_pass_days": sum(1 for v in in_w if v),
             "total_pass_days": sum(1 for v in passes.values() if v)}
+
+
+def positive_control_verdict(controls, *, confirmed_keys: set, nonmatched_keys: set,
+                             repaired_keys: set) -> dict:
+    """양성 대조군 판정. 각 (종목, 권리락일) 은 두 경로 중 하나로 통과한다.
+
+    - detected: missing_confirmed 로 검출됨(재적재 전 상태 — 검출기 작동 증명).
+    - repaired: adj_factor_events 에 그 날짜의 재적재 기록이 있고, 비-matched 분류
+      (missing/size_mismatch/pending) 에 남아 있지 않음(재적재 후 상태 — 왕복 증명).
+
+    기록 없이 사라지거나(검출기 결함 가능), 기록이 있는데도 비-matched 로 남으면 실패.
+    """
+    detected, repaired, failed = [], [], []
+    for k in controls:
+        key = tuple(k)
+        if key in confirmed_keys:
+            detected.append(list(key))
+        elif key in repaired_keys and key not in nonmatched_keys:
+            repaired.append(list(key))
+        else:
+            failed.append(list(key))
+    return {"ok": not failed, "detected": detected, "repaired": repaired, "failed": failed}

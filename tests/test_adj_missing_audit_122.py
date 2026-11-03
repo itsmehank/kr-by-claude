@@ -356,3 +356,45 @@ def test_missing_or_invalid_fields_are_skipped_without_error():
         {"endpoint": "pifricDecsn", "record_date": rd, "ratio": None, "method": None, "rcept_no": "e"},
     ]
     assert expected_events(dates, det) == []
+
+
+# ---- positive_control_verdict ---------------------------------------------
+# 양성 대조군(검출기가 반드시 찾아야 하는 기지 누락 3건)은 #122 재적재 후 matched 로 바뀐다.
+# 재적재 기록(adj_factor_events)이 있고 비-matched 분류에 남아 있지 않으면 통과, 기록 없이
+# matched 로 사라지면(검출기 결함 가능) 실패.
+
+from kr_pipeline.ohlcv.adj_missing_audit import positive_control_verdict  # noqa: E402
+
+_C = (("221800", "2023-02-23"), ("232830", "2020-09-04"), ("388610", "2023-07-24"))
+
+
+def test_control_detected_as_missing_passes():
+    v = positive_control_verdict(_C, confirmed_keys=set(_C), nonmatched_keys=set(_C),
+                                 repaired_keys=set())
+    assert v["ok"] is True
+    assert sorted(v["detected"]) == sorted(list(k) for k in _C)
+    assert v["repaired"] == []
+
+
+def test_control_repaired_and_matched_passes():
+    v = positive_control_verdict(_C, confirmed_keys=set(), nonmatched_keys=set(),
+                                 repaired_keys=set(_C))
+    assert v["ok"] is True
+    assert v["detected"] == []
+    assert sorted(v["repaired"]) == sorted(list(k) for k in _C)
+
+
+def test_control_matched_without_repair_fails():
+    repaired = set(_C) - {("388610", "2023-07-24")}
+    v = positive_control_verdict(_C, confirmed_keys=set(), nonmatched_keys=set(),
+                                 repaired_keys=repaired)
+    assert v["ok"] is False
+    assert v["failed"] == [["388610", "2023-07-24"]]
+
+
+def test_control_repaired_but_still_size_mismatch_fails():
+    bad = ("232830", "2020-09-04")
+    v = positive_control_verdict(_C, confirmed_keys=set(), nonmatched_keys={bad},
+                                 repaired_keys=set(_C))
+    assert v["ok"] is False
+    assert v["failed"] == [list(bad)]
