@@ -20,6 +20,16 @@ psycopg, pandas) + React (web/).
 프로젝트 공통 규약은 `docs/superpowers/governance.md`(원칙 1~4, 절 ID). 임계·상수 절차는
 `docs/superpowers/threshold-change-checklist.md`. plan·spec·이슈는 규칙을 재기술하지 않고 governance 절 ID로 인용한다(4-5).
 
+## 용어집 (docs/GLOSSARY.md)
+
+`docs/GLOSSARY.md` 는 이슈·PR·코드 용어를 초보 개발자 눈높이로 풀이한 설명 전용 문서다(임계값·규칙의
+권위는 thresholds.py·프롬프트·governance.md). 운용 규칙:
+
+1. 대화·작업 중 사용자가 어려운 용어의 설명을 요청하면, 답변과 함께 그 용어를 이 문서에 **기록·갱신**한다
+   (주제별 묶음, 비유 금지, 실제 값이 든 예시, 항목 끝 `출처:`).
+2. 이후 그 용어를 설명할 때는 이 문서의 정의를 **기준으로** 풀어 쓴다. 문서와 코드·프롬프트가 어긋나면
+   코드·프롬프트가 맞고 문서를 고친다.
+
 ## SSOT 패턴
 
 책-유래 임계는 `kr_pipeline/common/thresholds.py` 가 단일 정의. Python 은 import,
