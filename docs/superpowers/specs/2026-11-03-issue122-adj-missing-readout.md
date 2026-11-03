@@ -209,7 +209,7 @@ corporate_actions 목록에 조정성 공시가 있으나 구조화 상세 0 —
 | 결과 | `data/verification/issue122_adj_reload_20261103_211552.json` |
 
 재판독(`scripts/issue122_adj_missing_audit.py`, 적용 후): matched 1,376 → **1,394(+18)**, **누락 확정 0**. 나머지 불변 — 미확정 10(§6 심판 완료)·확인 불가 32·pending 3·size_mismatch 31.
-양성 대조군(221800·232830·388610)은 수리됐으므로 "missing 검출" 경로로는 통과할 수 없다 → 판정을 두 경로로 확장(`positive_control_verdict`): missing 으로 검출되거나, `adj_factor_events` 에 그 날짜 재적재 기록이 있고 비-matched 분류에 남아 있지 않으면 통과. 재적재 기록 없이 사라지면 여전히 종료 코드 2. 이번 실행은 3건 모두 `repaired` 경로 통과.
+양성 대조군(221800·232830·388610)은 수리됐으므로 "missing 검출" 경로로는 통과할 수 없다 → 판정을 두 경로로 확장(`positive_control_verdict`): `adj_factor_events` 에 그 날짜 재적재 기록이 있으면 matched 로 *평가돼 있어야* 통과(평가 누락·비-matched·missing 잔존은 실패), 기록이 없으면 missing 으로 검출돼야 통과. 기록 없이 사라지면 여전히 종료 코드 2. 이번 실행은 3건 모두 `repaired` 경로 통과.
 
 **재계산하지 않은 것(사용자 결정, §5 종결 판단·PR #249 본문)**: 전 종목 과거 RS(bt_rs) 횡단면, 과거 `minervini_pass` 횡단면 플래그, 저장된 과거 판정(078860 백테스트 27셀·009310 주말분류 5건은 오염 표기만 유지). 이 범위는 #124.
 

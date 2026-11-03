@@ -360,8 +360,8 @@ def test_missing_or_invalid_fields_are_skipped_without_error():
 
 # ---- positive_control_verdict ---------------------------------------------
 # 양성 대조군(검출기가 반드시 찾아야 하는 기지 누락 3건)은 #122 재적재 후 matched 로 바뀐다.
-# 재적재 기록(adj_factor_events)이 있고 비-matched 분류에 남아 있지 않으면 통과, 기록 없이
-# matched 로 사라지면(검출기 결함 가능) 실패.
+# 재적재 기록(adj_factor_events)이 있으면 matched 로 *평가돼 있어야* 통과(평가 누락·비-matched 는 실패),
+# 기록이 없으면 missing_confirmed 로 검출돼야 통과. 기록 없이 사라지면(검출기 결함 가능) 실패.
 
 from kr_pipeline.ohlcv.adj_missing_audit import positive_control_verdict  # noqa: E402
 
@@ -369,16 +369,14 @@ _C = (("221800", "2023-02-23"), ("232830", "2020-09-04"), ("388610", "2023-07-24
 
 
 def test_control_detected_as_missing_passes():
-    v = positive_control_verdict(_C, confirmed_keys=set(_C), nonmatched_keys=set(_C),
-                                 repaired_keys=set())
+    v = positive_control_verdict(_C, confirmed_keys=set(_C), matched_keys=set(), repaired_keys=set())
     assert v["ok"] is True
     assert sorted(v["detected"]) == sorted(list(k) for k in _C)
     assert v["repaired"] == []
 
 
 def test_control_repaired_and_matched_passes():
-    v = positive_control_verdict(_C, confirmed_keys=set(), nonmatched_keys=set(),
-                                 repaired_keys=set(_C))
+    v = positive_control_verdict(_C, confirmed_keys=set(), matched_keys=set(_C), repaired_keys=set(_C))
     assert v["ok"] is True
     assert v["detected"] == []
     assert sorted(v["repaired"]) == sorted(list(k) for k in _C)
@@ -386,15 +384,28 @@ def test_control_repaired_and_matched_passes():
 
 def test_control_matched_without_repair_fails():
     repaired = set(_C) - {("388610", "2023-07-24")}
-    v = positive_control_verdict(_C, confirmed_keys=set(), nonmatched_keys=set(),
-                                 repaired_keys=repaired)
+    v = positive_control_verdict(_C, confirmed_keys=set(), matched_keys=set(_C), repaired_keys=repaired)
     assert v["ok"] is False
     assert v["failed"] == [["388610", "2023-07-24"]]
 
 
-def test_control_repaired_but_still_size_mismatch_fails():
+def test_control_repaired_but_not_evaluated_fails():
+    # 상폐·시세 없음·상세 없음·expected_events 회귀로 평가 자체가 빠진 경우 — 부재 검사로는 통과하던 구멍
+    v = positive_control_verdict(_C, confirmed_keys=set(), matched_keys=set(), repaired_keys=set(_C))
+    assert v["ok"] is False
+    assert sorted(v["failed"]) == sorted(list(k) for k in _C)
+
+
+def test_control_repaired_but_still_nonmatched_fails():
     bad = ("232830", "2020-09-04")
-    v = positive_control_verdict(_C, confirmed_keys=set(), nonmatched_keys={bad},
+    v = positive_control_verdict(_C, confirmed_keys=set(), matched_keys=set(_C) - {bad},
                                  repaired_keys=set(_C))
     assert v["ok"] is False
     assert v["failed"] == [list(bad)]
+
+
+def test_control_repaired_but_still_missing_confirmed_fails():
+    # 기록은 있는데 여전히 missing_confirmed = DB 불일치(apply 실패 등) — 기록이 우선, 검출로 통과시키지 않음
+    v = positive_control_verdict(_C, confirmed_keys=set(_C), matched_keys=set(), repaired_keys=set(_C))
+    assert v["ok"] is False
+    assert sorted(v["failed"]) == sorted(list(k) for k in _C)
