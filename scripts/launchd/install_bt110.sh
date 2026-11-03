@@ -33,7 +33,8 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -c "SET lock_timeout='5s'" \
 echo "   ok: $(psql "$DATABASE_URL" -tA -c "SELECT to_regclass('backfill_control')")"
 
 echo "== ② 표본 C 워치독 제거(로드돼 있으면) — bt_loop_c 의 'profitability_cli backfill' pkill 이 110 백필을 죽이지 않게"
-if launchctl list 2>/dev/null | grep -q "com.krbyclaude.bt-c-watchdog"; then
+# launchctl print 로 판정 — `launchctl list | grep -q` 는 pipefail 하에서 grep 이 먼저 닫아 SIGPIPE → 거짓 "미로드"(2026-11-02 실측)
+if launchctl print "gui/$UIDN/com.krbyclaude.bt-c-watchdog" >/dev/null 2>&1; then
   launchctl bootout "gui/$UIDN/com.krbyclaude.bt-c-watchdog" && echo "   bootout: bt-c-watchdog"
   [ -f "$LA/com.krbyclaude.bt-c-watchdog.plist" ] && mv "$LA/com.krbyclaude.bt-c-watchdog.plist" "$LOGD/com.krbyclaude.bt-c-watchdog.plist.removed-$(date +%Y%m%d)"
 else
@@ -83,7 +84,7 @@ cat > "$LA/$LABEL.plist" <<EOF
 EOF
 launchctl bootout "gui/$UIDN/$LABEL" 2>/dev/null || true
 launchctl bootstrap "gui/$UIDN" "$LA/$LABEL.plist"
-echo "   loaded: $(launchctl list | grep "$LABEL" || echo '(실패)')"
+launchctl print "gui/$UIDN/$LABEL" >/dev/null 2>&1 && echo "   loaded: $LABEL" || { echo "   오류: $LABEL 로드 실패"; exit 1; }
 
 echo "== ⑤ 스모크(격리 로그, 비일요일/스위치 꺼짐이면 즉시 종료)"
 SMOKE=$(mktemp -d)
