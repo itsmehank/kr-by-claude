@@ -15,14 +15,14 @@
   "by_class": {
    "matched": 1295,
    "missing": 40,
-   "size_mismatch": 31,
+   "size_mismatch": 30,
    "pending": 1
   },
   "by_kind_class": {
    "cr:matched": 168,
    "cr:missing": 15,
    "cr:pending": 1,
-   "cr:size_mismatch": 26,
+   "cr:size_mismatch": 25,
    "cr_diff:matched": 4,
    "fric:matched": 619,
    "fric:missing": 5,
@@ -37,7 +37,7 @@
    "missing_unconfirmed": 10,
    "missing_unverifiable": 20,
    "pending": 1,
-   "size_mismatch": 31
+   "size_mismatch": 30
   }
  },
  "missing_confirmed": {
@@ -1524,36 +1524,6 @@
    "window_days": 256,
    "window_pass_days": 13,
    "total_pass_days": 88,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "007280",
-   "ex_date": "2016-09-19",
-   "kind": "cr",
-   "rcept_no": "20160920000219",
-   "method": "주식병합\n(출자전환주식만 병합, 기존주주 제외)",
-   "expected_ratio": 2.0738,
-   "class": "size_mismatch",
-   "status": "size_mismatch",
-   "halt_days": 65,
-   "db_jumps_near": [
-    [
-     "2016-11-23",
-     1.3489
-    ]
-   ],
-   "nearest_jump_120d": [
-    "2016-11-23",
-    1.3489,
-    65
-   ],
-   "evidence": "raw_gap_absent",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2017-10-04",
-   "window_days": 259,
-   "window_pass_days": 0,
-   "total_pass_days": 165,
    "judgments_in_window": null
   },
   {
