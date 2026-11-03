@@ -8,20 +8,22 @@
   "checked": 1147,
   "no_details": 1411,
   "no_prices": 0,
+  "future_record_dates_excluded": 0,
   "phase2_targets": 284
  },
  "events": {
   "by_class": {
-   "matched": 1292,
+   "matched": 1295,
    "missing": 40,
-   "size_mismatch": 29,
+   "size_mismatch": 31,
    "pending": 1
   },
   "by_kind_class": {
-   "cr:matched": 169,
+   "cr:matched": 168,
    "cr:missing": 15,
    "cr:pending": 1,
-   "cr:size_mismatch": 24,
+   "cr:size_mismatch": 26,
+   "cr_diff:matched": 4,
    "fric:matched": 619,
    "fric:missing": 5,
    "fric:size_mismatch": 5,
@@ -35,7 +37,7 @@
    "missing_unconfirmed": 10,
    "missing_unverifiable": 20,
    "pending": 1,
-   "size_mismatch": 29
+   "size_mismatch": 31
   }
  },
  "missing_confirmed": {
@@ -1826,6 +1828,66 @@
    "window_days": 259,
    "window_pass_days": 0,
    "total_pass_days": 20,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "054220",
+   "ex_date": "2020-05-11",
+   "kind": "cr",
+   "rcept_no": "20200629000453",
+   "method": "회생계획안에 대한 인가 전에 발행한\n52,295,547주(액면가 500원)에 대하여는 액면가 500원의 보통주 2주를 액면가 500원의 보통주 1주로 병합합니다.\n최대주주인 (주)비츠로지에이치가 보유한 보통주 3,556,187주(액면가 500원)의 경우 보유주식 전체를 무상소각합니다.\n단, 주식의 병합 및 소각으로 인하여 발생하는 1주 미만의 단주는 관리인",
+   "expected_ratio": 2.1464,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 65,
+   "db_jumps_near": [
+    [
+     "2020-07-15",
+     7.9897
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2020-07-15",
+    7.9897,
+    65
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "window_end": "2021-05-26",
+   "window_days": 260,
+   "window_pass_days": 0,
+   "total_pass_days": 14,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "054220",
+   "ex_date": "2020-05-27",
+   "kind": "cr",
+   "rcept_no": "20200629000462",
+   "method": "병합된 기존 주식 및 회생채권에서 출자전환된 신주 등 잔여 주식 전체를 대상(미발생구상채권 등이 확정되어 출자전환되는 경우도 재병합 대상에 포함)으로 액면가 500원의 보통주 35주를 액면가 500원의 보통주 1주로 재병합합니다.\n다만, 회생채권(특수관계인채권)의 출자전환된 주식은 액면가 500원의 보통주 350주를 액면가 500원의 보통주 1주로 병합합니",
+   "expected_ratio": 35.8423,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 49,
+   "db_jumps_near": [
+    [
+     "2020-07-15",
+     7.9897
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2020-07-15",
+    7.9897,
+    49
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "window_end": "2021-06-11",
+   "window_days": 260,
+   "window_pass_days": 0,
+   "total_pass_days": 14,
    "judgments_in_window": null
   },
   {

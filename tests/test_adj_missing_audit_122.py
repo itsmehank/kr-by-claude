@@ -284,29 +284,64 @@ def test_is_pending_when_match_window_exceeds_last_price_date():
     assert is_pending(date(2026, 10, 20), "fric", last, extra_days=30) is True
 
 
-@pytest.mark.parametrize("method", [
-    "(주)디에이치오토리드 대상으로 2025년 2월 3일 채권변제 출자전환된 보통주 21,154,625주에 대하여 9:1 병합",
-    "채권단 보유주식 및 자사주에 대하여 2:1 주식병합(무상감자)",
-    "최대주주 한국공작기계(주) 보유주식 4,028,000주에 대해 보통주 3주를 보통주 1주로 병합",
+# DB 원문 그대로(개행 포함) 고정 — 리뷰 R1 ④·R2 ①②⑥
+_CR_EXCLUDED = [
+    "(주)디에이치오토리드 대상으로 2025년 2월 3일 채권변제 출자전환된 보통주 21,154,625주에 대하여 9:1 병합\n-주식 병합시 발생하는 1주 미만의 단주는 회생계획에 따라 무상 소각",
+    "채권단 보유주식 및 자사주에 대하여 \n2:1 주식병합(무상감자)",
+    "- 최대주주 한국공작기계(주) 보유주식 4,028,000주, 특수관계자인 일흥금속(주) 보유주식 285,587주, 대표이사 류흥목 보유주식 12,386주에 대해 각 각 액면가 500원의 보통주 3주를 액면가 500원의 보통주 1주로 병합\n\n- 일반주주는 감자 해당없음",
+    "최대주주 및 채권단의 주식은 기명식 보통주 2주를 동일한 액면주식 1주로 무상병합. (소액주주[자사주 포함] 및 우선주는 감자대상에서 제외)",
     "출자전환으로 발행하는 신주에 대하여 5주를 1주로 병합",
+    "1주의 액면금액 500원의 보통주식 2주를 동일 액면금액의 보통주식 1주로 무상 병합합니다. 단. 무상병합되는 주식대상은 대주주 지분 26,000,000주에 대해서만 무상 병합합니다.",
     "분할과 동시에 10주를 1주로 병합 — 주식수 변동 없음",
     "차등감자: 대주주 등은 10:1",
-    "케이에스에프선박금융 보유 1주를 제외한 주식 1주당 액면 감액",
-])
-def test_cr_partial_or_non_price_consolidations_are_excluded(method):
-    from kr_pipeline.ohlcv.adj_missing_audit import cr_is_consolidation
-    assert cr_is_consolidation(method) is False
-
-
-@pytest.mark.parametrize("method", [
-    "제1차 자본감소 및 회생담보권과 회생채권의 출자전환 후, 잔여 주식 전체를 대상으로 보통주 4주를 1주로 병합",
-    "기존주식 및 회생채권의 출자전환으로 발행된 신주를 대상으로 보통주 각 3주를 보통주 각 1주로 병합",
+    "케이에스에프선박금융(주) 보유주식 1주를 제외한 투자자의 주식 전부 소각,소각대금 지급액은 1주당 5,000원",
+    "자기주식 소각", "액면금액 감소(5,000원->500원)",
+]
+_CR_ALL_HOLDERS = [
+    "제1차 자본감소 및 회생담보권과 회생채권의 출자전환 후, 잔여 주식 전체를 대상으로 액면가 500원의 보통주 4주를 액면가 500원의 보통주 1주로 병합합니다.",
+    "기존주식 및 회생담보권, 회생채권의 출자전환으로 발행된 신주를 대상(미발생구상채권 등이 확정되어 출자전환 되는 경우도 병합 대상에 포함)으로 주식 병합을 실시합니다. 주식 병합비율은 기존주식 보통주 각 3주를 보통주 각 1주로 병합하고",
     "기명식 보통주 15주를 동일한 액면주식 1주로 무상병합",
     "10:1 주식병합\n(액면가액 500원의 기명식 보통주식 10주를 같은 액면주식 1주로 무상감자)",
-])
+    # 054220 — 단서 조항에 특수관계/최대주주가 나와도 '잔여 주식 전체'·'인가 전 발행 주식' 대상 = 전체 주주(R2 ①)
+    "병합된 기존 주식 및 회생채권에서 출자전환된 신주 등 잔여 주식 전체를 대상(미발생구상채권 등이 확정되어 출자전환되는 경우도 재병합 대상에 포함)으로 액면가 500원의 보통주 35주를 액면가 500원의 보통주 1주로 재병합합니다.\n다만, 회생채권(특수관계인채권)의 출자전환된 주식은 액면가 500원의 보통주 350주를 액면가 500원의 보통주 1주로 병합합니",
+    "회생계획안에 대한 인가 전에 발행한\n52,295,547주(액면가 500원)에 대하여는 액면가 500원의 보통주 2주를 액면가 500원의 보통주 1주로 병합합니다.\n최대주주인 (주)비츠로지에이치가 보유한 보통주 3,556,187주(액면가 500원)의 경우 보유주식 전체를 무상소각합니다.\n단, 주식의 병합 및 소각으로 인하여 발생하는 1주 미만의 단주는 관리인",
+]
+# 차등감자인데 기타주주도 병합 — 참조는 조정하지만 소액주주 비율은 미파싱 → 존재만 검사(R2 ②)
+_CR_DIFFERENTIAL = [
+    "주식병합방식의 차등감자\n(최대주주 특수관계인 오세영 주식은 보통주 2주를 1주로 병합, 그 외 주주 주식은 보통주 1.5주를 1주로 병합)",
+    "차등감자\n(대주주 등은 100:1, 기타주주는 2:1)",
+    "- 최대주주와 기타주주간에 차등감자\n- 최대주주 KC그린홀딩스 주식회사 소유주식 26,948,235 주 전부에 대하여는 임의/무상 소각하여 감자\n- 기타주주 보유주식 37,266,094주에 대하여 액면가 500 원의 기명식 보통주 2주를 액면가 500 원의 기명식 보통주 1주로 병합하여 감자 (2:1)",
+    "액면가 500원의 보통주식에 대하여\n1. 최대주주가 감자전 보유하는 10,590,000주는 감자 후 353,000주로(감자비율 30:1)\n2. 그외 주주들이 보유하는 보통주식 48,581,967주는 감자 후 2,429,098주로(감자비율 20:1) 병합하는 차등무상감자.",
+]
+
+
+@pytest.mark.parametrize("method", _CR_EXCLUDED)
+def test_cr_partial_or_non_price_consolidations_are_excluded(method):
+    from kr_pipeline.ohlcv.adj_missing_audit import cr_class
+    assert cr_class(method) is None
+
+
+@pytest.mark.parametrize("method", _CR_ALL_HOLDERS)
 def test_cr_all_shareholder_consolidations_are_included(method):
-    from kr_pipeline.ohlcv.adj_missing_audit import cr_is_consolidation
-    assert cr_is_consolidation(method) is True
+    from kr_pipeline.ohlcv.adj_missing_audit import cr_class
+    assert cr_class(method) == "all"
+
+
+@pytest.mark.parametrize("method", _CR_DIFFERENTIAL)
+def test_cr_differential_with_minority_consolidation_is_presence_only(method):
+    from kr_pipeline.ohlcv.adj_missing_audit import cr_class
+    assert cr_class(method) == "diff"
+
+
+def test_cr_differential_event_has_no_expected_ratio_and_checks_presence():
+    dates = _dates(date(2024, 6, 1), 120)
+    det = [{"endpoint": "crDecsn", "record_date": date(2024, 6, 26), "ratio": 0.705,
+            "method": _CR_DIFFERENTIAL[1], "rcept_no": "x"}]
+    (ex, r, kind, _), = expected_events(dates, det)
+    assert kind == "cr_diff" and r is None and ex == date(2024, 6, 25)
+    # 009410 실측: 2024-07-12 factor 2.0 → 존재만으로 matched, 소형 점프는 무시
+    assert match_expected(ex, None, "cr_diff", [(date(2024, 7, 12), 2.0)]) == "matched"
+    assert match_expected(ex, None, "cr_diff", [(date(2024, 7, 12), 1.02)]) == "missing"
 
 
 def test_missing_or_invalid_fields_are_skipped_without_error():

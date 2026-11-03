@@ -92,7 +92,7 @@ def main() -> int:
     by_class: Counter = Counter()
     by_kind_class: Counter = Counter()
     by_status: Counter = Counter()
-    checked = no_details = no_prices = 0
+    checked = no_details = no_prices = future_rd = 0
     with psycopg.connect(DB) as conn:
         conn.read_only = True               # 세션 전체 읽기 전용(트랜잭션 속성 — 리뷰 R1 ①)
         cur = conn.cursor()
@@ -119,6 +119,8 @@ def main() -> int:
                 continue
             checked += 1
             dates = [d for d, _ in closes]
+            future_rd += sum(1 for x in details               # 집계 밖(미래 기준일, R2 ③)
+                             if x["record_date"] and x["record_date"] > dates[-1])
             jumps = db_factor_jumps(closes, adj)
             passes: dict[date, bool] | None = None
             for ex, r_exp, kind, rc in expected_events(dates, details,
@@ -181,6 +183,7 @@ def main() -> int:
         "details_as_of": details_as_of.isoformat() if details_as_of else None,
         "universe": {"listed": len(tickers), "checked": checked,
                      "no_details": no_details, "no_prices": no_prices,
+                     "future_record_dates_excluded": future_rd,
                      "phase2_targets": len(phase2_targets)},
         "events": {"by_class": dict(by_class),
                    "by_kind_class": dict(sorted(by_kind_class.items())),

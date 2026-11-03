@@ -28,18 +28,23 @@ CR_SIZE_TOL = 1.5        # 감자 배율(cr_rt_ostk)은 단주·차등 탓 근�
 CR_JUMP_MIN = 1.10       # 감자 조정으로 인정할 참조 점프 최소 크기(자사주 소각 ~1% 잔점프 제외)
 HALT_MAX = 90            # 거래정지 창 연장 상한(일)
 _CR_CONSOLIDATION = re.compile(r"병합|\d+\s*:\s*1|\d+\s*주를.{0,40}?1\s*주로")
-# 일부 주주 한정(최대주주·채권단·차등) 또는 주식수 불변 병합 = 소액주주 가격 무영향(리뷰 R1 ④)
-_CR_PARTIAL = re.compile(r"최대주주|채권단|특수관계|차등|주식수\s*변동\s*없음")
-# 출자전환 주식만 병합(000300·078130) vs 전체 주주 병합(219750·080720 — '전체·기존주식' 명시)
-_CR_CONVERTED_ONLY = re.compile(r"출자전환(된|으로\s*발행)[^.]{0,40}?(에\s*대하여|대상)")
+# 소액·일반주주 명시 제외 → 가격 무영향(002780·073010)
+_CR_MINORITY_EXEMPT = re.compile(r"(일반|소액)\s*주주[^.\n]{0,30}(제외|해당\s*없음)")
+# 차등감자인데 기타주주도 병합 — 참조는 조정하나 소액주주 비율 미파싱(000040·009410·119650·241820)
+_CR_DIFFERENTIAL = re.compile(r"(그\s*외|기타|일반|소액)\s*주주")
+# 전체 주주 명시 — 단서 조항에 최대주주/특수관계가 나와도 전체(054220·219750·080720, R2 ①)
 _CR_ALL = re.compile(r"전체|기존\s*주식|잔여\s*주식|모든\s*주")
+# 일부 주주 한정(최대주주·대주주·채권단·차등) 또는 주식수 불변 병합(리뷰 R1 ④)
+_CR_PARTIAL = re.compile(r"최대주주|대주주|채권단|특수관계|차등|주식수\s*변동\s*없음")
+# 출자전환 주식만 병합(000300·078130)
+_CR_CONVERTED_ONLY = re.compile(r"출자전환(된|으로\s*발행)[^.]{0,40}?(에\s*대하여|대상)")
 GAP_MIN = 1.25           # raw 갭 확인 가능 최소 배율(|log r| ≥ log 1.25 — 일중 잡음 밖)
 GAP_TOL = 1.4            # raw 갭 ↔ 기대 배율 허용(v2 match_tol 동형 — 당일 수익률 잔차)
 
 
 def _match_window(kind: str, tol_days: int = TOL_DAYS,
                   extra_days: int = 0) -> tuple[int, int]:
-    lo, hi = CR_WINDOW if kind == "cr" else (-tol_days, tol_days)
+    lo, hi = CR_WINDOW if kind.startswith("cr") else (-tol_days, tol_days)
     return lo, hi + max(0, min(extra_days, HALT_MAX))
 
 
@@ -57,21 +62,32 @@ def resume_offset(closes: list[tuple[date, float]], ex: date) -> int:
     return 0
 
 
-def cr_is_consolidation(method: str | None) -> bool:
-    """감자 중 **전체 주주** 주식병합(N:1)만 참조 가격 조정 대상.
+def cr_class(method: str | None) -> str | None:
+    """감자 method 분류 — "all"(전체 주주 주식병합: 배율 1/(1−r) 로 크기까지 검사) /
+    "diff"(차등감자인데 기타주주도 병합: 참조는 조정하나 소액주주 비율 미파싱 →
+    존재만 검사) / None(가격 무영향 또는 검사 범위 밖).
 
-    제외: 자기주식 소각(회사 보유분)·액면금액 감액(주식수 불변)·차등감자/최대주주·
-    채권단 한정 병합·출자전환 주식만 병합·주식수 변동 없는 분할 병합.
+    None: 자기주식 소각(회사 보유분)·액면금액 감액(주식수 불변)·최대주주/대주주/채권단
+    한정 병합·소액주주 명시 제외·출자전환 주식만 병합·주식수 변동 없는 분할 병합.
     검사 범위 밖(본 설계로 검사 불가): 전 주주 비례 유상/무상 소각 — 배율이
     1/(1−r) 이 아니라 환급액 반영식(097780·017810·138360·217820 실측).
-    휴리스틱 분류기 — 실측 문자열을 테스트에 고정(리뷰 R1 ④)."""
+    휴리스틱 분류기 — DB 원문을 테스트에 고정(리뷰 R1 ④·R2 ①②)."""
     if not method or _CR_CONSOLIDATION.search(method) is None:
-        return False
-    if _CR_PARTIAL.search(method):
-        return False
-    if _CR_CONVERTED_ONLY.search(method) and not _CR_ALL.search(method):
-        return False
-    return True
+        return None
+    if _CR_MINORITY_EXEMPT.search(method):
+        return None
+    if _CR_DIFFERENTIAL.search(method):
+        return "diff"
+    if _CR_ALL.search(method):
+        return "all"
+    if _CR_PARTIAL.search(method) or _CR_CONVERTED_ONLY.search(method):
+        return None
+    return "all"
+
+
+def cr_is_consolidation(method: str | None) -> bool:
+    """전체 주주 주식병합 여부(cr_class == "all")."""
+    return cr_class(method) == "all"
 
 
 def expected_events(dates: list[date], details: list[dict], *,
@@ -79,8 +95,9 @@ def expected_events(dates: list[date], details: list[dict], *,
                     ) -> list[tuple[date, float | None, str, str]]:
     """DART 상세 → [(권리락일, 기대 배율 | None, kind, rcept_no)] 정렬.
 
-    kind ∈ fric(무상·유무상 무상분) / stkdp(주식배당) / cr(감자) / piic(주주배정
-    유상 — 배율 None = 존재만 검사). dates 는 해당 종목 거래일 오름차순.
+    kind ∈ fric(무상·유무상 무상분) / stkdp(주식배당) / cr(전체 주주 병합 감자) /
+    cr_diff(차등감자 중 기타주주 병합 — 배율 None) / piic(주주배정 유상 — 배율 None =
+    존재만 검사). dates 는 해당 종목 거래일 오름차순.
     market_dates(시장 전체 거래일)가 있으면 기준일 직전 공백을 휴장(시장도 닫힘 →
     k−1 유지)과 정지(시장은 열림, 종목만 결측 → 재개일)로 구분한다. 없으면 v3 동형
     7일 규칙(2017 추석 10일 휴장을 정지로 오인 — 049080, 리뷰 R1 ②).
@@ -100,9 +117,10 @@ def expected_events(dates: list[date], details: list[dict], *,
             ratio = det.get("ratio")
             if ratio is None or not (0 < ratio < 1):
                 continue
-            if not cr_is_consolidation(det.get("method")):
-                continue                    # 자사주 소각·액면감액·차등감자 = 가격 무영향
-            cands.append(("cr", rd, rc, det))
+            cc = cr_class(det.get("method"))
+            if cc is None:
+                continue                    # 자사주 소각·액면감액·일부 주주 한정 = 가격 무영향
+            cands.append(("cr" if cc == "all" else "cr_diff", rd, rc, det))
         elif ep == "stkdpDecsn":
             ratio = det.get("ratio")
             if ratio is None or ratio <= 0:
@@ -148,6 +166,8 @@ def expected_events(dates: list[date], details: list[dict], *,
             ex = dates[k - 2]               # 연말 결산: 폐장일 직전 거래일
         if kind == "cr":
             r = 1.0 / (1.0 - float(det["ratio"]))
+        elif kind == "cr_diff":
+            r = None                        # 소액주주 비율 미파싱 — 존재만
         elif kind in ("fric", "stkdp"):
             r = 1.0 / (1.0 + float(det["ratio"]))
         else:
@@ -166,7 +186,7 @@ def match_expected(ex: date, r_exp: float | None, kind: str,
     extra_days(거래정지 재개까지 일수)만큼 앞쪽 창을 더 연장한다."""
     lo, hi = _match_window(kind, tol_days, extra_days)
     near = [(d, r) for d, r in jumps if lo <= (d - ex).days <= hi and r > 0]
-    if kind == "cr":
+    if kind.startswith("cr"):
         near = [(d, r) for d, r in near if abs(math.log(r)) >= math.log(CR_JUMP_MIN)]
         size_tol = CR_SIZE_TOL
     if not near:
