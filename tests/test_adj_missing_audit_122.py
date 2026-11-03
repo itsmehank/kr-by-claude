@@ -244,3 +244,79 @@ def test_cr_counts_jumps_of_ten_percent_or_more():
     # 043590 실측: 4주→3주 병합, 참조 점프 1.22 (기대 1.33) — 조정 있음
     assert match_expected(ex, 1.3333, "cr", [(ex, 1.22)]) == "matched"
     assert match_expected(ex, 1.3333, "cr", [(ex, 1.05)]) == "missing"
+
+
+# ---- 리뷰 R1 반영: 휴장 vs 정지, 미래 기준일, 감자 부분 병합, 결측 필드 ---------
+
+def test_holiday_gap_keeps_previous_trading_day_as_ex_date():
+    # 049080 실측: 기준일 2017-10-08(일), 추석 휴장 09-30~10-09 → 권리락 09-29
+    market = [d for d in _dates(date(2017, 9, 1), 60)
+              if not (date(2017, 9, 30) <= d <= date(2017, 10, 9))]
+    det = [{"endpoint": "fricDecsn", "record_date": date(2017, 10, 8), "ratio": 1.0,
+            "method": None, "rcept_no": "x"}]
+    (ex, *_), = expected_events(market, det, market_dates=market)
+    assert ex == date(2017, 9, 29)
+
+
+def test_trading_halt_moves_ex_date_to_resume_day_when_market_was_open():
+    market = _dates(date(2024, 1, 1), 60)
+    ex_expected = market[30]
+    ticker_dates = market[:20] + market[30:]          # 10 거래일 결측 = 정지
+    det = [{"endpoint": "fricDecsn", "record_date": market[25], "ratio": 1.0,
+            "method": None, "rcept_no": "x"}]
+    (ex, *_), = expected_events(ticker_dates, det, market_dates=market)
+    assert ex == ex_expected
+
+
+def test_record_date_after_last_price_is_skipped_as_pending():
+    dates = _dates(date(2026, 9, 1), 40)
+    det = [{"endpoint": "fricDecsn", "record_date": dates[-1] + timedelta(days=3),
+            "ratio": 1.0, "method": None, "rcept_no": "x"}]
+    assert expected_events(dates, det) == []
+
+
+def test_is_pending_when_match_window_exceeds_last_price_date():
+    from kr_pipeline.ohlcv.adj_missing_audit import is_pending
+    last = date(2026, 10, 30)
+    assert is_pending(date(2026, 10, 28), "fric", last) is True       # +5일 창 미완
+    assert is_pending(date(2026, 10, 20), "fric", last) is False
+    assert is_pending(date(2026, 9, 1), "cr", last) is True           # +90일 창 미완
+    assert is_pending(date(2026, 10, 20), "fric", last, extra_days=30) is True
+
+
+@pytest.mark.parametrize("method", [
+    "(주)디에이치오토리드 대상으로 2025년 2월 3일 채권변제 출자전환된 보통주 21,154,625주에 대하여 9:1 병합",
+    "채권단 보유주식 및 자사주에 대하여 2:1 주식병합(무상감자)",
+    "최대주주 한국공작기계(주) 보유주식 4,028,000주에 대해 보통주 3주를 보통주 1주로 병합",
+    "출자전환으로 발행하는 신주에 대하여 5주를 1주로 병합",
+    "분할과 동시에 10주를 1주로 병합 — 주식수 변동 없음",
+    "차등감자: 대주주 등은 10:1",
+    "케이에스에프선박금융 보유 1주를 제외한 주식 1주당 액면 감액",
+])
+def test_cr_partial_or_non_price_consolidations_are_excluded(method):
+    from kr_pipeline.ohlcv.adj_missing_audit import cr_is_consolidation
+    assert cr_is_consolidation(method) is False
+
+
+@pytest.mark.parametrize("method", [
+    "제1차 자본감소 및 회생담보권과 회생채권의 출자전환 후, 잔여 주식 전체를 대상으로 보통주 4주를 1주로 병합",
+    "기존주식 및 회생채권의 출자전환으로 발행된 신주를 대상으로 보통주 각 3주를 보통주 각 1주로 병합",
+    "기명식 보통주 15주를 동일한 액면주식 1주로 무상병합",
+    "10:1 주식병합\n(액면가액 500원의 기명식 보통주식 10주를 같은 액면주식 1주로 무상감자)",
+])
+def test_cr_all_shareholder_consolidations_are_included(method):
+    from kr_pipeline.ohlcv.adj_missing_audit import cr_is_consolidation
+    assert cr_is_consolidation(method) is True
+
+
+def test_missing_or_invalid_fields_are_skipped_without_error():
+    dates = _dates(date(2024, 1, 1), 60)
+    rd = date(2024, 2, 1)
+    det = [
+        {"endpoint": "crDecsn", "record_date": rd, "ratio": None, "method": "5:1 병합", "rcept_no": "a"},
+        {"endpoint": "crDecsn", "record_date": rd, "ratio": 1.2, "method": "5:1 병합", "rcept_no": "b"},
+        {"endpoint": "piicDecsn", "record_date": rd, "ratio": 0.1, "method": None, "rcept_no": "c"},
+        {"endpoint": "fricDecsn", "record_date": rd, "ratio": None, "method": None, "rcept_no": "d"},
+        {"endpoint": "pifricDecsn", "record_date": rd, "ratio": None, "method": None, "rcept_no": "e"},
+    ]
+    assert expected_events(dates, det) == []

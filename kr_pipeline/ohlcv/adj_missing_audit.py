@@ -27,7 +27,12 @@ EXACT_KINDS = ("fric", "stkdp", "cr")
 CR_SIZE_TOL = 1.5        # 감자 배율(cr_rt_ostk)은 단주·차등 탓 근사 — 실측 p75 1.17·p90 1.83
 CR_JUMP_MIN = 1.10       # 감자 조정으로 인정할 참조 점프 최소 크기(자사주 소각 ~1% 잔점프 제외)
 HALT_MAX = 90            # 거래정지 창 연장 상한(일)
-_CR_CONSOLIDATION = re.compile(r"병합|\d+\s*:\s*1|\d+\s*주를.{0,40}?1\s*주")
+_CR_CONSOLIDATION = re.compile(r"병합|\d+\s*:\s*1|\d+\s*주를.{0,40}?1\s*주로")
+# 일부 주주 한정(최대주주·채권단·차등) 또는 주식수 불변 병합 = 소액주주 가격 무영향(리뷰 R1 ④)
+_CR_PARTIAL = re.compile(r"최대주주|채권단|특수관계|차등|주식수\s*변동\s*없음")
+# 출자전환 주식만 병합(000300·078130) vs 전체 주주 병합(219750·080720 — '전체·기존주식' 명시)
+_CR_CONVERTED_ONLY = re.compile(r"출자전환(된|으로\s*발행)[^.]{0,40}?(에\s*대하여|대상)")
+_CR_ALL = re.compile(r"전체|기존\s*주식|잔여\s*주식|모든\s*주")
 GAP_MIN = 1.25           # raw 갭 확인 가능 최소 배율(|log r| ≥ log 1.25 — 일중 잡음 밖)
 GAP_TOL = 1.4            # raw 갭 ↔ 기대 배율 허용(v2 match_tol 동형 — 당일 수익률 잔차)
 
@@ -53,20 +58,37 @@ def resume_offset(closes: list[tuple[date, float]], ex: date) -> int:
 
 
 def cr_is_consolidation(method: str | None) -> bool:
-    """감자 중 전체 주주 주식병합(N:1)만 참조 가격 조정 대상. 자기주식 소각(회사
-    보유분)·액면금액 감액(주식수 불변)·차등감자(대주주 한정)는 조정 없음."""
-    return bool(method) and _CR_CONSOLIDATION.search(method) is not None
+    """감자 중 **전체 주주** 주식병합(N:1)만 참조 가격 조정 대상.
+
+    제외: 자기주식 소각(회사 보유분)·액면금액 감액(주식수 불변)·차등감자/최대주주·
+    채권단 한정 병합·출자전환 주식만 병합·주식수 변동 없는 분할 병합.
+    검사 범위 밖(본 설계로 검사 불가): 전 주주 비례 유상/무상 소각 — 배율이
+    1/(1−r) 이 아니라 환급액 반영식(097780·017810·138360·217820 실측).
+    휴리스틱 분류기 — 실측 문자열을 테스트에 고정(리뷰 R1 ④)."""
+    if not method or _CR_CONSOLIDATION.search(method) is None:
+        return False
+    if _CR_PARTIAL.search(method):
+        return False
+    if _CR_CONVERTED_ONLY.search(method) and not _CR_ALL.search(method):
+        return False
+    return True
 
 
-def expected_events(dates: list[date], details: list[dict]
+def expected_events(dates: list[date], details: list[dict], *,
+                    market_dates: list[date] | None = None,
                     ) -> list[tuple[date, float | None, str, str]]:
     """DART 상세 → [(권리락일, 기대 배율 | None, kind, rcept_no)] 정렬.
 
     kind ∈ fric(무상·유무상 무상분) / stkdp(주식배당) / cr(감자) / piic(주주배정
     유상 — 배율 None = 존재만 검사). dates 는 해당 종목 거래일 오름차순.
+    market_dates(시장 전체 거래일)가 있으면 기준일 직전 공백을 휴장(시장도 닫힘 →
+    k−1 유지)과 정지(시장은 열림, 종목만 결측 → 재개일)로 구분한다. 없으면 v3 동형
+    7일 규칙(2017 추석 10일 휴장을 정지로 오인 — 049080, 리뷰 R1 ②).
+    기준일이 마지막 가격일 이후면 제외(pending — 창 자체가 미완, 리뷰 R1 ③).
     """
     if not dates:
         return []
+    mk = sorted(market_dates) if market_dates else None
     cands: list[tuple[str, date, str, dict]] = []
     for det in details:
         rd = det.get("record_date")
@@ -108,10 +130,15 @@ def expected_events(dates: list[date], details: list[dict]
     out: list[tuple[date, float | None, str, str]] = []
     for kind, rd, rc, det in picked:
         k = bisect.bisect_left(dates, rd)
-        if k == 0 or k > len(dates):
-            continue
+        if k == 0 or rd > dates[-1]:
+            continue                        # 가격 범위 밖(과거) / 미래 기준일 = pending
         ex = dates[k - 1]
-        if (rd - ex).days > 7:              # 정지 스팬 — 조정 반영은 재개일
+        if mk is not None:
+            i0, i1 = bisect.bisect_right(mk, ex), bisect.bisect_left(mk, rd)
+            halted = i1 > i0                # (ex, rd) 사이 시장 거래일 존재 = 종목만 결측
+        else:
+            halted = (rd - ex).days > 7
+        if halted:                          # 정지 스팬 — 조정 반영은 재개일
             if k > len(dates) - 1:
                 continue
             ex = dates[k]
@@ -149,6 +176,12 @@ def match_expected(ex: date, r_exp: float | None, kind: str,
     if any(abs(math.log(r) - math.log(r_exp)) <= math.log(size_tol) for _, r in near):
         return "matched"
     return "size_mismatch"
+
+
+def is_pending(ex: date, kind: str, last_date: date, *, extra_days: int = 0) -> bool:
+    """대조 창의 끝이 마지막 가격일을 넘으면 판정 보류(missing 으로 세지 않음)."""
+    _, hi = _match_window(kind, extra_days=extra_days)
+    return last_date < ex + timedelta(days=hi)
 
 
 def raw_gap_evidence(closes: list[tuple[date, float]], ex: date,

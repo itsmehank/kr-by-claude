@@ -1,7 +1,7 @@
 {
  "issue": 122,
  "generated": "2026-11-03",
- "method": "corp_action_details 기준일 → 권리락일(v3 동형, 대형 갭 억제 없음) vs daily_prices adj/raw factor 점프(±5일, 크기 log 1.15) 대조. 읽기 전용, KRX 0·DART 0.",
+ "method": "corp_action_details 기준일 → 권리락일(v3 동형, 대형 갭 억제 없음, 휴장/정지 구분, 정지 중 권리락은 재개일 연장) vs daily_prices adj/raw factor 점프(±5일·감자 [−7,+90], 크기 log 1.15·감자 1.5) 대조. 읽기 전용, KRX 0·DART 0.",
  "details_as_of": "2026-08-20",
  "universe": {
   "listed": 2558,
@@ -12,16 +12,18 @@
  },
  "events": {
   "by_class": {
-   "matched": 1295,
-   "missing": 48,
-   "size_mismatch": 37
+   "matched": 1292,
+   "missing": 40,
+   "size_mismatch": 29,
+   "pending": 1
   },
   "by_kind_class": {
-   "cr:matched": 173,
-   "cr:missing": 22,
-   "cr:size_mismatch": 32,
-   "fric:matched": 618,
-   "fric:missing": 6,
+   "cr:matched": 169,
+   "cr:missing": 15,
+   "cr:pending": 1,
+   "cr:size_mismatch": 24,
+   "fric:matched": 619,
+   "fric:missing": 5,
    "fric:size_mismatch": 5,
    "piic:matched": 275,
    "piic:missing": 17,
@@ -30,9 +32,10 @@
   },
   "by_status": {
    "missing_confirmed": 10,
-   "missing_unconfirmed": 15,
-   "missing_unverifiable": 23,
-   "size_mismatch": 37
+   "missing_unconfirmed": 10,
+   "missing_unverifiable": 20,
+   "pending": 1,
+   "size_mismatch": 29
   }
  },
  "missing_confirmed": {
@@ -82,10 +85,19 @@
   ]
  },
  "positive_control": {
-  "tickers": [
-   "221800",
-   "232830",
-   "388610"
+  "events": [
+   [
+    "221800",
+    "2023-02-23"
+   ],
+   [
+    "232830",
+    "2020-09-04"
+   ],
+   [
+    "388610",
+    "2023-07-24"
+   ]
   ],
   "ok": true
  },
@@ -377,56 +389,6 @@
  ],
  "rows": [
   {
-   "ticker": "000300",
-   "ex_date": "2025-01-31",
-   "kind": "cr",
-   "rcept_no": "20250124000627",
-   "method": "(주)디에이치오토리드 대상으로 2025년 2월 3일 채권변제 출자전환된 보통주 21,154,625주에 대하여 9:1 병합\n-주식 병합시 발생하는 1주 미만의 단주는 회생계획에 따라 무상 소각",
-   "expected_ratio": 9.0009,
-   "class": "missing",
-   "status": "missing_unconfirmed",
-   "halt_days": 348,
-   "db_jumps_near": [
-    [
-     "2026-01-14",
-     2.1169
-    ]
-   ],
-   "evidence": "raw_gap_absent",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2026-02-15",
-   "window_days": 256,
-   "window_pass_days": 0,
-   "total_pass_days": 127,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "000300",
-   "ex_date": "2025-04-30",
-   "kind": "cr",
-   "rcept_no": "20250515002376",
-   "method": "2025년 05월 02일 채권변제 출자전환된 보통주 6,097,483주에 대하여 9:1 병합 - 주식 병합시 발생하는 1주 미만의 단주는 회생계획에 따라 무상소각",
-   "expected_ratio": 9.0009,
-   "class": "missing",
-   "status": "missing_unconfirmed",
-   "halt_days": 259,
-   "db_jumps_near": [
-    [
-     "2026-01-14",
-     2.1169
-    ]
-   ],
-   "evidence": "raw_gap_absent",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2026-05-15",
-   "window_days": 253,
-   "window_pass_days": 0,
-   "total_pass_days": 127,
-   "judgments_in_window": null
-  },
-  {
    "ticker": "001020",
    "ex_date": "2023-08-01",
    "kind": "piic",
@@ -437,6 +399,7 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -457,6 +420,11 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2024-01-30",
+    0.9084,
+    -35
+   ],
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -477,6 +445,7 @@
    "status": "missing_confirmed",
    "halt_days": 25,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "raw_gap_confirmed",
    "gap_date": "2026-05-08",
    "raw_gap": 13.8645,
@@ -497,6 +466,11 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2023-01-31",
+    0.9563,
+    117
+   ],
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -517,6 +491,7 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -537,6 +512,7 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -562,6 +538,11 @@
      0.9367
     ]
    ],
+   "nearest_jump_120d": [
+    "2019-11-01",
+    0.9367,
+    14
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -582,6 +563,7 @@
    "status": "missing_confirmed",
    "halt_days": 24,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "raw_gap_confirmed",
    "gap_date": "2026-05-08",
    "raw_gap": 15.4608,
@@ -602,6 +584,7 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -622,6 +605,7 @@
    "status": "missing_confirmed",
    "halt_days": 32,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "raw_gap_confirmed",
    "gap_date": "2026-05-11",
    "raw_gap": 5.0047,
@@ -652,6 +636,11 @@
      0.8174
     ]
    ],
+   "nearest_jump_120d": [
+    "2026-10-12",
+    0.8174,
+    41
+   ],
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -672,6 +661,11 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2023-03-31",
+    1.2476,
+    120
+   ],
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -679,26 +673,6 @@
    "window_days": 258,
    "window_pass_days": 8,
    "total_pass_days": 293,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "011200",
-   "ex_date": "2016-08-17",
-   "kind": "cr",
-   "rcept_no": "20160603000474",
-   "method": "최대주주 및 일부 특수관계인 보유지분 7:1 무상 소각",
-   "expected_ratio": 1.234,
-   "class": "missing",
-   "status": "missing_unverifiable",
-   "halt_days": 0,
-   "db_jumps_near": [],
-   "evidence": "n/a",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2017-09-01",
-   "window_days": 259,
-   "window_pass_days": 0,
-   "total_pass_days": 373,
    "judgments_in_window": null
   },
   {
@@ -721,6 +695,7 @@
      2.475
     ]
    ],
+   "nearest_jump_120d": null,
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -741,6 +716,7 @@
    "status": "missing_confirmed",
    "halt_days": 20,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "raw_gap_confirmed",
    "gap_date": "2025-03-06",
    "raw_gap": 8.9783,
@@ -749,26 +725,6 @@
    "window_pass_days": 0,
    "total_pass_days": 39,
    "judgments_in_window": {}
-  },
-  {
-   "ticker": "016380",
-   "ex_date": "2018-03-28",
-   "kind": "cr",
-   "rcept_no": "20180219000271",
-   "method": "채권단 보유주식 및 자사주에 대하여 \n2:1 주식병합(무상감자)",
-   "expected_ratio": 1.7986,
-   "class": "missing",
-   "status": "missing_unconfirmed",
-   "halt_days": 0,
-   "db_jumps_near": [],
-   "evidence": "raw_gap_absent",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2019-04-12",
-   "window_days": 255,
-   "window_pass_days": 0,
-   "total_pass_days": 36,
-   "judgments_in_window": null
   },
   {
    "ticker": "019490",
@@ -786,6 +742,7 @@
      0.7045
     ]
    ],
+   "nearest_jump_120d": null,
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -811,6 +768,11 @@
      1.0905
     ]
    ],
+   "nearest_jump_120d": [
+    "2019-12-24",
+    1.0905,
+    15
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -831,6 +793,7 @@
    "status": "missing_unverifiable",
    "halt_days": 1,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -851,6 +814,7 @@
    "status": "missing_unverifiable",
    "halt_days": 1,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -876,6 +840,11 @@
      0.9627
     ]
    ],
+   "nearest_jump_120d": [
+    "2026-09-22",
+    0.9627,
+    15
+   ],
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -883,31 +852,6 @@
    "window_days": 37,
    "window_pass_days": 0,
    "total_pass_days": 51,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "049080",
-   "ex_date": "2017-10-10",
-   "kind": "fric",
-   "rcept_no": "20170922000056",
-   "method": null,
-   "expected_ratio": 0.5,
-   "class": "missing",
-   "status": "missing_unconfirmed",
-   "halt_days": 0,
-   "db_jumps_near": [
-    [
-     "2017-12-27",
-     0.97
-    ]
-   ],
-   "evidence": "raw_gap_absent",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2018-10-25",
-   "window_days": 256,
-   "window_pass_days": 0,
-   "total_pass_days": 128,
    "judgments_in_window": null
   },
   {
@@ -925,6 +869,11 @@
      "2016-07-20",
      1.0973
     ]
+   ],
+   "nearest_jump_120d": [
+    "2016-07-20",
+    1.0973,
+    20
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -946,6 +895,11 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2026-05-07",
+    5.0,
+    -48
+   ],
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -970,6 +924,11 @@
      "2020-10-23",
      1.0616
     ]
+   ],
+   "nearest_jump_120d": [
+    "2020-10-23",
+    1.0616,
+    49
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -996,6 +955,11 @@
      1.0616
     ]
    ],
+   "nearest_jump_120d": [
+    "2020-10-23",
+    1.0616,
+    30
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -1021,6 +985,11 @@
      1.0409
     ]
    ],
+   "nearest_jump_120d": [
+    "2024-09-30",
+    1.0409,
+    42
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -1041,6 +1010,11 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2026-04-30",
+    22.8986,
+    -90
+   ],
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -1061,6 +1035,11 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2026-06-09",
+    2.0,
+    -80
+   ],
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -1068,31 +1047,6 @@
    "window_days": 43,
    "window_pass_days": 0,
    "total_pass_days": 87,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "073010",
-   "ex_date": "2017-02-14",
-   "kind": "cr",
-   "rcept_no": "20170321000476",
-   "method": "- 최대주주 한국공작기계(주) 보유주식 4,028,000주, 특수관계자인 일흥금속(주) 보유주식 285,587주, 대표이사 류흥목 보유주식 12,386주에 대해 각 각 액면가 500원의 보통주 3주를 액면가 500원의 보통주 1주로 병합\n\n- 일반주주는 감자 해당없음",
-   "expected_ratio": 1.4388,
-   "class": "missing",
-   "status": "missing_unconfirmed",
-   "halt_days": 675,
-   "db_jumps_near": [
-    [
-     "2018-12-21",
-     0.3803
-    ]
-   ],
-   "evidence": "raw_gap_absent",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2018-03-01",
-   "window_days": 254,
-   "window_pass_days": 0,
-   "total_pass_days": 269,
    "judgments_in_window": null
   },
   {
@@ -1111,6 +1065,11 @@
      0.9667
     ]
    ],
+   "nearest_jump_120d": [
+    "2017-05-26",
+    0.9667,
+    28
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -1118,31 +1077,6 @@
    "window_days": 251,
    "window_pass_days": 0,
    "total_pass_days": 170,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "078130",
-   "ex_date": "2024-01-05",
-   "kind": "cr",
-   "rcept_no": "20240205000285",
-   "method": "회생채권(특수관계인채권)의 출자전환으로 발행하는 신주에 대하여 액면가액 100원의 보통주 5주를 1주로 재병합하여 자본을 감소합니다. 이때 발생하는 1주 미만의 단주는 관리인이 법원의 허가를 받아 무상 소각",
-   "expected_ratio": 1.067,
-   "class": "missing",
-   "status": "missing_unverifiable",
-   "halt_days": 563,
-   "db_jumps_near": [
-    [
-     "2025-07-21",
-     0.5375
-    ]
-   ],
-   "evidence": "n/a",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2025-01-19",
-   "window_days": 253,
-   "window_pass_days": 0,
-   "total_pass_days": 128,
    "judgments_in_window": null
   },
   {
@@ -1156,6 +1090,11 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2026-05-27",
+    10.1905,
+    -104
+   ],
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -1197,6 +1136,11 @@
      0.989
     ]
    ],
+   "nearest_jump_120d": [
+    "2023-12-06",
+    0.9831,
+    -2
+   ],
    "evidence": "raw_gap_confirmed",
    "gap_date": "2023-12-27",
    "raw_gap": 19.4924,
@@ -1222,6 +1166,11 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2023-07-28",
+    0.6987,
+    -34
+   ],
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -1242,6 +1191,7 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -1267,6 +1217,7 @@
      0.289
     ]
    ],
+   "nearest_jump_120d": null,
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -1292,6 +1243,7 @@
      2.4095
     ]
    ],
+   "nearest_jump_120d": null,
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -1312,6 +1264,7 @@
    "status": "missing_confirmed",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "raw_gap_confirmed",
    "gap_date": "2023-02-23",
    "raw_gap": 0.2734,
@@ -1332,6 +1285,7 @@
    "status": "missing_confirmed",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "raw_gap_confirmed",
    "gap_date": "2017-06-22",
    "raw_gap": 0.7667,
@@ -1352,6 +1306,7 @@
    "status": "missing_confirmed",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "raw_gap_confirmed",
    "gap_date": "2020-09-04",
    "raw_gap": 0.2298,
@@ -1372,6 +1327,11 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2023-03-28",
+    0.9201,
+    -22
+   ],
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -1379,31 +1339,6 @@
    "window_days": 255,
    "window_pass_days": 12,
    "total_pass_days": 52,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "263920",
-   "ex_date": "2021-03-26",
-   "kind": "cr",
-   "rcept_no": "20210331003392",
-   "method": "최대주주 (유)키스톤앤젤스1호투자목적회사주식에대하여 '액면가500원의보통주3주'를 '액면가500원의보통주1주' 로 병합합니다. 단, 주식병합으로인하여발생되는1주미만의단주는관리인이법원의허가를받아무상소각하며, 단주의처리로인하여설립자본금이위와일치하지않을경우에는실제의신주발행결과에따릅니다.",
-   "expected_ratio": 1.2422,
-   "class": "missing",
-   "status": "missing_unverifiable",
-   "halt_days": 564,
-   "db_jumps_near": [
-    [
-     "2022-10-11",
-     0.64
-    ]
-   ],
-   "evidence": "n/a",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2022-04-10",
-   "window_days": 257,
-   "window_pass_days": 0,
-   "total_pass_days": 111,
    "judgments_in_window": null
   },
   {
@@ -1417,6 +1352,7 @@
    "status": "missing_confirmed",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "raw_gap_confirmed",
    "gap_date": "2021-02-17",
    "raw_gap": 0.2834,
@@ -1437,6 +1373,7 @@
    "status": "missing_unverifiable",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "n/a",
    "gap_date": null,
    "raw_gap": null,
@@ -1457,6 +1394,7 @@
    "status": "missing_confirmed",
    "halt_days": 0,
    "db_jumps_near": [],
+   "nearest_jump_120d": null,
    "evidence": "raw_gap_confirmed",
    "gap_date": "2023-07-24",
    "raw_gap": 0.3406,
@@ -1467,28 +1405,33 @@
    "judgments_in_window": {}
   },
   {
-   "ticker": "000300",
-   "ex_date": "2025-11-03",
+   "ticker": "080720",
+   "ex_date": "2026-05-26",
    "kind": "cr",
-   "rcept_no": "20251020000310",
-   "method": "2025년 11월03일 채권변제 출자전환된보통주 6,704,318주에 대하여 9:1병합 - 주식병합시 발생하는 1주 미만의 단주는 회생계획에 따라 무상 소각",
-   "expected_ratio": 8.9928,
-   "class": "size_mismatch",
-   "status": "size_mismatch",
-   "halt_days": 72,
+   "rcept_no": "20260811000548",
+   "method": "회생담보권, 회생채권을 출자전환함에 따라 채무자회사 자본금 규모의 적정화 및 인수자의 경영권 확보를 위하여 기존주식 및 회생담보권, 회생채권의 출자전환으로 발행된 신주를 대상(미발생구상채권 등이 확정되어 출자전환 되는 경우도 병합 대상에 포함)으로 주식 병합을 실시합니다. 주식 병합비율은 기존주식 보통주 각 3주를 보통주 각 1주로 병합하고, 출자전환으로 ",
+   "expected_ratio": 3.0003,
+   "class": "pending",
+   "status": "pending",
+   "halt_days": 94,
    "db_jumps_near": [
     [
-     "2026-01-14",
-     2.1169
+     "2026-08-28",
+     0.8844
     ]
+   ],
+   "nearest_jump_120d": [
+    "2026-08-28",
+    0.8844,
+    94
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
-   "window_end": "2026-11-18",
-   "window_days": 244,
+   "window_end": "2027-06-10",
+   "window_days": 108,
    "window_pass_days": 0,
-   "total_pass_days": 127,
+   "total_pass_days": 54,
    "judgments_in_window": null
   },
   {
@@ -1506,6 +1449,11 @@
      "2021-04-15",
      0.0518
     ]
+   ],
+   "nearest_jump_120d": [
+    "2021-04-15",
+    0.0518,
+    0
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -1532,6 +1480,11 @@
      0.8011
     ]
    ],
+   "nearest_jump_120d": [
+    "2018-05-16",
+    0.8011,
+    28
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -1556,6 +1509,11 @@
      "2019-05-17",
      0.7956
     ]
+   ],
+   "nearest_jump_120d": [
+    "2019-05-17",
+    0.7956,
+    17
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -1582,6 +1540,11 @@
      1.3489
     ]
    ],
+   "nearest_jump_120d": [
+    "2016-11-23",
+    1.3489,
+    65
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -1589,31 +1552,6 @@
    "window_days": 259,
    "window_pass_days": 0,
    "total_pass_days": 165,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "009410",
-   "ex_date": "2024-06-25",
-   "kind": "cr",
-   "rcept_no": "20240527000254",
-   "method": "차등감자\n(대주주 등은 100:1, 기타주주는 2:1)",
-   "expected_ratio": 3.3898,
-   "class": "size_mismatch",
-   "status": "size_mismatch",
-   "halt_days": 17,
-   "db_jumps_near": [
-    [
-     "2024-07-12",
-     2.0
-    ]
-   ],
-   "evidence": "raw_gap_absent",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2025-07-10",
-   "window_days": 253,
-   "window_pass_days": 0,
-   "total_pass_days": 237,
    "judgments_in_window": null
   },
   {
@@ -1631,6 +1569,11 @@
      "2020-11-24",
      1.8641
     ]
+   ],
+   "nearest_jump_120d": [
+    "2020-11-24",
+    1.8641,
+    32
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -1661,6 +1604,11 @@
      0.862
     ]
    ],
+   "nearest_jump_120d": [
+    "2021-05-20",
+    0.9434,
+    20
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -1668,31 +1616,6 @@
    "window_days": 256,
    "window_pass_days": 0,
    "total_pass_days": 172,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "010580",
-   "ex_date": "2021-08-26",
-   "kind": "cr",
-   "rcept_no": "20210824000177",
-   "method": "발행주식 64,581,636주 중  (주)코다코의 주식 6,190,902주에 대하여는 액면가 500원의 보통주3주를 1주로 병합하며, 한성안전관리(주)와 지코홀딩스(주)의 주식 128,767주에 대하여는 이를 전부 무상소각하는 차등감자",
-   "expected_ratio": 1.0705,
-   "class": "size_mismatch",
-   "status": "size_mismatch",
-   "halt_days": 53,
-   "db_jumps_near": [
-    [
-     "2021-10-18",
-     5.0
-    ]
-   ],
-   "evidence": "n/a",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2022-09-10",
-   "window_days": 256,
-   "window_pass_days": 0,
-   "total_pass_days": 118,
    "judgments_in_window": null
   },
   {
@@ -1710,6 +1633,11 @@
      "2025-02-27",
      0.8845
     ]
+   ],
+   "nearest_jump_120d": [
+    "2025-02-27",
+    0.8845,
+    27
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -1736,6 +1664,11 @@
      3.3333
     ]
    ],
+   "nearest_jump_120d": [
+    "2019-09-19",
+    3.3333,
+    21
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -1760,6 +1693,11 @@
      "2026-07-09",
      15.0
     ]
+   ],
+   "nearest_jump_120d": [
+    "2026-07-09",
+    15.0,
+    34
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -1786,6 +1724,11 @@
      2.533
     ]
    ],
+   "nearest_jump_120d": [
+    "2017-12-19",
+    2.533,
+    14
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -1793,31 +1736,6 @@
    "window_days": 256,
    "window_pass_days": 0,
    "total_pass_days": 39,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "035290",
-   "ex_date": "2020-12-15",
-   "kind": "cr",
-   "rcept_no": "20201217000112",
-   "method": " 최대주주와 특수관계인 4인의 발행주식 432,781주에 대하여 액면가액 500원의 보통주 5주를 액면가액 보통주 1주로 병합",
-   "expected_ratio": 1.1547,
-   "class": "size_mismatch",
-   "status": "size_mismatch",
-   "halt_days": 34,
-   "db_jumps_near": [
-    [
-     "2021-01-18",
-     0.1111
-    ]
-   ],
-   "evidence": "n/a",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2021-12-30",
-   "window_days": 259,
-   "window_pass_days": 0,
-   "total_pass_days": 134,
    "judgments_in_window": null
   },
   {
@@ -1835,6 +1753,11 @@
      "2024-08-23",
      0.851
     ]
+   ],
+   "nearest_jump_120d": [
+    "2024-08-23",
+    0.851,
+    119
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -1861,6 +1784,11 @@
      0.8041
     ]
    ],
+   "nearest_jump_120d": [
+    "2026-05-22",
+    0.8041,
+    22
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -1886,6 +1814,11 @@
      5.5404
     ]
    ],
+   "nearest_jump_120d": [
+    "2020-01-17",
+    5.5404,
+    65
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -1893,56 +1826,6 @@
    "window_days": 259,
    "window_pass_days": 0,
    "total_pass_days": 20,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "054220",
-   "ex_date": "2020-05-11",
-   "kind": "cr",
-   "rcept_no": "20200629000453",
-   "method": "회생계획안에 대한 인가 전에 발행한\n52,295,547주(액면가 500원)에 대하여는 액면가 500원의 보통주 2주를 액면가 500원의 보통주 1주로 병합합니다.\n최대주주인 (주)비츠로지에이치가 보유한 보통주 3,556,187주(액면가 500원)의 경우 보유주식 전체를 무상소각합니다.\n단, 주식의 병합 및 소각으로 인하여 발생하는 1주 미만의 단주는 관리인",
-   "expected_ratio": 2.1464,
-   "class": "size_mismatch",
-   "status": "size_mismatch",
-   "halt_days": 65,
-   "db_jumps_near": [
-    [
-     "2020-07-15",
-     7.9897
-    ]
-   ],
-   "evidence": "raw_gap_absent",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2021-05-26",
-   "window_days": 260,
-   "window_pass_days": 0,
-   "total_pass_days": 14,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "054220",
-   "ex_date": "2020-05-27",
-   "kind": "cr",
-   "rcept_no": "20200629000462",
-   "method": "병합된 기존 주식 및 회생채권에서 출자전환된 신주 등 잔여 주식 전체를 대상(미발생구상채권 등이 확정되어 출자전환되는 경우도 재병합 대상에 포함)으로 액면가 500원의 보통주 35주를 액면가 500원의 보통주 1주로 재병합합니다.\n다만, 회생채권(특수관계인채권)의 출자전환된 주식은 액면가 500원의 보통주 350주를 액면가 500원의 보통주 1주로 병합합니",
-   "expected_ratio": 35.8423,
-   "class": "size_mismatch",
-   "status": "size_mismatch",
-   "halt_days": 49,
-   "db_jumps_near": [
-    [
-     "2020-07-15",
-     7.9897
-    ]
-   ],
-   "evidence": "raw_gap_absent",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2021-06-11",
-   "window_days": 260,
-   "window_pass_days": 0,
-   "total_pass_days": 14,
    "judgments_in_window": null
   },
   {
@@ -1964,6 +1847,11 @@
      "2017-05-25",
      0.3797
     ]
+   ],
+   "nearest_jump_120d": [
+    "2017-03-30",
+    20.0,
+    72
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -1994,6 +1882,11 @@
      0.3797
     ]
    ],
+   "nearest_jump_120d": [
+    "2017-03-30",
+    20.0,
+    51
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -2005,52 +1898,32 @@
   },
   {
    "ticker": "073010",
-   "ex_date": "2018-11-23",
+   "ex_date": "2018-11-21",
    "kind": "cr",
-   "rcept_no": "20181211000409",
-   "method": "출자전환으로 발행하는 신주 17,634,653주에 대하여 액면가액 500원의 보통주 7주를 액면가액 500원의 보통주 2주로 병합",
-   "expected_ratio": 1.3477,
+   "rcept_no": "20181211000403",
+   "method": "발행주식 7,542,268주에 대하여 액면가액 500원의 보통주 7주를 액면가액 500원의 보통주 2주로 병합",
+   "expected_ratio": 3.4965,
    "class": "size_mismatch",
    "status": "size_mismatch",
-   "halt_days": 28,
+   "halt_days": 30,
    "db_jumps_near": [
     [
      "2018-12-21",
      0.3803
     ]
    ],
-   "evidence": "raw_gap_absent",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2019-12-08",
-   "window_days": 256,
-   "window_pass_days": 0,
-   "total_pass_days": 269,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "080720",
-   "ex_date": "2026-05-26",
-   "kind": "cr",
-   "rcept_no": "20260811000548",
-   "method": "회생담보권, 회생채권을 출자전환함에 따라 채무자회사 자본금 규모의 적정화 및 인수자의 경영권 확보를 위하여 기존주식 및 회생담보권, 회생채권의 출자전환으로 발행된 신주를 대상(미발생구상채권 등이 확정되어 출자전환 되는 경우도 병합 대상에 포함)으로 주식 병합을 실시합니다. 주식 병합비율은 기존주식 보통주 각 3주를 보통주 각 1주로 병합하고, 출자전환으로 ",
-   "expected_ratio": 3.0003,
-   "class": "size_mismatch",
-   "status": "size_mismatch",
-   "halt_days": 94,
-   "db_jumps_near": [
-    [
-     "2026-08-28",
-     0.8844
-    ]
+   "nearest_jump_120d": [
+    "2018-12-21",
+    0.3803,
+    30
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
-   "window_end": "2027-06-10",
-   "window_days": 108,
+   "window_end": "2019-12-06",
+   "window_days": 258,
    "window_pass_days": 0,
-   "total_pass_days": 54,
+   "total_pass_days": 269,
    "judgments_in_window": null
   },
   {
@@ -2068,6 +1941,11 @@
      "2020-05-29",
      5.4737
     ]
+   ],
+   "nearest_jump_120d": [
+    "2020-05-29",
+    5.4737,
+    30
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -2093,6 +1971,11 @@
      "2026-06-16",
      2.4849
     ]
+   ],
+   "nearest_jump_120d": [
+    "2026-05-07",
+    0.9425,
+    -15
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -2123,6 +2006,11 @@
      0.9518
     ]
    ],
+   "nearest_jump_120d": [
+    "2019-02-01",
+    2.1079,
+    37
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -2147,6 +2035,11 @@
      "2026-05-15",
      6.3648
     ]
+   ],
+   "nearest_jump_120d": [
+    "2026-05-15",
+    6.3648,
+    32
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -2173,6 +2066,11 @@
      5.0
     ]
    ],
+   "nearest_jump_120d": [
+    "2026-04-16",
+    5.0,
+    23
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -2180,31 +2078,6 @@
    "window_days": 150,
    "window_pass_days": 0,
    "total_pass_days": 32,
-   "judgments_in_window": null
-  },
-  {
-   "ticker": "119650",
-   "ex_date": "2025-04-30",
-   "kind": "cr",
-   "rcept_no": "20250523000219",
-   "method": "- 최대주주와 기타주주간에 차등감자\n- 최대주주 KC그린홀딩스 주식회사 소유주식 26,948,235 주 전부에 대하여는 임의/무상 소각하여 감자\n- 기타주주 보유주식 37,266,094주에 대하여 액면가 500 원의 기명식 보통주 2주를 액면가 500 원의 기명식 보통주 1주로 병합하여 감자 (2:1)",
-   "expected_ratio": 3.4459,
-   "class": "size_mismatch",
-   "status": "size_mismatch",
-   "halt_days": 30,
-   "db_jumps_near": [
-    [
-     "2025-05-30",
-     2.0
-    ]
-   ],
-   "evidence": "raw_gap_absent",
-   "gap_date": null,
-   "raw_gap": null,
-   "window_end": "2026-05-15",
-   "window_days": 253,
-   "window_pass_days": 0,
-   "total_pass_days": 90,
    "judgments_in_window": null
   },
   {
@@ -2226,6 +2099,11 @@
      "2025-08-06",
      1.3424
     ]
+   ],
+   "nearest_jump_120d": [
+    "2025-07-22",
+    1.3589,
+    28
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -2256,6 +2134,11 @@
      0.8914
     ]
    ],
+   "nearest_jump_120d": [
+    "2018-03-06",
+    2.502,
+    22
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -2281,6 +2164,11 @@
      2.5429
     ]
    ],
+   "nearest_jump_120d": [
+    "2019-08-06",
+    2.5429,
+    7
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -2305,6 +2193,11 @@
      "2025-12-08",
      5.0
     ]
+   ],
+   "nearest_jump_120d": [
+    "2025-12-08",
+    5.0,
+    31
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -2335,6 +2228,11 @@
      0.4967
     ]
    ],
+   "nearest_jump_120d": [
+    "2024-04-09",
+    0.6832,
+    103
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -2359,6 +2257,11 @@
      "2026-06-12",
      1.7855
     ]
+   ],
+   "nearest_jump_120d": [
+    "2026-06-12",
+    1.7855,
+    85
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
@@ -2385,6 +2288,11 @@
      1.2715
     ]
    ],
+   "nearest_jump_120d": [
+    "2026-05-27",
+    1.2715,
+    0
+   ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
    "raw_gap": null,
@@ -2409,6 +2317,11 @@
      "2025-08-05",
      2.4128
     ]
+   ],
+   "nearest_jump_120d": [
+    "2025-08-05",
+    2.4128,
+    35
    ],
    "evidence": "raw_gap_absent",
    "gap_date": null,
