@@ -3,6 +3,7 @@
 KOSPI / KOSDAQ 일봉 데이터 적재 파이프라인 및 후속 분석 도구.
 
 > **거시 계획서 / 현 상태 / backlog 한눈에 보기**: [`docs/PROJECT_ROADMAP.md`](docs/PROJECT_ROADMAP.md)
+> **용어집**: [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — 이슈·PR·코드에 나오는 용어(verdict, climax, pivot …)를 초보 개발자 눈높이로 풀이. 설명 전용이며 임계값의 권위는 thresholds.py·프롬프트·governance 에 있다. 대화 중 용어 설명을 요청받으면 이 문서에 기록하고, 이후 설명은 이 문서를 기준으로 한다(CLAUDE.md '용어집' 절).
 
 ## 셋업
 1. `uv sync`

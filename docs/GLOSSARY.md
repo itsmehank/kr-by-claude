@@ -1,0 +1,161 @@
+# kr-by-claude 용어집
+
+> **이 문서의 역할**: 이슈·PR·코드에 등장하는 용어를 초보 개발자도 이해할 수 있게 풀이한다.
+> 정의의 1차 출처(프롬프트·코드·책 페이지)를 항상 함께 적는다. 이 문서는 설명용이며,
+> 임계값·규칙의 권위 있는 출처는 `prompts/analyze_chart_v3.md`, `kr_pipeline/common/thresholds.py`,
+> `docs/superpowers/governance.md`다. 숫자가 바뀌면 그쪽이 맞고 이 문서를 고친다.
+>
+> **작성 규칙**: 비유 금지. 실제 값이 들어간 예시로 설명한다. 새 용어는 가나다·알파벳 순이 아니라
+> **주제별**로 묶고, 항목 끝에 `출처:`를 붙인다.
+
+---
+
+## 1. 분류 결과(verdict)
+
+### verdict (= classification)
+LLM이 종목 하나의 주봉 차트를 보고 내리는 **최종 판정값**. 값은 `entry`, `watch`, `ignore` 세 가지뿐이다.
+DB 컬럼명은 `weekly_classification.classification`이고, 코드·문서에서는 verdict라고도 부른다.
+
+| 값 | 뜻 | 다음 행동 |
+|---|---|---|
+| `entry` | 지금(약 5거래일 안에) 매수 자리다. 바닥 다지기(base)가 완성됐고 돌파 지점(pivot) 근처다. | 매수 신호 후보 |
+| `watch` | 추세 조건은 통과했지만 아직 살 자리가 아니다. 바닥 형성 중, 너무 올라 있음(extended), 시장 상황 나쁨 등. | 1~4주 뒤 재평가 |
+| `ignore` | 추세 조건을 통과했어도 **지금은 보지 않는다**. 아래 세 경우에만 허용된다. | 제외 |
+
+`ignore`가 되는 조건은 딱 세 가지다. 그 외 이유(바닥 없음, 느슨한 패턴, 후기 단계, 과열)는 전부 `watch`다.
+1. §6.1 climax(막판 폭등, 아래 참고)
+2. §6.2 topping(천장·분배, 아래 참고)
+3. §1 데이터 왜곡(최근 액면병합 뒤 깨끗한 바닥이 없어 가격 흐름을 읽을 수 없음)
+
+출처: `prompts/analyze_chart_v3.md` "Definitions", §5.1, §8.
+
+### 강등(demote) / verdict floor
+규칙이 verdict를 **더 보수적인 쪽으로만** 바꾸는 것. 순서는 entry → watch → ignore 방향으로만 움직이고
+반대로 승격은 절대 없다. 예: LLM이 `entry`를 냈는데 종가가 pivot의 허용 밴드를 넘어 있으면
+코드가 `watch`로 내린다. 이때 "floor = watch"라고 기록한다.
+
+출처: `kr_pipeline/llm_runner/gates.py` (`_most_conservative`, `verdict_floor`).
+
+### 강제(force) / force-ignore
+규칙 조건이 맞으면 LLM 판단과 무관하게 verdict를 **반드시** 특정 값으로 만드는 것.
+§6.1·§6.2는 "force-ignore gate"로, 조건이 성립하면 `ignore`가 된다.
+
+---
+
+## 2. 차트 단계(Stage)와 천장
+
+### Stage 1~4
+와인스타인/미너비니 식 주가 생애 4단계. 프롬프트가 이 틀로 차트를 읽는다.
+
+| 단계 | 모습 |
+|---|---|
+| Stage 1 | 바닥 횡보. 장기 이동평균 평탄. |
+| Stage 2 | 상승 추세. 이동평균 위에서 고점·저점이 높아짐. **매수는 여기서만.** |
+| Stage 3 | **천장(topping)·분배(distribution)**. 고점 근처에서 흔들리고 200일선 기울기가 평탄해지며 변동성 커짐. 기관이 조용히 판다. |
+| Stage 4 | 하락 추세. 가격이 하락하는 이동평균 아래. |
+
+출처: `prompts/analyze_chart_v3.md` §2 "Stage".
+
+### topping (천장, topping_distribution)
+Stage 2 상승이 끝나고 Stage 3→4로 넘어가는 **천장 국면**. 프롬프트 §6.2의 정식 패턴명은 `topping_distribution`이다.
+핵심은 "한 주 떨어졌다"가 아니라, **10주선 아래**라는 전제(G0) 위에 아래 조건 중 하나가 겹칠 때만 천장으로 본다.
+
+- **G0 (전제)**: 주간 종가가 10주 이동평균(SMA, 최근 10주 종가 평균) **아래**. 10주선 위에서 생긴 큰 조정은 흔들기(shakeout)이지 천장이 아니므로 G0가 막는다.
+- **T-A**: 상승 시작 이후 **가장 큰 주간 하락**이 이번 주.
+- **TA-d**: T-A의 일간판. 상승 시작 이후 가장 큰 **하루** 하락이 오늘.
+- **T-B**: 10주선 아래에서 **8주 연속**(상수 `TOPPING_BELOW_10W_WEEKS`) 머물고 한 번도 주간 종가로 복귀 못 함.
+- **T-C**: 40주 이동평균(≈200일선)이 긴 상승 뒤 **꺾여 내려감**.
+- **T-D**: 상승 시작 이후 **가장 큰 주간 하락 거래량**, 또는 최근 25거래일 중 **분배일(distribution day) 4일 이상**(상수 `STOCK_DISTRIBUTION_COUNT_25D`).
+
+예: 종가 12,000원, 10주선 12,800원(G0 성립), 최근 25거래일 분배일 5일(T-D 성립) → §6.2 발화 → `ignore`.
+같은 종목이 종가 13,500원으로 10주선 위라면 분배일이 5일이어도 §6.2는 침묵한다(§5.1에 따라 `watch` 강등만 가능).
+
+출처: `prompts/analyze_chart_v3.md` §6.2; O'Neil HMMS p.268~269; Minervini TTLC Ch.9.
+
+### 분배일 (distribution day)
+지수나 종목이 **전일보다 거래량이 늘면서 하락**한 날. 기관이 물량을 넘기는 날로 해석한다.
+25거래일 창에서 세며, 4일 이상이면 "기관 매도 중"으로 본다.
+
+출처: `prompts/analyze_chart_v3.md` §6 (`STOCK_DISTRIBUTION_COUNT_25D = 4`).
+
+### climax (막판 폭등, §6.1)
+긴 상승 끝에 **가장 가파른 급등 + 가장 많은 거래량**이 몰리는 주. 꼭대기 신호로 보고 `ignore`.
+topping이 "꺾인 뒤"를 보는 규칙이라면 climax는 "꺾이기 직전 과열"을 보는 규칙이다.
+
+출처: `prompts/analyze_chart_v3.md` §6.1.
+
+---
+
+## 3. 게이트·관측 용어
+
+### gate (게이트)
+LLM 출력을 받은 뒤 **코드가 결정론적으로** 다시 검사하는 규칙 한 덩어리. 결과는
+`triggered_rules` JSON 컬럼에 `{"8_5_extended_band": {...}}` 같은 키로 남는다.
+LLM이 아닌 코드가 하므로 같은 입력이면 항상 같은 결과다.
+
+출처: `kr_pipeline/llm_runner/gates.py`.
+
+### backstop (백스톱)
+앞단(LLM)이 규칙을 놓쳤을 때 뒷단(코드)이 한 번 더 잡는 장치. §6.2 천장 규칙은 프롬프트(LLM이 직접 `ignore`를 냄)와
+`gates.py`(LLM 응답을 받은 뒤 같은 조건을 다시 검사) 두 곳에 있고, 뒤쪽이 backstop이다.
+"켠다" = 코드가 verdict를 직접 고친다. "shadow" = 고치지 않고 기록만 한다(아래 항목).
+LLM과 코드가 **같은 게이트 값**을 쓰므로 backstop은 LLM이 지시를 어긴 경우에만 발화한다. 2026-07-25~10-31 라이브
+1,284행에서 0건.
+
+출처: `kr_pipeline/llm_runner/gates.py` "§6.2 topping shadow backstop"; 이슈 #44 D3, #59.
+
+### shadow 모드 / would_force
+규칙을 **켜지 않고 기록만** 하는 상태. 조건이 맞으면 verdict는 그대로 두고
+`triggered_rules`에 `"6_2_topping_shadow": {"fired": false, "shadow": true, "would_force": "ignore"}`만 적는다.
+`would_force`는 "켜져 있었다면 이렇게 강제됐을 것"이라는 뜻이다.
+
+왜 이렇게 하나: 백테스트에서 §6.2 발화 38건 중 기존 LLM `ignore`와 일치한 비율이 57.9%였고,
+불일치 16건이 전부 T-D 단독 발화였다. 바로 켜면 멀쩡한 종목을 `ignore`로 밀어낼 위험이 있어
+실전에서 얼마나 자주 발화하는지 먼저 세기로 했다(#44 → #59).
+
+현재 shadow 자격은 책에 명시된 분지만이다: G0 ∧ (T-B ∨ T-D 분배일) ∧ 품질 플래그 없음 ∧ 현재 verdict ≠ ignore.
+
+출처: `kr_pipeline/llm_runner/gates.py` "§6.2 topping shadow backstop"; 이슈 #44, #59.
+
+### 사전등록(pre-registration) / 재판독 봉인
+결과를 보기 **전에** 판정 기준과 다시 볼 시점을 문서로 고정하는 것. 결과를 본 뒤 기준을 바꾸는 것을 막는다.
+#59는 "would_force 누적 10건 또는 2027-02-28 중 먼저 오는 시점"으로 재판독을 봉인했다.
+
+출처: `docs/superpowers/specs/2026-07-21-issue44-stage3-verification-prereg.md`; #59 2026-08-25 코멘트.
+
+### MDE (Minimum Detectable Effect, 최소 검출 가능 효과)
+지금 가진 표본 수로 "우연이 아니다"라고 말할 수 있는 **가장 작은 효과 크기**. 표본이 적을수록 커진다.
+예: 트레이드 244건이면 MDE(검정력 80%)가 5.3~16.3%p. 어떤 규칙이 실제로 수익률을 2%p 올려도 이 표본으로는
+운과 구분되지 않는다. #110 착수 조건 "도달 MDE ≤ 3%p"는 "백필을 다 해도 3%p 효과를 못 잡으면 판정용으로 무의미"라는 뜻.
+
+출처: 이슈 #116 P2-1; #110 전문가 4차 코멘트(2026-08-18).
+
+### E1 판정 불능 / watch_reason
+LLM이 climax 단계를 판단할 수 없다고 답하는 경우(E1). 이때 verdict는 `watch`,
+`watch_reason = suspected_climax_stage_indeterminate`로 저장된다. `watch_reason`은 `watch`가 된 이유를 적는 enum 컬럼이다
+(`extended`, `unfavorable_market`, `valid_base_awaiting_breakout` 등).
+
+출처: `prompts/analyze_chart_v3.md` §8.5; `docs/superpowers/specs/2026-07-20-issue44-e1-indeterminacy-prereg.md`.
+
+---
+
+## 4. 바닥·돌파 용어 (자주 쓰는 것만)
+
+### trend template (추세 템플릿, TT)
+미너비니의 Stage 2 판별 조건 묶음(150일선 > 200일선, 52주 저가 대비 +25% 이상 등).
+이걸 통과해야 LLM 분류 대상이 된다. 통과 여부는 `minervini_pass` 지표 컬럼.
+
+### base (바닥) / pivot (돌파 지점)
+base = 상승 중 쉬어가는 **횡보 구간**(컵, 손잡이 등). pivot = 그 구간의 저항선으로,
+이 가격을 거래량 동반으로 넘으면 `entry`. `pivot_price` 컬럼.
+
+### extended (과열, 8.5 band)
+종가가 pivot × 허용 배수(`PIVOT_EXTENDED_BAND_MULT`)보다 높으면 "살 자리를 지나쳤다"고 보고 `watch`로 강등.
+`watch_reason = extended`.
+
+출처: `prompts/analyze_chart_v3.md` §8.5; `gates.py` `8_5_extended_band`.
+
+---
+
+## 변경 이력
+- 2026-11-02: 최초 작성(#59 설명 중 verdict·topping 질문 계기).
