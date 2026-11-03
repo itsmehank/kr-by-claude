@@ -1,0 +1,169 @@
+{
+ "disclosures": 145,
+ "parsed": 113,
+ "inserted": 113,
+ "parse_fail": [
+  {
+   "ticker": "001040",
+   "rcept_no": "20181220800750",
+   "report_nm": "주식배당결정"
+  },
+  {
+   "ticker": "001530",
+   "rcept_no": "20250310801424",
+   "report_nm": "[기재정정]주식배당결정              "
+  },
+  {
+   "ticker": "067630",
+   "rcept_no": "20221230900628",
+   "report_nm": "[기재정정]주식배당결정"
+  },
+  {
+   "ticker": "067630",
+   "rcept_no": "20221227900591",
+   "report_nm": "[기재정정]주식배당결정(주식배당 결정)"
+  },
+  {
+   "ticker": "115450",
+   "rcept_no": "20230315901781",
+   "report_nm": "[기재정정]주식배당결정"
+  },
+  {
+   "ticker": "115450",
+   "rcept_no": "20221228900344",
+   "report_nm": "[기재정정]주식배당결정"
+  }
+ ],
+ "doc_unavailable": [
+  {
+   "ticker": "000230",
+   "rcept_no": "20171220800070",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "001040",
+   "rcept_no": "20181221800001",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "033540",
+   "rcept_no": "20161227900231",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "033540",
+   "rcept_no": "20151228900494",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "084670",
+   "rcept_no": "20161227800330",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "088390",
+   "rcept_no": "20181226900232",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "108230",
+   "rcept_no": "20171229900301",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "108230",
+   "rcept_no": "20171226900395",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "119610",
+   "rcept_no": "20190122900265",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "119610",
+   "rcept_no": "20181226900403",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "189690",
+   "rcept_no": "20190626900664",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "189690",
+   "rcept_no": "20180627900688",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "189690",
+   "rcept_no": "20180627900450",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "189690",
+   "rcept_no": "20170628900059",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "189690",
+   "rcept_no": "20160628900253",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "189690",
+   "rcept_no": "20150626900376",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "238090",
+   "rcept_no": "20190329903888",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "238090",
+   "rcept_no": "20190304900974",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "249420",
+   "rcept_no": "20171220800054",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "900110",
+   "rcept_no": "20180510900714",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "900110",
+   "rcept_no": "20170524900093",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "900110",
+   "rcept_no": "20160512900723",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "900110",
+   "rcept_no": "20150526900316",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "900120",
+   "rcept_no": "20161114901544",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "900140",
+   "rcept_no": "20190425800575",
+   "err": "File is not a zip file"
+  },
+  {
+   "ticker": "900250",
+   "rcept_no": "20170517900198",
+   "err": "File is not a zip file"
+  }
+ ]
+}
