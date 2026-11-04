@@ -5,9 +5,11 @@
   uv run python scripts/issue124_rs_rank_recompute.py --restore <backup.json>                        # 정확 복원 + 미러
 
 대상 날짜: 기본 = #122 동결 18사건의 영향 구간(일봉 gap 행+251·주봉 gap 주+51) 합집합 / --full = 전 기간.
-쓰기 = 대상 날짜의 전 종목 셀 중 값이 달라진 셀만(rs_rating, 같은 셀의 minervini_c8/pass) + 17종목 일봉 미러(전 기간).
-전제: 최근 30일 창 패리티 0(일봉은 2026-11-04 저녁 체인 후, 주봉은 11-07 체인 후) — 실패 시 쓰기 없이 종료 2.
-백업: data/verification/issue124_rs_rank_backup_<stamp>_<target>.json (변경 셀의 old rs·c8·pass). 결과: issue124_rs_rank_<stamp>_<target>.json.
+쓰기 = 대상 날짜의 전 종목 셀 중 값이 달라진 셀(rs_rating + 같은 셀의 minervini_c8/pass) + 17종목 전 저장 셀의 c8/pass 재유도
+(#122 가 c1..c7 만 재계산해 pass 가 stale 한 행, 운영 실측 일봉 196·주봉 114행) + 17종목 일봉 미러(전 기간).
+전제: 최근 창(일봉 30일·주봉 28일 = 야간 증분 창) 패리티 0 — 일봉은 2026-11-04 저녁 체인 후, 주봉은 11-07 체인 후.
+--apply 는 모든 타깃의 패리티를 먼저 판정하고 하나라도 실패하면 어떤 타깃도 쓰지 않고 종료 2.
+백업: data/verification/issue124_rs_rank_backup_<stamp>_<target>.json (변경 셀 + 17종목 pass 셀의 old rs·c8·pass). 결과: issue124_rs_rank_<stamp>_<target>.json.
 종료 코드: 0 정상 / 1 오류 / 2 패리티 실패 또는 적용 후 재비교 ≠ 0.
 운영 전제: evening-chain 창(20:25~) 밖, `pgrep -f kr_pipeline` 0, bt-110 웹 스위치 OFF(최초 on 이전에 완료). run_tracking 미사용.
 """
@@ -73,7 +75,7 @@ def _compute(conn, target: Target, *, full: bool) -> dict:
 
 def _print(o: dict) -> None:
     par = o["parity"]
-    print(f"[{o['target']}] universe {o['universe']} latest {o['latest']} | parity(30d): dates {par['dates']} "
+    print(f"[{o['target']}] universe {o['universe']} latest {o['latest']} | parity({m.PARITY_DAYS[Target(o['target'])]}d): dates {par['dates']} "
           f"mismatch {par['mismatch']} last_phase_b {par['last_phase_b_at']}")
     if par["mismatch"]:
         print("  parity 불일치 — 전제(재적재 후 Phase B 실행) 미충족 또는 계산 경로 불일치. 샘플:", par["sample"][:5])
@@ -86,6 +88,7 @@ def _print(o: dict) -> None:
           f"ranges {len(o['ranges'])} [{o['date_min']}..{o['date_max']}]")
     print(f"  cells {o['n_cells']} (target17 {o['by_target_ticker']} / other {o['by_other']}) "
           f"delta {o['delta_hist']} c8_flip {o['c8_flip']}")
+    print(f"  pass re-derive cells(17, rs 불변) {o['n_pass_cells']} | stale pass rows before {o['stale_pass_before']}")
     if "stale_mirror" in o:
         print(f"  stale mirror rows(17): {sum(o['stale_mirror'].values())} {o['stale_mirror']}")
 
@@ -115,29 +118,34 @@ def _mirror(conn, tickers: list[str]) -> int:
 
 def cmd_apply(targets, full: bool) -> int:
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    rc = 0
+    # (F4) 모든 타깃을 먼저 읽기 전용으로 계산 → 패리티 하나라도 실패면 어떤 타깃도 쓰지 않는다.
+    computed = []
     for tg in targets:
         with psycopg.connect(DB) as conn:
             conn.read_only = True
             o = _compute(conn, tg, full=full)
         _print(o)
-        if o["parity"]["mismatch"]:
-            print("  parity 실패 → 쓰기 없이 종료")
-            return 2
-        cells = o.pop("cells")
+        computed.append((tg, o))
+    if any(o["parity"]["mismatch"] for _, o in computed):
+        print("parity 실패 타깃 있음 → 어떤 타깃도 쓰지 않고 종료")
+        return 2
+    rc = 0
+    for tg, o in computed:
+        cells, pass_cells = o.pop("cells"), o.pop("pass_cells")
         bpath = f"{OUT}/issue124_rs_rank_backup_{stamp}_{tg.value}.json"
         with open(bpath, "w") as f:
             json.dump({"generated_at": datetime.now().isoformat(timespec="seconds"), "issue": 124, **o,
-                       "cells": [_iso(c) for c in cells]}, f, ensure_ascii=False)
-        print(f"  backup: {bpath} ({len(cells)} cells)")
+                       "cells": [_iso(c) for c in cells], "pass_cells": [_iso(c) for c in pass_cells]}, f, ensure_ascii=False)
+        print(f"[{tg.value}] backup: {bpath} ({len(cells)} cells + {len(pass_cells)} pass cells)")
         result = {"issue": 124, "generated": date.today().isoformat(), "backup": bpath, **o}
         rpath = f"{OUT}/issue124_rs_rank_{stamp}_{tg.value}.json"
         try:
+            tk = sorted({t for t, _ in m.events_from_frozen()})
             with psycopg.connect(DB) as conn:
-                result["apply"] = m.apply(conn, tg, cells)
-                print(f"  apply: {result['apply']}")
+                result["apply"] = m.apply(conn, tg, cells, pass_cells=pass_cells)
+                result["stale_pass_after"] = m.stale_pass_rows(conn, tg, tk)
+                print(f"  apply: {result['apply']} stale pass after {result['stale_pass_after']}")
                 if tg == Target.DAILY:
-                    tk = sorted({t for t, _ in m.events_from_frozen()})
                     result["mirror_rows"] = _mirror(conn, tk)
                     result["stale_mirror_after"] = m.stale_mirror_rows(conn, tk)
                     print(f"  mirror: {result['mirror_rows']} rows, stale after {sum(result['stale_mirror_after'].values())}")
@@ -166,9 +174,10 @@ def cmd_restore(bpath: str) -> int:
     b = json.load(open(bpath))
     tg = Target(b["target"])
     cells = [{**c, "date": date.fromisoformat(c["date"])} for c in b["cells"]]
+    pass_cells = [{**c, "date": date.fromisoformat(c["date"])} for c in b.get("pass_cells", [])]
     with psycopg.connect(DB) as conn:
-        r = m.restore(conn, tg, cells)
-        print(f"restore[{tg.value}]: {r} (backup {len(cells)} cells)")
+        r = m.restore(conn, tg, cells, pass_cells=pass_cells)
+        print(f"restore[{tg.value}]: {r} (backup {len(cells)} cells + {len(pass_cells)} pass cells)")
         if tg == Target.DAILY:
             print("mirror rows:", _mirror(conn, sorted({t for t, _ in m.events_from_frozen()})))
     return 0
@@ -176,7 +185,13 @@ def cmd_restore(bpath: str) -> int:
 
 def main() -> int:
     a = sys.argv[1:]
-    targets = TARGETS[a[a.index("--target") + 1]] if "--target" in a else TARGETS["both"]
+    try:
+        targets = TARGETS[a[a.index("--target") + 1]] if "--target" in a else TARGETS["both"]
+        if "--restore" in a:
+            a[a.index("--restore") + 1]
+    except (KeyError, IndexError):
+        print(__doc__)
+        return 1
     full = "--full" in a
     if "--plan" in a:
         return cmd_plan(targets, full)

@@ -482,3 +482,82 @@ def test_events_from_frozen_has_18_events_17_tickers():
     assert len(ev) == 18 and len({t for t, _ in ev}) == 17
     assert ("078860", date(2023, 12, 27)) in ev and ("228760", date(2017, 11, 9)) in ev
     assert ev == sorted(ev)
+
+
+# ---------------------------------------------------------------- 최종 리뷰 F1·F2·F3·F6
+
+
+def test_price_only_ticker_excluded_from_universe_n(db):
+    """F1: 가격 행은 있지만 지표 행이 없는 종목(운영 실측 7종목, 예 159910 2,501행)은 그 날짜 N 에 들어가면 안 된다 —
+    들어가면 전 종목 백분위가 밀려 가짜 ±1 변경이 '교정'으로 기록된다."""
+    spec = {**DAILY_SPEC, "RK124E": ("up", 400)}
+    tickers = list(spec)
+    days = seed_daily(db, spec, delisted={"RK124D"})
+    try:
+        run_phase_ab_daily(db, [t for t in tickers if t != "RK124E"], days)   # E 는 Phase A/B 에서 제외 = 지표 행 없음
+        uni = m.universe_tickers(db, Target.DAILY)
+        assert "RK124E" not in uni
+        sf = m.strength_table(db, Target.DAILY, tickers=tickers, end=days[-1])   # 가격 표에는 E 포함(스크립트와 다른 입력도 안전해야)
+        p = m.plan(db, Target.DAILY, days, sf=sf, target_tickers=set())
+        assert p["cells"] == [], p["cells"][:3]
+        par = m.parity_window(db, Target.DAILY, sf, tickers=tickers)
+        assert par["mismatch"] == 0
+        assert all(ns == nr for ns, nr in par["n_by_date"].values())
+    finally:
+        cleanup_daily(db, tickers, days)
+
+
+def test_parity_days_follow_nightly_window():
+    """F2: 일봉 30일(DAILY_INCREMENTAL_WINDOW)·주봉 4주=28일 — 야간 증분 창보다 넓으면 전제 충족 뒤에도 오탐."""
+    assert m.PARITY_DAYS == {Target.DAILY: 30, Target.WEEKLY: 28}
+
+
+def test_apply_rederives_pass_for_target_tickers_all_cells(db):
+    """F3: #122 가 17종목 Phase A(c1..c7)만 재계산해 pass 가 stale 한 셀은 rs 가 안 바뀌어도 Phase C 를 다시 돌려야 한다."""
+    tickers, days, gap = _drift_seed(db)
+    try:
+        # A 의 창 밖 한 행: c1..c7 를 바꿨는데 pass 는 옛 값(TRUE) — stale 모사
+        d_out = days[-1]
+        with db.cursor() as cur:
+            cur.execute("UPDATE daily_indicators SET minervini_c1=FALSE, minervini_pass=TRUE WHERE ticker='RK124A' AND date=%s", (d_out,))
+        db.commit()
+        [w] = m.event_windows(db, Target.DAILY, [("RK124A", gap)])
+        dates = m.affected_dates(db, Target.DAILY, [w])
+        p = _plan(db, tickers, days, dates)
+        assert all(not (c["ticker"] == "RK124A" and c["date"] == d_out) for c in p["cells"])
+        pass_cells = p["pass_cells"]
+        assert any(c["ticker"] == "RK124A" and c["date"] == d_out and c["old_pass"] is True for c in pass_cells)
+        assert all(c["ticker"] in {"RK124A"} for c in pass_cells)
+        r = m.apply(db, Target.DAILY, p["cells"], pass_cells=pass_cells)
+        assert r["pass_rows"] == len({(c["ticker"], c["date"]) for c in p["cells"] + pass_cells})
+        with db.cursor() as cur:
+            cur.execute("SELECT minervini_pass FROM daily_indicators WHERE ticker='RK124A' AND date=%s", (d_out,))
+            assert cur.fetchone()[0] is False
+        m.restore(db, Target.DAILY, p["cells"], pass_cells=pass_cells)
+        with db.cursor() as cur:
+            cur.execute("SELECT minervini_pass, minervini_c8 FROM daily_indicators WHERE ticker='RK124A' AND date=%s", (d_out,))
+            assert cur.fetchone()[0] is True
+    finally:
+        cleanup_daily(db, tickers, days)
+
+
+def test_weekly_window_uses_week_end(db):
+    """F6: 주봉 창은 gap 이 속한 주의 week_end_date 행부터 52행."""
+    t, weeks = "RK124WW", _fridays(date(2008, 1, 4), 80)
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'T','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
+        for d in weeks:
+            cur.execute("""INSERT INTO weekly_prices (ticker, week_end_date, open, high, low, close,
+                               adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value, trading_days)
+                           VALUES (%s,%s,1,1,1,1,1,1,1,1,1,1,1,5)""", (t, d))
+    db.commit()
+    try:
+        wed = weeks[10] - timedelta(days=2)   # 그 주 수요일
+        [w] = m.event_windows(db, Target.WEEKLY, [(t, wed)])
+        assert (w.start, w.end) == (weeks[10], weeks[10 + 51])
+    finally:
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (t,))
+            cur.execute("DELETE FROM stocks WHERE ticker=%s", (t,))
+        db.commit()

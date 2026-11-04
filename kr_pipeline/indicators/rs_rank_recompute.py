@@ -73,13 +73,21 @@ def strength_table(conn: Connection, target: Target, *, tickers: list[str], end)
     return pd.concat(cols, axis=1).sort_index()
 
 
-def rank_table(sf: pd.DataFrame, dates: list) -> pd.DataFrame:
-    """날짜별 assign_rs_rating_percentiles(이미 round→int 정수화; Phase B 의 int(rating) 은 무연산) → Int64(NaN → <NA>)."""
+def rank_table(sf: pd.DataFrame, dates: list, allowed: dict | None = None) -> pd.DataFrame:
+    """날짜별 assign_rs_rating_percentiles(이미 round→int 정수화; Phase B 의 int(rating) 은 무연산) → Int64(NaN → <NA>).
+
+    allowed = {날짜: 그 날짜에 저장 지표 행이 있는 종목 집합}. 주어지면 그 밖의 종목은 NaN 으로 가려 N 에서 뺀다 —
+    가격 행은 있지만 지표 행이 없는 종목(운영 실측 7종목, 예 159910 2,501행)이 N 을 부풀려 전 종목 백분위를 밀면
+    저장 빈티지와 무관한 ±1 변경이 '교정'으로 기록된다(최종 리뷰 F1).
+    """
     out = {}
     for d in dates:
         if d not in sf.index:
             continue
-        out[d] = assign_rs_rating_percentiles(sf.loc[d])
+        row = sf.loc[d]
+        if allowed is not None:
+            row = row.where(row.index.isin(allowed.get(d, ())))
+        out[d] = assign_rs_rating_percentiles(row)
     if not out:
         return pd.DataFrame(dtype="Int64")
     df = pd.DataFrame(out).T
@@ -209,16 +217,29 @@ def _new(v) -> int | None:
     return None if pd.isna(v) else int(v)
 
 
-def diff_cells(conn: Connection, target: Target, ranks: pd.DataFrame) -> list[dict]:
-    """저장값과 다른 셀만 — {ticker, date, old, new, old_c8, old_pass}. 저장 행이 없거나 재계산 표에 없는 종목은 건너뜀."""
-    if ranks.empty:
-        return []
-    dates = list(ranks.index)
-    cols = set(ranks.columns)
-    cells: list[dict] = []
+def _allowed(stored: dict[tuple[str, date], tuple]) -> dict[date, set[str]]:
+    out: dict[date, set[str]] = {}
+    for t, d in stored:
+        out.setdefault(d, set()).add(t)
+    return out
+
+
+def ranked_chunks(conn: Connection, target: Target, sf: pd.DataFrame, dates: list[date]):
+    """날짜 묶음별 (저장 dict, 그 날짜들의 순위표[저장 행 보유 종목만 N]) 를 yield."""
     for stored in _stored_chunks(conn, target, dates):
+        allowed = _allowed(stored)
+        yield stored, rank_table(sf, sorted(allowed), allowed)
+
+
+def diff_cells(conn: Connection, target: Target, sf: pd.DataFrame, dates: list[date]) -> list[dict]:
+    """저장값과 다른 셀만 — {ticker, date, old, new, old_c8, old_pass}. 재계산 표에 없는 종목(가격 행 없음)은 건너뜀."""
+    if sf.empty or not dates:
+        return []
+    cols = set(sf.columns)
+    cells: list[dict] = []
+    for stored, ranks in ranked_chunks(conn, target, sf, dates):
         for (t, d), (rs, c8, ps) in stored.items():
-            if t not in cols:
+            if t not in cols or d not in ranks.index:
                 continue
             new = _new(ranks.at[d, t])
             if new != rs:
@@ -227,33 +248,39 @@ def diff_cells(conn: Connection, target: Target, ranks: pd.DataFrame) -> list[di
     return cells
 
 
-def parity_window(conn: Connection, target: Target, sf: pd.DataFrame, *, tickers: list[str], days: int = 30) -> dict:
-    """최근 `days` 캘린더일 창(야간 증분 창과 동형)의 지표 날짜에서 즉석 계산 순위 vs 저장 순위.
+# 야간 증분 창과 동형: 일봉 run_daily window=30일, 주봉 run_weekly window=4주=28일(chains.py). 더 넓으면 전제 충족 뒤에도 오탐(F2).
+PARITY_DAYS: dict[Target, int] = {Target.DAILY: 30, Target.WEEKLY: 28}
 
-    mismatch 가 0 이 아니면 (a) 재적재 후 Phase B 가 아직 그 날짜를 다시 돌지 않았거나 (b) 계산 경로가 어긋난 것.
-    n_by_date(N_stored, N_recomputed)·last_phase_b_at 으로 둘을 구분한다.
+
+def parity_window(conn: Connection, target: Target, sf: pd.DataFrame, *, tickers: list[str], days: int | None = None) -> dict:
+    """최근 창(PARITY_DAYS, 야간 증분 창과 동형)의 지표 날짜에서 즉석 계산 순위 vs 저장 순위.
+
+    창 = latest − (days−1) 초과(주봉 체인은 latest 다음 날 돌므로 upsert_start = latest+1−28). mismatch 가 0 이 아니면
+    (a) 재적재 후 Phase B 가 아직 그 날짜를 다시 돌지 않았거나 (b) 계산 경로가 어긋난 것 — n_by_date(N_stored, N_recomputed)·
+    last_phase_b_at 으로 둘을 구분한다.
     """
+    days = PARITY_DAYS[target] if days is None else days
     _, ind, dcol = tables(target)
     with conn.cursor() as cur:
         cur.execute(f"SELECT max({dcol}) FROM {ind}")
         latest = cur.fetchone()[0]
         if latest is None:   # 빈 지표 테이블(테스트 DB 초기 상태)
             return {"latest": None, "dates": 0, "mismatch": 0, "sample": [], "n_by_date": {}, "last_phase_b_at": None}
-        cur.execute(f"SELECT DISTINCT {dcol} FROM {ind} WHERE {dcol} > %s ORDER BY 1", (latest - timedelta(days=days),))
+        cur.execute(f"SELECT DISTINCT {dcol} FROM {ind} WHERE {dcol} > %s ORDER BY 1", (latest - timedelta(days=days - 1),))
         dates = [r[0] for r in cur.fetchall()]
         cur.execute(
             "SELECT max(finished_at) FROM pipeline_runs WHERE pipeline='indicators' AND mode LIKE %s AND status='success'",
             (f"{'daily' if target == Target.DAILY else 'weekly'}-%",),
         )
         last_b = cur.fetchone()[0]
-    ranks = rank_table(sf, dates)
-    cells = diff_cells(conn, target, ranks)
-    stored = _stored(conn, target, dates)
+    tset = set(tickers)
+    cells = diff_cells(conn, target, sf, dates)
     n_by_date = {}
-    for d in dates:
-        n_stored = sum(1 for (t, dd), (rs, _, _) in stored.items() if dd == d and rs is not None and t in tickers)
-        n_recomp = int(ranks.loc[d].notna().sum()) if d in ranks.index else 0
-        n_by_date[d.isoformat()] = [n_stored, n_recomp]
+    for stored, ranks in ranked_chunks(conn, target, sf, dates):
+        for d in sorted({dd for _, dd in stored}):
+            n_stored = sum(1 for (t, dd), (rs, _, _) in stored.items() if dd == d and rs is not None and t in tset)
+            n_recomp = int(ranks.loc[d].notna().sum()) if d in ranks.index else 0
+            n_by_date[d.isoformat()] = [n_stored, n_recomp]
     return {
         "latest": latest.isoformat() if latest else None, "dates": len(dates), "mismatch": len(cells),
         "sample": [{**c, "date": c["date"].isoformat()} for c in cells[:10]],
@@ -261,10 +288,39 @@ def parity_window(conn: Connection, target: Target, sf: pd.DataFrame, *, tickers
     }
 
 
+def target_pass_cells(conn: Connection, target: Target, tickers: set[str], exclude: set[tuple[str, date]]) -> list[dict]:
+    """(F3) 재적재 종목의 **모든** 저장 셀(rs 변경 셀 제외) — #122 가 c1..c7 만 재계산해 pass 가 stale 한 행을 Phase C 로 재유도하기 위한
+    입력. old == new(rs 불변), old_c8/old_pass 는 정확 복원용."""
+    if not tickers:
+        return []
+    _, ind, dcol = tables(target)
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT ticker, {dcol}, rs_rating, minervini_c8, minervini_pass FROM {ind} WHERE ticker = ANY(%s) ORDER BY 2, 1",
+                    (sorted(tickers),))
+        return [{"ticker": t, "date": d, "old": rs, "new": rs, "old_c8": c8, "old_pass": ps}
+                for t, d, rs, c8, ps in cur.fetchall() if (t, d) not in exclude]
+
+
+def stale_pass_rows(conn: Connection, target: Target, tickers: list[str]) -> int:
+    """(보고용) pass ≠ (c1..c7 ∧ c8) 인 행 수(게이트로 NULL 인 행 제외)."""
+    from kr_pipeline.common.security_group import security_group_gate_params
+    _, ind, dcol = tables(target)
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""SELECT count(*) FROM {ind} x WHERE x.ticker = ANY(%(t)s)
+                   AND x.minervini_pass IS DISTINCT FROM (x.minervini_c1 IS TRUE AND x.minervini_c2 IS TRUE AND x.minervini_c3 IS TRUE
+                       AND x.minervini_c4 IS TRUE AND x.minervini_c5 IS TRUE AND x.minervini_c6 IS TRUE AND x.minervini_c7 IS TRUE
+                       AND x.minervini_c8 IS TRUE)
+                   AND NOT (x.minervini_pass IS NULL AND x.{dcol} >= %(gate_eff)s)""",
+            {"t": tickers, "gate_eff": security_group_gate_params()["gate_eff"]},
+        )
+        return int(cur.fetchone()[0])
+
+
 def plan(conn: Connection, target: Target, dates: list[date], *, sf: pd.DataFrame, target_tickers: set[str] = frozenset()) -> dict:
-    """읽기 전용 보고 + 적용 입력(cells)."""
-    ranks = rank_table(sf, dates)
-    cells = diff_cells(conn, target, ranks)
+    """읽기 전용 보고 + 적용 입력(cells, pass_cells)."""
+    cells = diff_cells(conn, target, sf, dates)
+    pass_cells = target_pass_cells(conn, target, set(target_tickers), {(c["ticker"], c["date"]) for c in cells})
     hist = {"1": 0, "2": 0, ">=3": 0, "null_flip": 0}
     c8_flip = 0
     for c in cells:
@@ -278,7 +334,8 @@ def plan(conn: Connection, target: Target, dates: list[date], *, sf: pd.DataFram
     by_t = sum(1 for c in cells if c["ticker"] in target_tickers)
     return {
         "dates": len(dates), "cells": cells, "n_cells": len(cells), "by_target_ticker": by_t, "by_other": len(cells) - by_t,
-        "delta_hist": hist, "c8_flip": c8_flip,
+        "delta_hist": hist, "c8_flip": c8_flip, "pass_cells": pass_cells, "n_pass_cells": len(pass_cells),
+        "stale_pass_before": stale_pass_rows(conn, target, sorted(target_tickers)) if target_tickers else 0,
         "date_min": dates[0].isoformat() if dates else None, "date_max": dates[-1].isoformat() if dates else None,
     }
 
@@ -287,17 +344,19 @@ def _keys(cells: list[dict]) -> list[tuple[str, date]]:
     return [(c["ticker"], c["date"]) for c in cells]
 
 
-def apply(conn: Connection, target: Target, cells: list[dict]) -> dict:
-    """한 트랜잭션: rs_rating ← new → 같은 셀만 Phase C 재유도 → commit. 예외 시 rollback 후 재raise."""
-    if not cells:
+def apply(conn: Connection, target: Target, cells: list[dict], *, pass_cells: list[dict] = ()) -> dict:
+    """한 트랜잭션: rs_rating ← new(cells) → Phase C 를 cells ∪ pass_cells 셀만 재유도 → commit. 예외 시 rollback 후 재raise."""
+    all_cells = list(cells) + list(pass_cells)
+    if not all_cells:
         return {"cells": 0, "pass_rows": 0, "pass_changed": 0}
-    keys = _keys(cells)
+    keys = _keys(all_cells)
     d_min, d_max = min(d for _, d in keys), max(d for _, d in keys)
     try:
-        _RS_UPDATE[target](conn, [(c["ticker"], c["date"], c["new"]) for c in cells])
+        if cells:
+            _RS_UPDATE[target](conn, [(c["ticker"], c["date"], c["new"]) for c in cells])
         pass_rows = _PASS_UPDATE[target](conn, d_min, d_max, cells=keys)
         after = _stored_keys(conn, target, keys)
-        pass_changed = sum(1 for c in cells if after[(c["ticker"], c["date"])][2] != c["old_pass"])
+        pass_changed = sum(1 for c in all_cells if after[(c["ticker"], c["date"])][2] != c["old_pass"])
         conn.commit()
     except Exception:
         conn.rollback()
@@ -305,13 +364,15 @@ def apply(conn: Connection, target: Target, cells: list[dict]) -> dict:
     return {"cells": len(cells), "pass_rows": pass_rows, "pass_changed": pass_changed}
 
 
-def restore(conn: Connection, target: Target, cells: list[dict]) -> dict:
-    """한 트랜잭션: rs_rating ← old, c8/pass ← old_c8/old_pass (정확 복원, 재유도 아님)."""
-    if not cells:
+def restore(conn: Connection, target: Target, cells: list[dict], *, pass_cells: list[dict] = ()) -> dict:
+    """한 트랜잭션: rs_rating ← old(cells), c8/pass ← old_c8/old_pass(cells ∪ pass_cells) — 정확 복원, 재유도 아님."""
+    all_cells = list(cells) + list(pass_cells)
+    if not all_cells:
         return {"cells": 0}
     try:
-        _RS_UPDATE[target](conn, [(c["ticker"], c["date"], c["old"]) for c in cells])
-        n = _RESTORE[target](conn, [(c["ticker"], c["date"], c["old_c8"], c["old_pass"]) for c in cells])
+        if cells:
+            _RS_UPDATE[target](conn, [(c["ticker"], c["date"], c["old"]) for c in cells])
+        n = _RESTORE[target](conn, [(c["ticker"], c["date"], c["old_c8"], c["old_pass"]) for c in all_cells])
         conn.commit()
     except Exception:
         conn.rollback()
