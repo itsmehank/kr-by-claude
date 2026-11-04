@@ -28,7 +28,8 @@ def test_delisted_compute_references_ssot_predicate():
 
 
 def test_no_other_minervini_pass_writer_bypasses_gate():
-    """minervini_pass 를 쓰는 산출 지점은 2파일(3곳)뿐이어야 한다(우회 경로 = 필터 아님)."""
+    """minervini_pass 를 쓰는 지점은 2파일뿐이어야 한다(우회 경로 = 필터 아님).
+    store.py 안의 #124 복원(restore_*_minervini_cells)은 산출이 아니라 백업값 복사 — 파일 목록은 그대로."""
     root = pathlib.Path(__file__).resolve().parents[1] / "kr_pipeline"
     writers = []
     for p in root.rglob("*.py"):

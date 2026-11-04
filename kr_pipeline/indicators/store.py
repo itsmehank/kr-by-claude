@@ -91,17 +91,32 @@ def update_daily_indicators_rs_rating(conn: Connection, rows: list[tuple]) -> in
         return cur.rowcount
 
 
+def _cells_clause(alias: str, date_col: str, cells: list[tuple[str, date]] | None) -> tuple[str, dict]:
+    """(#124) 셀 한정 필터 — cells 가 None 이면 빈 조건(기존 동작). unnest 배열이라 한 트랜잭션에서 여러 번 호출 가능."""
+    if cells is None:
+        return "", {}
+    return (
+        f" AND ({alias}.ticker, {alias}.{date_col}) IN "
+        f"(SELECT c.t, c.d FROM unnest(%(cell_t)s::varchar[], %(cell_d)s::date[]) AS c(t, d))",
+        {"cell_t": [t for t, _ in cells], "cell_d": [d for _, d in cells]},
+    )
+
+
 def update_daily_indicators_minervini_pass(
     conn: Connection,
     start_date: date,
     end_date: date,
+    *,
+    cells: list[tuple[str, date]] | None = None,
 ) -> int:
     """단일 SQL UPDATE 로 c8 (rs_rating >= C8_RS_RATING_MIN) 와 minervini_pass (c1..c8 ALL TRUE) 계산.
 
     (Q-5) 증권구분 게이트 — 비허용 종목은 기준일 이후 행만 NULL(판정하지 않음). 조건은 SSOT 조각
     `security_group_gate_sql` 단일 참조(3곳 동일 계약: 여기 daily · weekly · indicators/delisted.py).
+    (#124) cells=[(ticker, date), …] 를 주면 그 셀만 갱신(공식 불변 — RS 순위 표적 재계산이 바꾼 셀에만 c8/pass 재유도).
     """
     gate = security_group_gate_sql("d", "date")
+    cells_sql, cells_params = _cells_clause("d", "date", cells)
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -114,9 +129,9 @@ def update_daily_indicators_minervini_pass(
                        d.minervini_c7 IS TRUE AND (d.rs_rating >= %(c8)s)
                    ) END,
                    updated_at = NOW()
-             WHERE d.date BETWEEN %(start)s AND %(end)s
+             WHERE d.date BETWEEN %(start)s AND %(end)s{cells_sql}
             """,
-            {"c8": C8_RS_RATING_MIN, "start": start_date, "end": end_date, **security_group_gate_params()},
+            {"c8": C8_RS_RATING_MIN, "start": start_date, "end": end_date, **security_group_gate_params(), **cells_params},
         )
         return cur.rowcount
 
@@ -187,9 +202,12 @@ def update_weekly_indicators_minervini_pass(
     conn: Connection,
     start_date: date,
     end_date: date,
+    *,
+    cells: list[tuple[str, date]] | None = None,
 ) -> int:
-    """(Q-5) daily 와 동일 계약 — 게이트 조건은 SSOT 조각 단일 참조."""
+    """(Q-5) daily 와 동일 계약 — 게이트 조건은 SSOT 조각 단일 참조. (#124) cells 한정은 daily 와 동일."""
     gate = security_group_gate_sql("w", "week_end_date")
+    cells_sql, cells_params = _cells_clause("w", "week_end_date", cells)
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -202,24 +220,54 @@ def update_weekly_indicators_minervini_pass(
                        w.minervini_c7 IS TRUE AND (w.rs_rating >= %(c8)s)
                    ) END,
                    updated_at = NOW()
-             WHERE w.week_end_date BETWEEN %(start)s AND %(end)s
+             WHERE w.week_end_date BETWEEN %(start)s AND %(end)s{cells_sql}
             """,
-            {"c8": C8_RS_RATING_MIN, "start": start_date, "end": end_date, **security_group_gate_params()},
+            {"c8": C8_RS_RATING_MIN, "start": start_date, "end": end_date, **security_group_gate_params(), **cells_params},
         )
         return cur.rowcount
 
 
+def _restore_minervini_cells(conn: Connection, table: str, date_col: str, cells: list[tuple]) -> int:
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            UPDATE {table} x
+               SET minervini_c8 = c.c8, minervini_pass = c.ps, updated_at = NOW()
+              FROM unnest(%s::varchar[], %s::date[], %s::boolean[], %s::boolean[]) AS c(t, d, c8, ps)
+             WHERE x.ticker = c.t AND x.{date_col} = c.d
+            """,
+            ([c[0] for c in cells], [c[1] for c in cells], [c[2] for c in cells], [c[3] for c in cells]),
+        )
+        return cur.rowcount
+
+
+def restore_daily_minervini_cells(conn: Connection, cells: list[tuple]) -> int:
+    """(#124 --restore 전용) cells=[(ticker, date, old_c8, old_pass)] — 백업에 저장된 **이전 저장값을 그대로 복사**한다.
+
+    판정 산출이 아니라 값 복원이므로 게이트(Q-5)를 다시 평가하지 않는다(복원값은 쓰일 당시 게이트를 통과한 값).
+    pass 의 산출 writer 는 여전히 update_*_minervini_pass·delisted.py 뿐(tests/test_secugrp_gate_sites.py).
+    """
+    return _restore_minervini_cells(conn, "daily_indicators", "date", cells)
+
+
+def restore_weekly_minervini_cells(conn: Connection, cells: list[tuple]) -> int:
+    """daily 와 동일 계약(#124 --restore 전용, 값 복사)."""
+    return _restore_minervini_cells(conn, "weekly_indicators", "week_end_date", cells)
+
+
 def update_daily_rs_gate_from_weekly(
-    conn: Connection, start_date: date, end_date: date
+    conn: Connection, start_date: date, end_date: date, *, tickers: list[str] | None = None
 ) -> int:
     """각 daily 행의 rs_line_not_declining_7m 을 최신 week_end_date ≤ date 의 weekly 값으로 미러.
 
     게이트는 주봉에서 계산(D3) → 후보 쿼리(daily 단일 테이블) 가 읽도록 daily 에 복사.
     weekly_indicators 가 먼저 적재돼 있어야 함.
+    (#124) tickers 를 주면 그 종목만 — 드리프트/재적재로 주봉 게이트가 전 기간 바뀐 종목의 과거 미러를 종목 한정으로 재실행.
     """
+    tick_sql = " AND d.ticker = ANY(%(tickers)s)" if tickers is not None else ""
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             UPDATE daily_indicators d
                SET rs_line_not_declining_7m = (
                      SELECT w.rs_line_not_declining_7m
@@ -229,9 +277,9 @@ def update_daily_rs_gate_from_weekly(
                       LIMIT 1
                    ),
                    updated_at = NOW()
-             WHERE d.date BETWEEN %s AND %s
+             WHERE d.date BETWEEN %(start)s AND %(end)s{tick_sql}
             """,
-            (start_date, end_date),
+            {"start": start_date, "end": end_date, "tickers": tickers},
         )
         return cur.rowcount
 

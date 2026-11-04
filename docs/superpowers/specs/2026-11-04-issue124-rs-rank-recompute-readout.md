@@ -1,0 +1,66 @@
+# #124 RS 순위 표적 재계산(방법 1) — 판독
+
+계획: `docs/superpowers/plans/2026-11-04-issue124-rs-rank-recompute.md`. 규약 인용은 governance 절 ID(4-5).
+
+## §0 의존성 맵 — `C8_RS_RATING_MIN` 소비처 수정 (threshold-change-checklist (a) 트리거)
+
+**트리거 사실**: `kr_pipeline/indicators/store.py` 의 `update_daily_indicators_minervini_pass` /
+`update_weekly_indicators_minervini_pass`(둘 다 `C8_RS_RATING_MIN` 소비)에 키워드 인자 `cells=[(ticker, date), …]` 를
+추가했다. 상수 값·판정 공식(`rs_rating >= C8`, `c1..c7 AND c8`, 증권구분 게이트) 은 **무변경**. `thresholds.py` 무변경.
+
+- **1단계(파생 신호)**: `C8_RS_RATING_MIN` → `minervini_c8`, `minervini_pass`(SQL UPDATE 로 산출). 변경 없음.
+- **2단계(소비 룰)**: `grep -rn "minervini_pass\|minervini_c8" kr_pipeline/` — 후보 쿼리(`llm_runner/load.py`·`delta.py`·
+  `recent_transition.py`), 백테스트 라이브 소비(`backtest/minervini_forward.py`·`portfolio.py`), bt110 스냅샷(`backtest/bt110.py`),
+  웹 API payload. 전부 **값을 읽기만** — 이번 변경은 어떤 행이 갱신되는가(범위)만 바꾸고 값 산식은 그대로.
+- **3단계(룰 내부 고정 상수)**: 이 함수 안의 다른 고정값 = `SECURITY_GROUP_GATE_EFFECTIVE_DATE`·`QUALIFYING_SECURITY_GROUPS`
+  (게이트 조각, `common/security_group.py`).
+
+| 고정 상수 | 축1 환산? | 축2 영향? | 책 정합 | 판정 → 후속 |
+|---|---|---|---|---|
+| `C8_RS_RATING_MIN`(값 불변) | 해당 없음(값 안 바뀜) | 미미 — 공식 동일, 호출 범위만 cells 로 축소; cells=None 기본은 기존 동작(테스트 `test_minervini_pass_cells_filter` 가 기본 호출 4행 갱신 확인) | PRESERVES | 모니터링 — 근거: 산식 diff 0, 기존 store 테스트 전부 통과 |
+| `SECURITY_GROUP_GATE_EFFECTIVE_DATE`·허용 그룹 | 불가(날짜·집합) | 미미 — 게이트 CASE 는 cells 한정과 독립적으로 행마다 동일 평가 | EXTENDS(시스템 자체) | 모니터링 — 근거: 게이트 테스트(`test_daily_gate_*`) 무변경 통과 |
+
+- **소비 경계(1줄)**: `minervini_pass` → 후보 쿼리(daily 단일 테이블) → LLM 체인 분류 입력 / bt110 스냅샷.
+- 합격 조건 (c) 1~5 자체 대조: 맵 있음·3단계 행 있음·축1/축2 채움·"영향 미미" 근거 있음·소비 경계 1줄 있음.
+
+## §1 배경
+
+- #122 재적재(2026-11-03 21:15, 18사건/17종목)로 adj_close 이력이 소급 조정됐고 Phase A(종목 단위)만 재계산 → 횡단면
+  Phase B(rs_rating)·C(c8/pass) 는 #124 로 이관(#122 readout §7).
+- 추가 실측(2026-11-04, 운영 DB 읽기): 같은 17종목의 일봉 `rs_line_not_declining_7m` 미러가 사건 직후 구간에서 옛 값
+  (078860 84행 2023-12-28~2024-05-02, 009310 107행, 221800 82행; 대조 종목 005930·000660·035720·068270 은 0행).
+  원인: Phase A upsert 가 이 컬럼을 제외(단일 writer = Phase D)하고 드리프트/재적재 경로는 Phase D 를 부르지 않음.
+  같은 계열 결함이 평일 drift 재적재 종목에도 잠재 — 이번 수리는 17종목 한정, drift 재적재 종목은 별도 관찰.
+- 추가 실측(최종 리뷰 F3): #122 가 17종목의 c1..c7(Phase A)만 재계산해 `minervini_pass ≠ (c1..c7 ∧ c8)` 인 행이 일봉 196·주봉 114행
+  (067370·078860·228760·232680·270660; 대조 005930·000660 0행) → `--apply` 가 17종목 전 저장 셀의 c8/pass 를 재유도한다(rs 불변 셀 포함).
+  전 종목으로는 2,740행(평일 drift 재적재 종목) — 미러와 같은 계열, 별도 관찰.
+- 추가 실측(최종 리뷰 F1): 가격 행은 있으나 지표 행이 거의 없는 활성 7종목(159910·138930·088980·138040·294090·369370·458650, 지표는
+  2026-08-18/24 부터) → 순위 N 은 "그 날짜에 지표 행이 있는 종목"으로 마스킹(가격 행 기준이면 2,249 날짜에서 가짜 ±1).
+
+## §2 방법 1 과 리뷰 R1 반영
+
+- 컬럼 추가 없이 저장 adj_close 에서 강도 점수(2·C/C[-63]+C/C[-126]+C/C[-189]+C/C[-252]; 주봉 13/26/39/52)를
+  전 종목 즉석 계산 → 기존 `assign_rs_rating_percentiles` → 저장값과 다른 셀만 UPDATE → 같은 셀만 Phase C 재유도.
+- 유니버스 = 그 날짜에 지표 행이 있는 종목(상폐 포함; 가격 행만 있는 종목 제외 — F1). 저장 순위의 마지막 전체 산출(2026-07-11) 이후 상폐 25종목의 과거
+  행이 남아 있어, 현재 활성 종목으로 매기면 N 이 달라 전 종목 ±1 흔들림(R1-1).
+- 패리티 가드 = 최근 창(일봉 30일·주봉 28일 = 야간 증분 창) 전체 변경 0. 전제: 일봉은 11-04 저녁 체인 후, 주봉은 11-07 체인 후(R1-2·F2). `--apply` 는 전 타깃 패리티를 먼저 판정(F4).
+- Phase C 는 셀 한정(§0). 백업은 변경 셀의 old rs·c8·pass, 복원은 정확 복원(R1-3·R1-6).
+- 영향 구간 합집합 = 거래일 1,934/2,549(76%) → 적용 범위(창 한정 vs 전 기간)는 `--plan` 숫자를 보고 사용자 결정(R1-8).
+- bt-110 최초 on 이전에 적용 완료, 적용 후 0단계 견적 재실행(R1-9).
+
+## §3 `--plan` 실측 (적용 전)
+
+(운영 실행 후 기재)
+
+## §4 적용 기록
+
+(적용 후 기재 — 결과 JSON·백업 경로, 변경 셀 수, 다음 평일 체인 1회 차분)
+
+## §5 주의
+
+- 라이브 테이블을 직접 읽는 백테스트(`backtest/minervini_forward.py`, `portfolio.py`, recall_*)는 적용 후 #111·#115 의
+  과거 결과를 구 빈티지로 재현할 수 없다(확증 러너 재실행 금지 메모와 동일 취지). `bt_rs_*` 는 별도 경로라 불변.
+- `--restore` 는 rs·c8·pass 를 정확 복원하지만 미러(`rs_line_not_declining_7m`)의 옛 값은 복원하지 않는다(현재 주봉 값으로 재미러).
+- 적용 후 야간 체인이 최근 창 셀을 다시 매긴 뒤 `--restore` 하면 그 창의 셀은 백업(구)값으로 돌아가 다음 야간까지 퇴행한다(F8) —
+  복원은 적용 직후에만 의미가 있다.
+- Phase C 셀 한정 "범위" = rs 변경 셀 ∪ 17종목 전 저장 셀(§0 판정 불변 — 공식 동일, 범위 인자만).
