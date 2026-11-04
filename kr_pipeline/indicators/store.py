@@ -228,16 +228,18 @@ def update_weekly_indicators_minervini_pass(
 
 
 def update_daily_rs_gate_from_weekly(
-    conn: Connection, start_date: date, end_date: date
+    conn: Connection, start_date: date, end_date: date, *, tickers: list[str] | None = None
 ) -> int:
     """각 daily 행의 rs_line_not_declining_7m 을 최신 week_end_date ≤ date 의 weekly 값으로 미러.
 
     게이트는 주봉에서 계산(D3) → 후보 쿼리(daily 단일 테이블) 가 읽도록 daily 에 복사.
     weekly_indicators 가 먼저 적재돼 있어야 함.
+    (#124) tickers 를 주면 그 종목만 — 드리프트/재적재로 주봉 게이트가 전 기간 바뀐 종목의 과거 미러를 종목 한정으로 재실행.
     """
+    tick_sql = " AND d.ticker = ANY(%(tickers)s)" if tickers is not None else ""
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             UPDATE daily_indicators d
                SET rs_line_not_declining_7m = (
                      SELECT w.rs_line_not_declining_7m
@@ -247,9 +249,9 @@ def update_daily_rs_gate_from_weekly(
                       LIMIT 1
                    ),
                    updated_at = NOW()
-             WHERE d.date BETWEEN %s AND %s
+             WHERE d.date BETWEEN %(start)s AND %(end)s{tick_sql}
             """,
-            (start_date, end_date),
+            {"start": start_date, "end": end_date, "tickers": tickers},
         )
         return cur.rowcount
 

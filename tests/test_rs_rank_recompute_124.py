@@ -438,3 +438,37 @@ def test_restore_returns_exact_old_values(db):
         assert len(_plan(db, tickers, days, dates)["cells"]) == len(cells)
     finally:
         cleanup_daily(db, tickers, days)
+
+
+# ---------------------------------------------------------------- Task 4: 일봉 rs 게이트 미러 종목 필터
+
+from kr_pipeline.indicators.store import update_daily_rs_gate_from_weekly  # noqa: E402
+
+
+def test_rs_gate_mirror_ticker_filter(db):
+    d = date(2007, 5, 7)            # 월요일
+    wk = date(2007, 5, 4)           # 직전 금요일 주봉
+    ts = ("RK124G1", "RK124G2")
+    with db.cursor() as cur:
+        for t in ts:
+            cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'T','KOSPI') ON CONFLICT DO NOTHING", (t,))
+            cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
+            cur.execute("DELETE FROM weekly_indicators WHERE ticker=%s", (t,))
+            cur.execute("INSERT INTO daily_indicators (ticker, date, adj_close, rs_line_not_declining_7m) VALUES (%s,%s,1,FALSE)", (t, d))
+            cur.execute("INSERT INTO weekly_indicators (ticker, week_end_date, adj_close, rs_line_not_declining_7m) VALUES (%s,%s,1,TRUE)", (t, wk))
+    db.commit()
+    try:
+        assert update_daily_rs_gate_from_weekly(db, d, d, tickers=["RK124G1"]) == 1
+        db.commit()
+        with db.cursor() as cur:
+            cur.execute("SELECT ticker, rs_line_not_declining_7m FROM daily_indicators WHERE ticker = ANY(%s) ORDER BY 1", (list(ts),))
+            assert cur.fetchall() == [("RK124G1", True), ("RK124G2", False)]
+        assert update_daily_rs_gate_from_weekly(db, d, d) >= 2   # 기본 = 구간 전체(다른 테스트 행 포함 가능)
+        db.commit()
+    finally:
+        with db.cursor() as cur:
+            for t in ts:
+                cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
+                cur.execute("DELETE FROM weekly_indicators WHERE ticker=%s", (t,))
+                cur.execute("DELETE FROM stocks WHERE ticker=%s", (t,))
+        db.commit()
