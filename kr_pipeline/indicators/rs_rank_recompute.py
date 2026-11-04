@@ -85,3 +85,70 @@ def rank_table(sf: pd.DataFrame, dates: list) -> pd.DataFrame:
     df = pd.DataFrame(out).T
     df.index.name = None
     return df.astype("float").round().astype("Int64")
+
+
+# ---------------------------------------------------------------- 영향 구간
+
+from dataclasses import dataclass  # noqa: E402
+from datetime import date  # noqa: E402
+
+ROWS_AFTER: dict[Target, int] = {Target.DAILY: 252, Target.WEEKLY: 52}
+
+
+@dataclass(frozen=True)
+class Window:
+    """사건 종목의 행 기준 [gap 행, gap 행 + rows_after − 1] (양끝 포함).
+
+    강도 점수는 t 와 t−q4 행(일봉 252·주봉 52)까지 보므로, 재적재가 gap 이전 행만 ×coef 했을 때 비율이 바뀌는 날짜는
+    정확히 이 구간이다(그 앞은 네 시점이 같은 배수, 그 뒤는 네 시점이 모두 새 값). 행이 모자라면 마지막 행까지.
+    """
+    ticker: str
+    start: date
+    end: date
+
+
+def event_windows(conn: Connection, target: Target, events: list[tuple[str, date]]) -> list[Window]:
+    prices, _, dcol = tables(target)
+    n = ROWS_AFTER[target]
+    out: list[Window] = []
+    with conn.cursor() as cur:
+        for ticker, gap in events:
+            cur.execute(
+                f"SELECT {dcol} FROM {prices} WHERE ticker = %s AND {dcol} >= %s ORDER BY {dcol} LIMIT %s",
+                (ticker, gap, n),
+            )
+            rows = [r[0] for r in cur.fetchall()]
+            if rows:
+                out.append(Window(ticker, rows[0], rows[-1]))
+    return out
+
+
+def affected_dates(conn: Connection, target: Target, windows: list[Window]) -> list[date]:
+    """윈도별 날짜를 실제 지표 날짜로 펼쳐 합집합·정렬."""
+    _, ind, dcol = tables(target)
+    acc: set[date] = set()
+    with conn.cursor() as cur:
+        for w in windows:
+            cur.execute(f"SELECT DISTINCT {dcol} FROM {ind} WHERE {dcol} BETWEEN %s AND %s", (w.start, w.end))
+            acc.update(r[0] for r in cur.fetchall())
+    return sorted(acc)
+
+
+def all_dates(conn: Connection, target: Target) -> list[date]:
+    """전 기간 모드(--full): 지표 테이블의 모든 날짜."""
+    _, ind, dcol = tables(target)
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT DISTINCT {dcol} FROM {ind} ORDER BY 1")
+        return [r[0] for r in cur.fetchall()]
+
+
+def merged_ranges(dates: list[date], trading_dates: list[date]) -> list[tuple[date, date]]:
+    """거래일 목록상 연속(인덱스 차 1)인 날짜를 한 구간으로 병합(보고용)."""
+    pos = {d: i for i, d in enumerate(trading_dates)}
+    out: list[tuple[date, date]] = []
+    for d in sorted(set(dates)):
+        if out and d in pos and out[-1][1] in pos and pos[d] == pos[out[-1][1]] + 1:
+            out[-1] = (out[-1][0], d)
+        else:
+            out.append((d, d))
+    return out

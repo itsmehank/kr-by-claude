@@ -179,3 +179,86 @@ def test_rank_table_equals_phase_b_weekly(db):
         assert_ranks_equal(got, stored)
     finally:
         cleanup_weekly(db, tickers, weeks)
+
+
+# ---------------------------------------------------------------- Task 2: 영향 구간
+
+
+def _seed_prices_only(db, t, days):
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,'T','KOSPI') ON CONFLICT DO NOTHING", (t,))
+        cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
+        cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+        for d in days:
+            cur.execute("""INSERT INTO daily_prices (ticker, date, open, high, low, close,
+                               adj_close, adj_high, adj_low, adj_open, adj_volume, volume, value)
+                           VALUES (%s,%s,1,1,1,1,1,1,1,1,1,1,1)""", (t, d))
+            cur.execute("INSERT INTO daily_indicators (ticker, date, adj_close) VALUES (%s,%s,1)", (t, d))
+    db.commit()
+
+
+def _cleanup_prices_only(db, tickers):
+    with db.cursor() as cur:
+        for t in tickers:
+            cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (t,))
+            cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (t,))
+            cur.execute("DELETE FROM stocks WHERE ticker=%s", (t,))
+    db.commit()
+
+
+def test_window_is_252_rows_from_gap(db):
+    t, days = "RK124WN", _weekdays(date(2008, 1, 7), 400)
+    _seed_prices_only(db, t, days)
+    try:
+        [w] = m.event_windows(db, Target.DAILY, [(t, days[100])])
+        assert (w.ticker, w.start, w.end) == (t, days[100], days[351])
+    finally:
+        _cleanup_prices_only(db, [t])
+
+
+def test_window_truncates_to_last_row(db):
+    t, days = "RK124WT", _weekdays(date(2008, 1, 7), 400)
+    _seed_prices_only(db, t, days)
+    try:
+        [w] = m.event_windows(db, Target.DAILY, [(t, days[280])])   # 뒤에 120행뿐
+        assert (w.start, w.end) == (days[280], days[-1])
+        assert m.event_windows(db, Target.DAILY, [(t, days[-1] + timedelta(days=10))]) == []
+    finally:
+        _cleanup_prices_only(db, [t])
+
+
+def test_gap_on_non_trading_day_starts_at_next_row(db):
+    t, days = "RK124WG", _weekdays(date(2008, 1, 7), 300)
+    _seed_prices_only(db, t, days)
+    try:
+        sat = days[10] + timedelta(days=(5 - days[10].weekday()))  # 그 주 토요일
+        [w] = m.event_windows(db, Target.DAILY, [(t, sat)])
+        assert w.start == min(d for d in days if d > sat)
+    finally:
+        _cleanup_prices_only(db, [t])
+
+
+def test_windows_merge_overlapping_dates(db):
+    t, days = "RK124WM", _weekdays(date(2008, 1, 7), 600)
+    _seed_prices_only(db, t, days)
+    try:
+        ws = m.event_windows(db, Target.DAILY, [(t, days[50]), (t, days[50 + 209])])
+        dates = m.affected_dates(db, Target.DAILY, ws)
+        assert len(dates) == 252 + 209 and dates == sorted(set(dates))
+        assert m.merged_ranges(dates, days) == [(days[50], days[50 + 209 + 251])]
+        # 떨어진 두 창은 두 구간
+        ws2 = m.event_windows(db, Target.DAILY, [(t, days[0]), (t, days[300])])
+        d2 = m.affected_dates(db, Target.DAILY, ws2)
+        assert m.merged_ranges(d2, days) == [(days[0], days[251]), (days[300], days[551])]
+    finally:
+        _cleanup_prices_only(db, [t])
+
+
+def test_all_dates_lists_indicator_dates(db):
+    t, days = "RK124WA", _weekdays(date(2008, 1, 7), 30)
+    _seed_prices_only(db, t, days)
+    try:
+        got = m.all_dates(db, Target.DAILY)
+        assert [d for d in got if days[0] <= d <= days[-1]] == days
+    finally:
+        _cleanup_prices_only(db, [t])
