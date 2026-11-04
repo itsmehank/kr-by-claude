@@ -193,3 +193,24 @@ corporate_actions 목록에 조정성 공시가 있으나 구조화 상세 0 —
 후속 후보: cr 이벤트에 같은 기간 `주식분할결정` 동반 여부를 병기하면 이 7건은 자동으로 '상쇄'가 된다.
 잔여(미심판): 219750 정지 중 2:1·4:1(size_mismatch), 019490 재개일 0.70 점프, 012170·056730 회생 복합.
 
+
+## 7. 재적재 적용 (2026-11-03 21:15, 운영 DB — 사용자 승인 후)
+
+도구: PR #249(main 63ddf7e) `scripts/issue122_adj_reload.py` — 대상 18건은 코드에 동결(`FROZEN_TARGETS`), 조정일 = §5 JSON `gap_date`.
+실행 조건 확인: 저녁 체인 20:37 정상 종료(rc=0)·`pgrep -f kr_pipeline` 0·bt-110 스위치 enabled=false. 적용 직전 `--plan` 재확인 18건 전부 missing·KRX 접촉 0.
+
+| 항목 | 값 |
+|---|---|
+| 적용 | 18/18 (skip 0·오류 0), `adj_factor_events` 18행 INSERT |
+| 갱신 행 | 22,069 (`daily_prices` 조정일 이전 adj_open/high/low/close·adj_volume, NULL 유지) |
+| 적용 후 연속성(전일 adj ÷ 당일 adj) | 0.807(050090) ~ 1.192(079970), 전부 ±30% 안 |
+| 재계산 | 17종목 일봉 지표·주봉(지수 1001·2001 동반)·주봉 지표, 실패 0 |
+| 백업 | `data/verification/issue122_adj_reload_backup_20261103_211552.json` (22,069행, 복원 = `--restore <그 파일>`) |
+| 결과 | `data/verification/issue122_adj_reload_20261103_211552.json` |
+
+재판독(`scripts/issue122_adj_missing_audit.py`, 적용 후): matched 1,376 → **1,394(+18)**, **누락 확정 0**. 나머지 불변 — 미확정 10(§6 심판 완료)·확인 불가 32·pending 3·size_mismatch 31.
+양성 대조군(221800·232830·388610)은 수리됐으므로 "missing 검출" 경로로는 통과할 수 없다 → 판정을 두 경로로 확장(`positive_control_verdict`): `adj_factor_events` 에 그 날짜 재적재 기록이 있으면 matched 로 *평가돼 있어야* 통과(평가 누락·비-matched·missing 잔존은 실패), 기록이 없으면 missing 으로 검출돼야 통과. 기록 없이 사라지면 여전히 종료 코드 2. 이번 실행은 3건 모두 `repaired` 경로 통과.
+
+**재계산하지 않은 것(사용자 결정, §5 종결 판단·PR #249 본문)**: 전 종목 과거 RS(bt_rs) 횡단면, 과거 `minervini_pass` 횡단면 플래그, 저장된 과거 판정(078860 백테스트 27셀·009310 주말분류 5건은 오염 표기만 유지). 이 범위는 #124.
+
+사고 기록: `--plan` 첫 실행 시 지표·주봉 모듈 import 경유로 pykrx 가 KRX 로그인 1회 수행(조회 0). 스크립트가 kr_pipeline import 전에 `KRX_ID/KRX_PW` 를 비우도록 수정하고 정적 가드 테스트 추가(PR #249). 이후 실행은 접촉 0.

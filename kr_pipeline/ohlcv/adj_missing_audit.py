@@ -247,3 +247,27 @@ def contamination_window(ex: date, passes: dict[date, bool],
     return {"window_end": end, "window_days": len(in_w),
             "window_pass_days": sum(1 for v in in_w if v),
             "total_pass_days": sum(1 for v in passes.values() if v)}
+
+
+def positive_control_verdict(controls, *, confirmed_keys: set, matched_keys: set,
+                             repaired_keys: set) -> dict:
+    """양성 대조군 판정. 키 = (종목, 권리락일 'YYYY-MM-DD'). 재적재 기록 유무가 우선한다.
+
+    - repaired: adj_factor_events 에 그 날짜의 재적재 기록(#122 reload, date=gap_date)이 있으면
+      matched 로 *평가돼 있어야* 통과(재적재 후 상태 — 왕복 증명). 평가 누락(상폐·시세/상세 없음·
+      expected_events 회귀)·비-matched·missing_confirmed 잔존(DB 불일치)은 실패.
+    - detected: 기록이 없으면 missing_confirmed 로 검출돼야 통과(재적재 전 상태 — 검출기 작동 증명).
+
+    주의: 기록 날짜는 gap_date 라 gap_date ≠ ex_date 인 이벤트(병합 재개일 등)를 대조군에 추가하면
+    키가 어긋나 거짓 실패한다 — 대조군은 gap_date == ex_date 인 무상증자로 한정.
+    """
+    detected, repaired, failed = [], [], []
+    for k in controls:
+        key = tuple(k)
+        if key in repaired_keys:
+            (repaired if key in matched_keys else failed).append(list(key))
+        elif key in confirmed_keys:
+            detected.append(list(key))
+        else:
+            failed.append(list(key))
+    return {"ok": not failed, "detected": detected, "repaired": repaired, "failed": failed}

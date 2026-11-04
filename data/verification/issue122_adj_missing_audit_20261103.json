@@ -13,20 +13,19 @@
  },
  "events": {
   "by_class": {
-   "matched": 1376,
-   "missing": 60,
+   "matched": 1394,
+   "missing": 42,
    "size_mismatch": 31,
    "pending": 3
   },
   "by_kind_class": {
-   "cr:matched": 169,
-   "cr:missing": 17,
+   "cr:matched": 176,
+   "cr:missing": 10,
    "cr:pending": 2,
    "cr:size_mismatch": 25,
    "cr_diff:matched": 4,
    "cr_diff:pending": 1,
-   "fric:matched": 625,
-   "fric:missing": 11,
+   "fric:matched": 636,
    "fric:size_mismatch": 5,
    "piic:matched": 275,
    "piic:missing": 17,
@@ -35,7 +34,6 @@
    "stkdp:size_mismatch": 1
   },
   "by_status": {
-   "missing_confirmed": 18,
    "missing_unconfirmed": 10,
    "missing_unverifiable": 32,
    "pending": 3,
@@ -43,57 +41,13 @@
   }
  },
  "missing_confirmed": {
-  "n_events": 18,
-  "n_tickers": 17,
-  "by_kind": {
-   "cr": 7,
-   "fric": 11
-  },
-  "tickers": [
-   "003060",
-   "007460",
-   "009310",
-   "012170",
-   "050090",
-   "067370",
-   "078860",
-   "079970",
-   "179530",
-   "221800",
-   "228760",
-   "232680",
-   "232830",
-   "253840",
-   "270660",
-   "303360",
-   "388610"
-  ],
-  "window_zero_pass_events": 15,
-  "window_zero_pass_but_pass_elsewhere": 14,
-  "with_judgments_in_window": [
-   {
-    "ticker": "009310",
-    "kind": "cr",
-    "ex_date": "2026-04-09",
-    "judgments": {
-     "weekly_classification": {
-      "disqualified": 1,
-      "ignore": 4
-     }
-    }
-   },
-   {
-    "ticker": "078860",
-    "kind": "cr",
-    "ex_date": "2023-12-08",
-    "judgments": {
-     "backtest_classification": {
-      "ignore": 2,
-      "watch": 25
-     }
-    }
-   }
-  ]
+  "n_events": 0,
+  "n_tickers": 0,
+  "by_kind": {},
+  "tickers": [],
+  "window_zero_pass_events": 0,
+  "window_zero_pass_but_pass_elsewhere": 0,
+  "with_judgments_in_window": []
  },
  "positive_control": {
   "events": [
@@ -110,7 +64,23 @@
     "2023-07-24"
    ]
   ],
-  "ok": true
+  "ok": true,
+  "detected": [],
+  "repaired": [
+   [
+    "221800",
+    "2023-02-23"
+   ],
+   [
+    "232830",
+    "2020-09-04"
+   ],
+   [
+    "388610",
+    "2023-07-24"
+   ]
+  ],
+  "failed": []
  },
  "phase2_targets": [
   "012320",
@@ -242,27 +212,6 @@
    "window_pass_days": 8,
    "total_pass_days": 317,
    "judgments_in_window": null
-  },
-  {
-   "ticker": "003060",
-   "ex_date": "2026-04-13",
-   "kind": "cr",
-   "rcept_no": "20260223003828",
-   "method": "기명식 보통주 15주를 동일한 액면주식 1주로 무상병합",
-   "expected_ratio": 14.9925,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 25,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2026-05-08",
-   "raw_gap": 13.8645,
-   "window_end": "2027-04-28",
-   "window_days": 136,
-   "window_pass_days": 0,
-   "total_pass_days": 59,
-   "judgments_in_window": {}
   },
   {
    "ticker": "003070",
@@ -419,31 +368,10 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-03-31",
-   "window_days": 156,
+   "window_days": 157,
    "window_pass_days": 43,
    "total_pass_days": 394,
    "judgments_in_window": null
-  },
-  {
-   "ticker": "007460",
-   "ex_date": "2026-04-14",
-   "kind": "cr",
-   "rcept_no": "20260223003860",
-   "method": "기명식 보통주 15주를 동일한 액면주식 1주로 무상병합",
-   "expected_ratio": 14.9925,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 24,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2026-05-08",
-   "raw_gap": 15.4608,
-   "window_end": "2027-04-29",
-   "window_days": 135,
-   "window_pass_days": 0,
-   "total_pass_days": 41,
-   "judgments_in_window": {}
   },
   {
    "ticker": "007530",
@@ -488,32 +416,6 @@
    "judgments_in_window": null
   },
   {
-   "ticker": "009310",
-   "ex_date": "2026-04-09",
-   "kind": "cr",
-   "rcept_no": "20260311003950",
-   "method": "1주당 액면금액 500원의 보통주 5주를 동일 액면금액 보통주 1주로 무상병합",
-   "expected_ratio": 5.0,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 32,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2026-05-11",
-   "raw_gap": 5.0047,
-   "window_end": "2027-04-24",
-   "window_days": 138,
-   "window_pass_days": 0,
-   "total_pass_days": 10,
-   "judgments_in_window": {
-    "weekly_classification": {
-     "disqualified": 1,
-     "ignore": 4
-    }
-   }
-  },
-  {
    "ticker": "009730",
    "ex_date": "2026-09-01",
    "kind": "piic",
@@ -538,7 +440,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-09-16",
-   "window_days": 41,
+   "window_days": 42,
    "window_pass_days": 0,
    "total_pass_days": 39,
    "judgments_in_window": null
@@ -597,27 +499,6 @@
    "window_pass_days": 0,
    "total_pass_days": 39,
    "judgments_in_window": null
-  },
-  {
-   "ticker": "012170",
-   "ex_date": "2025-02-14",
-   "kind": "cr",
-   "rcept_no": "20250113000362",
-   "method": "10:1 주식병합\n(액면가액 500원의 기명식 보통주식 10주를 같은 액면주식 1주로 무상감자)",
-   "expected_ratio": 10.0,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 20,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2025-03-06",
-   "raw_gap": 8.9783,
-   "window_end": "2026-03-01",
-   "window_days": 253,
-   "window_pass_days": 0,
-   "total_pass_days": 39,
-   "judgments_in_window": {}
   },
   {
    "ticker": "019490",
@@ -742,31 +623,10 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-09-22",
-   "window_days": 37,
+   "window_days": 38,
    "window_pass_days": 0,
    "total_pass_days": 51,
    "judgments_in_window": null
-  },
-  {
-   "ticker": "050090",
-   "ex_date": "2023-04-10",
-   "kind": "cr",
-   "rcept_no": "20230303000645",
-   "method": "액면가 500원의 기명식 보통주식 4주를\n동일 액면가의 기명식 보통주식 1주로\n병합하는 무상감자",
-   "expected_ratio": 4.0,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 28,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2023-05-08",
-   "raw_gap": 4.9596,
-   "window_end": "2024-04-24",
-   "window_days": 256,
-   "window_pass_days": 0,
-   "total_pass_days": 102,
-   "judgments_in_window": {}
   },
   {
    "ticker": "052300",
@@ -818,7 +678,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-07-09",
-   "window_days": 88,
+   "window_days": 89,
    "window_pass_days": 0,
    "total_pass_days": 132,
    "judgments_in_window": null
@@ -933,7 +793,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-08-13",
-   "window_days": 64,
+   "window_days": 65,
    "window_pass_days": 0,
    "total_pass_days": 92,
    "judgments_in_window": null
@@ -958,31 +818,10 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-09-12",
-   "window_days": 43,
+   "window_days": 44,
    "window_pass_days": 0,
    "total_pass_days": 87,
    "judgments_in_window": null
-  },
-  {
-   "ticker": "067370",
-   "ex_date": "2021-01-07",
-   "kind": "fric",
-   "rcept_no": "20201223000436",
-   "method": null,
-   "expected_ratio": 0.6667,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 0,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2021-01-07",
-   "raw_gap": 0.6764,
-   "window_end": "2022-01-22",
-   "window_days": 260,
-   "window_pass_days": 66,
-   "total_pass_days": 129,
-   "judgments_in_window": {}
   },
   {
    "ticker": "073640",
@@ -1034,61 +873,10 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-09-23",
-   "window_days": 36,
+   "window_days": 37,
    "window_pass_days": 0,
    "total_pass_days": 98,
    "judgments_in_window": null
-  },
-  {
-   "ticker": "078860",
-   "ex_date": "2023-12-08",
-   "kind": "cr",
-   "rcept_no": "20231016000292",
-   "method": "기명식 보통주 20주를 동일한 액면주식1주로 무상병합",
-   "expected_ratio": 20.0,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 19,
-   "db_jumps_near": [
-    [
-     "2023-12-01",
-     0.9777
-    ],
-    [
-     "2023-12-04",
-     1.0056
-    ],
-    [
-     "2023-12-05",
-     1.0172
-    ],
-    [
-     "2023-12-06",
-     0.9831
-    ],
-    [
-     "2023-12-27",
-     0.989
-    ]
-   ],
-   "nearest_jump_120d": [
-    "2023-12-06",
-    0.9831,
-    -2
-   ],
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2023-12-27",
-   "raw_gap": 19.4924,
-   "window_end": "2024-12-22",
-   "window_days": 253,
-   "window_pass_days": 126,
-   "total_pass_days": 158,
-   "judgments_in_window": {
-    "backtest_classification": {
-     "ignore": 2,
-     "watch": 25
-    }
-   }
   },
   {
    "ticker": "079160",
@@ -1114,27 +902,6 @@
    "window_pass_days": 14,
    "total_pass_days": 73,
    "judgments_in_window": null
-  },
-  {
-   "ticker": "079970",
-   "ex_date": "2024-07-24",
-   "kind": "cr",
-   "rcept_no": "20240613000387",
-   "method": "10:1 무상감자\n(1주당 액면금액 500원의 보통주식 10주를 동일 액면금액 보통주식 1주로 무상병합)",
-   "expected_ratio": 10.0,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 28,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2024-08-21",
-   "raw_gap": 8.3883,
-   "window_end": "2025-08-08",
-   "window_days": 253,
-   "window_pass_days": 0,
-   "total_pass_days": 35,
-   "judgments_in_window": {}
   },
   {
    "ticker": "088390",
@@ -1236,7 +1003,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-10-21",
-   "window_days": 19,
+   "window_days": 20,
    "window_pass_days": 0,
    "total_pass_days": 32,
    "judgments_in_window": null
@@ -1268,27 +1035,6 @@
    "judgments_in_window": null
   },
   {
-   "ticker": "179530",
-   "ex_date": "2021-05-26",
-   "kind": "fric",
-   "rcept_no": "20210512000238",
-   "method": null,
-   "expected_ratio": 0.3333,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 0,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2021-05-26",
-   "raw_gap": 0.3484,
-   "window_end": "2022-06-10",
-   "window_days": 258,
-   "window_pass_days": 0,
-   "total_pass_days": 1,
-   "judgments_in_window": {}
-  },
-  {
    "ticker": "219750",
    "ex_date": "2024-09-25",
    "kind": "cr",
@@ -1313,132 +1059,6 @@
    "window_pass_days": 0,
    "total_pass_days": 139,
    "judgments_in_window": null
-  },
-  {
-   "ticker": "221800",
-   "ex_date": "2023-02-23",
-   "kind": "fric",
-   "rcept_no": "20230209000353",
-   "method": null,
-   "expected_ratio": 0.25,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 0,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2023-02-23",
-   "raw_gap": 0.2734,
-   "window_end": "2024-03-09",
-   "window_days": 255,
-   "window_pass_days": 0,
-   "total_pass_days": 31,
-   "judgments_in_window": {}
-  },
-  {
-   "ticker": "228760",
-   "ex_date": "2017-11-09",
-   "kind": "fric",
-   "rcept_no": "20171025000090",
-   "method": null,
-   "expected_ratio": 0.3333,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 0,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2017-11-09",
-   "raw_gap": 0.3682,
-   "window_end": "2018-11-24",
-   "window_days": 255,
-   "window_pass_days": 20,
-   "total_pass_days": 121,
-   "judgments_in_window": {}
-  },
-  {
-   "ticker": "228760",
-   "ex_date": "2018-09-14",
-   "kind": "fric",
-   "rcept_no": "20180831000711",
-   "method": null,
-   "expected_ratio": 0.5,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 0,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2018-09-14",
-   "raw_gap": 0.5399,
-   "window_end": "2019-09-29",
-   "window_days": 253,
-   "window_pass_days": 0,
-   "total_pass_days": 121,
-   "judgments_in_window": {}
-  },
-  {
-   "ticker": "232680",
-   "ex_date": "2017-06-22",
-   "kind": "fric",
-   "rcept_no": "20170607000124",
-   "method": null,
-   "expected_ratio": 0.6667,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 0,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2017-06-22",
-   "raw_gap": 0.7667,
-   "window_end": "2018-07-07",
-   "window_days": 254,
-   "window_pass_days": 0,
-   "total_pass_days": 202,
-   "judgments_in_window": {}
-  },
-  {
-   "ticker": "232830",
-   "ex_date": "2020-09-04",
-   "kind": "fric",
-   "rcept_no": "20200904000460",
-   "method": null,
-   "expected_ratio": 0.2,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 0,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2020-09-04",
-   "raw_gap": 0.2298,
-   "window_end": "2021-09-19",
-   "window_days": 258,
-   "window_pass_days": 0,
-   "total_pass_days": 161,
-   "judgments_in_window": {}
-  },
-  {
-   "ticker": "253840",
-   "ex_date": "2018-12-07",
-   "kind": "fric",
-   "rcept_no": "20181123000108",
-   "method": null,
-   "expected_ratio": 0.5,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 0,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2018-12-07",
-   "raw_gap": 0.5246,
-   "window_end": "2019-12-22",
-   "window_days": 256,
-   "window_pass_days": 0,
-   "total_pass_days": 44,
-   "judgments_in_window": {}
   },
   {
    "ticker": "254120",
@@ -1466,48 +1086,6 @@
    "judgments_in_window": null
   },
   {
-   "ticker": "270660",
-   "ex_date": "2021-02-17",
-   "kind": "fric",
-   "rcept_no": "20210203000402",
-   "method": null,
-   "expected_ratio": 0.25,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 0,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2021-02-17",
-   "raw_gap": 0.2834,
-   "window_end": "2022-03-04",
-   "window_days": 259,
-   "window_pass_days": 0,
-   "total_pass_days": 214,
-   "judgments_in_window": {}
-  },
-  {
-   "ticker": "303360",
-   "ex_date": "2020-07-21",
-   "kind": "fric",
-   "rcept_no": "20200707000137",
-   "method": null,
-   "expected_ratio": 0.5,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 0,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2020-07-21",
-   "raw_gap": 0.4962,
-   "window_end": "2021-08-05",
-   "window_days": 260,
-   "window_pass_days": 0,
-   "total_pass_days": 114,
-   "judgments_in_window": {}
-  },
-  {
    "ticker": "320000",
    "ex_date": "2026-10-15",
    "kind": "piic",
@@ -1523,31 +1101,10 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-10-30",
-   "window_days": 13,
+   "window_days": 14,
    "window_pass_days": 0,
    "total_pass_days": 61,
    "judgments_in_window": null
-  },
-  {
-   "ticker": "388610",
-   "ex_date": "2023-07-24",
-   "kind": "fric",
-   "rcept_no": "20230707000559",
-   "method": null,
-   "expected_ratio": 0.3333,
-   "class": "missing",
-   "status": "missing_confirmed",
-   "halt_days": 0,
-   "db_jumps_near": [],
-   "nearest_jump_120d": null,
-   "evidence": "raw_gap_confirmed",
-   "gap_date": "2023-07-24",
-   "raw_gap": 0.3406,
-   "window_end": "2024-08-07",
-   "window_days": 256,
-   "window_pass_days": 0,
-   "total_pass_days": 0,
-   "judgments_in_window": {}
   },
   {
    "ticker": "900290",
@@ -1586,7 +1143,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-10-17",
-   "window_days": 20,
+   "window_days": 21,
    "window_pass_days": 0,
    "total_pass_days": 88,
    "judgments_in_window": null
@@ -1616,7 +1173,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-06-10",
-   "window_days": 108,
+   "window_days": 109,
    "window_pass_days": 0,
    "total_pass_days": 54,
    "judgments_in_window": null
@@ -1637,7 +1194,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-10-23",
-   "window_days": 17,
+   "window_days": 18,
    "window_pass_days": 0,
    "total_pass_days": 0,
    "judgments_in_window": null
@@ -1881,7 +1438,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-06-20",
-   "window_days": 101,
+   "window_days": 102,
    "window_pass_days": 0,
    "total_pass_days": 113,
    "judgments_in_window": null
@@ -1971,7 +1528,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-05-15",
-   "window_days": 123,
+   "window_days": 124,
    "window_pass_days": 0,
    "total_pass_days": 31,
    "judgments_in_window": null
@@ -2249,7 +1806,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-06-06",
-   "window_days": 109,
+   "window_days": 110,
    "window_pass_days": 0,
    "total_pass_days": 51,
    "judgments_in_window": null
@@ -2313,7 +1870,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-04-28",
-   "window_days": 136,
+   "window_days": 137,
    "window_pass_days": 0,
    "total_pass_days": 76,
    "judgments_in_window": null
@@ -2343,7 +1900,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-04-08",
-   "window_days": 150,
+   "window_days": 151,
    "window_pass_days": 0,
    "total_pass_days": 32,
    "judgments_in_window": null
@@ -2471,7 +2028,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2026-11-22",
-   "window_days": 240,
+   "window_days": 241,
    "window_pass_days": 0,
    "total_pass_days": 75,
    "judgments_in_window": null
@@ -2535,7 +2092,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-04-03",
-   "window_days": 153,
+   "window_days": 154,
    "window_pass_days": 0,
    "total_pass_days": 7,
    "judgments_in_window": null
@@ -2565,7 +2122,7 @@
    "gap_date": null,
    "raw_gap": null,
    "window_end": "2027-06-11",
-   "window_days": 107,
+   "window_days": 108,
    "window_pass_days": 0,
    "total_pass_days": 125,
    "judgments_in_window": null
