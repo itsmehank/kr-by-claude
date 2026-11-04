@@ -227,6 +227,34 @@ def update_weekly_indicators_minervini_pass(
         return cur.rowcount
 
 
+def _restore_minervini_cells(conn: Connection, table: str, date_col: str, cells: list[tuple]) -> int:
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            UPDATE {table} x
+               SET minervini_c8 = c.c8, minervini_pass = c.ps, updated_at = NOW()
+              FROM unnest(%s::varchar[], %s::date[], %s::boolean[], %s::boolean[]) AS c(t, d, c8, ps)
+             WHERE x.ticker = c.t AND x.{date_col} = c.d
+            """,
+            ([c[0] for c in cells], [c[1] for c in cells], [c[2] for c in cells], [c[3] for c in cells]),
+        )
+        return cur.rowcount
+
+
+def restore_daily_minervini_cells(conn: Connection, cells: list[tuple]) -> int:
+    """(#124 --restore 전용) cells=[(ticker, date, old_c8, old_pass)] — 백업에 저장된 **이전 저장값을 그대로 복사**한다.
+
+    판정 산출이 아니라 값 복원이므로 게이트(Q-5)를 다시 평가하지 않는다(복원값은 쓰일 당시 게이트를 통과한 값).
+    pass 의 산출 writer 는 여전히 update_*_minervini_pass·delisted.py 뿐(tests/test_secugrp_gate_sites.py).
+    """
+    return _restore_minervini_cells(conn, "daily_indicators", "date", cells)
+
+
+def restore_weekly_minervini_cells(conn: Connection, cells: list[tuple]) -> int:
+    """daily 와 동일 계약(#124 --restore 전용, 값 복사)."""
+    return _restore_minervini_cells(conn, "weekly_indicators", "week_end_date", cells)
+
+
 def update_daily_rs_gate_from_weekly(
     conn: Connection, start_date: date, end_date: date, *, tickers: list[str] | None = None
 ) -> int:

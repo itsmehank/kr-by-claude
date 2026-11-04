@@ -160,6 +160,8 @@ from datetime import timedelta  # noqa: E402
 
 from kr_pipeline.common.thresholds import C8_RS_RATING_MIN  # noqa: E402  (보고용 읽기 전용 — 판정 공식은 store 가 단일 소유)
 from kr_pipeline.indicators.store import (  # noqa: E402
+    restore_daily_minervini_cells,
+    restore_weekly_minervini_cells,
     update_daily_indicators_minervini_pass,
     update_daily_indicators_rs_rating,
     update_weekly_indicators_minervini_pass,
@@ -168,6 +170,7 @@ from kr_pipeline.indicators.store import (  # noqa: E402
 
 _RS_UPDATE = {Target.DAILY: update_daily_indicators_rs_rating, Target.WEEKLY: update_weekly_indicators_rs_rating}
 _PASS_UPDATE = {Target.DAILY: update_daily_indicators_minervini_pass, Target.WEEKLY: update_weekly_indicators_minervini_pass}
+_RESTORE = {Target.DAILY: restore_daily_minervini_cells, Target.WEEKLY: restore_weekly_minervini_cells}
 _CHUNK = 60  # 날짜 단위 SELECT 묶음(메모리)
 
 
@@ -306,21 +309,9 @@ def restore(conn: Connection, target: Target, cells: list[dict]) -> dict:
     """한 트랜잭션: rs_rating ← old, c8/pass ← old_c8/old_pass (정확 복원, 재유도 아님)."""
     if not cells:
         return {"cells": 0}
-    _, ind, dcol = tables(target)
     try:
         _RS_UPDATE[target](conn, [(c["ticker"], c["date"], c["old"]) for c in cells])
-        with conn.cursor() as cur:
-            cur.execute(
-                f"""
-                UPDATE {ind} x
-                   SET minervini_c8 = c.c8, minervini_pass = c.ps, updated_at = NOW()
-                  FROM unnest(%s::varchar[], %s::date[], %s::boolean[], %s::boolean[]) AS c(t, d, c8, ps)
-                 WHERE x.ticker = c.t AND x.{dcol} = c.d
-                """,
-                ([c["ticker"] for c in cells], [c["date"] for c in cells],
-                 [c["old_c8"] for c in cells], [c["old_pass"] for c in cells]),
-            )
-            n = cur.rowcount
+        n = _RESTORE[target](conn, [(c["ticker"], c["date"], c["old_c8"], c["old_pass"]) for c in cells])
         conn.commit()
     except Exception:
         conn.rollback()
