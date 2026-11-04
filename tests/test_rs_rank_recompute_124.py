@@ -472,3 +472,13 @@ def test_rs_gate_mirror_ticker_filter(db):
                 cur.execute("DELETE FROM weekly_indicators WHERE ticker=%s", (t,))
                 cur.execute("DELETE FROM stocks WHERE ticker=%s", (t,))
         db.commit()
+
+
+# ---------------------------------------------------------------- Task 5: 러너 입력
+
+
+def test_events_from_frozen_has_18_events_17_tickers():
+    ev = m.events_from_frozen()
+    assert len(ev) == 18 and len({t for t, _ in ev}) == 17
+    assert ("078860", date(2023, 12, 27)) in ev and ("228760", date(2017, 11, 9)) in ev
+    assert ev == sorted(ev)

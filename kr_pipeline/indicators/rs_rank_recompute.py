@@ -171,19 +171,35 @@ _PASS_UPDATE = {Target.DAILY: update_daily_indicators_minervini_pass, Target.WEE
 _CHUNK = 60  # 날짜 단위 SELECT 묶음(메모리)
 
 
-def _stored(conn: Connection, target: Target, dates: list[date]) -> dict[tuple[str, date], tuple]:
-    """(ticker, date) → (rs_rating, c8, pass)."""
+def _stored_chunks(conn: Connection, target: Target, dates: list[date]):
+    """날짜 묶음별 {(ticker, date): (rs_rating, c8, pass)} 를 순서대로 yield(메모리 — --full 은 5.4M 행)."""
     _, ind, dcol = tables(target)
-    out: dict[tuple[str, date], tuple] = {}
     with conn.cursor() as cur:
         for i in range(0, len(dates), _CHUNK):
             cur.execute(
                 f"SELECT ticker, {dcol}, rs_rating, minervini_c8, minervini_pass FROM {ind} WHERE {dcol} = ANY(%s)",
                 (dates[i:i + _CHUNK],),
             )
-            for t, d, rs, c8, ps in cur.fetchall():
-                out[(t, d)] = (rs, c8, ps)
+            yield {(t, d): (rs, c8, ps) for t, d, rs, c8, ps in cur.fetchall()}
+
+
+def _stored(conn: Connection, target: Target, dates: list[date]) -> dict[tuple[str, date], tuple]:
+    out: dict[tuple[str, date], tuple] = {}
+    for chunk in _stored_chunks(conn, target, dates):
+        out.update(chunk)
     return out
+
+
+def _stored_keys(conn: Connection, target: Target, keys: list[tuple[str, date]]) -> dict[tuple[str, date], tuple]:
+    """지정 셀만 읽기(적용 후 pass 변화 집계용)."""
+    _, ind, dcol = tables(target)
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""SELECT x.ticker, x.{dcol}, x.rs_rating, x.minervini_c8, x.minervini_pass FROM {ind} x
+                 JOIN unnest(%s::varchar[], %s::date[]) AS c(t, d) ON x.ticker = c.t AND x.{dcol} = c.d""",
+            ([t for t, _ in keys], [d for _, d in keys]),
+        )
+        return {(t, d): (rs, c8, ps) for t, d, rs, c8, ps in cur.fetchall()}
 
 
 def _new(v) -> int | None:
@@ -195,15 +211,15 @@ def diff_cells(conn: Connection, target: Target, ranks: pd.DataFrame) -> list[di
     if ranks.empty:
         return []
     dates = list(ranks.index)
-    stored = _stored(conn, target, dates)
     cols = set(ranks.columns)
     cells: list[dict] = []
-    for (t, d), (rs, c8, ps) in stored.items():
-        if t not in cols:
-            continue
-        new = _new(ranks.at[d, t])
-        if new != rs:
-            cells.append({"ticker": t, "date": d, "old": rs, "new": new, "old_c8": c8, "old_pass": ps})
+    for stored in _stored_chunks(conn, target, dates):
+        for (t, d), (rs, c8, ps) in stored.items():
+            if t not in cols:
+                continue
+            new = _new(ranks.at[d, t])
+            if new != rs:
+                cells.append({"ticker": t, "date": d, "old": rs, "new": new, "old_c8": c8, "old_pass": ps})
     cells.sort(key=lambda c: (c["date"], c["ticker"]))
     return cells
 
@@ -218,6 +234,8 @@ def parity_window(conn: Connection, target: Target, sf: pd.DataFrame, *, tickers
     with conn.cursor() as cur:
         cur.execute(f"SELECT max({dcol}) FROM {ind}")
         latest = cur.fetchone()[0]
+        if latest is None:   # 빈 지표 테이블(테스트 DB 초기 상태)
+            return {"latest": None, "dates": 0, "mismatch": 0, "sample": [], "n_by_date": {}, "last_phase_b_at": None}
         cur.execute(f"SELECT DISTINCT {dcol} FROM {ind} WHERE {dcol} > %s ORDER BY 1", (latest - timedelta(days=days),))
         dates = [r[0] for r in cur.fetchall()]
         cur.execute(
@@ -275,7 +293,7 @@ def apply(conn: Connection, target: Target, cells: list[dict]) -> dict:
     try:
         _RS_UPDATE[target](conn, [(c["ticker"], c["date"], c["new"]) for c in cells])
         pass_rows = _PASS_UPDATE[target](conn, d_min, d_max, cells=keys)
-        after = _stored(conn, target, sorted({d for _, d in keys}))
+        after = _stored_keys(conn, target, keys)
         pass_changed = sum(1 for c in cells if after[(c["ticker"], c["date"])][2] != c["old_pass"])
         conn.commit()
     except Exception:
@@ -308,3 +326,26 @@ def restore(conn: Connection, target: Target, cells: list[dict]) -> dict:
         conn.rollback()
         raise
     return {"cells": n}
+
+
+# ---------------------------------------------------------------- 러너 입력
+
+def events_from_frozen() -> list[tuple[str, date]]:
+    """#122 재적재 동결 대상(18사건/17종목) → (ticker, gap_date) 정렬 목록."""
+    from kr_pipeline.ohlcv.adj_reload_events import FROZEN_TARGETS
+    return sorted((t, date.fromisoformat(d)) for t, d, _ in FROZEN_TARGETS)
+
+
+def stale_mirror_rows(conn: Connection, tickers: list[str]) -> dict[str, int]:
+    """종목별 일봉 미러(rs_line_not_declining_7m)가 최신 주봉 값과 다른 행 수(보고용)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT d.ticker, count(*) FILTER (WHERE d.rs_line_not_declining_7m IS DISTINCT FROM (
+                       SELECT w.rs_line_not_declining_7m FROM weekly_indicators w
+                        WHERE w.ticker = d.ticker AND w.week_end_date <= d.date ORDER BY w.week_end_date DESC LIMIT 1))
+              FROM daily_indicators d WHERE d.ticker = ANY(%s) GROUP BY d.ticker ORDER BY 1
+            """,
+            (tickers,),
+        )
+        return {t: int(n) for t, n in cur.fetchall()}
