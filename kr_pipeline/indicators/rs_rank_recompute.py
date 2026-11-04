@@ -152,3 +152,159 @@ def merged_ranges(dates: list[date], trading_dates: list[date]) -> list[tuple[da
         else:
             out.append((d, d))
     return out
+
+
+# ---------------------------------------------------------------- 비교·패리티·적용·복원
+
+from datetime import timedelta  # noqa: E402
+
+from kr_pipeline.common.thresholds import C8_RS_RATING_MIN  # noqa: E402  (보고용 읽기 전용 — 판정 공식은 store 가 단일 소유)
+from kr_pipeline.indicators.store import (  # noqa: E402
+    update_daily_indicators_minervini_pass,
+    update_daily_indicators_rs_rating,
+    update_weekly_indicators_minervini_pass,
+    update_weekly_indicators_rs_rating,
+)
+
+_RS_UPDATE = {Target.DAILY: update_daily_indicators_rs_rating, Target.WEEKLY: update_weekly_indicators_rs_rating}
+_PASS_UPDATE = {Target.DAILY: update_daily_indicators_minervini_pass, Target.WEEKLY: update_weekly_indicators_minervini_pass}
+_CHUNK = 60  # 날짜 단위 SELECT 묶음(메모리)
+
+
+def _stored(conn: Connection, target: Target, dates: list[date]) -> dict[tuple[str, date], tuple]:
+    """(ticker, date) → (rs_rating, c8, pass)."""
+    _, ind, dcol = tables(target)
+    out: dict[tuple[str, date], tuple] = {}
+    with conn.cursor() as cur:
+        for i in range(0, len(dates), _CHUNK):
+            cur.execute(
+                f"SELECT ticker, {dcol}, rs_rating, minervini_c8, minervini_pass FROM {ind} WHERE {dcol} = ANY(%s)",
+                (dates[i:i + _CHUNK],),
+            )
+            for t, d, rs, c8, ps in cur.fetchall():
+                out[(t, d)] = (rs, c8, ps)
+    return out
+
+
+def _new(v) -> int | None:
+    return None if pd.isna(v) else int(v)
+
+
+def diff_cells(conn: Connection, target: Target, ranks: pd.DataFrame) -> list[dict]:
+    """저장값과 다른 셀만 — {ticker, date, old, new, old_c8, old_pass}. 저장 행이 없거나 재계산 표에 없는 종목은 건너뜀."""
+    if ranks.empty:
+        return []
+    dates = list(ranks.index)
+    stored = _stored(conn, target, dates)
+    cols = set(ranks.columns)
+    cells: list[dict] = []
+    for (t, d), (rs, c8, ps) in stored.items():
+        if t not in cols:
+            continue
+        new = _new(ranks.at[d, t])
+        if new != rs:
+            cells.append({"ticker": t, "date": d, "old": rs, "new": new, "old_c8": c8, "old_pass": ps})
+    cells.sort(key=lambda c: (c["date"], c["ticker"]))
+    return cells
+
+
+def parity_window(conn: Connection, target: Target, sf: pd.DataFrame, *, tickers: list[str], days: int = 30) -> dict:
+    """최근 `days` 캘린더일 창(야간 증분 창과 동형)의 지표 날짜에서 즉석 계산 순위 vs 저장 순위.
+
+    mismatch 가 0 이 아니면 (a) 재적재 후 Phase B 가 아직 그 날짜를 다시 돌지 않았거나 (b) 계산 경로가 어긋난 것.
+    n_by_date(N_stored, N_recomputed)·last_phase_b_at 으로 둘을 구분한다.
+    """
+    _, ind, dcol = tables(target)
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT max({dcol}) FROM {ind}")
+        latest = cur.fetchone()[0]
+        cur.execute(f"SELECT DISTINCT {dcol} FROM {ind} WHERE {dcol} > %s ORDER BY 1", (latest - timedelta(days=days),))
+        dates = [r[0] for r in cur.fetchall()]
+        cur.execute(
+            "SELECT max(finished_at) FROM pipeline_runs WHERE pipeline='indicators' AND mode LIKE %s AND status='success'",
+            (f"{'daily' if target == Target.DAILY else 'weekly'}-%",),
+        )
+        last_b = cur.fetchone()[0]
+    ranks = rank_table(sf, dates)
+    cells = diff_cells(conn, target, ranks)
+    stored = _stored(conn, target, dates)
+    n_by_date = {}
+    for d in dates:
+        n_stored = sum(1 for (t, dd), (rs, _, _) in stored.items() if dd == d and rs is not None and t in tickers)
+        n_recomp = int(ranks.loc[d].notna().sum()) if d in ranks.index else 0
+        n_by_date[d.isoformat()] = [n_stored, n_recomp]
+    return {
+        "latest": latest.isoformat() if latest else None, "dates": len(dates), "mismatch": len(cells),
+        "sample": [{**c, "date": c["date"].isoformat()} for c in cells[:10]],
+        "n_by_date": n_by_date, "last_phase_b_at": last_b.isoformat() if last_b else None,
+    }
+
+
+def plan(conn: Connection, target: Target, dates: list[date], *, sf: pd.DataFrame, target_tickers: set[str] = frozenset()) -> dict:
+    """읽기 전용 보고 + 적용 입력(cells)."""
+    ranks = rank_table(sf, dates)
+    cells = diff_cells(conn, target, ranks)
+    hist = {"1": 0, "2": 0, ">=3": 0, "null_flip": 0}
+    c8_flip = 0
+    for c in cells:
+        if c["old"] is None or c["new"] is None:
+            hist["null_flip"] += 1
+        else:
+            k = abs(c["old"] - c["new"])
+            hist["1" if k == 1 else "2" if k == 2 else ">=3"] += 1
+        if (c["new"] is not None and c["new"] >= C8_RS_RATING_MIN) != bool(c["old_c8"]):
+            c8_flip += 1
+    by_t = sum(1 for c in cells if c["ticker"] in target_tickers)
+    return {
+        "dates": len(dates), "cells": cells, "n_cells": len(cells), "by_target_ticker": by_t, "by_other": len(cells) - by_t,
+        "delta_hist": hist, "c8_flip": c8_flip,
+        "date_min": dates[0].isoformat() if dates else None, "date_max": dates[-1].isoformat() if dates else None,
+    }
+
+
+def _keys(cells: list[dict]) -> list[tuple[str, date]]:
+    return [(c["ticker"], c["date"]) for c in cells]
+
+
+def apply(conn: Connection, target: Target, cells: list[dict]) -> dict:
+    """한 트랜잭션: rs_rating ← new → 같은 셀만 Phase C 재유도 → commit. 예외 시 rollback 후 재raise."""
+    if not cells:
+        return {"cells": 0, "pass_rows": 0, "pass_changed": 0}
+    keys = _keys(cells)
+    d_min, d_max = min(d for _, d in keys), max(d for _, d in keys)
+    try:
+        _RS_UPDATE[target](conn, [(c["ticker"], c["date"], c["new"]) for c in cells])
+        pass_rows = _PASS_UPDATE[target](conn, d_min, d_max, cells=keys)
+        after = _stored(conn, target, sorted({d for _, d in keys}))
+        pass_changed = sum(1 for c in cells if after[(c["ticker"], c["date"])][2] != c["old_pass"])
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return {"cells": len(cells), "pass_rows": pass_rows, "pass_changed": pass_changed}
+
+
+def restore(conn: Connection, target: Target, cells: list[dict]) -> dict:
+    """한 트랜잭션: rs_rating ← old, c8/pass ← old_c8/old_pass (정확 복원, 재유도 아님)."""
+    if not cells:
+        return {"cells": 0}
+    _, ind, dcol = tables(target)
+    try:
+        _RS_UPDATE[target](conn, [(c["ticker"], c["date"], c["old"]) for c in cells])
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                UPDATE {ind} x
+                   SET minervini_c8 = c.c8, minervini_pass = c.ps, updated_at = NOW()
+                  FROM unnest(%s::varchar[], %s::date[], %s::boolean[], %s::boolean[]) AS c(t, d, c8, ps)
+                 WHERE x.ticker = c.t AND x.{dcol} = c.d
+                """,
+                ([c["ticker"] for c in cells], [c["date"] for c in cells],
+                 [c["old_c8"] for c in cells], [c["old_pass"] for c in cells]),
+            )
+            n = cur.rowcount
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return {"cells": n}

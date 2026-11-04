@@ -91,17 +91,32 @@ def update_daily_indicators_rs_rating(conn: Connection, rows: list[tuple]) -> in
         return cur.rowcount
 
 
+def _cells_clause(alias: str, date_col: str, cells: list[tuple[str, date]] | None) -> tuple[str, dict]:
+    """(#124) 셀 한정 필터 — cells 가 None 이면 빈 조건(기존 동작). unnest 배열이라 한 트랜잭션에서 여러 번 호출 가능."""
+    if cells is None:
+        return "", {}
+    return (
+        f" AND ({alias}.ticker, {alias}.{date_col}) IN "
+        f"(SELECT c.t, c.d FROM unnest(%(cell_t)s::varchar[], %(cell_d)s::date[]) AS c(t, d))",
+        {"cell_t": [t for t, _ in cells], "cell_d": [d for _, d in cells]},
+    )
+
+
 def update_daily_indicators_minervini_pass(
     conn: Connection,
     start_date: date,
     end_date: date,
+    *,
+    cells: list[tuple[str, date]] | None = None,
 ) -> int:
     """단일 SQL UPDATE 로 c8 (rs_rating >= C8_RS_RATING_MIN) 와 minervini_pass (c1..c8 ALL TRUE) 계산.
 
     (Q-5) 증권구분 게이트 — 비허용 종목은 기준일 이후 행만 NULL(판정하지 않음). 조건은 SSOT 조각
     `security_group_gate_sql` 단일 참조(3곳 동일 계약: 여기 daily · weekly · indicators/delisted.py).
+    (#124) cells=[(ticker, date), …] 를 주면 그 셀만 갱신(공식 불변 — RS 순위 표적 재계산이 바꾼 셀에만 c8/pass 재유도).
     """
     gate = security_group_gate_sql("d", "date")
+    cells_sql, cells_params = _cells_clause("d", "date", cells)
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -114,9 +129,9 @@ def update_daily_indicators_minervini_pass(
                        d.minervini_c7 IS TRUE AND (d.rs_rating >= %(c8)s)
                    ) END,
                    updated_at = NOW()
-             WHERE d.date BETWEEN %(start)s AND %(end)s
+             WHERE d.date BETWEEN %(start)s AND %(end)s{cells_sql}
             """,
-            {"c8": C8_RS_RATING_MIN, "start": start_date, "end": end_date, **security_group_gate_params()},
+            {"c8": C8_RS_RATING_MIN, "start": start_date, "end": end_date, **security_group_gate_params(), **cells_params},
         )
         return cur.rowcount
 
@@ -187,9 +202,12 @@ def update_weekly_indicators_minervini_pass(
     conn: Connection,
     start_date: date,
     end_date: date,
+    *,
+    cells: list[tuple[str, date]] | None = None,
 ) -> int:
-    """(Q-5) daily 와 동일 계약 — 게이트 조건은 SSOT 조각 단일 참조."""
+    """(Q-5) daily 와 동일 계약 — 게이트 조건은 SSOT 조각 단일 참조. (#124) cells 한정은 daily 와 동일."""
     gate = security_group_gate_sql("w", "week_end_date")
+    cells_sql, cells_params = _cells_clause("w", "week_end_date", cells)
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -202,9 +220,9 @@ def update_weekly_indicators_minervini_pass(
                        w.minervini_c7 IS TRUE AND (w.rs_rating >= %(c8)s)
                    ) END,
                    updated_at = NOW()
-             WHERE w.week_end_date BETWEEN %(start)s AND %(end)s
+             WHERE w.week_end_date BETWEEN %(start)s AND %(end)s{cells_sql}
             """,
-            {"c8": C8_RS_RATING_MIN, "start": start_date, "end": end_date, **security_group_gate_params()},
+            {"c8": C8_RS_RATING_MIN, "start": start_date, "end": end_date, **security_group_gate_params(), **cells_params},
         )
         return cur.rowcount
 
