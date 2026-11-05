@@ -36,17 +36,18 @@
   "by_status": {
    "composite_rehab_manual": 3,
    "missing_unverifiable": 32,
+   "net_adjusted_manual": 2,
    "offset_by_split_manual": 7,
    "pending": 3,
-   "size_mismatch": 28,
-   "split_accompanied_unconfirmed": 3
+   "reference_overadjusted_manual": 1,
+   "size_mismatch": 28
   },
   "split_offset": {
    "evidence_rows": 3,
-   "manual_verdicts_applied": 10,
+   "manual_verdicts_applied": 13,
    "manual_conflicts": [],
    "manual_unmatched": [],
-   "registry": "data/verification/issue122_unconfirmed_verdicts_20261103.json"
+   "registry": "data/verification/issue122_unconfirmed_verdicts_20261105.json"
   }
  },
  "missing_confirmed": {
@@ -1491,7 +1492,7 @@
    "method": "(1)액면가 500원 보통주 4주를 동일 액면가의 보통주 1주로 무상병합하는 무상감자\n\n(2)감자 후 1주당 액면금액 500원의 보통주식 1주를 액면금액 100원 보통주식 5주로 주식분할",
    "expected_ratio": 4.0,
    "class": "size_mismatch",
-   "status": "split_accompanied_unconfirmed",
+   "status": "net_adjusted_manual",
    "halt_days": 27,
    "db_jumps_near": [
     [
@@ -1516,7 +1517,9 @@
    "window_days": 256,
    "window_pass_days": 0,
    "total_pass_days": 103,
-   "judgments_in_window": null
+   "judgments_in_window": null,
+   "manual_verdict": "net_adjusted",
+   "manual_evidence": "crDecsn method: 4주→1주 무상병합 후 액면 500→100 1주→5주 분할 = 순 ×0.8. raw 재개일 갭 0.7715(2025-02-27), 참조 factor 점프 0.8845 — 순효과 0.8 과 CR_SIZE_TOL(1.5) 안. 기대 ×4 는 분할 미반영 오산"
   },
   {
    "ticker": "016380",
@@ -1654,7 +1657,7 @@
    "method": "1) 액면금액 5,000원의 보통주식 1주를 액면금액 500원의 보통주식 10주로 주식분할 함.\n\n2) 주식분할과 동시에 1주당 액면금액 500원의 보통주 10주를 동일한 액면금액의 보통주 1주로 무상병합 함.",
    "expected_ratio": 10.0,
    "class": "size_mismatch",
-   "status": "split_accompanied_unconfirmed",
+   "status": "reference_overadjusted_manual",
    "halt_days": 22,
    "db_jumps_near": [
     [
@@ -1679,7 +1682,9 @@
    "window_days": 125,
    "window_pass_days": 0,
    "total_pass_days": 31,
-   "judgments_in_window": null
+   "judgments_in_window": null,
+   "manual_verdict": "reference_overadjusted",
+   "manual_evidence": "거래소공시 I: 20260316901570 주식소각(자기주식 전량, 자본금 감소 없음 — 가격 무영향), 20260316901871 주식분할(5,000→500, 16,244,128→162,441,280주), crDecsn 10주→1주 병합 = 순 1.0, 20260519900647 정지해제(감자 및 액면분할 변경상장). 참조는 05-22 재개일에 factor ×0.8041 적용(2025-02-03~2026-05-21 318행 0.804), raw 1741→1555(−10.7%, 5주 정지 중 시장 변동). 사건으로 설명 안 되는 과조정 — 라이브 판정·pass 0(2025+), 수정 보류"
   },
   {
    "ticker": "052770",
@@ -2053,7 +2058,7 @@
    "method": "1) 액면금액 1,000원의 보통주식 1주를 \n액면금액 500원 보통주식 2주로 주식분할함.\n\n2) 주식분할과 동시에 1주당 액면금액 500원의 보통주 10주를 동일한 액면금액 보통주 1주로 무상병합함.",
    "expected_ratio": 10.0,
    "class": "size_mismatch",
-   "status": "split_accompanied_unconfirmed",
+   "status": "net_adjusted_manual",
    "halt_days": 23,
    "db_jumps_near": [
     [
@@ -2078,7 +2083,9 @@
    "window_days": 152,
    "window_pass_days": 0,
    "total_pass_days": 32,
-   "judgments_in_window": null
+   "judgments_in_window": null,
+   "manual_verdict": "net_adjusted",
+   "manual_evidence": "crDecsn method: 액면 1,000→500 1주→2주 분할 후 10주→1주 병합 = 순 ×5. raw 갭 5.0(2026-04-16)·참조 factor 점프 5.0 — 정확 일치. 기대 ×10 은 분할 미반영 오산"
   },
   {
    "ticker": "182400",
