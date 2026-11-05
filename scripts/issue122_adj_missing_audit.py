@@ -49,8 +49,8 @@ JUDGMENT_TABLES = (("weekly_classification", "analyzed_for_date", "classificatio
                    ("entry_params", "analyzed_for_date", None),
                    ("positions", "entry_date", None))
 RELEVANT_CA = ("bonus_issue", "capital_reduction", "rights_offering")
-# (#122 후속) §6 수동 심판 등록부 — 병합+액면분할 상쇄 7건·회생 복합 3건. 키 = ticker+ex_date.
-MANUAL_VERDICTS = "data/verification/issue122_unconfirmed_verdicts_20261103.json"
+# (#122 후속) 수동 심판 등록부 — §6 상쇄 7·회생 복합 3 + §8.4 순효과 반영 2·참조 과조정 1. 키 = ticker+ex_date.
+MANUAL_VERDICTS = "data/verification/issue122_unconfirmed_verdicts_20261105.json"
 
 
 def load_ticker(cur, t: str):
@@ -65,8 +65,9 @@ def load_ticker(cur, t: str):
                 "rcept_no": rc} for e, rd, rt, m, rc in cur.fetchall()]
     methods = {d["rcept_no"]: d["method"] for d in details}
     # (#122 후속) 같은 기간 주식분할 공시 — 2026-11-05 실측 corporate_actions 에 stock_split 0행.
-    # 파서·저장 경로는 stock_split 을 통과시키므로(parser.py·modes.py) 원인 미확인(DART 목록 응답 내용·
-    # 조회 조건 확인 필요, 별도 항목). 행이 생기면 그대로 증거가 된다.
+    # 원인 확정(11-05 DART 목록 실측): '주식분할결정'은 거래소공시(pblntf_ty=I)로 접수되는데 수집
+    # (modes.py → fetch_disclosures pblntf_ty='B')은 주요사항보고만 조회한다. 수집 확장은 별도 이슈.
+    # 행이 생기면 그대로 증거가 된다.
     cur.execute("SELECT event_date FROM corporate_actions WHERE ticker=%s "
                 "AND event_type='stock_split'", (t,))
     splits = [r[0] for r in cur.fetchall()]
