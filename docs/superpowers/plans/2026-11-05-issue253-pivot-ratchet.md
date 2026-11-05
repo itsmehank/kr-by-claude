@@ -247,4 +247,10 @@ def test_history_includes_effective_pivot(client, seed_classifications):
 - [ ] `pgrep -f pytest` 비어 있음 확인 후 `uv run pytest tests/ -q` → 0 failed · 1 skipped · 1 deselected (로그는 scratchpad 로 리다이렉트).
 - [ ] `cd web && npx vitest run && npx tsc --noEmit` 통과.
 - [ ] `grep -rn "pivot_price" kr_pipeline api --include=*.py` 로 소비처 재확인: 스펙 §3.3 표 밖 신규 읽기 경로 없음.
+  (실행 결과: 최초 grep 은 `kr_pipeline`만 봐 `api/services/review_builder.py` 를 놓쳤고 독립 리뷰 R1 이 발견 → Task 7 로 수리.)
+
+### Task 7: /review 페이지 pivot 계단을 effective 로 (리뷰 R1 Important 1)
+
+- Modify: `api/services/review_builder.py` `MERGED_ROWS_CTES.live` — `COALESCE(effective_pivot, pivot_price) AS pivot_price`(bf 는 그대로)
+- Test: `tests/test_api_review_builder.py` — effective ≠ pivot 인 라이브 행이 effective 값으로 나오고, 백필 행·레거시 행은 pivot_price 그대로.
 - [ ] PR 생성(본문: 스펙·plan 링크, 배포 순서 §7, "Closes" 금지, 끝에 🤖 Generated with [Claude Code](https://claude.com/claude-code)) → 독립 리뷰 → 머지는 사용자 지시.

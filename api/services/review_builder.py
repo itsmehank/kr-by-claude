@@ -43,7 +43,10 @@ REVIEW_COVERAGE_START = date(2026, 5, 18)
 MERGED_ROWS_CTES = """\
 live AS (
     SELECT symbol, classified_at, market, source, classification, pattern,
-           pivot_price, analyzed_for_date, reasoning,
+           -- (#253) 계단·max_reach 는 트리거가 실제 쓰는 pivot(래칫 적용 후). 같은 차트의
+           -- 트리거 점(trigger_evaluation_log.pivot_price)과 같은 기준. 레거시 행은 LLM 값.
+           COALESCE(effective_pivot, pivot_price) AS pivot_price,
+           analyzed_for_date, reasoning,
            COALESCE(analyzed_for_date, classified_at::date) AS key_date,
            false AS backfilled
       FROM weekly_classification

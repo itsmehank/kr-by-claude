@@ -69,8 +69,13 @@ same-base 재판독 56건 중 하향 25건, 049430 에서 pivot 23,650 → 22,05
 | `trade_management/stop_stack.py` | 매수가 anchor | 변경 없음 | #1 하위 영향 3(재판독 절연) 그대로 |
 | `scripts/stage0_replay_5b_gates.py`(bt-110 견적 재생) | `pivot_price` | 변경 없음 | 과거 행 effective NULL·백테스트 경로(D3) |
 | `insert_disqualification`·`insert_universe_exclusion` | pivot NULL | 변경 없음 | effective NULL, 활성 조회 비대상 |
+| `api/services/review_builder.py` `live` CTE(/review 페이지 pivot 계단·`max_reach_pct`, `review_streaks`·`routers/review.py` 가 소비) | `pivot_price` | `COALESCE(effective_pivot, pivot_price) AS pivot_price`(live 만, `bf` 백필 CTE 는 그대로) | 같은 차트의 트리거 점은 `trigger_evaluation_log.pivot_price`(= effective) 라 계단도 effective 로 그려야 정합. 독립 리뷰 R1 Important 1 |
+| `api/services/zip_builder.py`(분석 동결 zip) | LLM `pivot_price` | 변경 없음(의도) | LLM 출력 원본 보존 용도 |
+| `kr_pipeline/llm_runner/gates.py` 8.5 extended 강등·2F failed_breakout, `compute/handle_quality.py` | LLM `pivot_price` | 변경 없음 | 래칫 **이전**(phase1 게이트)에 LLM 판독값으로 동작 — §5 의존성 맵 행 참조 |
 
-`pivot_price` 읽기 소비처 전수(`grep -rn pivot_price kr_pipeline api`)는 위 표가 전부다. 구현 시 재grep 으로 재확인.
+`pivot_price` 읽기 소비처 전수는 위 표(라이브 경로)와 백테스트 경로(D3, `kr_pipeline/backtest/*`·`scripts/stage0_replay_5b_gates.py`·`payload_lite.prior_row` 주입)로 나뉜다. 구현 완료 후 `grep -rn pivot_price kr_pipeline api` 재확인(리뷰 R1 에서 review_builder 누락 발견·추가).
+
+**kept 행의 payload 기하**: `prior_analysis.pivot_price`(effective, 예 23,650)가 같은 행의 `base_high`(LLM, 예 22,050)보다 높을 수 있다. 5b 프롬프트는 pivot 재산출 금지(`evaluate_pivot_trigger_v1.md:9`)라 판정 입력은 pivot 뿐이며 프롬프트 변경 없음(governance 4-6). 관측 항목으로만 둔다.
 
 ### 3.4 적용 예 (049430, #129 §3 재현)
 
@@ -122,6 +127,8 @@ thresholds.py 상수 추가·변경 없음. 아래 상수들의 **입력(pivot)*
 | `PIVOT_EXTENDED_BAND_MULT` 1.05(extended 상단) | 불가 | **있음** — kept 시 extended 경계도 옛 pivot 기준으로 올라가 "추격" 판정이 완화 | PRESERVES(§8.5) | 모니터링(근거: 옛 pivot 이 정당한 매수점이면 그 +5% 가 책의 추격 한계. 하향 판독 pivot 기준 extended 가 오히려 오판) |
 | `ENTRY_STOP_PCT_FROM_PIVOT_FLOOR` −10 등 entry_params 스톱 클램프 | 불가 | 미미 — 스톱 anchor 가 effective 로 일관(매수 신호도 같은 pivot 기준) | PRESERVES | 모니터링: 신호 pivot 과 스톱 pivot 이 같은 값이라는 불변식 유지 |
 | `PIVOT_PRICE_OFFSET` 0.1(sanity_pivot_offset_rule) | — | 없음 — LLM `pivot_price` 검사, effective 비대상 | (별건: Q-3 "+0.1" 책 미확인 → docstring 태그 정정은 #253 파생 1, 본 스펙 범위 밖) | 비대상 |
+| `PIVOT_EXTENDED_BAND_MULT` 1.05 in `gates.py` 8.5(phase1, entry → watch/extended 강등) | 불가 | **있음** — 래칫 이전에 LLM pivot 으로 판정. kept 상황(LLM 22,050·effective 23,650)에서 close 23,300 은 LLM 기준 extended(> 23,152)라 강등되지만 effective 기준으로는 매수 구간 아래. 강등되면 `extended ∉ ALLOWED_WATCH_REASONS` 라 다음 주말까지 breakout 비발화 | PRESERVES(§8.5) | 모니터링(근거: 방향이 보수적(신호 감소)이고, LLM 이 pivot 을 낮춰 읽으면서 가격이 그 +5% 위에 있는 경우는 LLM 자신도 extended 로 읽는 구간. `triggered_rules->'8_5_extended_band'` 와 `ratchet=kept` 동시 발생 건수를 4주 관측에 포함, 반복되면 8.5 를 effective 기준으로 옮기는 후속 이슈). 리뷰 R1 Important 2 |
+| `gates.py` 2F failed_breakout·`handle_quality.py`(LLM pivot 소비) | — | 없음 — LLM 판독 기하 검사, effective 비대상(의도) | PRESERVES | 비대상 |
 | `_BASE_NEAR_DAYS` 10(store.py, 비등재) | 불가(일수) | **있음** — same/near 판정이 래칫 적용 범위를 가른다 | design-judgment(Q-5) | 모니터링(근거: #1 실측 그룹핑 기준 재사용, 값 변경 없음. docstring 에 [design-judgment] 태그 추가) |
 
 - 소비 경계(1줄): `effective_pivot → evaluate_pivot 결정론 게이트 → (5b) LLM go/wait → (6) entry_params → positions`.
@@ -149,7 +156,11 @@ thresholds.py 상수 추가·변경 없음. 아래 상수들의 **입력(pivot)*
   확인 → 첫 적용 = 다음 토요일 주말 분류.
 - 롤백: 소비처가 COALESCE 라 코드만 되돌리면 된다(열은 남겨도 무해).
 - 관측·판정: 4주(토요일 4회) 후 `scripts/issue129_pivot_continuity_readout.py` 재실행 — 지표 2(하향 재판독 후 돌파
-  발화) = 0 기대, `ratchet=kept` 건수·promotion 변화·`[pivot-ratchet] kept` 로그 대조를 #253 코멘트로 기록.
+  발화) = 0 기대, `ratchet=kept` 건수·promotion 변화·`[pivot-ratchet] kept` 로그 대조·kept ∧ `8_5_extended_band` 동시
+  발생 건수를 #253 코멘트로 기록.
+- 운영 주의: ALTER 미적용 DB 에서 코드를 먼저 돌리면 `insert_classification` 이 LLM 호출 **뒤** UndefinedColumn 으로
+  실패한다(종목 단위 격리라 그 실행의 LLM 비용이 소모됨). 순서(schema → pull)를 지키면 발생하지 않는다. 실행 전
+  열 존재 선검사는 후속 후보(리뷰 R1 Minor 3).
   이 관측은 descriptive(governance 3-3) — 성과 판정은 아니다(3-2).
 - 용어집 §7 "방향 한정 래칫(권고안, 미구현)" → 구현 후 갱신.
 
