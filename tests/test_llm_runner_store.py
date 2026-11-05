@@ -1046,3 +1046,138 @@ def test_continuity_same_effective_date_not_compared(db):
                 pivot=50900.0, base_start=date(2026, 5, 2), afd=afd)
     c = _continuity_of(db, "CONTSD1", datetime(2026, 7, 11, 5, 0, tzinfo=timezone.utc))
     assert c is None, f"같은 유효일 행과 비교됨: {c}"
+
+
+# ====== (#253) effective_pivot 방향 한정 래칫 ======
+
+def _effective_of(db, symbol, at):
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT effective_pivot FROM weekly_classification "
+            "WHERE symbol=%s AND classified_at=%s", (symbol, at),
+        )
+        v = cur.fetchone()[0]
+        return float(v) if v is not None else None
+
+
+def _ts(m, d):
+    return datetime(2026, m, d, 3, 0, tzinfo=timezone.utc)
+
+
+def test_ratchet_keeps_prev_effective_across_two_lowered_weeks(db, mocker):
+    """같은 베이스 23,650 → 22,050 → 22,050: 두 번째·세 번째 행 effective 모두 23,650 (체인 유지).
+
+    세 번째 행은 저장 최신값(22,050)이 아니라 직전 effective(23,650)와 비교해야 한다 — #129 §3
+    '내려간 pivot 유지 후속 10행' 교훈."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "RAT1")
+    t = [_ts(8, 22), _ts(8, 29), _ts(9, 5)]
+    _insert_cls(db, "RAT1", at=t[0], pivot=23650.1, base_start="2026-06-01", afd=date(2026, 8, 22))
+    _insert_cls(db, "RAT1", at=t[1], pivot=22050.1, base_start="2026-06-01", afd=date(2026, 8, 29))
+    _insert_cls(db, "RAT1", at=t[2], pivot=22050.1, base_start="2026-06-01", afd=date(2026, 9, 5))
+    assert _effective_of(db, "RAT1", t[0]) == 23650.1
+    assert _effective_of(db, "RAT1", t[1]) == 23650.1
+    assert _effective_of(db, "RAT1", t[2]) == 23650.1
+    c2 = _continuity_of(db, "RAT1", t[1])
+    assert c2["ratchet"] == "kept"
+    assert c2["prev_effective_pivot"] == 23650.1
+    assert c2["prev_pivot_price"] == 23650.1  # 기존 키 불변
+    assert c2["base_continuity"] == "same"
+    c3 = _continuity_of(db, "RAT1", t[2])
+    assert c3["ratchet"] == "kept"
+    assert c3["prev_pivot_price"] == 22050.1       # LLM 판독값 비교(관측)는 그대로
+    assert c3["prev_effective_pivot"] == 23650.1   # 래칫 비교는 effective
+    # LLM 판독값은 불변
+    with db.cursor() as cur:
+        cur.execute("SELECT pivot_price FROM weekly_classification WHERE symbol='RAT1' AND classified_at=%s", (t[1],))
+        assert float(cur.fetchone()[0]) == 22050.1
+
+
+def test_ratchet_accepts_higher_and_releases_on_different_base(db, mocker):
+    _gates_identity(mocker)
+    _clean_symbol(db, "RAT2")
+    t = [_ts(8, 22), _ts(8, 29), _ts(9, 5)]
+    _insert_cls(db, "RAT2", at=t[0], pivot=23650.1, base_start="2026-06-01", afd=date(2026, 8, 22))
+    _insert_cls(db, "RAT2", at=t[1], pivot=23800.1, base_start="2026-06-01", afd=date(2026, 8, 29))
+    _insert_cls(db, "RAT2", at=t[2], pivot=22000.1, base_start="2026-08-01", afd=date(2026, 9, 5))
+    assert _effective_of(db, "RAT2", t[1]) == 23800.1
+    assert _continuity_of(db, "RAT2", t[1])["ratchet"] == "accepted"
+    assert _effective_of(db, "RAT2", t[2]) == 22000.1
+    c3 = _continuity_of(db, "RAT2", t[2])
+    assert c3["base_continuity"] == "different" and c3["ratchet"] == "released"
+
+
+def test_ratchet_unknown_uses_new_value(db, mocker):
+    """직전 행 base_start None → unknown → 새 값 그대로 (D1)."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "RAT3")
+    t = [_ts(8, 22), _ts(8, 29)]
+    _insert_cls(db, "RAT3", at=t[0], pivot=23650.1, base_start=None, afd=date(2026, 8, 22))
+    _insert_cls(db, "RAT3", at=t[1], pivot=22050.1, base_start="2026-06-01", afd=date(2026, 8, 29))
+    assert _effective_of(db, "RAT3", t[1]) == 22050.1
+    c2 = _continuity_of(db, "RAT3", t[1])
+    assert c2["base_continuity"] == "unknown" and c2["ratchet"] == "unknown"
+
+
+def test_ratchet_legacy_prev_row_uses_pivot_price(db, mocker):
+    """열 도입 전 레거시 행(effective_pivot NULL)은 pivot_price 가 기준 — NULL 로 래칫이 무력화되면 안 된다."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "RAT4")
+    t = [_ts(8, 22), _ts(8, 29)]
+    with db.cursor() as cur:
+        cur.execute(
+            """INSERT INTO weekly_classification
+               (symbol, classified_at, analyzed_for_date, market, classification, pattern,
+                pivot_price, base_high, base_low, base_start_date, source)
+               VALUES ('RAT4', %s, %s, 'KOSPI', 'watch', 'flat_base',
+                       23650.1, 23650.1, 21000, '2026-06-01', 'weekend')""",
+            (t[0], date(2026, 8, 22)),
+        )
+    db.commit()
+    assert _effective_of(db, "RAT4", t[0]) is None
+    _insert_cls(db, "RAT4", at=t[1], pivot=22050.1, base_start="2026-06-01", afd=date(2026, 8, 29))
+    assert _effective_of(db, "RAT4", t[1]) == 23650.1
+    assert _continuity_of(db, "RAT4", t[1])["ratchet"] == "kept"
+
+
+def test_ratchet_prev_ignore_breaks_chain(db, mocker):
+    """직전 최신 행이 ignore 면 활성 기준선 단절(_pivot_continuity None) → no_baseline."""
+    _gates_identity(mocker)
+    _clean_symbol(db, "RAT5")
+    t = [_ts(8, 22), _ts(8, 29), _ts(9, 5)]
+    _insert_cls(db, "RAT5", at=t[0], pivot=23650.1, base_start="2026-06-01", afd=date(2026, 8, 22))
+    _insert_cls(db, "RAT5", at=t[1], pivot=None, base_start=None, pattern="none",
+                classification="ignore", afd=date(2026, 8, 29))
+    _insert_cls(db, "RAT5", at=t[2], pivot=22050.1, base_start="2026-06-01", afd=date(2026, 9, 5))
+    assert _effective_of(db, "RAT5", t[1]) is None
+    assert _effective_of(db, "RAT5", t[2]) == 22050.1
+    assert _continuity_of(db, "RAT5", t[2]) is None  # 관측도 None (기존 의미론)
+
+
+def test_ratchet_fail_soft_when_continuity_raises(db, mocker):
+    """_pivot_continuity 가 서버 오류를 내도 행은 저장되고 effective = 새 값."""
+    import kr_pipeline.llm_runner.store as st
+
+    def poison(conn, **kw):
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM no_such_table_pivot_ratchet")
+
+    _gates_identity(mocker)
+    _clean_symbol(db, "RAT6")
+    mocker.patch.object(st, "_pivot_continuity", side_effect=poison)
+    t1 = _ts(8, 29)
+    _insert_cls(db, "RAT6", at=t1, pivot=22050.1, base_start="2026-06-01", afd=date(2026, 8, 29))
+    assert _effective_of(db, "RAT6", t1) == 22050.1
+    assert _continuity_of(db, "RAT6", t1) is None
+
+
+def test_ratchet_kept_logs_warning(db, mocker, caplog):
+    import logging
+    _gates_identity(mocker)
+    _clean_symbol(db, "RAT7")
+    t = [_ts(8, 22), _ts(8, 29)]
+    _insert_cls(db, "RAT7", at=t[0], pivot=23650.1, base_start="2026-06-01", afd=date(2026, 8, 22))
+    with caplog.at_level(logging.WARNING, logger="kr_pipeline.llm_runner.store"):
+        _insert_cls(db, "RAT7", at=t[1], pivot=22050.1, base_start="2026-06-01", afd=date(2026, 8, 29))
+    kept = [r for r in caplog.records if "[pivot-ratchet] kept RAT7" in r.getMessage()]
+    assert len(kept) == 1

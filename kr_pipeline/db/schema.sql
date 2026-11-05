@@ -345,6 +345,15 @@ ALTER TABLE weekly_classification
 ALTER TABLE weekly_classification
   ADD COLUMN IF NOT EXISTS pivot_continuity JSONB;
 
+-- 2026-11-05 (#253): 방향 한정 래칫 적용 후 트리거 기준 pivot. pivot_price(LLM 판독값)는 불변.
+-- same/near 베이스에서 새 판독 < 직전 effective 면 직전 값 유지, 그 외 새 판독값
+-- (산출: kr_pipeline/llm_runner/compute/pivot_ratchet.py, 저장: store.insert_classification).
+-- NULL = 열 도입 전 레코드 또는 pivot 없음 → 소비처는 COALESCE(effective_pivot, pivot_price).
+-- 백필/백테스트 테이블(classification_backfill·backtest_classification)에는 없음(실전 경로 한정).
+-- 스펙: docs/superpowers/specs/2026-11-05-issue253-pivot-ratchet-design.md
+ALTER TABLE weekly_classification
+  ADD COLUMN IF NOT EXISTS effective_pivot NUMERIC(12, 4);
+
 -- (#44 Task 7) verdict_original — 게이트(apply_phase1_gates) 적용 전 LLM 원본
 -- classification. §6.2 topping shadow backstop 등 후처리 강등 관측용(감사 전용,
 -- 소비처 없음). NULL = 게이트 도입 이전 레코드.
