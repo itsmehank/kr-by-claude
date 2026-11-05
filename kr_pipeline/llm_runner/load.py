@@ -83,7 +83,9 @@ def get_active_monitoring(conn: Connection) -> list[dict]:
             """
             SELECT DISTINCT ON (symbol)
                    symbol, classified_at, market, classification, pattern,
-                   pivot_price, base_low, base_high, watch_reason
+                   -- (#253) 트리거 기준 pivot = 래칫 적용 후 값. 레거시 행은 LLM 판독값.
+                   COALESCE(effective_pivot, pivot_price) AS pivot_price,
+                   base_low, base_high, watch_reason
               FROM weekly_classification
              ORDER BY symbol, COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC
             """

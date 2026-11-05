@@ -48,7 +48,9 @@ def build_for_5b(
         else:
             cur.execute(
                 """
-                SELECT classified_at, classification, pattern, pivot_price, pivot_basis,
+                SELECT classified_at, classification, pattern,
+                       -- (#253) 게이트(get_active_monitoring)와 같은 값 = 래칫 적용 후 pivot.
+                       COALESCE(effective_pivot, pivot_price), pivot_basis,
                        base_high, base_low, base_depth_pct, risk_flags, reasoning,
                        watch_reason
                   FROM weekly_classification
@@ -220,7 +222,9 @@ def build_for_6(
 
         cur.execute(
             """
-            SELECT classified_at, classification, pattern, pivot_price, pivot_basis,
+            SELECT classified_at, classification, pattern,
+                   -- (#253) 스톱·사이징 anchor 도 트리거와 같은 래칫 적용 후 pivot.
+                   COALESCE(effective_pivot, pivot_price), pivot_basis,
                    base_high, base_low, base_depth_pct, risk_flags, confidence, reasoning
               FROM weekly_classification
              WHERE symbol = %s
