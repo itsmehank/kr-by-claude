@@ -234,10 +234,10 @@ corporate_actions 목록에 조정성 공시가 있으나 구조화 상세 0 —
 
 - 1단 증거 `split_evidence`: 감자 method 문구에 주식분할/액면분할 언급(`method_text`) 또는 권리락일 [−150, +90+정지] 안 `corporate_actions.stock_split` 공시(`disclosure`).
 - 2단 확인 `split_offset_status`: **참조 점프 없음(`missing_unconfirmed`) ∧** 감자 창 [−7, +90+정지] 안 raw 일간 갭 최대치(`max_abs_gap`)가 1.25 미만 → `offset_by_split`. 그 외(참조가 factor 를 바꾼 `size_mismatch`, raw 갭 큼, 창에 봉 없음, `missing_unverifiable`) → `split_accompanied_unconfirmed`(사람 심판). 참조 점프(`db_factor_jumps`)는 adj/raw factor 변화라 가격 변동과 무관하므로, 참조가 조정했다면 raw 갭이 작아도 순효과 ≠ 1.0 일 수 있어 상쇄로 단정하지 않는다(독립 리뷰 R1 ①④). `matched`·`missing_confirmed`·`pending` 은 불변.
-- 수동 심판 등록부 `apply_manual_verdicts`: `issue122_unconfirmed_verdicts_20261103.json` 의 (ticker, ex_date) 는 `<verdict>_manual` 로 표기(상쇄 7·회생 복합 3) — 러너가 매번 "미확정"으로 다시 올리지 않는다. 보호 상태(`matched`·`missing_confirmed`·`pending`) 행은 덮지 않고 `manual_conflicts` 로, 행에 없는 등록 키는 `manual_unmatched` 로 결과에 노출(R1 ②).
-- **발견 → 원인 확정(§8.4)**: `corporate_actions` 에 `stock_split` 행이 2016-06~2026-11 전 구간 **0행**. 파서·저장 경로는 통과시키며, 원인은 **'주식분할결정'이 거래소공시(pblntf_ty=I)로 접수되는데 수집(`modes.py` → `fetch_disclosures` 기본 `pblntf_ty='B'` 주요사항보고)이 B 만 조회**하기 때문(11-05 DART 목록 실측: 005420 2019-08~12 B 목록에 감자·유상증자만, 052300 2026 I 목록에 주식분할결정·주식소각결정·정지해제). 수집 확장은 별도 이슈. `disclosure` 증거는 그때까지 비활성, 작동 증거는 `method_text`(crDecsn method 에 분할 언급 4행). 창 상수 `SPLIT_DISCLOSURE_WINDOW (−150, +90)` 은 §6 실측(결정 공시 −46~−78일)의 약 2배 여유 [design-judgment].
+- 수동 심판 등록부 `apply_manual_verdicts`: 현행 등록부 = 러너 `MANUAL_VERDICTS`(`issue122_unconfirmed_verdicts_20261105.json`, 13건 = §6 상쇄 7·회생 복합 3 + §8.4 순효과 반영 2·참조 과조정 1). (ticker, ex_date) 가 맞는 행은 `<verdict>_manual` 로 표기 — 러너가 매번 "미확정"으로 다시 올리지 않는다. 보호 상태(`matched`·`missing_confirmed`·`pending`) 행은 덮지 않고 `manual_conflicts` 로, 행에 없는 등록 키는 `manual_unmatched` 로 결과에 노출(R1 ②).
+- **발견 → 원인 확정(§8.4)**: `corporate_actions` 에 `stock_split` 행이 2016-06~2026-11 전 구간 **0행**. 파서·저장 경로는 통과시키며, 원인은 **'주식분할결정'이 거래소공시(pblntf_ty=I)로 접수되는데 수집(`modes.py` → `fetch_disclosures` 기본 `pblntf_ty='B'` 주요사항보고)이 B 만 조회**하기 때문(11-05 DART 목록 실측: 005420 2019-08~12 B 목록에 감자·유상증자만, 052300 2026 I 목록에 주식분할결정·주식소각결정·정지해제). 수집 확장은 #259. `disclosure` 증거는 그때까지 비활성, 작동 증거는 `method_text`(crDecsn method 에 분할 언급 4행). 창 상수 `SPLIT_DISCLOSURE_WINDOW (−150, +90)` 은 §6 실측(결정 공시 −46~−78일)의 약 2배 여유 [design-judgment].
 
-### 8.3 재실행 결과 (2026-11-05, 읽기 전용·KRX 0·DART 0) — `issue122_adj_missing_audit_20261105.json`
+### 8.3 재실행 결과 (2026-11-05, 읽기 전용·KRX 0·DART 0 — §8.4 등록부 반영 전 집계; 같은 이름의 JSON 은 §8.4 반영본으로 갱신됨)
 
 | 항목 | 11-03 | 11-05 |
 |---|---|---|
@@ -261,10 +261,10 @@ corporate_actions 목록에 조정성 공시가 있으나 구조화 상세 0 —
 |---|---|---|---|---|---|
 | 011300 (2025-01-31) | 4주→1주 병합 후 액면 500→100 1주→5주 분할 | ×0.8 | 0.7715 (02-27) | 0.8845 | **net_adjusted** — 참조가 순효과 반영(CR_SIZE_TOL 안). 기대 ×4 는 분할 미반영 오산 |
 | 106080 (2026-03-24) | 액면 1,000→500 1주→2주 분할 후 10주→1주 병합 | ×5 | 5.0 (04-16) | 5.0 | **net_adjusted** — 정확 일치. 기대 ×10 은 분할 미반영 오산 |
-| 052300 (2026-04-30) | 자사주 621,015주 소각(자본금 불변) + 5,000→500 1주→10주 분할 + 10주→1주 병합 | ×1.0 | 0.893 (05-22, 5주 정지 후 재개) | 0.8041 | **reference_overadjusted** — 사건으로 설명되지 않는 참조 과조정 의심. 2025-02-03~2026-05-21 318행이 ×0.804 로 눌려 있음. 라이브 판정·pass 0(2025+)·백테스트 2026 셀 0 → 영향 없음, **수정 보류**(참조 측 오류인지 전문가 확인 후 재적재 도구로 ×1.2436 복원 여부 결정) |
+| 052300 (2026-04-30) | 자사주 621,015주 소각(자본금 불변) + 5,000→500 1주→10주 분할 + 10주→1주 병합 | ×1.0 | 0.893 (05-22, 5주 정지 후 재개) | 0.8041 | **reference_overadjusted** — 사건으로 설명되지 않는 참조 과조정 의심(2026 증자 공시 없음, 소각 주식수 기준이어도 0.962). 2025-02-03~2026-05-21 318행이 ×0.804 로 눌려 있음. 라이브 판정·pass 0(2025+)·백테스트 2026 셀 0 → 현재 영향 없음, **수정 보류**. **재점검 조건(등록부 `recheck_by` 2027-05-21)**: 룩백이 그 구간을 벗어나기 전에 052300 pass·판정이 생기면 재심판(참조 측 확인 → `issue122_adj_reload` 로 ×1.2436 복원 여부) |
 
 누락 확정 0 유지, 재적재 목록 18건 불변. 검출기 교훈: 감자 기대 배율(`1/(1−ratio)`)은 분할 동반 시 과대 — 2단 규칙이 이 3건을 전부 사람에게 넘긴 것이 의도된 동작이다. 등록부 반영 후 재실행 by_status: offset_by_split_manual 7 · composite_rehab_manual 3 · net_adjusted_manual 2 · reference_overadjusted_manual 1 · size_mismatch 28 · missing_unverifiable 32 · pending 3.
 
-**주식분할 수집 0행 원인(확정)**: DART `list.json` 은 `pblntf_ty` 로 공시 유형을 가르며 '주식분할결정'·'주식소각결정'·'주권매매거래정지(해제)' 는 **거래소공시(I)** 다. `corporate_actions` 수집은 B(주요사항보고)만 조회해 `parser.py` 의 `stock_split` 키워드가 한 번도 입력을 받지 못했다. 수정은 수집 범위 설계(I 유형 전수는 양이 많아 키워드 한정 필요)라 별도 이슈.
+**주식분할 수집 0행 원인(확정)**: DART `list.json` 은 `pblntf_ty` 로 공시 유형을 가르며 '주식분할결정'·'주식소각결정'·'주권매매거래정지(해제)' 는 **거래소공시(I)** 다. `corporate_actions` 수집은 B(주요사항보고)만 조회해 `parser.py` 의 `stock_split` 키워드가 한 번도 입력을 받지 못했다. 수정은 수집 범위 설계(I 유형 전수는 양이 많아 키워드 한정 필요)라 **#259** 로 등록(deferred). `dart_client.py` docstring 의 "분할·병합…은 B" 문구도 #259 에서 정정.
 
 사고 기록: `--plan` 첫 실행 시 지표·주봉 모듈 import 경유로 pykrx 가 KRX 로그인 1회 수행(조회 0). 스크립트가 kr_pipeline import 전에 `KRX_ID/KRX_PW` 를 비우도록 수정하고 정적 가드 테스트 추가(PR #249). 이후 실행은 접촉 0.

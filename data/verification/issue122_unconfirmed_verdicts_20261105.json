@@ -1,7 +1,7 @@
 {
  "issue": 122,
  "generated": "2026-11-05",
- "scope": "missing_unconfirmed 10건 수동 심판(조사 전용, DB 무수정). 근거 = DART 원문(rcept_no)·공시 목록(B/I, 기준일 −90~+200일)·daily_prices raw/adj. DART 40콜. / 2026-11-05 추가: 2단 규칙이 split_accompanied_unconfirmed 로 남긴 3건 수동 심판 (근거 = crDecsn method 문구의 병합·분할 비율, 거래소공시 I 목록·원문 3콜, daily_prices raw/adj).",
+ "scope": "missing_unconfirmed 10건 수동 심판(조사 전용, DB 무수정). 근거 = DART 원문(rcept_no)·공시 목록(B/I, 기준일 −90~+200일)·daily_prices raw/adj. DART 40콜. / 2026-11-05 추가: 2단 규칙이 split_accompanied_unconfirmed 로 남긴 3건 수동 심판 (근거 = crDecsn method 문구의 병합·분할 비율, DART 목록 3콜·거래소공시 원문 3콜, daily_prices raw/adj).",
  "verdict_codes": {
   "offset_by_split": "병합 감자와 동시 액면분할(주식분할결정) → 주식수·가격 순변동 없음 = 참조 조정 불필요, 누락 아님",
   "composite_rehab": "회생 중 장기 정지(1~4년)·다단계 감자 복합 → 참조에 부분 조정 존재, 깨끗한 배율 산정 불가 = 재적재 제외, 잔여 기록",
@@ -111,15 +111,20 @@
    "ex_date": "2026-04-30",
    "event": "자사주 소각 621,015주 + 분할 1:10 + 감자 10:1 (정지 2026-04-15~05-21, 재개 05-22)",
    "verdict": "reference_overadjusted",
-   "evidence": "거래소공시 I: 20260316901570 주식소각(자기주식 전량, 자본금 감소 없음 — 가격 무영향), 20260316901871 주식분할(5,000→500, 16,244,128→162,441,280주), crDecsn 10주→1주 병합 = 순 1.0, 20260519900647 정지해제(감자 및 액면분할 변경상장). 참조는 05-22 재개일에 factor ×0.8041 적용(2025-02-03~2026-05-21 318행 0.804), raw 1741→1555(−10.7%, 5주 정지 중 시장 변동). 사건으로 설명 안 되는 과조정 — 라이브 판정·pass 0(2025+), 수정 보류"
+   "evidence": "거래소공시 I: 20260316901570 주식소각(자기주식 전량, 자본금 감소 없음 — 가격 무영향), 20260316901871 주식분할(5,000→500, 16,244,128→162,441,280주), crDecsn 10주→1주 병합 = 순 1.0, 20260519900647 정지해제(감자 및 액면분할 변경상장). 참조는 05-22 재개일에 factor ×0.8041 적용(2025-02-03~2026-05-21 318행 0.804), raw 1741→1555(−10.7%, 5주 정지 중 시장 변동). 사건으로 설명 안 되는 과조정 — 라이브 판정·pass 0(2025+), 수정 보류. corporate_actions·corp_action_details 2026 에 유상/무상증자(piic/fric) 없음 — 동반 증자로 설명 불가. 참조 조정이 주식수 기준(소각 3.8%)이었다 해도 0.962 이지 0.804 가 아님",
+   "recheck_by": "2027-05-21",
+   "recheck_trigger": "×0.804 가 2025-02-03~2026-05-21 행에 남아 52주·이동평균 룩백이 2027-05 까지 오염. 그 전에 052300 minervini_pass 또는 저장 판정이 생기면 재심판(참조 측 확인 → issue122_adj_reload 로 ×1.2436 복원 여부)"
   }
  ],
  "summary": {
   "offset_by_split": 7,
   "composite_rehab": 3,
   "added_to_reload_list": 0,
-  "detector_gap": "액면분할(주식분할결정)은 DART 주요사항 5 엔드포인트 밖 → 병합 감자 기대 배율을 상쇄하는 분할을 검출기가 볼 수 없음. 후속: 공시 목록(corporate_actions / list.json)의 '주식분할결정' 동반 여부를 cr 이벤트에 병기하면 7건은 자동으로 '상쇄'로 분류 가능 / 2026-11-05 원인 확정: '주식분할결정'은 거래소공시(pblntf_ty=I)로 접수되며 corporate_actions 수집은 주요사항보고(B)만 조회해 전 구간 0행",
+  "detector_gap": "액면분할(주식분할결정)은 DART 주요사항 5 엔드포인트 밖 → 병합 감자 기대 배율을 상쇄하는 분할을 검출기가 볼 수 없음. 후속: 공시 목록(corporate_actions / list.json)의 '주식분할결정' 동반 여부를 cr 이벤트에 병기하면 7건은 자동으로 '상쇄'로 분류 가능 / 2026-11-05 원인 확정: '주식분할결정'은 거래소공시(pblntf_ty=I)로 접수되며 corporate_actions 수집은 주요사항보고(B)만 조회해 전 구간 0행 → #259 등록(2026-11-05)",
   "net_adjusted": 2,
-  "reference_overadjusted": 1
+  "reference_overadjusted": 1,
+  "pending_recheck": [
+   "052300 2026-04-30 (recheck_by 2027-05-21)"
+  ]
  }
 }

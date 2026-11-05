@@ -486,6 +486,21 @@ def test_apply_manual_verdicts_marks_registered_rows_only():
     assert rows[3]["status"] == "missing_confirmed" and "manual_verdict" not in rows[3]
 
 
+def test_manual_verdict_registry_contract():
+    """러너가 읽는 실제 등록부: 키 유일, verdict 가 정의된 코드, summary 가 행 집계와 일치(오타가 새 status 를 만들지 않게)."""
+    import json
+    from collections import Counter
+    from pathlib import Path
+    reg = json.loads((Path(__file__).resolve().parents[1]
+                      / "data/verification/issue122_unconfirmed_verdicts_20261105.json").read_text())
+    keys = [(r["ticker"], r["ex_date"]) for r in reg["rows"]]
+    assert len(keys) == len(set(keys)) == 13
+    assert all(r["verdict"] in reg["verdict_codes"] for r in reg["rows"])
+    counts = Counter(r["verdict"] for r in reg["rows"])
+    assert all(reg["summary"][k] == v for k, v in counts.items())
+    assert all("recheck_by" in r for r in reg["rows"] if r["verdict"] == "reference_overadjusted")
+
+
 def test_split_evidence_disclosure_window_caps_halt_extension():
     from kr_pipeline.ohlcv.adj_missing_audit import HALT_MAX, split_evidence
     ex = date(2022, 12, 16)
