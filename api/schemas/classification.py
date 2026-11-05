@@ -11,6 +11,8 @@ class ClassificationRow(BaseModel):
     pattern: str | None
     pivot_price: float | None
     pivot_basis: str | None
+    # (#253) 래칫 적용 후 트리거 기준 pivot — 판독값(pivot_price)과 다를 수 있음. 레거시 행은 None.
+    effective_pivot: float | None = None
     base_high: float | None
     base_low: float | None
     base_depth_pct: float | None
@@ -36,3 +38,5 @@ class ClassificationHistoryRow(BaseModel):
     reasoning: str | None = None
     # 그 분석이 제시한 pivot(돌파 기준가) — 실격/미확정 행은 NULL (#149)
     pivot_price: float | None = None
+    # (#253) 래칫 적용 후 트리거 기준 pivot — 라이브 행만(백필 행·레거시 행은 None)
+    effective_pivot: float | None = None

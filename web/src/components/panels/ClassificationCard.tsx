@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import { api } from "../../lib/api";
 import type { Classification, ClassificationHistoryRow } from "../../lib/types";
+import { effectivePivotNote } from "../../lib/effectivePivot";
 import { Card } from "./Card";
 
 interface Props {
@@ -128,6 +129,11 @@ export function ClassificationCard({ ticker }: Props) {
           <span className="caps text-faint">Pivot</span>{" "}
           {c.pivot_price != null ? `${c.pivot_price.toLocaleString()}원` : "—"}
           {c.pivot_basis && <span className="text-faint"> ({c.pivot_basis})</span>}
+          {effectivePivotNote(c.pivot_price, c.effective_pivot) && (
+            <div className="text-data-xs text-faint">
+              {effectivePivotNote(c.pivot_price, c.effective_pivot)}
+            </div>
+          )}
         </div>
         {c.risk_flags.length > 0 && (
           <div className="flex flex-wrap gap-1">
