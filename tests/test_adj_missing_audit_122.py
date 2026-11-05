@@ -409,3 +409,86 @@ def test_control_repaired_but_still_missing_confirmed_fails():
     v = positive_control_verdict(_C, confirmed_keys=set(_C), matched_keys=set(), repaired_keys=set(_C))
     assert v["ok"] is False
     assert sorted(v["failed"]) == sorted(list(k) for k in _C)
+
+
+# ---- (#122 후속) 병합 감자 + 액면분할 상쇄 — 2단 규칙 -----------------------------
+# 1단: 분할 동반 증거(감자 method 문구 / 같은 기간 주식분할 공시). 2단: 창 안 raw 갭이 1.0 근방이면
+# 상쇄, 큰 갭이 남으면 비율 상이(예 병합 10:1 + 분할 1:5 = 순 ×2) → 미확정으로 남긴다.
+
+def test_split_evidence_from_cr_method_text():
+    from kr_pipeline.ohlcv.adj_missing_audit import split_evidence
+    ex = date(2026, 5, 2)
+    m = "1) 액면금액 5,000원의 보통주식 1주를 액면금액 500원의 보통주식 10주로 주식분할 함.\n2) 주식분할과 동시에 10주를 1주로 무상병합 함."
+    assert split_evidence(m, [], ex) == "method_text"
+    assert split_evidence("보통주식 5주를 병합하여 같은 액면주식 1주로 병합", [], ex) is None
+    assert split_evidence(None, [], ex) is None
+
+
+def test_split_evidence_from_split_disclosures_in_window():
+    from kr_pipeline.ohlcv.adj_missing_audit import split_evidence
+    ex = date(2019, 10, 18)
+    assert split_evidence("5주를 1주로 병합", [date(2019, 8, 23)], ex) == "disclosure"      # −56일
+    assert split_evidence("5주를 1주로 병합", [date(2019, 12, 20)], ex) == "disclosure"     # +63일 ≤ 90
+    assert split_evidence("5주를 1주로 병합", [date(2018, 1, 1)], ex) is None               # 창 밖
+    assert split_evidence("5주를 1주로 병합", [date(2020, 2, 1)], ex, extra_days=30) == "disclosure"  # +106 ≤ 90+30
+
+
+def test_max_abs_gap_in_cr_window():
+    from kr_pipeline.ohlcv.adj_missing_audit import max_abs_gap
+    dates = _dates(date(2019, 10, 1), 80)
+    ex = dates[13]
+    closes = [(d, 1000.0) for d in dates]
+    flat = max_abs_gap(closes, ex)
+    assert flat is not None and flat[1] == 1.0            # 창에 봉이 있으면 None 이 아니다(평탄 = 1.0)
+    k = 16
+    closes = [(d, 1000.0 if i < k else 5000.0) for i, d in enumerate(dates)]   # ex+3거래일 ×5
+    d, g = max_abs_gap(closes, ex)
+    assert d == dates[k] and abs(g - 5.0) < 1e-9
+    later = max_abs_gap(closes, dates[60])
+    assert later is not None and later[1] == 1.0          # 창 밖 점프 비포함
+    assert max_abs_gap(closes[:1], ex) is None            # 창에 봉 없음 → None
+
+
+def test_split_offset_status_two_stage():
+    from kr_pipeline.ohlcv.adj_missing_audit import split_offset_status
+    g_small, g_big = (date(2019, 10, 21), 1.03), (date(2019, 10, 21), 2.0)
+    assert split_offset_status("missing_unconfirmed", None, g_small) == "missing_unconfirmed"
+    # 상쇄 = 참조 점프 없음(missing_unconfirmed) ∧ raw 갭 1.0 근방 — 둘 다 있어야 한다
+    assert split_offset_status("missing_unconfirmed", "disclosure", g_small) == "offset_by_split"
+    assert split_offset_status("missing_unconfirmed", "disclosure", g_big) == "split_accompanied_unconfirmed"
+    # 창에 봉이 없으면 확인 불가 — 상쇄로 단정하지 않는다(리뷰 R1 ④)
+    assert split_offset_status("missing_unconfirmed", "method_text", None) == "split_accompanied_unconfirmed"
+    # 참조가 factor 를 바꿨다면(size_mismatch) raw 갭이 작아도 상쇄 아님 — 순효과 ≠ 1.0 가능(리뷰 R1 ①)
+    assert split_offset_status("size_mismatch", "disclosure", g_small) == "split_accompanied_unconfirmed"
+    assert split_offset_status("size_mismatch", "disclosure", g_big) == "split_accompanied_unconfirmed"
+    assert split_offset_status("missing_unverifiable", "disclosure", g_small) == "split_accompanied_unconfirmed"
+    assert split_offset_status("matched", "disclosure", g_big) == "matched"          # 참조가 이미 조정 — 불변
+    assert split_offset_status("missing_confirmed", "disclosure", g_big) == "missing_confirmed"  # raw 갭 확정은 불변
+    assert split_offset_status("pending", "disclosure", g_big) == "pending"
+
+
+def test_apply_manual_verdicts_marks_registered_rows_only():
+    from kr_pipeline.ohlcv.adj_missing_audit import apply_manual_verdicts
+    rows = [{"ticker": "005420", "ex_date": "2019-10-18", "status": "missing_unconfirmed"},
+            {"ticker": "999999", "ex_date": "2020-01-01", "status": "missing_unconfirmed"},
+            {"ticker": "005420", "ex_date": "2021-01-01", "status": "missing_unconfirmed"},
+            {"ticker": "029480", "ex_date": "2019-12-09", "status": "missing_confirmed"}]   # 장래 raw 갭 확정 — 등록부가 덮으면 안 됨
+    reg = {"rows": [{"ticker": "005420", "ex_date": "2019-10-18", "verdict": "offset_by_split",
+                     "evidence": "주식분할결정 동시 공시"},
+                    {"ticker": "029480", "ex_date": "2019-12-09", "verdict": "offset_by_split"},
+                    {"ticker": "073640", "ex_date": "2017-04-28", "verdict": "offset_by_split"}]}  # 행에 없음(ex_date 변동 등)
+    out = apply_manual_verdicts(rows, reg)
+    assert out == {"applied": 1, "conflicts": [["029480", "2019-12-09", "missing_confirmed"]],
+                   "unmatched": [["073640", "2017-04-28"]]}
+    assert rows[0]["status"] == "offset_by_split_manual" and rows[0]["manual_verdict"] == "offset_by_split"
+    assert rows[1]["status"] == "missing_unconfirmed" and "manual_verdict" not in rows[1]
+    assert rows[2]["status"] == "missing_unconfirmed"
+    assert rows[3]["status"] == "missing_confirmed" and "manual_verdict" not in rows[3]
+
+
+def test_split_evidence_disclosure_window_caps_halt_extension():
+    from kr_pipeline.ohlcv.adj_missing_audit import HALT_MAX, split_evidence
+    ex = date(2022, 12, 16)
+    assert split_evidence("병합", [ex + timedelta(days=200)], ex, extra_days=320) is None   # 연장은 HALT_MAX(90) 까지만 → 상한 +180
+    assert split_evidence("병합", [ex + timedelta(days=90 + HALT_MAX)], ex, extra_days=320) == "disclosure"
+    assert split_evidence("병합", [ex + timedelta(days=100)], ex) is None               # 정지 없음 → 상한 +90

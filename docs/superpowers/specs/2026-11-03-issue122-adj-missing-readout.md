@@ -213,4 +213,44 @@ corporate_actions 목록에 조정성 공시가 있으나 구조화 상세 0 —
 
 **재계산하지 않은 것(사용자 결정, §5 종결 판단·PR #249 본문)**: 전 종목 과거 RS(bt_rs) 횡단면, 과거 `minervini_pass` 횡단면 플래그, 저장된 과거 판정(078860 백테스트 27셀·009310 주말분류 5건은 오염 표기만 유지). 이 범위는 #124.
 
+## 8. 미심판 19종목 심판 + 검출기 보완 (2026-11-05)
+
+### 8.1 미심판 19종목(`phase2_targets`) — 누락 확정 0, 재적재 목록 불변
+
+방법: ① 로컬 가격 갭 스크리닝(공시일 ±20거래일 raw 일간 비율·adj factor 변화, KRX 0) → ② 해석이 필요한 4종목만 DART 원문(document API, 사용자 승인)에서 증자방식·신주배정기준일 확인. piicDecsn 재조회는 4종목 모두 빈 응답 → **"구조화 상세 0" 원인 = 2016~2017 공시는 DART 구조화 API 밖**. 산출 `data/verification/issue122_phase2_gaps_20261105.json`(스크리닝)·`issue122_phase2_dart_20261105.json`(원문 추출).
+
+| 판정 | 종목 | 근거 |
+|---|---|---|
+| 참조 조정 반영됨 3 | 024740(2018-01-15 raw 0.819·adj ×1.207), 206640(2017-04-05 raw 0.935·×1.097), 263600(2019-07-15 raw 0.457·×2.0) | 권리락일에 adj factor 동반 점프 |
+| 권리락 없는 증자 방식 3 | 012320(2017 일반공모), 229640(2016 일반공모), 237880(2017 제3자배정) | DART 원문 "5. 증자방식". 창 최대 점프 ≤7.5%·adj 1.0 과 정합 |
+| 범위 경계 1 | 038870(2016-05-24 주주배정후 실권주 일반공모, 신주배정기준일 06-14 → 권리락일 06-13) | 권리락일 = 전역 가격 이력 첫날(2016-06-13). 조정 대상 봉 없음 |
+| 상장 전 공시 12 | 055490·061090·237820·267850·307950·322000·326030·417200·417970·439260·443060·454910 | 조정성 공시 전부 상장일 이전. 326030 2020-07-06 raw 1.30(IPO 직후 상한가)·237820 2020-03-19 raw 0.78(코로나 급락)은 adj 1.0, 조정 사건 아님 |
+
+재실행(§8.3)에서 `phase2_targets` 20 = 위 19 + 468530(신규 상장, 상세 0) — 468530 은 다음 라운드 대상.
+
+### 8.2 검출기 보완 — 병합 감자 + 액면분할 상쇄 2단 규칙 (`kr_pipeline/ohlcv/adj_missing_audit.py`)
+
+§6 의 상쇄 7건은 공시 제목만 본 것이 아니라 raw 갭 ≈1.0 을 실측해 확정한 것이다. 제목만으로 자동 '상쇄' 처리하면 비율이 다른 경우(병합 10:1 + 분할 1:5 = 순 ×2)를 놓치므로 규칙을 2단으로 둔다.
+
+- 1단 증거 `split_evidence`: 감자 method 문구에 주식분할/액면분할 언급(`method_text`) 또는 권리락일 [−150, +90+정지] 안 `corporate_actions.stock_split` 공시(`disclosure`).
+- 2단 확인 `split_offset_status`: **참조 점프 없음(`missing_unconfirmed`) ∧** 감자 창 [−7, +90+정지] 안 raw 일간 갭 최대치(`max_abs_gap`)가 1.25 미만 → `offset_by_split`. 그 외(참조가 factor 를 바꾼 `size_mismatch`, raw 갭 큼, 창에 봉 없음, `missing_unverifiable`) → `split_accompanied_unconfirmed`(사람 심판). 참조 점프(`db_factor_jumps`)는 adj/raw factor 변화라 가격 변동과 무관하므로, 참조가 조정했다면 raw 갭이 작아도 순효과 ≠ 1.0 일 수 있어 상쇄로 단정하지 않는다(독립 리뷰 R1 ①④). `matched`·`missing_confirmed`·`pending` 은 불변.
+- 수동 심판 등록부 `apply_manual_verdicts`: `issue122_unconfirmed_verdicts_20261103.json` 의 (ticker, ex_date) 는 `<verdict>_manual` 로 표기(상쇄 7·회생 복합 3) — 러너가 매번 "미확정"으로 다시 올리지 않는다. 보호 상태(`matched`·`missing_confirmed`·`pending`) 행은 덮지 않고 `manual_conflicts` 로, 행에 없는 등록 키는 `manual_unmatched` 로 결과에 노출(R1 ②).
+- **발견(별도 확인 항목)**: `corporate_actions` 에 `stock_split` 행이 2016-06~2026-11 전 구간 **0행**(제목에 주식분할/액면분할 포함 행 0). 파서 키워드(`parser.py`)와 저장 경로(`modes.py`)는 `stock_split` 을 통과시키므로 **원인 미확인** — DART 목록 응답 내용·조회 조건(pblntf_ty·기간) 확인이 후속. `disclosure` 증거는 현재 비활성, 작동 증거는 `method_text`(crDecsn method 에 분할 언급 4행). 창 상수 `SPLIT_DISCLOSURE_WINDOW (−150, +90)` 은 §6 실측(결정 공시 −46~−78일)의 약 2배 여유 [design-judgment].
+
+### 8.3 재실행 결과 (2026-11-05, 읽기 전용·KRX 0·DART 0) — `issue122_adj_missing_audit_20261105.json`
+
+| 항목 | 11-03 | 11-05 |
+|---|---|---|
+| matched / missing / size_mismatch / pending | 1,394 / 42 / 31 / 3 | 동일 |
+| by_status | missing_unconfirmed 10 · size_mismatch 31 · missing_unverifiable 32 · pending 3 | **offset_by_split_manual 7 · composite_rehab_manual 3 · split_accompanied_unconfirmed 3** · size_mismatch 28 · missing_unverifiable 32 · pending 3 (manual_conflicts 0 · manual_unmatched 0) |
+| 누락 확정 | 0 | 0 |
+| 양성 대조군 | 3/3 repaired | 3/3 repaired |
+
+2단 규칙이 새로 분류한 3행(전부 `method_text` 증거, 종전 size_mismatch → 전부 사람 심판 대상). 자동 `offset_by_split` 은 0 — 참조가 factor 를 바꾼 행이라 규칙상 상쇄로 단정하지 않는다:
+- 052300 2026-04-30 감자(기대 ×10, method "액면 5,000→500 10주 분할 + 동시 10주→1주 병합" = 명목 순 1.0): raw 창 최대 갭 0.893 이지만 참조 factor 가 05-22 에 ×0.804(≈1/1.24) 바뀜 — 순효과가 1.0 이면 설명되지 않는 조정. **split_accompanied_unconfirmed**(기대 잔차 ≈ ×1.24, 동반 유상증자 등 가능성 — 원문 심판).
+- 106080 2026-03-24 감자(기대 ×10): 창 최대 raw 갭 **×5.0**(04-16)·참조 factor 점프 5.0 → **split_accompanied_unconfirmed**. 분할 비율이 병합과 달라 순 ×5 가 남은 사례로 보이며(병합 10:1 + 분할 1:2 추정), 참조는 순효과 ×5 를 반영한 듯 → 사람 심판 대상. 바로 이 유형이 "제목만 보고 상쇄" 를 금지한 이유.
+- 011300 2025-01-31 감자(기대 ×4): 창 최대 갭 0.772·참조 factor 점프 0.885 → **split_accompanied_unconfirmed**, 사람 심판 대상.
+
+후속: 052300(2026)·106080·011300 수동 심판(DART 원문), 468530 다음 라운드, `stock_split` 수집 0행 원인 확인.
+
 사고 기록: `--plan` 첫 실행 시 지표·주봉 모듈 import 경유로 pykrx 가 KRX 로그인 1회 수행(조회 0). 스크립트가 kr_pipeline import 전에 `KRX_ID/KRX_PW` 를 비우도록 수정하고 정적 가드 테스트 추가(PR #249). 이후 실행은 접촉 0.

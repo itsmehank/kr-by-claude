@@ -1,0 +1,1358 @@
+{
+ "012320": {
+  "name": "경동인베스트",
+  "market": "KOSPI",
+  "delisted": null,
+  "prices": [
+   "2016-06-13",
+   "2026-11-04",
+   2550
+  ],
+  "events": [
+   {
+    "event_date": "2016-11-10",
+    "type": "spinoff",
+    "ratio": null,
+    "title": "주요사항보고서(회사분할결정)",
+    "rcept": "20161110000380",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2016-11-07",
+     "raw_ratio": 1.0804,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 3,
+     "score": 0.0773
+    }
+   },
+   {
+    "event_date": "2017-06-21",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "주요사항보고서(유상증자결정)",
+    "rcept": "20170621000232",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2017-06-13",
+     "raw_ratio": 1.0242,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.0239
+    }
+   },
+   {
+    "event_date": "2017-07-19",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(유상증자결정)",
+    "rcept": "20170719000088",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2017-08-07",
+     "raw_ratio": 0.9852,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 3,
+     "score": 0.0149
+    }
+   },
+   {
+    "event_date": "2017-08-11",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(유상증자결정)",
+    "rcept": "20170811000790",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2017-08-23",
+     "raw_ratio": 1.0304,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.0299
+    }
+   },
+   {
+    "event_date": "2017-08-14",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[첨부정정]주요사항보고서(유상증자결정)",
+    "rcept": "20170814000567",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2017-08-23",
+     "raw_ratio": 1.0304,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.0299
+    }
+   },
+   {
+    "event_date": "2024-06-10",
+    "type": "merger",
+    "ratio": null,
+    "title": "주요사항보고서(회사합병결정)",
+    "rcept": "20240610000290",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2024-05-24",
+     "raw_ratio": 1.1931,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.1766
+    }
+   },
+   {
+    "event_date": "2024-06-13",
+    "type": "merger",
+    "ratio": null,
+    "title": "[첨부정정]주요사항보고서(회사합병결정)",
+    "rcept": "20240613000082",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2024-05-24",
+     "raw_ratio": 1.1931,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.1766
+    }
+   }
+  ]
+ },
+ "024740": {
+  "name": "한일단조",
+  "market": "KOSDAQ",
+  "delisted": null,
+  "prices": [
+   "2016-06-13",
+   "2026-11-04",
+   2550
+  ],
+  "events": [
+   {
+    "event_date": "2017-12-26",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "주요사항보고서(유상증자결정)",
+    "rcept": "20171226000339",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2018-01-15",
+     "raw_ratio": 0.8192,
+     "adj_factor_ratio": 1.2068,
+     "gap_days": 3,
+     "score": 0.1994
+    }
+   },
+   {
+    "event_date": "2018-01-12",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(유상증자결정)",
+    "rcept": "20180111000551",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2018-01-15",
+     "raw_ratio": 0.8192,
+     "adj_factor_ratio": 1.2068,
+     "gap_days": 3,
+     "score": 0.1994
+    }
+   },
+   {
+    "event_date": "2018-02-19",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(유상증자결정)",
+    "rcept": "20180219000019",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2018-02-23",
+     "raw_ratio": 1.0931,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.0891
+    }
+   },
+   {
+    "event_date": "2018-02-21",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[첨부정정]주요사항보고서(유상증자결정)",
+    "rcept": "20180221000044",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2018-02-23",
+     "raw_ratio": 1.0931,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.0891
+    }
+   }
+  ]
+ },
+ "038870": {
+  "name": "에코심플렉스",
+  "market": "KOSDAQ",
+  "delisted": null,
+  "prices": [
+   "2016-06-13",
+   "2026-11-04",
+   2550
+  ],
+  "events": [
+   {
+    "event_date": "2016-07-12",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[첨부정정]주요사항보고서(유상증자결정)",
+    "rcept": "20160712000056",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2016-07-07",
+     "raw_ratio": 1.0751,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.0725
+    }
+   },
+   {
+    "event_date": "2016-07-12",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(유상증자결정)",
+    "rcept": "20160712000044",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2016-07-07",
+     "raw_ratio": 1.0751,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.0725
+    }
+   },
+   {
+    "event_date": "2020-04-27",
+    "type": "merger",
+    "ratio": null,
+    "title": "주요사항보고서(회사합병결정)",
+    "rcept": "20200427000366",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2020-04-17",
+     "raw_ratio": 1.2993,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.2618
+    }
+   },
+   {
+    "event_date": "2020-10-26",
+    "type": "merger",
+    "ratio": null,
+    "title": "[첨부추가]주요사항보고서(회사합병결정)",
+    "rcept": "20201026000399",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2020-11-05",
+     "raw_ratio": 1.149,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.1389
+    }
+   }
+  ]
+ },
+ "055490": {
+  "name": "테이팩스",
+  "market": "KOSPI",
+  "delisted": null,
+  "prices": [
+   "2017-10-31",
+   "2026-11-04",
+   2210
+  ],
+  "events": [
+   {
+    "event_date": "2016-07-19",
+    "type": "merger",
+    "ratio": null,
+    "title": "[기재정정]회사합병결정",
+    "rcept": "20160719000080",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2016-07-19",
+    "type": "merger",
+    "ratio": null,
+    "title": "회사합병결정",
+    "rcept": "20160719000043",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2016-07-21",
+    "type": "merger",
+    "ratio": null,
+    "title": "[기재정정]회사합병결정",
+    "rcept": "20160721000448",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2017-09-08",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20170908000492",
+    "in_price_range": false,
+    "max_jump": null
+   }
+  ]
+ },
+ "061090": {
+  "name": "세나테크놀로지",
+  "market": "KOSDAQ",
+  "delisted": null,
+  "prices": [
+   "2025-11-14",
+   "2026-11-04",
+   237
+  ],
+  "events": [
+   {
+    "event_date": "2022-03-14",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20220314000892",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2022-09-21",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20220921000423",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2024-01-16",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20240116000337",
+    "in_price_range": false,
+    "max_jump": null
+   }
+  ]
+ },
+ "206640": {
+  "name": "바디텍메드",
+  "market": "KOSDAQ",
+  "delisted": null,
+  "prices": [
+   "2016-06-13",
+   "2026-11-04",
+   2550
+  ],
+  "events": [
+   {
+    "event_date": "2017-03-21",
+    "type": "bonus_issue",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(무상증자결정)",
+    "rcept": "20170321000578",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2017-04-05",
+     "raw_ratio": 0.9353,
+     "adj_factor_ratio": 1.0974,
+     "gap_days": 1,
+     "score": 0.0669
+    }
+   },
+   {
+    "event_date": "2017-03-21",
+    "type": "bonus_issue",
+    "ratio": null,
+    "title": "주요사항보고서(무상증자결정)",
+    "rcept": "20170321000220",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2017-04-05",
+     "raw_ratio": 0.9353,
+     "adj_factor_ratio": 1.0974,
+     "gap_days": 1,
+     "score": 0.0669
+    }
+   },
+   {
+    "event_date": "2017-04-14",
+    "type": "bonus_issue",
+    "ratio": null,
+    "title": "[첨부정정]주요사항보고서(무상증자결정)",
+    "rcept": "20170414002330",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2017-04-05",
+     "raw_ratio": 0.9353,
+     "adj_factor_ratio": 1.0974,
+     "gap_days": 1,
+     "score": 0.0669
+    }
+   },
+   {
+    "event_date": "2017-04-14",
+    "type": "bonus_issue",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(무상증자결정)",
+    "rcept": "20170414002277",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2017-04-05",
+     "raw_ratio": 0.9353,
+     "adj_factor_ratio": 1.0974,
+     "gap_days": 1,
+     "score": 0.0669
+    }
+   }
+  ]
+ },
+ "229640": {
+  "name": "LS에코에너지",
+  "market": "KOSPI",
+  "delisted": null,
+  "prices": [
+   "2016-09-22",
+   "2026-11-04",
+   2481
+  ],
+  "events": [
+   {
+    "event_date": "2016-08-11",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20160811000470",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2016-09-07",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]유상증자결정",
+    "rcept": "20160907000315",
+    "in_price_range": false,
+    "max_jump": {
+     "date": "2016-09-26",
+     "raw_ratio": 1.0577,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 3,
+     "score": 0.0561
+    }
+   },
+   {
+    "event_date": "2016-09-19",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]유상증자결정",
+    "rcept": "20160919000360",
+    "in_price_range": false,
+    "max_jump": {
+     "date": "2016-09-26",
+     "raw_ratio": 1.0577,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 3,
+     "score": 0.0561
+    }
+   }
+  ]
+ },
+ "237820": {
+  "name": "플레이디",
+  "market": "KOSDAQ",
+  "delisted": null,
+  "prices": [
+   "2020-03-12",
+   "2026-11-04",
+   1630
+  ],
+  "events": [
+   {
+    "event_date": "2019-09-06",
+    "type": "bonus_issue",
+    "ratio": null,
+    "title": "무상증자결정",
+    "rcept": "20190906000418",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2020-01-31",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20200131000394",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2020-03-04",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]유상증자결정",
+    "rcept": "20200304000094",
+    "in_price_range": false,
+    "max_jump": {
+     "date": "2020-03-19",
+     "raw_ratio": 0.7788,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.2499
+    }
+   }
+  ]
+ },
+ "237880": {
+  "name": "클리오",
+  "market": "KOSDAQ",
+  "delisted": null,
+  "prices": [
+   "2016-11-09",
+   "2026-11-04",
+   2448
+  ],
+  "events": [
+   {
+    "event_date": "2017-04-14",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "주요사항보고서(유상증자결정)",
+    "rcept": "20170414002261",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2017-04-19",
+     "raw_ratio": 1.0333,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.0328
+    }
+   },
+   {
+    "event_date": "2017-05-17",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(유상증자결정)",
+    "rcept": "20170517000297",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2017-05-11",
+     "raw_ratio": 1.075,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.0723
+    }
+   },
+   {
+    "event_date": "2017-05-19",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[첨부정정]주요사항보고서(유상증자결정)",
+    "rcept": "20170519000402",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2017-05-11",
+     "raw_ratio": 1.075,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.0723
+    }
+   }
+  ]
+ },
+ "263600": {
+  "name": "덕우전자",
+  "market": "KOSDAQ",
+  "delisted": null,
+  "prices": [
+   "2017-08-28",
+   "2026-11-04",
+   2250
+  ],
+  "events": [
+   {
+    "event_date": "2019-07-01",
+    "type": "bonus_issue",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(무상증자결정)",
+    "rcept": "20190701000279",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2019-07-15",
+     "raw_ratio": 0.4566,
+     "adj_factor_ratio": 2.0,
+     "gap_days": 3,
+     "score": 0.7839
+    }
+   },
+   {
+    "event_date": "2019-07-01",
+    "type": "bonus_issue",
+    "ratio": null,
+    "title": "주요사항보고서(무상증자결정)",
+    "rcept": "20190701000083",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2019-07-15",
+     "raw_ratio": 0.4566,
+     "adj_factor_ratio": 2.0,
+     "gap_days": 3,
+     "score": 0.7839
+    }
+   },
+   {
+    "event_date": "2019-07-12",
+    "type": "bonus_issue",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(무상증자결정)",
+    "rcept": "20190712000281",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2019-07-15",
+     "raw_ratio": 0.4566,
+     "adj_factor_ratio": 2.0,
+     "gap_days": 3,
+     "score": 0.7839
+    }
+   },
+   {
+    "event_date": "2019-07-15",
+    "type": "bonus_issue",
+    "ratio": null,
+    "title": "[첨부정정]주요사항보고서(무상증자결정)",
+    "rcept": "20190715000021",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2019-07-15",
+     "raw_ratio": 0.4566,
+     "adj_factor_ratio": 2.0,
+     "gap_days": 3,
+     "score": 0.7839
+    }
+   }
+  ]
+ },
+ "267850": {
+  "name": "아시아나IDT",
+  "market": "KOSPI",
+  "delisted": null,
+  "prices": [
+   "2018-11-23",
+   "2026-11-04",
+   1949
+  ],
+  "events": [
+   {
+    "event_date": "2018-10-16",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20181016000185",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2018-11-13",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]유상증자결정",
+    "rcept": "20181113000650",
+    "in_price_range": false,
+    "max_jump": {
+     "date": "2018-12-03",
+     "raw_ratio": 1.0672,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 3,
+     "score": 0.0651
+    }
+   }
+  ]
+ },
+ "307950": {
+  "name": "현대오토에버",
+  "market": "KOSPI",
+  "delisted": null,
+  "prices": [
+   "2019-03-28",
+   "2026-11-04",
+   1867
+  ],
+  "events": [
+   {
+    "event_date": "2019-02-18",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20190218000780",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2020-12-11",
+    "type": "merger",
+    "ratio": null,
+    "title": "주요사항보고서(회사합병결정)",
+    "rcept": "20201211000420",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2020-12-15",
+     "raw_ratio": 1.1435,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.1341
+    }
+   },
+   {
+    "event_date": "2020-12-22",
+    "type": "merger",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(회사합병결정)",
+    "rcept": "20201222000408",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2020-12-15",
+     "raw_ratio": 1.1435,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.1341
+    }
+   },
+   {
+    "event_date": "2021-01-11",
+    "type": "merger",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(회사합병결정)",
+    "rcept": "20210111000474",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2021-01-04",
+     "raw_ratio": 1.1215,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 5,
+     "score": 0.1146
+    }
+   },
+   {
+    "event_date": "2021-01-27",
+    "type": "merger",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(회사합병결정)",
+    "rcept": "20210127000401",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2021-01-20",
+     "raw_ratio": 1.1089,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.1033
+    }
+   },
+   {
+    "event_date": "2021-02-04",
+    "type": "merger",
+    "ratio": null,
+    "title": "[첨부정정]주요사항보고서(회사합병결정)",
+    "rcept": "20210204000346",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2021-01-20",
+     "raw_ratio": 1.1089,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.1033
+    }
+   }
+  ]
+ },
+ "322000": {
+  "name": "HD현대에너지솔루션",
+  "market": "KOSPI",
+  "delisted": null,
+  "prices": [
+   "2019-11-19",
+   "2026-11-04",
+   1707
+  ],
+  "events": [
+   {
+    "event_date": "2019-10-10",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20191010000443",
+    "in_price_range": false,
+    "max_jump": null
+   }
+  ]
+ },
+ "326030": {
+  "name": "SK바이오팜",
+  "market": "KOSPI",
+  "delisted": null,
+  "prices": [
+   "2020-07-02",
+   "2026-11-04",
+   1554
+  ],
+  "events": [
+   {
+    "event_date": "2018-03-05",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20180305000368",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2020-05-19",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20200519000273",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2020-06-19",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]유상증자결정",
+    "rcept": "20200619000493",
+    "in_price_range": false,
+    "max_jump": {
+     "date": "2020-07-06",
+     "raw_ratio": 1.3,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 3,
+     "score": 0.2624
+    }
+   }
+  ]
+ },
+ "417200": {
+  "name": "LS머트리얼즈",
+  "market": "KOSDAQ",
+  "delisted": null,
+  "prices": [
+   "2023-12-12",
+   "2026-11-04",
+   703
+  ],
+  "events": [
+   {
+    "event_date": "2021-11-09",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20211109000286",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2021-12-30",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20211230000610",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2022-03-31",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]유상증자결정",
+    "rcept": "20220331001099",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2022-04-25",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]유상증자결정",
+    "rcept": "20220425000481",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2023-06-01",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20230601000279",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2023-10-23",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20231023000280",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2023-11-02",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]유상증자결정",
+    "rcept": "20231102000298",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2023-11-06",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]유상증자결정",
+    "rcept": "20231106000314",
+    "in_price_range": false,
+    "max_jump": null
+   }
+  ]
+ },
+ "417970": {
+  "name": "모델솔루션",
+  "market": "KOSDAQ",
+  "delisted": null,
+  "prices": [
+   "2022-10-07",
+   "2026-11-04",
+   995
+  ],
+  "events": [
+   {
+    "event_date": "2022-02-15",
+    "type": "bonus_issue",
+    "ratio": null,
+    "title": "무상증자결정",
+    "rcept": "20220215000621",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2022-09-23",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20220923000275",
+    "in_price_range": false,
+    "max_jump": {
+     "date": "2022-10-11",
+     "raw_ratio": 0.89,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 4,
+     "score": 0.1166
+    }
+   }
+  ]
+ },
+ "439260": {
+  "name": "대한조선",
+  "market": "KOSPI",
+  "delisted": null,
+  "prices": [
+   "2025-08-01",
+   "2026-11-04",
+   306
+  ],
+  "events": [
+   {
+    "event_date": "2022-06-24",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20220624000154",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2022-07-12",
+    "type": "capital_reduction",
+    "ratio": null,
+    "title": "감자결정",
+    "rcept": "20220712000494",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2022-08-12",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20220812001279",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2022-08-29",
+    "type": "capital_reduction",
+    "ratio": null,
+    "title": "[기재정정]감자결정",
+    "rcept": "20220829000133",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2022-08-31",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "[기재정정]유상증자결정",
+    "rcept": "20220831000804",
+    "in_price_range": false,
+    "max_jump": null
+   }
+  ]
+ },
+ "443060": {
+  "name": "HD현대마린솔루션",
+  "market": "KOSPI",
+  "delisted": null,
+  "prices": [
+   "2024-05-08",
+   "2026-11-04",
+   606
+  ],
+  "events": [
+   {
+    "event_date": "2022-10-31",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20221031000268",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2022-12-01",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20221201000314",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2024-03-25",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20240325000579",
+    "in_price_range": false,
+    "max_jump": null
+   }
+  ]
+ },
+ "454910": {
+  "name": "두산로보틱스",
+  "market": "KOSPI",
+  "delisted": null,
+  "prices": [
+   "2023-10-05",
+   "2026-11-04",
+   750
+  ],
+  "events": [
+   {
+    "event_date": "2016-09-07",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20160907000190",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2017-07-07",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20170707000363",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2017-11-30",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20171130001161",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2017-12-19",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20171219000338",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2018-04-02",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20180402003849",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2018-05-03",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20180503000167",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2018-07-02",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20180702000349",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2018-09-03",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20180903000152",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2018-12-11",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20181211000391",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2019-04-25",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20190425000528",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2021-02-03",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20210203000331",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2021-06-15",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20210615000156",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2021-09-24",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20210924000094",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2021-12-22",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20211221000472",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2023-08-23",
+    "type": "rights_offering",
+    "ratio": null,
+    "title": "유상증자결정",
+    "rcept": "20230823000334",
+    "in_price_range": false,
+    "max_jump": null
+   },
+   {
+    "event_date": "2024-07-11",
+    "type": "merger",
+    "ratio": null,
+    "title": "[첨부추가]주요사항보고서(회사합병결정)",
+    "rcept": "20240711000265",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2024-07-12",
+     "raw_ratio": 1.2392,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.2144
+    }
+   },
+   {
+    "event_date": "2024-07-15",
+    "type": "merger",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(회사합병결정)",
+    "rcept": "20240715000355",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2024-07-12",
+     "raw_ratio": 1.2392,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.2144
+    }
+   },
+   {
+    "event_date": "2024-08-06",
+    "type": "merger",
+    "ratio": null,
+    "title": "[첨부정정]주요사항보고서(회사합병결정)",
+    "rcept": "20240806000299",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2024-08-05",
+     "raw_ratio": 0.8594,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 3,
+     "score": 0.1515
+    }
+   },
+   {
+    "event_date": "2024-08-29",
+    "type": "merger",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(회사합병결정)",
+    "rcept": "20240829001275",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2024-08-29",
+     "raw_ratio": 1.0484,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.0473
+    }
+   },
+   {
+    "event_date": "2024-09-10",
+    "type": "merger",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(회사합병결정)",
+    "rcept": "20240910000533",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2024-09-26",
+     "raw_ratio": 1.0495,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.0483
+    }
+   },
+   {
+    "event_date": "2024-09-25",
+    "type": "merger",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(회사합병결정)",
+    "rcept": "20240925000579",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2024-09-26",
+     "raw_ratio": 1.0495,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.0483
+    }
+   },
+   {
+    "event_date": "2024-10-21",
+    "type": "merger",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(회사합병결정)",
+    "rcept": "20241021000160",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2024-10-21",
+     "raw_ratio": 1.0982,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 3,
+     "score": 0.0936
+    }
+   },
+   {
+    "event_date": "2024-10-22",
+    "type": "merger",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(회사합병결정)",
+    "rcept": "20241022000252",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2024-10-21",
+     "raw_ratio": 1.0982,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 3,
+     "score": 0.0936
+    }
+   },
+   {
+    "event_date": "2024-11-08",
+    "type": "merger",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(회사합병결정)",
+    "rcept": "20241108000494",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2024-10-21",
+     "raw_ratio": 1.0982,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 3,
+     "score": 0.0936
+    }
+   },
+   {
+    "event_date": "2024-12-10",
+    "type": "merger",
+    "ratio": null,
+    "title": "[기재정정]주요사항보고서(회사합병결정)",
+    "rcept": "20241210000312",
+    "in_price_range": true,
+    "max_jump": {
+     "date": "2024-12-10",
+     "raw_ratio": 0.9094,
+     "adj_factor_ratio": 1.0,
+     "gap_days": 1,
+     "score": 0.095
+    }
+   }
+  ]
+ }
+}
