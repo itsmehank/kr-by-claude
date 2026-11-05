@@ -258,16 +258,45 @@ def test_relabel_without_est_dt_uses_law_160_2_prior_report(db, monkeypatch):
         assert cur.fetchone() == (L.NOT_FILED_OR_EXEMPT, "law_160_2_prior_report(D=2026-07-27)")
 
 
-def test_fill_est_dt_stores_company_establishment_date(db, monkeypatch):
-    """--fill-est-dt: DART company.json est_dt(YYYYMMDD) → dart_corp_codes.est_dt. 호출은 지정 종목만, 이미 있으면 건너뜀."""
+def test_fill_est_dt_stores_company_establishment_date(db, tmp_path, monkeypatch):
+    """--fill-est-dt: DART company.json est_dt(YYYYMMDD) → dart_corp_codes.est_dt. 호출은 지정 종목만, 이미 있으면 건너뜀.
+    응답은 jsonl 보존·호출 수는 dart_batch_log 에 계상(모듈 계약 — 리뷰 R1 ③)."""
+    TODAY = date(2026, 10, 8)
     _seed_corp(db, "NL6", "C-NL6"); _seed_corp(db, "NL7", "C-NL7")
     with db.cursor() as cur:
         cur.execute("UPDATE dart_corp_codes SET est_dt = '2001-01-01' WHERE stock_code = 'NL7'")
+        cur.execute("DELETE FROM dart_batch_log WHERE batch_date = %s", (TODAY,))
     calls = []
     monkeypatch.setattr(B, "fetch_company", lambda key, corp: (calls.append(corp) or {"status": "000", "corp_code": corp, "est_dt": "20260701"}))
     monkeypatch.setattr(B, "_SLEEP", 0)
-    out = B.fill_est_dt(db, api_key="k", tickers=["NL6", "NL7"])
+    out = B.fill_est_dt(db, api_key="k", tickers=["NL6", "NL7"], today=TODAY, save_dir=tmp_path, cap=100)
     assert out == {"requested": 2, "fetched": 1, "skipped_existing": 1, "errors": []}
     assert calls == ["C-NL6"]
     assert S.incorporated_at(db, "NL6") == date(2026, 7, 1)
     assert S.incorporated_at(db, "NL7") == date(2001, 1, 1)
+    lines = (tmp_path / f"{TODAY:%Y%m%d}.jsonl").read_text().splitlines()
+    assert len(lines) == 1 and '"endpoint": "company"' in lines[0] and "20260701" in lines[0]
+    assert S.remaining_today(db, TODAY, cap=100) == 99
+
+
+def test_fill_est_dt_records_errors_without_raising(db, tmp_path, monkeypatch):
+    """미매핑 종목·status≠000·형식 불량 est_dt 는 errors 로 기록하고 계속(예외로 중단하지 않음 — 리뷰 R1 ④)."""
+    TODAY = date(2026, 10, 8)
+    _seed_corp(db, "NL8", "C-NL8"); _seed_corp(db, "NL9", "C-NL9")
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM dart_batch_log WHERE batch_date = %s", (TODAY,))
+    resp = {"C-NL8": {"status": "013", "message": "없음"}, "C-NL9": {"status": "000", "est_dt": "2026-7-1"}}
+    monkeypatch.setattr(B, "fetch_company", lambda key, corp: resp[corp]); monkeypatch.setattr(B, "_SLEEP", 0)
+    out = B.fill_est_dt(db, api_key="k", tickers=["NL8", "NL9", "NOPE"], today=TODAY, save_dir=tmp_path, cap=100)
+    assert out["fetched"] == 0 and out["skipped_existing"] == 0 and len(out["errors"]) == 3
+    assert S.incorporated_at(db, "NL8") is None and S.incorporated_at(db, "NL9") is None
+    assert S.remaining_today(db, TODAY, cap=100) == 98     # 호출 2건 계상(미매핑은 호출 없음)
+
+
+def test_fill_est_dt_stops_on_dart_fatal_error(db, tmp_path, monkeypatch):
+    _seed_corp(db, "NLA", "C-NLA"); _seed_corp(db, "NLB", "C-NLB")
+    from kr_pipeline.financials.fetch import DartApiError
+    monkeypatch.setattr(B, "fetch_company", lambda key, corp: (_ for _ in ()).throw(DartApiError("company", "020", "limit")))
+    monkeypatch.setattr(B, "_SLEEP", 0)
+    out = B.fill_est_dt(db, api_key="k", tickers=["NLA", "NLB"], today=date(2026, 10, 8), save_dir=tmp_path, cap=100)
+    assert out["fetched"] == 0 and len(out["errors"]) == 1 and "020" in out["errors"][0]   # 첫 종목에서 중단

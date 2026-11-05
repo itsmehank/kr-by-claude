@@ -117,8 +117,26 @@ def test_prior_period_end_is_latest_quarter_end_strictly_before():
 def test_period_before_incorporation_is_before_first_filing_with_basis():
     """네오뷰: 인적분할 신설(분할기일 2026-07-01) — 2026 반기(06-30)는 법인이 없던 기간(제160조 1항 '사업연도 개시일부터')."""
     assert _fx(incorporated_at=date(2026, 7, 1)) == (L.BEFORE_FIRST_FILING, "incorporated_after_period_end=2026-07-01")
-    # 설립이 기간 말보다 앞서면 이 근거는 쓰지 않는다
-    assert _fx(incorporated_at=date(2026, 5, 1))[1] != "incorporated_after_period_end=2026-05-01"
+    # 설립이 기간 말보다 앞서면 이 근거는 쓰지 않는다 → ② 로 흐른다
+    assert _fx(incorporated_at=date(2026, 5, 1)) == (L.NOT_FILED_OR_EXEMPT, "law_160_2_prior_report(D=2026-07-27)")
+
+
+def test_incorporation_rule_yields_to_an_existing_matching_filing():
+    """분할 신설법인이 그래도 직전 반기보고서를 냈다면(접수 사실) — 기간 부존재가 아니라 API 부재(리뷰 R1 ①)."""
+    fil = [{"report_nm": "반기보고서 (2026.06)", "rcept_dt": date(2026, 8, 10)}]
+    lab, _ = _fx(incorporated_at=date(2026, 7, 1), filings=fil, first_filing_dt=date(2026, 8, 10))
+    assert lab == L.FILED_BUT_API_MISSING
+
+
+def test_law_160_2_straddle_listing_right_after_quarter_end_with_no_filings_stays_unexplained():
+    """D 대체(상장일)가 분기 말 직후면 진짜 D(납입기일 다음 날)는 분기 말 이전일 수 있어 그 기간은 정기 의무 —
+    공시 이력이 전무하면 '면제'로 덮지 않고 unexplained 유지(리뷰 R1 ②, 통상 납입→상장 1~2주 → 14일 [design-judgment])."""
+    assert _fx(first_daily_bar=date(2026, 7, 3)) == (L.UNEXPLAINED, None)
+    assert _fx(first_daily_bar=date(2026, 7, 14)) == (L.UNEXPLAINED, None)
+    assert _fx(first_daily_bar=date(2026, 7, 15)) == (L.NOT_FILED_OR_EXEMPT, "law_160_2_prior_report(D=2026-07-15)")
+    # 공시 이력이 있으면(다른 정기공시) 걸치기 창이라도 ② 그대로
+    fil = [{"report_nm": "분기보고서 (2026.09)", "rcept_dt": date(2026, 11, 14)}]
+    assert _fx(first_daily_bar=date(2026, 7, 3), filings=fil, first_filing_dt=date(2026, 11, 14), today=date(2026, 11, 20)) == (L.NOT_FILED_OR_EXEMPT, "law_160_2_prior_report(D=2026-07-03)")
 
 
 def test_law_160_2_prior_report_expected_for_listings_on_or_after_2025_07_22():

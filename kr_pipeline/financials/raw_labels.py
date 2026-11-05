@@ -31,6 +31,10 @@ BASIS_LISTING_PROXY_FIRST_DAILY_BAR = "listing_proxy=first_daily_bar"
 #    첫 정기공시 접수일 중 이른 날(공모 납입기일 다음 날은 미보유). 5일은 역일로 계산(금융위 사례 1·3 — 영업일 여부 미확인).
 LAW_160_2_EFFECTIVE = date(2025, 7, 22)
 LAW_160_2_GRACE_DAYS = 5
+# [design-judgment] D 대체(상장일)가 분기 말 직후면 진짜 D(공모 납입기일 다음 날)는 분기 말 이전일 수 있어 그 기간은
+# 제2항(갈음 가능)이 아니라 정기 의무다. 공시 이력이 전무한 그 창에서는 '면제'로 덮지 않고 unexplained 를 유지한다.
+# 14일 = 공모 납입→상장 통상 1~2주(법 조문 아님, 리뷰 R1 ②). 공시 이력이 하나라도 있으면 창과 무관하게 ② 적용.
+LAW_160_2_IPO_SETTLEMENT_LAG_DAYS = 14
 BASIS_INCORPORATED_AFTER_PERIOD = "incorporated_after_period_end"
 BASIS_LAW_160_2_PRIOR_REPORT = "law_160_2_prior_report"
 LABELS = (NOT_YET_DUE, AFTER_DELISTING, BEFORE_FIRST_FILING, FILED_BUT_API_MISSING, NOT_FILED_OR_EXEMPT, UNEXPLAINED)
@@ -99,7 +103,9 @@ def decide_no_data_with_basis(*, bsns_year: int, reprt_code: str, today: date, f
     """
     p_end = fiscal_end or period_end(bsns_year, reprt_code)
     due = due_date(p_end, reprt_code)
-    if incorporated_at is not None and p_end < incorporated_at:
+    filed = any(_matches_report(f.get("report_nm", ""), reprt_code, p_end) for f in filings)
+    # ① 기간 부존재 — 단, 그 기간의 보고서가 실제로 접수돼 있으면 전제가 깨지므로 아래 일반 규칙(API 부재)로(리뷰 R1 ①)
+    if incorporated_at is not None and p_end < incorporated_at and not filed:
         return BEFORE_FIRST_FILING, f"{BASIS_INCORPORATED_AFTER_PERIOD}={incorporated_at.isoformat()}"
     subject = _subject_date(first_filing_dt, first_daily_bar)
     if subject is not None and subject >= LAW_160_2_EFFECTIVE and p_end == prior_period_end(subject):
@@ -109,8 +115,10 @@ def decide_no_data_with_basis(*, bsns_year: int, reprt_code: str, today: date, f
             return NOT_YET_DUE, basis
         if delisted_at is not None and p_end > delisted_at:
             return AFTER_DELISTING, None
-        if any(_matches_report(f.get("report_nm", ""), reprt_code, p_end) for f in filings):
+        if filed:
             return FILED_BUT_API_MISSING, basis
+        if not filings and (subject - p_end).days <= LAW_160_2_IPO_SETTLEMENT_LAG_DAYS:
+            return UNEXPLAINED, None            # 걸치기 창 + 공시 이력 전무 → 정기 의무 결손 가능성, 덮지 않음
         return NOT_FILED_OR_EXEMPT, basis
     if due > today:
         return NOT_YET_DUE, None
