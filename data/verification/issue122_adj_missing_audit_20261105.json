@@ -36,15 +36,16 @@
   "by_status": {
    "composite_rehab_manual": 3,
    "missing_unverifiable": 32,
-   "offset_by_split": 1,
    "offset_by_split_manual": 7,
    "pending": 3,
    "size_mismatch": 28,
-   "split_accompanied_unconfirmed": 2
+   "split_accompanied_unconfirmed": 3
   },
   "split_offset": {
    "evidence_rows": 3,
    "manual_verdicts_applied": 10,
+   "manual_conflicts": [],
+   "manual_unmatched": [],
    "registry": "data/verification/issue122_unconfirmed_verdicts_20261103.json"
   }
  },
@@ -1653,7 +1654,7 @@
    "method": "1) 액면금액 5,000원의 보통주식 1주를 액면금액 500원의 보통주식 10주로 주식분할 함.\n\n2) 주식분할과 동시에 1주당 액면금액 500원의 보통주 10주를 동일한 액면금액의 보통주 1주로 무상병합 함.",
    "expected_ratio": 10.0,
    "class": "size_mismatch",
-   "status": "offset_by_split",
+   "status": "split_accompanied_unconfirmed",
    "halt_days": 22,
    "db_jumps_near": [
     [

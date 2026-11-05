@@ -64,8 +64,9 @@ def load_ticker(cur, t: str):
     details = [{"endpoint": e, "record_date": rd, "ratio": rt, "method": m,
                 "rcept_no": rc} for e, rd, rt, m, rc in cur.fetchall()]
     methods = {d["rcept_no"]: d["method"] for d in details}
-    # (#122 후속) 같은 기간 주식분할 공시 — 2026-11-05 실측 corporate_actions 에 stock_split 0행
-    # (수집 경로가 주식분할결정을 저장하지 않음, 별도 확인 항목). 행이 생기면 그대로 증거가 된다.
+    # (#122 후속) 같은 기간 주식분할 공시 — 2026-11-05 실측 corporate_actions 에 stock_split 0행.
+    # 파서·저장 경로는 stock_split 을 통과시키므로(parser.py·modes.py) 원인 미확인(DART 목록 응답 내용·
+    # 조회 조건 확인 필요, 별도 항목). 행이 생기면 그대로 증거가 된다.
     cur.execute("SELECT event_date FROM corporate_actions WHERE ticker=%s "
                 "AND event_type='stock_split'", (t,))
     splits = [r[0] for r in cur.fetchall()]
@@ -101,7 +102,6 @@ def main() -> int:
     matched_keys: set[tuple[str, str]] = set()
     by_class: Counter = Counter()
     by_kind_class: Counter = Counter()
-    by_status: Counter = Counter()
     checked = no_details = no_prices = future_rd = 0
     with psycopg.connect(DB) as conn:
         conn.read_only = True               # 세션 전체 읽기 전용(트랜잭션 속성 — 리뷰 R1 ①)
@@ -195,8 +195,8 @@ def main() -> int:
 
     # (#122 후속) §6 수동 심판 등록부 반영 — 등록된 (ticker, ex_date) 만 '<verdict>_manual'
     registry = json.load(open(MANUAL_VERDICTS)) if os.path.exists(MANUAL_VERDICTS) else None
-    manual_applied = apply_manual_verdicts(rows, registry)
-    by_status = Counter(r["status"] for r in rows)          # 2단 규칙·수동 반영 후 재집계
+    manual = apply_manual_verdicts(rows, registry)          # 보호 상태 충돌·미대응 키는 결과에 그대로 노출
+    by_status = Counter(r["status"] for r in rows)          # 2단 규칙·수동 반영 후 집계(matched 는 rows 에 없음 — 종전과 동일)
 
     confirmed = [r for r in rows if r["status"] == "missing_confirmed"]
     confirmed_tickers = sorted({r["ticker"] for r in confirmed})
@@ -220,7 +220,9 @@ def main() -> int:
                    "by_kind_class": dict(sorted(by_kind_class.items())),
                    "by_status": dict(sorted(by_status.items())),
                    "split_offset": {"evidence_rows": sum(1 for r in rows if r.get("split_evidence")),
-                                    "manual_verdicts_applied": manual_applied,
+                                    "manual_verdicts_applied": manual["applied"],
+                                    "manual_conflicts": manual["conflicts"],
+                                    "manual_unmatched": manual["unmatched"],
                                     "registry": MANUAL_VERDICTS if registry else None}},
         "missing_confirmed": {
             "n_events": len(confirmed), "n_tickers": len(confirmed_tickers),

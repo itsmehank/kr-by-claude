@@ -281,7 +281,9 @@ def positive_control_verdict(controls, *, confirmed_keys: set, matched_keys: set
 #   2단 확인: 권리락 창 안 raw 일간 갭 최대치가 GAP_MIN 미만 → offset_by_split,
 #            큰 갭이 남으면 split_accompanied_unconfirmed(기대 잔차 = 그 갭) — 사람 심판.
 _SPLIT_MENTION = re.compile(r"주식분할|액면분할")
-SPLIT_DISCLOSURE_WINDOW = (-150, 90)   # 분할 결정 공시일 − 권리락일: 결정이 앞서고 변경상장이 뒤따른다
+# [design-judgment] 분할 결정 공시일 − 권리락일 창. §6 심판 7건 실측은 결정 공시가 권리락 46~78일 앞(최대 −78),
+# 변경상장 공시는 뒤 — 앞쪽은 실측 최대의 약 2배 여유(−150), 뒤쪽은 감자 창 상한(+90, 정지 연장은 HALT_MAX 까지)과 동일.
+SPLIT_DISCLOSURE_WINDOW = (-150, 90)
 
 
 def split_evidence(method: str | None, split_disclosure_dates: list[date], ex: date, *,
@@ -289,7 +291,8 @@ def split_evidence(method: str | None, split_disclosure_dates: list[date], ex: d
     """분할 동반 증거 종류 — 'method_text' | 'disclosure' | None."""
     if method and _SPLIT_MENTION.search(method):
         return "method_text"
-    lo, hi = SPLIT_DISCLOSURE_WINDOW[0], SPLIT_DISCLOSURE_WINDOW[1] + extra_days
+    lo = SPLIT_DISCLOSURE_WINDOW[0]
+    hi = SPLIT_DISCLOSURE_WINDOW[1] + max(0, min(extra_days, HALT_MAX))   # _match_window 와 같은 정지 연장 상한
     if any(lo <= (d - ex).days <= hi for d in split_disclosure_dates):
         return "disclosure"
     return None
@@ -314,29 +317,48 @@ def max_abs_gap(closes: list[tuple[date, float]], ex: date, *,
     return (best[1], best[2]) if best else None
 
 
+_SPLIT_PROTECTED = ("matched", "missing_confirmed", "pending")
+
+
 def split_offset_status(status: str, evidence: str | None,
                         max_gap: tuple[date, float] | None, *, gap_min: float = GAP_MIN) -> str:
-    """2단 판정. matched·missing_confirmed(raw 갭으로 실재 확정)는 손대지 않는다."""
-    if evidence is None or status in ("matched", "missing_confirmed", "pending"):
+    """2단 판정. 상쇄(offset_by_split)는 **참조 점프 없음(missing_unconfirmed) ∧ raw 갭 1.0 근방** 일 때만.
+
+    size_mismatch 는 참조가 adj/raw factor 를 실제로 바꾼 것(가격 변동과 무관)이라 raw 갭이 작아도
+    순효과 ≠ 1.0 일 수 있어 상쇄로 단정하지 않는다(리뷰 R1 ①). 창에 봉이 없으면 확인 불가(R1 ④).
+    matched·missing_confirmed·pending 은 손대지 않는다.
+    """
+    if evidence is None or status in _SPLIT_PROTECTED:
         return status
-    if max_gap is None or abs(math.log(max_gap[1])) < math.log(gap_min):
+    if (status == "missing_unconfirmed" and max_gap is not None
+            and abs(math.log(max_gap[1])) < math.log(gap_min)):
         return "offset_by_split"
     return "split_accompanied_unconfirmed"
 
 
-def apply_manual_verdicts(rows: list[dict], registry: dict | None) -> int:
+def apply_manual_verdicts(rows: list[dict], registry: dict | None) -> dict:
     """수동 심판 등록부(issue122_unconfirmed_verdicts JSON, 키 = ticker+ex_date)를 행에 반영.
-    status → '<verdict>_manual', manual_verdict·manual_evidence 기록. 반환 = 반영 행 수."""
+
+    status → '<verdict>_manual', manual_verdict·manual_evidence 기록. matched·missing_confirmed·pending 행은
+    덮지 않고 conflicts 로 보고(장래 raw 갭 확정을 등록부가 가리면 안 됨 — R1 ②). 행에 없는 등록 키는
+    unmatched(권리락일 재계산 등으로 키가 어긋난 경우 — 조용히 사라지지 않게)."""
+    out = {"applied": 0, "conflicts": [], "unmatched": []}
     if not registry:
-        return 0
+        return out
     reg = {(r.get("ticker"), r.get("ex_date")): r for r in registry.get("rows", []) if r.get("verdict")}
-    n = 0
+    seen: set[tuple] = set()
     for row in rows:
-        r = reg.get((row.get("ticker"), row.get("ex_date")))
+        key = (row.get("ticker"), row.get("ex_date"))
+        r = reg.get(key)
         if r is None:
+            continue
+        seen.add(key)
+        if row.get("status") in _SPLIT_PROTECTED:
+            out["conflicts"].append([key[0], key[1], row.get("status")])
             continue
         row["status"] = f"{r['verdict']}_manual"
         row["manual_verdict"] = r["verdict"]
         row["manual_evidence"] = r.get("evidence")
-        n += 1
-    return n
+        out["applied"] += 1
+    out["unmatched"] = [list(k) for k in reg if k not in seen]
+    return out
