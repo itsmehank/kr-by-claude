@@ -29,6 +29,11 @@ def _get(endpoint: str, **params) -> dict:
     return resp
 
 
+def fetch_company(key: str, corp_code: str) -> dict:
+    """company — 기업개황 {status, corp_name, stock_code, est_dt(YYYYMMDD), …}. (#186 회신 2026-11-05 설립일 채움 전용)."""
+    return _get("company", crtfc_key=key, corp_code=corp_code)
+
+
 def fetch_single_account(key: str, corp_code: str, year: int, reprt: str) -> dict:
     """fnlttSinglAcnt — {status, list}."""
     return _get("fnlttSinglAcnt", crtfc_key=key, corp_code=corp_code,

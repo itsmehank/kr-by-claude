@@ -223,3 +223,51 @@ def test_relabel_ignores_filings_received_after_batch_date(db):
     with db.cursor() as cur:
         cur.execute("SELECT no_data_reason, no_data_basis FROM dart_fin_raw WHERE ticker='NL3'")
         assert cur.fetchone() == (L.BEFORE_FIRST_FILING, L.BASIS_LISTING_PROXY_FIRST_DAILY_BAR)
+
+
+# ---- (회신 2026-11-05) 설립일(dart_corp_codes.est_dt) 배관 — 기간 부존재 재라벨·명시 채움 ----
+
+def test_relabel_uses_incorporation_date_for_period_before_incorporation(db, monkeypatch):
+    """네오뷰형: 분할 신설 2026-07-01·첫 일봉 07-27, 2026 반기(06-30) unexplained → 기간 부존재 근거로 재라벨(DART 0)."""
+    _seed_corp(db, "NL4", "C-NL4")
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value) VALUES ('NL4', '2026-07-27', 1,1,1,1,1,1,1)")
+        cur.execute("UPDATE dart_corp_codes SET est_dt = '2026-07-01' WHERE stock_code = 'NL4'")
+    S.upsert_fin_raw(db, {"corp_code": "C-NL4", "bsns_year": 2026, "reprt_code": "11012", "ticker": "NL4", "status": "013",
+                          "response": {"status": "013"}, "batch_date": date(2026, 10, 8), "no_data_reason": L.UNEXPLAINED})
+    boom = lambda *a: (_ for _ in ()).throw(AssertionError("DART 호출 금지"))
+    monkeypatch.setattr(B, "fetch_single_account", boom); monkeypatch.setattr(B, "fetch_disclosures", boom)
+    assert S.incorporated_at(db, "NL4") == date(2026, 7, 1)
+    assert B.relabel_unexplained(db, tickers=["NL4"]) == {"checked": 1, "changed": 1, "remaining_unexplained": 0}
+    with db.cursor() as cur:
+        cur.execute("SELECT no_data_reason, no_data_basis FROM dart_fin_raw WHERE ticker='NL4'")
+        assert cur.fetchone() == (L.BEFORE_FIRST_FILING, "incorporated_after_period_end=2026-07-01")
+
+
+def test_relabel_without_est_dt_uses_law_160_2_prior_report(db, monkeypatch):
+    """설립일 미보유면 ②만 작동: D(첫 일봉 2026-07-27) 직전 반기 → 미제출·면제(갈음 가능) + D 근거 — unexplained 는 사라진다."""
+    _seed_corp(db, "NL5", "C-NL5")
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value) VALUES ('NL5', '2026-07-27', 1,1,1,1,1,1,1)")
+    S.upsert_fin_raw(db, {"corp_code": "C-NL5", "bsns_year": 2026, "reprt_code": "11012", "ticker": "NL5", "status": "013",
+                          "response": {"status": "013"}, "batch_date": date(2026, 10, 8), "no_data_reason": L.UNEXPLAINED})
+    assert S.incorporated_at(db, "NL5") is None
+    assert B.relabel_unexplained(db, tickers=["NL5"])["changed"] == 1
+    with db.cursor() as cur:
+        cur.execute("SELECT no_data_reason, no_data_basis FROM dart_fin_raw WHERE ticker='NL5'")
+        assert cur.fetchone() == (L.NOT_FILED_OR_EXEMPT, "law_160_2_prior_report(D=2026-07-27)")
+
+
+def test_fill_est_dt_stores_company_establishment_date(db, monkeypatch):
+    """--fill-est-dt: DART company.json est_dt(YYYYMMDD) → dart_corp_codes.est_dt. 호출은 지정 종목만, 이미 있으면 건너뜀."""
+    _seed_corp(db, "NL6", "C-NL6"); _seed_corp(db, "NL7", "C-NL7")
+    with db.cursor() as cur:
+        cur.execute("UPDATE dart_corp_codes SET est_dt = '2001-01-01' WHERE stock_code = 'NL7'")
+    calls = []
+    monkeypatch.setattr(B, "fetch_company", lambda key, corp: (calls.append(corp) or {"status": "000", "corp_code": corp, "est_dt": "20260701"}))
+    monkeypatch.setattr(B, "_SLEEP", 0)
+    out = B.fill_est_dt(db, api_key="k", tickers=["NL6", "NL7"])
+    assert out == {"requested": 2, "fetched": 1, "skipped_existing": 1, "errors": []}
+    assert calls == ["C-NL6"]
+    assert S.incorporated_at(db, "NL6") == date(2026, 7, 1)
+    assert S.incorporated_at(db, "NL7") == date(2001, 1, 1)
