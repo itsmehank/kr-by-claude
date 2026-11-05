@@ -250,6 +250,12 @@ CREATE TABLE IF NOT EXISTS dart_corp_codes (
     updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+-- 2026-11-05 (#186 회신): 법인 설립일(DART company.json est_dt) — 설립(분할기일) 전에 끝난 보고 기간은
+-- 정기보고서 대상이 아님(자본시장법 제160조 제1항 '사업연도 개시일부터'). NULL = 미조회(규칙 비활성).
+-- 채움은 `python -m kr_pipeline.financials.raw_batch --fill-est-dt --tickers …`(DART 접촉, 승인 게이트) 만.
+ALTER TABLE dart_corp_codes
+  ADD COLUMN IF NOT EXISTS est_dt DATE;
+
 CREATE TABLE IF NOT EXISTS corporate_actions (
     id                    BIGSERIAL    PRIMARY KEY,
     ticker                VARCHAR(10)  NOT NULL REFERENCES stocks(ticker),
@@ -1058,6 +1064,8 @@ CREATE TABLE IF NOT EXISTS dart_fin_raw (
 CREATE INDEX IF NOT EXISTS idx_dart_fin_raw_ticker ON dart_fin_raw(ticker);
 -- (회신 24 Q-I, 2026-10-06) 라벨 근거 — 정기공시 이력 없는 종목을 첫 일봉으로 상장일 대체한 경우만 'listing_proxy=first_daily_bar', 그 외 NULL.
 ALTER TABLE dart_fin_raw ADD COLUMN IF NOT EXISTS no_data_basis VARCHAR(40);
+-- 2026-11-05 (#186 회신): 근거 문자열이 길어져(incorporated_after_period_end=YYYY-MM-DD = 40자) 상한 제거 — 멱등
+ALTER TABLE dart_fin_raw ALTER COLUMN no_data_basis TYPE TEXT;
 
 -- 공시검색(list.json, pblntf_ty=A 정기공시) 원본 — no_data 라벨 근거(제출 여부·제출일)와 원공시 접수일.
 CREATE TABLE IF NOT EXISTS dart_disclosure_raw (

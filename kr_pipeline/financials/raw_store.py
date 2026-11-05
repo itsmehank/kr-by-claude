@@ -76,6 +76,19 @@ def first_daily_bar(conn: Connection, ticker: str) -> date | None:
     return row[0] if row else None
 
 
+def incorporated_at(conn: Connection, ticker: str) -> date | None:
+    """법인 설립일(dart_corp_codes.est_dt) — 미조회면 None(기간 부존재 규칙 비활성). (#186 회신 2026-11-05)"""
+    with conn.cursor() as cur:
+        cur.execute("SELECT est_dt FROM dart_corp_codes WHERE stock_code = %s", (ticker,))
+        row = cur.fetchone()
+    return row[0] if row else None
+
+
+def set_est_dt(conn: Connection, stock_code: str, est_dt: date) -> None:
+    with conn.cursor() as cur:
+        cur.execute("UPDATE dart_corp_codes SET est_dt = %s WHERE stock_code = %s", (est_dt, stock_code))
+
+
 def done_cells(conn: Connection, corp_codes: list[str]) -> set[tuple[str, int, str]]:
     with conn.cursor() as cur:
         cur.execute("SELECT corp_code, bsns_year, reprt_code FROM dart_fin_raw WHERE corp_code = ANY(%s)", (corp_codes,))

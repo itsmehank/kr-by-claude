@@ -28,7 +28,7 @@ from psycopg import Connection
 from kr_pipeline.common.security_group import QUALIFYING_SECURITY_GROUPS
 from kr_pipeline.financials import raw_labels, raw_parity, raw_store
 from kr_pipeline.financials.asof import rcept_dt_of
-from kr_pipeline.financials.fetch import DartApiError, fetch_disclosures, fetch_single_account
+from kr_pipeline.financials.fetch import DartApiError, fetch_company, fetch_disclosures, fetch_single_account
 
 log = logging.getLogger("kr_pipeline.financials.raw_batch")
 
@@ -206,7 +206,8 @@ def run(conn: Connection, plan_: Plan, *, today: date, cap: int = DAILY_CAP, sav
         elif status == "013":
             rec["no_data_reason"], rec["no_data_basis"] = raw_labels.decide_no_data_with_basis(
                 bsns_year=y, reprt_code=rc, today=today, first_filing_dt=raw_store.first_filing_dt(conn, c),
-                delisted_at=delisted.get(t), filings=filings, first_daily_bar=raw_store.first_daily_bar(conn, t))
+                delisted_at=delisted.get(t), filings=filings, first_daily_bar=raw_store.first_daily_bar(conn, t),
+                incorporated_at=raw_store.incorporated_at(conn, t))
             st["no_data"] += 1
         else:
             st["errors"].append(f"unexpected status {status} {t}/{y}/{rc}"); i += 1; continue   # 미기록(done 오염 금지)
@@ -224,7 +225,9 @@ def run(conn: Connection, plan_: Plan, *, today: date, cap: int = DAILY_CAP, sav
 
 def relabel_unexplained(conn: Connection, *, tickers: list[str] | None = None) -> dict:
     """(회신 24 Q-I) 이미 적재된 UNEXPLAINED 013 셀을 저장본만으로 재라벨 — DART 재접촉 0. 판정 기준일 = 그 행의 batch_date(적재 당시
-    '오늘'과 같은 기준). 바뀐 규칙은 '정기공시 이력 없음 → 첫 일봉 대체' 하나라 UNEXPLAINED 외 행은 결과가 같다(대상 제외)."""
+    '오늘'과 같은 기준). 대상은 UNEXPLAINED 행뿐이다: (회신 2026-11-05 규칙 ①②) 이후로는 2025-07-22 이후 상장 종목의 기존
+    before_first_filing 행이 재계산 시 filed_but_api_missing / not_filed_or_exempt 로 바뀔 수 있으나 여기서는 다시 쓰지 않는다
+    (저장 라벨 ≠ 재계산 라벨 가능 — 전수 재계산·차분은 별도 읽기 전용 작업, 리뷰 R1 ⑤)."""
     q = "SELECT corp_code, bsns_year, reprt_code, ticker, batch_date FROM dart_fin_raw WHERE status = '013' AND no_data_reason = %s"
     args: list = [raw_labels.UNEXPLAINED]
     if tickers:
@@ -241,13 +244,51 @@ def relabel_unexplained(conn: Connection, *, tickers: list[str] | None = None) -
         label, basis = raw_labels.decide_no_data_with_basis(
             bsns_year=y, reprt_code=rc, today=bd, first_filing_dt=first_dt,
             delisted_at=delisted.get(t), filings=filings,
-            first_daily_bar=raw_store.first_daily_bar(conn, t) if t else None)
+            first_daily_bar=raw_store.first_daily_bar(conn, t) if t else None,
+            incorporated_at=raw_store.incorporated_at(conn, t) if t else None)
         if label != raw_labels.UNEXPLAINED:
             with conn.cursor() as cur:
                 cur.execute("UPDATE dart_fin_raw SET no_data_reason = %s, no_data_basis = %s "
                             "WHERE corp_code = %s AND bsns_year = %s AND reprt_code = %s", (label, basis, corp, y, rc))
             changed += 1
     return {"checked": len(rows), "changed": changed, "remaining_unexplained": len(rows) - changed}
+
+
+def fill_est_dt(conn: Connection, *, api_key: str, tickers: list[str], today: date, save_dir: Path,
+                cap: int = DAILY_CAP) -> dict:
+    """(#186 회신 2026-11-05) 지정 종목의 법인 설립일을 DART company.json(est_dt) 에서 받아 dart_corp_codes.est_dt 에 채운다.
+    이미 있는 종목은 건너뜀(재접촉 0). 명시 종목만 — 전 유니버스 스윕은 하지 않는다(접촉 최소화).
+    모듈 계약 준수: 응답은 save_dir jsonl 에 보존, 호출은 dart_batch_log 에 계상(일 상한 공유). 환경성 실패(DartApiError)는
+    중단, 일시 오류·형식 불량은 errors 로 기록하고 계속."""
+    out = {"requested": len(tickers), "fetched": 0, "skipped_existing": 0, "errors": []}
+    with conn.cursor() as cur:
+        cur.execute("SELECT stock_code, corp_code, est_dt FROM dart_corp_codes WHERE stock_code = ANY(%s)", (tickers,))
+        rows = {r[0]: (r[1], r[2]) for r in cur.fetchall()}
+    for t in tickers:
+        if t not in rows:
+            out["errors"].append(f"{t}: dart_corp_codes 없음"); continue
+        corp, est = rows[t]
+        if est is not None:
+            out["skipped_existing"] += 1; continue
+        if raw_store.remaining_today(conn, today, cap=cap) <= 0:
+            out["errors"].append(f"{t}: 일 상한 도달"); break
+        try:
+            resp = fetch_company(api_key, corp)
+        except DartApiError as e:
+            raw_store.add_calls(conn, today, 1, cap=cap); conn.commit()
+            out["errors"].append(f"{t}: {e}"); break
+        except TRANSIENT_ERRORS as e:
+            raw_store.add_calls(conn, today, 1, cap=cap); conn.commit()
+            out["errors"].append(f"{t}: transient {type(e).__name__}: {e}"); continue
+        raw_store.add_calls(conn, today, 1, cap=cap); conn.commit()
+        _save(save_dir, today, {"endpoint": "company", "args": [corp], "response": resp})
+        time.sleep(_SLEEP)
+        est_dt = raw_store._to_date(resp.get("est_dt")) if str(resp.get("status")) == "000" else None
+        if est_dt is None:
+            out["errors"].append(f"{t}: status={resp.get('status')} est_dt={resp.get('est_dt')!r}"); continue
+        raw_store.set_est_dt(conn, t, est_dt); conn.commit()
+        out["fetched"] += 1
+    return out
 
 
 def _delisted_map(conn: Connection, tickers: list[str]) -> dict[str, date | None]:
@@ -261,6 +302,7 @@ def main() -> int:
     ap.add_argument("--plan", action="store_true", help="대상·셀 수만 계산(접촉 0)")
     ap.add_argument("--run", action="store_true")
     ap.add_argument("--relabel-unexplained", action="store_true", help="적재된 unexplained 013 셀 재라벨(저장본만, DART 접촉 0, 회신 24 Q-I)")
+    ap.add_argument("--fill-est-dt", action="store_true", help="--tickers 종목의 법인 설립일을 DART company.json 에서 채움(DART_ALLOW_BATCH=1 필요, #186 회신 2026-11-05)")
     ap.add_argument("--cap", type=int, default=DAILY_CAP)
     ap.add_argument("--max-calls", type=int, default=None)
     ap.add_argument("--save-dir", default="data/dart_raw")
@@ -269,6 +311,16 @@ def main() -> int:
     from kr_pipeline.common.config import Config
     cfg = Config.load()
     today = date.today()
+    if a.fill_est_dt:
+        if not a.tickers:
+            print("--fill-est-dt 는 --tickers 명시 종목만(전 유니버스 스윕 금지)."); return 2
+        if os.environ.get("DART_ALLOW_BATCH") != "1":
+            print("DART_ALLOW_BATCH=1 없이는 실행하지 않는다(외부 접촉 승인 게이트)."); return 2
+        with psycopg.connect(cfg.database_url) as cn:
+            out = fill_est_dt(cn, api_key=cfg.dart_api_key, tickers=a.tickers.split(","), today=today,
+                              save_dir=Path(a.save_dir), cap=a.cap)
+        print(json.dumps(out, ensure_ascii=False))
+        return 0 if not out["errors"] else 1
     if a.relabel_unexplained:
         with psycopg.connect(cfg.database_url) as cn:
             out = relabel_unexplained(cn, tickers=a.tickers.split(",") if a.tickers else None)
