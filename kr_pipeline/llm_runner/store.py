@@ -21,6 +21,7 @@ from kr_pipeline.common.thresholds import (
     PIVOT_PRICE_OFFSET,
 )
 from kr_pipeline.common.krx import krx_tick_size
+from kr_pipeline.llm_runner.compute.pivot_ratchet import ratchet_pivot
 from kr_pipeline.llm_runner.gates import apply_phase1_gates
 from kr_pipeline.llm_runner.risk_flags import RISK_FLAGS_TAXONOMY
 
@@ -97,8 +98,10 @@ def _watch_reason(result: dict) -> str | None:
 # 탐지 휴리스틱)이라 thresholds.py SSOT 비등재. SOFT 전용(저장 차단 안 함).
 _PIVOT_CLOSE_BAND = (0.3, 3.0)
 
-# (#1) base_start_date '근접' 관측 분류 폭 (일). 판정 무영향 — 관측 라벨링 전용이라
-# thresholds.py SSOT 비등재 (이슈 #1 실측의 그룹핑 기준 재사용).
+# (#1) base_start_date '근접' 관측 분류 폭 (일). 이슈 #1 실측의 그룹핑 기준 재사용.
+# (#253) 래칫 적용 범위(same/near)를 가르므로 판정 입력이 됐다 — [design-judgment]: 책에는
+# "같은 베이스" 의 날짜 기준이 없다(전문가 사실 확인 Q-5, 2026-11-05). 값 변경 없음·thresholds.py
+# SSOT 비등재 유지(책-유래 임계가 아님). 스펙 §5 의존성 맵 행.
 _BASE_NEAR_DAYS = 10
 
 
@@ -147,7 +150,8 @@ def _pivot_continuity(
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT classified_at, classification, pivot_price, base_start_date, pattern
+            SELECT classified_at, classification, pivot_price, base_start_date, pattern,
+                   COALESCE(effective_pivot, pivot_price)
               FROM weekly_classification
              WHERE symbol = %s
                AND COALESCE(analyzed_for_date, classified_at::date) < %s
@@ -160,7 +164,9 @@ def _pivot_continuity(
         prev = cur.fetchone()
     if prev is None:
         return None
-    prev_at, prev_cls, prev_pv, prev_bsd, prev_pattern = prev
+    # (#253) prev_effective = 직전 행의 래칫 적용 후 값. 열 도입 전 레거시 행은
+    # effective_pivot NULL → pivot_price 가 기준(이행 1회).
+    prev_at, prev_cls, prev_pv, prev_bsd, prev_pattern, prev_effective = prev
     if prev_cls not in ("entry", "watch"):
         # 직전 최신 행이 ignore 등 → 활성 기준선 단절. 연속성 비교 대상 아님.
         return None
@@ -190,6 +196,7 @@ def _pivot_continuity(
     return {
         "prev_classified_at": prev_at.isoformat(),
         "prev_pivot_price": prev_pv,
+        "prev_effective_pivot": _finite_or_none(prev_effective),  # (#253) 래칫 비교 기준
         "pivot_change_pct": change_pct,
         "base_start_delta_days": delta_days,
         "base_continuity": continuity,
@@ -372,6 +379,19 @@ def insert_classification(
         continuity_info = None
         pivot_continuity = None
 
+    # (#253) 방향 한정 래칫 — 트리거가 쓸 pivot(effective_pivot). 결정론·순수 함수.
+    # 관측 실패(continuity_info None)면 no_baseline = 새 판독값(현 동작) — fail-soft 유지.
+    # pivot_price(LLM 판독값)는 그대로 저장; 소비처는 COALESCE(effective_pivot, pivot_price).
+    effective_pivot, ratchet = ratchet_pivot(
+        _finite_or_none(result.get("pivot_price")),
+        (continuity_info or {}).get("prev_effective_pivot"),
+        (continuity_info or {}).get("base_continuity"),
+        result.get("pattern"),
+    )
+    if continuity_info is not None:
+        continuity_info["ratchet"] = ratchet
+        pivot_continuity = json.dumps(continuity_info, allow_nan=False)
+
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -388,7 +408,8 @@ def insert_classification(
                pivot_continuity,
                verdict_original,
                prompt_version,
-               volume_regime_flag)
+               volume_regime_flag,
+               effective_pivot)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
@@ -400,7 +421,8 @@ def insert_classification(
                     %s,
                     %s,
                     %s,
-                    %s, %s)
+                    %s, %s,
+                    %s)
             ON CONFLICT (symbol, classified_at) DO NOTHING
             """,
             (
@@ -432,6 +454,7 @@ def insert_classification(
                 verdict_original,
                 llm_meta.get("prompt_version"),
                 classification_flag(conn, symbol, analyzed_for_date, anchor_week=(result.get("climax_topping_gates_echo") or {}).get("anchor_week")),   # (#207 Q-5c 2) 분류 창 = 주간 C3 ∪ 일간 50봉 ∪ 앵커~평가 주
+                effective_pivot,
             ),
         )
         # (#1) same-base 재판독 경고는 행이 실제 저장된 경우에만 — ON CONFLICT 로
@@ -446,6 +469,13 @@ def insert_classification(
                 "[pivot-continuity] same-base pivot reread %s: %s -> %s (%+.2f%%)",
                 symbol, continuity_info["prev_pivot_price"],
                 result.get("pivot_price"), continuity_info["pivot_change_pct"],
+            )
+        # (#253) 래칫 발동 경고 — 운영 grep 용(#46 승계 관례). 저장된 행에만.
+        if cur.rowcount == 1 and ratchet == "kept":
+            log.warning(
+                "[pivot-ratchet] kept %s: llm %s < effective %s (base=%s)",
+                symbol, result.get("pivot_price"), effective_pivot,
+                continuity_info["base_continuity"],
             )
 
 

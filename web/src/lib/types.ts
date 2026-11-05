@@ -303,6 +303,8 @@ export interface Classification {
   pattern: string | null;
   pivot_price: number | null;
   pivot_basis: string | null;
+  // (#253) 래칫 적용 후 트리거 기준 pivot — 판독값과 다를 수 있음. 레거시 행은 null.
+  effective_pivot?: number | null;
   base_high: number | null;
   base_low: number | null;
   base_depth_pct: number | null;
@@ -377,6 +379,8 @@ export interface ClassificationHistoryRow {
   reasoning: string | null;
   // 그 분석이 제시한 pivot(돌파 기준가) — 실격/미확정 행은 null (#149)
   pivot_price?: number | null;
+  // (#253) 래칫 적용 후 트리거 기준 pivot — 라이브 행만
+  effective_pivot?: number | null;
 }
 
 export interface ReviewTrigger {

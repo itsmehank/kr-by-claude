@@ -42,7 +42,8 @@ def get_classifications(
                  symbol, classified_at, analyzed_for_date, market, classification, pattern,
                  pivot_price, pivot_basis, base_high, base_low, base_depth_pct,
                  base_start_date, risk_flags, confidence, reasoning, source,
-                 llm_call_duration_s, llm_input_tokens, llm_output_tokens
+                 llm_call_duration_s, llm_input_tokens, llm_output_tokens,
+                 effective_pivot
             FROM weekly_classification
            WHERE COALESCE(analyzed_for_date, classified_at::date) >= CURRENT_DATE - %(lookback_days)s::int
              AND (%(ticker)s::text IS NULL OR symbol = %(ticker)s)
@@ -53,7 +54,8 @@ def get_classifications(
                l.base_high, l.base_low, l.base_depth_pct, l.base_start_date,
                l.risk_flags, l.confidence, l.reasoning, l.source,
                l.classified_at, l.analyzed_for_date,
-               l.llm_call_duration_s, l.llm_input_tokens, l.llm_output_tokens
+               l.llm_call_duration_s, l.llm_input_tokens, l.llm_output_tokens,
+               l.effective_pivot
           FROM latest l
           JOIN stocks s ON s.ticker = l.symbol
          WHERE (
@@ -108,6 +110,7 @@ def get_classifications(
             llm_call_duration_s=float(r[18]) if r[18] is not None else None,
             llm_input_tokens=r[19],
             llm_output_tokens=r[20],
+            effective_pivot=float(r[21]) if r[21] is not None else None,
         ))
     return result
 
@@ -133,20 +136,22 @@ def get_classification_history(
         WITH combined AS (
           SELECT COALESCE(analyzed_for_date, classified_at::date) AS d,
                  classification, pattern, confidence, reasoning, pivot_price,
-                 classified_at, 0 AS source_rank, 'live' AS src
+                 classified_at, 0 AS source_rank, 'live' AS src,
+                 effective_pivot
             FROM weekly_classification
            WHERE symbol = %(ticker)s
              AND COALESCE(analyzed_for_date, classified_at::date) BETWEEN %(start)s AND %(end)s
           UNION ALL
           SELECT analyzed_for_date AS d,
                  classification, pattern, confidence, reasoning, pivot_price,
-                 classified_at, 1 AS source_rank, 'backfill' AS src
+                 classified_at, 1 AS source_rank, 'backfill' AS src,
+                 NULL::numeric AS effective_pivot   -- (#253) 백필 테이블에는 열 없음(실전 경로 한정)
             FROM classification_backfill
            WHERE symbol = %(ticker)s
              AND analyzed_for_date BETWEEN %(start)s AND %(end)s
         )
         SELECT DISTINCT ON (d) d, classification, src, pattern, confidence, reasoning,
-               pivot_price
+               pivot_price, effective_pivot
           FROM combined
          ORDER BY d ASC, source_rank ASC, classified_at DESC
     """
@@ -161,6 +166,7 @@ def get_classification_history(
             confidence=float(r[4]) if r[4] is not None else None,
             reasoning=r[5],
             pivot_price=float(r[6]) if r[6] is not None else None,
+            effective_pivot=float(r[7]) if r[7] is not None else None,
         )
         for r in rows
     ]

@@ -29,14 +29,14 @@ def seed_classifications(db):
         cur.execute(
             """INSERT INTO weekly_classification
                  (symbol, classified_at, market, classification, pattern,
-                  pivot_price, confidence, reasoning, source, created_at)
+                  pivot_price, confidence, reasoning, source, created_at, effective_pivot)
                VALUES
                  ('CLSTEST01', NOW() - INTERVAL '23 hours', 'KOSPI', 'watch', 'flat_base',
-                  1000.0, 0.55, '근거1', 'weekend', NOW()),
+                  1000.0, 0.55, '근거1', 'weekend', NOW(), 1200.0),
                  ('CLSTEST02', NOW() - INTERVAL '2 day', 'KOSDAQ', 'ignore', 'none',
-                  NULL, 0.78, '근거2', 'weekend', NOW()),
+                  NULL, 0.78, '근거2', 'weekend', NOW(), NULL),
                  ('CLSTEST03', NOW() - INTERVAL '3 day', 'KOSPI', 'entry', 'cup',
-                  2000.0, 0.85, '근거3', 'daily-delta', NOW())"""
+                  2000.0, 0.85, '근거3', 'daily-delta', NOW(), NULL)"""
         )
         cur.execute(
             """INSERT INTO weekly_classification
@@ -449,3 +449,21 @@ def test_default_filter_hides_excluded_by_universe_like_disqualified(client, db)
         assert [r["symbol"] for r in with_src] == ["CLSTESTUEX"]
     finally:
         app.dependency_overrides.pop(get_conn, None)
+
+
+# ====== (#253) effective_pivot 노출 ======
+
+def test_effective_pivot_exposed_and_legacy_null(client, seed_classifications):
+    """래칫 적용 후 pivot(effective_pivot)은 판독값(pivot_price)과 별도 필드. 레거시 행은 null."""
+    rows = {r["symbol"]: r for r in client.get("/api/classifications?lookback_days=30").json()}
+    assert rows["CLSTEST01"]["effective_pivot"] == 1200.0
+    assert rows["CLSTEST01"]["pivot_price"] == 1000.0
+    assert rows["CLSTEST03"]["effective_pivot"] is None
+    assert rows["CLSTEST03"]["pivot_price"] == 2000.0
+
+
+def test_history_includes_effective_pivot(client, seed_classifications):
+    r = client.get("/api/classifications/history/CLSTEST01")
+    assert r.status_code == 200
+    rows = r.json()
+    assert any(x.get("effective_pivot") == 1200.0 and x["pivot_price"] == 1000.0 for x in rows)

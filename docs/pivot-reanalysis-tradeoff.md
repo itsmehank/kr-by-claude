@@ -60,3 +60,10 @@ entry/watch 일 때만 비교 기록한다 — 직전 최신 행이 ignore 면 �
 - 재판독 허용폭 정책(경고/차단 게이트) — 책 근거 + `pivot_continuity` 분포 기반
   (임계 신설이므로 threshold-change-checklist 의존성 맵 필수).
 - 베이스 고유 ID 추적 — same-base 재판독 빈도가 실제 운영에서도 높게 관측되면.
+
+**판독 결과(2026-11-05, #129 → #253)**: same-base 재판독 56건 중 하향 25건, 하향 재판독 뒤 돌파 발화 3건(049430, go_now 0)
+→ 사전 봉인 규칙 발동. 채택 = **방향 한정 래칫**(#253): 같은 베이스(same/near)에서 새 판독이 직전 트리거 기준보다
+낮으면 직전 값을 `weekly_classification.effective_pivot` 에 유지, 높으면 새 값. LLM 입력·`pivot_price`·이 관측 로그는
+불변(관측에 `prev_effective_pivot`·`ratchet` 키만 추가). 허용폭 게이트는 숫자 임계의 책 근거가 없어 비채택, 베이스 ID 는
+래칫이 base_start_date 키로 같은 효과라 비채택. 하향 거부·±10일은 책 명문 없음([design-judgment], 전문가 사실 확인
+2026-11-05), 상향 수용·조기 매수 금지는 책 근거(TTLC §7, HMMS p.118). 설계: `docs/superpowers/specs/2026-11-05-issue253-pivot-ratchet-design.md`.

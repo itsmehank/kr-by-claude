@@ -452,6 +452,41 @@ def test_live_rows_preserved_and_floor_applied_without_backfill(db, week_dedup_s
     assert rows[0]["pivot_price"] == 9000.0
 
 
+# ====== (#253) /review 계단은 effective_pivot(트리거 기준) ======
+
+@pytest.fixture
+def effective_seed(db):
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol LIKE 'RVEF%'")
+        cur.execute("DELETE FROM stocks WHERE ticker LIKE 'RVEF%'")
+        cur.execute(
+            """INSERT INTO stocks (ticker, name, market, sector, listed_at)
+               VALUES ('RVEF01','래칫1','KOSPI','반도체','2020-01-01')"""
+        )
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, market, classification, pattern,
+                  pivot_price, source, analyzed_for_date, effective_pivot)
+               VALUES
+                 -- 레거시 행(effective NULL) → pivot_price 그대로
+                 ('RVEF01','2026-08-22 06:10:00+09','KOSPI','watch','cup_with_handle',
+                  23650,'weekend','2026-08-22', NULL),
+                 -- kept 행: LLM 22,050 / 트리거 기준 23,650
+                 ('RVEF01','2026-08-29 06:10:00+09','KOSPI','watch','cup_with_handle',
+                  22050,'weekend','2026-08-29', 23650)"""
+        )
+    db.commit()
+    yield
+
+
+def test_live_rows_use_effective_pivot_for_staircase(db, effective_seed):
+    """kept 행은 트리거 점(trigger_evaluation_log.pivot_price = effective)과 같은 값으로 계단을 그린다."""
+    rows = _fetch_bf(db, "RVEF01")
+    by_kd = {r["key_date"]: r for r in rows}
+    assert by_kd[date(2026, 8, 22)]["pivot_price"] == 23650.0   # 레거시 폴백
+    assert by_kd[date(2026, 8, 29)]["pivot_price"] == 23650.0   # effective
+
+
 def test_build_spark_downsample_preserves_latest_price_off_grid():
     # 극점·마지막 인덱스가 균등 스텝 그리드와 우연히 겹치지 않는 소수 길이(157) 입력.
     # 다운샘플이 스텝 그리드만 쓰면 최신 가격(마지막 인덱스)이 드롭될 수 있다 — 반드시

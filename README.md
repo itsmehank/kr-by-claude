@@ -10,6 +10,9 @@ KOSPI / KOSDAQ 일봉 데이터 적재 파이프라인 및 후속 분석 도구.
 2. `.env.example` 를 `.env` 로 복사 후 DB URL 채움
 3. `.env` 환경변수 로드 후 `psql "$DATABASE_URL" -f kr_pipeline/db/schema.sql` 로 스키마 생성
    - 셸에서 한 번에: `set -a; source .env; set +a; psql "$DATABASE_URL" -f kr_pipeline/db/schema.sql`
+   - 기존 DB 를 최신 코드에 맞출 때도 같은 명령을 다시 실행한다(`IF NOT EXISTS` 라 재적용 안전). 새 열이
+     추가된 변경(예: #253 `weekly_classification.effective_pivot`)은 코드 pull **전에** 적용한다 — 조회가 그 열을
+     참조하므로 순서가 바뀌면 다음 실행이 실패한다. 테스트 DB(kr_test)도 같은 파일로 적용(CLAUDE.md 운영 규칙 4).
 
 ## 실행
 - 종목 마스터: `uv run python -m kr_pipeline.universe` — (#221) 배제 집합 변동 중 상폐·신규 상장 배제는 자동 수용, 그 외(예: 기존 종목이 새로 배제, #199 유형)는 실패로 기록 → 월간 체인이 `scripts/universe_exclusion_report.py`(수동은 `python -m kr_pipeline.universe --report-last-failed`)로 조사 보고서(claude -p 웹 검색, KRX 접촉 0)를 Slack 에 전송. 확인 후 `--accept-exclusion-diff`(단 stocks 행이 있는 종목의 신규 배제 — #199 유형(security_group 확정 상태였던 기존 종목)과 늦은 분류(UNRESOLVED 로 적재돼 있던 종목) — 는 accept 불가: 수용하면 상장 종목이 폐지로 기록된다. #199 착수가 해소 경로, 그 달 universe·corp_code 매핑은 멈춤). 자동 수용을 끄려면 `--strict-exclusion-diff`. 원본이 직전 대비 2% 넘게 줄면 적재 전 중단(재실행)
