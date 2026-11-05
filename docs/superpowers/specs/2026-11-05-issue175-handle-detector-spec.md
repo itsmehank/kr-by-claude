@@ -31,29 +31,34 @@ pivot_basis 를 비웠으면 검출기는 돌지 않는다.
   - 함의 1: 손잡이 고점(pivot) 에 **고가가 닿거나 넘은 날**이 손잡이 시작이다. LLM 이 pivot 을 실제 고가보다 0.1 위로 적는
     관례(§4.7 +0.1)라 "닿음"은 사실상 **넘음**이 필요하다. 손잡이 고점이 그 뒤 다시 경신되면 시작점은 첫 도달일 그대로.
   - 함의 2: 컵 좌측 림이 pivot 보다 높아도 좌측 림은 컵 바닥 **앞**이라 잡히지 않는다(의도).
-- **S5 핸들 끝·하한**: 핸들 끝 = **분류일 직전 거래일**(창 끝). **상한 규칙 없음**. `handle_rows < 5` → "핸들 미형성" 미평가,
-  `base_rows < 5` → 미평가.
+- **S5 핸들 끝·하한**: 핸들 끝 = 창 끝 = `classified_at` 의 **UTC 날짜** 직전 봉(`_to_date(classified_at)` 가 tz-aware UTC
+  datetime 의 `.date()` — `weekend.py`·`daily_delta.py` 의 `datetime.now(timezone.utc)`). **09:00 KST 이전에 끝난 실행은 전
+  거래일 봉이 창에서 빠진다** — 토 06:00 KST 주말 분류는 UTC 금요일이라 **금요일 봉이 핸들에 들어가지 않는다**(§7-7, 리뷰 R1 발견).
+  **상한 규칙 없음**. `handle_rows < 5` → "핸들 미형성" 미평가, `base_rows < 5` → 미평가.
 - **S6 산출**: `handle_high = pivot_price`(LLM 값 그대로, 일봉에서 재측정 안 함), `handle_low = min(handle_rows.low)`(일중),
   `handle_depth_pct = (hh − hl)/hh × 100`(감사 echo, 판정 비관여 — #177 로 깊이 조건 제거).
 - **S7 판정 조건**(하나라도 참이면 발화):
   - (B) 거래량 미수축: `mean(handle_rows.volume) / mean(base_rows.volume) > HANDLE_VOLUME_NOT_CONTRACTING_RATIO(0.80)`.
-    베이스 = 컵 바닥 포함 **컵 좌측+바닥 전체**(S4 앞 전부), 핸들 = 림 봉부터 끝까지. 단순 산술평균.
-  - (D) 핸들 내 분배: `handle_rows` 중 `distribution_day_flag` 참인 날 ≥ 1. 플래그는 `indicators` 가 일봉 전체에 계산한
-    "전일 대비 하락 + 거래량 증가" 류 분배일 표식(정의는 `kr_pipeline/indicators/modes.py`).
+    베이스 = **림 봉 앞 전부**(컵 좌측·바닥·우측 회복 구간), 핸들 = 림 봉부터 끝까지. 단순 산술평균. 베이스 평균 0 이면 ratio 0.
+  - (D) 핸들 내 분배: `handle_rows` 중 `distribution_day_flag` 참인 날 ≥ 1. 플래그 정의(`kr_pipeline/indicators/compute/volume.py`,
+    `modes.py` 가 호출) = **일간 수익률 ≤ −0.2%(`STOCK_DISTRIBUTION_PCT_DOWN`) ∧ adj 거래량 > 50일 평균 × 1.0(`STOCK_DISTRIBUTION_VOL_MULT`)**.
+    전일 대비가 아니라 50일 평균 대비다.
 - **S8 발화 시 출력**: `fired`, `reasons ⊂ {volume_not_contracting, distribution_in_handle}`, 가중 `weights`(기록만, 판정 비관여):
-  `handle_position_low` = (hl − base_low)/(base_high − base_low) < 0.33, `handle_below_ma50` = 마지막 봉 종가 < sma_50.
-  `metrics` = depth·ratio_b·distribution_days·handle_start/end·handle_high/low. 비발화면 **값 전부 폐기**.
+  `handle_position_low` = (hl − base_low)/(base_high − base_low) < 0.33 — base_low·base_high 는 **LLM 값**(없을 때만 base_rows
+  min/max 폴백, 분모 ≤ 0 이면 거짓), `handle_below_ma50` = 마지막 봉 종가 < sma_50. `metrics` = depth·ratio_b·distribution_days·
+  handle_start/end·handle_high/low. 비발화면 `None` 반환 — depth·ratio·분배일은 `log.info` 로만 남고 **DB 에는 남지 않는다**.
 
 ### 2.1 소비 (`gates.py`)
 
 발화 → `risk_flags += handle_quality`, classification = 더 보수적 쪽(entry→watch, watch·ignore 유지), confidence =
-min(현재, 0.60 / extended 동반 시 0.50), `triggered_rules["2E_tier1|2E_tier2"]` 에 metrics 저장. 비발화 → 흔적 없음.
+min(현재, 0.60 / `risk_flags` 에 `extended_from_ma` 가 있으면 0.50 — §8.5 watch_reason=extended 와 다른 신호), `triggered_rules["2E_tier1|2E_tier2"]`
+에 metrics 저장. 비발화 → 흔적 없음.
 
 ## 3. 상수와 태그
 
 | 상수 | 값 | 태그(thresholds.py) | 이 검출기에서의 역할 |
 |---|---|---|---|
-| `HANDLE_LEGIT_MIN_DAYS` | 5 | book-anchor(HMMS "1~2주 이상"의 하한, 변동성 종목 예외 floor) | S2·S5 핸들 하한 |
+| `HANDLE_LEGIT_MIN_DAYS` | 5 | book-anchor — thresholds.py docstring 은 "Primary: Minervini(≥1주), Corroborating: O'Neil 1~2주", 프롬프트 Gate3 는 2026-07-22 책 검토로 O'Neil 귀속 정정(두 기록 불일치 — 정리 대상) | S2·S5 핸들 하한 |
 | `BASE_MIN_DAYS` | 5 | heuristic | S2·S5 베이스 하한 |
 | `HANDLE_VOLUME_NOT_CONTRACTING_RATIO` | 0.80 | heuristic(개념 book, 수치 design) | S7 (B) |
 | 분배일 ≥ 1 | 1 | 코드 상수(태그 없음) | S7 (D) |
@@ -65,7 +70,7 @@ min(현재, 0.60 / extended 동반 시 0.50), `triggered_rules["2E_tier1|2E_tier
 
 | 항목 | LLM(`analyze_chart_v3` §4 Gate3) | 결정론 검출기 |
 |---|---|---|
-| 길이 | ≥5거래일, 미달 = not_formed(cup_without_handle 분기) | ≥5 아니면 미평가 |
+| 길이 | ≥5거래일, 미달 = `handle_status=not_formed`(우측 회복 완료면 `cup_without_handle`·pivot=컵 고점, 미완이면 `cup_with_handle`·watch base_forming) | ≥5 아니면 미평가 |
 | 깊이 | ≤12%(고점 대비) 아니면 faulty | 측정만(echo) |
 | 위치 | 상단 절반·50일선 위 아니면 faulty | 가중만 |
 | drift | 하향(shakeout) 아니면 faulty(위 wedging·평탄) | **미검사** |
@@ -81,9 +86,12 @@ min(현재, 0.60 / extended 동반 시 0.50), `triggered_rules["2E_tier1|2E_tier
 명세 §2 를 `compute_handle_quality` 를 import 하지 않고 독립 재구현해 실전 `weekly_classification` cwh entry/watch 전 행에 적용.
 
 **(a) 저장본과의 일치**: 발화해 metrics 가 저장된 58행 중 `handle_start`·`handle_high` 는 **58/58 동일**. 전 필드 완전 일치 46, 나머지
-12 는 전부 **데이터 변동**으로 설명된다(로직 차이 0): 분배일 플래그 재계산 6(예 000430 6→8), 저장 뒤 들어온 다음 일봉이 창 끝에
-추가 4(예 053160 handle_end 07-24→07-27 — 분류 02:01 KST 시점에 전일 봉 미적재), 거래량 adj 재적재·반올림 2(ratio_b 1.204→1.205).
-→ **명세는 실제 동작과 부합한다.**
+12 의 원인:
+- `handle_end` 차이 4(053160·092230 07-28 02:01 KST, 049430 08-29 03:22, 041520 10-17 05:32 — 전부 09:00 KST 이전 실행): **명세 초안의
+  오류**였다. 코드는 `classified_at` 의 UTC 날짜로 창을 끊고(S5), 재현 스크립트는 DB 에서 +09:00 으로 읽은 날짜를 썼다. 09:00 KST
+  이후 실행 행은 두 날짜가 같아 전부 일치. → S5 를 UTC 기준으로 정정했고, 이 동작 자체는 §7-7 결함으로 기록.
+- 분배일 플래그 재계산 5(000430 6→8·282330 3→7·096760·029460·037760), 거래량 adj 재적재·반올림 3(069730 1.204→1.205·137080·006360).
+→ **정정 후 명세는 실제 동작과 부합한다**(핸들 시작·고점 규칙 58/58, 창 끝 규칙은 UTC 로 정정).
 
 **(b) 현재 데이터 분포**(367행):
 
@@ -96,7 +104,7 @@ min(현재, 0.60 / extended 동반 시 0.50), `triggered_rules["2E_tier1|2E_tier
 | 핸들 길이(거래일) 83행 | 최소 5 · Q1 9 · 중앙 18 · Q3 35 · P90 55 · **최대 105** · >20일 36 · >60일 6 |
 | 검출 깊이 | 중앙 10.7% · >8% 53 · >12% 32 |
 | LLM 보고 깊이와 |차| (67행) | 중앙 1.9pp · ≤1pp 27 · ≤3pp 43 · **>3pp 24** |
-| 명세상 발화인데 저장본 metrics 없음 | 13 (#177 이전 규칙·당시 데이터 차이 — 로직 아님) |
+| 명세상 발화인데 저장본 metrics 없음 | 13 — 원인 **미검증**(후보: UTC 창 경계로 당시 창이 한 봉 짧았음, 분배일·거래량 재계산, 게이트 도입 전 행. #177 은 발화 조건을 좁혔으므로 설명이 못 됨) |
 
 Phase A(09-10) 대비: 커버리지 25%→23%, 최장 98→105일, >3pp 불일치 40%→36%. 구조는 그대로다.
 
@@ -108,7 +116,7 @@ Phase A(09-10) 대비: 커버리지 25%→23%, 최장 98→105일, >3pp 불일�
   "컵 우측 림(좌측 고점 수준 회복) 도달 후 하향 drift 시작"인가, "손잡이 고점 형성"인가. 손잡이 고점이 컵 좌측 림보다
   낮아도 되는가(그렇다면 high ≥ pivot 조건이 맞고, 아니라면 좌측 림 기준이어야 함).
 - 선택지와 동작 차이: 현행(pivot 도달) / 좌측 림 도달 / 하향 drift 개시일. 시작점이 다르면 handle_low·길이·거래량비가 전부 바뀐다.
-- 확인한 코드 사실: S4. 림 미회복 124행(33.8%) = 고가가 pivot 에 한 번도 닿지 않은 행 — LLM 은 핸들이 있다고 봤다.
+- 확인한 코드 사실: S4. 림 미회복 124행(33.8%) = **컵 바닥 이후** 고가가 pivot 에 한 번도 닿지 않은 행(좌측 림은 탐색 안 함) — LLM 은 핸들이 있다고 봤다.
 - CC 추정: LLM pivot 이 실제 고가보다 높게 적힌 행(+0.1 관례·판독 오차)이 "미회복"을 만든다(추정).
 
 [Q-2] 핸들 길이 상한
@@ -128,14 +136,14 @@ Phase A(09-10) 대비: 커버리지 25%→23%, 최장 98→105일, >3pp 불일�
 - 결정 사항: 검출기 (B)는 "핸들 평균 거래량 ÷ 컵(좌측+바닥) 평균 거래량 > 0.80"이면 미수축으로 본다. 책은 핸들 거래량이
   무엇과 비교해 어느 정도 마르는지(dry up) 수치나 비교 대상을 적는가.
 - 선택지와 동작 차이: 비교 대상 = 컵 전체 평균 / 직전 N주 평균 / 50일 평균. 수치 0.80 은 design.
-- 확인한 코드 사실: S7(B), 태그 heuristic. 발화 58행 대부분이 (B) 로 발화.
+- 확인한 코드 사실: S7(B), 태그 heuristic. 발화 사유별 건수는 저장되지 않아(metrics 에 reasons 없음) 미집계.
 - CC 추정: 책은 정성적("volume should dry up near the lows of the handle")이고 비교 대상·수치는 없다(추정).
 
 [Q-5] 핸들 내 분배일
-- 결정 사항: 검출기 (D)는 핸들 구간에 분배일(하락+거래량 증가)이 1일만 있어도 발화한다. 책에 "핸들 안의 대량 거래 하락일"을
-  결함으로 보는 서술과 그 개수·조건이 있는가.
-- 선택지와 동작 차이: 1일 / 2일 이상 / 비율 기준. 59행(현재 발화 중 분배 사유)에 직접 영향.
-- 확인한 코드 사실: S7(D), 코드 상수 1(태그 없음).
+- 결정 사항: 검출기 (D)는 핸들 구간에 분배일(일간 −0.2% 이상 하락 ∧ 거래량 > 50일 평균)이 1일만 있어도 발화한다. 책에 "핸들 안의
+  대량 거래 하락일"을 결함으로 보는 서술과 그 개수·조건이 있는가.
+- 선택지와 동작 차이: 1일 / 2일 이상 / 비율 기준. 핸들이 길수록(중앙 18일) 1일 조건은 쉽게 충족된다.
+- 확인한 코드 사실: S7(D), 코드 상수 1(태그 없음), 플래그 정의 `indicators/compute/volume.py`.
 - CC 추정: 없음.
 
 [Q-6] 상단 절반·10주선의 측정 정의
@@ -162,19 +170,23 @@ Phase A(09-10) 대비: 커버리지 25%→23%, 최장 98→105일, >3pp 불일�
 [Q-9] 3-C cheat 구간의 정의와 저점
 - 결정 사항: cheat area(컵 하단/중간 1/3의 pause)의 시작·끝·cheat pivot·cheat low 를 책이 어떻게 정의하는가.
 - 선택지와 동작 차이: 결정론 산출 가능 여부.
-- 확인한 코드 사실: `3c_cheat` 는 프롬프트 패턴 enum 에 있으나 "refinement 안 함" — 저장 0행(§7 참조, #253 Q-2).
+- 확인한 코드 사실: `3c_cheat` 는 프롬프트 패턴 enum 에 있으나 "refinement 안 함" — 저장 0행(2026-11-05 실측, #253 코멘트 Q-2).
 - CC 추정: 없음.
 ```
 
 ## 7. 알려진 괴리(사실, 판정 아님)
 
-1. 커버리지 23%: 미평가 사유의 72%가 "pivot_basis ≠ handle_high"(LLM 이 cup_without_handle 로 읽음 또는 basis 비움)와 "림 미회복"이다.
-   후자는 LLM 이 핸들을 봤는데 코드는 pivot 도달 봉을 못 찾은 경우로, S4 규칙과 LLM pivot 값의 상호작용이다.
+1. 커버리지 23%: 미평가 284행 중 93%(263)가 "pivot_basis ≠ handle_high"(139 — 전부 `cup_with_handle` 행인데 basis 가 None·cup_high·
+   range_high, Phase A A2 분해 75/7/5)와 "림 미회복"(124)이다. 후자는 LLM 이 핸들을 봤는데 코드는 컵 바닥 이후 pivot 도달 봉을 못
+   찾은 경우로, S4 규칙과 LLM pivot 값의 상호작용이다.
 2. 상한 없음: 최장 105일(실전)·185일(백테스트, Phase A). 책 하한만 반영.
 3. 두 겹 불일치: 검출 깊이 vs LLM 깊이 >3pp 36%. 구간 식별이 다르다는 뜻.
 4. handle_high 를 LLM pivot 으로 고정: 일봉에서 손잡이 고점을 재측정하지 않는다. LLM pivot 이 틀리면 저점·깊이·시작점이 함께 틀린다.
 5. (B)·(D) 수치는 design: 0.80·1일.
 6. VCP·3C 결정론 코드 없음.
+7. **창 끝이 UTC 날짜**(S5): 09:00 KST 이전 실행은 직전 거래일 봉이 빠진다. 주말 분류(토 06:00 KST)가 바로 이 경우라 **금요일 봉이 핸들
+   저점·거래량·분배일 계산에서 항상 제외**된다. 책 정합과 무관한 코드 결함 — 별도 이슈(#261)로 등록, 수정은 검출기 출력이 바뀌므로
+   테스트·재현 비교와 함께.
 
 ## 8. 다음 단계
 
