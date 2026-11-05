@@ -98,8 +98,10 @@ def _watch_reason(result: dict) -> str | None:
 # 탐지 휴리스틱)이라 thresholds.py SSOT 비등재. SOFT 전용(저장 차단 안 함).
 _PIVOT_CLOSE_BAND = (0.3, 3.0)
 
-# (#1) base_start_date '근접' 관측 분류 폭 (일). 판정 무영향 — 관측 라벨링 전용이라
-# thresholds.py SSOT 비등재 (이슈 #1 실측의 그룹핑 기준 재사용).
+# (#1) base_start_date '근접' 관측 분류 폭 (일). 이슈 #1 실측의 그룹핑 기준 재사용.
+# (#253) 래칫 적용 범위(same/near)를 가르므로 판정 입력이 됐다 — [design-judgment]: 책에는
+# "같은 베이스" 의 날짜 기준이 없다(전문가 사실 확인 Q-5, 2026-11-05). 값 변경 없음·thresholds.py
+# SSOT 비등재 유지(책-유래 임계가 아님). 스펙 §5 의존성 맵 행.
 _BASE_NEAR_DAYS = 10
 
 

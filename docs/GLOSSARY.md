@@ -240,11 +240,23 @@ unknown 은 직전·현재 중 **한쪽 이상**의 base_start_date 가 없는 �
 현재만 없음 96. 현재 행의 80%(393) 는 pattern·pivot 이 없는 watch 라 비교 대상 자체가 없다.
 출처: `_BASE_NEAR_DAYS`, `store.py::_pivot_continuity`, #129 판독 §4.
 
-**방향 한정 래칫(권고안, 미구현)** — 같은 베이스에서 새 pivot 이 직전보다 낮으면 직전 값을 트리거 기준으로
-유지하고, 높으면 새 값을 받는 규칙. LLM 에는 여전히 지난주 판독을 안 보여준다. 숫자 임계가 없어 허용폭 근거
-문제가 없다. 직전 행이 ignore 이거나 베이스가 different 면 해제. 출처: #129 판독 §6(개봉 논의용, 결정 아님).
+**방향 한정 래칫(#253 구현)** — 같은 베이스(base_continuity same/near)에서 새 pivot 판독이 직전 트리거 기준보다
+낮으면 직전 값을 유지하고, 높으면 새 값을 받는 규칙. 결과는 `weekly_classification.effective_pivot` 열에 저장되고
+평일 트리거·발화 후 LLM 평가·entry_params 는 이 열(`COALESCE(effective_pivot, pivot_price)`)을 읽는다. LLM 판독값
+`pivot_price` 와 주말 LLM 입력은 그대로다(지난주 판독을 보여주지 않음). 해제 = 직전 행 ignore·베이스 different·
+비교 불능(unknown)·패턴 3c_cheat(현재 미식별). 예: 049430 은 08-29 판독 22,050 이 직전 기준 23,650 보다 낮아
+effective_pivot = 23,650 으로 유지되고, 09-04 종가 22,450 은 23,650 아래라 돌파가 발화하지 않는다(22,650·22,500 은
+95% 이상이라 promotion 만). 발동 시 로그 `[pivot-ratchet] kept`. 하향 거부와 "같은 베이스 ±10일" 은 책 명문이 없는
+설계 결정(design-judgment), 상향 수용(TTLC §7)과 기준가 아래 조기 매수 금지(HMMS p.118)는 책 근거다.
+출처: `kr_pipeline/llm_runner/compute/pivot_ratchet.py`, `store.py::insert_classification`,
+`docs/superpowers/specs/2026-11-05-issue253-pivot-ratchet-design.md`.
+
+**effective_pivot** — 래칫 적용 후 "트리거가 실제로 쓰는 pivot". 열 도입(2026-11-05) 전 행과 pivot 이 없는 행은 NULL
+이라 소비처는 `pivot_price` 로 폴백한다. 백필·백테스트 테이블에는 없다(실전 경로 한정). 웹 분류 카드는 두 값이 다를
+때만 "트리거 기준 N원 (래칫)" 을 한 줄 더 보여준다. 출처: `kr_pipeline/db/schema.sql`, `api/routers/classifications.py`.
 
 ## 변경 이력
+- 2026-11-05: §7 방향 한정 래칫 구현 반영·effective_pivot 추가(#253).
 - 2026-11-05: §7 pivot 재판독·판독 진동 용어 추가(#129 설명 중 질문 계기).
 - 2026-11-04: §6 지표 이력·횡단면 용어 추가(#124 설명 중 질문 계기).
 - 2026-11-04: §5 가격 조정 용어 추가(#122 재적재 결과 설명 중 질문 계기).
