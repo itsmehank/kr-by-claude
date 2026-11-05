@@ -1,0 +1,2351 @@
+{
+ "issue": 122,
+ "generated": "2026-11-05",
+ "method": "corp_action_details 기준일 → 권리락일(v3 동형, 대형 갭 억제 없음, 휴장/정지 구분, 정지 중 권리락은 재개일 연장) vs daily_prices adj/raw factor 점프(±5일·감자 [−7,+90], 크기 log 1.15·감자 1.5) 대조. 읽기 전용, KRX 0·DART 0.",
+ "details_as_of": "2026-11-03",
+ "universe": {
+  "listed": 2558,
+  "checked": 1445,
+  "no_details": 1113,
+  "no_prices": 0,
+  "future_record_dates_excluded": 6,
+  "phase2_targets": 20
+ },
+ "events": {
+  "by_class": {
+   "matched": 1394,
+   "missing": 42,
+   "size_mismatch": 31,
+   "pending": 3
+  },
+  "by_kind_class": {
+   "cr:matched": 176,
+   "cr:missing": 10,
+   "cr:pending": 2,
+   "cr:size_mismatch": 25,
+   "cr_diff:matched": 4,
+   "cr_diff:pending": 1,
+   "fric:matched": 636,
+   "fric:size_mismatch": 5,
+   "piic:matched": 275,
+   "piic:missing": 17,
+   "stkdp:matched": 303,
+   "stkdp:missing": 15,
+   "stkdp:size_mismatch": 1
+  },
+  "by_status": {
+   "composite_rehab_manual": 3,
+   "missing_unverifiable": 32,
+   "offset_by_split": 1,
+   "offset_by_split_manual": 7,
+   "pending": 3,
+   "size_mismatch": 28,
+   "split_accompanied_unconfirmed": 2
+  },
+  "split_offset": {
+   "evidence_rows": 3,
+   "manual_verdicts_applied": 10,
+   "registry": "data/verification/issue122_unconfirmed_verdicts_20261103.json"
+  }
+ },
+ "missing_confirmed": {
+  "n_events": 0,
+  "n_tickers": 0,
+  "by_kind": {},
+  "tickers": [],
+  "window_zero_pass_events": 0,
+  "window_zero_pass_but_pass_elsewhere": 0,
+  "with_judgments_in_window": []
+ },
+ "positive_control": {
+  "events": [
+   [
+    "221800",
+    "2023-02-23"
+   ],
+   [
+    "232830",
+    "2020-09-04"
+   ],
+   [
+    "388610",
+    "2023-07-24"
+   ]
+  ],
+  "ok": true,
+  "detected": [],
+  "repaired": [
+   [
+    "221800",
+    "2023-02-23"
+   ],
+   [
+    "232830",
+    "2020-09-04"
+   ],
+   [
+    "388610",
+    "2023-07-24"
+   ]
+  ],
+  "failed": []
+ },
+ "phase2_targets": [
+  "012320",
+  "024740",
+  "038870",
+  "055490",
+  "061090",
+  "206640",
+  "229640",
+  "237820",
+  "237880",
+  "263600",
+  "267850",
+  "307950",
+  "322000",
+  "326030",
+  "417200",
+  "417970",
+  "439260",
+  "443060",
+  "454910",
+  "468530"
+ ],
+ "rows": [
+  {
+   "ticker": "000230",
+   "ex_date": "2017-12-27",
+   "kind": "stkdp",
+   "rcept_no": "20171212800220",
+   "method": "주식배당",
+   "expected_ratio": 0.9091,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2019-01-11",
+   "window_days": 254,
+   "window_pass_days": 0,
+   "total_pass_days": 135,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "000640",
+   "ex_date": "2022-12-28",
+   "kind": "stkdp",
+   "rcept_no": "20221227800612",
+   "method": "주식배당",
+   "expected_ratio": 0.9804,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 1,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2024-01-12",
+   "window_days": 256,
+   "window_pass_days": 4,
+   "total_pass_days": 142,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "000640",
+   "ex_date": "2023-12-27",
+   "kind": "stkdp",
+   "rcept_no": "20231208800426",
+   "method": "주식배당",
+   "expected_ratio": 0.9808,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2025-01-10",
+   "window_days": 253,
+   "window_pass_days": 111,
+   "total_pass_days": 142,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "001020",
+   "ex_date": "2023-08-01",
+   "kind": "piic",
+   "rcept_no": "20230710000510",
+   "method": "주주배정증자",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2024-08-15",
+   "window_days": 255,
+   "window_pass_days": 0,
+   "total_pass_days": 0,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "001440",
+   "ex_date": "2024-03-05",
+   "kind": "piic",
+   "rcept_no": "20240307000106",
+   "method": "주주배정후 실권주 일반공모",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2024-01-30",
+    0.9084,
+    -35
+   ],
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2025-03-20",
+   "window_days": 253,
+   "window_pass_days": 8,
+   "total_pass_days": 317,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "003070",
+   "ex_date": "2022-10-06",
+   "kind": "piic",
+   "rcept_no": "20220916000472",
+   "method": "주주배정증자",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2023-01-31",
+    0.9563,
+    117
+   ],
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2023-10-21",
+   "window_days": 257,
+   "window_pass_days": 0,
+   "total_pass_days": 203,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "004840",
+   "ex_date": "2019-12-27",
+   "kind": "stkdp",
+   "rcept_no": "20191216800893",
+   "method": "주식배당",
+   "expected_ratio": 0.978,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2021-01-10",
+   "window_days": 255,
+   "window_pass_days": 16,
+   "total_pass_days": 159,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "004840",
+   "ex_date": "2020-12-29",
+   "kind": "stkdp",
+   "rcept_no": "20201217800279",
+   "method": "주식배당",
+   "expected_ratio": 0.982,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2022-01-13",
+   "window_days": 259,
+   "window_pass_days": 0,
+   "total_pass_days": 159,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "005420",
+   "ex_date": "2019-10-18",
+   "kind": "cr",
+   "rcept_no": "20190919000290",
+   "method": "보통주식 5주를 병합하여 같은 액면주식 1주로 병합",
+   "expected_ratio": 5.0,
+   "class": "missing",
+   "status": "offset_by_split_manual",
+   "halt_days": 14,
+   "db_jumps_near": [
+    [
+     "2019-11-01",
+     0.9367
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2019-11-01",
+    0.9367,
+    14
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2020-11-01",
+   "window_days": 257,
+   "window_pass_days": 31,
+   "total_pass_days": 360,
+   "judgments_in_window": null,
+   "manual_verdict": "offset_by_split",
+   "manual_evidence": "2019-08-23·09-19 '주식분할결정' 동시 공시; raw 6,140(10-17)→5,350(11-01), adj 4,947→4,602 (×0.94 — 5배 없음)"
+  },
+  {
+   "ticker": "006120",
+   "ex_date": "2018-12-27",
+   "kind": "stkdp",
+   "rcept_no": "20181204800237",
+   "method": "주식배당",
+   "expected_ratio": 0.9904,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2020-01-11",
+   "window_days": 255,
+   "window_pass_days": 0,
+   "total_pass_days": 390,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "006120",
+   "ex_date": "2019-12-27",
+   "kind": "stkdp",
+   "rcept_no": "20191217800457",
+   "method": "주식배당",
+   "expected_ratio": 0.9904,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2021-01-10",
+   "window_days": 255,
+   "window_pass_days": 73,
+   "total_pass_days": 390,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "006800",
+   "ex_date": "2026-03-16",
+   "kind": "stkdp",
+   "rcept_no": "20260313800897",
+   "method": "주식배당",
+   "expected_ratio": 0.9927,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-03-31",
+   "window_days": 158,
+   "window_pass_days": 43,
+   "total_pass_days": 394,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "007530",
+   "ex_date": "2024-11-19",
+   "kind": "piic",
+   "rcept_no": "20241219000319",
+   "method": "주주배정증자",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2025-12-04",
+   "window_days": 254,
+   "window_pass_days": 22,
+   "total_pass_days": 235,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "007690",
+   "ex_date": "2025-03-07",
+   "kind": "stkdp",
+   "rcept_no": "20250212800559",
+   "method": "주식배당",
+   "expected_ratio": 0.973,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2026-03-22",
+   "window_days": 253,
+   "window_pass_days": 26,
+   "total_pass_days": 243,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "009730",
+   "ex_date": "2026-09-01",
+   "kind": "piic",
+   "rcept_no": "20260811000481",
+   "method": "주주배정증자",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [
+    [
+     "2026-10-12",
+     0.8174
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2026-10-12",
+    0.8174,
+    41
+   ],
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-09-16",
+   "window_days": 43,
+   "window_pass_days": 0,
+   "total_pass_days": 41,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "009830",
+   "ex_date": "2022-12-01",
+   "kind": "piic",
+   "rcept_no": "20230104000326",
+   "method": "주주배정증자",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2023-03-31",
+    1.2476,
+    120
+   ],
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2023-12-16",
+   "window_days": 258,
+   "window_pass_days": 8,
+   "total_pass_days": 293,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "012170",
+   "ex_date": "2020-03-05",
+   "kind": "cr",
+   "rcept_no": "20200924000488",
+   "method": "발행주식66,180,931주에 대하여 액면가액 500원의 보통주 10주를 액면가액 500원의 보통주 1주로 병합",
+   "expected_ratio": 10.0,
+   "class": "missing",
+   "status": "composite_rehab_manual",
+   "halt_days": 208,
+   "db_jumps_near": [
+    [
+     "2020-09-29",
+     4.0
+    ],
+    [
+     "2020-11-05",
+     2.475
+    ]
+   ],
+   "nearest_jump_120d": null,
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2021-03-20",
+   "window_days": 257,
+   "window_pass_days": 0,
+   "total_pass_days": 39,
+   "judgments_in_window": null,
+   "manual_verdict": "composite_rehab",
+   "manual_evidence": "정지 2019-08-14~2021-05-02(회생); adj/raw 비 20.7(2019-08-13)→0.94(2021-05-03) = 참조 총 ≈22배 반영 vs 명목 4×10=40; 창 내 점프 4.0(09-29)·2.475(11-05=신주상장예정일) — 부분 조정 존재. 2025-02-14 10:1 은 별건 확정 유지"
+  },
+  {
+   "ticker": "019490",
+   "ex_date": "2022-12-16",
+   "kind": "cr",
+   "rcept_no": "20221215000362",
+   "method": "기명식 보통주 5주를 1주로 병합\n액면가 2,500원의 보통주를\n액면가 500원으로 감액함\n(액면가 감액 무상감자)",
+   "expected_ratio": 5.0,
+   "class": "missing",
+   "status": "offset_by_split_manual",
+   "halt_days": 320,
+   "db_jumps_near": [
+    [
+     "2023-11-01",
+     0.7045
+    ]
+   ],
+   "nearest_jump_120d": null,
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2023-12-31",
+   "window_days": 255,
+   "window_pass_days": 0,
+   "total_pass_days": 110,
+   "judgments_in_window": null,
+   "manual_verdict": "offset_by_split",
+   "manual_evidence": "2022-10-31·12-15 '주식분할결정' 동시 공시; 정지 2022-03-29~2023-10-31; raw 2,470(2022-03-28)→2,260(2023-11-01) — 5배 없음. 재개일 adj 점프 0.70 은 본 건과 무관(잔여)"
+  },
+  {
+   "ticker": "029480",
+   "ex_date": "2019-12-09",
+   "kind": "cr",
+   "rcept_no": "20191022000348",
+   "method": "보통주식 5주를 병합하여 같은 액면주식 1주로 병합",
+   "expected_ratio": 5.0,
+   "class": "missing",
+   "status": "offset_by_split_manual",
+   "halt_days": 15,
+   "db_jumps_near": [
+    [
+     "2019-12-24",
+     1.0905
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2019-12-24",
+    1.0905,
+    15
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2020-12-23",
+   "window_days": 259,
+   "window_pass_days": 0,
+   "total_pass_days": 41,
+   "judgments_in_window": null,
+   "manual_verdict": "offset_by_split",
+   "manual_evidence": "'주식분할결정' 4회 정정 동반, 2019-12-23 '주권매매거래정지해제(감자 주권 및 액면분할 변경상장)'; raw 995→994"
+  },
+  {
+   "ticker": "036530",
+   "ex_date": "2018-12-27",
+   "kind": "stkdp",
+   "rcept_no": "20181221800120",
+   "method": "주식배당",
+   "expected_ratio": 0.9766,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 1,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2020-01-11",
+   "window_days": 255,
+   "window_pass_days": 75,
+   "total_pass_days": 347,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "042940",
+   "ex_date": "2025-03-12",
+   "kind": "piic",
+   "rcept_no": "20250512000781",
+   "method": "주주우선공모증자",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 1,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2026-03-27",
+   "window_days": 255,
+   "window_pass_days": 0,
+   "total_pass_days": 51,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "042940",
+   "ex_date": "2026-09-07",
+   "kind": "piic",
+   "rcept_no": "20260807000339",
+   "method": "주주우선공모증자",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [
+    [
+     "2026-09-22",
+     0.9627
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2026-09-22",
+    0.9627,
+    15
+   ],
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-09-22",
+   "window_days": 39,
+   "window_pass_days": 0,
+   "total_pass_days": 51,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "052300",
+   "ex_date": "2016-06-30",
+   "kind": "cr",
+   "rcept_no": "20160428000888",
+   "method": "기명식 보통주식 액면가 500원의 주식 5주를 동일 액면금액 1주로 병합",
+   "expected_ratio": 5.0,
+   "class": "missing",
+   "status": "offset_by_split_manual",
+   "halt_days": 20,
+   "db_jumps_near": [
+    [
+     "2016-07-20",
+     1.0973
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2016-07-20",
+    1.0973,
+    20
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2017-07-15",
+   "window_days": 258,
+   "window_pass_days": 0,
+   "total_pass_days": 31,
+   "judgments_in_window": null,
+   "manual_verdict": "offset_by_split",
+   "manual_evidence": "2016-04-14 '주식분할결정', 2016-07-15 '정지해제(감자 주권 및 액면분할 변경상장)'; raw 1,130→1,095"
+  },
+  {
+   "ticker": "053950",
+   "ex_date": "2026-06-24",
+   "kind": "piic",
+   "rcept_no": "20260623000409",
+   "method": "주주배정후 실권주 일반공모",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2026-05-07",
+    5.0,
+    -48
+   ],
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-07-09",
+   "window_days": 90,
+   "window_pass_days": 0,
+   "total_pass_days": 134,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "056730",
+   "ex_date": "2020-09-04",
+   "kind": "cr",
+   "rcept_no": "20201016000380",
+   "method": "발행주식 46,163,868주에 대하여 액면가액 500원의 보통주 6주를 액면가액 \n500원의 보통주 1주로 병합",
+   "expected_ratio": 6.0024,
+   "class": "missing",
+   "status": "composite_rehab_manual",
+   "halt_days": 49,
+   "db_jumps_near": [
+    [
+     "2020-10-23",
+     1.0616
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2020-10-23",
+    1.0616,
+    49
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2021-09-19",
+   "window_days": 258,
+   "window_pass_days": 0,
+   "total_pass_days": 5,
+   "judgments_in_window": null,
+   "manual_verdict": "composite_rehab",
+   "manual_evidence": "정지 2019-02-12~2023-03-29(회생); 6:1·3:1(2020)·2:1(2022) 합산 명목 36배 vs adj/raw 비 11.3→5.0 = 2.26배만 반영; raw 1,460→2,310 은 회생 결과 혼재로 배율 검증 불가"
+  },
+  {
+   "ticker": "056730",
+   "ex_date": "2020-09-23",
+   "kind": "cr",
+   "rcept_no": "20201016000383",
+   "method": "발행주식 32,120,806주에 대하여 액면가액 500원의 보통주 3주를 액면가액  500원의 보통주 1주로 병합",
+   "expected_ratio": 3.0003,
+   "class": "missing",
+   "status": "composite_rehab_manual",
+   "halt_days": 30,
+   "db_jumps_near": [
+    [
+     "2020-10-23",
+     1.0616
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2020-10-23",
+    1.0616,
+    30
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2021-10-08",
+   "window_days": 256,
+   "window_pass_days": 0,
+   "total_pass_days": 5,
+   "judgments_in_window": null,
+   "manual_verdict": "composite_rehab",
+   "manual_evidence": "상동(동일 정지 구간)"
+  },
+  {
+   "ticker": "060230",
+   "ex_date": "2024-08-19",
+   "kind": "cr",
+   "rcept_no": "20240813001554",
+   "method": "기명식 보통주 \n5주를 동일한 액면주식\n 1주로 무상병합",
+   "expected_ratio": 5.0,
+   "class": "missing",
+   "status": "offset_by_split_manual",
+   "halt_days": 42,
+   "db_jumps_near": [
+    [
+     "2024-09-30",
+     1.0409
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2024-09-30",
+    1.0409,
+    42
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2025-09-03",
+   "window_days": 253,
+   "window_pass_days": 0,
+   "total_pass_days": 117,
+   "judgments_in_window": null,
+   "manual_verdict": "offset_by_split",
+   "manual_evidence": "'주식분할결정' 5회 정정 동반, 2024-09-25 '정지해제(감자 주권 및 액면분할 변경상장)'; 원문 감자후 8,072,189주(액면 2,500)→분할 후 40,360,949주 복원; raw 1,174→1,088"
+  },
+  {
+   "ticker": "060900",
+   "ex_date": "2026-07-29",
+   "kind": "piic",
+   "rcept_no": "20260619000455",
+   "method": "주주배정후 실권주 일반공모",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2026-04-30",
+    22.8986,
+    -90
+   ],
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-08-13",
+   "window_days": 66,
+   "window_pass_days": 0,
+   "total_pass_days": 92,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "065650",
+   "ex_date": "2026-08-28",
+   "kind": "piic",
+   "rcept_no": "20260804000340",
+   "method": "주주배정후 실권주 일반공모",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2026-06-09",
+    2.0,
+    -80
+   ],
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-09-12",
+   "window_days": 45,
+   "window_pass_days": 0,
+   "total_pass_days": 87,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "073640",
+   "ex_date": "2017-04-28",
+   "kind": "cr",
+   "rcept_no": "20170313000739",
+   "method": "액면가 500원의 기명식 보통주 5주를 동일 액면의 1주로 병합",
+   "expected_ratio": 5.0,
+   "class": "missing",
+   "status": "offset_by_split_manual",
+   "halt_days": 28,
+   "db_jumps_near": [
+    [
+     "2017-05-26",
+     0.9667
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2017-05-26",
+    0.9667,
+    28
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2018-05-13",
+   "window_days": 251,
+   "window_pass_days": 0,
+   "total_pass_days": 170,
+   "judgments_in_window": null,
+   "manual_verdict": "offset_by_split",
+   "manual_evidence": "2017-03-13 '주식분할결정', 2017-05-23 '정지해제(감자 주권 및 액면분할 변경상장)'; raw 810→880"
+  },
+  {
+   "ticker": "078590",
+   "ex_date": "2026-09-08",
+   "kind": "piic",
+   "rcept_no": "20260804000486",
+   "method": "주주배정후 실권주 일반공모",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2026-05-27",
+    10.1905,
+    -104
+   ],
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-09-23",
+   "window_days": 38,
+   "window_pass_days": 0,
+   "total_pass_days": 98,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "079160",
+   "ex_date": "2023-08-31",
+   "kind": "piic",
+   "rcept_no": "20230904000025",
+   "method": "주주배정후 실권주 일반공모",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2023-07-28",
+    0.6987,
+    -34
+   ],
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2024-09-14",
+   "window_days": 255,
+   "window_pass_days": 14,
+   "total_pass_days": 74,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "088390",
+   "ex_date": "2017-12-27",
+   "kind": "stkdp",
+   "rcept_no": "20171212900034",
+   "method": "주식배당",
+   "expected_ratio": 0.9709,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2019-01-11",
+   "window_days": 254,
+   "window_pass_days": 0,
+   "total_pass_days": 268,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "088390",
+   "ex_date": "2018-12-27",
+   "kind": "stkdp",
+   "rcept_no": "20181203900202",
+   "method": "주식배당",
+   "expected_ratio": 0.9715,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2020-01-11",
+   "window_days": 255,
+   "window_pass_days": 0,
+   "total_pass_days": 268,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "088390",
+   "ex_date": "2019-12-27",
+   "kind": "stkdp",
+   "rcept_no": "20191219900028",
+   "method": "주식배당",
+   "expected_ratio": 0.9716,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2021-01-10",
+   "window_days": 255,
+   "window_pass_days": 12,
+   "total_pass_days": 268,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "088390",
+   "ex_date": "2020-12-29",
+   "kind": "stkdp",
+   "rcept_no": "20201218900206",
+   "method": "주식배당",
+   "expected_ratio": 0.972,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2022-01-13",
+   "window_days": 259,
+   "window_pass_days": 215,
+   "total_pass_days": 268,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "106080",
+   "ex_date": "2026-10-06",
+   "kind": "piic",
+   "rcept_no": "20260429000600",
+   "method": "주주배정증자",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-10-21",
+   "window_days": 21,
+   "window_pass_days": 0,
+   "total_pass_days": 32,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "109070",
+   "ex_date": "2022-07-11",
+   "kind": "piic",
+   "rcept_no": "20220627000210",
+   "method": "주주배정증자",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 989,
+   "db_jumps_near": [
+    [
+     "2025-03-26",
+     0.289
+    ]
+   ],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2023-07-26",
+   "window_days": 260,
+   "window_pass_days": 0,
+   "total_pass_days": 11,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "219750",
+   "ex_date": "2024-09-25",
+   "kind": "cr",
+   "rcept_no": "20240820000290",
+   "method": "1주당 액면금액 100원의 보통주 5주를 동일 액면금액 보통주 1주로 무상병합",
+   "expected_ratio": 5.0,
+   "class": "missing",
+   "status": "offset_by_split_manual",
+   "halt_days": 236,
+   "db_jumps_near": [
+    [
+     "2025-05-19",
+     2.4095
+    ]
+   ],
+   "nearest_jump_120d": null,
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2025-10-10",
+   "window_days": 251,
+   "window_pass_days": 0,
+   "total_pass_days": 139,
+   "judgments_in_window": null,
+   "manual_verdict": "offset_by_split",
+   "manual_evidence": "2024-07-09 '주식분할결정'; 원문 주석 '액면분할(500→100)이 승인되는 경우 적용한 액면가액 및 주식수'; 정지 2022-03-23~2025-05-18 — 본 건 순변동 없음. 정지 중 2:1·4:1 별건은 size_mismatch 로 별도 집계(잔여)"
+  },
+  {
+   "ticker": "254120",
+   "ex_date": "2023-04-19",
+   "kind": "piic",
+   "rcept_no": "20230427000227",
+   "method": "주주배정후 실권주 일반공모",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": [
+    "2023-03-28",
+    0.9201,
+    -22
+   ],
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2024-05-03",
+   "window_days": 255,
+   "window_pass_days": 12,
+   "total_pass_days": 52,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "320000",
+   "ex_date": "2026-10-15",
+   "kind": "piic",
+   "rcept_no": "20260803000258",
+   "method": "주주배정후 실권주 일반공모",
+   "expected_ratio": null,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-10-30",
+   "window_days": 15,
+   "window_pass_days": 0,
+   "total_pass_days": 61,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "900290",
+   "ex_date": "2024-10-02",
+   "kind": "stkdp",
+   "rcept_no": "20240919900419",
+   "method": "주식배당",
+   "expected_ratio": 0.8333,
+   "class": "missing",
+   "status": "missing_unverifiable",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2025-10-17",
+   "window_days": 252,
+   "window_pass_days": 7,
+   "total_pass_days": 182,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "011810",
+   "ex_date": "2026-10-02",
+   "kind": "cr",
+   "rcept_no": "20261013000426",
+   "method": "회생계획에 따라 최대주주 에이피씨머큐리(유) 보유 보통주 11,995,657주 및 회생채권 특수관계인채권의 출자전환 주식 5,701,959주를 전량 무상소각하고, 그 밖의 기존주식 및 출자전환 신주를 보통주 103주당 보통주 1주의 비율로 병합함. 주식병합으로 발생하는 1주 미만의 단주는 관리인이 법원의 허가를 받아 무상소각함.",
+   "expected_ratio": 116.2791,
+   "class": "pending",
+   "status": "pending",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-10-17",
+   "window_days": 22,
+   "window_pass_days": 0,
+   "total_pass_days": 88,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "080720",
+   "ex_date": "2026-05-26",
+   "kind": "cr",
+   "rcept_no": "20260811000548",
+   "method": "회생담보권, 회생채권을 출자전환함에 따라 채무자회사 자본금 규모의 적정화 및 인수자의 경영권 확보를 위하여 기존주식 및 회생담보권, 회생채권의 출자전환으로 발행된 신주를 대상(미발생구상채권 등이 확정되어 출자전환 되는 경우도 병합 대상에 포함)으로 주식 병합을 실시합니다. 주식 병합비율은 기존주식 보통주 각 3주를 보통주 각 1주로 병합하고, 출자전환으로 ",
+   "expected_ratio": 3.0003,
+   "class": "pending",
+   "status": "pending",
+   "halt_days": 94,
+   "db_jumps_near": [
+    [
+     "2026-08-28",
+     0.8844
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2026-08-28",
+    0.8844,
+    94
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-06-10",
+   "window_days": 110,
+   "window_pass_days": 0,
+   "total_pass_days": 54,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "412540",
+   "ex_date": "2026-10-08",
+   "kind": "cr_diff",
+   "rcept_no": "20261013000001",
+   "method": "기존 주주의 주식 및 출자전환에 따라 발행되는 신주(미확정구상채무 등 미확정 상태인 회생채권이 병합 효력 발생일 이후 확정되어 출자전환되는 경우 그 출자전환으로 인해 발행되는 주식도 동일한 비율로 병합)는 액면가 500원의 보통주 21주를 액면가 500원의 보통주 1주로 병합합니다.\n다만, 소액주주 권리 보호와 지분감소 효과를 완화하기 위해 대표이사 이영진",
+   "expected_ratio": null,
+   "class": "pending",
+   "status": "pending",
+   "halt_days": 0,
+   "db_jumps_near": [],
+   "nearest_jump_120d": null,
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-10-23",
+   "window_days": 19,
+   "window_pass_days": 0,
+   "total_pass_days": 0,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "004090",
+   "ex_date": "2021-04-15",
+   "kind": "fric",
+   "rcept_no": "20210414000650",
+   "method": null,
+   "expected_ratio": 0.5,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 0,
+   "db_jumps_near": [
+    [
+     "2021-04-15",
+     0.0518
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2021-04-15",
+    0.0518,
+    0
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2022-04-30",
+   "window_days": 258,
+   "window_pass_days": 6,
+   "total_pass_days": 90,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "005070",
+   "ex_date": "2018-04-18",
+   "kind": "cr",
+   "rcept_no": "20180212000262",
+   "method": "보통주 5:1 주식병합(무상감자)",
+   "expected_ratio": 5.0,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 28,
+   "db_jumps_near": [
+    [
+     "2018-05-16",
+     0.8011
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2018-05-16",
+    0.8011,
+    28
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2019-05-03",
+   "window_days": 254,
+   "window_pass_days": 12,
+   "total_pass_days": 588,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "007120",
+   "ex_date": "2019-04-30",
+   "kind": "cr",
+   "rcept_no": "20190329002879",
+   "method": "보통주 4:1 주식병합(무상감자)",
+   "expected_ratio": 4.0,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 17,
+   "db_jumps_near": [
+    [
+     "2019-05-17",
+     0.7956
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2019-05-17",
+    0.7956,
+    17
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2020-05-14",
+   "window_days": 256,
+   "window_pass_days": 13,
+   "total_pass_days": 88,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "009810",
+   "ex_date": "2020-10-23",
+   "kind": "cr",
+   "rcept_no": "20200820000296",
+   "method": "액면가 500원 기명식 보통주와 우선주를 10주를 동일 액면 금액의 보통주 1주로 무상병합함",
+   "expected_ratio": 10.0,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 32,
+   "db_jumps_near": [
+    [
+     "2020-11-24",
+     1.8641
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2020-11-24",
+    1.8641,
+    32
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2021-11-07",
+   "window_days": 257,
+   "window_pass_days": 1,
+   "total_pass_days": 91,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "010280",
+   "ex_date": "2021-04-30",
+   "kind": "cr",
+   "rcept_no": "20210326000931",
+   "method": "1주당 액면금액 \n500원의 보통주 2주를 동일 액면금액 보통주 1주로 무상병합(2대 1 무상감자)",
+   "expected_ratio": 2.0,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 20,
+   "db_jumps_near": [
+    [
+     "2021-05-20",
+     0.9434
+    ],
+    [
+     "2021-06-17",
+     0.862
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2021-05-20",
+    0.9434,
+    20
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2022-05-15",
+   "window_days": 256,
+   "window_pass_days": 0,
+   "total_pass_days": 172,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "011300",
+   "ex_date": "2025-01-31",
+   "kind": "cr",
+   "rcept_no": "20250203000361",
+   "method": "(1)액면가 500원 보통주 4주를 동일 액면가의 보통주 1주로 무상병합하는 무상감자\n\n(2)감자 후 1주당 액면금액 500원의 보통주식 1주를 액면금액 100원 보통주식 5주로 주식분할",
+   "expected_ratio": 4.0,
+   "class": "size_mismatch",
+   "status": "split_accompanied_unconfirmed",
+   "halt_days": 27,
+   "db_jumps_near": [
+    [
+     "2025-02-27",
+     0.8845
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2025-02-27",
+    0.8845,
+    27
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": "method_text",
+   "max_gap_in_window": [
+    "2025-02-27",
+    0.7715
+   ],
+   "window_end": "2026-02-15",
+   "window_days": 256,
+   "window_pass_days": 0,
+   "total_pass_days": 103,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "016380",
+   "ex_date": "2019-08-29",
+   "kind": "cr",
+   "rcept_no": "20190612000449",
+   "method": "- 액면가 5,000원의 보통주식 및 우선주식(자기주식 포함) 3주를 동일한 액면가액의 주식 1주로 병합하는 방식의 무상감자를 진행함. \n- 다만, 채권금융기관협의회 소속 채권금융기관들이 소유한 보통주식의 경우, 액면가 5,000원의 주식 8.5주를 동일 액면가액의 주식 1주로 병합하는 방식의 무상감자를 진행함.\n-  병합 전 주식과 병합 후 주식의 종류는",
+   "expected_ratio": 7.148,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 21,
+   "db_jumps_near": [
+    [
+     "2019-09-19",
+     3.3333
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2019-09-19",
+    3.3333,
+    21
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2020-09-12",
+   "window_days": 258,
+   "window_pass_days": 0,
+   "total_pass_days": 36,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "021880",
+   "ex_date": "2026-06-05",
+   "kind": "cr",
+   "rcept_no": "20260325000972",
+   "method": "1주당 액면금액 500원의 보통주 5주를 동일 액면금액 보통주 1주로 무상감자",
+   "expected_ratio": 5.0,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 34,
+   "db_jumps_near": [
+    [
+     "2026-07-09",
+     15.0
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2026-07-09",
+    15.0,
+    34
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-06-20",
+   "window_days": 103,
+   "window_pass_days": 0,
+   "total_pass_days": 113,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "025620",
+   "ex_date": "2017-12-05",
+   "kind": "fric",
+   "rcept_no": "20171205000357",
+   "method": null,
+   "expected_ratio": 0.5,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 14,
+   "db_jumps_near": [
+    [
+     "2017-12-19",
+     2.533
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2017-12-19",
+    2.533,
+    14
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2018-12-20",
+   "window_days": 256,
+   "window_pass_days": 0,
+   "total_pass_days": 39,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "049470",
+   "ex_date": "2024-04-26",
+   "kind": "cr",
+   "rcept_no": "20240314000865",
+   "method": "1주당 액면금액 100원의 보통주 10주를 동일 액면금액 보통주 1주로 무상병합",
+   "expected_ratio": 10.0,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 119,
+   "db_jumps_near": [
+    [
+     "2024-08-23",
+     0.851
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2024-08-23",
+    0.851,
+    119
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2025-05-11",
+   "window_days": 249,
+   "window_pass_days": 0,
+   "total_pass_days": 111,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "052300",
+   "ex_date": "2026-04-30",
+   "kind": "cr",
+   "rcept_no": "20260424000549",
+   "method": "1) 액면금액 5,000원의 보통주식 1주를 액면금액 500원의 보통주식 10주로 주식분할 함.\n\n2) 주식분할과 동시에 1주당 액면금액 500원의 보통주 10주를 동일한 액면금액의 보통주 1주로 무상병합 함.",
+   "expected_ratio": 10.0,
+   "class": "size_mismatch",
+   "status": "offset_by_split",
+   "halt_days": 22,
+   "db_jumps_near": [
+    [
+     "2026-05-22",
+     0.8041
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2026-05-22",
+    0.8041,
+    22
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": "method_text",
+   "max_gap_in_window": [
+    "2026-05-22",
+    0.8932
+   ],
+   "window_end": "2027-05-15",
+   "window_days": 125,
+   "window_pass_days": 0,
+   "total_pass_days": 31,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "052770",
+   "ex_date": "2019-11-13",
+   "kind": "cr",
+   "rcept_no": "20200113000118",
+   "method": "자본감소에 따라 주식소각 및 주식병합된 보통주와 출자전환에 따라 발행되는 보통주를 대상으로 관리인은 법원의 허가를 얻어 액면가 500원의 기명식 보통주 13주를 각 액면가 500원의 기명식 보통주 1주로 재병합",
+   "expected_ratio": 12.987,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 65,
+   "db_jumps_near": [
+    [
+     "2020-01-17",
+     5.5404
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2020-01-17",
+    5.5404,
+    65
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2020-11-27",
+   "window_days": 259,
+   "window_pass_days": 0,
+   "total_pass_days": 20,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "054220",
+   "ex_date": "2020-05-11",
+   "kind": "cr",
+   "rcept_no": "20200629000453",
+   "method": "회생계획안에 대한 인가 전에 발행한\n52,295,547주(액면가 500원)에 대하여는 액면가 500원의 보통주 2주를 액면가 500원의 보통주 1주로 병합합니다.\n최대주주인 (주)비츠로지에이치가 보유한 보통주 3,556,187주(액면가 500원)의 경우 보유주식 전체를 무상소각합니다.\n단, 주식의 병합 및 소각으로 인하여 발생하는 1주 미만의 단주는 관리인",
+   "expected_ratio": 2.1464,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 65,
+   "db_jumps_near": [
+    [
+     "2020-07-15",
+     7.9897
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2020-07-15",
+    7.9897,
+    65
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2021-05-26",
+   "window_days": 260,
+   "window_pass_days": 0,
+   "total_pass_days": 14,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "054220",
+   "ex_date": "2020-05-27",
+   "kind": "cr",
+   "rcept_no": "20200629000462",
+   "method": "병합된 기존 주식 및 회생채권에서 출자전환된 신주 등 잔여 주식 전체를 대상(미발생구상채권 등이 확정되어 출자전환되는 경우도 재병합 대상에 포함)으로 액면가 500원의 보통주 35주를 액면가 500원의 보통주 1주로 재병합합니다.\n다만, 회생채권(특수관계인채권)의 출자전환된 주식은 액면가 500원의 보통주 350주를 액면가 500원의 보통주 1주로 병합합니",
+   "expected_ratio": 35.8423,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 49,
+   "db_jumps_near": [
+    [
+     "2020-07-15",
+     7.9897
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2020-07-15",
+    7.9897,
+    49
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2021-06-11",
+   "window_days": 260,
+   "window_pass_days": 0,
+   "total_pass_days": 14,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "071970",
+   "ex_date": "2017-01-17",
+   "kind": "cr",
+   "rcept_no": "20170308000256",
+   "method": "- 액면가 2,500원의 보통주와 전환주\n각 2주를 액면가 2,500원의 보통주와 전환주 각 1주로 병합",
+   "expected_ratio": 2.0,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 72,
+   "db_jumps_near": [
+    [
+     "2017-03-30",
+     20.0
+    ],
+    [
+     "2017-05-25",
+     0.3797
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2017-03-30",
+    20.0,
+    72
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2018-02-01",
+   "window_days": 255,
+   "window_pass_days": 0,
+   "total_pass_days": 470,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "071970",
+   "ex_date": "2017-02-07",
+   "kind": "cr",
+   "rcept_no": "20170308000267",
+   "method": "- 액면가 2,500원의 보통주와 전환주\n각 10주를 액면가 2,500원의 보통주와 전환주 각 1주로 병합",
+   "expected_ratio": 10.0,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 51,
+   "db_jumps_near": [
+    [
+     "2017-03-30",
+     20.0
+    ],
+    [
+     "2017-05-25",
+     0.3797
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2017-03-30",
+    20.0,
+    51
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2018-02-22",
+   "window_days": 255,
+   "window_pass_days": 0,
+   "total_pass_days": 470,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "073010",
+   "ex_date": "2018-11-21",
+   "kind": "cr",
+   "rcept_no": "20181211000403",
+   "method": "발행주식 7,542,268주에 대하여 액면가액 500원의 보통주 7주를 액면가액 500원의 보통주 2주로 병합",
+   "expected_ratio": 3.4965,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 30,
+   "db_jumps_near": [
+    [
+     "2018-12-21",
+     0.3803
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2018-12-21",
+    0.3803,
+    30
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2019-12-06",
+   "window_days": 258,
+   "window_pass_days": 0,
+   "total_pass_days": 269,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "090150",
+   "ex_date": "2021-12-29",
+   "kind": "stkdp",
+   "rcept_no": "20211224900781",
+   "method": "주식배당",
+   "expected_ratio": 0.9091,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 0,
+   "db_jumps_near": [
+    [
+     "2021-12-29",
+     0.4863
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2021-12-29",
+    0.4863,
+    0
+   ],
+   "evidence": "n/a",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2023-01-13",
+   "window_days": 258,
+   "window_pass_days": 0,
+   "total_pass_days": 199,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "096690",
+   "ex_date": "2020-04-29",
+   "kind": "cr",
+   "rcept_no": "20200312000686",
+   "method": "1주당 액면금액 1,000원의 보통주식 10주를 동일 액면금액의 보통주식 1주로 무상 병합",
+   "expected_ratio": 10.0,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 30,
+   "db_jumps_near": [
+    [
+     "2020-05-29",
+     5.4737
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2020-05-29",
+    5.4737,
+    30
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2021-05-14",
+   "window_days": 258,
+   "window_pass_days": 0,
+   "total_pass_days": 19,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "097780",
+   "ex_date": "2026-05-22",
+   "kind": "cr",
+   "rcept_no": "20260226005428",
+   "method": "1주당 액면금액 500원의 보통주 5주를 동일한 액면금액 보통주 1주로 무상병합함.",
+   "expected_ratio": 5.0,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 25,
+   "db_jumps_near": [
+    [
+     "2026-06-16",
+     2.4849
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2026-05-07",
+    0.9425,
+    -15
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-06-06",
+   "window_days": 111,
+   "window_pass_days": 0,
+   "total_pass_days": 53,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "101000",
+   "ex_date": "2018-12-26",
+   "kind": "cr",
+   "rcept_no": "20190125000485",
+   "method": "발행주식 133,109,751주에 대하여 액면가액 500원의 보통주 13주를 액면가액 500원의 보통주 1주로 병합",
+   "expected_ratio": 13.0039,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 37,
+   "db_jumps_near": [
+    [
+     "2019-02-01",
+     2.1079
+    ],
+    [
+     "2019-04-24",
+     0.9518
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2019-02-01",
+    2.1079,
+    37
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2020-01-10",
+   "window_days": 256,
+   "window_pass_days": 0,
+   "total_pass_days": 92,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "101400",
+   "ex_date": "2026-04-13",
+   "kind": "cr",
+   "rcept_no": "20260319000191",
+   "method": "1주당 액면금액 500원의 보통주 3주를 동일 액면금액 보통주 1주로 무상감자",
+   "expected_ratio": 3.0303,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 32,
+   "db_jumps_near": [
+    [
+     "2026-05-15",
+     6.3648
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2026-05-15",
+    6.3648,
+    32
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-04-28",
+   "window_days": 138,
+   "window_pass_days": 0,
+   "total_pass_days": 76,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "106080",
+   "ex_date": "2026-03-24",
+   "kind": "cr",
+   "rcept_no": "20260116000489",
+   "method": "1) 액면금액 1,000원의 보통주식 1주를 \n액면금액 500원 보통주식 2주로 주식분할함.\n\n2) 주식분할과 동시에 1주당 액면금액 500원의 보통주 10주를 동일한 액면금액 보통주 1주로 무상병합함.",
+   "expected_ratio": 10.0,
+   "class": "size_mismatch",
+   "status": "split_accompanied_unconfirmed",
+   "halt_days": 23,
+   "db_jumps_near": [
+    [
+     "2026-04-16",
+     5.0
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2026-04-16",
+    5.0,
+    23
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": "method_text",
+   "max_gap_in_window": [
+    "2026-04-16",
+    5.0
+   ],
+   "window_end": "2027-04-08",
+   "window_days": 152,
+   "window_pass_days": 0,
+   "total_pass_days": 32,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "182400",
+   "ex_date": "2025-06-24",
+   "kind": "cr",
+   "rcept_no": "20250710000216",
+   "method": "액면가액500원의 보통주4.7500주를 1주로 병합. 단, 이때 발생하는1주 미만의 단주는 관리인이 법원의 허가를 받아 무상 소각.",
+   "expected_ratio": 4.7506,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 28,
+   "db_jumps_near": [
+    [
+     "2025-07-22",
+     1.3589
+    ],
+    [
+     "2025-08-06",
+     1.3424
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2025-07-22",
+    1.3589,
+    28
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2026-07-09",
+   "window_days": 256,
+   "window_pass_days": 0,
+   "total_pass_days": 159,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "187790",
+   "ex_date": "2018-02-12",
+   "kind": "fric",
+   "rcept_no": "20180208000241",
+   "method": null,
+   "expected_ratio": 0.5,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 22,
+   "db_jumps_near": [
+    [
+     "2018-03-06",
+     2.502
+    ],
+    [
+     "2018-05-15",
+     0.8914
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2018-03-06",
+    2.502,
+    22
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2019-02-27",
+   "window_days": 253,
+   "window_pass_days": 0,
+   "total_pass_days": 121,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "215380",
+   "ex_date": "2019-07-30",
+   "kind": "fric",
+   "rcept_no": "20190731000269",
+   "method": null,
+   "expected_ratio": 0.5,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 7,
+   "db_jumps_near": [
+    [
+     "2019-08-06",
+     2.5429
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2019-08-06",
+    2.5429,
+    7
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2020-08-13",
+   "window_days": 259,
+   "window_pass_days": 29,
+   "total_pass_days": 147,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "219550",
+   "ex_date": "2025-11-07",
+   "kind": "cr",
+   "rcept_no": "20251027000268",
+   "method": "1주당 액면금액 500원의 보통주 20주를 동일 액면금액 보통주 1주로 무상병합",
+   "expected_ratio": 20.0,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 31,
+   "db_jumps_near": [
+    [
+     "2025-12-08",
+     5.0
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2025-12-08",
+    5.0,
+    31
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2026-11-22",
+   "window_days": 242,
+   "window_pass_days": 0,
+   "total_pass_days": 75,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "219750",
+   "ex_date": "2023-12-28",
+   "kind": "cr",
+   "rcept_no": "20240402002365",
+   "method": "제1차 자본감소 및 회생담보권과 회생채권의 출자전환 후, 잔여 주식 전체를 대상으로 액면가 500원의 보통주 4주를 액면가 500원의 보통주 1주로 병합합니다. \n단, 자본의 감소로 인하여 발생하는 1주 미만의 단주는 관리인이 법원의 허가를 받아 무상 소각합니다.\n한편, 미확정채무가 장래 확정되는 경우, 회생계획에 따라 출자전환후 액면가 500원의 보통주 ",
+   "expected_ratio": 4.0,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 103,
+   "db_jumps_near": [
+    [
+     "2024-04-09",
+     0.6832
+    ],
+    [
+     "2024-05-27",
+     0.4967
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2024-04-09",
+    0.6832,
+    103
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2025-01-11",
+   "window_days": 252,
+   "window_pass_days": 0,
+   "total_pass_days": 139,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "245620",
+   "ex_date": "2026-03-19",
+   "kind": "cr",
+   "rcept_no": "20260526000398",
+   "method": "액면가 100원의 보통주 6주를 액면가 100원의 보통주 1주로 병합. 단, 주식의 병합으로 인하여 발생하는 1주 미만의 단주는 관리인이 법원의 허가를 받아 무상소각.",
+   "expected_ratio": 5.9988,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 85,
+   "db_jumps_near": [
+    [
+     "2026-06-12",
+     1.7855
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2026-06-12",
+    1.7855,
+    85
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-04-03",
+   "window_days": 155,
+   "window_pass_days": 0,
+   "total_pass_days": 7,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "309930",
+   "ex_date": "2026-05-27",
+   "kind": "fric",
+   "rcept_no": "20260605000490",
+   "method": null,
+   "expected_ratio": 0.25,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 0,
+   "db_jumps_near": [
+    [
+     "2026-05-27",
+     1.2715
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2026-05-27",
+    1.2715,
+    0
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2027-06-11",
+   "window_days": 109,
+   "window_pass_days": 0,
+   "total_pass_days": 128,
+   "judgments_in_window": null
+  },
+  {
+   "ticker": "377460",
+   "ex_date": "2025-07-01",
+   "kind": "cr",
+   "rcept_no": "20250728000386",
+   "method": "- 기존 주식의 소각(제1차 감자) 후 잔여 주식 및 회생채권에서 출자전환된 신주는(미발생 및 미확정 회생채권이 확정되어 출자전환되는 경우도 병합대상에 포함)액면가 500원의 보통주 9주를 액면가 500원의 보통주 1주로 병합합니다.\n\n- 회생담보권에서 출자전환 된 신주는 액면가 500원의 보통주 7주를 액면가 500원의 보통주 1주로 병합 합니다.\n\n- ",
+   "expected_ratio": 9.6432,
+   "class": "size_mismatch",
+   "status": "size_mismatch",
+   "halt_days": 35,
+   "db_jumps_near": [
+    [
+     "2025-08-05",
+     2.4128
+    ]
+   ],
+   "nearest_jump_120d": [
+    "2025-08-05",
+    2.4128,
+    35
+   ],
+   "evidence": "raw_gap_absent",
+   "gap_date": null,
+   "raw_gap": null,
+   "split_evidence": null,
+   "max_gap_in_window": null,
+   "window_end": "2026-07-16",
+   "window_days": 256,
+   "window_pass_days": 0,
+   "total_pass_days": 0,
+   "judgments_in_window": null
+  }
+ ]
+}

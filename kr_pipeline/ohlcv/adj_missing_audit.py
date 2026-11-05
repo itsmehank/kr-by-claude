@@ -271,3 +271,72 @@ def positive_control_verdict(controls, *, confirmed_keys: set, matched_keys: set
         else:
             failed.append(list(key))
     return {"ok": not failed, "detected": detected, "repaired": repaired, "failed": failed}
+
+
+# ---- (#122 후속) 병합 감자 + 액면분할 상쇄 — 2단 규칙 ------------------------------
+# 발단: §6 수동 심판 7건(병합 5:1 과 동시 액면분할 1/5 → 주식수·가격 순변동 0, 참조 무조정이 정답).
+# 액면분할은 DART 주요사항 5 엔드포인트 밖이라 검출기가 못 보던 사각. 제목·문구만으로 '상쇄'라
+# 단정하면 비율이 다른 경우(병합 10:1 + 분할 1:5 = 순 ×2)를 놓치므로 2단으로 나눈다:
+#   1단 증거: 감자 method 문구에 분할 언급(method_text) / 같은 기간 주식분할 공시(disclosure)
+#   2단 확인: 권리락 창 안 raw 일간 갭 최대치가 GAP_MIN 미만 → offset_by_split,
+#            큰 갭이 남으면 split_accompanied_unconfirmed(기대 잔차 = 그 갭) — 사람 심판.
+_SPLIT_MENTION = re.compile(r"주식분할|액면분할")
+SPLIT_DISCLOSURE_WINDOW = (-150, 90)   # 분할 결정 공시일 − 권리락일: 결정이 앞서고 변경상장이 뒤따른다
+
+
+def split_evidence(method: str | None, split_disclosure_dates: list[date], ex: date, *,
+                   extra_days: int = 0) -> str | None:
+    """분할 동반 증거 종류 — 'method_text' | 'disclosure' | None."""
+    if method and _SPLIT_MENTION.search(method):
+        return "method_text"
+    lo, hi = SPLIT_DISCLOSURE_WINDOW[0], SPLIT_DISCLOSURE_WINDOW[1] + extra_days
+    if any(lo <= (d - ex).days <= hi for d in split_disclosure_dates):
+        return "disclosure"
+    return None
+
+
+def max_abs_gap(closes: list[tuple[date, float]], ex: date, *,
+                extra_days: int = 0) -> tuple[date, float] | None:
+    """감자 창([−7, 90+extra]) 안 raw 종가 일간 비율 중 |log| 최대 — (날짜, 비율). 창에 봉이 없으면 None."""
+    lo, hi = _match_window("cr", extra_days=extra_days)
+    best: tuple[float, date, float] | None = None
+    for i in range(1, len(closes)):
+        d, c = closes[i]
+        if not (lo <= (d - ex).days <= hi):
+            continue
+        c_prev = closes[i - 1][1]
+        if c_prev <= 0 or c <= 0:
+            continue
+        g = c / c_prev
+        s = abs(math.log(g))
+        if best is None or s > best[0]:
+            best = (s, d, g)
+    return (best[1], best[2]) if best else None
+
+
+def split_offset_status(status: str, evidence: str | None,
+                        max_gap: tuple[date, float] | None, *, gap_min: float = GAP_MIN) -> str:
+    """2단 판정. matched·missing_confirmed(raw 갭으로 실재 확정)는 손대지 않는다."""
+    if evidence is None or status in ("matched", "missing_confirmed", "pending"):
+        return status
+    if max_gap is None or abs(math.log(max_gap[1])) < math.log(gap_min):
+        return "offset_by_split"
+    return "split_accompanied_unconfirmed"
+
+
+def apply_manual_verdicts(rows: list[dict], registry: dict | None) -> int:
+    """수동 심판 등록부(issue122_unconfirmed_verdicts JSON, 키 = ticker+ex_date)를 행에 반영.
+    status → '<verdict>_manual', manual_verdict·manual_evidence 기록. 반환 = 반영 행 수."""
+    if not registry:
+        return 0
+    reg = {(r.get("ticker"), r.get("ex_date")): r for r in registry.get("rows", []) if r.get("verdict")}
+    n = 0
+    for row in rows:
+        r = reg.get((row.get("ticker"), row.get("ex_date")))
+        if r is None:
+            continue
+        row["status"] = f"{r['verdict']}_manual"
+        row["manual_verdict"] = r["verdict"]
+        row["manual_evidence"] = r.get("evidence")
+        n += 1
+    return n

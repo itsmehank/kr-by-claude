@@ -33,8 +33,9 @@ from datetime import date
 import psycopg
 
 from kr_pipeline.ohlcv.adj_missing_audit import (
-    contamination_window, expected_events, is_pending, match_expected,
-    positive_control_verdict, raw_gap_evidence, resume_offset,
+    apply_manual_verdicts, contamination_window, expected_events, is_pending,
+    match_expected, max_abs_gap, positive_control_verdict, raw_gap_evidence,
+    resume_offset, split_evidence, split_offset_status,
 )
 from kr_pipeline.ohlcv.adj_reconstruct import db_factor_jumps
 
@@ -48,6 +49,8 @@ JUDGMENT_TABLES = (("weekly_classification", "analyzed_for_date", "classificatio
                    ("entry_params", "analyzed_for_date", None),
                    ("positions", "entry_date", None))
 RELEVANT_CA = ("bonus_issue", "capital_reduction", "rights_offering")
+# (#122 후속) §6 수동 심판 등록부 — 병합+액면분할 상쇄 7건·회생 복합 3건. 키 = ticker+ex_date.
+MANUAL_VERDICTS = "data/verification/issue122_unconfirmed_verdicts_20261103.json"
 
 
 def load_ticker(cur, t: str):
@@ -61,7 +64,12 @@ def load_ticker(cur, t: str):
     details = [{"endpoint": e, "record_date": rd, "ratio": rt, "method": m,
                 "rcept_no": rc} for e, rd, rt, m, rc in cur.fetchall()]
     methods = {d["rcept_no"]: d["method"] for d in details}
-    return closes, adj, details, methods
+    # (#122 후속) 같은 기간 주식분할 공시 — 2026-11-05 실측 corporate_actions 에 stock_split 0행
+    # (수집 경로가 주식분할결정을 저장하지 않음, 별도 확인 항목). 행이 생기면 그대로 증거가 된다.
+    cur.execute("SELECT event_date FROM corporate_actions WHERE ticker=%s "
+                "AND event_type='stock_split'", (t,))
+    splits = [r[0] for r in cur.fetchall()]
+    return closes, adj, details, methods, splits
 
 
 def judgments_in_window(cur, t: str, ex: date, end: date) -> dict:
@@ -110,7 +118,7 @@ def main() -> int:
 
         phase2_targets: list[str] = []
         for i, t in enumerate(tickers, 1):
-            closes, adj, details, methods = load_ticker(cur, t)
+            closes, adj, details, methods, splits = load_ticker(cur, t)
             if not closes:
                 no_prices += 1
                 continue
@@ -152,7 +160,13 @@ def main() -> int:
                         ev["evidence"], "missing_unverifiable")
                 else:
                     status = cls            # size_mismatch / pending
-                by_status[status] += 1
+                # (#122 후속) 병합 감자 + 액면분할 상쇄 2단 규칙 — 감자 계열만
+                sp_ev, sp_gap = None, None
+                if kind.startswith("cr"):
+                    sp_ev = split_evidence(methods.get(rc), splits, ex, extra_days=halt)
+                    if sp_ev is not None:
+                        sp_gap = max_abs_gap(closes, ex, extra_days=halt)
+                        status = split_offset_status(status, sp_ev, sp_gap)
                 judg = (judgments_in_window(cur, t, ex, w["window_end"])
                         if status == "missing_confirmed" else None)
                 rows.append({
@@ -163,6 +177,9 @@ def main() -> int:
                     "db_jumps_near": near, "nearest_jump_120d": nearest,
                     "evidence": ev["evidence"], "gap_date": ev["gap_date"],
                     "raw_gap": ev["raw_gap"] and round(ev["raw_gap"], 4),
+                    "split_evidence": sp_ev,
+                    "max_gap_in_window": ([sp_gap[0].isoformat(), round(sp_gap[1], 4)]
+                                          if sp_gap else None),
                     "window_end": w["window_end"].isoformat(),
                     "window_days": w["window_days"],
                     "window_pass_days": w["window_pass_days"],
@@ -175,6 +192,11 @@ def main() -> int:
         cur.execute("SELECT ticker, date FROM adj_factor_events WHERE ticker = ANY(%s)",
                     ([t for t, _ in POSITIVE_CONTROL],))
         repaired_keys = {(t, d.isoformat()) for t, d in cur.fetchall()}
+
+    # (#122 후속) §6 수동 심판 등록부 반영 — 등록된 (ticker, ex_date) 만 '<verdict>_manual'
+    registry = json.load(open(MANUAL_VERDICTS)) if os.path.exists(MANUAL_VERDICTS) else None
+    manual_applied = apply_manual_verdicts(rows, registry)
+    by_status = Counter(r["status"] for r in rows)          # 2단 규칙·수동 반영 후 재집계
 
     confirmed = [r for r in rows if r["status"] == "missing_confirmed"]
     confirmed_tickers = sorted({r["ticker"] for r in confirmed})
@@ -196,7 +218,10 @@ def main() -> int:
                      "phase2_targets": len(phase2_targets)},
         "events": {"by_class": dict(by_class),
                    "by_kind_class": dict(sorted(by_kind_class.items())),
-                   "by_status": dict(sorted(by_status.items()))},
+                   "by_status": dict(sorted(by_status.items())),
+                   "split_offset": {"evidence_rows": sum(1 for r in rows if r.get("split_evidence")),
+                                    "manual_verdicts_applied": manual_applied,
+                                    "registry": MANUAL_VERDICTS if registry else None}},
         "missing_confirmed": {
             "n_events": len(confirmed), "n_tickers": len(confirmed_tickers),
             "by_kind": dict(Counter(r["kind"] for r in confirmed)),
