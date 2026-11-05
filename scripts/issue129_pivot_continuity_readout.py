@@ -10,10 +10,15 @@ data/verification/issue129_pivot_continuity_readout_<YYYYMMDD>.json.
                  트리거 평가가 발화한 사례 수 + 그중 go_now 도달 수.
                  '돌파' = trigger_gate 의 close > pivot 경로(breakout·breakout_from_watch).
                  promotion(close ≥ pivot×0.95, §3.3 go_now 금지)은 돌파가 아니므로
-                 판정 비입력 — 별도 descriptive 로 같이 센다(반사실: 옛 pivot 이었어도
-                 발화했을지).
-  지표 3 [descriptive] unknown(base_start 결측) 원인 구성비.
-  #46 승계: 로그 '[pivot-continuity]' 경고 수 vs 저장본 same-base pivot 변경 행 수.
+                 판정 비입력 — descriptive 로 같이 센다.
+                 범위(리뷰 R1-1): 하향 행 자체 + 내려간 pivot 을 그대로 유지한 후속 행
+                 (same/near·Δ≤0·pivot<옛 pivot)까지 — 상향 재판독·베이스 변경에서 중단.
+                 different(새 베이스) 하향은 재판독이 아니라 제외하되 건수는 병기(R1-5).
+  지표 3 [descriptive] unknown(base_start 결측) 원인 구성비 — 정의상 100% 가 한쪽 이상
+                 결측이므로 '어느 쪽이 결측인가 × 현재 행 상태' 로 나눈다(R1-3).
+  #46 승계: 로그 '[pivot-continuity] same-base' 경고 vs 저장본 same-base pivot 변경 행을
+                 (종목, 변화율) 사건 단위로 대조(R1-7).
+반사실(옛 pivot 이었다면 발화했을까)은 가격 조건만 본다(fresh_cross·거래량 미반영, R1-4).
 
 사용:  uv run python scripts/issue129_pivot_continuity_readout.py [--logs ~/.kr-by-claude]
 """
@@ -24,7 +29,7 @@ import glob
 import json
 import os
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from datetime import date
 from pathlib import Path
 
@@ -33,6 +38,9 @@ from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
 from kr_pipeline.common.thresholds import GATE_PROMOTION_PRICE_RATIO
+from kr_pipeline.llm_runner.compute.pivot_continuity_stats import (
+    downward_chains, parse_log_events, pattern_round_trips, stored_events,
+)
 
 BREAKOUT_TYPES = ("breakout", "breakout_from_watch")   # close > pivot 경로(go_now 가능)
 UPWARD_TYPES = BREAKOUT_TYPES + ("promotion",)
@@ -65,74 +73,83 @@ def metric1(rows):
         if ch:
             d["change_pct"] = _quantiles(ch)
         out[cont] = d
-    # 패턴 왕복 A→B→A (종목별 연속 행, continuity 무관)
-    bysym = defaultdict(list)
-    for r in rows:
-        bysym[r["symbol"]].append(r)
-    rt = 0
-    hist = Counter()
-    for rs in bysym.values():
-        pats = [rs[0]["pc"].get("prev_pattern")] + [r["pattern"] for r in rs]
-        for i in range(len(pats) - 2):
-            if pats[i] and pats[i + 1] and pats[i] != pats[i + 1] and pats[i] == pats[i + 2]:
-                rt += 1
-        hist[sum(1 for r in rs if r["pc"].get("pattern_changed"))] += 1
-    out["pattern_round_trips"] = rt
-    out["pattern_changed_per_symbol_hist"] = {str(k): v for k, v in sorted(hist.items())}
+    out["pattern_round_trips"] = pattern_round_trips(rows)
     return out
 
 
+def _old_pivot_fire(trigger_type, close, old_pv):
+    """옛 pivot 기준 가격 조건만의 반사실(R1-4: fresh_cross·거래량 미반영)."""
+    if close is None or old_pv is None:
+        return None
+    if trigger_type in BREAKOUT_TYPES:
+        return "breakout" if close > old_pv else ("promotion" if close >= old_pv * GATE_PROMOTION_PRICE_RATIO else "none")
+    return "promotion" if close >= old_pv * GATE_PROMOTION_PRICE_RATIO else "none"
+
+
 def metric2(cur, rows):
-    down = [r for r in rows if r["pc"]["base_continuity"] in ("same", "near")
-            and _pct(r) is not None and _pct(r) < 0]
-    evals, breakout_fired, breakout_due_to_lowering, go_now, entry_syms = [], [], [], [], []
-    promo_no_fire_old = 0
-    for r in down:
+    chains = downward_chains(rows)
+    starts = [c[0] for c in chains]
+    # (symbol, classified_at) → 체인 시작의 옛 pivot(여러 체인에 속하면 가장 이른 시작 기준)
+    old_by_key = {}
+    for start, old, members in chains:
+        for m in members:
+            old_by_key.setdefault((m["symbol"], m["classified_at"]), (old, start))
+    evals, breakout_fired, breakout_due, go_now, entry_keys = [], [], [], [], set()
+    promo_due = 0
+    for (sym, cls_at), (old_pv, start) in sorted(old_by_key.items(), key=lambda kv: (kv[0][0], kv[0][1])):
+        row = next(m for _s, _o, ms in chains for m in ms if m["symbol"] == sym and m["classified_at"] == cls_at)
         cur.execute(
             """SELECT evaluated_at, trigger_type, decision, close, wait_reason, analyzed_for_date
                  FROM trigger_evaluation_log WHERE symbol=%s AND prior_classification_at=%s
-                ORDER BY evaluated_at""", (r["symbol"], r["classified_at"]))
-        prev_pv = r["pc"]["prev_pivot_price"]
-        new_pv = float(r["pivot_price"]) if r["pivot_price"] is not None else None
+                ORDER BY evaluated_at""", (sym, cls_at))
+        new_pv = float(row["pivot_price"]) if row["pivot_price"] is not None else None
         for e in cur.fetchall():
             if e["trigger_type"] not in UPWARD_TYPES:
                 continue
             close = float(e["close"]) if e["close"] is not None else None
+            cf = _old_pivot_fire(e["trigger_type"], close, old_pv)
             rec = {
-                "symbol": r["symbol"], "classified_at": r["classified_at"].date().isoformat(),
-                "classification": r["classification"], "continuity": r["pc"]["base_continuity"],
-                "prev_pivot": prev_pv, "new_pivot": new_pv, "change_pct": _pct(r),
+                "symbol": sym, "classified_at": cls_at.date().isoformat(), "carry_over": row is not start,
+                "chain_start": start["classified_at"].date().isoformat(), "continuity": row["pc"]["base_continuity"],
+                "old_pivot": old_pv, "new_pivot": new_pv,
                 "eval_date": (e["analyzed_for_date"] or e["evaluated_at"].date()).isoformat(),
                 "trigger_type": e["trigger_type"], "decision": e["decision"], "close": close,
-                "wait_reason": e["wait_reason"],
-                "would_fire_under_old_pivot": (
-                    None if close is None or prev_pv is None else
-                    (close > prev_pv if e["trigger_type"] in BREAKOUT_TYPES
-                     else close >= prev_pv * GATE_PROMOTION_PRICE_RATIO)),
+                "wait_reason": e["wait_reason"], "old_pivot_price_only_would_fire": cf,
             }
             evals.append(rec)
             if e["trigger_type"] in BREAKOUT_TYPES:
                 breakout_fired.append(rec)
-                if close is not None and prev_pv is not None and close <= prev_pv:
-                    breakout_due_to_lowering.append(rec)
+                if close is not None and old_pv is not None and close <= old_pv:
+                    breakout_due.append(rec)
                 if e["decision"] == "go_now":
                     go_now.append(rec)
-            elif rec["would_fire_under_old_pivot"] is False:
-                promo_no_fire_old += 1
-        cur.execute("SELECT COUNT(*) n FROM entry_params WHERE symbol=%s AND prior_classification_at=%s",
-                    (r["symbol"], r["classified_at"]))
+            elif cf == "none":
+                promo_due += 1
+        cur.execute("SELECT COUNT(*) n FROM entry_params WHERE symbol=%s AND prior_classification_at=%s", (sym, cls_at))
         if cur.fetchone()["n"]:
-            entry_syms.append(r["symbol"])
+            entry_keys.add((sym, cls_at))
+    # R1-5: different(새 베이스) 하향 — 제외 사유 병기용 건수
+    diff_down = [r for r in rows if r["pc"]["base_continuity"] == "different" and _pct(r) is not None and _pct(r) < 0]
+    diff_breakouts = 0
+    for r in diff_down:
+        cur.execute("""SELECT COUNT(*) n FROM trigger_evaluation_log WHERE symbol=%s AND prior_classification_at=%s
+                       AND trigger_type = ANY(%s)""", (r["symbol"], r["classified_at"], list(BREAKOUT_TYPES)))
+        diff_breakouts += cur.fetchone()["n"]
     return {
-        "downward_rereads_same_near": len(down),
-        "downward_rereads_same": sum(1 for r in down if r["pc"]["base_continuity"] == "same"),
-        "upward_evaluations_after": len(evals),
+        "downward_rereads_same_near": len(starts),
+        "downward_rereads_same": sum(1 for r in starts if r["pc"]["base_continuity"] == "same"),
+        "carry_over_rows": len(old_by_key) - len({(s["symbol"], s["classified_at"]) for s in starts}),
+        "chains_with_carry_over": sum(1 for c in chains if len(c[2]) > 1),
+        "upward_evaluations": len(evals),
         "promotion_evaluations": sum(1 for e in evals if e["trigger_type"] == "promotion"),
-        "promotion_would_not_fire_under_old_pivot": promo_no_fire_old,
+        "promotion_old_pivot_price_only_no_fire": promo_due,
         "breakout_evaluations": len(breakout_fired),
-        "breakout_only_because_pivot_lowered": len(breakout_due_to_lowering),
+        "breakout_symbols": sorted({e["symbol"] for e in breakout_fired}),
+        "breakout_close_le_old_pivot": len(breakout_due),
         "go_now": len(go_now),
-        "entry_params_rows": len(entry_syms),
+        "entry_params_rows": len(entry_keys),
+        "excluded_different_base_downward_rows": len(diff_down),
+        "excluded_different_base_breakout_evaluations": diff_breakouts,
         "verdict_input": len(breakout_fired),          # 사전등록 지표 2 = 돌파 발화 사례 수
         "evaluations": evals,
     }
@@ -140,34 +157,38 @@ def metric2(cur, rows):
 
 def metric3(cur, rows):
     unk = [r for r in rows if r["pc"]["base_continuity"] == "unknown"]
-    cause = Counter()
+    side = Counter(); current_state = Counter(); prev_state = Counter()
     for r in unk:
-        cur.execute("SELECT base_start_date FROM weekly_classification WHERE symbol=%s AND classified_at=%s",
+        cur.execute("SELECT base_start_date, pattern, pivot_price FROM weekly_classification WHERE symbol=%s AND classified_at=%s",
                     (r["symbol"], r["pc"]["prev_classified_at"]))
-        p = cur.fetchone()
-        prev_bsd = p["base_start_date"] if p else None
-        key = "|".join([
-            "new_bsd_null" if r["base_start_date"] is None else "new_bsd_ok",
-            "prev_bsd_null" if prev_bsd is None else "prev_bsd_ok",
-            r["classification"] or "null",
-            "pattern_none" if r["pattern"] in (None, "none") else "pattern_set",
-            "pivot_null" if r["pivot_price"] is None else "pivot_set",
-        ])
-        cause[key] += 1
-    return {"unknown": len(unk), "causes": dict(cause.most_common())}
+        p = cur.fetchone() or {}
+        new_missing, prev_missing = r["base_start_date"] is None, p.get("base_start_date") is None
+        side["both_missing" if new_missing and prev_missing else "current_only_missing" if new_missing else "previous_only_missing"] += 1
+        current_state["|".join([r["classification"] or "null",
+                                "pattern_none" if r["pattern"] in (None, "none") else "pattern_set",
+                                "pivot_null" if r["pivot_price"] is None else "pivot_set"])] += 1
+        prev_state["|".join(["prev_pattern_none" if p.get("pattern") in (None, "none") else "prev_pattern_set",
+                             "prev_pivot_null" if p.get("pivot_price") is None else "prev_pivot_set"])] += 1
+    return {"unknown": len(unk), "missing_side": dict(side.most_common()),
+            "current_row_state": dict(current_state.most_common()), "previous_row_state": dict(prev_state.most_common())}
 
 
 def log_parity(rows, logs_dir):
-    stored = [r for r in rows if r["pc"]["base_continuity"] == "same" and _pct(r) not in (None, 0)]
-    per_file = {}
+    stored = stored_events(rows)
+    logged = Counter(); per_file = {}
     for f in sorted(glob.glob(os.path.join(os.path.expanduser(logs_dir), "launchd-*.log"))):
         with open(f, "rb") as fh:
-            n = sum(1 for line in fh if b"[pivot-continuity]" in line)
-        if n:
-            per_file[os.path.basename(f)] = n
-    return {"stored_same_base_pivot_changed": len(stored),
-            "stored_by_month": dict(sorted(Counter(r["classified_at"].date().isoformat()[:7] for r in stored).items())),
-            "log_warnings_by_file": per_file, "log_warnings_total": sum(per_file.values())}
+            ev = parse_log_events(fh)
+        if ev:
+            per_file[os.path.basename(f)] = sum(ev.values()); logged += ev
+    matched = sum((stored & logged).values())
+    return {"stored_same_base_pivot_changed": sum(stored.values()),
+            "stored_by_month": dict(sorted(Counter(r["classified_at"].date().isoformat()[:7] for r in rows
+                                                   if r["pc"]["base_continuity"] == "same" and _pct(r) not in (None, 0)).items())),
+            "log_warnings_by_file": per_file, "log_warnings_total": sum(logged.values()),
+            "event_matched": matched,
+            "stored_only": [f"{k[0]} {k[1]:+}%" for k in (stored - logged)],
+            "log_only": [f"{k[0]} {k[1]:+}%" for k in (logged - stored)]}
 
 
 def main(argv=None):
@@ -208,14 +229,16 @@ def main(argv=None):
         print(f"[M1 {k}] n={d['n']} pivot_changed={d['pivot_changed']} up={d['up']} down={d['down']} "
               f"|x|>=5%={d['abs_ge_5']} down<=-5%={d['down_le_minus5']} pattern_changed={d['pattern_changed']}/{d['pattern_comparable']}"
               + (f" change%={d['change_pct']}" if "change_pct" in d else ""))
-    print(f"[M1] pattern round-trips {res['metric1']['pattern_round_trips']}")
-    print(f"[M2] downward same+near {m2['downward_rereads_same_near']} (same {m2['downward_rereads_same']}) | upward evals {m2['upward_evaluations_after']} "
-          f"= promotion {m2['promotion_evaluations']} (old-pivot 반사실 미발화 {m2['promotion_would_not_fire_under_old_pivot']}) "
-          f"+ breakout {m2['breakout_evaluations']} (하향 때문에만 발화 {m2['breakout_only_because_pivot_lowered']}) | go_now {m2['go_now']} entry_params {m2['entry_params_rows']}")
+    print(f"[M1] pattern round-trips(true consecutive, none 제외) {res['metric1']['pattern_round_trips']}")
+    print(f"[M2] downward same+near {m2['downward_rereads_same_near']} (same {m2['downward_rereads_same']}) + carry-over rows {m2['carry_over_rows']} "
+          f"(chains with carry-over {m2['chains_with_carry_over']}) | upward evals {m2['upward_evaluations']} = promotion {m2['promotion_evaluations']} "
+          f"(옛 pivot 가격조건 미발화 {m2['promotion_old_pivot_price_only_no_fire']}) + breakout {m2['breakout_evaluations']} "
+          f"(symbols {m2['breakout_symbols']}, close<=옛 pivot {m2['breakout_close_le_old_pivot']}) | go_now {m2['go_now']} entry_params {m2['entry_params_rows']} "
+          f"| excluded different-base: downward rows {m2['excluded_different_base_downward_rows']}, breakout evals {m2['excluded_different_base_breakout_evaluations']}")
     for e in m2["evaluations"]:
         if e["trigger_type"] in BREAKOUT_TYPES:
             print("   breakout:", json.dumps(e, ensure_ascii=False))
-    print(f"[M3] unknown {res['metric3']['unknown']}: {res['metric3']['causes']}")
+    print(f"[M3] unknown {res['metric3']['unknown']} side={res['metric3']['missing_side']} current={res['metric3']['current_row_state']} prev={res['metric3']['previous_row_state']}")
     print(f"[#46] {res['issue46_log_parity']}")
     print(f"verdict: {res['verdict']}")
     print(f"saved: {out}")
