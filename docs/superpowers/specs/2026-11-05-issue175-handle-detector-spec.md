@@ -1,5 +1,9 @@
 # #175 — 결정론 핸들 검출기(`compute_handle_quality`) 동작 명세·1회 검증·책 대조 질의 (2026-11-05)
 
+> **2026-11-06 갱신**: §2 의 S4(1단 매칭)·S5(UTC 창 끝)·S7((B) 0.80 컵 평균·(D) 분배일 ≥1) 은 재설계로 대체됐다 —
+> 현행 동작은 `specs/2026-11-06-issue175-handle-low-design.md` §3(S4′·S5′·S6′·S7′), 구/신 diff 는 `specs/2026-11-06-issue175-handle-low-readout.md`.
+> 본 문서는 **구 규칙의 정의 원문 보존**(governance 1-2(i))과 전문가 질의 기록으로 유지.
+>
 > 기록 문서. 코드·상수·프롬프트 변경 0, 운영 DB 쓰기 0(재현은 SELECT 만). 규약은 `docs/superpowers/governance.md` 절 ID 인용.
 > 목적: 2026-09-10 Phase A(`plans/2026-09-10-issue175-structural-low-output.md`)가 "책 정의와 다르다"고 판정한 검출기를
 > **단계별로 명세 → 저장본으로 재현 검증 → 각 단계를 전문가가 책과 대조**할 수 있게 한다. 재설계는 회신 후(원칙 2-2·2-4).

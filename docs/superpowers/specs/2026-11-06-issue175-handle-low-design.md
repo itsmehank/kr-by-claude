@@ -103,12 +103,55 @@ ALTER TABLE <t> ADD COLUMN IF NOT EXISTS handle_end   DATE;
 | `VOLUME_DRY_UP_MULT` 0.5 | 재사용(극저 거래량일 계수, 기록만) | 기존 태그(community standard) |
 | `HANDLE_LEGIT_MIN_DAYS` 5·`BASE_MIN_DAYS` 5·`HANDLE_POSITION_LOW_RATIO` 0.33 | 불변 | — |
 
-의존성 맵(2축)은 구현 PR 의 스펙 절에 작성한다. 1단계 파생: 0.80 → `ratio_b` → `fired_b` → `risk_flags.handle_quality` → verdict floor·conf cap
-→ `triggered_rules.2E_*`. 2단계 소비 룰: `gates.py` 강등(변경), 프롬프트 Gate3(비소비·불변), 웹 `thresholds.generated.ts`(export 재실행).
-3단계 고정 상수 2축: `TIER1_CONF_CAP` 0.60·`TIER2_CONF_CAP` 0.50(강등 세기 — 발화 집합이 바뀌므로 **B-수치** 재측정 대상),
-`STOCK_DISTRIBUTION_*`(플래그 정의 불변, (D′) 가 추가 조건을 얹을 뿐).
+### 5.1 의존성 맵 (checklist (b), 구현 완료 2026-11-06 기준)
+
+**1단계(파생 신호)**: `HANDLE_VOLUME_VS_50D_MAX` → `volume_vs_50d`(= 손잡이 일평균 ÷ `avg_volume_50d[handle_start]`) → `fired_b` /
+`HANDLE_SHAKEOUT_CLOSE_POS_MIN` → `close_position` → `distribution_days_lower_close` → `fired_dist` / (삭제) 0.80 → `ratio_b` → `fired_b`(소멸) /
+`VOLUME_DRY_UP_MULT` → `dry_up_days`(기록만) / 신규 `structural_low`(handle_low·start·end, 발화 무관) → `result["structural_low"]` → 저장 3열.
+
+**2단계(소비 룰)** — `grep -rn "fired\|reasons\|structural_low\|handle_quality" kr_pipeline api` 전수:
+
+| 소비 룰 | 입력 | 변경 전 | 변경 후 | 조치 |
+|---|---|---|---|---|
+| `gates.apply_phase1_gates` 2E 강등(verdict floor watch·conf cap) | `hq["fired"]` | (B) 0.80 컵 평균 ∨ (D) 분배일 ≥1 | (B′) ≥ 50일 평균 ∨ (D′) 하단 마감 분배일 ≥1 | 집합 변화 — readout (c) 기록(weekly fired 68→149 중 신규 식별분 82 포함, 식별 행 내 비율 81%→82%) |
+| `gates` → `result["structural_low"]` → `store.insert_*` 3열 | 신규 | — | handle_low·start·end 저장(발화 무관) | 신규 저장, 소비처 없음(#161 대기) |
+| `api/routers/classifications.py` 두 쿼리·웹 카드 | 3열 | — | 표시 전용 | 판정 비입력 |
+| `compute_failed_breakout`·§8.5 extended 밴드(같은 게이트 호출) | positional `classified_at` | 불변 | 불변(as_of 비소비) | 없음 — failed_breakout UTC 결함은 #261 코멘트·별건 |
+| 프롬프트 §4 Gate3(핸들 길이·깊이·위치·drift) | — | LLM 판정 | 불변(검출기 상수 비소비) | 없음(프롬프트 해시 불변 → 4-6 선언 불요) |
+| 웹 `thresholds.generated.ts` | 상수 목록 | 0.80 노출 | 신설 2건 노출 | export 재실행 완료(96 상수) |
+| `scripts/issue175_handle_low_readout.py`·`_backfill.py` | 검출기 출력 | — | 판독·소급 전용 | 운영 쓰기는 `--apply` 승인제 |
+
+**3단계(룰 내부 고정 상수) — 2축 판정**
+
+| 고정 상수 | 축1 환산? | 축2 영향? | 책 정합 | 판정 → 후속 |
+|---|---|---|---|---|
+| `TIER1_CONF_CAP` 0.60 / `TIER2_CONF_CAP` 0.50 (gates.py, 강등 세기) | 불가(신뢰도 상한) | **있음** — 발화 집합이 바뀌어 cap 적용 행이 달라짐(readout (c)) | EXTENDS(책은 "결함 손잡이 회피" 만, 수치 시스템) | **B-수치**: 배포 후 4주 발화율·cap 적용 행 수 재측정(§6-4) |
+| `HANDLE_LEGIT_MIN_DAYS` 5 / `BASE_MIN_DAYS` 5 | 불가(일수) | **있음** — S4′ 2단 매칭·S5′ 창 끝으로 손잡이 시작·길이가 달라져 하한 판정 행 변화(readout (d): 손잡이 <5일 19→23) | PRESERVES(HMMS 1~2주) / EXTENDS | **B-수치**(같은 재측정) |
+| `STOCK_DISTRIBUTION_PCT_DOWN` −0.2 / `STOCK_DISTRIBUTION_VOL_MULT` 1.0 (분배일 플래그 정의) | 불가 | **미미** — (D′) 가 플래그에 마감 위치 조건을 **얹기만** 함, 플래그 산출 불변 | PRESERVES(HMMS Ch.9) | 모니터링 — 근거: 입력 정의 불변, 변한 것은 소비 측 추가 조건이며 그 영향은 위 B-수치에 포함 |
+| `VOLUME_DRY_UP_MULT` 0.5 (dry_up_days 계수) | 가능(50일 평균 배수) | **없음** — 기록만, 판정 비관여 | EXTENDS(community standard) | — |
+| `HANDLE_POSITION_LOW_RATIO` 0.33 (가중, 기록만) | 불가 | **미미** — handle_low 가 바뀌는 행에서 가중 라벨만 변화, 판정 비관여 | EXTENDS | 모니터링 — 근거: weights 는 triggered_rules 기록 전용, 소비처 없음 |
+| `_LEGACY_PIVOT_OFFSET` 0.1 (신설, S4′ ②) | 불가(호가 가산 역산) | 있음(의도) — 구 행 94+339 건 회복(readout (d)) | 책 무관(폐지 관례 역산) | 신규 행에는 ① 에서 끝나 비소비. 과거 행 전용 — 소급 완료 후 제거 후보(이슈 기록) |
+| `avg_volume_50d` NULL 처리 = (B′) 미평가 | — | 있음(의도) — 신규 상장 등 결측 행은 거래량 결함 판정 안 함 | governance 4-2(결측 = 판정 비입력) | 테스트 고정 |
+| `PIVOT_EXTENDED_BAND_MULT`·`GATE_PROMOTION_PRICE_RATIO` 등 pivot 소비 상수 | — | **없음** — pivot_price 불변, structural_low 는 트리거 비소비 | — | — |
+
+**소비 경계(1줄)**: `handle_low·handle_start·handle_end`(4테이블) → API/웹 표시 → (미래) #161 손절 참조. 하류 깊이 추적 안 함. `fired` → 2E 강등 → `classification`·`confidence` → 평일 트리거 후보 집합(기존 경로, 변경 없음).
+
+### 5.2 합격 조건 대조 (checklist (c))
+
+| 조건 | 충족 | 근거 |
+|---|---|---|
+| 1 의존성 맵 섹션 존재 | ✓ | §5.1 |
+| 2 소비 룰의 3단계 고정 상수 행 | ✓ | 8행 |
+| 3 축1·축2 빈칸 없음 | ✓ | 전 행 기재 |
+| 4 영향 있음 → 후속(B-수치) / 모니터링은 근거 | ✓ | B-수치 2행(§6-4 재측정 예약), 모니터링 2행 근거 기재 |
+| 5 소비 경계 1줄 | ✓ | 위 |
+| 6 (f) 규범 문장 신설 없음 | ✓ | governance ID 인용만 |
 
 프롬프트 변경 없음 → governance 4-6 선언 불요. 성과 목적 아님 → 3-5 예외(book-fidelity 교정) 해당.
+
+**구현 중 정정(2026-11-06, readout 실측)**: §6-2(b) "기대 4행" 은 과소 — 구 UTC 규칙은 저녁(18~21시 KST) 실행에서도 당일 봉을 제외했으므로
+weekly 38행(09시 전 4 + 저녁 34)이 바뀐다. S5′ 정의·백필 경로와 일치(백테스트 변화 0). §11 Q3 의 "58/58" 은 11-05 시점 수치이며 게이트는
+"같은 데이터에서 구 규칙 재구현 vs 신 규칙의 전수 일치" 로 정의(readout (a): 59/59·496/496).
 
 ## 6. 검증
 
