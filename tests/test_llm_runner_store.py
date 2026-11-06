@@ -1183,3 +1183,39 @@ def test_ratchet_kept_logs_warning(db, mocker, caplog):
         _insert_cls(db, "RAT7", at=t[1], pivot=22050.1, base_start="2026-06-01", afd=date(2026, 8, 29))
     kept = [r for r in caplog.records if "[pivot-ratchet] kept RAT7" in r.getMessage()]
     assert len(kept) == 1
+
+
+# ====== (#175 2026-11-06) 구조 저점 저장 ======
+
+def test_insert_persists_structural_low(db, mocker):
+    from decimal import Decimal
+    from kr_pipeline.llm_runner.store import insert_classification
+
+    sl = {"kind": "handle_low", "price": 960.0, "start": "2026-03-09", "end": "2026-03-13", "days": 5}
+
+    def gate(conn, s, t, r, **kw):
+        r["structural_low"] = sl
+        return r, None
+
+    mocker.patch("kr_pipeline.llm_runner.store.apply_phase1_gates", side_effect=gate)
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='SLW'")
+    insert_classification(db, symbol="SLW", classified_at=datetime(2026, 3, 14, tzinfo=timezone.utc), market="KOSPI",
+                          result=_cls_result(pattern="cup_with_handle", pivot_basis="handle_high"), source="weekend",
+                          llm_meta={}, analyzed_for_date=date(2026, 3, 13))
+    with db.cursor() as cur:
+        cur.execute("SELECT handle_low, handle_start, handle_end FROM weekly_classification WHERE symbol='SLW'")
+        assert cur.fetchone() == (Decimal("960.0000"), date(2026, 3, 9), date(2026, 3, 13))
+
+
+def test_insert_without_structural_low_stores_null(db, mocker):
+    from kr_pipeline.llm_runner.store import insert_classification
+
+    _gates_identity(mocker)
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM weekly_classification WHERE symbol='SLN'")
+    insert_classification(db, symbol="SLN", classified_at=datetime(2026, 3, 14, tzinfo=timezone.utc), market="KOSPI",
+                          result=_cls_result(), source="weekend", llm_meta={})
+    with db.cursor() as cur:
+        cur.execute("SELECT handle_low, handle_start, handle_end FROM weekly_classification WHERE symbol='SLN'")
+        assert cur.fetchone() == (None, None, None)

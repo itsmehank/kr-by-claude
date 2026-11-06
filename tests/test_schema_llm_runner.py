@@ -17,6 +17,7 @@ def test_weekly_classification_schema(db):
         "triggered_rules", "measurements",
         "llm_call_duration_s", "llm_input_tokens", "llm_output_tokens", "llm_model",
         "created_at",
+        "handle_low", "handle_start", "handle_end",   # (#175) 구조 저점
     }
     assert required.issubset(cols), f"missing: {required - cols}"
     # expires_at 은 제거된 컬럼 (만료는 '최신 분류 우선' 규칙로 대체) — 재도입 감지
