@@ -17,6 +17,9 @@ spec §3. 핵심 잣대 = 거래량 마름·핸들 내 분배 (위치 아님). l
 - S6′ 저점은 발화 여부와 무관하게 **항상** 산출해 `structural_low` 로 반환(저장은 store). `handle_low ≥ pivot_eff`
   면 손잡이가 아니다(손잡이는 고점 아래 형성 — HMMS p.116) → 미평가(`handle_above_pivot`).
 - S1 전제에서 `base_depth_pct` 제거(깊이비 조건 소멸로 소비처 없음).
+- S7′ 결함 조건 교체(전문가 사실 확인 2026-11-06 Q-C): (B′) 손잡이 일평균 거래량 ≥ 손잡이 시작일 50일 평균
+  (`HANDLE_VOLUME_VS_50D_MAX`, TLSMW p.226 — 구 0.80 컵 평균 비교는 책에 없음) / (D′) 분배일 ∧ 하단 마감
+  (`HANDLE_SHAKEOUT_CLOSE_POS_MIN`, 상단 마감 = shakeout 긍정 — 구 "분배일 1일 = 결함" 은 책과 불일치). 극저 거래량일 수는 기록만.
 반환 계약: 미평가 = None(사유 log) / 식별 = dict(fired·reasons·weights·metrics·structural_low) — fired=False 도 dict.
 """
 from __future__ import annotations
@@ -54,6 +57,14 @@ def window_end(classified_at, as_of: date | None) -> tuple[date, bool]:
     if isinstance(classified_at, datetime) and classified_at.tzinfo is not None:
         return classified_at.astimezone(_KST).date(), False
     return _to_date(classified_at), False
+
+
+def close_position(high: float, low: float, close: float) -> float:
+    """일중 범위 안 마감 위치 (close − low)/(high − low). 범위 0(high == low)이면 0.5 — 상·하단 어느 쪽도 아님(비결함)."""
+    rng = high - low
+    if rng <= 0:
+        return 0.5
+    return (close - low) / rng
 
 
 def find_handle_start(rows, cup_bottom_idx: int, pivot_price: float) -> tuple[Optional[int], float, str]:
@@ -103,7 +114,7 @@ def compute_handle_quality(
                    COALESCE(p.adj_low,    p.low)    AS low,
                    COALESCE(p.adj_close,  p.close)  AS close,
                    COALESCE(p.adj_volume, p.volume) AS volume,
-                   i.sma_50, COALESCE(i.distribution_day_flag, FALSE)
+                   i.sma_50, COALESCE(i.distribution_day_flag, FALSE), i.avg_volume_50d
               FROM daily_prices p
               LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
              WHERE p.ticker = %s AND p.date >= %s AND p.date {"<=" if end_inclusive else "<"} %s
@@ -144,15 +155,28 @@ def compute_handle_quality(
     #     handle_depth_pct 는 감사 echo 로만 남긴다(장중 high/low 기준, 판정 비관여).
     handle_depth_pct = (handle_high - handle_low) / handle_high * 100.0
 
-    # (B) volume not contracting
-    avg_base_vol = sum(float(r[4]) for r in base_rows) / len(base_rows)
+    # (B′) 거래량 안 마름 — 손잡이 일평균 vs 손잡이 시작일 50일 평균(TLSMW p.226, HANDLE_VOLUME_VS_50D_MAX).
+    #      50일 평균 결측(신규 상장 등)이면 (B′) 만 미평가(결함 아님) — 저점·(D′) 는 정상 산출.
     avg_handle_vol = sum(float(r[4]) for r in handle_rows) / len(handle_rows)
-    ratio_b = (avg_handle_vol / avg_base_vol) if avg_base_vol else 0.0
-    fired_b = ratio_b > thresholds.HANDLE_VOLUME_NOT_CONTRACTING_RATIO
+    avg50 = handle_rows[0][7]
+    if avg50 is None or float(avg50) <= 0:
+        volume_vs_50d, fired_b, b_unevaluated = None, False, True
+    else:
+        volume_vs_50d = avg_handle_vol / float(avg50)
+        fired_b, b_unevaluated = volume_vs_50d >= thresholds.HANDLE_VOLUME_VS_50D_MAX, False
+    # 극저 거래량일(책 "one or two days when volume is extremely low" — 수치 없음) — 봉별 50일 평균 × 0.5, 기록만
+    dry_up_days = sum(
+        1 for r in handle_rows
+        if r[7] is not None and float(r[4]) < float(r[7]) * thresholds.VOLUME_DRY_UP_MULT
+    )
 
-    # (분배) handle 구간 distribution day
+    # (D′) 손잡이 안 분배일 — 하단 마감(마감 위치 < HANDLE_SHAKEOUT_CLOSE_POS_MIN)만 결함, 상단 마감 = shakeout(비결함)
     dist_days = sum(1 for r in handle_rows if r[6])
-    fired_dist = dist_days >= 1
+    dist_days_lower = sum(
+        1 for r in handle_rows
+        if r[6] and close_position(float(r[1]), float(r[2]), float(r[3])) < thresholds.HANDLE_SHAKEOUT_CLOSE_POS_MIN
+    )
+    fired_dist = dist_days_lower >= 1
 
     fired = fired_b or fired_dist
 
@@ -174,8 +198,9 @@ def compute_handle_quality(
     handle_end = _to_date(handle_rows[-1][0]).isoformat()
     if not fired:
         log.info(
-            "[handle_quality] checked-not-fired symbol=%s depth=%.1f%% ratio_b=%.3f dist=%d",
-            symbol, handle_depth_pct, ratio_b, dist_days,
+            "[handle_quality] checked-not-fired symbol=%s depth=%.1f%% vol_vs_50d=%s dist=%d dist_lower=%d",
+            symbol, handle_depth_pct,
+            None if volume_vs_50d is None else round(volume_vs_50d, 3), dist_days, dist_days_lower,
         )
 
     return {
@@ -184,8 +209,13 @@ def compute_handle_quality(
         "weights": weights,
         "metrics": {
             "handle_depth_pct": round(handle_depth_pct, 2),  # (#177) echo — 판정 비관여
-            "ratio_b": round(ratio_b, 3),
+            "avg_volume_50d": None if avg50 is None else float(avg50),
+            "handle_avg_volume": round(avg_handle_vol, 2),
+            "volume_vs_50d": None if volume_vs_50d is None else round(volume_vs_50d, 3),
+            "b_unevaluated": b_unevaluated,
+            "dry_up_days": dry_up_days,
             "distribution_days": dist_days,
+            "distribution_days_lower_close": dist_days_lower,
             "handle_start": handle_start,
             "handle_end": handle_end,
             "handle_days": len(handle_rows),

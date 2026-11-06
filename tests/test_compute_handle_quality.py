@@ -128,7 +128,7 @@ def test_volume_not_contracting_fires(db):
     start = date(2026, 3, 16)
     r = _run(db, "HQVOL", _cup(1000) + _handle(5, low=96, vol=2000), start, 20)
     assert r is not None and r["reasons"] == ["volume_not_contracting"]
-    assert r["metrics"]["ratio_b"] > thresholds.HANDLE_VOLUME_NOT_CONTRACTING_RATIO
+    assert r["metrics"]["volume_vs_50d"] >= thresholds.HANDLE_VOLUME_VS_50D_MAX
 
 
 def test_distribution_in_handle_fires(db):
@@ -187,8 +187,8 @@ def _seed_ohlcv_adj(db, ticker, start: date, bars: list[tuple]):
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
                 (ticker, d, close * 7, high * 7, low * 7, close * 7, close, close, high, low, float(vol), vol * 7, vol * close * 7))
             cur.execute(
-                "INSERT INTO daily_indicators (ticker,date,adj_close,sma_50,distribution_day_flag) VALUES (%s,%s,%s,%s,%s) "
-                "ON CONFLICT DO NOTHING", (ticker, d, close, close * 0.95, dist))
+                "INSERT INTO daily_indicators (ticker,date,adj_close,sma_50,distribution_day_flag,avg_volume_50d) "
+                "VALUES (%s,%s,%s,%s,%s,1000) ON CONFLICT DO NOTHING", (ticker, d, close, close * 0.95, dist))
             d += timedelta(days=1)
 
 
@@ -250,6 +250,56 @@ def test_missing_base_depth_pct_is_not_a_skip_reason(db):
     _seed_ohlcv(db, "HQNODEP", start, _cup(1000) + _handle(5, low=96, vol=400))
     cls = _cls(base_depth=None, base_start=start, classified_at=datetime(2026, 5, 31, tzinfo=timezone.utc))
     assert compute_handle_quality(db, "HQNODEP", cls["classified_at"], cls) is not None
+
+
+# ---------- (#175 2026-11-06) S7′ 결함 조건 — (B′) 50일 평균 · (D′) 마감 위치 · 기록 지표 ----------
+
+def test_b_rule_fires_when_handle_volume_at_or_above_50d_avg(db):
+    start = date(2026, 8, 3)
+    r = _run(db, "HQB1", _cup(500) + _handle(5, low=96, vol=1100), start, 20, avg50=1000.0)   # 손잡이 6봉 평균 (500+5×1100)/6 = 1000 ≥ 1000
+    assert r["fired"] and r["reasons"] == ["volume_not_contracting"]
+    assert r["metrics"]["volume_vs_50d"] == pytest.approx(1.0) and "ratio_b" not in r["metrics"]
+
+
+def test_b_rule_not_fired_when_handle_volume_below_50d_avg_even_if_above_cup(db):
+    """컵 평균(500)보다 많아도 50일 평균(1000) 미만이면 결함 아님 — 구 0.80 컵 비교와 갈리는 지점."""
+    start = date(2026, 8, 17)
+    r = _run(db, "HQB2", _cup(500) + _handle(5, low=96, vol=900), start, 20, avg50=1000.0)   # (500+5×900)/6 ≈ 833
+    assert r["fired"] is False and r["metrics"]["volume_vs_50d"] == pytest.approx(0.8333, abs=1e-3)
+
+
+def test_b_rule_unevaluated_when_avg50_null_but_low_still_returned(db):
+    start = date(2026, 8, 31)
+    r = _run(db, "HQB3", _cup(500) + _handle(5, low=96, vol=5000), start, 20, avg50=None)
+    assert r is not None and r["fired"] is False and r["metrics"]["b_unevaluated"] is True
+    assert r["metrics"]["volume_vs_50d"] is None and r["structural_low"]["price"] == 96.0
+
+
+def test_distribution_day_lower_close_fires_upper_close_is_shakeout(db):
+    """같은 분배 플래그라도 하단 마감(close_pos 0.11)만 결함, 상단 마감(0.78)은 shakeout → 비결함."""
+    start = date(2026, 9, 14)
+    lower = _cup(1000) + [(99, 98, 98, 400, False), (99, 90, 91, 2000, True), (99, 98, 98, 400, False),
+                          (99, 98, 98, 400, False), (99, 98, 98, 400, False)]      # (91−90)/(99−90)=0.11
+    upper = _cup(1000) + [(99, 98, 98, 400, False), (99, 90, 97, 2000, True), (99, 98, 98, 400, False),
+                          (99, 98, 98, 400, False), (99, 98, 98, 400, False)]      # (97−90)/9=0.78
+    r_lo = _run(db, "HQD1", lower, start, 20)
+    r_up = _run(db, "HQD2", upper, start + timedelta(days=30), 20)
+    assert r_lo["fired"] and r_lo["reasons"] == ["distribution_in_handle"] and r_lo["metrics"]["distribution_days_lower_close"] == 1
+    assert r_up["fired"] is False and r_up["metrics"]["distribution_days"] == 1 and r_up["metrics"]["distribution_days_lower_close"] == 0
+
+
+def test_distribution_day_with_zero_range_is_not_defect(db):
+    start = date(2026, 10, 12)
+    flat = _cup(1000) + [(99, 98, 98, 400, False), (95, 95, 95, 2000, True), (99, 98, 98, 400, False),
+                         (99, 98, 98, 400, False), (99, 98, 98, 400, False)]
+    r = _run(db, "HQD0", flat, start, 20)
+    assert r["fired"] is False and r["metrics"]["distribution_days"] == 1 and r["metrics"]["distribution_days_lower_close"] == 0
+
+
+def test_dry_up_days_counted_from_each_days_50d_avg(db):
+    start = date(2026, 10, 26)
+    r = _run(db, "HQDRY", _cup(1000) + _handle(5, low=96, vol=400), start, 20, avg50=1000.0)   # 림 봉 1000 제외, 5봉 400 < 500
+    assert r["metrics"]["dry_up_days"] == 5 and r["fired"] is False
 
 
 # ---------- (#261/#175) S5′ 창 끝 = as_of 포함(KST 거래일) ----------
