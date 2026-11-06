@@ -91,3 +91,8 @@ def test_a_47_pivot_has_no_add_on():
     # 표 5행이 '고점 그대로' 형태로 존재
     for basis in ("range_high", "handle_high", "final_T_high", "mid_W_peak"):
         assert re.search(rf"\|\s*{basis}\s*\|\s*{basis}\s*\|", text), f"§4.7 {basis} 행이 'basis | basis' 형태가 아님"
+    # 웹 미러(LlmPipelinePage 가 §4.7 표를 그대로 보여주는 손수 작성 데이터)도 같은 가드 — 리뷰 R1 발견
+    web_mirror = A_PROMPT.parents[1] / "web" / "src" / "data" / "llm-pipeline-audit" / "base-patterns.ts"
+    assert not re.search(r"(range_high|handle_high|절대 고점|final_T_high|mid_W_peak)\s*\+\s*\d", web_mirror.read_text(encoding="utf-8")), (
+        "web/src/data/llm-pipeline-audit/base-patterns.ts PIVOT_RULES 에 '+ 0.1' 이 남아 있음"
+    )

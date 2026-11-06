@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import pytest
 
 from kr_pipeline.llm_runner.compute.pivot_continuity_stats import (
-    downward_chains, pattern_round_trips, parse_log_events,
+    downward_chains, pattern_round_trips, parse_log_events, stored_events,
 )
 
 
@@ -48,6 +48,16 @@ def test_downward_chain_ignores_sub_tick_difference():
     # 1원 이상 내려간 재판독은 그대로 센다
     rows2 = [_row("S", 1, "cup", 23649.0, "same", 23650.1, "cup")]
     assert len(downward_chains(rows2)) == 1
+
+
+def test_stored_events_ignores_sub_tick_difference():
+    """stored_events 도 downward_chains 와 같은 기준 — 1원 미만 하향(구 23,650.1 → 23,650)은 세지 않고,
+    1원 이상 변화(23,650 → 23,600)는 그대로 센다."""
+    rows = [
+        _row("S", 1, "cup", 23650.0, "same", 23650.1, "cup"),
+        _row("S", 7, "cup", 23600.0, "same", 23650.0, "cup"),
+    ]
+    assert stored_events(rows) == {("S", round((23600.0 - 23650.0) / 23650.0 * 100, 2)): 1}
 
 
 def test_downward_chain_stops_on_base_change_and_dedups_nested_starts():

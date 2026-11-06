@@ -169,7 +169,10 @@ def find_breakout(row: dict, bars: list[dict], ep_end: date) -> dict | None:
             continue
         if b["date"] > ep_end:
             break
-        if b["adj_high"] is not None and b["adj_high"] >= pivot:
+        # (2026-11-05 "+0.1" 가산 폐지 보정) 구 pivot(고점+0.1)에서 `high >= pivot` 은 정수 가격의
+        # "high > 고점" 과 같은 뜻 — pivot = 고점 그 자체가 되면서 동치 보존을 위해 strict `>`.
+        # specs/2026-11-05-pivot-offset-removal.md §2.
+        if b["adj_high"] is not None and b["adj_high"] > pivot:
             gate = None
             if b["adj_close"] is not None and b["sma_50"] is not None and b["vol50"]:
                 gate = gate_evaluate(

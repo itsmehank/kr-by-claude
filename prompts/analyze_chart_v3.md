@@ -283,7 +283,7 @@ Boolean signals (use as corroboration, not as filters): `rs_line_at_52w_high` (R
 | ascending_base  | top of third pullback peak                    | top_of_third_peak |
 | none            | null                              | null              |
 
-**pivot_price 는 기준 고점 값 그대로** 적는다 — +0.1·+1 tick 등 가산 없음(2026-11-05 폐지, §7).
+**pivot_price 는 기준 고점 값 그대로** 적는다 — 어떤 가산도 하지 않는다(§7).
 데이터에 보이는 고점 숫자가 곧 pivot_price 다(예: handle_high 82,500 → pivot_price 82500.0). mid_W_peak = 두 low 사이 최고점.
 
 base_high, base_low: 베이스 구간의 high/low 값

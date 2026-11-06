@@ -93,6 +93,10 @@ def stored_events(rows):
     c = Counter()
     for r in rows:
         chg = r["pc"].get("pivot_change_pct")
-        if r["pc"].get("base_continuity") == "same" and chg not in (None, 0):
-            c[(r["symbol"], round(float(chg), 2))] += 1
+        if r["pc"].get("base_continuity") != "same" or chg in (None, 0):
+            continue
+        prev, npv = r["pc"].get("prev_pivot_price"), r["pivot_price"]
+        if prev is not None and npv is not None and 0 < float(prev) - float(npv) < _SUB_TICK_KRW:
+            continue  # 서브 틱 하향 = "+0.1" 폐지 이행기 인공물 (downward_chains 와 동일 기준)
+        c[(r["symbol"], round(float(chg), 2))] += 1
     return c

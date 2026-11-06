@@ -1,7 +1,8 @@
 """KRX 시장 규칙 유틸 — 호가 단위(tick size).
 
 2023-01-25 호가 단위 개편 이후 KOSPI/KOSDAQ 공통 단일 체계.
-소비처: store §4.7 pivot 사후검증 (§7 'base high + 1 tick' 관례 판정, #38 재리뷰).
+소비처: kr_trading/guard.py (주문 가격 호가 단위 검증). 구 소비처 store §4.7 pivot 사후검증(§7 '+1 tick'
+관례 판정, #38 재리뷰)은 2026-11-05 "+0.1 / +1 tick" 가산 폐지로 소멸(specs/2026-11-05-pivot-offset-removal.md).
 """
 from __future__ import annotations
 

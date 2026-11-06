@@ -17,7 +17,11 @@
 | `kr_pipeline/llm_runner/store.py` 사후검증 | 허용 {앵커, 앵커+0.1, 앵커+1 tick}, 초과 검사 `> base_high + tick` | 허용 {앵커}, 초과 검사 `> base_high`. `krx_tick_size` import 소멸(함수는 trading guard 가 계속 사용) |
 | `compute/failed_breakout.py` | D0·P2 `close >= pivot`, P1 `close < pivot` | `>`·`<=` — **동작 보존 보정**(§2) |
 | `compute/pivot_continuity_stats.py` | — | `_SUB_TICK_KRW = 1.0`: 1원 미만 하향은 재판독으로 안 셈(판독 전용) |
-| `compute/handle_quality.py` | — | 주석만(S4 `high ≥ pivot` 이 고점 당일을 매칭하게 됨) |
+| `compute/handle_quality.py` | — | 주석만(S4 `high ≥ pivot` 이 고점 당일을 매칭하게 됨) + 테스트 `high == pivot` 매칭 |
+| `backtest/recall_phase2.py` | `adj_high >= pivot` | `>` — 동작 보존 보정(리뷰 R1) |
+| `llm/claude_cli.py` dry-run mock | `pivot = base_high × 1.001` | `base_high` — 가산 폐지 후 사후검증 경고 노이즈 방지(리뷰 R1) |
+| `web/src/data/llm-pipeline-audit/base-patterns.ts`·`llm-pipeline-simulation.ts` | §4.7 표 미러 `"+ 0.1"` | 제거 + `test_a_47_pivot_has_no_add_on` 이 미러도 가드(리뷰 R1) |
+| `common/krx.py` docstring | 소비처 = store | 소비처 = trading guard 만 |
 | `web/src/data/thresholds.generated.ts` | `PIVOT_PRICE_OFFSET` | export 재실행으로 소멸 |
 | 문서 | — | GLOSSARY base/pivot·wake 조건, checklist 이력, 본 스펙 |
 
@@ -46,6 +50,13 @@
 | `store` HARD `base_low > pivot` | — | 0.1 차 | — | 중립 | 없음 |
 | backtest `trigger_sim`·`stop_variant_sim`·`portfolio` | `c > pivot`, `c > pivot×(1+chase)` | 동일 | 동일 | 동일. 백테스트 저장본 pivot 은 구(+0.1)·신 혼재 — 1원 미만 | 없음 |
 | 웹 표시(classification 카드·review) | 표시값 | `.1` 표시 | 정수 | 중립 | 없음 |
+| **`backtest/recall_phase2.find_breakout`** (리뷰 R1) | `adj_high >= pivot` | ≥H+0.1 ⇔ ≥H+1 ⇔ >H | `>=` 가 ≥H 로 바뀌어 고점 터치를 돌파로 셈 | **변함** | **보정**: `>` 로 교체(S4 와 달리 "돌파" 의미라 터치는 돌파 아님). 저장 구 행 소비 시 동작 동일 |
+| `entry_params_calc` `extended_from_pivot_already` `current > pivot×1.03` (리뷰 R1) | 비율 | > 1.03H+0.103 | > 1.03H | 경계 0.103원 하향(미미) | 없음 |
+| `store` `_PIVOT_CLOSE_BAND`(sanity_pivot_far_from_price) | 비율 밴드 | — | — | 미미 | 없음 |
+| `store` `ENTRY_STOP_PCT_FROM_PIVOT_FLOOR` −10 (stop 경고) | 비율 | — | — | 미미 | 없음 |
+| `signal_link` chase strict > 5% (#162) | 비율 | — | — | 미미 | 없음 |
+| `backtest/trigger_sim` 체결 `low <= pivot×1.01` | 비율 | — | — | 미미 | 없음 |
+| `store` `[pivot-continuity] same-base reread` 경고·`stored_events` | `pivot_change_pct ≠ 0` | — | 이행기 −0.0004% 가 경고·집계에 잡힘 | 인공물 | 1원 미만 하향은 경고 생략·`stored_events` 미집계(리뷰 R1 — `downward_chains` 와 같은 기준) |
 
 **3단계(룰 내부 고정 상수) — 2축 판정**
 
@@ -58,7 +69,9 @@
 | `HANDLE_LEGIT_MIN_DAYS` 5 / `BASE_MIN_DAYS` | 불가(일수) | **있음** — 시작점이 고점 당일로 앞당겨져 `handle_rows` 길이·커버리지 증가(의도) | book-anchor(1~2주 이상) | **B-수치**: #175 재설계 재현 스크립트(`hq_spec_verify_175.py` 계열)로 폐지 후 첫 4주 커버리지(현 23%)·림 미회복 비율(현 33.8%) 재측정 |
 | `HANDLE_VOLUME_NOT_CONTRACTING_RATIO` 0.80 / 분배일 ≥1 | 불가 | **있음** — 손잡이 구간이 달라져 (B)·(D) 발화 집합 변화 | design(책에 없음 — 회신 Q-4·Q-5) | **B-수치**(위와 같은 측정) + #175 재설계에서 수치 자체 재판정 |
 | `_BASE_NEAR_DAYS` 10 (continuity) | 불가 | 없음 — `base_start_date` 비교 | design | — |
-| `_SUB_TICK_KRW` 1.0 (신설, 판독 전용) | 불가(호가 단위) | 판독 계수만 | design(KRX 정수 호가) | — |
+| `_SUB_TICK_KRW` 1.0 (신설, 판독 전용) + store 경고 게이트 1.0 | 불가(호가 단위) | 판독 계수·경고 로그만(저장 JSON 불변) | design(KRX 정수 호가) | — |
+| `extended_from_pivot_already` 1.03 (entry_params_calc 리터럴) | 불가(비율) | **미미** — 경계 0.103원 하향(보수 방향: 창 1일 축소가 아주 약간 넓어짐) | design-judgment(§7 통합표) | 모니터링 — 근거: 1원 미만, 방향 보수 |
+| `_PIVOT_CLOSE_BAND`·`ENTRY_STOP_PCT_FROM_PIVOT_FLOOR`·chase 5%·fill 1.01 | 불가(비율) | 미미 — 전부 1원 미만 경계 이동, 경고/시뮬 체결 전용 | design | — |
 | `krx_tick_size` (store 소비 소멸) | — | 없음 — trading guard 소비 유지 | — | — |
 | `TRADE_STOP_INITIAL_PCT` 0.08 | — | 없음 — 매입가 기준, pivot 비소비 | book | — |
 
@@ -76,14 +89,21 @@
     FROM weekly_classification
    WHERE pivot_continuity->>'ratchet' = 'kept';
   ```
-- `scripts/issue129_pivot_continuity_readout.py` 는 `_SUB_TICK_KRW` 로 자동 제외(테스트 `test_downward_chain_ignores_sub_tick_difference`).
+- `scripts/issue129_pivot_continuity_readout.py`: 하향 체인(`downward_chains`)·저장 이벤트(`stored_events`) 모두 `_SUB_TICK_KRW` 로
+  1원 미만 하향을 제외(테스트 2건). store 의 `[pivot-continuity] same-base pivot reread` 경고도 같은 기준으로 생략하므로
+  `parse_log_events` 로그 계수에도 인공물이 들어가지 않는다. 저장 `pivot_continuity` JSON(`pivot_change_pct ≈ −0.0004`)은 그대로 —
+  H ≥ 약 250,000원이면 4자리 반올림으로 −0.0 이 되어 가격대에 따라 값이 다르게 보인다(판정 비입력).
+- `ratchet=kept` 집계만은 위 SQL 로 수동 분리(래칫 순수 함수는 변경하지 않음 — #253 로직 불변).
 - LLM 이 관성으로 +0.1 을 계속 적으면 `sanity_pivot_offset_rule` 경고로 드러난다(range_high basis 한정) — 11-08 뒤 발생률 1회 점검.
 
 ## 4. 검증
 
-- 테스트(TDD, red → green): `test_prompt_a_gates`(가산 부재·상수 삭제), `test_prompt_threshold_drift`(목록),
+- 테스트(TDD, red → green): `test_prompt_a_gates`(가산 부재·상수 삭제·웹 미러), `test_prompt_threshold_drift`(목록),
   `test_llm_runner_store`(허용 집합 축소 — +0.1·+1 tick 이제 경고), `test_compute_failed_breakout`(close == pivot 동치 보존),
-  `test_issue129_readout`(서브 틱). suite 기대 0 failed·1 skipped·1 deselected.
+  `test_issue129_readout`(서브 틱 — 체인·저장 이벤트), `test_compute_handle_quality`(high == pivot 림 매칭). suite 기대 0 failed·1 skipped·1 deselected.
+- 독립 리뷰 R1(2026-11-06) 반영: Important 3(웹 미러 잔존·로그/저장 계수 인공물·소비처 누락 recall_phase2/1.03 등) · Minor 4(dry-run mock·krx docstring·
+  S4 테스트 부재·프롬프트 문구) 전부 수리. 검증 통과 항목: failed_breakout 동치(소수 adj 종가 (H, H+0.1) 만 책 의미로 돌파 편입), store 1e-3 허용,
+  래칫 kept 가 검출기(LLM raw pivot 소비)로 전파되지 않음.
 - `uv run python scripts/export_thresholds.py` → generated.ts 에서 `PIVOT_PRICE_OFFSET` 소멸(tsc 영향 없음 — 웹 소비처 0).
 - 배포 후(라이브 pull): 11-08 주말 분류 저장 행 `pivot_price` 소수부 0 확인.
 

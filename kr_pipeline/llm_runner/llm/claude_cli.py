@@ -130,7 +130,7 @@ def _mock_analyze_chart_v3() -> dict:
         "confidence": round(random.uniform(0.6, 0.95), 2),
         "reasoning": "dry-run mock " + classification,
         "risk_flags": [],
-        "pivot_price": round(base_high * 1.001, 2),
+        "pivot_price": round(base_high, 2),  # (2026-11-05) pivot = 고점 그대로 — 가산 시 사후검증 경고 노이즈
         "pivot_basis": {
             "flat_base": "range_high",
             "cup_with_handle": "handle_high",

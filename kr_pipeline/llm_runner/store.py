@@ -447,11 +447,21 @@ def insert_classification(
         )
         # (#1) same-base 재판독 경고는 행이 실제 저장된 경우에만 — ON CONFLICT 로
         # 버려진 행에 대한 유령 경고 방지 (#39 리뷰).
+        # (2026-11-05 "+0.1" 가산 폐지 이행기) 직전 pivot 이 구 관례(고점+0.1)이고 새 pivot 이 고점
+        # 그대로면 1원 미만 하향이 산술상 생긴다 — 재판독이 아니라 인공물이므로 경고하지 않는다
+        # (KRX 정수 호가; pivot_continuity_stats._SUB_TICK_KRW 와 같은 기준). 저장 JSON 은 그대로.
+        _prev_pv = continuity_info["prev_pivot_price"] if continuity_info else None
+        _new_pv = result.get("pivot_price")
+        _sub_tick_drop = (
+            _prev_pv is not None and _new_pv is not None
+            and 0 < float(_prev_pv) - float(_new_pv) < 1.0
+        )
         if (
             cur.rowcount == 1
             and continuity_info is not None
             and continuity_info["base_continuity"] == "same"
             and continuity_info["pivot_change_pct"] not in (None, 0.0)
+            and not _sub_tick_drop
         ):
             log.warning(
                 "[pivot-continuity] same-base pivot reread %s: %s -> %s (%+.2f%%)",

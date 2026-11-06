@@ -77,7 +77,7 @@ export const SIMULATION_ROWS: SimRow[] = [
             { label: "confidence", value: "0.88" },
           ],
           reasoning:
-            "Stage 2 강함, cup 형성 35주, handle 7거래일 tight contraction. pivot 84,500 (handle high + 0.1). RS Line 52w high 선행. 거래량 contraction 양호. 위험 플래그 없음.",
+            "Stage 2 강함, cup 형성 35주, handle 7거래일 tight contraction. pivot 84,500 (handle high). RS Line 52w high 선행. 거래량 contraction 양호. 위험 플래그 없음.",
           impact:
             "다음 평일부터 evaluate_pivot 의 active 대상. close > pivot + volume ≥ 1.5× avg 시 breakout 트리거.",
         },

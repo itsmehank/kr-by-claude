@@ -90,11 +90,12 @@ export interface PivotRule {
 }
 
 export const PIVOT_RULES: PivotRule[] = [
-  { pattern: "flat_base", formula: "range_high + 0.1", basisLabel: "range_high" },
-  { pattern: "cup_with_handle", formula: "handle_high + 0.1", basisLabel: "handle_high" },
-  { pattern: "cup_without_handle", formula: "cup 내 절대 고점 + 0.1", basisLabel: "cup_high" },
-  { pattern: "vcp", formula: "final_T_high + 0.1", basisLabel: "final_T_high" },
-  { pattern: "double_bottom", formula: "mid_W_peak + 0.1 (두 low 사이 최고점)", basisLabel: "mid_W_peak" },
+  // 2026-11-05 "+0.1" 가산 폐지 — pivot = 기준 고점 그 자체 (prompt §4.7, specs/2026-11-05-pivot-offset-removal.md)
+  { pattern: "flat_base", formula: "range_high", basisLabel: "range_high" },
+  { pattern: "cup_with_handle", formula: "handle_high", basisLabel: "handle_high" },
+  { pattern: "cup_without_handle", formula: "cup 내 절대 고점", basisLabel: "cup_high" },
+  { pattern: "vcp", formula: "final_T_high", basisLabel: "final_T_high" },
+  { pattern: "double_bottom", formula: "mid_W_peak (두 low 사이 최고점)", basisLabel: "mid_W_peak" },
   { pattern: "high_tight_flag", formula: "top of flag (consolidation 최고점)", basisLabel: "top_of_flag" },
   { pattern: "3c_cheat", formula: "high of cheat area (low/mid cup pivot)", basisLabel: "cheat_pivot" },
   { pattern: "base_on_base", formula: "top of second (upper) base", basisLabel: "top_of_upper_base" },
