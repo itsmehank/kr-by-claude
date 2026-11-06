@@ -51,7 +51,7 @@ def _classify_chain(db, mocker):
     from kr_pipeline.llm_runner.store import insert_classification
     mocker.patch(
         "kr_pipeline.llm_runner.store.apply_phase1_gates",
-        side_effect=lambda conn, s, t, r: (r, None),
+        side_effect=lambda conn, s, t, r, **kw: (r, None),   # (#175) as_of= 키워드 수용
     )
     t0 = datetime(2026, 8, 22, 3, 0, tzinfo=timezone.utc)
     t1 = datetime(2026, 8, 29, 3, 0, tzinfo=timezone.utc)

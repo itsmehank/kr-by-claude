@@ -35,7 +35,7 @@ def main():
         print(f"005850 cls: pattern={cls['pattern']} pivot={cls['pivot_price']} "
               f"basis={cls['pivot_basis']} base_depth={cls['base_depth_pct']}%")
 
-        result = compute_handle_quality(conn, "005850", cls["classified_at"], cls)
+        result = compute_handle_quality(conn, "005850", cls["classified_at"], cls)   # (#175) as_of 생략 → KST 날짜 폴백
 
     print(f"compute_handle_quality result: {result}")
     assert result is not None, "❌ handle_quality 미발화 (휴리스틱이 핸들 못 짚음 — 회귀 전제 붕괴)"

@@ -33,7 +33,7 @@ def main():
         # 005850 — entry → watch (2E_tier2)
         c1 = _load_cls(conn, "005850")
         print(f"005850 입력: class={c1['classification']} conf={c1['confidence']} flags={c1['risk_flags']}")
-        out1, tr1 = apply_phase1_gates(conn, "005850", c1["classified_at"], dict(c1))
+        out1, tr1 = apply_phase1_gates(conn, "005850", c1["classified_at"], dict(c1))   # (#175) as_of 생략 → 검출기 KST 날짜 폴백
         print(f"005850 게이트 후: class={out1['classification']} conf={out1['confidence']} flags={out1['risk_flags']} tr={tr1}")
         assert out1["classification"] == "watch", "❌ 005850 entry→watch 강등 실패"
         assert out1["confidence"] <= 0.50, "❌ 005850 Tier2 conf cap 실패"

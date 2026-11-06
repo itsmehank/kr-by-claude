@@ -328,7 +328,9 @@ def insert_classification(
         # 아래 INSERT 가 InFailedSqlTransaction 으로 실패해 LLM 비용을 쓴 분류가
         # 통째로 유실된다. 중첩 transaction(=savepoint)으로 fail-soft 를 실질화.
         with conn.transaction():
-            result, triggered_rules = apply_phase1_gates(conn, symbol, classified_at, result)
+            result, triggered_rules = apply_phase1_gates(
+                conn, symbol, classified_at, result, as_of=analyzed_for_date,   # (#175/#261) 검출기 창 끝 = 데이터 날짜 포함
+            )
     except Exception as e:
         log.warning(
             "[phase1-gate] failed symbol=%s — 게이트 미적용 원본 분류 저장 (fail-soft): %s",
@@ -507,7 +509,8 @@ def insert_backfill_classification(
         gate_at = datetime.combine(analyzed_for_date + timedelta(days=1), dt_time.min)
         # SAVEPOINT 격리 — insert_classification 과 동일 (SQL 오류 fail-soft 실질화)
         with conn.transaction():
-            result, triggered_rules = apply_phase1_gates(conn, symbol, gate_at, result)
+            # (#175/#261) 검출기는 as_of=D 포함 창, failed_breakout·§8.5 는 gate_at(D+1 미포함) — 같은 봉 집합
+            result, triggered_rules = apply_phase1_gates(conn, symbol, gate_at, result, as_of=analyzed_for_date)
     except Exception as e:
         log.warning(
             "[phase1-gate] backfill failed symbol=%s — 게이트 미적용 원본 저장 (fail-soft): %s",
