@@ -11,8 +11,9 @@ from kr_pipeline.common import thresholds
 from kr_pipeline.llm_runner.compute.handle_quality import compute_handle_quality
 
 
-def _seed_ohlcv(db, ticker, start: date, bars: list[tuple]):
-    """bars = [(high, low, close, volume, dist_flag), ...] 연속 거래일."""
+def _seed_ohlcv(db, ticker, start: date, bars: list[tuple], *, avg50: float | None = 1000.0):
+    """bars = [(high, low, close, volume, dist_flag), ...] 연속 거래일(달력일 연속 시드).
+    avg50 = daily_indicators.avg_volume_50d (전 봉 동일값, None = 결측 시나리오)."""
     with db.cursor() as cur:
         cur.execute(
             "INSERT INTO stocks (ticker, name, market) VALUES (%s,%s,'KOSPI') ON CONFLICT DO NOTHING",
@@ -30,11 +31,11 @@ def _seed_ohlcv(db, ticker, start: date, bars: list[tuple]):
             )
             cur.execute(
                 """
-                INSERT INTO daily_indicators (ticker, date, adj_close, sma_50, distribution_day_flag)
-                VALUES (%s,%s,%s,%s,%s)
+                INSERT INTO daily_indicators (ticker, date, adj_close, sma_50, distribution_day_flag, avg_volume_50d)
+                VALUES (%s,%s,%s,%s,%s,%s)
                 ON CONFLICT DO NOTHING
                 """,
-                (ticker, d, close, close * 0.95, dist),
+                (ticker, d, close, close * 0.95, dist, avg50),
             )
             d += timedelta(days=1)
 
@@ -71,11 +72,11 @@ def _handle(n_after_rim: int, low: float, vol: int, dist_idx: int | None = None)
     return bars
 
 
-def _run(db, ticker, bars, start, days_after):
-    _seed_ohlcv(db, ticker, start, bars)
-    cls = _cls(base_depth=30.0, base_start=start,
+def _run(db, ticker, bars, start, days_after, *, pivot=100.0, as_of=None, avg50: float | None = 1000.0):
+    _seed_ohlcv(db, ticker, start, bars, avg50=avg50)
+    cls = _cls(pivot=pivot, base_depth=30.0, base_start=start,
                classified_at=datetime.combine(start + timedelta(days=days_after), datetime.min.time(), tzinfo=timezone.utc))
-    return compute_handle_quality(db, ticker, cls["classified_at"], cls)
+    return compute_handle_quality(db, ticker, cls["classified_at"], cls, as_of=as_of)
 
 
 # ---------- (#177 변경 1) 조건 A 부재 가드 ----------
@@ -85,7 +86,7 @@ def test_deep_handle_alone_does_not_fire(db):
     깊이 절대치는 프롬프트 §4 Gate3 담당 — 검출기는 A 조건이 없다."""
     start = date(2026, 1, 5)
     r = _run(db, "HQDEEP", _cup(1000) + _handle(5, low=82, vol=400), start, 20)
-    assert r is None
+    assert r is not None and r["fired"] is False   # (#175) 비발화도 dict(structural_low 포함)
     assert not hasattr(thresholds, "HANDLE_DEEP_RATIO") and not hasattr(thresholds, "HANDLE_MIN_DAYS")
 
 
@@ -120,7 +121,7 @@ def test_handle_exactly_5_days_is_evaluated(db):
 def test_shallow_handle_dry_volume_no_dist_not_fired(db):
     start = date(2026, 3, 2)
     r = _run(db, "HQSHAL", _cup(2000) + _handle(5, low=96, vol=400), start, 20)
-    assert r is None
+    assert r is not None and r["fired"] is False
 
 
 def test_volume_not_contracting_fires(db):
@@ -197,6 +198,58 @@ def test_handle_quality_uses_adjusted(db):
     cls = _cls(base_depth=30.0, base_start=start, classified_at=datetime(2026, 5, 24, tzinfo=timezone.utc))
     r = compute_handle_quality(db, "HQADJ", cls["classified_at"], cls)
     assert r is not None and r["fired"] and r["metrics"]["handle_low"] == 82.0
+
+
+# ---------- (#175 2026-11-06) S4′ 2단 매칭 · S6′ 가드 · structural_low 항상 반환 ----------
+
+def test_not_fired_returns_dict_with_structural_low(db):
+    """(#175) 비발화도 None 이 아니라 fired=False + structural_low 를 돌려준다."""
+    start = date(2026, 3, 2)
+    r = _run(db, "HQSL", _cup(2000) + _handle(5, low=96, vol=400), start, 20)
+    assert r is not None and r["fired"] is False and r["reasons"] == []
+    assert r["structural_low"] == {"kind": "handle_low", "price": 96.0,
+                                  "start": (start + timedelta(days=5)).isoformat(),
+                                  "end": (start + timedelta(days=10)).isoformat(), "days": 6}
+    assert r["metrics"]["pivot_eff_source"] == "exact" and r["metrics"]["handle_days"] == 6
+
+
+def test_two_pass_recovers_legacy_plus_point_one_pivot(db):
+    """구 행 pivot = 고점+0.1 — ① 매칭 없음 → ② pivot−0.1 로 고점 당일 매칭(pivot_eff_source=minus_0_1)."""
+    start = date(2026, 3, 16)
+    cup_eq = _cup(1000)[:5] + [(100, 96, 99, 1000, False)]          # 최고가 100 == 고점
+    r = _run(db, "HQLEG", cup_eq + _handle(5, low=90, vol=2000), start, 20, pivot=100.1)
+    assert r is not None and r["metrics"]["pivot_eff"] == 100.0 and r["metrics"]["pivot_eff_source"] == "minus_0_1"
+    assert r["structural_low"]["price"] == 90.0 and r["metrics"]["handle_start"] == (start + timedelta(days=5)).isoformat()
+
+
+def test_two_pass_keeps_first_pass_when_a_bar_exceeds_pivot(db):
+    """구 행이라도 pivot 을 넘은 봉이 있으면 ① 이 현행과 같은 봉을 잡는다(기존 검출 58행 불변 보장)."""
+    start = date(2026, 3, 30)
+    r = _run(db, "HQEXC", _cup(1000) + _handle(5, low=90, vol=2000), start, 20, pivot=100.1)   # idx5 high 101 > 100.1
+    assert r is not None and r["metrics"]["pivot_eff_source"] == "exact"
+    assert r["metrics"]["handle_start"] == (start + timedelta(days=5)).isoformat()
+
+
+def test_two_pass_does_not_match_when_no_bar_reaches_pivot_minus_tick(db):
+    """신규 행(pivot 정수 100)에서 최고가 99 — ①·② 모두 미매칭 → 미평가(None)."""
+    start = date(2026, 4, 13)
+    cup99 = _cup(1000)[:5] + [(99, 96, 98, 1000, False)]
+    assert _run(db, "HQ99", cup99 + _handle(5, low=90, vol=2000), start, 20, pivot=100.0) is None
+
+
+def test_handle_above_pivot_is_not_a_handle(db):
+    """림 봉부터 저가가 전부 pivot 이상(갭상승 돌파 상태) → handle_above_pivot 미평가(None)."""
+    start = date(2026, 4, 27)
+    gap_rim_and_after = [(105, 101, 104, 1000, False)] * 7          # idx5 림 봉(low 101 ≥ pivot 100) + 6봉
+    assert _run(db, "HQABV", _cup(1000)[:5] + gap_rim_and_after, start, 20) is None
+
+
+def test_missing_base_depth_pct_is_not_a_skip_reason(db):
+    """(spec §3 S1) base_depth_pct 전제 제거 — 깊이비 조건이 #177 로 사라져 소비처 없음."""
+    start = date(2026, 5, 11)
+    _seed_ohlcv(db, "HQNODEP", start, _cup(1000) + _handle(5, low=96, vol=400))
+    cls = _cls(base_depth=None, base_start=start, classified_at=datetime(2026, 5, 31, tzinfo=timezone.utc))
+    assert compute_handle_quality(db, "HQNODEP", cls["classified_at"], cls) is not None
 
 
 def test_right_rim_matches_when_high_equals_pivot(db):

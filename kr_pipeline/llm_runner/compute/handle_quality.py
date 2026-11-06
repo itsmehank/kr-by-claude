@@ -10,7 +10,14 @@ spec §3. 핵심 잣대 = 거래량 마름·핸들 내 분배 (위치 아님). l
   불량 처리해 책과 충돌. 정의 원문은 plans/2026-09-10-issue177-handle-quality-book-bounds.md 보존.
 - 검출 핸들 창 < HANDLE_LEGIT_MIN_DAYS(5, book-anchor — HMMS "핸들은 대개 1~2주 이상") → 핸들 미형성 → 미평가
   (None). 구 HANDLE_MIN_DAYS 3 [heuristic] 삭제. 5일은 평가(경계 포함).
-불변: (B) 거래량비 0.80·(D) 분배일 ≥1(개념 book, 수치 design — 별도 판정 대상), 시작점 규칙·창 상한(#175 범위).
+
+(#175 2026-11-06, specs/2026-11-06-issue175-handle-low-design.md §3) 구조 저점 산출 재설계:
+- S4′ 손잡이 시작 = 컵 바닥 이후 `high ≥ pivot` 첫 봉, **2단 매칭**(① pivot 그대로 → ② pivot−0.1: 2026-11-05 이전
+  저장 행의 "+0.1" 관례 역산). 어떤 봉이 pivot 을 넘은 구 행은 ① 이 현행과 같은 봉을 잡는다(기존 검출 불변).
+- S6′ 저점은 발화 여부와 무관하게 **항상** 산출해 `structural_low` 로 반환(저장은 store). `handle_low ≥ pivot_eff`
+  면 손잡이가 아니다(손잡이는 고점 아래 형성 — HMMS p.116) → 미평가(`handle_above_pivot`).
+- S1 전제에서 `base_depth_pct` 제거(깊이비 조건 소멸로 소비처 없음).
+반환 계약: 미평가 = None(사유 log) / 식별 = dict(fired·reasons·weights·metrics·structural_low) — fired=False 도 dict.
 """
 from __future__ import annotations
 
@@ -24,17 +31,34 @@ from kr_pipeline.common import thresholds
 
 log = logging.getLogger(__name__)
 
+# 구 "+0.1" 관례(2026-11-05 폐지 전 저장 행) 역산 폭 — KRX 정수 호가에서 유일한 비정수 가산.
+_LEGACY_PIVOT_OFFSET = 0.1
+_EPS = 1e-6
+
 
 def _to_date(d) -> date:
     return d.date() if isinstance(d, datetime) else d
 
 
-def compute_handle_quality(
-    conn: Connection, symbol: str, classified_at, cls: dict,
-) -> Optional[dict]:
-    """handle_quality 발화 여부 결정론적 계산.
+def find_handle_start(rows, cup_bottom_idx: int, pivot_price: float) -> tuple[Optional[int], float, str]:
+    """S4′ 2단 매칭. rows[i][1] = high. 반환 (idx | None, pivot_eff, source) — source ∈ {"exact", "minus_0_1"}.
 
-    Returns dict(fired, reasons, weights, metrics) 또는 None (미발화/적용불가).
+    ① pivot 그대로: 컵 바닥 이후 high ≥ pivot 첫 봉. ② 없으면 pivot−0.1 로 재탐색(구 관례 역산).
+    """
+    for pivot_eff, source in ((float(pivot_price), "exact"),
+                              (float(pivot_price) - _LEGACY_PIVOT_OFFSET, "minus_0_1")):
+        for idx in range(cup_bottom_idx, len(rows)):
+            if float(rows[idx][1]) >= pivot_eff - _EPS:
+                return idx, pivot_eff, source
+    return None, float(pivot_price), "exact"
+
+
+def compute_handle_quality(
+    conn: Connection, symbol: str, classified_at, cls: dict, *, as_of: date | None = None,
+) -> Optional[dict]:
+    """handle_quality 결정론적 계산.
+
+    Returns dict(fired, reasons, weights, metrics, structural_low) 또는 None(미평가 — 적용 불가).
     경계 불명확으로 적용 불가 시 log.info 로 reason 남김.
     """
     def skip(reason: str) -> None:
@@ -47,14 +71,10 @@ def compute_handle_quality(
         return skip(f"pivot_basis={cls.get('pivot_basis')}")
     if cls.get("base_start_date") is None:
         return skip("base_start_date is None")
-    if cls.get("pivot_price") is None or cls.get("base_depth_pct") is None:
-        return skip("pivot_price or base_depth_pct missing")
+    if cls.get("pivot_price") is None:
+        return skip("pivot_price missing")
 
-    base_depth_pct = float(cls["base_depth_pct"])
-    if base_depth_pct <= 0:
-        return skip(f"base_depth_pct={base_depth_pct} <= 0")
-
-    handle_high = float(cls["pivot_price"])
+    pivot_price = float(cls["pivot_price"])
     base_start = _to_date(cls["base_start_date"])
     classified_date = _to_date(classified_at)
 
@@ -80,17 +100,10 @@ def compute_handle_quality(
     if len(rows) < thresholds.BASE_MIN_DAYS + thresholds.HANDLE_LEGIT_MIN_DAYS:
         return skip(f"window too short ({len(rows)} rows)")
 
-    # 컵 바닥 (low 최소) → 그 이후 오른쪽 림 (high >= handle_high 첫 거래일).
-    # 단순 "첫 high>=handle_high" 는 컵 왼쪽 림을 잡으므로 cup_bottom 이후로 탐색.
-    # (2026-11-05) pivot "+0.1" 가산 폐지로 신규 행은 pivot = 손잡이 고점 그대로 → 고점 당일
-    # (high == pivot) 이 매칭된다. 그 전 저장 행은 pivot = 고점+0.1 이라 §7-1 101행이 미매칭 —
-    # 과거 행 역산(pivot−0.1 또는 최근접 고가 봉)은 #175 재설계 범위.
+    # S3 컵 바닥 (low 최소) → S4′ 그 이후 오른쪽 림 (high >= pivot_eff 첫 거래일, 2단 매칭).
+    # 단순 "첫 high>=pivot" 는 컵 왼쪽 림을 잡으므로 cup_bottom 이후로 탐색.
     cup_bottom_idx = min(range(len(rows)), key=lambda i: float(rows[i][2]))  # rows[i][2] = low
-    right_rim_idx = None
-    for idx in range(cup_bottom_idx, len(rows)):
-        if float(rows[idx][1]) >= handle_high:  # rows[idx][1] = high
-            right_rim_idx = idx
-            break
+    right_rim_idx, handle_high, pivot_eff_source = find_handle_start(rows, cup_bottom_idx, pivot_price)
     if right_rim_idx is None:
         return skip("right rim not recovered after cup bottom")
 
@@ -103,6 +116,9 @@ def compute_handle_quality(
         return skip(f"base window too short ({len(base_rows)} days)")
 
     handle_low = min(float(r[2]) for r in handle_rows)
+    if handle_low >= handle_high - _EPS:
+        # S6′ 가드: pivot 위의 구간은 손잡이가 아니다(돌파 후 상태) — #161 이 "손절가 ≥ 트리거" 를 읽는 사고 차단
+        return skip("handle_above_pivot")
     base_low = float(cls["base_low"]) if cls.get("base_low") is not None else \
         min(float(r[2]) for r in base_rows)
     base_high = float(cls["base_high"]) if cls.get("base_high") is not None else \
@@ -123,12 +139,6 @@ def compute_handle_quality(
     fired_dist = dist_days >= 1
 
     fired = fired_b or fired_dist
-    if not fired:
-        log.info(
-            "[handle_quality] checked-not-fired symbol=%s depth=%.1f%% ratio_b=%.3f dist=%d",
-            symbol, handle_depth_pct, ratio_b, dist_days,
-        )
-        return None
 
     # 가중치 (E) 위치 / (F) MA50 — 단독 트리거 아님, reasons 와 함께 기록만.
     denom = (base_high - base_low)
@@ -144,17 +154,36 @@ def compute_handle_quality(
     if handle_position_low: weights.append("handle_position_low")
     if handle_below_ma50: weights.append("handle_below_ma50")
 
+    handle_start = _to_date(handle_rows[0][0]).isoformat()
+    handle_end = _to_date(handle_rows[-1][0]).isoformat()
+    if not fired:
+        log.info(
+            "[handle_quality] checked-not-fired symbol=%s depth=%.1f%% ratio_b=%.3f dist=%d",
+            symbol, handle_depth_pct, ratio_b, dist_days,
+        )
+
     return {
-        "fired": True,
+        "fired": fired,
         "reasons": reasons,
         "weights": weights,
         "metrics": {
             "handle_depth_pct": round(handle_depth_pct, 2),  # (#177) echo — 판정 비관여
             "ratio_b": round(ratio_b, 3),
             "distribution_days": dist_days,
-            "handle_start": _to_date(handle_rows[0][0]).isoformat(),
-            "handle_end": _to_date(handle_rows[-1][0]).isoformat(),
+            "handle_start": handle_start,
+            "handle_end": handle_end,
+            "handle_days": len(handle_rows),
             "handle_high": round(handle_high, 2),
             "handle_low": round(handle_low, 2),
+            "pivot_eff": round(handle_high, 4),
+            "pivot_eff_source": pivot_eff_source,
+        },
+        # (#175) 구조 저점 — 발화 여부와 무관. 저장은 store.insert_* (handle_low·handle_start·handle_end).
+        "structural_low": {
+            "kind": "handle_low",
+            "price": round(handle_low, 4),
+            "start": handle_start,
+            "end": handle_end,
+            "days": len(handle_rows),
         },
     }
