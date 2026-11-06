@@ -88,6 +88,18 @@ def quantiles(xs: list[float]) -> dict:
     return {"n": len(s), "min": s[0], "q1": q(.25), "median": q(.5), "q3": q(.75), "p90": q(.9), "max": s[-1]}
 
 
+def legacy_window_end(classified_at: datetime, analyzed_for_date: date | None, table: str) -> date:
+    """구 규칙의 창 끝(미포함) = 저장 당시 store 경로 그대로.
+    실전(weekly_classification) = `datetime.now(timezone.utc).date()` 였던 classified_at 의 **UTC** 날짜(psycopg 가 세션 tz 로 돌려준
+    aware datetime 이라도 UTC 로 환산 — 리뷰 R1-2). 백필/백테스트/리콜 = `gate_at = analyzed_for_date + 1`."""
+    from datetime import timedelta, timezone
+    if table != "weekly_classification" and analyzed_for_date is not None:
+        return analyzed_for_date + timedelta(days=1)
+    if isinstance(classified_at, datetime) and classified_at.tzinfo is not None:
+        return classified_at.astimezone(timezone.utc).date()
+    return _d(classified_at)
+
+
 def kst_fallback_as_of(classified_at: datetime) -> date:
     """analyzed_for_date 가 없는 과거 행의 as_of = classified_at 의 KST 날짜 − 1일(그날 봉까지 포함)."""
     from datetime import timedelta

@@ -28,14 +28,14 @@ import os
 import re
 import sys
 from collections import Counter
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 
 import psycopg
 from dotenv import load_dotenv
 
 from kr_pipeline.llm_runner.compute.handle_low_readout import (
-    compare_fired_rows, fired_transition, kst_fallback_as_of, legacy_detect, quantiles,
+    compare_fired_rows, fired_transition, kst_fallback_as_of, legacy_detect, legacy_window_end, quantiles,
 )
 from kr_pipeline.llm_runner.compute.handle_quality import compute_handle_quality
 
@@ -103,7 +103,7 @@ def run_table(conn, table: str) -> dict:
                "base_high": bh, "base_low": bl}
         # 구 규칙 창 끝 = 저장 당시 store 경로 그대로: 실전(weekly) = classified_at 의 UTC 날짜 미포함,
         # 백필/백테스트 = gate_at(analyzed_for_date + 1) 미포함(= D 포함)
-        legacy_end = (afd + timedelta(days=1)) if table != "weekly_classification" and afd is not None else _d(cat)
+        legacy_end = legacy_window_end(cat, afd, table)   # 실전 = UTC 날짜 미포함(세션 tz 무관), 백필 = D+1 미포함
         rows_old = _bars(cur, sym, bsd, legacy_end, False) if bsd is not None else []
         old, skip = legacy_detect(rows_old, cls)
         if old is None:

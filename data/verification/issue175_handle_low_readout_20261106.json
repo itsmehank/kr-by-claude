@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-06T15:18:34",
+ "generated_at": "2026-11-06T15:37:45",
  "tables": [
   {
    "table": "weekly_classification",
@@ -412,9 +412,9 @@
     "old_detected": 84,
     "new_detected": 181,
     "old_skip": {
-     "S4 rim not recovered": 124,
+     "S4 rim not recovered": 127,
      "S1 pivot_basis": 139,
-     "S5 handle<5": 19,
+     "S5 handle<5": 16,
      "S5 base<5": 2
     },
     "new_skip": {

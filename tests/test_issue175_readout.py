@@ -20,3 +20,14 @@ def test_fired_transition_labels_2x2():
     assert fired_transition(True, False) == "fired→not"
     assert fired_transition(False, True) == "not→fired"
     assert fired_transition(None, False) == "legacy_none→not"
+
+
+def test_legacy_window_end_uses_utc_date_for_live_rows():
+    """리뷰 R1-2: 구 규칙 재현의 실전 행 창 끝은 classified_at 의 **UTC** 날짜(세션 tz 무관). 금 21:00 UTC = 토 06:00 KST → UTC 날짜 = 금."""
+    from datetime import date, datetime, timedelta, timezone
+    from zoneinfo import ZoneInfo
+    from kr_pipeline.llm_runner.compute.handle_low_readout import legacy_window_end
+    cat_kst = datetime(2026, 6, 13, 6, 0, tzinfo=ZoneInfo("Asia/Seoul"))        # psycopg 가 세션 tz 로 돌려준 꼴
+    assert legacy_window_end(cat_kst, None, "weekly_classification") == date(2026, 6, 12)
+    assert legacy_window_end(cat_kst, date(2026, 6, 12), "weekly_classification") == date(2026, 6, 12)
+    assert legacy_window_end(datetime(2026, 8, 11, tzinfo=timezone.utc), date(2020, 8, 14), "backtest_classification") == date(2020, 8, 15)
