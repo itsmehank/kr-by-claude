@@ -69,7 +69,21 @@
 | weekly | 165 | 0.05pp | 1.94pp | 29 | 17.6% (11-05 명세: 36%) |
 | backtest | 781 | 1.17pp | 4.12pp | 257 | 32.9% |
 
+## §7 과거 행 소급 `--plan` (2026-11-06, 읽기 전용 — `scripts/issue175_handle_low_backfill.py --plan --table all`)
+
+운영 DB 에는 `handle_low` 열이 아직 없어(schema 적용은 머지·승인 후) 전 cwh 행을 후보로 집계했다. `--apply` 는 열 적용 후 테이블 하나씩,
+사용자 승인 후에만.
+
+| 테이블 | 후보(cwh) | 채워질 행 | 주요 미평가 사유 |
+|---|---|---|---|
+| weekly_classification | 372 | **182** | pivot_basis None 122·cup_high 15·range_high 5, 림 미회복 23, 손잡이 <5일 23, 베이스 <5일 2 |
+| classification_backfill | 48 | **10** | pivot_basis None 29·range_high 5, 림 미회복 4 |
+| backtest_classification | 2,351 | **853** | pivot_basis None 1,038·range_high 67, 림 미회복 158, 손잡이 <5일 184, handle_above_pivot 34, 기타 17 |
+| recall_audit_classification | 323 | **104** | pivot_basis None 152·range_high 4, 손잡이 <5일 43, 림 미회복 14, handle_above_pivot 5, 기타 1 |
+
+`handle_above_pivot` 39행(백테스트 34·리콜 감사 5)은 adj 재스케일 vs 저장 pivot 불일치 — 설계 §7 대로 NULL 유지.
+
 ## 다음
 
-- 소급 `--plan`(Task 9) 숫자는 §7 에 추기. `--apply` 는 사용자 승인 후.
+- `--apply` 는 사용자 승인 후(테이블 명시, 다른 열 불변).
 - 배포 후 첫 주말: 신규 cwh 행 `handle_low` non-null 비율·발화율·(D′) 하단 마감 분배일 비율 1회 기록(설계 §6-4).
