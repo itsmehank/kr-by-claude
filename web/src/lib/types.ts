@@ -305,6 +305,10 @@ export interface Classification {
   pivot_basis: string | null;
   // (#253) 래칫 적용 후 트리거 기준 pivot — 판독값과 다를 수 있음. 레거시 행은 null.
   effective_pivot?: number | null;
+  // (#175) 컵손잡이 구조 저점(손잡이 일중 최저가)·구간 — 결정론 검출기 산출. 비컵손잡이·미평가·레거시 행은 null.
+  handle_low?: number | null;
+  handle_start?: string | null;
+  handle_end?: string | null;
   base_high: number | null;
   base_low: number | null;
   base_depth_pct: number | null;
@@ -381,6 +385,10 @@ export interface ClassificationHistoryRow {
   pivot_price?: number | null;
   // (#253) 래칫 적용 후 트리거 기준 pivot — 라이브 행만
   effective_pivot?: number | null;
+  // (#175) 컵손잡이 구조 저점
+  handle_low?: number | null;
+  handle_start?: string | null;
+  handle_end?: string | null;
 }
 
 export interface ReviewTrigger {

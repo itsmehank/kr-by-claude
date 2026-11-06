@@ -134,6 +134,16 @@ export function ClassificationCard({ ticker }: Props) {
               {effectivePivotNote(c.pivot_price, c.effective_pivot)}
             </div>
           )}
+          {c.handle_low != null && (
+            <div className="text-data-xs text-faint">
+              {/* (#175) 결정론 검출기가 잡은 손잡이 저점 — 손절 참조 후보(#161 전까지 표시 전용) */}
+              손잡이 저점 {c.handle_low.toLocaleString()}원
+              {c.pivot_price != null && c.pivot_price > 0
+                ? ` (pivot 대비 −${(((c.pivot_price - c.handle_low) / c.pivot_price) * 100).toFixed(1)}%)`
+                : ""}
+              {c.handle_start && c.handle_end ? ` · ${c.handle_start} ~ ${c.handle_end}` : ""}
+            </div>
+          )}
         </div>
         {c.risk_flags.length > 0 && (
           <div className="flex flex-wrap gap-1">

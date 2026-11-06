@@ -13,6 +13,10 @@ class ClassificationRow(BaseModel):
     pivot_basis: str | None
     # (#253) 래칫 적용 후 트리거 기준 pivot — 판독값(pivot_price)과 다를 수 있음. 레거시 행은 None.
     effective_pivot: float | None = None
+    # (#175) 컵손잡이 구조 저점 — 결정론 검출기 산출(발화 무관). 비컵손잡이·미평가·레거시 행은 None.
+    handle_low: float | None = None
+    handle_start: date | None = None
+    handle_end: date | None = None
     base_high: float | None
     base_low: float | None
     base_depth_pct: float | None
@@ -40,3 +44,7 @@ class ClassificationHistoryRow(BaseModel):
     pivot_price: float | None = None
     # (#253) 래칫 적용 후 트리거 기준 pivot — 라이브 행만(백필 행·레거시 행은 None)
     effective_pivot: float | None = None
+    # (#175) 컵손잡이 구조 저점(라이브·백필 양쪽 열 있음)
+    handle_low: float | None = None
+    handle_start: date | None = None
+    handle_end: date | None = None
