@@ -7,7 +7,8 @@
 
 출력(spec 2026-11-06-issue175-handle-low-design.md §6-2):
   (a) 발화 저장 행(triggered_rules.2E_*.handle_quality_metrics): 구·신 규칙이 **오늘 데이터로 둘 다 식별한** 행에서
-      구 규칙(재구현) vs 신 규칙의 handle_start·handle_high 전수 일치 + "구 식별·신 비식별(handle_above_pivot 가드 외)" 0건
+      구 규칙(재구현) vs 신 규칙의 handle_start·handle_high 전수 일치(단, 구 관례 행에서 고점 당일이 돌파 봉보다 앞서 신 시작이
+      더 이른 "start_corrected" 는 S4′ 의도 — 통과·기록) + "구 식별·신 비식별(handle_above_pivot·pivot_below_cup_bottom 가드 외)" 0건
       = **머지 게이트(exit 2)**. 저장 metrics 와의 차이(stored_drift)는 저장 당시 데이터 빈티지(adj 재적재 등) — 정보만.
       구 규칙도 식별 못 하는 행(legacy_none: #177 하한 5일 이전 저장분·adj 재스케일)은 이번 변경과 무관 — 건수·사유만 기록.
   (b) handle_end 변화 행 목록(기대 = 09:00 KST 이전 실행 행)
@@ -25,35 +26,22 @@ import argparse
 import json
 import logging
 import os
-import re
 import sys
 from collections import Counter
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import psycopg
 from dotenv import load_dotenv
 
 from kr_pipeline.llm_runner.compute.handle_low_readout import (
-    compare_fired_rows, fired_transition, kst_fallback_as_of, legacy_detect, legacy_window_end, quantiles,
+    compare_fired_rows, fired_transition, legacy_detect, legacy_window_end, quantiles, start_correction_kind,
 )
-from kr_pipeline.llm_runner.compute.handle_quality import compute_handle_quality
+from kr_pipeline.llm_runner.compute.handle_quality import compute_handle_quality_with_reason, kst_fallback_as_of
 
 TABLES = {"weekly": "weekly_classification", "backtest": "backtest_classification"}
-_SKIP_RE = re.compile(r"reason=(.+)$")
-
-
-class _SkipCapture(logging.Handler):
-    """검출기 skip 사유(log.info "[handle_quality] skipped … reason=…")를 반환값 대신 로그에서 읽는다(검출기 서명 불변)."""
-    def __init__(self):
-        super().__init__(level=logging.INFO)
-        self.last: str | None = None
-
-    def emit(self, record):
-        msg = record.getMessage()
-        if "[handle_quality] skipped" in msg:
-            m = _SKIP_RE.search(msg)
-            self.last = m.group(1) if m else msg
+_KST = ZoneInfo("Asia/Seoul")
 
 
 def _d(x):
@@ -80,11 +68,6 @@ def _stored_metrics(tr):
 
 
 def run_table(conn, table: str) -> dict:
-    cap = _SkipCapture()
-    hq_log = logging.getLogger("kr_pipeline.llm_runner.compute.handle_quality")
-    hq_log.addHandler(cap)
-    hq_log.setLevel(logging.INFO)
-    prev_propagate, hq_log.propagate = hq_log.propagate, False
     cur = conn.cursor()
     cur.execute(f"""SELECT symbol, classified_at, analyzed_for_date, classification, pattern, pivot_price, pivot_basis,
                            base_high, base_low, base_depth_pct, base_start_date, triggered_rules, measurements
@@ -95,7 +78,7 @@ def run_table(conn, table: str) -> dict:
     skip_old, skip_new, src_new, trans = Counter(), Counter(), Counter(), Counter()
     reasons_old, reasons_new = Counter(), Counter()
     fired_cmp = {"n": 0, "both_detect": 0, "start_high_match": 0, "mismatch": [], "end_changed": [],
-                 "legacy_none": [], "new_none_guard": [], "new_none_other": [], "stored_drift": []}
+                 "legacy_none": [], "new_none_guard": [], "new_none_rule": [], "new_none_other": [], "stored_drift": [], "start_corrected": []}
     depths_new, llm_diff, above_pivot = [], [], 0
     n_old = n_new = 0
     for (sym, cat, afd, c, pat, pv, pb, bh, bl, bd, bsd, tr, meas) in cls_rows:
@@ -112,11 +95,10 @@ def run_table(conn, table: str) -> dict:
             n_old += 1
         # 신 규칙(as_of 포함 창) — 검출기 본체 호출
         as_of = afd or kst_fallback_as_of(cat)
-        cap.last = None
-        new = compute_handle_quality(conn, sym, cat, cls, as_of=as_of)
+        new, new_skip = compute_handle_quality_with_reason(conn, sym, cat, cls, as_of=as_of)
         if new is None:
-            skip_new[cap.last or "unknown"] += 1
-            if cap.last == "handle_above_pivot":
+            skip_new[new_skip or "unknown"] += 1
+            if new_skip == "handle_above_pivot":
                 above_pivot += 1
         else:
             n_new += 1
@@ -142,17 +124,29 @@ def run_table(conn, table: str) -> dict:
                 # 오늘 데이터·현 규칙(#177 하한 5일 등)으로는 구 규칙도 식별 못 함 — 이번 변경과 무관(저장 당시 규칙/데이터 차이)
                 fired_cmp["legacy_none"].append({**key, "legacy_skip": skip,
                                                  "new": None if new is None else {k: new["metrics"].get(k) for k in ("handle_start", "handle_high", "pivot_eff_source")},
-                                                 "new_skip": None if new is not None else cap.last})
+                                                 "new_skip": None if new is not None else new_skip})
                 continue
             if new is None:
-                bucket = "new_none_guard" if cap.last == "handle_above_pivot" else "new_none_other"
-                fired_cmp[bucket].append({**key, "new_skip": cap.last,
+                # 가드(의도된 NULL) / 길이 규칙(S4′ 교정으로 시작이 당겨져 base<5·handle<5 가 된 경우 — 규칙 그대로, 결함 아님) / 그 외(게이트)
+                if new_skip in ("handle_above_pivot", "pivot_below_cup_bottom"):
+                    bucket = "new_none_guard"
+                elif new_skip and (new_skip.startswith("base window too short") or new_skip.startswith("handle not formed")):
+                    bucket = "new_none_rule"
+                else:
+                    bucket = "new_none_other"
+                fired_cmp[bucket].append({**key, "new_skip": new_skip,
                                           "legacy": {k: old.get(k) for k in ("handle_start", "handle_high", "handle_low")}})
                 continue
             fired_cmp["both_detect"] += 1
             cmpr_legacy = compare_fired_rows(old, new["metrics"])          # 게이트: 같은 데이터, 구 vs 신
             cmpr = compare_fired_rows(stored, new["metrics"])              # 정보: 저장 당시 데이터 vs 오늘
-            if not (cmpr_legacy["start_match"] and cmpr_legacy["high_match"]):
+            corr = start_correction_kind(old, new["metrics"])
+            if corr == "earlier_legacy_high":
+                # S4′ 의도된 교정(리뷰 1): 고점 당일이 돌파 봉보다 앞선 구 관례 행 — 게이트 통과, 건수·행 기록
+                fired_cmp["start_corrected"].append({"symbol": sym, "classified_at": cat.isoformat(),
+                                                     "legacy": {k: old.get(k) for k in ("handle_start", "handle_high", "handle_low")},
+                                                     "new": {k: new["metrics"].get(k) for k in ("handle_start", "handle_high", "handle_low")}})
+            elif not (cmpr_legacy["start_match"] and cmpr_legacy["high_match"]):
                 fired_cmp["mismatch"].append({"symbol": sym, "classified_at": cat.isoformat(), "kind": "legacy_vs_new",
                                               "cmp": cmpr_legacy,
                                               "legacy": {k: old.get(k) for k in ("handle_start", "handle_high", "handle_end")},
@@ -168,9 +162,7 @@ def run_table(conn, table: str) -> dict:
             if cmpr["end_changed"]:
                 fired_cmp["end_changed"].append({"symbol": sym, "classified_at": cat.isoformat(),
                                                  "stored_end": stored.get("handle_end"), "new_end": new["metrics"]["handle_end"],
-                                                 "kst_hour": cat.astimezone(__import__("zoneinfo").ZoneInfo("Asia/Seoul")).hour})
-    hq_log.removeHandler(cap)
-    hq_log.propagate = prev_propagate
+                                                 "kst_hour": cat.astimezone(_KST).hour})
     band = [x for x in depths_new if 8.0 <= x <= 12.0]
     return {
         "table": table, "rows_cwh_entry_watch": len(cls_rows),
@@ -179,8 +171,10 @@ def run_table(conn, table: str) -> dict:
                          "mismatch_n": len(fired_cmp["mismatch"]), "mismatch": fired_cmp["mismatch"],
                          "legacy_none_n": len(fired_cmp["legacy_none"]), "legacy_none": fired_cmp["legacy_none"],
                          "new_none_guard_n": len(fired_cmp["new_none_guard"]), "new_none_guard": fired_cmp["new_none_guard"],
+                         "new_none_rule_n": len(fired_cmp["new_none_rule"]), "new_none_rule": fired_cmp["new_none_rule"],
                          "new_none_other_n": len(fired_cmp["new_none_other"]), "new_none_other": fired_cmp["new_none_other"],
-                         "stored_drift_n": len(fired_cmp["stored_drift"]), "stored_drift": fired_cmp["stored_drift"]},
+                         "stored_drift_n": len(fired_cmp["stored_drift"]), "stored_drift": fired_cmp["stored_drift"],
+                         "start_corrected_n": len(fired_cmp["start_corrected"]), "start_corrected": fired_cmp["start_corrected"]},
         "b_end_changed": {"n": len(fired_cmp["end_changed"]), "rows": fired_cmp["end_changed"]},
         "c_fired_transition": dict(trans), "c_reasons_old": dict(reasons_old), "c_reasons_new": dict(reasons_new),
         "d_coverage": {"old_detected": n_old, "new_detected": n_new,
@@ -211,20 +205,24 @@ def main() -> int:
                 gate_ok = False
             summary = {k: v for k, v in r.items() if k not in ("a_fired_rows", "b_end_changed")}
             summary["a_fired_rows"] = {k: v for k, v in a.items()
-                                       if k not in ("mismatch", "legacy_none", "new_none_guard", "new_none_other", "stored_drift")}
+                                       if k not in ("mismatch", "legacy_none", "new_none_guard", "new_none_rule", "new_none_other", "stored_drift", "start_corrected")}
             summary["b_end_changed_n"] = r["b_end_changed"]["n"]
             print(json.dumps(summary, ensure_ascii=False, indent=1, default=str))
             for m in a["mismatch"][:10]:
                 print("MISMATCH", json.dumps(m, ensure_ascii=False, default=str))
             for m in a["stored_drift"][:10]:
                 print("STORED_DRIFT", json.dumps(m, ensure_ascii=False, default=str))
+            for m in a["new_none_rule"][:10]:
+                print("NEW_NONE_RULE", json.dumps(m, ensure_ascii=False, default=str))
             for m in a["new_none_other"][:10]:
                 print("NEW_NONE_OTHER", json.dumps(m, ensure_ascii=False, default=str))
             for m in a["new_none_guard"][:10]:
                 print("NEW_NONE_GUARD", json.dumps(m, ensure_ascii=False, default=str))
             for m in a["legacy_none"][:20]:
                 print("LEGACY_NONE", json.dumps(m, ensure_ascii=False, default=str))
-            for e in r["b_end_changed"][:10] if isinstance(r["b_end_changed"], list) else r["b_end_changed"]["rows"][:10]:
+            for m in a["start_corrected"][:10]:
+                print("START_CORRECTED", json.dumps(m, ensure_ascii=False, default=str))
+            for e in r["b_end_changed"]["rows"][:10]:
                 print("END_CHANGED", json.dumps(e, ensure_ascii=False, default=str))
     dest = Path("data/verification") / f"issue175_handle_low_readout_{date.today():%Y%m%d}.json"
     dest.write_text(json.dumps(out, ensure_ascii=False, indent=1, default=str))

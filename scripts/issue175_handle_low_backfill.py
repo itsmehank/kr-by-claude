@@ -16,7 +16,6 @@ import argparse
 import json
 import logging
 import os
-import re
 import sys
 from datetime import date
 
@@ -24,36 +23,21 @@ import psycopg
 from dotenv import load_dotenv
 
 from kr_pipeline.llm_runner.compute.handle_low_backfill import ALL_TABLES, PK_COLUMNS, plan_rows, require_table_for_apply
-from kr_pipeline.llm_runner.compute.handle_low_readout import kst_fallback_as_of
-from kr_pipeline.llm_runner.compute.handle_quality import compute_handle_quality
-
-_SKIP_RE = re.compile(r"reason=(.+)$")
+from kr_pipeline.llm_runner.compute.handle_quality import compute_handle_quality_with_reason, kst_fallback_as_of
 
 
-class _SkipCapture(logging.Handler):
-    def __init__(self):
-        super().__init__(level=logging.INFO)
-        self.last: str | None = None
-
-    def emit(self, record):
-        msg = record.getMessage()
-        if "[handle_quality] skipped" in msg:
-            m = _SKIP_RE.search(msg)
-            self.last = m.group(1) if m else msg
+def has_handle_low_column(conn, table: str) -> bool:
+    with conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM information_schema.columns WHERE table_name = %s AND column_name = 'handle_low'", (table,))
+        return cur.fetchone() is not None
 
 
 def detect_rows(conn, table: str):
     """(행 키, 검출 결과 | None, skip 사유) 생성. SELECT 만."""
-    cap = _SkipCapture()
-    hq_log = logging.getLogger("kr_pipeline.llm_runner.compute.handle_quality")
-    hq_log.addHandler(cap)
-    hq_log.setLevel(logging.INFO)
-    prev, hq_log.propagate = hq_log.propagate, False
-    try:
+    if True:
         with conn.cursor() as cur:
             # 운영 DB 에 schema.sql(handle_low 열)이 아직 적용되지 않았으면(--plan 선행 실행) 열 없이 전 cwh 행을 후보로 본다.
-            cur.execute("SELECT 1 FROM information_schema.columns WHERE table_name = %s AND column_name = 'handle_low'", (table,))
-            has_col = cur.fetchone() is not None
+            has_col = has_handle_low_column(conn, table)
             null_filter = "AND handle_low IS NULL" if has_col else ""
             if not has_col:
                 print(f"[{table}] handle_low 열 없음 — schema.sql 미적용 상태, 전 cwh 행을 후보로 집계(--apply 는 열 적용 후)", file=sys.stderr)
@@ -66,12 +50,8 @@ def detect_rows(conn, table: str):
         for (sym, cat, afd, pat, pv, pb, bh, bl, bd, bsd) in rows:
             cls = {"pattern": pat, "pivot_basis": pb, "base_start_date": bsd, "pivot_price": pv,
                    "base_depth_pct": bd, "base_high": bh, "base_low": bl}
-            cap.last = None
-            det = compute_handle_quality(conn, sym, cat, cls, as_of=afd or kst_fallback_as_of(cat))
-            yield (sym, cat, afd), det, (None if det is not None else (cap.last or "unknown"))
-    finally:
-        hq_log.removeHandler(cap)
-        hq_log.propagate = prev
+            det, reason = compute_handle_quality_with_reason(conn, sym, cat, cls, as_of=afd or kst_fallback_as_of(cat))
+            yield (sym, cat, afd), det, reason
 
 
 def main() -> int:
@@ -93,6 +73,9 @@ def main() -> int:
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
         if args.plan:
             conn.read_only = True
+        if args.apply and not has_handle_low_column(conn, tables[0]):
+            print(f"[{tables[0]}] handle_low 열 없음 — schema.sql 을 먼저 적용하세요(--apply 중단)", file=sys.stderr)
+            return 2
         for t in tables:
             detected = list(detect_rows(conn, t))
             summary = plan_rows((det, reason) for _k, det, reason in detected)

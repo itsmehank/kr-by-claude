@@ -345,3 +345,53 @@ def test_right_rim_matches_when_high_equals_pivot(db):
     assert r_eq is not None and r_gt is not None
     assert r_eq["metrics"]["handle_start"] == r_gt["metrics"]["handle_start"]
     assert r_eq["metrics"]["handle_high"] == 100.0 and r_eq["metrics"]["handle_low"] == 90.0
+
+
+# ---------- (#175 PR #263 코드 리뷰 반영) ----------
+
+def test_two_pass_prefers_earliest_bar_for_legacy_rows(db):
+    """리뷰 1: 구 행(pivot=H+0.1)에서 고점 당일(high == H)이 돌파 봉보다 앞서면 ② 가 잡는 **앞 봉**이 손잡이 시작이어야 한다
+    (돌파 후 되돌림 저점이 handle_low 로 저장되는 것 방지)."""
+    start = date(2026, 11, 2)
+    bars = _cup(1000)[:5] + [(100, 96, 99, 1000, False),      # idx5 손잡이 고점 당일(high == 100)
+                             (105, 101, 104, 3000, False)]    # idx6 돌파 봉(high 105 > 100.1)
+    bars += [(103, 95, 98, 400, False)] + [(99, 97, 98, 400, False)] * 4   # 돌파 후 되돌림 저가 95
+    r = _run(db, "HQEARLY", bars, start, 20, pivot=100.1)
+    assert r is not None and r["metrics"]["pivot_eff_source"] == "minus_0_1"
+    assert r["metrics"]["handle_start"] == (start + timedelta(days=5)).isoformat()
+    assert r["structural_low"]["price"] == 95.0 and r["metrics"]["handle_days"] == 7
+
+
+def test_cup_bottom_bar_reaching_pivot_is_scale_mismatch(db):
+    """리뷰 2: 컵 바닥 봉의 고가가 이미 pivot 이상(= 모든 봉이 pivot 위에서 거래, 수정주가 재스케일 등) → 컵이 아님 → 미평가(None)."""
+    start = date(2026, 11, 16)
+    lows = [95, 94, 93, 92, 91, 90, 91, 92, 93, 94, 95, 96]           # 컵 바닥 idx5(low 90) — 앞 5봉이 베이스 하한을 넘김
+    bars = [(110, lo, 100, 1000, False) for lo in lows]               # 전 봉 high 110 ≥ pivot 100 → 바닥 봉이 곧 "림"
+    assert _run(db, "HQSCALE", bars, start, 20) is None
+
+
+def test_with_reason_returns_skip_reason():
+    """리뷰 4: 스킵 사유를 로그 파싱이 아니라 반환값으로."""
+    from kr_pipeline.llm_runner.compute.handle_quality import compute_handle_quality_with_reason
+    cls = _cls(pattern="flat_base", base_start=date(2026, 5, 1), classified_at=datetime(2026, 5, 13, tzinfo=timezone.utc))
+    assert compute_handle_quality_with_reason(None, "X", cls["classified_at"], cls) == (None, "pattern=flat_base")
+
+
+def test_b_rule_uses_first_non_null_avg50_in_handle(db):
+    """리뷰 7: 림 봉의 avg_volume_50d 만 NULL 이면 손잡이 안 첫 non-NULL 값으로 (B′) 평가."""
+    start = date(2026, 11, 30)
+    bars = _cup(1000) + _handle(5, low=96, vol=2000)
+    with db.cursor() as cur:
+        cur.execute("INSERT INTO stocks (ticker, name, market) VALUES ('HQNUL1','HQNUL1','KOSPI') ON CONFLICT DO NOTHING")
+        d = start
+        for i, (high, low, close, vol, dist) in enumerate(bars):
+            cur.execute("INSERT INTO daily_prices (ticker, date, open, high, low, close, adj_close, volume, value) "
+                        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                        ("HQNUL1", d, close, high, low, close, close, vol, vol * close))
+            cur.execute("INSERT INTO daily_indicators (ticker, date, adj_close, sma_50, distribution_day_flag, avg_volume_50d) "
+                        "VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                        ("HQNUL1", d, close, close * 0.95, dist, None if i == 5 else 1000.0))   # idx5 = 림 봉만 NULL
+            d += timedelta(days=1)
+    cls = _cls(base_start=start, classified_at=datetime(2026, 12, 20, tzinfo=timezone.utc))
+    r = compute_handle_quality(db, "HQNUL1", cls["classified_at"], cls)
+    assert r is not None and r["metrics"]["b_unevaluated"] is False and r["fired"] and "volume_not_contracting" in r["reasons"]

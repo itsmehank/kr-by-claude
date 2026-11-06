@@ -38,16 +38,16 @@ def main():
         result = compute_handle_quality(conn, "005850", cls["classified_at"], cls)   # (#175) as_of 생략 → KST 날짜 폴백
 
     print(f"compute_handle_quality result: {result}")
-    assert result is not None, "❌ handle_quality 미발화 (휴리스틱이 핸들 못 짚음 — 회귀 전제 붕괴)"
+    assert result is not None, "❌ handle_quality 미평가 (검출기가 핸들 못 짚음 — 회귀 전제 붕괴)"   # (#175) 비발화도 dict
     assert result["fired"] is True
     m = result["metrics"]
     print(f"  handle_window: {m['handle_start']} ~ {m['handle_end']}")
-    print(f"  handle_high={m['handle_high']} handle_low={m['handle_low']} ratio_a={m['ratio_a']}")
+    print(f"  handle_high={m['handle_high']} handle_low={m['handle_low']} volume_vs_50d={m['volume_vs_50d']}")   # (#177/#175) ratio_a 제거
     # 휴리스틱이 핸들을 올바로 짚었는지 — 예상 handle_high≈71900, handle_low≈58900.
     assert 70000 <= m["handle_high"] <= 73000, f"❌ handle_high={m['handle_high']} 예상(≈71900) 벗어남 — 우측 림 오인식"
     assert 55000 <= m["handle_low"] <= 62000, f"❌ handle_low={m['handle_low']} 예상(≈58900) 벗어남 — 핸들 저점 오인식"
-    assert m["ratio_a"] > 0.33, f"❌ ratio_a={m['ratio_a']} <= 0.33"
-    assert "deep_handle" in result["reasons"], "deep_handle 트리거 기대"
+    # (#177) ratio_a 조건 삭제·(#175) 거래량 규칙 = volume_vs_50d ≥ HANDLE_VOLUME_VS_50D_MAX
+    assert "volume_not_contracting" in result["reasons"], "volume_not_contracting 트리거 기대(#175 (B′))"
     print("✅ 005850 handle_quality 앵커 검증 통과")
 
 

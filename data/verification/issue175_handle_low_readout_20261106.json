@@ -1,13 +1,13 @@
 {
- "generated_at": "2026-11-06T15:37:45",
+ "generated_at": "2026-11-06T16:18:55",
  "tables": [
   {
    "table": "weekly_classification",
    "rows_cwh_entry_watch": 368,
    "a_fired_rows": {
     "n": 65,
-    "both_detect": 59,
-    "start_high_match": 59,
+    "both_detect": 55,
+    "start_high_match": 42,
     "mismatch_n": 0,
     "mismatch": [],
     "legacy_none_n": 6,
@@ -24,9 +24,9 @@
       },
       "legacy_skip": "S5 handle<5",
       "new": {
-       "handle_start": "2026-07-30",
-       "handle_high": 13820.1,
-       "pivot_eff_source": "exact"
+       "handle_start": "2026-07-15",
+       "handle_high": 13820.0,
+       "pivot_eff_source": "minus_0_1"
       },
       "new_skip": null
      },
@@ -41,8 +41,12 @@
        "handle_end": "2026-08-07"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2026-07-23",
+       "handle_high": 2940.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "036800",
@@ -56,9 +60,9 @@
       },
       "legacy_skip": "S5 handle<5",
       "new": {
-       "handle_start": "2026-08-18",
-       "handle_high": 6400.1,
-       "pivot_eff_source": "exact"
+       "handle_start": "2026-07-06",
+       "handle_high": 6400.0,
+       "pivot_eff_source": "minus_0_1"
       },
       "new_skip": null
      },
@@ -74,9 +78,9 @@
       },
       "legacy_skip": "S5 handle<5",
       "new": {
-       "handle_start": "2026-08-18",
-       "handle_high": 9500.1,
-       "pivot_eff_source": "exact"
+       "handle_start": "2026-08-14",
+       "handle_high": 9500.0,
+       "pivot_eff_source": "minus_0_1"
       },
       "new_skip": null
      },
@@ -91,8 +95,12 @@
        "handle_end": "2026-08-27"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2026-08-13",
+       "handle_high": 424250.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "143240",
@@ -113,15 +121,271 @@
       "new_skip": null
      }
     ],
-    "new_none_guard_n": 0,
-    "new_none_guard": [],
+    "new_none_guard_n": 4,
+    "new_none_guard": [
+     {
+      "symbol": "900260",
+      "classified_at": "2026-08-24T20:39:46.097463+09:00",
+      "analyzed_for_date": "2026-08-24",
+      "stored": {
+       "handle_start": "2026-07-01",
+       "handle_high": 1730.1,
+       "handle_low": 1417.0,
+       "handle_end": "2026-08-21"
+      },
+      "new_skip": "pivot_below_cup_bottom",
+      "legacy": {
+       "handle_start": "2026-07-01",
+       "handle_high": 1730.1,
+       "handle_low": 1417.0
+      }
+     },
+     {
+      "symbol": "002810",
+      "classified_at": "2026-09-07T18:41:09.494123+09:00",
+      "analyzed_for_date": "2026-09-07",
+      "stored": {
+       "handle_start": "2026-08-28",
+       "handle_high": 22450.1,
+       "handle_low": 21050.0,
+       "handle_end": "2026-09-04"
+      },
+      "new_skip": "pivot_below_cup_bottom",
+      "legacy": {
+       "handle_start": "2026-08-28",
+       "handle_high": 22450.1,
+       "handle_low": 21050.0
+      }
+     },
+     {
+      "symbol": "900260",
+      "classified_at": "2026-09-18T20:58:23.942331+09:00",
+      "analyzed_for_date": "2026-09-18",
+      "stored": {
+       "handle_start": "2026-07-01",
+       "handle_high": 1730.1,
+       "handle_low": 1417.0,
+       "handle_end": "2026-09-17"
+      },
+      "new_skip": "pivot_below_cup_bottom",
+      "legacy": {
+       "handle_start": "2026-07-01",
+       "handle_high": 1730.1,
+       "handle_low": 1417.0
+      }
+     },
+     {
+      "symbol": "900260",
+      "classified_at": "2026-09-28T22:38:32.132261+09:00",
+      "analyzed_for_date": "2026-09-28",
+      "stored": {
+       "handle_start": "2026-07-01",
+       "handle_high": 2110.1,
+       "handle_low": 1417.0,
+       "handle_end": "2026-09-23"
+      },
+      "new_skip": "pivot_below_cup_bottom",
+      "legacy": {
+       "handle_start": "2026-07-01",
+       "handle_high": 2110.1,
+       "handle_low": 1417.0
+      }
+     }
+    ],
+    "new_none_rule_n": 0,
+    "new_none_rule": [],
     "new_none_other_n": 0,
     "new_none_other": [],
     "stored_drift_n": 0,
-    "stored_drift": []
+    "stored_drift": [],
+    "start_corrected_n": 13,
+    "start_corrected": [
+     {
+      "symbol": "053160",
+      "classified_at": "2026-07-28T02:01:05.635319+09:00",
+      "legacy": {
+       "handle_start": "2026-07-16",
+       "handle_high": 9490.1,
+       "handle_low": 8790.0
+      },
+      "new": {
+       "handle_start": "2026-07-14",
+       "handle_high": 9490.0,
+       "handle_low": 8750.0
+      }
+     },
+     {
+      "symbol": "033560",
+      "classified_at": "2026-08-08T09:20:49.204731+09:00",
+      "legacy": {
+       "handle_start": "2026-07-20",
+       "handle_high": 4135.1,
+       "handle_low": 4010.0
+      },
+      "new": {
+       "handle_start": "2026-07-01",
+       "handle_high": 4135.0,
+       "handle_low": 3545.0
+      }
+     },
+     {
+      "symbol": "093320",
+      "classified_at": "2026-08-14T21:19:00.095939+09:00",
+      "legacy": {
+       "handle_start": "2026-07-27",
+       "handle_high": 148900.1,
+       "handle_low": 128000.0
+      },
+      "new": {
+       "handle_start": "2026-07-23",
+       "handle_high": 148900.0,
+       "handle_low": 127000.0
+      }
+     },
+     {
+      "symbol": "228850",
+      "classified_at": "2026-08-20T18:45:43.928912+09:00",
+      "legacy": {
+       "handle_start": "2026-08-11",
+       "handle_high": 6590.1,
+       "handle_low": 5610.0
+      },
+      "new": {
+       "handle_start": "2026-08-10",
+       "handle_high": 6590.0,
+       "handle_low": 5610.0
+      }
+     },
+     {
+      "symbol": "093320",
+      "classified_at": "2026-08-24T20:24:17.989167+09:00",
+      "legacy": {
+       "handle_start": "2026-07-27",
+       "handle_high": 148900.1,
+       "handle_low": 128000.0
+      },
+      "new": {
+       "handle_start": "2026-07-23",
+       "handle_high": 148900.0,
+       "handle_low": 127000.0
+      }
+     },
+     {
+      "symbol": "049430",
+      "classified_at": "2026-08-29T03:22:03.346489+09:00",
+      "legacy": {
+       "handle_start": "2026-08-18",
+       "handle_high": 22050.1,
+       "handle_low": 19500.0
+      },
+      "new": {
+       "handle_start": "2026-08-14",
+       "handle_high": 22050.0,
+       "handle_low": 19500.0
+      }
+     },
+     {
+      "symbol": "049430",
+      "classified_at": "2026-09-07T21:38:24.175493+09:00",
+      "legacy": {
+       "handle_start": "2026-08-18",
+       "handle_high": 22050.1,
+       "handle_low": 19500.0
+      },
+      "new": {
+       "handle_start": "2026-08-14",
+       "handle_high": 22050.0,
+       "handle_low": 19500.0
+      }
+     },
+     {
+      "symbol": "006360",
+      "classified_at": "2026-09-14T07:13:54.748319+09:00",
+      "legacy": {
+       "handle_start": "2026-08-27",
+       "handle_high": 38175.1,
+       "handle_low": 31450.0
+      },
+      "new": {
+       "handle_start": "2026-08-26",
+       "handle_high": 38175.0,
+       "handle_low": 31450.0
+      }
+     },
+     {
+      "symbol": "049430",
+      "classified_at": "2026-09-14T07:23:16.807037+09:00",
+      "legacy": {
+       "handle_start": "2026-08-18",
+       "handle_high": 22050.1,
+       "handle_low": 19500.0
+      },
+      "new": {
+       "handle_start": "2026-08-14",
+       "handle_high": 22050.0,
+       "handle_low": 19500.0
+      }
+     },
+     {
+      "symbol": "096530",
+      "classified_at": "2026-09-24T20:51:56.564940+09:00",
+      "legacy": {
+       "handle_start": "2026-08-28",
+       "handle_high": 33950.1,
+       "handle_low": 29900.0
+      },
+      "new": {
+       "handle_start": "2026-08-11",
+       "handle_high": 33950.0,
+       "handle_low": 29150.0
+      }
+     },
+     {
+      "symbol": "029460",
+      "classified_at": "2026-09-26T10:22:22.088979+09:00",
+      "legacy": {
+       "handle_start": "2026-08-31",
+       "handle_high": 41450.1,
+       "handle_low": 36200.0
+      },
+      "new": {
+       "handle_start": "2026-08-28",
+       "handle_high": 41450.0,
+       "handle_low": 36200.0
+      }
+     },
+     {
+      "symbol": "003490",
+      "classified_at": "2026-10-05T22:27:25.335654+09:00",
+      "legacy": {
+       "handle_start": "2026-09-22",
+       "handle_high": 30900.1,
+       "handle_low": 29150.0
+      },
+      "new": {
+       "handle_start": "2026-09-07",
+       "handle_high": 30900.0,
+       "handle_low": 28400.0
+      }
+     },
+     {
+      "symbol": "041960",
+      "classified_at": "2026-10-10T03:03:10.160874+09:00",
+      "legacy": {
+       "handle_start": "2026-09-23",
+       "handle_high": 10340.1,
+       "handle_low": 9650.0
+      },
+      "new": {
+       "handle_start": "2026-09-08",
+       "handle_high": 10340.0,
+       "handle_low": 9120.0
+      }
+     }
+    ]
    },
    "b_end_changed": {
-    "n": 38,
+    "n": 34,
     "rows": [
      {
       "symbol": "000430",
@@ -222,13 +486,6 @@
       "kst_hour": 20
      },
      {
-      "symbol": "900260",
-      "classified_at": "2026-08-24T20:39:46.097463+09:00",
-      "stored_end": "2026-08-21",
-      "new_end": "2026-08-24",
-      "kst_hour": 20
-     },
-     {
       "symbol": "003490",
       "classified_at": "2026-08-26T18:40:48.679585+09:00",
       "stored_end": "2026-08-25",
@@ -262,13 +519,6 @@
       "stored_end": "2026-08-27",
       "new_end": "2026-08-28",
       "kst_hour": 3
-     },
-     {
-      "symbol": "002810",
-      "classified_at": "2026-09-07T18:41:09.494123+09:00",
-      "stored_end": "2026-09-04",
-      "new_end": "2026-09-07",
-      "kst_hour": 18
      },
      {
       "symbol": "049430",
@@ -327,13 +577,6 @@
       "kst_hour": 20
      },
      {
-      "symbol": "900260",
-      "classified_at": "2026-09-18T20:58:23.942331+09:00",
-      "stored_end": "2026-09-17",
-      "new_end": "2026-09-18",
-      "kst_hour": 20
-     },
-     {
       "symbol": "294870",
       "classified_at": "2026-09-28T22:32:29.882330+09:00",
       "stored_end": "2026-09-23",
@@ -343,13 +586,6 @@
      {
       "symbol": "316140",
       "classified_at": "2026-09-28T22:35:37.683700+09:00",
-      "stored_end": "2026-09-23",
-      "new_end": "2026-09-28",
-      "kst_hour": 22
-     },
-     {
-      "symbol": "900260",
-      "classified_at": "2026-09-28T22:38:32.132261+09:00",
       "stored_end": "2026-09-23",
       "new_end": "2026-09-28",
       "kst_hour": 22
@@ -392,12 +628,14 @@
     ]
    },
    "c_fired_transition": {
-    "fired→fired": 65,
-    "legacy_none→none": 187,
+    "fired→fired": 61,
+    "legacy_none→none": 171,
     "fired→not": 3,
-    "not→not": 15,
-    "legacy_none→fired": 82,
-    "legacy_none→not": 15,
+    "not→not": 14,
+    "fired→none": 4,
+    "legacy_none→fired": 92,
+    "legacy_none→not": 21,
+    "not→none": 1,
     "not→fired": 1
    },
    "c_reasons_old": {
@@ -405,12 +643,12 @@
     "distribution_in_handle": 62
    },
    "c_reasons_new": {
-    "distribution_in_handle": 138,
-    "volume_not_contracting": 63
+    "distribution_in_handle": 147,
+    "volume_not_contracting": 66
    },
    "d_coverage": {
     "old_detected": 84,
-    "new_detected": 181,
+    "new_detected": 192,
     "old_skip": {
      "S4 rim not recovered": 127,
      "S1 pivot_basis": 139,
@@ -419,43 +657,44 @@
     },
     "new_skip": {
      "right rim not recovered after cup bottom": 23,
+     "pivot_below_cup_bottom": 5,
      "pivot_basis=range_high": 5,
-     "handle not formed (1 days < HANDLE_LEGIT_MIN_DAYS)": 13,
-     "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)": 3,
+     "handle not formed (1 days < HANDLE_LEGIT_MIN_DAYS)": 2,
+     "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)": 2,
      "pivot_basis=None": 119,
      "pivot_basis=cup_high": 15,
-     "handle not formed (2 days < HANDLE_LEGIT_MIN_DAYS)": 5,
      "base window too short (3 days)": 1,
-     "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)": 2,
+     "handle not formed (2 days < HANDLE_LEGIT_MIN_DAYS)": 2,
+     "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)": 1,
      "base window too short (2 days)": 1
     },
     "new_pivot_eff_source": {
-     "exact": 87,
-     "minus_0_1": 94
+     "exact": 60,
+     "minus_0_1": 132
     }
    },
    "e_depth_new": {
-    "n": 181,
-    "min": 1.32,
-    "q1": 8.03,
-    "median": 11.93,
-    "q3": 14.84,
-    "p90": 18.82,
-    "max": 32.85,
-    "in_8_12_band": 48,
-    "band_ratio": 0.265,
+    "n": 192,
+    "min": 2.47,
+    "q1": 8.96,
+    "median": 12.15,
+    "q3": 15.0,
+    "p90": 18.64,
+    "max": 25.59,
+    "in_8_12_band": 55,
+    "band_ratio": 0.286,
     "handle_above_pivot": 0
    },
    "f_llm_depth_abs_diff": {
-    "n": 165,
+    "n": 177,
     "min": 0.0,
-    "q1": 0.019999999999999574,
-    "median": 0.05000000000000071,
-    "q3": 1.9399999999999977,
-    "p90": 4.87,
-    "max": 21.05,
-    "gt_3pp": 29,
-    "gt_3pp_ratio": 0.176
+    "q1": 0.010000000000001563,
+    "median": 0.03999999999999915,
+    "q3": 1.2799999999999994,
+    "p90": 4.030000000000001,
+    "max": 13.709999999999999,
+    "gt_3pp": 24,
+    "gt_3pp_ratio": 0.136
    }
   },
   {
@@ -463,8 +702,8 @@
    "rows_cwh_entry_watch": 2350,
    "a_fired_rows": {
     "n": 585,
-    "both_detect": 496,
-    "start_high_match": 496,
+    "both_detect": 500,
+    "start_high_match": 284,
     "mismatch_n": 0,
     "mismatch": [],
     "legacy_none_n": 73,
@@ -480,8 +719,12 @@
        "handle_end": "2021-09-24"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2021-09-03",
+       "handle_high": 24581.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "012450",
@@ -508,8 +751,12 @@
        "handle_end": "2022-03-04"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2022-01-13",
+       "handle_high": 15550.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "340570",
@@ -592,8 +839,12 @@
        "handle_end": "2021-01-08"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2020-12-08",
+       "handle_high": 13800.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "001750",
@@ -606,8 +857,12 @@
        "handle_end": "2021-04-02"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2021-02-08",
+       "handle_high": 11050.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "099750",
@@ -634,8 +889,12 @@
        "handle_end": "2022-01-07"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2021-12-27",
+       "handle_high": 5550.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "108490",
@@ -648,8 +907,12 @@
        "handle_end": "2022-03-25"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2022-03-17",
+       "handle_high": 29409.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "189300",
@@ -676,8 +939,12 @@
        "handle_end": "2022-04-08"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2022-03-25",
+       "handle_high": 15850.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "082740",
@@ -690,8 +957,12 @@
        "handle_end": "2022-08-12"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2022-07-01",
+       "handle_high": 8423.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "099190",
@@ -704,8 +975,12 @@
        "handle_end": "2022-08-12"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2022-07-27",
+       "handle_high": 18940.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "214370",
@@ -718,8 +993,12 @@
        "handle_end": "2022-09-16"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2022-08-08",
+       "handle_high": 30620.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "214370",
@@ -732,8 +1011,12 @@
        "handle_end": "2023-02-03"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2023-01-20",
+       "handle_high": 29140.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "006260",
@@ -746,8 +1029,12 @@
        "handle_end": "2023-04-14"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2023-03-28",
+       "handle_high": 82800.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "214420",
@@ -760,8 +1047,12 @@
        "handle_end": "2023-06-23"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2023-05-17",
+       "handle_high": 5600.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "002710",
@@ -774,8 +1065,12 @@
        "handle_end": "2023-07-14"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2023-06-14",
+       "handle_high": 45300.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "069510",
@@ -788,8 +1083,12 @@
        "handle_end": "2023-12-01"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2023-11-20",
+       "handle_high": 9110.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "180640",
@@ -802,8 +1101,12 @@
        "handle_end": "2023-12-15"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2023-11-28",
+       "handle_high": 54700.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "096530",
@@ -816,8 +1119,12 @@
        "handle_end": "2024-03-22"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2024-03-13",
+       "handle_high": 24700.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "317870",
@@ -830,8 +1137,12 @@
        "handle_end": "2024-04-05"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2024-03-14",
+       "handle_high": 20200.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "160980",
@@ -844,8 +1155,12 @@
        "handle_end": "2024-04-26"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2024-04-18",
+       "handle_high": 20550.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "029780",
@@ -858,8 +1173,12 @@
        "handle_end": "2024-06-07"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2024-05-31",
+       "handle_high": 40500.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "220100",
@@ -886,8 +1205,12 @@
        "handle_end": "2024-09-27"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2024-09-20",
+       "handle_high": 10930.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "298380",
@@ -914,8 +1237,12 @@
        "handle_end": "2017-06-30"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2017-06-05",
+       "handle_high": 11100.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "033640",
@@ -928,8 +1255,12 @@
        "handle_end": "2017-07-14"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2017-07-03",
+       "handle_high": 11650.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "058650",
@@ -956,8 +1287,12 @@
        "handle_end": "2017-09-01"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2017-07-27",
+       "handle_high": 4885.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "005420",
@@ -970,8 +1305,12 @@
        "handle_end": "2017-09-15"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2017-08-30",
+       "handle_high": 11440.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "013870",
@@ -984,8 +1323,12 @@
        "handle_end": "2017-09-15"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2017-09-04",
+       "handle_high": 6880.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "011070",
@@ -998,8 +1341,12 @@
        "handle_end": "2017-10-27"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2017-10-13",
+       "handle_high": 171500.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "045100",
@@ -1012,8 +1359,12 @@
        "handle_end": "2017-10-27"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2017-10-12",
+       "handle_high": 15350.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "010060",
@@ -1027,7 +1378,7 @@
       },
       "legacy_skip": "S5 handle<5",
       "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
      },
      {
       "symbol": "025440",
@@ -1040,8 +1391,12 @@
        "handle_end": "2017-11-24"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2017-11-01",
+       "handle_high": 44100.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "000320",
@@ -1054,8 +1409,12 @@
        "handle_end": "2017-12-01"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2017-10-31",
+       "handle_high": 18450.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "005490",
@@ -1068,8 +1427,12 @@
        "handle_end": "2018-01-05"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2017-10-16",
+       "handle_high": 346000.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "011320",
@@ -1082,8 +1445,12 @@
        "handle_end": "2018-01-26"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2018-01-10",
+       "handle_high": 7720.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "037370",
@@ -1096,8 +1463,12 @@
        "handle_end": "2018-01-26"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2018-01-05",
+       "handle_high": 12300.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "002390",
@@ -1110,8 +1481,12 @@
        "handle_end": "2018-03-16"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2018-02-23",
+       "handle_high": 37850.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "101160",
@@ -1124,8 +1499,12 @@
        "handle_end": "2018-03-16"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2018-03-12",
+       "handle_high": 5860.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "234080",
@@ -1138,8 +1517,12 @@
        "handle_end": "2018-04-06"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2018-03-16",
+       "handle_high": 29050.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "101160",
@@ -1152,8 +1535,12 @@
        "handle_end": "2018-05-25"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2018-03-14",
+       "handle_high": 6850.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "050890",
@@ -1180,8 +1567,12 @@
        "handle_end": "2018-08-31"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2018-07-13",
+       "handle_high": 42050.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "033500",
@@ -1194,8 +1585,12 @@
        "handle_end": "2019-02-28"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2019-02-22",
+       "handle_high": 8950.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "034310",
@@ -1222,8 +1617,12 @@
        "handle_end": "2019-04-26"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2019-02-14",
+       "handle_high": 8826.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "109860",
@@ -1236,8 +1635,12 @@
        "handle_end": "2019-05-24"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2019-04-24",
+       "handle_high": 8903.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "050890",
@@ -1250,8 +1653,12 @@
        "handle_end": "2019-09-06"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2019-08-26",
+       "handle_high": 6372.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "000990",
@@ -1264,8 +1671,12 @@
        "handle_end": "2019-10-11"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2019-09-20",
+       "handle_high": 16150.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "070300",
@@ -1278,8 +1689,12 @@
        "handle_end": "2019-11-29"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2019-11-06",
+       "handle_high": 4643.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "014680",
@@ -1292,8 +1707,12 @@
        "handle_end": "2019-12-20"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2019-12-13",
+       "handle_high": 103500.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "101160",
@@ -1307,7 +1726,7 @@
       },
       "legacy_skip": "S5 handle<5",
       "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
      },
      {
       "symbol": "054540",
@@ -1321,7 +1740,7 @@
       },
       "legacy_skip": "S5 handle<5",
       "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
      },
      {
       "symbol": "247540",
@@ -1348,8 +1767,12 @@
        "handle_end": "2020-06-12"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2020-05-13",
+       "handle_high": 13793.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "213420",
@@ -1376,8 +1799,12 @@
        "handle_end": "2020-07-03"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2020-06-24",
+       "handle_high": 9680.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "271560",
@@ -1404,8 +1831,12 @@
        "handle_end": "2020-08-07"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2020-07-10",
+       "handle_high": 37100.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "102120",
@@ -1418,8 +1849,12 @@
        "handle_end": "2020-09-18"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2020-09-14",
+       "handle_high": 11750.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "112040",
@@ -1432,8 +1867,12 @@
        "handle_end": "2020-10-30"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2020-09-15",
+       "handle_high": 20332.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "247540",
@@ -1460,8 +1899,12 @@
        "handle_end": "2020-12-18"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2020-11-16",
+       "handle_high": 15500.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "101160",
@@ -1474,8 +1917,12 @@
        "handle_end": "2020-12-18"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2020-11-17",
+       "handle_high": 16950.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      },
      {
       "symbol": "000990",
@@ -1488,11 +1935,15 @@
        "handle_end": "2020-12-24"
       },
       "legacy_skip": "S5 handle<5",
-      "new": null,
-      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+      "new": {
+       "handle_start": "2020-11-27",
+       "handle_high": 37500.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
      }
     ],
-    "new_none_guard_n": 16,
+    "new_none_guard_n": 11,
     "new_none_guard": [
      {
       "symbol": "105550",
@@ -1504,7 +1955,7 @@
        "handle_low": 3270.0,
        "handle_end": "2021-06-11"
       },
-      "new_skip": "handle_above_pivot",
+      "new_skip": "pivot_below_cup_bottom",
       "legacy": {
        "handle_start": "2021-03-05",
        "handle_high": 3350.0,
@@ -1521,28 +1972,11 @@
        "handle_low": 4070.0,
        "handle_end": "2021-09-10"
       },
-      "new_skip": "handle_above_pivot",
+      "new_skip": "pivot_below_cup_bottom",
       "legacy": {
        "handle_start": "2021-07-29",
        "handle_high": 4260.0,
        "handle_low": 16500.0
-      }
-     },
-     {
-      "symbol": "189300",
-      "classified_at": "2026-07-14T06:03:22.800478+09:00",
-      "analyzed_for_date": "2021-01-02",
-      "stored": {
-       "handle_start": "2020-12-02",
-       "handle_high": 30679.1,
-       "handle_low": 30726.0,
-       "handle_end": "2020-12-30"
-      },
-      "new_skip": "handle_above_pivot",
-      "legacy": {
-       "handle_start": "2020-12-02",
-       "handle_high": 30679.1,
-       "handle_low": 30726.0
       }
      },
      {
@@ -1555,7 +1989,7 @@
        "handle_low": 2620.0,
        "handle_end": "2021-03-19"
       },
-      "new_skip": "handle_above_pivot",
+      "new_skip": "pivot_below_cup_bottom",
       "legacy": {
        "handle_start": "2020-12-28",
        "handle_high": 2900.1,
@@ -1572,7 +2006,7 @@
        "handle_low": 2480.0,
        "handle_end": "2021-10-29"
       },
-      "new_skip": "handle_above_pivot",
+      "new_skip": "pivot_below_cup_bottom",
       "legacy": {
        "handle_start": "2021-09-24",
        "handle_high": 2990.1,
@@ -1589,28 +2023,11 @@
        "handle_low": 4498.0,
        "handle_end": "2021-11-12"
       },
-      "new_skip": "handle_above_pivot",
+      "new_skip": "pivot_below_cup_bottom",
       "legacy": {
        "handle_start": "2021-09-17",
        "handle_high": 4887.1,
        "handle_low": 39330.0
-      }
-     },
-     {
-      "symbol": "214370",
-      "classified_at": "2026-07-17T14:48:02.713819+09:00",
-      "analyzed_for_date": "2023-07-08",
-      "stored": {
-       "handle_start": "2023-06-16",
-       "handle_high": 40700.1,
-       "handle_low": 41200.0,
-       "handle_end": "2023-07-07"
-      },
-      "new_skip": "handle_above_pivot",
-      "legacy": {
-       "handle_start": "2023-06-16",
-       "handle_high": 40700.1,
-       "handle_low": 41200.0
       }
      },
      {
@@ -1623,45 +2040,11 @@
        "handle_low": 2560.0,
        "handle_end": "2024-06-07"
       },
-      "new_skip": "handle_above_pivot",
+      "new_skip": "pivot_below_cup_bottom",
       "legacy": {
        "handle_start": "2024-04-19",
        "handle_high": 2945.1,
        "handle_low": 12100.0
-      }
-     },
-     {
-      "symbol": "005490",
-      "classified_at": "2026-07-26T15:03:50.534695+09:00",
-      "analyzed_for_date": "2018-01-27",
-      "stored": {
-       "handle_start": "2018-01-03",
-       "handle_high": 346000.1,
-       "handle_low": 346500.0,
-       "handle_end": "2018-01-26"
-      },
-      "new_skip": "handle_above_pivot",
-      "legacy": {
-       "handle_start": "2018-01-03",
-       "handle_high": 346000.1,
-       "handle_low": 346500.0
-      }
-     },
-     {
-      "symbol": "005490",
-      "classified_at": "2026-07-26T15:27:29.698059+09:00",
-      "analyzed_for_date": "2018-02-03",
-      "stored": {
-       "handle_start": "2018-01-03",
-       "handle_high": 346000.1,
-       "handle_low": 346500.0,
-       "handle_end": "2018-02-02"
-      },
-      "new_skip": "handle_above_pivot",
-      "legacy": {
-       "handle_start": "2018-01-03",
-       "handle_high": 346000.1,
-       "handle_low": 346500.0
       }
      },
      {
@@ -1674,7 +2057,7 @@
        "handle_low": 3191.0,
        "handle_end": "2018-04-27"
       },
-      "new_skip": "handle_above_pivot",
+      "new_skip": "pivot_below_cup_bottom",
       "legacy": {
        "handle_start": "2017-12-26",
        "handle_high": 3834.1,
@@ -1691,7 +2074,7 @@
        "handle_low": 3510.0,
        "handle_end": "2018-05-25"
       },
-      "new_skip": "handle_above_pivot",
+      "new_skip": "pivot_below_cup_bottom",
       "legacy": {
        "handle_start": "2018-03-26",
        "handle_high": 3830.1,
@@ -1708,7 +2091,7 @@
        "handle_low": 52827.0,
        "handle_end": "2019-05-10"
       },
-      "new_skip": "handle_above_pivot",
+      "new_skip": "pivot_below_cup_bottom",
       "legacy": {
        "handle_start": "2019-03-04",
        "handle_high": 56437.1,
@@ -1725,7 +2108,7 @@
        "handle_low": 1845.0,
        "handle_end": "2019-07-12"
       },
-      "new_skip": "handle_above_pivot",
+      "new_skip": "pivot_below_cup_bottom",
       "legacy": {
        "handle_start": "2019-03-29",
        "handle_high": 2020.1,
@@ -1733,37 +2116,40 @@
       }
      },
      {
-      "symbol": "206640",
-      "classified_at": "2026-08-11T14:02:48.353005+09:00",
-      "analyzed_for_date": "2020-09-05",
+      "symbol": "001570",
+      "classified_at": "2026-08-09T12:24:20.753906+09:00",
+      "analyzed_for_date": "2020-02-22",
       "stored": {
-       "handle_start": "2020-08-27",
-       "handle_high": 24850.1,
-       "handle_low": 25400.0,
-       "handle_end": "2020-09-04"
+       "handle_start": "2019-12-30",
+       "handle_high": 2675.1,
+       "handle_low": 2070.0,
+       "handle_end": "2020-02-21"
       },
-      "new_skip": "handle_above_pivot",
+      "new_skip": "pivot_below_cup_bottom",
       "legacy": {
-       "handle_start": "2020-08-27",
-       "handle_high": 24850.1,
-       "handle_low": 25400.0
+       "handle_start": "2019-12-30",
+       "handle_high": 2675.1,
+       "handle_low": 2070.0
       }
-     },
+     }
+    ],
+    "new_none_rule_n": 1,
+    "new_none_rule": [
      {
-      "symbol": "206640",
-      "classified_at": "2026-08-11T14:42:44.191166+09:00",
-      "analyzed_for_date": "2020-09-12",
+      "symbol": "002390",
+      "classified_at": "2026-08-09T19:27:29.401299+09:00",
+      "analyzed_for_date": "2020-06-27",
       "stored": {
-       "handle_start": "2020-08-27",
-       "handle_high": 24850.1,
-       "handle_low": 25400.0,
-       "handle_end": "2020-09-11"
+       "handle_start": "2020-06-02",
+       "handle_high": 25200.1,
+       "handle_low": 23950.0,
+       "handle_end": "2020-06-26"
       },
-      "new_skip": "handle_above_pivot",
+      "new_skip": "base window too short (4 days)",
       "legacy": {
-       "handle_start": "2020-08-27",
-       "handle_high": 24850.1,
-       "handle_low": 25400.0
+       "handle_start": "2020-06-02",
+       "handle_high": 25200.1,
+       "handle_low": 23950.0
       }
      }
     ],
@@ -1794,6 +2180,3033 @@
        "pivot_eff_source": "exact"
       }
      }
+    ],
+    "start_corrected_n": 216,
+    "start_corrected": [
+     {
+      "symbol": "001460",
+      "classified_at": "2026-06-25T18:36:32.105801+09:00",
+      "legacy": {
+       "handle_start": "2021-05-07",
+       "handle_high": 38550.1,
+       "handle_low": 37900.0
+      },
+      "new": {
+       "handle_start": "2021-04-08",
+       "handle_high": 38550.0,
+       "handle_low": 35750.0
+      }
+     },
+     {
+      "symbol": "002900",
+      "classified_at": "2026-06-25T20:46:02.571549+09:00",
+      "legacy": {
+       "handle_start": "2021-06-15",
+       "handle_high": 6560.1,
+       "handle_low": 6239.0
+      },
+      "new": {
+       "handle_start": "2021-04-23",
+       "handle_high": 6560.0,
+       "handle_low": 5360.0
+      }
+     },
+     {
+      "symbol": "001460",
+      "classified_at": "2026-06-26T06:29:36.280915+09:00",
+      "legacy": {
+       "handle_start": "2021-09-27",
+       "handle_high": 47549.1,
+       "handle_low": 40750.0
+      },
+      "new": {
+       "handle_start": "2021-09-24",
+       "handle_high": 47549.0,
+       "handle_low": 40750.0
+      }
+     },
+     {
+      "symbol": "052690",
+      "classified_at": "2026-06-26T07:14:56.121541+09:00",
+      "legacy": {
+       "handle_start": "2021-10-22",
+       "handle_high": 63000.1,
+       "handle_low": 61700.0
+      },
+      "new": {
+       "handle_start": "2021-10-21",
+       "handle_high": 63000.0,
+       "handle_low": 56100.0
+      }
+     },
+     {
+      "symbol": "078350",
+      "classified_at": "2026-06-26T07:43:57.914027+09:00",
+      "legacy": {
+       "handle_start": "2021-11-08",
+       "handle_high": 9550.1,
+       "handle_low": 9320.0
+      },
+      "new": {
+       "handle_start": "2021-11-05",
+       "handle_high": 9550.0,
+       "handle_low": 8980.0
+      }
+     },
+     {
+      "symbol": "183190",
+      "classified_at": "2026-06-26T17:53:47.069356+09:00",
+      "legacy": {
+       "handle_start": "2022-02-28",
+       "handle_high": 15550.1,
+       "handle_low": 14350.0
+      },
+      "new": {
+       "handle_start": "2022-01-13",
+       "handle_high": 15550.0,
+       "handle_low": 12950.0
+      }
+     },
+     {
+      "symbol": "089790",
+      "classified_at": "2026-06-27T08:03:52.162567+09:00",
+      "legacy": {
+       "handle_start": "2023-07-03",
+       "handle_high": 9300.1,
+       "handle_low": 8890.0
+      },
+      "new": {
+       "handle_start": "2023-06-23",
+       "handle_high": 9300.0,
+       "handle_low": 8770.0
+      }
+     },
+     {
+      "symbol": "299900",
+      "classified_at": "2026-06-30T09:32:45.284340+09:00",
+      "legacy": {
+       "handle_start": "2021-06-23",
+       "handle_high": 3200.1,
+       "handle_low": 3012.0
+      },
+      "new": {
+       "handle_start": "2021-06-14",
+       "handle_high": 3200.0,
+       "handle_low": 2862.0
+      }
+     },
+     {
+      "symbol": "001460",
+      "classified_at": "2026-07-01T00:01:16.900338+09:00",
+      "legacy": {
+       "handle_start": "2024-03-06",
+       "handle_high": 50100.1,
+       "handle_low": 46600.0
+      },
+      "new": {
+       "handle_start": "2024-03-05",
+       "handle_high": 50100.0,
+       "handle_low": 44500.0
+      }
+     },
+     {
+      "symbol": "259960",
+      "classified_at": "2026-07-01T05:07:04.965609+09:00",
+      "legacy": {
+       "handle_start": "2024-06-14",
+       "handle_high": 271000.1,
+       "handle_low": 259500.0
+      },
+      "new": {
+       "handle_start": "2024-05-09",
+       "handle_high": 271000.0,
+       "handle_low": 240500.0
+      }
+     },
+     {
+      "symbol": "041520",
+      "classified_at": "2026-07-14T05:47:47.694417+09:00",
+      "legacy": {
+       "handle_start": "2020-12-22",
+       "handle_high": 12350.1,
+       "handle_low": 11700.0
+      },
+      "new": {
+       "handle_start": "2020-12-16",
+       "handle_high": 12350.0,
+       "handle_low": 11500.0
+      }
+     },
+     {
+      "symbol": "054090",
+      "classified_at": "2026-07-14T05:51:02.246038+09:00",
+      "legacy": {
+       "handle_start": "2020-12-18",
+       "handle_high": 3915.1,
+       "handle_low": 3185.0
+      },
+      "new": {
+       "handle_start": "2020-11-03",
+       "handle_high": 3915.0,
+       "handle_low": 3125.0
+      }
+     },
+     {
+      "symbol": "189300",
+      "classified_at": "2026-07-14T06:03:22.800478+09:00",
+      "legacy": {
+       "handle_start": "2020-12-02",
+       "handle_high": 30679.1,
+       "handle_low": 30726.0
+      },
+      "new": {
+       "handle_start": "2020-11-24",
+       "handle_high": 30679.0,
+       "handle_low": 29430.0
+      }
+     },
+     {
+      "symbol": "195870",
+      "classified_at": "2026-07-14T06:04:16.671926+09:00",
+      "legacy": {
+       "handle_start": "2020-12-23",
+       "handle_high": 21200.1,
+       "handle_low": 19950.0
+      },
+      "new": {
+       "handle_start": "2020-12-17",
+       "handle_high": 21200.0,
+       "handle_low": 19950.0
+      }
+     },
+     {
+      "symbol": "054090",
+      "classified_at": "2026-07-14T07:08:49.872028+09:00",
+      "legacy": {
+       "handle_start": "2021-01-04",
+       "handle_high": 3935.1,
+       "handle_low": 3510.0
+      },
+      "new": {
+       "handle_start": "2020-12-18",
+       "handle_high": 3935.0,
+       "handle_low": 3185.0
+      }
+     },
+     {
+      "symbol": "195870",
+      "classified_at": "2026-07-14T07:58:54.670056+09:00",
+      "legacy": {
+       "handle_start": "2020-12-23",
+       "handle_high": 21200.1,
+       "handle_low": 19950.0
+      },
+      "new": {
+       "handle_start": "2020-12-17",
+       "handle_high": 21200.0,
+       "handle_low": 19950.0
+      }
+     },
+     {
+      "symbol": "105740",
+      "classified_at": "2026-07-14T09:20:36.218971+09:00",
+      "legacy": {
+       "handle_start": "2021-01-26",
+       "handle_high": 16350.1,
+       "handle_low": 13700.0
+      },
+      "new": {
+       "handle_start": "2021-01-22",
+       "handle_high": 16350.0,
+       "handle_low": 13700.0
+      }
+     },
+     {
+      "symbol": "317870",
+      "classified_at": "2026-07-14T09:31:57.661594+09:00",
+      "legacy": {
+       "handle_start": "2021-01-14",
+       "handle_high": 8770.1,
+       "handle_low": 8250.0
+      },
+      "new": {
+       "handle_start": "2020-12-07",
+       "handle_high": 8770.0,
+       "handle_low": 7370.0
+      }
+     },
+     {
+      "symbol": "178920",
+      "classified_at": "2026-07-14T10:13:18.925158+09:00",
+      "legacy": {
+       "handle_start": "2021-02-15",
+       "handle_high": 45000.1,
+       "handle_low": 43500.0
+      },
+      "new": {
+       "handle_start": "2021-01-21",
+       "handle_high": 45000.0,
+       "handle_low": 38350.0
+      }
+     },
+     {
+      "symbol": "160980",
+      "classified_at": "2026-07-14T12:20:19.117950+09:00",
+      "legacy": {
+       "handle_start": "2021-04-05",
+       "handle_high": 23050.1,
+       "handle_low": 22200.0
+      },
+      "new": {
+       "handle_start": "2021-03-24",
+       "handle_high": 23050.0,
+       "handle_low": 20900.0
+      }
+     },
+     {
+      "symbol": "264660",
+      "classified_at": "2026-07-14T12:26:05.438829+09:00",
+      "legacy": {
+       "handle_start": "2021-04-05",
+       "handle_high": 13812.1,
+       "handle_low": 13716.0
+      },
+      "new": {
+       "handle_start": "2021-03-29",
+       "handle_high": 13812.0,
+       "handle_low": 12585.0
+      }
+     },
+     {
+      "symbol": "160980",
+      "classified_at": "2026-07-14T13:31:03.606995+09:00",
+      "legacy": {
+       "handle_start": "2021-04-05",
+       "handle_high": 23050.1,
+       "handle_low": 22200.0
+      },
+      "new": {
+       "handle_start": "2021-03-24",
+       "handle_high": 23050.0,
+       "handle_low": 20900.0
+      }
+     },
+     {
+      "symbol": "032280",
+      "classified_at": "2026-07-14T13:46:46.212575+09:00",
+      "legacy": {
+       "handle_start": "2021-04-19",
+       "handle_high": 2540.1,
+       "handle_low": 2385.0
+      },
+      "new": {
+       "handle_start": "2021-04-06",
+       "handle_high": 2540.0,
+       "handle_low": 2370.0
+      }
+     },
+     {
+      "symbol": "160980",
+      "classified_at": "2026-07-14T13:54:30.150872+09:00",
+      "legacy": {
+       "handle_start": "2021-04-05",
+       "handle_high": 23050.1,
+       "handle_low": 22200.0
+      },
+      "new": {
+       "handle_start": "2021-03-24",
+       "handle_high": 23050.0,
+       "handle_low": 20900.0
+      }
+     },
+     {
+      "symbol": "082740",
+      "classified_at": "2026-07-14T14:12:05.606625+09:00",
+      "legacy": {
+       "handle_start": "2021-04-28",
+       "handle_high": 7663.1,
+       "handle_low": 7020.0
+      },
+      "new": {
+       "handle_start": "2021-03-31",
+       "handle_high": 7663.0,
+       "handle_low": 6793.0
+      }
+     },
+     {
+      "symbol": "124560",
+      "classified_at": "2026-07-14T15:02:08.645422+09:00",
+      "legacy": {
+       "handle_start": "2021-03-26",
+       "handle_high": 2953.1,
+       "handle_low": 2800.0
+      },
+      "new": {
+       "handle_start": "2021-02-17",
+       "handle_high": 2953.0,
+       "handle_low": 2408.0
+      }
+     },
+     {
+      "symbol": "094850",
+      "classified_at": "2026-07-14T15:22:37.190838+09:00",
+      "legacy": {
+       "handle_start": "2021-05-17",
+       "handle_high": 11950.1,
+       "handle_low": 11850.0
+      },
+      "new": {
+       "handle_start": "2021-05-11",
+       "handle_high": 11950.0,
+       "handle_low": 11100.0
+      }
+     },
+     {
+      "symbol": "001750",
+      "classified_at": "2026-07-14T15:34:54.688506+09:00",
+      "legacy": {
+       "handle_start": "2021-05-31",
+       "handle_high": 15600.1,
+       "handle_low": 14450.0
+      },
+      "new": {
+       "handle_start": "2021-05-12",
+       "handle_high": 15600.0,
+       "handle_low": 13950.0
+      }
+     },
+     {
+      "symbol": "001750",
+      "classified_at": "2026-07-14T16:23:45.934730+09:00",
+      "legacy": {
+       "handle_start": "2021-05-31",
+       "handle_high": 15600.1,
+       "handle_low": 14450.0
+      },
+      "new": {
+       "handle_start": "2021-05-12",
+       "handle_high": 15600.0,
+       "handle_low": 13950.0
+      }
+     },
+     {
+      "symbol": "001750",
+      "classified_at": "2026-07-14T16:47:59.942917+09:00",
+      "legacy": {
+       "handle_start": "2021-05-31",
+       "handle_high": 15600.1,
+       "handle_low": 14450.0
+      },
+      "new": {
+       "handle_start": "2021-05-12",
+       "handle_high": 15600.0,
+       "handle_low": 13950.0
+      }
+     },
+     {
+      "symbol": "178920",
+      "classified_at": "2026-07-14T17:39:03.277393+09:00",
+      "legacy": {
+       "handle_start": "2021-06-21",
+       "handle_high": 52000.1,
+       "handle_low": 49900.0
+      },
+      "new": {
+       "handle_start": "2021-04-27",
+       "handle_high": 52000.0,
+       "handle_low": 44200.0
+      }
+     },
+     {
+      "symbol": "178920",
+      "classified_at": "2026-07-14T17:55:16.742792+09:00",
+      "legacy": {
+       "handle_start": "2021-06-21",
+       "handle_high": 52000.1,
+       "handle_low": 49900.0
+      },
+      "new": {
+       "handle_start": "2021-04-27",
+       "handle_high": 52000.0,
+       "handle_low": 44200.0
+      }
+     },
+     {
+      "symbol": "195870",
+      "classified_at": "2026-07-14T17:59:45.748656+09:00",
+      "legacy": {
+       "handle_start": "2021-06-23",
+       "handle_high": 37750.1,
+       "handle_low": 36100.0
+      },
+      "new": {
+       "handle_start": "2021-04-22",
+       "handle_high": 37750.0,
+       "handle_low": 31500.0
+      }
+     },
+     {
+      "symbol": "017040",
+      "classified_at": "2026-07-14T18:13:15.343719+09:00",
+      "legacy": {
+       "handle_start": "2021-06-07",
+       "handle_high": 3250.1,
+       "handle_low": 2875.0
+      },
+      "new": {
+       "handle_start": "2021-05-06",
+       "handle_high": 3250.0,
+       "handle_low": 2575.0
+      }
+     },
+     {
+      "symbol": "126600",
+      "classified_at": "2026-07-14T23:35:59.335995+09:00",
+      "legacy": {
+       "handle_start": "2021-07-29",
+       "handle_high": 6586.1,
+       "handle_low": 6196.0
+      },
+      "new": {
+       "handle_start": "2021-06-22",
+       "handle_high": 6586.0,
+       "handle_low": 5673.0
+      }
+     },
+     {
+      "symbol": "001750",
+      "classified_at": "2026-07-14T23:55:42.918913+09:00",
+      "legacy": {
+       "handle_start": "2021-08-18",
+       "handle_high": 17500.1,
+       "handle_low": 16950.0
+      },
+      "new": {
+       "handle_start": "2021-06-16",
+       "handle_high": 17500.0,
+       "handle_low": 15300.0
+      }
+     },
+     {
+      "symbol": "001750",
+      "classified_at": "2026-07-15T00:14:23.996905+09:00",
+      "legacy": {
+       "handle_start": "2021-08-18",
+       "handle_high": 17400.1,
+       "handle_low": 16950.0
+      },
+      "new": {
+       "handle_start": "2021-08-12",
+       "handle_high": 17400.0,
+       "handle_low": 16550.0
+      }
+     },
+     {
+      "symbol": "178920",
+      "classified_at": "2026-07-15T07:35:12.048991+09:00",
+      "legacy": {
+       "handle_start": "2021-08-10",
+       "handle_high": 59400.1,
+       "handle_low": 55600.0
+      },
+      "new": {
+       "handle_start": "2021-07-20",
+       "handle_high": 59400.0,
+       "handle_low": 52100.0
+      }
+     },
+     {
+      "symbol": "001750",
+      "classified_at": "2026-07-15T07:41:27.865839+09:00",
+      "legacy": {
+       "handle_start": "2021-07-26",
+       "handle_high": 16850.1,
+       "handle_low": 15350.0
+      },
+      "new": {
+       "handle_start": "2021-07-23",
+       "handle_high": 16850.0,
+       "handle_low": 15350.0
+      }
+     },
+     {
+      "symbol": "001750",
+      "classified_at": "2026-07-16T20:17:27.132233+09:00",
+      "legacy": {
+       "handle_start": "2021-08-18",
+       "handle_high": 17400.1,
+       "handle_low": 16950.0
+      },
+      "new": {
+       "handle_start": "2021-08-12",
+       "handle_high": 17400.0,
+       "handle_low": 16550.0
+      }
+     },
+     {
+      "symbol": "038540",
+      "classified_at": "2026-07-16T21:38:16.611564+09:00",
+      "legacy": {
+       "handle_start": "2021-08-30",
+       "handle_high": 8400.1,
+       "handle_low": 8060.0
+      },
+      "new": {
+       "handle_start": "2021-08-18",
+       "handle_high": 8400.0,
+       "handle_low": 7780.0
+      }
+     },
+     {
+      "symbol": "195870",
+      "classified_at": "2026-07-16T22:51:39.806868+09:00",
+      "legacy": {
+       "handle_start": "2021-09-23",
+       "handle_high": 44850.1,
+       "handle_low": 38350.0
+      },
+      "new": {
+       "handle_start": "2021-09-17",
+       "handle_high": 44850.0,
+       "handle_low": 38350.0
+      }
+     },
+     {
+      "symbol": "195870",
+      "classified_at": "2026-07-16T23:52:45.187327+09:00",
+      "legacy": {
+       "handle_start": "2021-11-12",
+       "handle_high": 47850.1,
+       "handle_low": 46250.0
+      },
+      "new": {
+       "handle_start": "2021-10-18",
+       "handle_high": 47850.0,
+       "handle_low": 41800.0
+      }
+     },
+     {
+      "symbol": "085910",
+      "classified_at": "2026-07-17T00:34:13.745533+09:00",
+      "legacy": {
+       "handle_start": "2021-11-19",
+       "handle_high": 5340.1,
+       "handle_low": 4630.0
+      },
+      "new": {
+       "handle_start": "2021-11-17",
+       "handle_high": 5340.0,
+       "handle_low": 4630.0
+      }
+     },
+     {
+      "symbol": "002710",
+      "classified_at": "2026-07-17T01:10:51.813796+09:00",
+      "legacy": {
+       "handle_start": "2021-12-28",
+       "handle_high": 8520.1,
+       "handle_low": 8280.0
+      },
+      "new": {
+       "handle_start": "2021-12-24",
+       "handle_high": 8520.0,
+       "handle_low": 8250.0
+      }
+     },
+     {
+      "symbol": "100250",
+      "classified_at": "2026-07-17T01:28:08.288157+09:00",
+      "legacy": {
+       "handle_start": "2022-01-10",
+       "handle_high": 3879.1,
+       "handle_low": 3614.0
+      },
+      "new": {
+       "handle_start": "2021-12-09",
+       "handle_high": 3879.0,
+       "handle_low": 3527.0
+      }
+     },
+     {
+      "symbol": "189300",
+      "classified_at": "2026-07-17T01:30:57.409796+09:00",
+      "legacy": {
+       "handle_start": "2021-12-10",
+       "handle_high": 82384.1,
+       "handle_low": 77930.0
+      },
+      "new": {
+       "handle_start": "2021-11-18",
+       "handle_high": 82384.0,
+       "handle_low": 67281.0
+      }
+     },
+     {
+      "symbol": "010130",
+      "classified_at": "2026-07-17T03:51:58.574491+09:00",
+      "legacy": {
+       "handle_start": "2022-03-07",
+       "handle_high": 582000.1,
+       "handle_low": 548000.0
+      },
+      "new": {
+       "handle_start": "2022-01-19",
+       "handle_high": 582000.0,
+       "handle_low": 498500.0
+      }
+     },
+     {
+      "symbol": "038540",
+      "classified_at": "2026-07-17T03:55:19.104308+09:00",
+      "legacy": {
+       "handle_start": "2022-04-11",
+       "handle_high": 10700.1,
+       "handle_low": 10200.0
+      },
+      "new": {
+       "handle_start": "2022-02-17",
+       "handle_high": 10700.0,
+       "handle_low": 8960.0
+      }
+     },
+     {
+      "symbol": "017960",
+      "classified_at": "2026-07-17T04:51:29.782537+09:00",
+      "legacy": {
+       "handle_start": "2022-03-07",
+       "handle_high": 12750.1,
+       "handle_low": 10750.0
+      },
+      "new": {
+       "handle_start": "2022-03-04",
+       "handle_high": 12750.0,
+       "handle_low": 10750.0
+      }
+     },
+     {
+      "symbol": "017960",
+      "classified_at": "2026-07-17T06:18:24.358739+09:00",
+      "legacy": {
+       "handle_start": "2022-03-07",
+       "handle_high": 12750.1,
+       "handle_low": 10750.0
+      },
+      "new": {
+       "handle_start": "2022-03-04",
+       "handle_high": 12750.0,
+       "handle_low": 10750.0
+      }
+     },
+     {
+      "symbol": "214370",
+      "classified_at": "2026-07-17T06:49:00.175278+09:00",
+      "legacy": {
+       "handle_start": "2022-07-20",
+       "handle_high": 20740.1,
+       "handle_low": 19520.0
+      },
+      "new": {
+       "handle_start": "2022-07-06",
+       "handle_high": 20740.0,
+       "handle_low": 18620.0
+      }
+     },
+     {
+      "symbol": "214370",
+      "classified_at": "2026-07-17T06:57:34.249486+09:00",
+      "legacy": {
+       "handle_start": "2022-07-20",
+       "handle_high": 20740.1,
+       "handle_low": 19520.0
+      },
+      "new": {
+       "handle_start": "2022-07-06",
+       "handle_high": 20740.0,
+       "handle_low": 18620.0
+      }
+     },
+     {
+      "symbol": "006260",
+      "classified_at": "2026-07-17T07:39:47.447090+09:00",
+      "legacy": {
+       "handle_start": "2022-09-06",
+       "handle_high": 68400.1,
+       "handle_low": 61200.0
+      },
+      "new": {
+       "handle_start": "2022-08-30",
+       "handle_high": 68400.0,
+       "handle_low": 61200.0
+      }
+     },
+     {
+      "symbol": "006260",
+      "classified_at": "2026-07-17T08:01:54.199354+09:00",
+      "legacy": {
+       "handle_start": "2022-08-30",
+       "handle_high": 67800.1,
+       "handle_low": 55500.0
+      },
+      "new": {
+       "handle_start": "2022-08-24",
+       "handle_high": 67800.0,
+       "handle_low": 55500.0
+      }
+     },
+     {
+      "symbol": "006260",
+      "classified_at": "2026-07-17T08:07:53.955591+09:00",
+      "legacy": {
+       "handle_start": "2022-11-01",
+       "handle_high": 68700.1,
+       "handle_low": 66100.0
+      },
+      "new": {
+       "handle_start": "2022-09-06",
+       "handle_high": 68700.0,
+       "handle_low": 55500.0
+      }
+     },
+     {
+      "symbol": "332370",
+      "classified_at": "2026-07-17T08:19:07.831627+09:00",
+      "legacy": {
+       "handle_start": "2022-11-03",
+       "handle_high": 4630.1,
+       "handle_low": 4255.0
+      },
+      "new": {
+       "handle_start": "2022-11-02",
+       "handle_high": 4630.0,
+       "handle_low": 4255.0
+      }
+     },
+     {
+      "symbol": "272110",
+      "classified_at": "2026-07-17T09:50:10.821828+09:00",
+      "legacy": {
+       "handle_start": "2023-02-10",
+       "handle_high": 14800.1,
+       "handle_low": 14100.0
+      },
+      "new": {
+       "handle_start": "2023-02-02",
+       "handle_high": 14800.0,
+       "handle_low": 14010.0
+      }
+     },
+     {
+      "symbol": "189300",
+      "classified_at": "2026-07-17T10:20:57.914090+09:00",
+      "legacy": {
+       "handle_start": "2023-01-30",
+       "handle_high": 68153.1,
+       "handle_low": 65539.0
+      },
+      "new": {
+       "handle_start": "2023-01-27",
+       "handle_high": 68153.0,
+       "handle_low": 65539.0
+      }
+     },
+     {
+      "symbol": "161580",
+      "classified_at": "2026-07-17T10:22:05.070411+09:00",
+      "legacy": {
+       "handle_start": "2023-03-07",
+       "handle_high": 10450.1,
+       "handle_low": 8430.0
+      },
+      "new": {
+       "handle_start": "2023-02-17",
+       "handle_high": 10450.0,
+       "handle_low": 8430.0
+      }
+     },
+     {
+      "symbol": "272110",
+      "classified_at": "2026-07-17T12:50:56.255347+09:00",
+      "legacy": {
+       "handle_start": "2023-05-18",
+       "handle_high": 18080.1,
+       "handle_low": 18030.0
+      },
+      "new": {
+       "handle_start": "2023-05-15",
+       "handle_high": 18080.0,
+       "handle_low": 16770.0
+      }
+     },
+     {
+      "symbol": "005720",
+      "classified_at": "2026-07-17T12:55:30.936118+09:00",
+      "legacy": {
+       "handle_start": "2023-05-26",
+       "handle_high": 4360.1,
+       "handle_low": 4230.0
+      },
+      "new": {
+       "handle_start": "2023-05-23",
+       "handle_high": 4360.0,
+       "handle_low": 4230.0
+      }
+     },
+     {
+      "symbol": "272110",
+      "classified_at": "2026-07-17T13:05:39.723238+09:00",
+      "legacy": {
+       "handle_start": "2023-05-18",
+       "handle_high": 18080.1,
+       "handle_low": 18030.0
+      },
+      "new": {
+       "handle_start": "2023-05-15",
+       "handle_high": 18080.0,
+       "handle_low": 16770.0
+      }
+     },
+     {
+      "symbol": "272110",
+      "classified_at": "2026-07-17T13:18:02.944094+09:00",
+      "legacy": {
+       "handle_start": "2023-05-25",
+       "handle_high": 22400.1,
+       "handle_low": 21000.0
+      },
+      "new": {
+       "handle_start": "2023-05-19",
+       "handle_high": 22400.0,
+       "handle_low": 20400.0
+      }
+     },
+     {
+      "symbol": "082740",
+      "classified_at": "2026-07-17T13:29:23.535907+09:00",
+      "legacy": {
+       "handle_start": "2023-05-22",
+       "handle_high": 8180.1,
+       "handle_low": 7750.0
+      },
+      "new": {
+       "handle_start": "2023-05-09",
+       "handle_high": 8180.0,
+       "handle_low": 7570.0
+      }
+     },
+     {
+      "symbol": "338220",
+      "classified_at": "2026-07-17T13:40:57.224077+09:00",
+      "legacy": {
+       "handle_start": "2023-05-25",
+       "handle_high": 22650.1,
+       "handle_low": 19600.0
+      },
+      "new": {
+       "handle_start": "2023-05-17",
+       "handle_high": 22650.0,
+       "handle_low": 18800.0
+      }
+     },
+     {
+      "symbol": "112610",
+      "classified_at": "2026-07-17T13:52:59.207018+09:00",
+      "legacy": {
+       "handle_start": "2023-06-19",
+       "handle_high": 85200.1,
+       "handle_low": 84700.0
+      },
+      "new": {
+       "handle_start": "2023-06-07",
+       "handle_high": 85200.0,
+       "handle_low": 79900.0
+      }
+     },
+     {
+      "symbol": "214370",
+      "classified_at": "2026-07-17T14:19:39.595612+09:00",
+      "legacy": {
+       "handle_start": "2023-06-26",
+       "handle_high": 47800.1,
+       "handle_low": 45300.0
+      },
+      "new": {
+       "handle_start": "2023-06-16",
+       "handle_high": 47800.0,
+       "handle_low": 41200.0
+      }
+     },
+     {
+      "symbol": "112610",
+      "classified_at": "2026-07-17T14:41:04.920422+09:00",
+      "legacy": {
+       "handle_start": "2023-06-19",
+       "handle_high": 85200.1,
+       "handle_low": 76700.0
+      },
+      "new": {
+       "handle_start": "2023-06-07",
+       "handle_high": 85200.0,
+       "handle_low": 76700.0
+      }
+     },
+     {
+      "symbol": "214370",
+      "classified_at": "2026-07-17T14:48:02.713819+09:00",
+      "legacy": {
+       "handle_start": "2023-06-16",
+       "handle_high": 40700.1,
+       "handle_low": 41200.0
+      },
+      "new": {
+       "handle_start": "2023-06-13",
+       "handle_high": 40700.0,
+       "handle_low": 38460.0
+      }
+     },
+     {
+      "symbol": "195870",
+      "classified_at": "2026-07-17T14:48:44.461081+09:00",
+      "legacy": {
+       "handle_start": "2023-05-25",
+       "handle_high": 50800.1,
+       "handle_low": 48750.0
+      },
+      "new": {
+       "handle_start": "2023-05-19",
+       "handle_high": 50800.0,
+       "handle_low": 47600.0
+      }
+     },
+     {
+      "symbol": "214420",
+      "classified_at": "2026-07-17T14:51:10.763853+09:00",
+      "legacy": {
+       "handle_start": "2023-06-21",
+       "handle_high": 5600.1,
+       "handle_low": 5250.0
+      },
+      "new": {
+       "handle_start": "2023-05-17",
+       "handle_high": 5600.0,
+       "handle_low": 4635.0
+      }
+     },
+     {
+      "symbol": "195870",
+      "classified_at": "2026-07-17T15:18:18.454057+09:00",
+      "legacy": {
+       "handle_start": "2023-06-15",
+       "handle_high": 52300.1,
+       "handle_low": 50300.0
+      },
+      "new": {
+       "handle_start": "2023-05-31",
+       "handle_high": 52300.0,
+       "handle_low": 48750.0
+      }
+     },
+     {
+      "symbol": "225570",
+      "classified_at": "2026-07-17T15:21:38.900322+09:00",
+      "legacy": {
+       "handle_start": "2023-06-26",
+       "handle_high": 24900.1,
+       "handle_low": 20850.0
+      },
+      "new": {
+       "handle_start": "2023-06-22",
+       "handle_high": 24900.0,
+       "handle_low": 20850.0
+      }
+     },
+     {
+      "symbol": "195870",
+      "classified_at": "2026-07-17T16:47:49.297672+09:00",
+      "legacy": {
+       "handle_start": "2023-06-15",
+       "handle_high": 52300.1,
+       "handle_low": 50300.0
+      },
+      "new": {
+       "handle_start": "2023-05-31",
+       "handle_high": 52300.0,
+       "handle_low": 48750.0
+      }
+     },
+     {
+      "symbol": "082740",
+      "classified_at": "2026-07-17T17:03:35.953700+09:00",
+      "legacy": {
+       "handle_start": "2023-07-04",
+       "handle_high": 10850.1,
+       "handle_low": 9960.0
+      },
+      "new": {
+       "handle_start": "2023-06-21",
+       "handle_high": 10850.0,
+       "handle_low": 9890.0
+      }
+     },
+     {
+      "symbol": "003850",
+      "classified_at": "2026-07-17T19:50:05.050309+09:00",
+      "legacy": {
+       "handle_start": "2023-12-11",
+       "handle_high": 10800.1,
+       "handle_low": 10200.0
+      },
+      "new": {
+       "handle_start": "2023-11-23",
+       "handle_high": 10800.0,
+       "handle_low": 9430.0
+      }
+     },
+     {
+      "symbol": "069510",
+      "classified_at": "2026-07-17T20:04:05.797474+09:00",
+      "legacy": {
+       "handle_start": "2023-12-18",
+       "handle_high": 9200.1,
+       "handle_low": 9050.0
+      },
+      "new": {
+       "handle_start": "2023-12-01",
+       "handle_high": 9200.0,
+       "handle_low": 8810.0
+      }
+     },
+     {
+      "symbol": "180640",
+      "classified_at": "2026-07-17T20:05:02.691871+09:00",
+      "legacy": {
+       "handle_start": "2023-12-12",
+       "handle_high": 54700.1,
+       "handle_low": 53900.0
+      },
+      "new": {
+       "handle_start": "2023-11-28",
+       "handle_high": 54700.0,
+       "handle_low": 51200.0
+      }
+     },
+     {
+      "symbol": "036530",
+      "classified_at": "2026-07-17T21:05:35.089559+09:00",
+      "legacy": {
+       "handle_start": "2024-01-29",
+       "handle_high": 18400.1,
+       "handle_low": 18230.0
+      },
+      "new": {
+       "handle_start": "2023-12-07",
+       "handle_high": 18400.0,
+       "handle_low": 16900.0
+      }
+     },
+     {
+      "symbol": "003850",
+      "classified_at": "2026-07-17T23:46:00.073095+09:00",
+      "legacy": {
+       "handle_start": "2023-12-11",
+       "handle_high": 10800.1,
+       "handle_low": 10200.0
+      },
+      "new": {
+       "handle_start": "2023-11-23",
+       "handle_high": 10800.0,
+       "handle_low": 9430.0
+      }
+     },
+     {
+      "symbol": "029780",
+      "classified_at": "2026-07-18T00:01:54.620297+09:00",
+      "legacy": {
+       "handle_start": "2024-02-01",
+       "handle_high": 33300.1,
+       "handle_low": 32750.0
+      },
+      "new": {
+       "handle_start": "2023-11-15",
+       "handle_high": 33300.0,
+       "handle_low": 31250.0
+      }
+     },
+     {
+      "symbol": "036530",
+      "classified_at": "2026-07-18T00:18:02.985437+09:00",
+      "legacy": {
+       "handle_start": "2024-01-29",
+       "handle_high": 18400.1,
+       "handle_low": 18230.0
+      },
+      "new": {
+       "handle_start": "2023-12-07",
+       "handle_high": 18400.0,
+       "handle_low": 16900.0
+      }
+     },
+     {
+      "symbol": "016800",
+      "classified_at": "2026-07-18T01:22:23.147334+09:00",
+      "legacy": {
+       "handle_start": "2024-03-04",
+       "handle_high": 33800.1,
+       "handle_low": 33200.0
+      },
+      "new": {
+       "handle_start": "2024-02-27",
+       "handle_high": 33800.0,
+       "handle_low": 32900.0
+      }
+     },
+     {
+      "symbol": "045660",
+      "classified_at": "2026-07-18T01:27:32.182063+09:00",
+      "legacy": {
+       "handle_start": "2024-03-14",
+       "handle_high": 14900.1,
+       "handle_low": 14510.0
+      },
+      "new": {
+       "handle_start": "2024-02-26",
+       "handle_high": 14900.0,
+       "handle_low": 13580.0
+      }
+     },
+     {
+      "symbol": "001750",
+      "classified_at": "2026-07-19T01:52:15.119891+09:00",
+      "legacy": {
+       "handle_start": "2024-05-20",
+       "handle_high": 11160.1,
+       "handle_low": 10970.0
+      },
+      "new": {
+       "handle_start": "2024-03-28",
+       "handle_high": 11160.0,
+       "handle_low": 10010.0
+      }
+     },
+     {
+      "symbol": "016800",
+      "classified_at": "2026-07-19T05:45:43.767247+09:00",
+      "legacy": {
+       "handle_start": "2024-02-27",
+       "handle_high": 33600.1,
+       "handle_low": 32900.0
+      },
+      "new": {
+       "handle_start": "2023-12-21",
+       "handle_high": 33600.0,
+       "handle_low": 29400.0
+      }
+     },
+     {
+      "symbol": "005720",
+      "classified_at": "2026-07-19T06:32:24.267147+09:00",
+      "legacy": {
+       "handle_start": "2024-05-27",
+       "handle_high": 4595.1,
+       "handle_low": 4380.0
+      },
+      "new": {
+       "handle_start": "2024-02-23",
+       "handle_high": 4595.0,
+       "handle_low": 4025.0
+      }
+     },
+     {
+      "symbol": "124560",
+      "classified_at": "2026-07-19T07:03:13.926016+09:00",
+      "legacy": {
+       "handle_start": "2024-06-24",
+       "handle_high": 4080.1,
+       "handle_low": 3875.0
+      },
+      "new": {
+       "handle_start": "2024-06-03",
+       "handle_high": 4080.0,
+       "handle_low": 3535.0
+      }
+     },
+     {
+      "symbol": "337930",
+      "classified_at": "2026-07-19T11:07:49.036460+09:00",
+      "legacy": {
+       "handle_start": "2024-06-24",
+       "handle_high": 6280.1,
+       "handle_low": 5850.0
+      },
+      "new": {
+       "handle_start": "2024-05-31",
+       "handle_high": 6280.0,
+       "handle_low": 5250.0
+      }
+     },
+     {
+      "symbol": "029780",
+      "classified_at": "2026-07-19T19:13:58.690586+09:00",
+      "legacy": {
+       "handle_start": "2024-06-03",
+       "handle_high": 40500.1,
+       "handle_low": 36800.0
+      },
+      "new": {
+       "handle_start": "2024-05-31",
+       "handle_high": 40500.0,
+       "handle_low": 36800.0
+      }
+     },
+     {
+      "symbol": "134380",
+      "classified_at": "2026-07-19T19:37:38.802380+09:00",
+      "legacy": {
+       "handle_start": "2024-07-22",
+       "handle_high": 8190.1,
+       "handle_low": 7610.0
+      },
+      "new": {
+       "handle_start": "2024-06-11",
+       "handle_high": 8190.0,
+       "handle_low": 7610.0
+      }
+     },
+     {
+      "symbol": "029780",
+      "classified_at": "2026-07-19T21:52:22.931994+09:00",
+      "legacy": {
+       "handle_start": "2024-06-03",
+       "handle_high": 40500.1,
+       "handle_low": 36800.0
+      },
+      "new": {
+       "handle_start": "2024-05-31",
+       "handle_high": 40500.0,
+       "handle_low": 36800.0
+      }
+     },
+     {
+      "symbol": "180640",
+      "classified_at": "2026-07-19T21:55:46.717477+09:00",
+      "legacy": {
+       "handle_start": "2024-06-19",
+       "handle_high": 75600.1,
+       "handle_low": 59200.0
+      },
+      "new": {
+       "handle_start": "2024-06-13",
+       "handle_high": 75600.0,
+       "handle_low": 59200.0
+      }
+     },
+     {
+      "symbol": "069510",
+      "classified_at": "2026-07-19T21:55:52.238493+09:00",
+      "legacy": {
+       "handle_start": "2024-08-14",
+       "handle_high": 10230.1,
+       "handle_low": 9580.0
+      },
+      "new": {
+       "handle_start": "2024-06-03",
+       "handle_high": 10230.0,
+       "handle_low": 8540.0
+      }
+     },
+     {
+      "symbol": "082740",
+      "classified_at": "2026-07-21T01:01:53.465437+09:00",
+      "legacy": {
+       "handle_start": "2024-11-11",
+       "handle_high": 16500.1,
+       "handle_low": 14860.0
+      },
+      "new": {
+       "handle_start": "2024-10-17",
+       "handle_high": 16500.0,
+       "handle_low": 13380.0
+      }
+     },
+     {
+      "symbol": "007810",
+      "classified_at": "2026-07-21T14:27:47.740213+09:00",
+      "legacy": {
+       "handle_start": "2017-05-29",
+       "handle_high": 14750.1,
+       "handle_low": 14000.0
+      },
+      "new": {
+       "handle_start": "2017-05-24",
+       "handle_high": 14750.0,
+       "handle_low": 13600.0
+      }
+     },
+     {
+      "symbol": "094970",
+      "classified_at": "2026-07-21T14:38:12.674310+09:00",
+      "legacy": {
+       "handle_start": "2017-06-07",
+       "handle_high": 3690.1,
+       "handle_low": 3545.0
+      },
+      "new": {
+       "handle_start": "2017-05-23",
+       "handle_high": 3690.0,
+       "handle_low": 3340.0
+      }
+     },
+     {
+      "symbol": "005490",
+      "classified_at": "2026-07-21T15:04:08.726964+09:00",
+      "legacy": {
+       "handle_start": "2017-07-03",
+       "handle_high": 289500.1,
+       "handle_low": 287000.0
+      },
+      "new": {
+       "handle_start": "2017-05-23",
+       "handle_high": 289500.0,
+       "handle_low": 263500.0
+      }
+     },
+     {
+      "symbol": "108230",
+      "classified_at": "2026-07-26T01:18:42.784146+09:00",
+      "legacy": {
+       "handle_start": "2017-06-23",
+       "handle_high": 28991.1,
+       "handle_low": 27323.0
+      },
+      "new": {
+       "handle_start": "2017-05-15",
+       "handle_high": 28991.0,
+       "handle_low": 26097.0
+      }
+     },
+     {
+      "symbol": "033640",
+      "classified_at": "2026-07-26T01:25:13.633157+09:00",
+      "legacy": {
+       "handle_start": "2017-06-28",
+       "handle_high": 11100.1,
+       "handle_low": 10350.0
+      },
+      "new": {
+       "handle_start": "2017-06-05",
+       "handle_high": 11100.0,
+       "handle_low": 9580.0
+      }
+     },
+     {
+      "symbol": "005490",
+      "classified_at": "2026-07-26T01:37:46.670664+09:00",
+      "legacy": {
+       "handle_start": "2017-07-03",
+       "handle_high": 289500.1,
+       "handle_low": 287000.0
+      },
+      "new": {
+       "handle_start": "2017-05-23",
+       "handle_high": 289500.0,
+       "handle_low": 263500.0
+      }
+     },
+     {
+      "symbol": "060150",
+      "classified_at": "2026-07-26T01:43:24.818647+09:00",
+      "legacy": {
+       "handle_start": "2017-07-20",
+       "handle_high": 7530.1,
+       "handle_low": 7160.0
+      },
+      "new": {
+       "handle_start": "2017-06-26",
+       "handle_high": 7530.0,
+       "handle_low": 6850.0
+      }
+     },
+     {
+      "symbol": "005490",
+      "classified_at": "2026-07-26T01:50:41.594036+09:00",
+      "legacy": {
+       "handle_start": "2017-07-03",
+       "handle_high": 289500.1,
+       "handle_low": 287000.0
+      },
+      "new": {
+       "handle_start": "2017-05-23",
+       "handle_high": 289500.0,
+       "handle_low": 263500.0
+      }
+     },
+     {
+      "symbol": "060150",
+      "classified_at": "2026-07-26T01:56:28.056756+09:00",
+      "legacy": {
+       "handle_start": "2017-07-20",
+       "handle_high": 7530.1,
+       "handle_low": 7160.0
+      },
+      "new": {
+       "handle_start": "2017-06-26",
+       "handle_high": 7530.0,
+       "handle_low": 6850.0
+      }
+     },
+     {
+      "symbol": "005490",
+      "classified_at": "2026-07-26T02:03:56.764533+09:00",
+      "legacy": {
+       "handle_start": "2017-07-10",
+       "handle_high": 298000.1,
+       "handle_low": 295000.0
+      },
+      "new": {
+       "handle_start": "2017-03-21",
+       "handle_high": 298000.0,
+       "handle_low": 254500.0
+      }
+     },
+     {
+      "symbol": "007810",
+      "classified_at": "2026-07-26T05:37:52.229357+09:00",
+      "legacy": {
+       "handle_start": "2017-09-18",
+       "handle_high": 17850.1,
+       "handle_low": 17650.0
+      },
+      "new": {
+       "handle_start": "2017-08-30",
+       "handle_high": 17850.0,
+       "handle_low": 15500.0
+      }
+     },
+     {
+      "symbol": "101160",
+      "classified_at": "2026-07-26T05:44:41.613686+09:00",
+      "legacy": {
+       "handle_start": "2017-09-14",
+       "handle_high": 5520.1,
+       "handle_low": 5030.0
+      },
+      "new": {
+       "handle_start": "2017-08-23",
+       "handle_high": 5520.0,
+       "handle_low": 4500.0
+      }
+     },
+     {
+      "symbol": "007810",
+      "classified_at": "2026-07-26T05:49:21.096088+09:00",
+      "legacy": {
+       "handle_start": "2017-09-18",
+       "handle_high": 17850.1,
+       "handle_low": 17650.0
+      },
+      "new": {
+       "handle_start": "2017-08-30",
+       "handle_high": 17850.0,
+       "handle_low": 15500.0
+      }
+     },
+     {
+      "symbol": "101160",
+      "classified_at": "2026-07-26T05:55:24.721573+09:00",
+      "legacy": {
+       "handle_start": "2017-09-14",
+       "handle_high": 5520.1,
+       "handle_low": 5030.0
+      },
+      "new": {
+       "handle_start": "2017-08-23",
+       "handle_high": 5520.0,
+       "handle_low": 4500.0
+      }
+     },
+     {
+      "symbol": "045100",
+      "classified_at": "2026-07-26T10:11:48.498571+09:00",
+      "legacy": {
+       "handle_start": "2017-10-11",
+       "handle_high": 14950.1,
+       "handle_low": 13400.0
+      },
+      "new": {
+       "handle_start": "2017-09-28",
+       "handle_high": 14950.0,
+       "handle_low": 13400.0
+      }
+     },
+     {
+      "symbol": "010060",
+      "classified_at": "2026-07-26T10:18:37.790810+09:00",
+      "legacy": {
+       "handle_start": "2017-10-24",
+       "handle_high": 90193.1,
+       "handle_low": 85823.0
+      },
+      "new": {
+       "handle_start": "2017-09-20",
+       "handle_high": 90193.0,
+       "handle_low": 76763.0
+      }
+     },
+     {
+      "symbol": "010060",
+      "classified_at": "2026-07-26T12:08:39.020042+09:00",
+      "legacy": {
+       "handle_start": "2017-10-24",
+       "handle_high": 90193.1,
+       "handle_low": 85823.0
+      },
+      "new": {
+       "handle_start": "2017-09-20",
+       "handle_high": 90193.0,
+       "handle_low": 76763.0
+      }
+     },
+     {
+      "symbol": "094970",
+      "classified_at": "2026-07-26T12:17:29.184963+09:00",
+      "legacy": {
+       "handle_start": "2017-11-13",
+       "handle_high": 4690.1,
+       "handle_low": 4575.0
+      },
+      "new": {
+       "handle_start": "2017-11-06",
+       "handle_high": 4690.0,
+       "handle_low": 4400.0
+      }
+     },
+     {
+      "symbol": "234080",
+      "classified_at": "2026-07-26T12:21:06.546466+09:00",
+      "legacy": {
+       "handle_start": "2017-11-13",
+       "handle_high": 19425.1,
+       "handle_low": 19000.0
+      },
+      "new": {
+       "handle_start": "2017-11-09",
+       "handle_high": 19425.0,
+       "handle_low": 18725.0
+      }
+     },
+     {
+      "symbol": "234080",
+      "classified_at": "2026-07-26T12:41:33.434507+09:00",
+      "legacy": {
+       "handle_start": "2017-11-13",
+       "handle_high": 19425.1,
+       "handle_low": 19000.0
+      },
+      "new": {
+       "handle_start": "2017-11-09",
+       "handle_high": 19425.0,
+       "handle_low": 18725.0
+      }
+     },
+     {
+      "symbol": "101160",
+      "classified_at": "2026-07-26T12:52:28.845495+09:00",
+      "legacy": {
+       "handle_start": "2017-11-22",
+       "handle_high": 6290.1,
+       "handle_low": 5880.0
+      },
+      "new": {
+       "handle_start": "2017-11-17",
+       "handle_high": 6290.0,
+       "handle_low": 5850.0
+      }
+     },
+     {
+      "symbol": "094170",
+      "classified_at": "2026-07-26T13:07:57.102934+09:00",
+      "legacy": {
+       "handle_start": "2017-11-20",
+       "handle_high": 4740.1,
+       "handle_low": 4554.0
+      },
+      "new": {
+       "handle_start": "2017-11-17",
+       "handle_high": 4740.0,
+       "handle_low": 4446.0
+      }
+     },
+     {
+      "symbol": "094970",
+      "classified_at": "2026-07-26T13:10:19.393762+09:00",
+      "legacy": {
+       "handle_start": "2017-12-08",
+       "handle_high": 6900.1,
+       "handle_low": 6250.0
+      },
+      "new": {
+       "handle_start": "2017-12-07",
+       "handle_high": 6900.0,
+       "handle_low": 6150.0
+      }
+     },
+     {
+      "symbol": "206560",
+      "classified_at": "2026-07-26T13:51:52.907427+09:00",
+      "legacy": {
+       "handle_start": "2017-12-15",
+       "handle_high": 9170.1,
+       "handle_low": 8440.0
+      },
+      "new": {
+       "handle_start": "2017-11-27",
+       "handle_high": 9170.0,
+       "handle_low": 7990.0
+      }
+     },
+     {
+      "symbol": "050890",
+      "classified_at": "2026-07-26T14:06:55.633003+09:00",
+      "legacy": {
+       "handle_start": "2017-10-11",
+       "handle_high": 2641.1,
+       "handle_low": 2266.0
+      },
+      "new": {
+       "handle_start": "2017-09-21",
+       "handle_high": 2641.0,
+       "handle_low": 2266.0
+      }
+     },
+     {
+      "symbol": "094170",
+      "classified_at": "2026-07-26T14:09:36.395340+09:00",
+      "legacy": {
+       "handle_start": "2017-12-11",
+       "handle_high": 5699.1,
+       "handle_low": 5421.0
+      },
+      "new": {
+       "handle_start": "2017-12-07",
+       "handle_high": 5699.0,
+       "handle_low": 5146.0
+      }
+     },
+     {
+      "symbol": "206560",
+      "classified_at": "2026-07-26T14:56:17.282995+09:00",
+      "legacy": {
+       "handle_start": "2017-12-26",
+       "handle_high": 9520.1,
+       "handle_low": 8750.0
+      },
+      "new": {
+       "handle_start": "2017-12-21",
+       "handle_high": 9520.0,
+       "handle_low": 8560.0
+      }
+     },
+     {
+      "symbol": "005490",
+      "classified_at": "2026-07-26T15:03:50.534695+09:00",
+      "legacy": {
+       "handle_start": "2018-01-03",
+       "handle_high": 346000.1,
+       "handle_low": 346500.0
+      },
+      "new": {
+       "handle_start": "2017-10-16",
+       "handle_high": 346000.0,
+       "handle_low": 304000.0
+      }
+     },
+     {
+      "symbol": "234080",
+      "classified_at": "2026-07-26T15:21:34.134095+09:00",
+      "legacy": {
+       "handle_start": "2018-01-05",
+       "handle_high": 22675.1,
+       "handle_low": 21250.0
+      },
+      "new": {
+       "handle_start": "2017-11-22",
+       "handle_high": 22675.0,
+       "handle_low": 19200.0
+      }
+     },
+     {
+      "symbol": "241690",
+      "classified_at": "2026-07-26T15:22:02.126568+09:00",
+      "legacy": {
+       "handle_start": "2018-01-19",
+       "handle_high": 6926.1,
+       "handle_low": 6345.0
+      },
+      "new": {
+       "handle_start": "2018-01-05",
+       "handle_high": 6926.0,
+       "handle_low": 6016.0
+      }
+     },
+     {
+      "symbol": "005490",
+      "classified_at": "2026-07-26T15:27:29.698059+09:00",
+      "legacy": {
+       "handle_start": "2018-01-03",
+       "handle_high": 346000.1,
+       "handle_low": 346500.0
+      },
+      "new": {
+       "handle_start": "2017-10-16",
+       "handle_high": 346000.0,
+       "handle_low": 304000.0
+      }
+     },
+     {
+      "symbol": "016360",
+      "classified_at": "2026-07-26T15:32:56.130241+09:00",
+      "legacy": {
+       "handle_start": "2018-01-12",
+       "handle_high": 39400.1,
+       "handle_low": 38050.0
+      },
+      "new": {
+       "handle_start": "2017-11-22",
+       "handle_high": 39400.0,
+       "handle_low": 35850.0
+      }
+     },
+     {
+      "symbol": "241690",
+      "classified_at": "2026-07-26T15:43:55.540076+09:00",
+      "legacy": {
+       "handle_start": "2018-01-04",
+       "handle_high": 6572.1,
+       "handle_low": 6016.0
+      },
+      "new": {
+       "handle_start": "2017-12-11",
+       "handle_high": 6572.0,
+       "handle_low": 5359.0
+      }
+     },
+     {
+      "symbol": "094170",
+      "classified_at": "2026-07-26T17:26:09.864686+09:00",
+      "legacy": {
+       "handle_start": "2018-03-08",
+       "handle_high": 5938.1,
+       "handle_low": 5314.0
+      },
+      "new": {
+       "handle_start": "2018-02-21",
+       "handle_high": 5938.0,
+       "handle_low": 5254.0
+      }
+     },
+     {
+      "symbol": "011320",
+      "classified_at": "2026-08-02T00:27:21.730615+09:00",
+      "legacy": {
+       "handle_start": "2018-01-24",
+       "handle_high": 7720.1,
+       "handle_low": 7560.0
+      },
+      "new": {
+       "handle_start": "2018-01-10",
+       "handle_high": 7720.0,
+       "handle_low": 6530.0
+      }
+     },
+     {
+      "symbol": "001820",
+      "classified_at": "2026-08-02T00:46:14.876842+09:00",
+      "legacy": {
+       "handle_start": "2018-04-12",
+       "handle_high": 48900.1,
+       "handle_low": 46850.0
+      },
+      "new": {
+       "handle_start": "2018-03-22",
+       "handle_high": 48900.0,
+       "handle_low": 40200.0
+      }
+     },
+     {
+      "symbol": "166480",
+      "classified_at": "2026-08-02T00:57:55.546634+09:00",
+      "legacy": {
+       "handle_start": "2018-03-13",
+       "handle_high": 11755.1,
+       "handle_low": 10986.0
+      },
+      "new": {
+       "handle_start": "2018-02-22",
+       "handle_high": 11755.0,
+       "handle_low": 10003.0
+      }
+     },
+     {
+      "symbol": "011280",
+      "classified_at": "2026-08-02T01:12:49.739591+09:00",
+      "legacy": {
+       "handle_start": "2018-04-26",
+       "handle_high": 3365.1,
+       "handle_low": 3210.0
+      },
+      "new": {
+       "handle_start": "2018-04-06",
+       "handle_high": 3365.0,
+       "handle_low": 2985.0
+      }
+     },
+     {
+      "symbol": "011280",
+      "classified_at": "2026-08-02T01:28:25.206117+09:00",
+      "legacy": {
+       "handle_start": "2018-04-26",
+       "handle_high": 3365.1,
+       "handle_low": 3210.0
+      },
+      "new": {
+       "handle_start": "2018-04-06",
+       "handle_high": 3365.0,
+       "handle_low": 2985.0
+      }
+     },
+     {
+      "symbol": "094170",
+      "classified_at": "2026-08-02T01:34:34.765290+09:00",
+      "legacy": {
+       "handle_start": "2018-03-12",
+       "handle_high": 6281.1,
+       "handle_low": 5233.0
+      },
+      "new": {
+       "handle_start": "2018-03-09",
+       "handle_high": 6281.0,
+       "handle_low": 5233.0
+      }
+     },
+     {
+      "symbol": "011280",
+      "classified_at": "2026-08-02T01:42:22.324303+09:00",
+      "legacy": {
+       "handle_start": "2018-04-26",
+       "handle_high": 3365.1,
+       "handle_low": 3210.0
+      },
+      "new": {
+       "handle_start": "2018-04-06",
+       "handle_high": 3365.0,
+       "handle_low": 2985.0
+      }
+     },
+     {
+      "symbol": "045100",
+      "classified_at": "2026-08-02T02:24:09.824789+09:00",
+      "legacy": {
+       "handle_start": "2018-05-15",
+       "handle_high": 16350.1,
+       "handle_low": 15400.0
+      },
+      "new": {
+       "handle_start": "2018-02-14",
+       "handle_high": 16350.0,
+       "handle_low": 13800.0
+      }
+     },
+     {
+      "symbol": "241690",
+      "classified_at": "2026-08-02T02:38:10.532904+09:00",
+      "legacy": {
+       "handle_start": "2018-02-27",
+       "handle_high": 9505.1,
+       "handle_low": 7508.0
+      },
+      "new": {
+       "handle_start": "2018-02-26",
+       "handle_high": 9505.0,
+       "handle_low": 7508.0
+      }
+     },
+     {
+      "symbol": "045100",
+      "classified_at": "2026-08-02T03:06:23.692440+09:00",
+      "legacy": {
+       "handle_start": "2018-05-15",
+       "handle_high": 16350.1,
+       "handle_low": 15400.0
+      },
+      "new": {
+       "handle_start": "2018-02-14",
+       "handle_high": 16350.0,
+       "handle_low": 13800.0
+      }
+     },
+     {
+      "symbol": "122870",
+      "classified_at": "2026-08-02T03:37:02.957158+09:00",
+      "legacy": {
+       "handle_start": "2018-06-12",
+       "handle_high": 29350.1,
+       "handle_low": 28700.0
+      },
+      "new": {
+       "handle_start": "2018-05-29",
+       "handle_high": 29350.0,
+       "handle_low": 27200.0
+      }
+     },
+     {
+      "symbol": "052300",
+      "classified_at": "2026-08-02T04:15:45.749880+09:00",
+      "legacy": {
+       "handle_start": "2018-08-01",
+       "handle_high": 30798.1,
+       "handle_low": 27742.0
+      },
+      "new": {
+       "handle_start": "2018-07-18",
+       "handle_high": 30798.0,
+       "handle_low": 27059.0
+      }
+     },
+     {
+      "symbol": "014680",
+      "classified_at": "2026-08-02T04:27:48.838749+09:00",
+      "legacy": {
+       "handle_start": "2018-08-07",
+       "handle_high": 80000.1,
+       "handle_low": 77600.0
+      },
+      "new": {
+       "handle_start": "2018-06-25",
+       "handle_high": 80000.0,
+       "handle_low": 73000.0
+      }
+     },
+     {
+      "symbol": "018290",
+      "classified_at": "2026-08-02T05:10:22.088481+09:00",
+      "legacy": {
+       "handle_start": "2018-09-04",
+       "handle_high": 9480.1,
+       "handle_low": 8900.0
+      },
+      "new": {
+       "handle_start": "2018-08-27",
+       "handle_high": 9480.0,
+       "handle_low": 8210.0
+      }
+     },
+     {
+      "symbol": "122870",
+      "classified_at": "2026-08-02T06:12:59.538449+09:00",
+      "legacy": {
+       "handle_start": "2018-11-28",
+       "handle_high": 43500.1,
+       "handle_low": 41950.0
+      },
+      "new": {
+       "handle_start": "2018-11-15",
+       "handle_high": 43500.0,
+       "handle_low": 39000.0
+      }
+     },
+     {
+      "symbol": "109860",
+      "classified_at": "2026-08-02T06:27:26.284341+09:00",
+      "legacy": {
+       "handle_start": "2019-01-21",
+       "handle_high": 8517.1,
+       "handle_low": 8170.0
+      },
+      "new": {
+       "handle_start": "2018-12-06",
+       "handle_high": 8517.0,
+       "handle_low": 7862.0
+      }
+     },
+     {
+      "symbol": "011280",
+      "classified_at": "2026-08-02T06:34:21.580901+09:00",
+      "legacy": {
+       "handle_start": "2019-02-11",
+       "handle_high": 4125.1,
+       "handle_low": 4005.0
+      },
+      "new": {
+       "handle_start": "2019-01-08",
+       "handle_high": 4125.0,
+       "handle_low": 3730.0
+      }
+     },
+     {
+      "symbol": "011280",
+      "classified_at": "2026-08-02T06:38:31.829684+09:00",
+      "legacy": {
+       "handle_start": "2019-02-11",
+       "handle_high": 4125.1,
+       "handle_low": 4005.0
+      },
+      "new": {
+       "handle_start": "2019-01-08",
+       "handle_high": 4125.0,
+       "handle_low": 3730.0
+      }
+     },
+     {
+      "symbol": "033500",
+      "classified_at": "2026-08-02T06:56:08.705713+09:00",
+      "legacy": {
+       "handle_start": "2019-02-22",
+       "handle_high": 8940.1,
+       "handle_low": 8500.0
+      },
+      "new": {
+       "handle_start": "2018-12-17",
+       "handle_high": 8940.0,
+       "handle_low": 7100.0
+      }
+     },
+     {
+      "symbol": "034310",
+      "classified_at": "2026-08-02T07:51:09.164913+09:00",
+      "legacy": {
+       "handle_start": "2019-04-08",
+       "handle_high": 20200.1,
+       "handle_low": 19750.0
+      },
+      "new": {
+       "handle_start": "2019-03-27",
+       "handle_high": 20200.0,
+       "handle_low": 19500.0
+      }
+     },
+     {
+      "symbol": "033500",
+      "classified_at": "2026-08-02T08:21:34.438307+09:00",
+      "legacy": {
+       "handle_start": "2019-04-23",
+       "handle_high": 9400.1,
+       "handle_low": 8640.0
+      },
+      "new": {
+       "handle_start": "2019-03-14",
+       "handle_high": 9400.0,
+       "handle_low": 8120.0
+      }
+     },
+     {
+      "symbol": "109860",
+      "classified_at": "2026-08-02T08:57:28.632099+09:00",
+      "legacy": {
+       "handle_start": "2019-04-24",
+       "handle_high": 8826.1,
+       "handle_low": 8055.0
+      },
+      "new": {
+       "handle_start": "2019-02-14",
+       "handle_high": 8826.0,
+       "handle_low": 8016.0
+      }
+     },
+     {
+      "symbol": "109860",
+      "classified_at": "2026-08-02T09:16:03.906123+09:00",
+      "legacy": {
+       "handle_start": "2019-04-24",
+       "handle_high": 8826.1,
+       "handle_low": 8055.0
+      },
+      "new": {
+       "handle_start": "2019-02-14",
+       "handle_high": 8826.0,
+       "handle_low": 8016.0
+      }
+     },
+     {
+      "symbol": "012330",
+      "classified_at": "2026-08-02T10:20:47.864277+09:00",
+      "legacy": {
+       "handle_start": "2019-07-25",
+       "handle_high": 239500.1,
+       "handle_low": 237000.0
+      },
+      "new": {
+       "handle_start": "2019-07-01",
+       "handle_high": 239500.0,
+       "handle_low": 226000.0
+      }
+     },
+     {
+      "symbol": "100840",
+      "classified_at": "2026-08-02T10:29:09.271348+09:00",
+      "legacy": {
+       "handle_start": "2019-07-08",
+       "handle_high": 5933.1,
+       "handle_low": 5190.0
+      },
+      "new": {
+       "handle_start": "2019-07-05",
+       "handle_high": 5933.0,
+       "handle_low": 5190.0
+      }
+     },
+     {
+      "symbol": "213420",
+      "classified_at": "2026-08-02T11:17:33.170429+09:00",
+      "legacy": {
+       "handle_start": "2019-08-29",
+       "handle_high": 19650.1,
+       "handle_low": 19250.0
+      },
+      "new": {
+       "handle_start": "2019-08-21",
+       "handle_high": 19650.0,
+       "handle_low": 17750.0
+      }
+     },
+     {
+      "symbol": "012330",
+      "classified_at": "2026-08-02T11:35:43.443341+09:00",
+      "legacy": {
+       "handle_start": "2019-09-02",
+       "handle_high": 250000.1,
+       "handle_low": 242500.0
+      },
+      "new": {
+       "handle_start": "2019-07-26",
+       "handle_high": 250000.0,
+       "handle_low": 228500.0
+      }
+     },
+     {
+      "symbol": "012330",
+      "classified_at": "2026-08-02T11:57:55.520882+09:00",
+      "legacy": {
+       "handle_start": "2019-09-02",
+       "handle_high": 250000.1,
+       "handle_low": 242500.0
+      },
+      "new": {
+       "handle_start": "2019-07-26",
+       "handle_high": 250000.0,
+       "handle_low": 228500.0
+      }
+     },
+     {
+      "symbol": "001500",
+      "classified_at": "2026-08-02T12:17:36.929378+09:00",
+      "legacy": {
+       "handle_start": "2019-09-20",
+       "handle_high": 9791.1,
+       "handle_low": 9076.0
+      },
+      "new": {
+       "handle_start": "2019-09-16",
+       "handle_high": 9791.0,
+       "handle_low": 9076.0
+      }
+     },
+     {
+      "symbol": "213420",
+      "classified_at": "2026-08-02T12:23:19.938631+09:00",
+      "legacy": {
+       "handle_start": "2019-09-24",
+       "handle_high": 22900.1,
+       "handle_low": 20300.0
+      },
+      "new": {
+       "handle_start": "2019-09-06",
+       "handle_high": 22900.0,
+       "handle_low": 19650.0
+      }
+     },
+     {
+      "symbol": "011070",
+      "classified_at": "2026-08-02T12:43:46.102648+09:00",
+      "legacy": {
+       "handle_start": "2019-10-23",
+       "handle_high": 126500.1,
+       "handle_low": 119000.0
+      },
+      "new": {
+       "handle_start": "2019-10-22",
+       "handle_high": 126500.0,
+       "handle_low": 119000.0
+      }
+     },
+     {
+      "symbol": "011070",
+      "classified_at": "2026-08-02T13:00:29.112485+09:00",
+      "legacy": {
+       "handle_start": "2019-10-23",
+       "handle_high": 126500.1,
+       "handle_low": 119000.0
+      },
+      "new": {
+       "handle_start": "2019-10-22",
+       "handle_high": 126500.0,
+       "handle_low": 119000.0
+      }
+     },
+     {
+      "symbol": "100840",
+      "classified_at": "2026-08-02T13:37:02.967221+09:00",
+      "legacy": {
+       "handle_start": "2019-10-14",
+       "handle_high": 6242.1,
+       "handle_low": 6006.0
+      },
+      "new": {
+       "handle_start": "2019-10-10",
+       "handle_high": 6242.0,
+       "handle_low": 5987.0
+      }
+     },
+     {
+      "symbol": "000990",
+      "classified_at": "2026-08-02T13:41:32.557948+09:00",
+      "legacy": {
+       "handle_start": "2019-11-15",
+       "handle_high": 18000.1,
+       "handle_low": 17150.0
+      },
+      "new": {
+       "handle_start": "2019-11-14",
+       "handle_high": 18000.0,
+       "handle_low": 17150.0
+      }
+     },
+     {
+      "symbol": "012330",
+      "classified_at": "2026-08-02T14:30:54.307555+09:00",
+      "legacy": {
+       "handle_start": "2019-11-19",
+       "handle_high": 258500.1,
+       "handle_low": 244000.0
+      },
+      "new": {
+       "handle_start": "2019-11-15",
+       "handle_high": 258500.0,
+       "handle_low": 244000.0
+      }
+     },
+     {
+      "symbol": "007810",
+      "classified_at": "2026-08-02T14:40:43.123704+09:00",
+      "legacy": {
+       "handle_start": "2019-12-04",
+       "handle_high": 11750.1,
+       "handle_low": 10100.0
+      },
+      "new": {
+       "handle_start": "2019-12-03",
+       "handle_high": 11750.0,
+       "handle_low": 10100.0
+      }
+     },
+     {
+      "symbol": "012330",
+      "classified_at": "2026-08-02T14:43:41.247379+09:00",
+      "legacy": {
+       "handle_start": "2019-12-13",
+       "handle_high": 260000.1,
+       "handle_low": 257000.0
+      },
+      "new": {
+       "handle_start": "2019-11-19",
+       "handle_high": 260000.0,
+       "handle_low": 244000.0
+      }
+     },
+     {
+      "symbol": "000990",
+      "classified_at": "2026-08-03T10:48:23.084548+09:00",
+      "legacy": {
+       "handle_start": "2019-12-05",
+       "handle_high": 19250.1,
+       "handle_low": 19150.0
+      },
+      "new": {
+       "handle_start": "2019-11-27",
+       "handle_high": 19250.0,
+       "handle_low": 18600.0
+      }
+     },
+     {
+      "symbol": "014680",
+      "classified_at": "2026-08-03T10:49:30.011908+09:00",
+      "legacy": {
+       "handle_start": "2019-11-19",
+       "handle_high": 97100.1,
+       "handle_low": 93700.0
+      },
+      "new": {
+       "handle_start": "2019-10-29",
+       "handle_high": 97100.0,
+       "handle_low": 90600.0
+      }
+     },
+     {
+      "symbol": "101160",
+      "classified_at": "2026-08-03T10:55:29.294338+09:00",
+      "legacy": {
+       "handle_start": "2019-12-20",
+       "handle_high": 7890.1,
+       "handle_low": 7620.0
+      },
+      "new": {
+       "handle_start": "2019-12-18",
+       "handle_high": 7890.0,
+       "handle_low": 7580.0
+      }
+     },
+     {
+      "symbol": "011070",
+      "classified_at": "2026-08-03T11:18:31.958975+09:00",
+      "legacy": {
+       "handle_start": "2019-10-28",
+       "handle_high": 127500.1,
+       "handle_low": 115000.0
+      },
+      "new": {
+       "handle_start": "2019-10-23",
+       "handle_high": 127500.0,
+       "handle_low": 115000.0
+      }
+     },
+     {
+      "symbol": "014680",
+      "classified_at": "2026-08-03T11:20:39.334560+09:00",
+      "legacy": {
+       "handle_start": "2019-10-29",
+       "handle_high": 97000.1,
+       "handle_low": 90600.0
+      },
+      "new": {
+       "handle_start": "2019-10-28",
+       "handle_high": 97000.0,
+       "handle_low": 90600.0
+      }
+     },
+     {
+      "symbol": "101160",
+      "classified_at": "2026-08-03T11:28:55.653593+09:00",
+      "legacy": {
+       "handle_start": "2019-12-23",
+       "handle_high": 7930.1,
+       "handle_low": 7620.0
+      },
+      "new": {
+       "handle_start": "2019-12-20",
+       "handle_high": 7930.0,
+       "handle_low": 7620.0
+      }
+     },
+     {
+      "symbol": "213420",
+      "classified_at": "2026-08-03T11:32:35.281867+09:00",
+      "legacy": {
+       "handle_start": "2019-12-24",
+       "handle_high": 23850.1,
+       "handle_low": 23250.0
+      },
+      "new": {
+       "handle_start": "2019-12-19",
+       "handle_high": 23850.0,
+       "handle_low": 23000.0
+      }
+     },
+     {
+      "symbol": "014680",
+      "classified_at": "2026-08-03T11:38:25.823479+09:00",
+      "legacy": {
+       "handle_start": "2019-11-19",
+       "handle_high": 97100.1,
+       "handle_low": 93700.0
+      },
+      "new": {
+       "handle_start": "2019-10-29",
+       "handle_high": 97100.0,
+       "handle_low": 90600.0
+      }
+     },
+     {
+      "symbol": "213420",
+      "classified_at": "2026-08-03T11:53:22.871464+09:00",
+      "legacy": {
+       "handle_start": "2019-12-26",
+       "handle_high": 24200.1,
+       "handle_low": 23900.0
+      },
+      "new": {
+       "handle_start": "2019-10-22",
+       "handle_high": 24200.0,
+       "handle_low": 20200.0
+      }
+     },
+     {
+      "symbol": "014680",
+      "classified_at": "2026-08-03T12:01:25.485505+09:00",
+      "legacy": {
+       "handle_start": "2019-11-19",
+       "handle_high": 97100.1,
+       "handle_low": 93700.0
+      },
+      "new": {
+       "handle_start": "2019-10-29",
+       "handle_high": 97100.0,
+       "handle_low": 90600.0
+      }
+     },
+     {
+      "symbol": "101160",
+      "classified_at": "2026-08-03T12:10:04.517302+09:00",
+      "legacy": {
+       "handle_start": "2019-12-20",
+       "handle_high": 7890.1,
+       "handle_low": 7620.0
+      },
+      "new": {
+       "handle_start": "2019-10-29",
+       "handle_high": 7890.0,
+       "handle_low": 6290.0
+      }
+     },
+     {
+      "symbol": "213420",
+      "classified_at": "2026-08-03T12:14:58.470933+09:00",
+      "legacy": {
+       "handle_start": "2019-12-26",
+       "handle_high": 24200.1,
+       "handle_low": 23900.0
+      },
+      "new": {
+       "handle_start": "2019-10-22",
+       "handle_high": 24200.0,
+       "handle_low": 20200.0
+      }
+     },
+     {
+      "symbol": "011070",
+      "classified_at": "2026-08-03T12:55:51.190314+09:00",
+      "legacy": {
+       "handle_start": "2019-10-28",
+       "handle_high": 127500.1,
+       "handle_low": 115000.0
+      },
+      "new": {
+       "handle_start": "2019-10-23",
+       "handle_high": 127500.0,
+       "handle_low": 115000.0
+      }
+     },
+     {
+      "symbol": "007810",
+      "classified_at": "2026-08-09T12:04:05.907744+09:00",
+      "legacy": {
+       "handle_start": "2020-01-02",
+       "handle_high": 12000.1,
+       "handle_low": 9320.0
+      },
+      "new": {
+       "handle_start": "2019-12-30",
+       "handle_high": 12000.0,
+       "handle_low": 9320.0
+      }
+     },
+     {
+      "symbol": "213420",
+      "classified_at": "2026-08-09T12:20:31.156541+09:00",
+      "legacy": {
+       "handle_start": "2019-12-26",
+       "handle_high": 24200.1,
+       "handle_low": 23900.0
+      },
+      "new": {
+       "handle_start": "2019-12-24",
+       "handle_high": 24200.0,
+       "handle_low": 23250.0
+      }
+     },
+     {
+      "symbol": "271560",
+      "classified_at": "2026-08-09T13:53:24.885224+09:00",
+      "legacy": {
+       "handle_start": "2020-05-07",
+       "handle_high": 126500.1,
+       "handle_low": 122000.0
+      },
+      "new": {
+       "handle_start": "2020-04-06",
+       "handle_high": 126500.0,
+       "handle_low": 109500.0
+      }
+     },
+     {
+      "symbol": "213420",
+      "classified_at": "2026-08-09T14:07:13.360785+09:00",
+      "legacy": {
+       "handle_start": "2020-04-29",
+       "handle_high": 31000.1,
+       "handle_low": 29350.0
+      },
+      "new": {
+       "handle_start": "2020-04-07",
+       "handle_high": 31000.0,
+       "handle_low": 27000.0
+      }
+     },
+     {
+      "symbol": "206640",
+      "classified_at": "2026-08-09T14:19:38.774043+09:00",
+      "legacy": {
+       "handle_start": "2020-05-18",
+       "handle_high": 23750.1,
+       "handle_low": 19950.0
+      },
+      "new": {
+       "handle_start": "2020-05-15",
+       "handle_high": 23750.0,
+       "handle_low": 19950.0
+      }
+     },
+     {
+      "symbol": "050890",
+      "classified_at": "2026-08-09T23:34:55.058374+09:00",
+      "legacy": {
+       "handle_start": "2020-06-29",
+       "handle_high": 5438.1,
+       "handle_low": 5195.0
+      },
+      "new": {
+       "handle_start": "2020-06-26",
+       "handle_high": 5438.0,
+       "handle_low": 5117.0
+      }
+     },
+     {
+      "symbol": "101160",
+      "classified_at": "2026-08-09T23:57:48.218054+09:00",
+      "legacy": {
+       "handle_start": "2020-07-01",
+       "handle_high": 9680.1,
+       "handle_low": 9400.0
+      },
+      "new": {
+       "handle_start": "2020-06-24",
+       "handle_high": 9680.0,
+       "handle_low": 8810.0
+      }
+     },
+     {
+      "symbol": "047400",
+      "classified_at": "2026-08-10T09:49:21.284279+09:00",
+      "legacy": {
+       "handle_start": "2020-07-23",
+       "handle_high": 4490.1,
+       "handle_low": 4040.0
+      },
+      "new": {
+       "handle_start": "2020-06-30",
+       "handle_high": 4490.0,
+       "handle_low": 3650.0
+      }
+     },
+     {
+      "symbol": "102120",
+      "classified_at": "2026-08-10T09:56:55.921419+09:00",
+      "legacy": {
+       "handle_start": "2020-07-15",
+       "handle_high": 9490.1,
+       "handle_low": 9080.0
+      },
+      "new": {
+       "handle_start": "2020-07-10",
+       "handle_high": 9490.0,
+       "handle_low": 8780.0
+      }
+     },
+     {
+      "symbol": "001820",
+      "classified_at": "2026-08-10T10:13:10.674705+09:00",
+      "legacy": {
+       "handle_start": "2020-07-29",
+       "handle_high": 60500.1,
+       "handle_low": 59200.0
+      },
+      "new": {
+       "handle_start": "2020-06-08",
+       "handle_high": 60500.0,
+       "handle_low": 50900.0
+      }
+     },
+     {
+      "symbol": "060150",
+      "classified_at": "2026-08-10T10:27:09.861575+09:00",
+      "legacy": {
+       "handle_start": "2020-07-24",
+       "handle_high": 9110.1,
+       "handle_low": 8860.0
+      },
+      "new": {
+       "handle_start": "2020-07-15",
+       "handle_high": 9110.0,
+       "handle_low": 8600.0
+      }
+     },
+     {
+      "symbol": "000990",
+      "classified_at": "2026-08-10T10:48:40.870454+09:00",
+      "legacy": {
+       "handle_start": "2020-07-28",
+       "handle_high": 32400.1,
+       "handle_low": 31400.0
+      },
+      "new": {
+       "handle_start": "2020-07-15",
+       "handle_high": 32400.0,
+       "handle_low": 29900.0
+      }
+     },
+     {
+      "symbol": "101160",
+      "classified_at": "2026-08-11T07:27:14.621618+09:00",
+      "legacy": {
+       "handle_start": "2020-07-01",
+       "handle_high": 9680.1,
+       "handle_low": 9400.0
+      },
+      "new": {
+       "handle_start": "2020-06-24",
+       "handle_high": 9680.0,
+       "handle_low": 8810.0
+      }
+     },
+     {
+      "symbol": "060150",
+      "classified_at": "2026-08-11T07:48:02.997162+09:00",
+      "legacy": {
+       "handle_start": "2020-08-03",
+       "handle_high": 9650.1,
+       "handle_low": 9450.0
+      },
+      "new": {
+       "handle_start": "2020-07-27",
+       "handle_high": 9650.0,
+       "handle_low": 9080.0
+      }
+     },
+     {
+      "symbol": "005420",
+      "classified_at": "2026-08-11T08:07:25.997612+09:00",
+      "legacy": {
+       "handle_start": "2020-07-31",
+       "handle_high": 7888.1,
+       "handle_low": 7450.0
+      },
+      "new": {
+       "handle_start": "2020-07-21",
+       "handle_high": 7888.0,
+       "handle_low": 7329.0
+      }
+     },
+     {
+      "symbol": "050890",
+      "classified_at": "2026-08-11T12:58:08.344786+09:00",
+      "legacy": {
+       "handle_start": "2020-08-07",
+       "handle_high": 8328.1,
+       "handle_low": 7763.0
+      },
+      "new": {
+       "handle_start": "2020-07-21",
+       "handle_high": 8328.0,
+       "handle_low": 7549.0
+      }
+     },
+     {
+      "symbol": "271560",
+      "classified_at": "2026-08-11T13:14:35.896555+09:00",
+      "legacy": {
+       "handle_start": "2020-08-13",
+       "handle_high": 153500.1,
+       "handle_low": 148000.0
+      },
+      "new": {
+       "handle_start": "2020-07-08",
+       "handle_high": 153500.0,
+       "handle_low": 130500.0
+      }
+     },
+     {
+      "symbol": "054540",
+      "classified_at": "2026-08-11T13:51:12.923900+09:00",
+      "legacy": {
+       "handle_start": "2020-08-13",
+       "handle_high": 4315.1,
+       "handle_low": 4140.0
+      },
+      "new": {
+       "handle_start": "2020-08-11",
+       "handle_high": 4315.0,
+       "handle_low": 4040.0
+      }
+     },
+     {
+      "symbol": "206640",
+      "classified_at": "2026-08-11T14:02:48.353005+09:00",
+      "legacy": {
+       "handle_start": "2020-08-27",
+       "handle_high": 24850.1,
+       "handle_low": 25400.0
+      },
+      "new": {
+       "handle_start": "2020-08-11",
+       "handle_high": 24850.0,
+       "handle_low": 19500.0
+      }
+     },
+     {
+      "symbol": "206640",
+      "classified_at": "2026-08-11T14:42:44.191166+09:00",
+      "legacy": {
+       "handle_start": "2020-08-27",
+       "handle_high": 24850.1,
+       "handle_low": 25400.0
+      },
+      "new": {
+       "handle_start": "2020-08-11",
+       "handle_high": 24850.0,
+       "handle_low": 19500.0
+      }
+     },
+     {
+      "symbol": "102120",
+      "classified_at": "2026-08-11T15:35:33.843285+09:00",
+      "legacy": {
+       "handle_start": "2020-09-14",
+       "handle_high": 11650.1,
+       "handle_low": 9700.0
+      },
+      "new": {
+       "handle_start": "2020-09-11",
+       "handle_high": 11650.0,
+       "handle_low": 9700.0
+      }
+     },
+     {
+      "symbol": "089970",
+      "classified_at": "2026-08-11T16:53:11.968741+09:00",
+      "legacy": {
+       "handle_start": "2020-11-04",
+       "handle_high": 12500.1,
+       "handle_low": 11800.0
+      },
+      "new": {
+       "handle_start": "2020-10-13",
+       "handle_high": 12500.0,
+       "handle_low": 11000.0
+      }
+     },
+     {
+      "symbol": "112040",
+      "classified_at": "2026-08-11T16:56:42.530256+09:00",
+      "legacy": {
+       "handle_start": "2020-10-28",
+       "handle_high": 20332.1,
+       "handle_low": 19448.0
+      },
+      "new": {
+       "handle_start": "2020-09-15",
+       "handle_high": 20332.0,
+       "handle_low": 17529.0
+      }
+     },
+     {
+      "symbol": "001120",
+      "classified_at": "2026-08-11T17:06:42.855032+09:00",
+      "legacy": {
+       "handle_start": "2020-11-10",
+       "handle_high": 17500.1,
+       "handle_low": 17100.0
+      },
+      "new": {
+       "handle_start": "2020-09-17",
+       "handle_high": 17500.0,
+       "handle_low": 15050.0
+      }
+     },
+     {
+      "symbol": "001500",
+      "classified_at": "2026-08-11T17:09:48.930803+09:00",
+      "legacy": {
+       "handle_start": "2020-10-22",
+       "handle_high": 9658.1,
+       "handle_low": 9344.0
+      },
+      "new": {
+       "handle_start": "2020-09-08",
+       "handle_high": 9658.0,
+       "handle_low": 8763.0
+      }
+     },
+     {
+      "symbol": "001120",
+      "classified_at": "2026-08-11T17:39:35.709408+09:00",
+      "legacy": {
+       "handle_start": "2020-11-10",
+       "handle_high": 17500.1,
+       "handle_low": 17100.0
+      },
+      "new": {
+       "handle_start": "2020-09-17",
+       "handle_high": 17500.0,
+       "handle_low": 15050.0
+      }
+     },
+     {
+      "symbol": "001500",
+      "classified_at": "2026-08-11T17:39:39.704464+09:00",
+      "legacy": {
+       "handle_start": "2020-10-22",
+       "handle_high": 9658.1,
+       "handle_low": 9344.0
+      },
+      "new": {
+       "handle_start": "2020-09-08",
+       "handle_high": 9658.0,
+       "handle_low": 8763.0
+      }
+     },
+     {
+      "symbol": "089970",
+      "classified_at": "2026-08-11T17:54:01.164391+09:00",
+      "legacy": {
+       "handle_start": "2020-11-04",
+       "handle_high": 12500.1,
+       "handle_low": 11800.0
+      },
+      "new": {
+       "handle_start": "2020-10-13",
+       "handle_high": 12500.0,
+       "handle_low": 11000.0
+      }
+     },
+     {
+      "symbol": "005490",
+      "classified_at": "2026-08-12T00:29:11.057790+09:00",
+      "legacy": {
+       "handle_start": "2020-11-05",
+       "handle_high": 225500.1,
+       "handle_low": 216000.0
+      },
+      "new": {
+       "handle_start": "2020-10-26",
+       "handle_high": 225500.0,
+       "handle_low": 207500.0
+      }
+     },
+     {
+      "symbol": "045100",
+      "classified_at": "2026-08-12T00:40:51.499013+09:00",
+      "legacy": {
+       "handle_start": "2020-11-10",
+       "handle_high": 11650.1,
+       "handle_low": 11350.0
+      },
+      "new": {
+       "handle_start": "2020-10-22",
+       "handle_high": 11650.0,
+       "handle_low": 10700.0
+      }
+     },
+     {
+      "symbol": "232680",
+      "classified_at": "2026-08-12T00:56:40.072060+09:00",
+      "legacy": {
+       "handle_start": "2020-11-26",
+       "handle_high": 8500.1,
+       "handle_low": 8160.0
+      },
+      "new": {
+       "handle_start": "2020-11-06",
+       "handle_high": 8500.0,
+       "handle_low": 7390.0
+      }
+     },
+     {
+      "symbol": "094170",
+      "classified_at": "2026-08-12T01:26:00.195947+09:00",
+      "legacy": {
+       "handle_start": "2020-12-02",
+       "handle_high": 8662.1,
+       "handle_low": 7993.0
+      },
+      "new": {
+       "handle_start": "2020-11-04",
+       "handle_high": 8662.0,
+       "handle_low": 7247.0
+      }
+     },
+     {
+      "symbol": "232680",
+      "classified_at": "2026-08-12T01:37:01.944808+09:00",
+      "legacy": {
+       "handle_start": "2020-11-05",
+       "handle_high": 8290.1,
+       "handle_low": 7000.0
+      },
+      "new": {
+       "handle_start": "2020-09-15",
+       "handle_high": 8290.0,
+       "handle_low": 7000.0
+      }
+     },
+     {
+      "symbol": "001570",
+      "classified_at": "2026-08-12T01:47:24.800557+09:00",
+      "legacy": {
+       "handle_start": "2020-12-03",
+       "handle_high": 5500.1,
+       "handle_low": 5050.0
+      },
+      "new": {
+       "handle_start": "2020-11-24",
+       "handle_high": 5500.0,
+       "handle_low": 5050.0
+      }
+     },
+     {
+      "symbol": "014680",
+      "classified_at": "2026-08-12T01:52:14.696789+09:00",
+      "legacy": {
+       "handle_start": "2020-12-17",
+       "handle_high": 173500.1,
+       "handle_low": 171000.0
+      },
+      "new": {
+       "handle_start": "2020-11-16",
+       "handle_high": 173500.0,
+       "handle_low": 153500.0
+      }
+     },
+     {
+      "symbol": "024910",
+      "classified_at": "2026-08-12T01:55:50.383837+09:00",
+      "legacy": {
+       "handle_start": "2020-12-10",
+       "handle_high": 2075.1,
+       "handle_low": 1945.0
+      },
+      "new": {
+       "handle_start": "2020-11-16",
+       "handle_high": 2075.0,
+       "handle_low": 1820.0
+      }
+     }
     ]
    },
    "b_end_changed": {
@@ -1801,26 +5214,27 @@
     "rows": []
    },
    "c_fired_transition": {
-    "legacy_none→none": 1463,
-    "fired→fired": 468,
-    "not→not": 25,
-    "legacy_none→fired": 260,
-    "fired→none": 33,
-    "fired→not": 21,
-    "legacy_none→not": 79,
-    "not→none": 1
+    "legacy_none→none": 1372,
+    "fired→fired": 476,
+    "not→not": 22,
+    "legacy_none→fired": 333,
+    "fired→none": 29,
+    "fired→not": 17,
+    "legacy_none→not": 97,
+    "not→none": 3,
+    "not→fired": 1
    },
    "c_reasons_old": {
     "volume_not_contracting": 442,
     "distribution_in_handle": 479
    },
    "c_reasons_new": {
-    "volume_not_contracting": 492,
-    "distribution_in_handle": 677
+    "volume_not_contracting": 527,
+    "distribution_in_handle": 767
    },
    "d_coverage": {
     "old_detected": 548,
-    "new_detected": 853,
+    "new_detected": 946,
     "old_skip": {
      "S1 pivot_basis": 1104,
      "S4 rim not recovered": 552,
@@ -1833,46 +5247,45 @@
      "pivot_basis=None": 1037,
      "pivot_basis=range_high": 67,
      "right rim not recovered after cup bottom": 158,
-     "handle not formed (2 days < HANDLE_LEGIT_MIN_DAYS)": 38,
-     "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)": 60,
-     "handle not formed (1 days < HANDLE_LEGIT_MIN_DAYS)": 35,
-     "handle_above_pivot": 34,
-     "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)": 51,
+     "handle not formed (2 days < HANDLE_LEGIT_MIN_DAYS)": 18,
+     "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)": 29,
+     "handle not formed (1 days < HANDLE_LEGIT_MIN_DAYS)": 14,
+     "pivot_below_cup_bottom": 36,
      "window too short (9 rows)": 3,
      "pivot_price missing": 1,
-     "base window too short (0 days)": 2,
+     "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)": 32,
      "base window too short (3 days)": 3,
-     "base window too short (4 days)": 3,
      "base window too short (1 days)": 1,
-     "base window too short (2 days)": 4
+     "base window too short (2 days)": 2,
+     "base window too short (4 days)": 3
     },
     "new_pivot_eff_source": {
-     "exact": 514,
-     "minus_0_1": 339
+     "exact": 293,
+     "minus_0_1": 653
     }
    },
    "e_depth_new": {
-    "n": 853,
-    "min": 0.28,
-    "q1": 6.02,
-    "median": 10.11,
-    "q3": 14.25,
-    "p90": 17.81,
+    "n": 946,
+    "min": 0.29,
+    "q1": 8.15,
+    "median": 11.46,
+    "q3": 14.95,
+    "p90": 18.48,
     "max": 28.41,
-    "in_8_12_band": 216,
-    "band_ratio": 0.253,
-    "handle_above_pivot": 34
+    "in_8_12_band": 290,
+    "band_ratio": 0.307,
+    "handle_above_pivot": 0
    },
    "f_llm_depth_abs_diff": {
-    "n": 781,
+    "n": 873,
     "min": 0.0,
-    "q1": 0.02999999999999936,
-    "median": 1.17,
-    "q3": 4.12,
-    "p90": 8.14,
+    "q1": 0.019999999999999574,
+    "median": 0.2599999999999998,
+    "q3": 2.0600000000000005,
+    "p90": 4.829999999999998,
     "max": 18.28,
-    "gt_3pp": 257,
-    "gt_3pp_ratio": 0.329
+    "gt_3pp": 158,
+    "gt_3pp_ratio": 0.181
    }
   }
  ]
