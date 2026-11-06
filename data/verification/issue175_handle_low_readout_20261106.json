@@ -1,0 +1,1879 @@
+{
+ "generated_at": "2026-11-06T15:18:34",
+ "tables": [
+  {
+   "table": "weekly_classification",
+   "rows_cwh_entry_watch": 368,
+   "a_fired_rows": {
+    "n": 65,
+    "both_detect": 59,
+    "start_high_match": 59,
+    "mismatch_n": 0,
+    "mismatch": [],
+    "legacy_none_n": 6,
+    "legacy_none": [
+     {
+      "symbol": "094840",
+      "classified_at": "2026-08-05T19:18:17.102968+09:00",
+      "analyzed_for_date": "2026-08-05",
+      "stored": {
+       "handle_start": "2026-07-30",
+       "handle_high": 13820.1,
+       "handle_low": 12900.0,
+       "handle_end": "2026-08-04"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": {
+       "handle_start": "2026-07-30",
+       "handle_high": 13820.1,
+       "pivot_eff_source": "exact"
+      },
+      "new_skip": null
+     },
+     {
+      "symbol": "339950",
+      "classified_at": "2026-08-08T09:33:04.772218+09:00",
+      "analyzed_for_date": "2026-08-07",
+      "stored": {
+       "handle_start": "2026-08-04",
+       "handle_high": 2940.1,
+       "handle_low": 2865.0,
+       "handle_end": "2026-08-07"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "036800",
+      "classified_at": "2026-08-24T20:05:30.251457+09:00",
+      "analyzed_for_date": "2026-08-24",
+      "stored": {
+       "handle_start": "2026-08-18",
+       "handle_high": 6400.1,
+       "handle_low": 5880.0,
+       "handle_end": "2026-08-21"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": {
+       "handle_start": "2026-08-18",
+       "handle_high": 6400.1,
+       "pivot_eff_source": "exact"
+      },
+      "new_skip": null
+     },
+     {
+      "symbol": "053160",
+      "classified_at": "2026-08-24T20:12:04.593219+09:00",
+      "analyzed_for_date": "2026-08-24",
+      "stored": {
+       "handle_start": "2026-08-18",
+       "handle_high": 9500.1,
+       "handle_low": 8480.0,
+       "handle_end": "2026-08-21"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": {
+       "handle_start": "2026-08-18",
+       "handle_high": 9500.1,
+       "pivot_eff_source": "exact"
+      },
+      "new_skip": null
+     },
+     {
+      "symbol": "278470",
+      "classified_at": "2026-08-29T03:35:49.958118+09:00",
+      "analyzed_for_date": "2026-08-28",
+      "stored": {
+       "handle_start": "2026-08-25",
+       "handle_high": 424250.1,
+       "handle_low": 404000.0,
+       "handle_end": "2026-08-27"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "143240",
+      "classified_at": "2026-09-26T10:39:55.053080+09:00",
+      "analyzed_for_date": "2026-09-23",
+      "stored": {
+       "handle_start": "2026-09-16",
+       "handle_high": 17680.1,
+       "handle_low": 16980.0,
+       "handle_end": "2026-09-23"
+      },
+      "legacy_skip": "S4 rim not recovered",
+      "new": {
+       "handle_start": "2026-08-28",
+       "handle_high": 17680.0,
+       "pivot_eff_source": "minus_0_1"
+      },
+      "new_skip": null
+     }
+    ],
+    "new_none_guard_n": 0,
+    "new_none_guard": [],
+    "new_none_other_n": 0,
+    "new_none_other": [],
+    "stored_drift_n": 0,
+    "stored_drift": []
+   },
+   "b_end_changed": {
+    "n": 38,
+    "rows": [
+     {
+      "symbol": "000430",
+      "classified_at": "2026-06-02T19:41:48.000998+09:00",
+      "stored_end": "2026-06-01",
+      "new_end": "2026-06-02",
+      "kst_hour": 19
+     },
+     {
+      "symbol": "282330",
+      "classified_at": "2026-06-02T20:49:20.405193+09:00",
+      "stored_end": "2026-06-01",
+      "new_end": "2026-06-02",
+      "kst_hour": 20
+     },
+     {
+      "symbol": "053160",
+      "classified_at": "2026-07-28T02:01:05.635319+09:00",
+      "stored_end": "2026-07-24",
+      "new_end": "2026-07-27",
+      "kst_hour": 2
+     },
+     {
+      "symbol": "092230",
+      "classified_at": "2026-07-28T02:21:10.994251+09:00",
+      "stored_end": "2026-07-24",
+      "new_end": "2026-07-27",
+      "kst_hour": 2
+     },
+     {
+      "symbol": "271560",
+      "classified_at": "2026-07-29T20:05:59.781354+09:00",
+      "stored_end": "2026-07-28",
+      "new_end": "2026-07-29",
+      "kst_hour": 20
+     },
+     {
+      "symbol": "001450",
+      "classified_at": "2026-08-06T18:42:38.832619+09:00",
+      "stored_end": "2026-08-05",
+      "new_end": "2026-08-06",
+      "kst_hour": 18
+     },
+     {
+      "symbol": "066620",
+      "classified_at": "2026-08-11T18:51:49.455894+09:00",
+      "stored_end": "2026-08-10",
+      "new_end": "2026-08-11",
+      "kst_hour": 18
+     },
+     {
+      "symbol": "053160",
+      "classified_at": "2026-08-14T21:02:16.617685+09:00",
+      "stored_end": "2026-08-13",
+      "new_end": "2026-08-14",
+      "kst_hour": 21
+     },
+     {
+      "symbol": "055550",
+      "classified_at": "2026-08-14T21:06:16.347779+09:00",
+      "stored_end": "2026-08-13",
+      "new_end": "2026-08-14",
+      "kst_hour": 21
+     },
+     {
+      "symbol": "093320",
+      "classified_at": "2026-08-14T21:19:00.095939+09:00",
+      "stored_end": "2026-08-13",
+      "new_end": "2026-08-14",
+      "kst_hour": 21
+     },
+     {
+      "symbol": "271560",
+      "classified_at": "2026-08-14T21:38:28.253367+09:00",
+      "stored_end": "2026-08-13",
+      "new_end": "2026-08-14",
+      "kst_hour": 21
+     },
+     {
+      "symbol": "010400",
+      "classified_at": "2026-08-18T18:44:37.113350+09:00",
+      "stored_end": "2026-08-14",
+      "new_end": "2026-08-18",
+      "kst_hour": 18
+     },
+     {
+      "symbol": "228850",
+      "classified_at": "2026-08-20T18:45:43.928912+09:00",
+      "stored_end": "2026-08-19",
+      "new_end": "2026-08-20",
+      "kst_hour": 18
+     },
+     {
+      "symbol": "093320",
+      "classified_at": "2026-08-24T20:24:17.989167+09:00",
+      "stored_end": "2026-08-21",
+      "new_end": "2026-08-24",
+      "kst_hour": 20
+     },
+     {
+      "symbol": "900260",
+      "classified_at": "2026-08-24T20:39:46.097463+09:00",
+      "stored_end": "2026-08-21",
+      "new_end": "2026-08-24",
+      "kst_hour": 20
+     },
+     {
+      "symbol": "003490",
+      "classified_at": "2026-08-26T18:40:48.679585+09:00",
+      "stored_end": "2026-08-25",
+      "new_end": "2026-08-26",
+      "kst_hour": 18
+     },
+     {
+      "symbol": "031510",
+      "classified_at": "2026-08-26T18:49:01.742332+09:00",
+      "stored_end": "2026-08-25",
+      "new_end": "2026-08-26",
+      "kst_hour": 18
+     },
+     {
+      "symbol": "072870",
+      "classified_at": "2026-08-26T18:56:08.039854+09:00",
+      "stored_end": "2026-08-25",
+      "new_end": "2026-08-26",
+      "kst_hour": 18
+     },
+     {
+      "symbol": "086790",
+      "classified_at": "2026-08-28T20:42:30.573432+09:00",
+      "stored_end": "2026-08-27",
+      "new_end": "2026-08-28",
+      "kst_hour": 20
+     },
+     {
+      "symbol": "049430",
+      "classified_at": "2026-08-29T03:22:03.346489+09:00",
+      "stored_end": "2026-08-27",
+      "new_end": "2026-08-28",
+      "kst_hour": 3
+     },
+     {
+      "symbol": "002810",
+      "classified_at": "2026-09-07T18:41:09.494123+09:00",
+      "stored_end": "2026-09-04",
+      "new_end": "2026-09-07",
+      "kst_hour": 18
+     },
+     {
+      "symbol": "049430",
+      "classified_at": "2026-09-07T21:38:24.175493+09:00",
+      "stored_end": "2026-09-04",
+      "new_end": "2026-09-07",
+      "kst_hour": 21
+     },
+     {
+      "symbol": "453340",
+      "classified_at": "2026-09-07T22:06:49.904369+09:00",
+      "stored_end": "2026-09-04",
+      "new_end": "2026-09-07",
+      "kst_hour": 22
+     },
+     {
+      "symbol": "066620",
+      "classified_at": "2026-09-09T19:18:32.697864+09:00",
+      "stored_end": "2026-09-08",
+      "new_end": "2026-09-09",
+      "kst_hour": 19
+     },
+     {
+      "symbol": "007690",
+      "classified_at": "2026-09-10T18:39:37.225275+09:00",
+      "stored_end": "2026-09-09",
+      "new_end": "2026-09-10",
+      "kst_hour": 18
+     },
+     {
+      "symbol": "000700",
+      "classified_at": "2026-09-11T18:38:45.503368+09:00",
+      "stored_end": "2026-09-10",
+      "new_end": "2026-09-11",
+      "kst_hour": 18
+     },
+     {
+      "symbol": "282330",
+      "classified_at": "2026-09-15T19:06:12.824710+09:00",
+      "stored_end": "2026-09-14",
+      "new_end": "2026-09-15",
+      "kst_hour": 19
+     },
+     {
+      "symbol": "066620",
+      "classified_at": "2026-09-18T20:33:00.026168+09:00",
+      "stored_end": "2026-09-17",
+      "new_end": "2026-09-18",
+      "kst_hour": 20
+     },
+     {
+      "symbol": "090430",
+      "classified_at": "2026-09-18T20:37:11.300862+09:00",
+      "stored_end": "2026-09-17",
+      "new_end": "2026-09-18",
+      "kst_hour": 20
+     },
+     {
+      "symbol": "900260",
+      "classified_at": "2026-09-18T20:58:23.942331+09:00",
+      "stored_end": "2026-09-17",
+      "new_end": "2026-09-18",
+      "kst_hour": 20
+     },
+     {
+      "symbol": "294870",
+      "classified_at": "2026-09-28T22:32:29.882330+09:00",
+      "stored_end": "2026-09-23",
+      "new_end": "2026-09-28",
+      "kst_hour": 22
+     },
+     {
+      "symbol": "316140",
+      "classified_at": "2026-09-28T22:35:37.683700+09:00",
+      "stored_end": "2026-09-23",
+      "new_end": "2026-09-28",
+      "kst_hour": 22
+     },
+     {
+      "symbol": "900260",
+      "classified_at": "2026-09-28T22:38:32.132261+09:00",
+      "stored_end": "2026-09-23",
+      "new_end": "2026-09-28",
+      "kst_hour": 22
+     },
+     {
+      "symbol": "003490",
+      "classified_at": "2026-10-01T20:33:02.302470+09:00",
+      "stored_end": "2026-09-30",
+      "new_end": "2026-10-01",
+      "kst_hour": 20
+     },
+     {
+      "symbol": "028670",
+      "classified_at": "2026-10-07T20:32:44.294767+09:00",
+      "stored_end": "2026-10-06",
+      "new_end": "2026-10-07",
+      "kst_hour": 20
+     },
+     {
+      "symbol": "005960",
+      "classified_at": "2026-10-14T20:32:59.705474+09:00",
+      "stored_end": "2026-10-13",
+      "new_end": "2026-10-14",
+      "kst_hour": 20
+     },
+     {
+      "symbol": "041520",
+      "classified_at": "2026-10-17T05:32:50.343149+09:00",
+      "stored_end": "2026-10-15",
+      "new_end": "2026-10-16",
+      "kst_hour": 5
+     },
+     {
+      "symbol": "092730",
+      "classified_at": "2026-11-03T20:35:50.754078+09:00",
+      "stored_end": "2026-11-02",
+      "new_end": "2026-11-03",
+      "kst_hour": 20
+     }
+    ]
+   },
+   "c_fired_transition": {
+    "fired→fired": 65,
+    "legacy_none→none": 187,
+    "fired→not": 3,
+    "not→not": 15,
+    "legacy_none→fired": 82,
+    "legacy_none→not": 15,
+    "not→fired": 1
+   },
+   "c_reasons_old": {
+    "volume_not_contracting": 49,
+    "distribution_in_handle": 62
+   },
+   "c_reasons_new": {
+    "distribution_in_handle": 138,
+    "volume_not_contracting": 63
+   },
+   "d_coverage": {
+    "old_detected": 84,
+    "new_detected": 181,
+    "old_skip": {
+     "S4 rim not recovered": 124,
+     "S1 pivot_basis": 139,
+     "S5 handle<5": 19,
+     "S5 base<5": 2
+    },
+    "new_skip": {
+     "right rim not recovered after cup bottom": 23,
+     "pivot_basis=range_high": 5,
+     "handle not formed (1 days < HANDLE_LEGIT_MIN_DAYS)": 13,
+     "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)": 3,
+     "pivot_basis=None": 119,
+     "pivot_basis=cup_high": 15,
+     "handle not formed (2 days < HANDLE_LEGIT_MIN_DAYS)": 5,
+     "base window too short (3 days)": 1,
+     "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)": 2,
+     "base window too short (2 days)": 1
+    },
+    "new_pivot_eff_source": {
+     "exact": 87,
+     "minus_0_1": 94
+    }
+   },
+   "e_depth_new": {
+    "n": 181,
+    "min": 1.32,
+    "q1": 8.03,
+    "median": 11.93,
+    "q3": 14.84,
+    "p90": 18.82,
+    "max": 32.85,
+    "in_8_12_band": 48,
+    "band_ratio": 0.265,
+    "handle_above_pivot": 0
+   },
+   "f_llm_depth_abs_diff": {
+    "n": 165,
+    "min": 0.0,
+    "q1": 0.019999999999999574,
+    "median": 0.05000000000000071,
+    "q3": 1.9399999999999977,
+    "p90": 4.87,
+    "max": 21.05,
+    "gt_3pp": 29,
+    "gt_3pp_ratio": 0.176
+   }
+  },
+  {
+   "table": "backtest_classification",
+   "rows_cwh_entry_watch": 2350,
+   "a_fired_rows": {
+    "n": 585,
+    "both_detect": 496,
+    "start_high_match": 496,
+    "mismatch_n": 0,
+    "mismatch": [],
+    "legacy_none_n": 73,
+    "legacy_none": [
+     {
+      "symbol": "002240",
+      "classified_at": "2026-06-26T05:33:13.705823+09:00",
+      "analyzed_for_date": "2021-09-25",
+      "stored": {
+       "handle_start": "2021-09-16",
+       "handle_high": 24581.1,
+       "handle_low": 23899.0,
+       "handle_end": "2021-09-24"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "012450",
+      "classified_at": "2026-06-26T17:11:56.406456+09:00",
+      "analyzed_for_date": "2022-03-05",
+      "stored": {
+       "handle_start": "2022-03-02",
+       "handle_high": 55615.0,
+       "handle_low": 53274.0,
+       "handle_end": "2022-03-04"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "183190",
+      "classified_at": "2026-06-26T17:16:17.257855+09:00",
+      "analyzed_for_date": "2022-03-05",
+      "stored": {
+       "handle_start": "2022-02-28",
+       "handle_high": 15550.1,
+       "handle_low": 14350.0,
+       "handle_end": "2022-03-04"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "340570",
+      "classified_at": "2026-06-30T11:55:11.642498+09:00",
+      "analyzed_for_date": "2023-03-18",
+      "stored": {
+       "handle_start": "2023-01-26",
+       "handle_high": 40600.1,
+       "handle_low": 37300.0,
+       "handle_end": "2023-03-17"
+      },
+      "legacy_skip": "S4 rim not recovered",
+      "new": null,
+      "new_skip": "right rim not recovered after cup bottom"
+     },
+     {
+      "symbol": "356860",
+      "classified_at": "2026-06-30T20:04:07.923631+09:00",
+      "analyzed_for_date": "2024-01-06",
+      "stored": {
+       "handle_start": "2023-12-22",
+       "handle_high": 26937.0,
+       "handle_low": 26121.0,
+       "handle_end": "2024-01-05"
+      },
+      "legacy_skip": "S4 rim not recovered",
+      "new": null,
+      "new_skip": "right rim not recovered after cup bottom"
+     },
+     {
+      "symbol": "260970",
+      "classified_at": "2026-06-30T23:07:38.218759+09:00",
+      "analyzed_for_date": "2024-03-09",
+      "stored": {
+       "handle_start": "2024-03-06",
+       "handle_high": 19950.0,
+       "handle_low": 21600.0,
+       "handle_end": "2024-03-08"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "017940",
+      "classified_at": "2026-06-30T23:14:54.212194+09:00",
+      "analyzed_for_date": "2024-03-16",
+      "stored": {
+       "handle_start": "2024-03-13",
+       "handle_high": 67300.0,
+       "handle_low": 64600.0,
+       "handle_end": "2024-03-15"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "072990",
+      "classified_at": "2026-07-01T09:10:21.628774+09:00",
+      "analyzed_for_date": "2024-10-12",
+      "stored": {
+       "handle_start": "2024-10-07",
+       "handle_high": 5716.0,
+       "handle_low": 5277.0,
+       "handle_end": "2024-10-11"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "039560",
+      "classified_at": "2026-07-14T07:01:46.576049+09:00",
+      "analyzed_for_date": "2021-01-09",
+      "stored": {
+       "handle_start": "2021-01-05",
+       "handle_high": 13800.1,
+       "handle_low": 13050.0,
+       "handle_end": "2021-01-08"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "001750",
+      "classified_at": "2026-07-14T11:31:42.270047+09:00",
+      "analyzed_for_date": "2021-04-03",
+      "stored": {
+       "handle_start": "2021-03-31",
+       "handle_high": 11050.1,
+       "handle_low": 10500.0,
+       "handle_end": "2021-04-02"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "099750",
+      "classified_at": "2026-07-14T18:21:41.191434+09:00",
+      "analyzed_for_date": "2021-07-17",
+      "stored": {
+       "handle_start": "2021-07-14",
+       "handle_high": 18366.1,
+       "handle_low": 17090.0,
+       "handle_end": "2021-07-16"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "085910",
+      "classified_at": "2026-07-17T01:12:43.573706+09:00",
+      "analyzed_for_date": "2022-01-08",
+      "stored": {
+       "handle_start": "2022-01-04",
+       "handle_high": 5550.1,
+       "handle_low": 5020.0,
+       "handle_end": "2022-01-07"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "108490",
+      "classified_at": "2026-07-17T03:05:32.816664+09:00",
+      "analyzed_for_date": "2022-03-26",
+      "stored": {
+       "handle_start": "2022-03-23",
+       "handle_high": 29409.1,
+       "handle_low": 27267.0,
+       "handle_end": "2022-03-25"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "189300",
+      "classified_at": "2026-07-17T03:25:10.091973+09:00",
+      "analyzed_for_date": "2022-04-02",
+      "stored": {
+       "handle_start": "2022-03-29",
+       "handle_high": 87998.1,
+       "handle_low": 84804.0,
+       "handle_end": "2022-04-01"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "193250",
+      "classified_at": "2026-07-17T03:42:24.221940+09:00",
+      "analyzed_for_date": "2022-04-09",
+      "stored": {
+       "handle_start": "2022-04-05",
+       "handle_high": 15850.1,
+       "handle_low": 15175.0,
+       "handle_end": "2022-04-08"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "082740",
+      "classified_at": "2026-07-17T06:54:44.507301+09:00",
+      "analyzed_for_date": "2022-08-13",
+      "stored": {
+       "handle_start": "2022-08-10",
+       "handle_high": 8423.1,
+       "handle_low": 8080.0,
+       "handle_end": "2022-08-12"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "099190",
+      "classified_at": "2026-07-17T06:56:48.188963+09:00",
+      "analyzed_for_date": "2022-08-13",
+      "stored": {
+       "handle_start": "2022-08-10",
+       "handle_high": 18940.1,
+       "handle_low": 18015.0,
+       "handle_end": "2022-08-12"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "214370",
+      "classified_at": "2026-07-17T07:34:30.326319+09:00",
+      "analyzed_for_date": "2022-09-17",
+      "stored": {
+       "handle_start": "2022-09-13",
+       "handle_high": 30620.1,
+       "handle_low": 28520.0,
+       "handle_end": "2022-09-16"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "214370",
+      "classified_at": "2026-07-17T09:03:33.205058+09:00",
+      "analyzed_for_date": "2023-02-04",
+      "stored": {
+       "handle_start": "2023-01-31",
+       "handle_high": 29140.1,
+       "handle_low": 26600.0,
+       "handle_end": "2023-02-03"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "006260",
+      "classified_at": "2026-07-17T10:47:53.508586+09:00",
+      "analyzed_for_date": "2023-04-15",
+      "stored": {
+       "handle_start": "2023-04-11",
+       "handle_high": 82800.1,
+       "handle_low": 78900.0,
+       "handle_end": "2023-04-14"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "214420",
+      "classified_at": "2026-07-17T13:59:21.337129+09:00",
+      "analyzed_for_date": "2023-06-24",
+      "stored": {
+       "handle_start": "2023-06-21",
+       "handle_high": 5600.1,
+       "handle_low": 5250.0,
+       "handle_end": "2023-06-23"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "002710",
+      "classified_at": "2026-07-17T15:01:03.731270+09:00",
+      "analyzed_for_date": "2023-07-15",
+      "stored": {
+       "handle_start": "2023-07-12",
+       "handle_high": 45300.1,
+       "handle_low": 44450.0,
+       "handle_end": "2023-07-14"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "069510",
+      "classified_at": "2026-07-17T19:36:40.051595+09:00",
+      "analyzed_for_date": "2023-12-02",
+      "stored": {
+       "handle_start": "2023-11-29",
+       "handle_high": 9110.1,
+       "handle_low": 8910.0,
+       "handle_end": "2023-12-01"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "180640",
+      "classified_at": "2026-07-17T19:56:11.037109+09:00",
+      "analyzed_for_date": "2023-12-16",
+      "stored": {
+       "handle_start": "2023-12-12",
+       "handle_high": 54700.1,
+       "handle_low": 53900.0,
+       "handle_end": "2023-12-15"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "096530",
+      "classified_at": "2026-07-18T01:07:55.242559+09:00",
+      "analyzed_for_date": "2024-03-23",
+      "stored": {
+       "handle_start": "2024-03-20",
+       "handle_high": 24700.1,
+       "handle_low": 24400.0,
+       "handle_end": "2024-03-22"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "317870",
+      "classified_at": "2026-07-18T05:03:22.143669+09:00",
+      "analyzed_for_date": "2024-04-06",
+      "stored": {
+       "handle_start": "2024-04-03",
+       "handle_high": 20200.1,
+       "handle_low": 18660.0,
+       "handle_end": "2024-04-05"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "160980",
+      "classified_at": "2026-07-19T00:38:21.730903+09:00",
+      "analyzed_for_date": "2024-04-27",
+      "stored": {
+       "handle_start": "2024-04-24",
+       "handle_high": 20550.1,
+       "handle_low": 18320.0,
+       "handle_end": "2024-04-26"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "029780",
+      "classified_at": "2026-07-19T05:46:50.810530+09:00",
+      "analyzed_for_date": "2024-06-08",
+      "stored": {
+       "handle_start": "2024-06-03",
+       "handle_high": 40500.1,
+       "handle_low": 38300.0,
+       "handle_end": "2024-06-07"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "220100",
+      "classified_at": "2026-07-19T11:04:34.345740+09:00",
+      "analyzed_for_date": "2024-07-13",
+      "stored": {
+       "handle_start": "2024-07-01",
+       "handle_high": 15604.1,
+       "handle_low": 15246.0,
+       "handle_end": "2024-07-12"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "069510",
+      "classified_at": "2026-07-19T22:44:45.329234+09:00",
+      "analyzed_for_date": "2024-09-28",
+      "stored": {
+       "handle_start": "2024-09-25",
+       "handle_high": 10930.1,
+       "handle_low": 10600.0,
+       "handle_end": "2024-09-27"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "298380",
+      "classified_at": "2026-07-20T00:19:39.902055+09:00",
+      "analyzed_for_date": "2024-10-12",
+      "stored": {
+       "handle_start": "2024-10-08",
+       "handle_high": 33800.0,
+       "handle_low": 31750.0,
+       "handle_end": "2024-10-11"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "033640",
+      "classified_at": "2026-07-21T14:31:06.998589+09:00",
+      "analyzed_for_date": "2017-07-01",
+      "stored": {
+       "handle_start": "2017-06-28",
+       "handle_high": 11100.1,
+       "handle_low": 10750.0,
+       "handle_end": "2017-06-30"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "033640",
+      "classified_at": "2026-07-21T15:10:53.567125+09:00",
+      "analyzed_for_date": "2017-07-15",
+      "stored": {
+       "handle_start": "2017-07-12",
+       "handle_high": 11650.1,
+       "handle_low": 11050.0,
+       "handle_end": "2017-07-14"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "058650",
+      "classified_at": "2026-07-26T01:55:23.580722+09:00",
+      "analyzed_for_date": "2017-08-05",
+      "stored": {
+       "handle_start": "2017-08-01",
+       "handle_high": 163500.0,
+       "handle_low": 160500.0,
+       "handle_end": "2017-08-04"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "094170",
+      "classified_at": "2026-07-26T05:02:54.555697+09:00",
+      "analyzed_for_date": "2017-09-02",
+      "stored": {
+       "handle_start": "2017-08-29",
+       "handle_high": 4885.1,
+       "handle_low": 4629.0,
+       "handle_end": "2017-09-01"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "005420",
+      "classified_at": "2026-07-26T05:21:37.580165+09:00",
+      "analyzed_for_date": "2017-09-16",
+      "stored": {
+       "handle_start": "2017-09-12",
+       "handle_high": 11440.1,
+       "handle_low": 11399.0,
+       "handle_end": "2017-09-15"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "013870",
+      "classified_at": "2026-07-26T05:27:51.505845+09:00",
+      "analyzed_for_date": "2017-09-16",
+      "stored": {
+       "handle_start": "2017-09-12",
+       "handle_high": 6880.1,
+       "handle_low": 6710.0,
+       "handle_end": "2017-09-15"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "011070",
+      "classified_at": "2026-07-26T06:29:16.941491+09:00",
+      "analyzed_for_date": "2017-10-28",
+      "stored": {
+       "handle_start": "2017-10-25",
+       "handle_high": 171500.1,
+       "handle_low": 167000.0,
+       "handle_end": "2017-10-27"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "045100",
+      "classified_at": "2026-07-26T09:56:32.225350+09:00",
+      "analyzed_for_date": "2017-10-28",
+      "stored": {
+       "handle_start": "2017-10-24",
+       "handle_high": 15350.1,
+       "handle_low": 14550.0,
+       "handle_end": "2017-10-27"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "010060",
+      "classified_at": "2026-07-26T10:04:23.576965+09:00",
+      "analyzed_for_date": "2017-11-04",
+      "stored": {
+       "handle_start": "2017-11-01",
+       "handle_high": 91782.1,
+       "handle_low": 89398.0,
+       "handle_end": "2017-11-03"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "025440",
+      "classified_at": "2026-07-26T12:14:49.723582+09:00",
+      "analyzed_for_date": "2017-11-25",
+      "stored": {
+       "handle_start": "2017-11-21",
+       "handle_high": 44100.1,
+       "handle_low": 41790.0,
+       "handle_end": "2017-11-24"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "000320",
+      "classified_at": "2026-07-26T12:23:52.867294+09:00",
+      "analyzed_for_date": "2017-12-02",
+      "stored": {
+       "handle_start": "2017-11-28",
+       "handle_high": 18450.1,
+       "handle_low": 18450.0,
+       "handle_end": "2017-12-01"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "005490",
+      "classified_at": "2026-07-26T13:56:54.263025+09:00",
+      "analyzed_for_date": "2018-01-06",
+      "stored": {
+       "handle_start": "2018-01-03",
+       "handle_high": 346000.1,
+       "handle_low": 346500.0,
+       "handle_end": "2018-01-05"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "011320",
+      "classified_at": "2026-07-26T15:06:08.693689+09:00",
+      "analyzed_for_date": "2018-01-27",
+      "stored": {
+       "handle_start": "2018-01-24",
+       "handle_high": 7720.1,
+       "handle_low": 7560.0,
+       "handle_end": "2018-01-26"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "037370",
+      "classified_at": "2026-07-26T15:09:31.278377+09:00",
+      "analyzed_for_date": "2018-01-27",
+      "stored": {
+       "handle_start": "2018-01-23",
+       "handle_high": 12300.1,
+       "handle_low": 11800.0,
+       "handle_end": "2018-01-26"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "002390",
+      "classified_at": "2026-07-26T17:15:58.312353+09:00",
+      "analyzed_for_date": "2018-03-17",
+      "stored": {
+       "handle_start": "2018-03-14",
+       "handle_high": 37850.1,
+       "handle_low": 35650.0,
+       "handle_end": "2018-03-16"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "101160",
+      "classified_at": "2026-07-26T17:27:46.398580+09:00",
+      "analyzed_for_date": "2018-03-17",
+      "stored": {
+       "handle_start": "2018-03-13",
+       "handle_high": 5860.1,
+       "handle_low": 5670.0,
+       "handle_end": "2018-03-16"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "234080",
+      "classified_at": "2026-07-26T18:08:43.749762+09:00",
+      "analyzed_for_date": "2018-04-07",
+      "stored": {
+       "handle_start": "2018-04-03",
+       "handle_high": 29050.1,
+       "handle_low": 26199.0,
+       "handle_end": "2018-04-06"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "101160",
+      "classified_at": "2026-08-02T02:12:45.382775+09:00",
+      "analyzed_for_date": "2018-05-26",
+      "stored": {
+       "handle_start": "2018-05-23",
+       "handle_high": 6850.1,
+       "handle_low": 6240.0,
+       "handle_end": "2018-05-25"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "050890",
+      "classified_at": "2026-08-02T02:51:27.170025+09:00",
+      "analyzed_for_date": "2018-06-09",
+      "stored": {
+       "handle_start": "2018-06-04",
+       "handle_high": 5040.1,
+       "handle_low": 4718.0,
+       "handle_end": "2018-06-08"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "122870",
+      "classified_at": "2026-08-02T04:42:40.726220+09:00",
+      "analyzed_for_date": "2018-09-01",
+      "stored": {
+       "handle_start": "2018-08-28",
+       "handle_high": 42050.1,
+       "handle_low": 39300.0,
+       "handle_end": "2018-08-31"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "033500",
+      "classified_at": "2026-08-02T06:50:43.655495+09:00",
+      "analyzed_for_date": "2019-03-02",
+      "stored": {
+       "handle_start": "2019-02-25",
+       "handle_high": 8950.1,
+       "handle_low": 8500.0,
+       "handle_end": "2019-02-28"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "034310",
+      "classified_at": "2026-08-02T07:29:24.482738+09:00",
+      "analyzed_for_date": "2019-04-13",
+      "stored": {
+       "handle_start": "2019-04-09",
+       "handle_high": 21300.1,
+       "handle_low": 20400.0,
+       "handle_end": "2019-04-12"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "109860",
+      "classified_at": "2026-08-02T07:52:39.907037+09:00",
+      "analyzed_for_date": "2019-04-27",
+      "stored": {
+       "handle_start": "2019-04-24",
+       "handle_high": 8826.1,
+       "handle_low": 8402.0,
+       "handle_end": "2019-04-26"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "109860",
+      "classified_at": "2026-08-02T08:33:11.893591+09:00",
+      "analyzed_for_date": "2019-05-25",
+      "stored": {
+       "handle_start": "2019-05-21",
+       "handle_high": 8903.1,
+       "handle_low": 8710.0,
+       "handle_end": "2019-05-24"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "050890",
+      "classified_at": "2026-08-02T11:12:10.402947+09:00",
+      "analyzed_for_date": "2019-09-07",
+      "stored": {
+       "handle_start": "2019-09-04",
+       "handle_high": 6372.1,
+       "handle_low": 6070.0,
+       "handle_end": "2019-09-06"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "000990",
+      "classified_at": "2026-08-02T12:17:23.368680+09:00",
+      "analyzed_for_date": "2019-10-12",
+      "stored": {
+       "handle_start": "2019-10-08",
+       "handle_high": 16150.1,
+       "handle_low": 15600.0,
+       "handle_end": "2019-10-11"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "070300",
+      "classified_at": "2026-08-02T13:43:59.169545+09:00",
+      "analyzed_for_date": "2019-11-30",
+      "stored": {
+       "handle_start": "2019-11-27",
+       "handle_high": 4643.1,
+       "handle_low": 4231.0,
+       "handle_end": "2019-11-29"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "014680",
+      "classified_at": "2026-08-02T14:43:51.339355+09:00",
+      "analyzed_for_date": "2019-12-21",
+      "stored": {
+       "handle_start": "2019-12-17",
+       "handle_high": 103500.1,
+       "handle_low": 99000.0,
+       "handle_end": "2019-12-20"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "101160",
+      "classified_at": "2026-08-03T11:12:46.636717+09:00",
+      "analyzed_for_date": "2020-01-04",
+      "stored": {
+       "handle_start": "2019-12-30",
+       "handle_high": 8420.1,
+       "handle_low": 8010.0,
+       "handle_end": "2020-01-03"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "054540",
+      "classified_at": "2026-08-09T12:09:34.757271+09:00",
+      "analyzed_for_date": "2020-02-15",
+      "stored": {
+       "handle_start": "2020-02-12",
+       "handle_high": 4065.1,
+       "handle_low": 3890.0,
+       "handle_end": "2020-02-14"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "247540",
+      "classified_at": "2026-08-09T13:53:15.010074+09:00",
+      "analyzed_for_date": "2020-05-16",
+      "stored": {
+       "handle_start": "2020-05-13",
+       "handle_high": 19445.1,
+       "handle_low": 17666.0,
+       "handle_end": "2020-05-15"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "183490",
+      "classified_at": "2026-08-09T18:53:35.756452+09:00",
+      "analyzed_for_date": "2020-06-13",
+      "stored": {
+       "handle_start": "2020-06-09",
+       "handle_high": 13793.1,
+       "handle_low": 12175.0,
+       "handle_end": "2020-06-12"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "213420",
+      "classified_at": "2026-08-09T19:41:06.977427+09:00",
+      "analyzed_for_date": "2020-06-27",
+      "stored": {
+       "handle_start": "2020-06-24",
+       "handle_high": 35850.1,
+       "handle_low": 34050.0,
+       "handle_end": "2020-06-26"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "101160",
+      "classified_at": "2026-08-09T19:58:45.386091+09:00",
+      "analyzed_for_date": "2020-07-04",
+      "stored": {
+       "handle_start": "2020-07-01",
+       "handle_high": 9680.1,
+       "handle_low": 9400.0,
+       "handle_end": "2020-07-03"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "271560",
+      "classified_at": "2026-08-09T20:30:11.222711+09:00",
+      "analyzed_for_date": "2020-07-11",
+      "stored": {
+       "handle_start": "2020-07-07",
+       "handle_high": 150000.1,
+       "handle_low": 143000.0,
+       "handle_end": "2020-07-10"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "213420",
+      "classified_at": "2026-08-10T10:40:51.195949+09:00",
+      "analyzed_for_date": "2020-08-08",
+      "stored": {
+       "handle_start": "2020-08-05",
+       "handle_high": 37100.1,
+       "handle_low": 36350.0,
+       "handle_end": "2020-08-07"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "102120",
+      "classified_at": "2026-08-11T14:58:48.109461+09:00",
+      "analyzed_for_date": "2020-09-19",
+      "stored": {
+       "handle_start": "2020-09-15",
+       "handle_high": 11750.1,
+       "handle_low": 10400.0,
+       "handle_end": "2020-09-18"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "112040",
+      "classified_at": "2026-08-11T16:03:45.236238+09:00",
+      "analyzed_for_date": "2020-10-31",
+      "stored": {
+       "handle_start": "2020-10-28",
+       "handle_high": 20332.1,
+       "handle_low": 19448.0,
+       "handle_end": "2020-10-30"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "247540",
+      "classified_at": "2026-08-12T00:21:31.639997+09:00",
+      "analyzed_for_date": "2020-12-05",
+      "stored": {
+       "handle_start": "2020-11-19",
+       "handle_high": 38174.1,
+       "handle_low": 36222.0,
+       "handle_end": "2020-12-04"
+      },
+      "legacy_skip": "S4 rim not recovered",
+      "new": null,
+      "new_skip": "right rim not recovered after cup bottom"
+     },
+     {
+      "symbol": "089970",
+      "classified_at": "2026-08-12T01:25:32.638433+09:00",
+      "analyzed_for_date": "2020-12-19",
+      "stored": {
+       "handle_start": "2020-12-16",
+       "handle_high": 15500.1,
+       "handle_low": 15100.0,
+       "handle_end": "2020-12-18"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "101160",
+      "classified_at": "2026-08-12T01:28:34.839182+09:00",
+      "analyzed_for_date": "2020-12-19",
+      "stored": {
+       "handle_start": "2020-12-16",
+       "handle_high": 16950.1,
+       "handle_low": 16100.0,
+       "handle_end": "2020-12-18"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     },
+     {
+      "symbol": "000990",
+      "classified_at": "2026-08-12T01:41:31.651473+09:00",
+      "analyzed_for_date": "2020-12-26",
+      "stored": {
+       "handle_start": "2020-12-22",
+       "handle_high": 37500.1,
+       "handle_low": 37650.0,
+       "handle_end": "2020-12-24"
+      },
+      "legacy_skip": "S5 handle<5",
+      "new": null,
+      "new_skip": "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)"
+     }
+    ],
+    "new_none_guard_n": 16,
+    "new_none_guard": [
+     {
+      "symbol": "105550",
+      "classified_at": "2026-06-25T19:43:50.278260+09:00",
+      "analyzed_for_date": "2021-06-12",
+      "stored": {
+       "handle_start": "2021-06-01",
+       "handle_high": 3350.0,
+       "handle_low": 3270.0,
+       "handle_end": "2021-06-11"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2021-03-05",
+       "handle_high": 3350.0,
+       "handle_low": 10425.0
+      }
+     },
+     {
+      "symbol": "105550",
+      "classified_at": "2026-06-26T01:58:00.495934+09:00",
+      "analyzed_for_date": "2021-09-11",
+      "stored": {
+       "handle_start": "2021-09-03",
+       "handle_high": 4260.0,
+       "handle_low": 4070.0,
+       "handle_end": "2021-09-10"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2021-07-29",
+       "handle_high": 4260.0,
+       "handle_low": 16500.0
+      }
+     },
+     {
+      "symbol": "189300",
+      "classified_at": "2026-07-14T06:03:22.800478+09:00",
+      "analyzed_for_date": "2021-01-02",
+      "stored": {
+       "handle_start": "2020-12-02",
+       "handle_high": 30679.1,
+       "handle_low": 30726.0,
+       "handle_end": "2020-12-30"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2020-12-02",
+       "handle_high": 30679.1,
+       "handle_low": 30726.0
+      }
+     },
+     {
+      "symbol": "006490",
+      "classified_at": "2026-07-14T10:58:38.952551+09:00",
+      "analyzed_for_date": "2021-03-20",
+      "stored": {
+       "handle_start": "2021-02-26",
+       "handle_high": 2900.1,
+       "handle_low": 2620.0,
+       "handle_end": "2021-03-19"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2020-12-28",
+       "handle_high": 2900.1,
+       "handle_low": 15689.0
+      }
+     },
+     {
+      "symbol": "007110",
+      "classified_at": "2026-07-16T23:00:07.904097+09:00",
+      "analyzed_for_date": "2021-10-30",
+      "stored": {
+       "handle_start": "2021-09-27",
+       "handle_high": 2990.1,
+       "handle_low": 2480.0,
+       "handle_end": "2021-10-29"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2021-09-24",
+       "handle_high": 2990.1,
+       "handle_low": 12099.87
+      }
+     },
+     {
+      "symbol": "090150",
+      "classified_at": "2026-07-16T23:40:37.860490+09:00",
+      "analyzed_for_date": "2021-11-13",
+      "stored": {
+       "handle_start": "2021-10-26",
+       "handle_high": 4887.1,
+       "handle_low": 4498.0,
+       "handle_end": "2021-11-12"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2021-09-17",
+       "handle_high": 4887.1,
+       "handle_low": 39330.0
+      }
+     },
+     {
+      "symbol": "214370",
+      "classified_at": "2026-07-17T14:48:02.713819+09:00",
+      "analyzed_for_date": "2023-07-08",
+      "stored": {
+       "handle_start": "2023-06-16",
+       "handle_high": 40700.1,
+       "handle_low": 41200.0,
+       "handle_end": "2023-07-07"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2023-06-16",
+       "handle_high": 40700.1,
+       "handle_low": 41200.0
+      }
+     },
+     {
+      "symbol": "207760",
+      "classified_at": "2026-07-19T06:02:38.347359+09:00",
+      "analyzed_for_date": "2024-06-08",
+      "stored": {
+       "handle_start": "2024-05-09",
+       "handle_high": 2945.1,
+       "handle_low": 2560.0,
+       "handle_end": "2024-06-07"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2024-04-19",
+       "handle_high": 2945.1,
+       "handle_low": 12100.0
+      }
+     },
+     {
+      "symbol": "005490",
+      "classified_at": "2026-07-26T15:03:50.534695+09:00",
+      "analyzed_for_date": "2018-01-27",
+      "stored": {
+       "handle_start": "2018-01-03",
+       "handle_high": 346000.1,
+       "handle_low": 346500.0,
+       "handle_end": "2018-01-26"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2018-01-03",
+       "handle_high": 346000.1,
+       "handle_low": 346500.0
+      }
+     },
+     {
+      "symbol": "005490",
+      "classified_at": "2026-07-26T15:27:29.698059+09:00",
+      "analyzed_for_date": "2018-02-03",
+      "stored": {
+       "handle_start": "2018-01-03",
+       "handle_high": 346000.1,
+       "handle_low": 346500.0,
+       "handle_end": "2018-02-02"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2018-01-03",
+       "handle_high": 346000.1,
+       "handle_low": 346500.0
+      }
+     },
+     {
+      "symbol": "006740",
+      "classified_at": "2026-08-02T01:01:48.620770+09:00",
+      "analyzed_for_date": "2018-04-28",
+      "stored": {
+       "handle_start": "2018-03-16",
+       "handle_high": 3834.1,
+       "handle_low": 3191.0,
+       "handle_end": "2018-04-27"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2017-12-26",
+       "handle_high": 3834.1,
+       "handle_low": 13265.0
+      }
+     },
+     {
+      "symbol": "006740",
+      "classified_at": "2026-08-02T02:01:39.673104+09:00",
+      "analyzed_for_date": "2018-05-26",
+      "stored": {
+       "handle_start": "2018-05-18",
+       "handle_high": 3830.1,
+       "handle_low": 3510.0,
+       "handle_end": "2018-05-25"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2018-03-26",
+       "handle_high": 3830.1,
+       "handle_low": 15955.0
+      }
+     },
+     {
+      "symbol": "031860",
+      "classified_at": "2026-08-02T08:10:17.786184+09:00",
+      "analyzed_for_date": "2019-05-11",
+      "stored": {
+       "handle_start": "2019-05-02",
+       "handle_high": 56437.1,
+       "handle_low": 52827.0,
+       "handle_end": "2019-05-10"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2019-03-04",
+       "handle_high": 56437.1,
+       "handle_low": 320250.0
+      }
+     },
+     {
+      "symbol": "032080",
+      "classified_at": "2026-08-02T09:45:48.120677+09:00",
+      "analyzed_for_date": "2019-07-13",
+      "stored": {
+       "handle_start": "2019-04-09",
+       "handle_high": 2020.1,
+       "handle_low": 1845.0,
+       "handle_end": "2019-07-12"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2019-03-29",
+       "handle_high": 2020.1,
+       "handle_low": 3680.16
+      }
+     },
+     {
+      "symbol": "206640",
+      "classified_at": "2026-08-11T14:02:48.353005+09:00",
+      "analyzed_for_date": "2020-09-05",
+      "stored": {
+       "handle_start": "2020-08-27",
+       "handle_high": 24850.1,
+       "handle_low": 25400.0,
+       "handle_end": "2020-09-04"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2020-08-27",
+       "handle_high": 24850.1,
+       "handle_low": 25400.0
+      }
+     },
+     {
+      "symbol": "206640",
+      "classified_at": "2026-08-11T14:42:44.191166+09:00",
+      "analyzed_for_date": "2020-09-12",
+      "stored": {
+       "handle_start": "2020-08-27",
+       "handle_high": 24850.1,
+       "handle_low": 25400.0,
+       "handle_end": "2020-09-11"
+      },
+      "new_skip": "handle_above_pivot",
+      "legacy": {
+       "handle_start": "2020-08-27",
+       "handle_high": 24850.1,
+       "handle_low": 25400.0
+      }
+     }
+    ],
+    "new_none_other_n": 0,
+    "new_none_other": [],
+    "stored_drift_n": 1,
+    "stored_drift": [
+     {
+      "symbol": "247540",
+      "classified_at": "2026-08-11T07:56:51.606651+09:00",
+      "cmp": {
+       "start_match": false,
+       "high_match": true,
+       "end_changed": false
+      },
+      "stored": {
+       "handle_start": "2020-07-23",
+       "handle_high": 35826.1,
+       "handle_end": "2020-08-14"
+      },
+      "legacy_today": {
+       "handle_start": "2020-07-31",
+       "handle_high": 35826.1
+      },
+      "new": {
+       "handle_start": "2020-07-31",
+       "handle_high": 35826.1,
+       "pivot_eff_source": "exact"
+      }
+     }
+    ]
+   },
+   "b_end_changed": {
+    "n": 0,
+    "rows": []
+   },
+   "c_fired_transition": {
+    "legacy_none→none": 1463,
+    "fired→fired": 468,
+    "not→not": 25,
+    "legacy_none→fired": 260,
+    "fired→none": 33,
+    "fired→not": 21,
+    "legacy_none→not": 79,
+    "not→none": 1
+   },
+   "c_reasons_old": {
+    "volume_not_contracting": 442,
+    "distribution_in_handle": 479
+   },
+   "c_reasons_new": {
+    "volume_not_contracting": 492,
+    "distribution_in_handle": 677
+   },
+   "d_coverage": {
+    "old_detected": 548,
+    "new_detected": 853,
+    "old_skip": {
+     "S1 pivot_basis": 1104,
+     "S4 rim not recovered": 552,
+     "S5 handle<5": 131,
+     "S2 window<10": 3,
+     "S1 pivot/depth None": 1,
+     "S5 base<5": 11
+    },
+    "new_skip": {
+     "pivot_basis=None": 1037,
+     "pivot_basis=range_high": 67,
+     "right rim not recovered after cup bottom": 158,
+     "handle not formed (2 days < HANDLE_LEGIT_MIN_DAYS)": 38,
+     "handle not formed (3 days < HANDLE_LEGIT_MIN_DAYS)": 60,
+     "handle not formed (1 days < HANDLE_LEGIT_MIN_DAYS)": 35,
+     "handle_above_pivot": 34,
+     "handle not formed (4 days < HANDLE_LEGIT_MIN_DAYS)": 51,
+     "window too short (9 rows)": 3,
+     "pivot_price missing": 1,
+     "base window too short (0 days)": 2,
+     "base window too short (3 days)": 3,
+     "base window too short (4 days)": 3,
+     "base window too short (1 days)": 1,
+     "base window too short (2 days)": 4
+    },
+    "new_pivot_eff_source": {
+     "exact": 514,
+     "minus_0_1": 339
+    }
+   },
+   "e_depth_new": {
+    "n": 853,
+    "min": 0.28,
+    "q1": 6.02,
+    "median": 10.11,
+    "q3": 14.25,
+    "p90": 17.81,
+    "max": 28.41,
+    "in_8_12_band": 216,
+    "band_ratio": 0.253,
+    "handle_above_pivot": 34
+   },
+   "f_llm_depth_abs_diff": {
+    "n": 781,
+    "min": 0.0,
+    "q1": 0.02999999999999936,
+    "median": 1.17,
+    "q3": 4.12,
+    "p90": 8.14,
+    "max": 18.28,
+    "gt_3pp": 257,
+    "gt_3pp_ratio": 0.329
+   }
+  }
+ ]
+}
