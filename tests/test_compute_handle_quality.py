@@ -252,6 +252,39 @@ def test_missing_base_depth_pct_is_not_a_skip_reason(db):
     assert compute_handle_quality(db, "HQNODEP", cls["classified_at"], cls) is not None
 
 
+# ---------- (#261/#175) S5′ 창 끝 = as_of 포함(KST 거래일) ----------
+
+def test_as_of_window_includes_friday_bar(db):
+    """토 06:00 KST(= 금 21:00 UTC) 실행, as_of=금요일 → 금요일 봉이 손잡이에 포함된다(#261)."""
+    start = date(2026, 6, 1)
+    bars = _cup(1000) + _handle(4, low=96, vol=400)            # 10봉: 06-01~06-10(시드는 달력일 연속)
+    bars.append((99, 88, 98, 400, False))                      # 06-11 저가 88
+    bars.append((99, 85, 98, 400, False))                      # 06-12(금) 저가 85 ← 포함돼야 함
+    _seed_ohlcv(db, "HQFRI", start, bars)
+    cls = _cls(base_start=start, classified_at=datetime(2026, 6, 12, 21, 0, tzinfo=timezone.utc))  # 토 06:00 KST
+    r = compute_handle_quality(db, "HQFRI", cls["classified_at"], cls, as_of=date(2026, 6, 12))
+    assert r is not None and r["structural_low"]["price"] == 85.0 and r["structural_low"]["end"] == "2026-06-12"
+
+
+def test_as_of_window_excludes_bars_after_as_of(db):
+    start = date(2026, 6, 15)
+    bars = _cup(1000) + _handle(5, low=96, vol=400) + [(99, 50, 98, 400, False)]   # 마지막 봉(06-26) 저가 50 은 as_of 뒤
+    _seed_ohlcv(db, "HQAFT", start, bars)
+    cls = _cls(base_start=start, classified_at=datetime(2026, 6, 27, tzinfo=timezone.utc))
+    r = compute_handle_quality(db, "HQAFT", cls["classified_at"], cls, as_of=date(2026, 6, 25))
+    assert r is not None and r["structural_low"]["price"] == 96.0 and r["structural_low"]["end"] == "2026-06-25"
+
+
+def test_fallback_without_as_of_uses_kst_date(db):
+    """as_of 생략(레거시 스크립트) — KST 날짜 폴백. 금 21:00 UTC = 토 KST → 금요일 봉 포함(구 UTC 폴백이면 제외)."""
+    start = date(2026, 7, 6)
+    bars = _cup(1000) + _handle(4, low=96, vol=400) + [(99, 88, 98, 400, False), (99, 85, 98, 400, False)]  # 07-16·07-17(금)
+    _seed_ohlcv(db, "HQKST", start, bars)
+    cls = _cls(base_start=start, classified_at=datetime(2026, 7, 17, 21, 0, tzinfo=timezone.utc))
+    r = compute_handle_quality(db, "HQKST", cls["classified_at"], cls)
+    assert r is not None and r["structural_low"]["price"] == 85.0
+
+
 def test_right_rim_matches_when_high_equals_pivot(db):
     """(2026-11-05 "+0.1" 가산 폐지) pivot = 손잡이 고점 그대로 → 고점 당일(high == pivot)이 우측 림 = 핸들 시작으로
     매칭된다. 구 관례(pivot = 고점+0.1)에서는 이 봉이 `high >= pivot` 에 안 걸려 림 미회복(#175 명세 §7-1, 124행 중 101행)."""

@@ -24,12 +24,14 @@ from __future__ import annotations
 import logging
 from datetime import date, datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from psycopg import Connection
 
 from kr_pipeline.common import thresholds
 
 log = logging.getLogger(__name__)
+_KST = ZoneInfo("Asia/Seoul")
 
 # 구 "+0.1" 관례(2026-11-05 폐지 전 저장 행) 역산 폭 — KRX 정수 호가에서 유일한 비정수 가산.
 _LEGACY_PIVOT_OFFSET = 0.1
@@ -38,6 +40,20 @@ _EPS = 1e-6
 
 def _to_date(d) -> date:
     return d.date() if isinstance(d, datetime) else d
+
+
+def window_end(classified_at, as_of: date | None) -> tuple[date, bool]:
+    """S5′ 입력 창 끝 → (날짜, 포함 여부).
+
+    as_of(= analyzed_for_date, 데이터 날짜)가 있으면 그 봉까지 **포함**. 없으면(레거시 스크립트) classified_at 의
+    **KST** 날짜 당일 제외. (#261) 구 코드는 UTC 날짜를 썼고, 토 06:00 KST 주말 분류 = 금 21:00 UTC 라 금요일 봉이
+    항상 빠졌다 — 평일 09:00 KST 이전 실행도 같은 결함.
+    """
+    if as_of is not None:
+        return _to_date(as_of), True
+    if isinstance(classified_at, datetime) and classified_at.tzinfo is not None:
+        return classified_at.astimezone(_KST).date(), False
+    return _to_date(classified_at), False
 
 
 def find_handle_start(rows, cup_bottom_idx: int, pivot_price: float) -> tuple[Optional[int], float, str]:
@@ -76,12 +92,12 @@ def compute_handle_quality(
 
     pivot_price = float(cls["pivot_price"])
     base_start = _to_date(cls["base_start_date"])
-    classified_date = _to_date(classified_at)
+    end_date, end_inclusive = window_end(classified_at, as_of)
 
-    # daily_prices + daily_indicators 조인해 base_start ~ classified_at 범위.
+    # daily_prices + daily_indicators 조인해 base_start ~ 창 끝 범위(S5′).
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             SELECT p.date,
                    COALESCE(p.adj_high,   p.high)   AS high,
                    COALESCE(p.adj_low,    p.low)    AS low,
@@ -90,10 +106,10 @@ def compute_handle_quality(
                    i.sma_50, COALESCE(i.distribution_day_flag, FALSE)
               FROM daily_prices p
               LEFT JOIN daily_indicators i ON i.ticker = p.ticker AND i.date = p.date
-             WHERE p.ticker = %s AND p.date >= %s AND p.date < %s
+             WHERE p.ticker = %s AND p.date >= %s AND p.date {"<=" if end_inclusive else "<"} %s
              ORDER BY p.date
             """,
-            (symbol, base_start, classified_date),
+            (symbol, base_start, end_date),
         )
         rows = cur.fetchall()
 
