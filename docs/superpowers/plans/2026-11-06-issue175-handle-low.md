@@ -30,40 +30,9 @@
 
 ---
 
-### Task 1: 상수 교체(thresholds.py) + export
+### Task 1: (Task 4 로 통합 — 2026-11-06 검토 반영)
 
-**Files:**
-- Modify: `kr_pipeline/common/thresholds.py:425-427` (`HANDLE_VOLUME_NOT_CONTRACTING_RATIO` 블록)
-- Modify: `tests/test_common_thresholds.py:91-93`
-- Regenerate: `web/src/data/thresholds.generated.ts` (`uv run python scripts/export_thresholds.py`)
-
-**Interfaces:**
-- Produces: `thresholds.HANDLE_VOLUME_VS_50D_MAX: Final[float] = 1.0`, `thresholds.HANDLE_SHAKEOUT_CLOSE_POS_MIN: Final[float] = 0.5`. `HANDLE_VOLUME_NOT_CONTRACTING_RATIO` 는 존재하지 않는다.
-
-- [ ] **Step 1: 실패 테스트 작성** — `tests/test_common_thresholds.py` 의 93행 단언을 교체
-
-```python
-    # (#175 2026-11-06) 0.80 컵 평균 비교 삭제 → Minervini 50일 평균 규칙(TLSMW p.226) + shakeout 마감 위치(design)
-    assert not hasattr(thresholds, "HANDLE_VOLUME_NOT_CONTRACTING_RATIO")
-    assert thresholds.HANDLE_VOLUME_VS_50D_MAX == 1.0
-    assert thresholds.HANDLE_SHAKEOUT_CLOSE_POS_MIN == 0.5
-    assert thresholds.VOLUME_DRY_UP_MULT == 0.5   # 극저 거래량일 계수(기록용) 재사용
-```
-
-- [ ] **Step 2: 실패 확인** — Run: `uv run pytest tests/test_common_thresholds.py -q` → Expected: FAIL (`HANDLE_VOLUME_NOT_CONTRACTING_RATIO` 아직 존재)
-
-- [ ] **Step 3: 구현** — `HANDLE_VOLUME_NOT_CONTRACTING_RATIO` 정의·docstring 삭제 후 묘비 주석 1줄("(#175 2026-11-06) HANDLE_VOLUME_NOT_CONTRACTING_RATIO 0.80 [heuristic] 삭제 — 정의 원문 specs/2026-11-05-issue175-handle-detector-spec.md S7(B), 대체 = HANDLE_VOLUME_VS_50D_MAX"). 같은 자리에 신설:
-  - `HANDLE_VOLUME_VS_50D_MAX: Final[float] = 1.0` — docstring `[book-anchor]` TLSMW Ch.10 p.226 "volume on the final contraction that is below the 50-day average" + p.198·p.245 손잡이 적용. 손잡이 일평균 ÷ `avg_volume_50d(handle_start)` 가 이 값 **이상**이면 미수축 결함.
-  - `HANDLE_SHAKEOUT_CLOSE_POS_MIN: Final[float] = 0.5` — docstring `[design-judgment]` 개념 TLOND Ch.3 p.53~54 "closed … in the upper part of its daily trading range"(2순위), 식 `(close−low)/(high−low)`·0.5 는 설계. 분배일이 이 값 미만 마감일 때만 결함.
-
-- [ ] **Step 4: 통과 확인 + export** — Run: `uv run pytest tests/test_common_thresholds.py tests/test_prompt_threshold_drift.py -q` → PASS. Run: `uv run python scripts/export_thresholds.py && grep -c "HANDLE_VOLUME_VS_50D_MAX\|HANDLE_SHAKEOUT_CLOSE_POS_MIN" web/src/data/thresholds.generated.ts` → `2`, `grep -c NOT_CONTRACTING web/src/data/thresholds.generated.ts` → `0`.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add kr_pipeline/common/thresholds.py tests/test_common_thresholds.py web/src/data/thresholds.generated.ts
-git commit -m "#175: 손잡이 거래량 상수 교체 — 0.80 컵 평균 삭제, HANDLE_VOLUME_VS_50D_MAX 1.0(book)·HANDLE_SHAKEOUT_CLOSE_POS_MIN 0.5(design)"
-```
+상수 삭제·신설은 그 상수를 소비하는 검출기 규칙 교체와 **같은 커밋**이어야 중간 커밋이 깨지지 않는다(`handle_quality.py:119`·`tests/test_compute_handle_quality.py:130` 이 `HANDLE_VOLUME_NOT_CONTRACTING_RATIO` 를 참조). 내용은 Task 4 에 있다.
 
 ---
 
@@ -80,7 +49,7 @@ git commit -m "#175: 손잡이 거래량 상수 교체 — 0.80 컵 평균 삭�
     `structural_low: {"kind": "handle_low", "price": float, "start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "days": int}`.
   - `metrics` 키(이 Task 에서 확정): `handle_depth_pct, handle_start, handle_end, handle_days, handle_high(=pivot_eff), handle_low, pivot_eff, pivot_eff_source("exact"|"minus_0_1")`. (B′/D′ 키는 Task 4 가 추가.)
   - 순수 함수 추출: `find_handle_start(rows, cup_bottom_idx, pivot_price) -> tuple[int | None, float, str]`(idx, pivot_eff, source) — rows[i][1] = high.
-- 이 Task 에서는 S7 조건(B·D)은 **기존 코드 그대로**(ratio_b 0.80 참조는 `thresholds.HANDLE_VOLUME_VS_50D_MAX` 로 임시 치환하지 말고 Task 4 까지 상수 참조를 로컬 리터럴 0.80 로 둔다 — Task 1 이 상수를 지웠으므로).
+- 이 Task 에서는 S7 조건(B·D)과 상수 참조는 **기존 코드 그대로**(교체는 Task 4).
 
 - [ ] **Step 1: 테스트 헬퍼 확장** — `_seed_ohlcv(db, ticker, start, bars, *, avg50: float | None = 1000.0)` 로 바꾸고 `daily_indicators` INSERT 에 `avg_volume_50d` 열 추가(값 `avg50`). `_run(db, ticker, bars, start, days_after, *, pivot=100.0, as_of=None, avg50=1000.0)` 로 확장(`_cls(pivot=…)`, `compute_handle_quality(..., as_of=as_of)`).
 
@@ -218,18 +187,32 @@ git commit -m "#261/#175: 검출기 창 끝 = as_of 포함(KST 거래일) — UT
 
 ---
 
-### Task 4: S7′ 결함 조건 교체 — (B′) 50일 평균, (D′) 마감 위치, 기록 지표
+### Task 4: 상수 교체 + S7′ 결함 조건 교체 — (B′) 50일 평균, (D′) 마감 위치, 기록 지표
 
 **Files:**
+- Modify: `kr_pipeline/common/thresholds.py:425-427` (`HANDLE_VOLUME_NOT_CONTRACTING_RATIO` 블록 → 삭제·묘비 주석 + 신설 2건)
+- Modify: `tests/test_common_thresholds.py:91-93`
+- Regenerate: `web/src/data/thresholds.generated.ts` (`uv run python scripts/export_thresholds.py`)
 - Modify: `kr_pipeline/llm_runner/compute/handle_quality.py` (SQL 에 `i.avg_volume_50d` 추가, S7 재작성)
 - Modify: `tests/test_compute_handle_quality.py` (기존 B·D 테스트 3건 수정, 신규 5건)
 - Modify: `tests/test_store_phase1_gate.py:54-57` (`daily_indicators` 시드에 `avg_volume_50d` 1000 추가 — 손잡이 2000 ≥ 1000 로 B′ 발화 유지)
 
 **Interfaces:**
-- Consumes: Task 1 상수, Task 2 반환 계약.
+- Consumes: Task 2 반환 계약.
+- Produces: `thresholds.HANDLE_VOLUME_VS_50D_MAX: Final[float] = 1.0` `[book-anchor]`(TLSMW Ch.10 p.226 "volume on the final contraction that is below the 50-day average" + p.198·p.245 손잡이 적용; 손잡이 일평균 ÷ `avg_volume_50d(handle_start)` 가 이 값 **이상**이면 미수축 결함), `thresholds.HANDLE_SHAKEOUT_CLOSE_POS_MIN: Final[float] = 0.5` `[design-judgment]`(개념 TLOND Ch.3 p.53~54 "closed … in the upper part of its daily trading range", 2순위; 식 `(close−low)/(high−low)`·0.5 는 설계). `HANDLE_VOLUME_NOT_CONTRACTING_RATIO` 는 존재하지 않는다(묘비 주석 1줄: 정의 원문 `specs/2026-11-05-issue175-handle-detector-spec.md` S7(B), 대체 = `HANDLE_VOLUME_VS_50D_MAX`).
 - Produces: 순수 함수 `close_position(high, low, close) -> float`(high == low 면 0.5). `metrics` 추가 키: `avg_volume_50d: float | None`, `handle_avg_volume: float`, `volume_vs_50d: float | None`, `b_unevaluated: bool`, `dry_up_days: int`, `distribution_days: int`(플래그 전부), `distribution_days_lower_close: int`. `ratio_b` 키 **제거**. `reasons` 값 문자열은 기존 그대로(`volume_not_contracting`, `distribution_in_handle`).
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [ ] **Step 1: 실패 테스트 작성** — `tests/test_common_thresholds.py:93` 단언 교체:
+
+```python
+    # (#175 2026-11-06) 0.80 컵 평균 비교 삭제 → Minervini 50일 평균 규칙(TLSMW p.226) + shakeout 마감 위치(design)
+    assert not hasattr(thresholds, "HANDLE_VOLUME_NOT_CONTRACTING_RATIO")
+    assert thresholds.HANDLE_VOLUME_VS_50D_MAX == 1.0
+    assert thresholds.HANDLE_SHAKEOUT_CLOSE_POS_MIN == 0.5
+    assert thresholds.VOLUME_DRY_UP_MULT == 0.5   # 극저 거래량일 계수(기록용) 재사용
+```
+
+`tests/test_compute_handle_quality.py` 신규:
 
 ```python
 def test_b_rule_fires_when_handle_volume_at_or_above_50d_avg(db):
@@ -279,19 +262,19 @@ def test_dry_up_days_counted_from_each_days_50d_avg(db):
     assert r["metrics"]["dry_up_days"] == 5 and r["fired"] is False
 ```
 
-기존 수정: `test_volume_not_contracting_fires`(단언 `ratio_b > …` → `volume_vs_50d >= thresholds.HANDLE_VOLUME_VS_50D_MAX`), `test_distribution_in_handle_fires`(`_handle(dist_idx=…)` 봉이 하단 마감이 되도록 `_handle` 의 dist 봉 close 를 `lo + 0.1*(99-lo)` 로 — 헬퍼에 `dist_close_pos: float = 0.1` 인자 추가), `test_handle_exactly_5_days_is_evaluated`·`test_metrics_have_no_ratio_a_but_echo_depth`(발화는 손잡이 3000·2000 ≥ avg50 1000 로 유지, `ratio_b` 참조 제거).
+기존 수정: `test_volume_not_contracting_fires`(단언 `ratio_b > …` → `volume_vs_50d >= thresholds.HANDLE_VOLUME_VS_50D_MAX`), `test_handle_exactly_5_days_is_evaluated`·`test_metrics_have_no_ratio_a_but_echo_depth`(발화는 손잡이 3000·2000 ≥ avg50 1000 로 유지, `ratio_b` 참조 제거). `test_distribution_in_handle_fires` 는 변경 불요 — `_handle` 의 dist 봉 (99, 98, 98) 은 마감 위치 0 으로 이미 하단 마감.
 
-- [ ] **Step 2: 실패 확인** — Run: `uv run pytest tests/test_compute_handle_quality.py tests/test_store_phase1_gate.py -q` → FAIL(`volume_vs_50d` KeyError, 상수 미참조)
+- [ ] **Step 2: 실패 확인** — Run: `uv run pytest tests/test_common_thresholds.py tests/test_compute_handle_quality.py tests/test_store_phase1_gate.py -q` → FAIL(상수 부재·`volume_vs_50d` KeyError)
 
-- [ ] **Step 3: 구현** — SQL SELECT 에 `i.avg_volume_50d` 추가(인덱스 7). `avg50 = rows[right_rim_idx][7]`; `avg50 is None` → `b_unevaluated=True, fired_b=False, volume_vs_50d=None`; else `volume_vs_50d = handle_avg / avg50`, `fired_b = volume_vs_50d >= thresholds.HANDLE_VOLUME_VS_50D_MAX`. `dry_up_days` 는 봉별 `r[7]` 기준(None 봉 제외). (D′) `close_position` + `thresholds.HANDLE_SHAKEOUT_CLOSE_POS_MIN`. 모듈 상단 docstring 의 "(B) 거래량비 0.80·(D) 분배일 ≥1 불변" 문장을 변경 후 서술로 교체.
+- [ ] **Step 3: 구현** — thresholds.py 상수 삭제·신설(Interfaces 대로) → `uv run python scripts/export_thresholds.py`(`grep -c NOT_CONTRACTING web/src/data/thresholds.generated.ts` → 0). 검출기: SQL SELECT 에 `i.avg_volume_50d` 추가(인덱스 7). `avg50 = rows[right_rim_idx][7]`; `avg50 is None` → `b_unevaluated=True, fired_b=False, volume_vs_50d=None`; else `volume_vs_50d = handle_avg / avg50`, `fired_b = volume_vs_50d >= thresholds.HANDLE_VOLUME_VS_50D_MAX`. `dry_up_days` 는 봉별 `r[7]` 기준(None 봉 제외). (D′) `close_position` + `thresholds.HANDLE_SHAKEOUT_CLOSE_POS_MIN`. 모듈 상단 docstring 의 "(B) 거래량비 0.80·(D) 분배일 ≥1 불변" 문장을 변경 후 서술로 교체.
 
-- [ ] **Step 4: 통과 확인** — Run: `uv run pytest tests/test_compute_handle_quality.py tests/test_store_phase1_gate.py tests/test_gates_phase1.py -q` → PASS
+- [ ] **Step 4: 통과 확인** — Run: `uv run pytest tests/test_common_thresholds.py tests/test_prompt_threshold_drift.py tests/test_compute_handle_quality.py tests/test_store_phase1_gate.py tests/test_gates_phase1.py -q` → PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add kr_pipeline/llm_runner/compute/handle_quality.py tests/test_compute_handle_quality.py tests/test_store_phase1_gate.py
-git commit -m "#175: 검출기 결함 조건 교체 — (B′) 손잡이 평균 < 50일 평균(TLSMW p.226), (D′) 분배일 ∧ 하단 마감, dry_up_days 기록"
+git add kr_pipeline/common/thresholds.py tests/test_common_thresholds.py web/src/data/thresholds.generated.ts kr_pipeline/llm_runner/compute/handle_quality.py tests/test_compute_handle_quality.py tests/test_store_phase1_gate.py
+git commit -m "#175: 손잡이 거래량 결함 조건 교체 — 0.80 컵 평균 삭제 → (B′) 손잡이 평균 < 50일 평균(TLSMW p.226), (D′) 분배일 ∧ 하단 마감(design 0.5), dry_up_days 기록"
 ```
 
 ---
@@ -301,7 +284,7 @@ git commit -m "#175: 검출기 결함 조건 교체 — (B′) 손잡이 평균 
 **Files:**
 - Modify: `kr_pipeline/llm_runner/gates.py:27-40`
 - Modify: `kr_pipeline/llm_runner/store.py:331` (`as_of=analyzed_for_date`), `:510` (`as_of=analyzed_for_date`; `gate_at` 는 positional 로 유지)
-- Modify: `tests/test_gates_phase1.py` (신규 2건), `tests/test_llm_runner_store.py:449` (`_gates_identity` side_effect 에 `**kw` 수용), `tests/test_backfill_price_sanity.py:30`·`tests/test_issue253_ratchet_replay.py:53`·`tests/test_llm_backfill.py:120` (같은 identity 람다가 있으면 `**kw` 추가)
+- Modify: `tests/test_gates_phase1.py` (신규 2건). 게이트 패치 네 곳 **전부** `as_of=` 키워드를 받도록 수정(모두 positional 4인자 형으로 확인됨): `tests/test_llm_runner_store.py:449` `_gates_identity` → `lambda conn, s, t, r, **kw: (r, None)`, `tests/test_backfill_price_sanity.py:30` 동일, `tests/test_issue253_ratchet_replay.py:53` 동일, `tests/test_llm_backfill.py:116` `fake_gate(conn, symbol, classified_at, result, **kw)`
 - Modify: `scripts/regression_phase1_2a.py:36,47`, `scripts/verify_005850_handle.py:38` (`as_of=` 는 생략 가능 — 변경 없이 폴백 동작, 주석 1줄만)
 
 **Interfaces:**
@@ -476,7 +459,7 @@ git commit -m "#175: 저장본 재현 readout — 구/신 검출기 diff(58/58 �
 **Interfaces:**
 - CLI: `uv run python scripts/issue175_handle_low_backfill.py --plan [--table weekly_classification|classification_backfill|backtest_classification|recall_audit_classification|all]` / `--apply --table <t>`(기본 all 금지 — 테이블 명시 필수).
 - `--plan`: 대상 = `pattern='cup_with_handle' AND handle_low IS NULL`; 신 검출기로 산출해 "채워질 행 수 / 미평가 사유 분포 / `handle_above_pivot` 수" 출력, 쓰기 0.
-- `--apply`: `UPDATE <t> SET handle_low=%s, handle_start=%s, handle_end=%s WHERE symbol=%s AND classified_at=%s AND handle_low IS NULL` 만. 다른 열 불변. **이 플랜에서는 실행하지 않는다**(spec §7, 사용자 승인 후 별도).
+- `--apply`: `UPDATE <t> SET handle_low=%s, handle_start=%s, handle_end=%s WHERE <PK> AND handle_low IS NULL` 만 — PK 는 테이블별: `weekly_classification` `(symbol, classified_at)`, 나머지 세 테이블 `(symbol, analyzed_for_date)`. 다른 열 불변. **이 플랜에서는 실행하지 않는다**(spec §7, 사용자 승인 후 별도).
 - 순수 함수 `plan_rows(rows_with_detect: Iterable[tuple[dict, dict | None]]) -> dict`(집계) in 스크립트 모듈 — 테스트 대상.
 
 - [ ] **Step 1: 실패 테스트 작성** — `test_plan_rows_counts_fill_and_skip_reasons`(입력 3건: dict, None(사유 `handle_above_pivot`), None(사유 `right rim`) → `{"fill": 1, "skip": {"handle_above_pivot": 1, "right rim not recovered after cup bottom": 1}}`). 사유는 검출기 `skip()` 문자열을 스크립트가 로그 캡처 대신 **반환값으로 받도록** 검출기에 `return_skip_reason: bool = False` 키워드를 추가하지 **않고**, 스크립트가 `compute_handle_quality` 를 감싼 `detect_with_reason(conn, …) -> tuple[dict | None, str | None]` 로 로그 핸들러를 임시 부착해 사유를 읽는다(검출기 서명 불변).
