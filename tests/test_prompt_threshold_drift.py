@@ -51,7 +51,6 @@ PROMPT_SYNCED: dict[str, list[str]] = {
         "TT_MARGINAL_DEMOTION_COUNT",
         "GATE_PROMOTION_PRICE_RATIO",
         "PIVOT_EXTENDED_BAND_MULT",
-        "PIVOT_PRICE_OFFSET",
     ],
     "evaluate_pivot_trigger_v1.md": [
         "BREAKOUT_VOL_FLOOR",

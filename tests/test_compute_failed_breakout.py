@@ -114,3 +114,18 @@ def test_failed_breakout_uses_adjusted_close(db):
     db.commit()
     r = compute_failed_breakout(db, "FBADJ", datetime(2026,4,16,tzinfo=timezone.utc), pivot, start)
     assert r is not None and r["fired"]
+
+
+def test_failed_breakout_close_equal_to_pivot_is_not_a_breakout(db):
+    """(2026-11-05 "+0.1" 가산 폐지) pivot = 고점 그 자체 → close == pivot 은 돌파가 아니다(책: "trades above").
+    구 `close >= pivot` 은 pivot 이 고점+0.1 이던 시절의 "> 고점" 과 같은 뜻이었다 — 정수 가격에서 동작을
+    보존하려면 D0·P2 는 strict >, P1 은 <= 여야 한다(specs/2026-11-05-pivot-offset-removal.md §2)."""
+    start = date(2026, 6, 1)
+    pivot = 100.0
+    # 첫 봉 100 은 돌파 아님 → D0 없음 → None
+    _seed_close(db, "FBEQ1", start, [100, 98, 97, 102, 103, 104])
+    assert compute_failed_breakout(db, "FBEQ1", datetime(2026, 6, 15, tzinfo=timezone.utc), pivot, start) is None
+    # D0=101 뒤 100 ×5 는 "회복" 이 아니라 pivot 이하 → P1(연속 2일 이하)·P2(회복 0회) 동시 = both
+    _seed_close(db, "FBEQ2", start, [101, 100, 100, 100, 100, 100])
+    r = compute_failed_breakout(db, "FBEQ2", datetime(2026, 6, 15, tzinfo=timezone.utc), pivot, start)
+    assert r is not None and r["trigger"] == "both" and r["consecutive_below"] == 5

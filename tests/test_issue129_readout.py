@@ -35,6 +35,21 @@ def test_downward_chain_follows_rows_that_keep_lowered_pivot():
     assert [m["classified_at"].day for m in members] == [1, 7, 14]   # 복귀 행(26일)은 제외
 
 
+def test_downward_chain_ignores_sub_tick_difference():
+    """+0.1 가산 폐지(2026-11-05) 이행기: 직전 pivot 23,650.1(구 관례) → 새 pivot 23,650(고점 그대로)은
+    pivot_change_pct 가 −0.0004 로 음수지만 LLM 이 낮게 읽은 것이 아니다. KRX 가격은 정수라 1원 미만
+    차이는 하향 재판독으로 세지 않는다(specs/2026-11-05-pivot-offset-removal.md §3)."""
+    rows = [
+        _row("S", 1, "cup", 23650.0, "same", 23650.1, "cup"),
+        _row("S", 7, "cup", 23650.0, "same", 23650.0, "cup"),
+    ]
+    assert rows[0]["pc"]["pivot_change_pct"] < 0  # 전제: 산술상은 음수
+    assert downward_chains(rows) == []
+    # 1원 이상 내려간 재판독은 그대로 센다
+    rows2 = [_row("S", 1, "cup", 23649.0, "same", 23650.1, "cup")]
+    assert len(downward_chains(rows2)) == 1
+
+
 def test_downward_chain_stops_on_base_change_and_dedups_nested_starts():
     rows = [
         _row("B", 1, "cup", 100.0, "same", 110.0, "cup"),     # 하향 1(old 110)

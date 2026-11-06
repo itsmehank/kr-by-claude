@@ -18,9 +18,7 @@ from kr_pipeline.common.thresholds import (
     ENTRY_TRIGGER_BUFFER_MAX,
     GATE_PROMOTION_PRICE_RATIO,
     PIVOT_EXTENDED_BAND_MULT,
-    PIVOT_PRICE_OFFSET,
 )
-from kr_pipeline.common.krx import krx_tick_size
 from kr_pipeline.llm_runner.compute.pivot_ratchet import ratchet_pivot
 from kr_pipeline.llm_runner.gates import apply_phase1_gates
 from kr_pipeline.llm_runner.risk_flags import RISK_FLAGS_TAXONOMY
@@ -207,11 +205,11 @@ def _pivot_continuity(
             else None
         ),
     }
-# (#23) §4.7 표 기반 pivot_basis — anchor 가 base 내부 고점이라 pivot ≤ base_high+0.1
-# 이 성립하고 +0.1 오프셋 규칙이 적용되는 집합. pocket pivot 등 표 밖 basis 는
-# base_high 초과가 정당하므로 비대상 (HARD 미검사 사유와 동일 — docstring 참조).
+# (#23) §4.7 표 기반 pivot_basis — anchor 가 base 내부 고점이라 pivot ≤ base_high 가 성립하고
+# "pivot = 앵커 그대로" 규칙(2026-11-05 +0.1 가산 폐지)이 적용되는 집합. pocket pivot 등 표 밖
+# basis 는 base_high 초과가 정당하므로 비대상 (HARD 미검사 사유와 동일 — docstring 참조).
 _PIVOT_TABLE_BASES = frozenset(
-    # cup_high = (#74) cup_without_handle 의 컵 절대 고점 pivot — +tick 검증 대상
+    # cup_high = (#74) cup_without_handle 의 컵 절대 고점 pivot — 초과 검증 대상
     {"handle_high", "range_high", "final_T_high", "mid_W_peak", "cup_high"}
 )
 
@@ -285,27 +283,17 @@ def _validate_classification_prices(conn, result: dict, *, symbol: str, as_of) -
                 warns.append("sanity_band_mismatch_extended")
 
     # (#23) §4.7 pivot 산술 사후검증 — 표 기반 basis 한정 (SOFT).
-    # 허용 집합은 §4.7 리터럴(+0.1)이 아니라 §7 KR 관례가 기준 (#38 재리뷰):
-    # "base high + 1 tick (typically +10 or +100 KRW ... but base_high alone is
-    # acceptable)". KRW 는 정수가라 +0.1 만 정답으로 인정하면 §7 준수 출력 대부분이
-    # 경고를 받아 사후검증이 노이즈로 포화 — 진짜 이상치가 묻힌다.
+    # (2026-11-05 가산 폐지) §4.7·§7: pivot = 기준 고점 **그 자체**. 구 허용 집합
+    # {앵커, 앵커+0.1(§4.7 리터럴), 앵커+1 tick(§7 관례)}(#38 재리뷰)은 가산 관례와 함께
+    # 폐지 — 책은 가산을 말하지 않고(HMMS p.118·TLSMW p.223), 가산은 결정론 핸들 검출기
+    # `high ≥ pivot` 과 충돌했다(#175 명세 §7-1). specs/2026-11-05-pivot-offset-removal.md.
     if pv is not None and result.get("pivot_basis") in _PIVOT_TABLE_BASES:
-        if bh is not None:
-            tick = krx_tick_size(float(bh))
-            if float(pv) > float(bh) + tick + 1e-6:
-                warns.append("sanity_pivot_above_base_high")
-        # 오프셋 관례 검사: 앵커 값을 아는 basis(range_high == base_high, 같은 값)
-        # 에서만, 정수 앵커 문맥에 한해 — handle_high 등은 앵커가 base_high 와
-        # 다른 가격이라 base_high 정수성이 프록시가 못 된다 (#38 리뷰).
-        # 허용: {앵커 그대로, 앵커+0.1(§4.7 리터럴), 앵커+1 tick(§7 관례)}.
-        if (
-            result.get("pivot_basis") == "range_high"
-            and bh is not None
-            and abs(float(bh) - round(float(bh))) < 1e-6
-        ):
-            anchor = float(bh)
-            allowed = (anchor, anchor + PIVOT_PRICE_OFFSET, anchor + krx_tick_size(anchor))
-            if not any(abs(float(pv) - a) < 1e-3 for a in allowed):
+        if bh is not None and float(pv) > float(bh) + 1e-6:
+            warns.append("sanity_pivot_above_base_high")
+        # "pivot == 앵커" 검사는 앵커 값을 아는 basis(range_high == base_high)에서만 —
+        # handle_high 등은 앵커가 base_high 와 다른 가격이라 비교 불가 (#38 리뷰).
+        if result.get("pivot_basis") == "range_high" and bh is not None:
+            if abs(float(pv) - float(bh)) >= 1e-3:
                 warns.append("sanity_pivot_offset_rule")
 
     if warns:

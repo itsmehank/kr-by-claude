@@ -73,15 +73,21 @@ def test_a_35_normal_max_matches_ssot():
     assert int(m.group(1)) == thresholds.MARKET_DIST_NORMAL_MAX_25S
 
 
-def test_a_47_offset_matches_ssot():
-    """§4.7 표의 +0.1 오프셋 ↔ SSOT PIVOT_PRICE_OFFSET — store 사후검증이 4개
-    basis 에 균일 적용되므로 4행 전부 가드 (#38 리뷰: 1행만 가드 시 3행이 무방비)."""
+def test_a_47_pivot_has_no_add_on():
+    """§4.7 표·§7: pivot = 기준 고점 **그 자체** — +0.1·+1 tick 가산 없음(2026-11-05 폐지,
+    specs/2026-11-05-pivot-offset-removal.md). 책: HMMS 4판 p.118 pivot = 손잡이 고점,
+    TLSMW p.223 "trades above the high of the pivot" — 가산 서술 없음(전문가 사실 확인
+    2026-11-05 #253 [Q-3]·#175 [Q-1]). 가산이 있으면 결정론 핸들 검출기(`high ≥ pivot`)가
+    손잡이 고점 당일을 못 잡는다(#175 명세 §7-1: 림 미회복 124행 중 101행)."""
     text = _a_text()
-    rows = re.findall(
-        r"(range_high|handle_high|final_T_high|mid_W_peak) \+ (\d+\.\d+)", text
+    assert not re.search(
+        r"(range_high|handle_high|cup_high|final_T_high|mid_W_peak|절대 고점)\s*\+\s*\d", text
+    ), "§4.7 표에 pivot 가산(+N)이 남아 있음"
+    assert "+ $0.10 (Minervini" not in text and "base high + 1 tick" not in text, (
+        "§7 에 구 '+$0.10 (Minervini's standard add-on)' / 'base high + 1 tick' 가산 지시가 남아 있음"
     )
-    assert len(rows) >= 4, f"§4.7 오프셋 행이 4개 미만: {rows}"
-    for basis, val in rows:
-        assert float(val) == thresholds.PIVOT_PRICE_OFFSET, (
-            f"§4.7 {basis} 오프셋 {val} ≠ SSOT {thresholds.PIVOT_PRICE_OFFSET}"
-        )
+    assert not re.search(r"^- PIVOT_PRICE_OFFSET\s*=", text, re.M), "SSOT 블록에 폐지된 PIVOT_PRICE_OFFSET 이 남아 있음"
+    assert not hasattr(thresholds, "PIVOT_PRICE_OFFSET"), "thresholds.PIVOT_PRICE_OFFSET 미삭제"
+    # 표 5행이 '고점 그대로' 형태로 존재
+    for basis in ("range_high", "handle_high", "final_T_high", "mid_W_peak"):
+        assert re.search(rf"\|\s*{basis}\s*\|\s*{basis}\s*\|", text), f"§4.7 {basis} 행이 'basis | basis' 형태가 아님"

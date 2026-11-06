@@ -37,7 +37,6 @@ export const TT_MARGIN_MARGINAL_PCT: number = 3.0;
 export const TT_MARGINAL_DEMOTION_COUNT: number = 3;
 export const MARKET_DIST_NORMAL_MAX_25S: number = 3;
 export const PIVOT_EXTENDED_BAND_MULT: number = 1.05;
-export const PIVOT_PRICE_OFFSET: number = 0.1;
 export const TRADE_STOP_INITIAL_PCT: number = 0.08;
 export const TRADE_BREAKEVEN_TRIGGER_PCT: number = 0.2;
 export const TRADE_STOP_MAX_PCT: number = 0.1;

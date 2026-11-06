@@ -82,6 +82,9 @@ def compute_handle_quality(
 
     # 컵 바닥 (low 최소) → 그 이후 오른쪽 림 (high >= handle_high 첫 거래일).
     # 단순 "첫 high>=handle_high" 는 컵 왼쪽 림을 잡으므로 cup_bottom 이후로 탐색.
+    # (2026-11-05) pivot "+0.1" 가산 폐지로 신규 행은 pivot = 손잡이 고점 그대로 → 고점 당일
+    # (high == pivot) 이 매칭된다. 그 전 저장 행은 pivot = 고점+0.1 이라 §7-1 101행이 미매칭 —
+    # 과거 행 역산(pivot−0.1 또는 최근접 고가 봉)은 #175 재설계 범위.
     cup_bottom_idx = min(range(len(rows)), key=lambda i: float(rows[i][2]))  # rows[i][2] = low
     right_rim_idx = None
     for idx in range(cup_bottom_idx, len(rows)):

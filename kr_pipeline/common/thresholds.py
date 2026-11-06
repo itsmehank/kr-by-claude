@@ -201,10 +201,12 @@ PIVOT_EXTENDED_BAND_MULT: Final[float] = 1.05
 O'Neil/Minervini 'pivot +5% 이내 매수' 추격 한계의 대칭 적용 (design judgment — §8.5 명시).
 하단 0.95 는 GATE_PROMOTION_PRICE_RATIO 재사용 (§8.5 'promotion 임계와 정합')."""
 
-PIVOT_PRICE_OFFSET: Final[float] = 0.1
-"""A §4.7 pivot 산출 오프셋 — pivot = 기준 고점 + 0.1 (flat_base/cup_with_handle/vcp/
-double_bottom). 시스템 관례 (책의 '10 cents above' 관행의 KRW 적용). store 사후검증
-(sanity_pivot_offset_rule)의 기준."""
+# PIVOT_PRICE_OFFSET(0.1) 은 2026-11-05 삭제 — §4.7 "+0.1" 가산 관례 폐지. pivot = 기준 고점 **그 자체**
+# (HMMS 4판 p.118 pivot = 손잡이 고점, TLSMW p.223 "trades above the high of the pivot"; 책에 '10 cents'
+# 가산 서술 없음 — 전문가 사실 확인 2026-11-05, #253 [Q-3]·#175 [Q-1]). 가산은 정수 KRW 가격에서
+# close > pivot 판정에 효과 0 이고, 결정론 핸들 검출기 `high ≥ pivot` 과만 충돌했다(#175 명세 §7-1,
+# 림 미회복 124행 중 101행). 의존성 맵·이행기 인공물 = specs/2026-11-05-pivot-offset-removal.md.
+# #255(귀속 정정) 는 삭제로 superseded.
 # ===== 포지션 관리 — 3층 손절 스택 (kr_pipeline/trade_management/stop_stack.py, #3 이슈4) =====
 # 백테스트 검증 규칙(docs/trading-rules-book-verified.md §2)의 SSOT 승격.
 # 사전등록·의존성 맵: docs/superpowers/specs/2026-07-13-manage-active-trade.md

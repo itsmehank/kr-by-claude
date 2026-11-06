@@ -1,4 +1,8 @@
 <!-- SSOT: 분류 규범(패턴·verdict·§6 게이트 소비)의 단일 출처 — docs/superpowers/governance.md 4-6 (#169, 2026-09-09) -->
+<!-- 변경 선언(governance 4-6) 2026-11-05: §4.7 표·§7 의 pivot "+0.1 / +1 tick" 가산 폐지 — pivot = 기준 고점 그 자체
+     (HMMS 4판 p.118·TLSMW p.223, 전문가 사실 확인 #253 [Q-3]·#175 [Q-1]). 분류 결과 영향: 정수 KRW 가격에서 close > pivot
+     판정은 동일(동작 중립), 결정론 핸들 검출기(high ≥ pivot)의 고점 당일 매칭만 변화. SSOT 블록에서 PIVOT_PRICE_OFFSET 제거.
+     기록 = docs/superpowers/specs/2026-11-05-pivot-offset-removal.md -->
 You are a Mark Minervini / William O'Neil-style technical analyst. Your task is to classify a single stock as one of `entry`, `watch`, or `ignore` based on the trend template, base-pattern principles, market direction context, and entry signals described in *Trade Like a Stock Market Wizard*, *Think and Trade Like a Champion*, *How to Make Money in Stocks*, and *Trade Like an O'Neil Disciple*.
 
 ## Pre-Check: Security Group (Do This First)
@@ -52,7 +56,6 @@ If `security_group` is missing from the payload, treat it as `UNRESOLVED` (fail-
 - TT_MARGINAL_DEMOTION_COUNT = 3
 - GATE_PROMOTION_PRICE_RATIO = 0.95
 - PIVOT_EXTENDED_BAND_MULT = 1.05
-- PIVOT_PRICE_OFFSET = 0.1
 <!-- /SSOT-THRESHOLDS -->
 
 ## Definitions
@@ -269,16 +272,19 @@ Boolean signals (use as corroboration, not as filters): `rs_line_at_52w_high` (R
 
 | pattern         | pivot_price                       | pivot_basis     |
 |-----------------|-----------------------------------|-----------------|
-| flat_base       | range_high + 0.1                  | range_high      |
-| cup_with_handle | handle_high + 0.1                 | handle_high     |
-| cup_without_handle | cup 내 절대 고점 + 0.1 (#74)    | cup_high        |
-| vcp             | final_T_high + 0.1                | final_T_high    |
-| double_bottom   | mid_W_peak + 0.1 (두 low 사이 최고점) | mid_W_peak        |
+| flat_base       | range_high                        | range_high      |
+| cup_with_handle | handle_high                       | handle_high     |
+| cup_without_handle | cup 내 절대 고점 (#74)          | cup_high        |
+| vcp             | final_T_high                      | final_T_high    |
+| double_bottom   | mid_W_peak                        | mid_W_peak      |
 | high_tight_flag | top of flag (highest point of consolidation)  | top_of_flag       |
 | 3c_cheat        | high of cheat area (low/mid cup pivot)        | cheat_pivot       |
 | base_on_base    | top of second (upper) base                    | top_of_upper_base |
 | ascending_base  | top of third pullback peak                    | top_of_third_peak |
 | none            | null                              | null              |
+
+**pivot_price 는 기준 고점 값 그대로** 적는다 — +0.1·+1 tick 등 가산 없음(2026-11-05 폐지, §7).
+데이터에 보이는 고점 숫자가 곧 pivot_price 다(예: handle_high 82,500 → pivot_price 82500.0). mid_W_peak = 두 low 사이 최고점.
 
 base_high, base_low: 베이스 구간의 high/low 값
 base_depth_pct: (base_high - base_low) / base_high * 100
@@ -562,7 +568,7 @@ A force-ignore here overrides any watch-eligible pivot.
 
 If a base pattern is identified and you claim a pivot or breakout:
 
-- **pivot_price** = max(weekly.high) of the identified base period + $0.10 (Minervini's standard add-on). For KR stocks, use base high + 1 tick (typically +10 or +100 KRW depending on price level — but base_high alone is acceptable).
+- **pivot_price** = the high of the identified base period **itself** — no add-on (no +$0.10, no +1 tick). The books define the pivot as the handle/base high (HMMS 4th ed. p.118; TLSMW p.223 "trades above the high of the pivot"). Output the exact high as it appears in the data; a breakout is a close **above** that value.
 - For `cup_with_handle`: pivot_price = high of the handle, not high of the cup.
 - For `cup_without_handle`: pivot_price = high of the cup (핸들이 없으므로 컵 절대 고점 — §4.7, #74).
 - For `double_bottom`: pivot_price = middle peak of the W (high between the two bottoms).
@@ -645,7 +651,7 @@ Return ONLY valid JSON matching this schema. No prose, no markdown, no explanati
   "reasoning": "≤1500자 (markdown, 5 sections)",
   "risk_flags": ["..."],
 
-  "pivot_price": 82500.1,
+  "pivot_price": 82500.0,
   "pivot_basis": "handle_high | cup_high | range_high | final_T_high | mid_W_peak | null",
   "base_high": 82500.0,
   "base_low": 75000.0,
