@@ -197,3 +197,15 @@ def test_handle_quality_uses_adjusted(db):
     cls = _cls(base_depth=30.0, base_start=start, classified_at=datetime(2026, 5, 24, tzinfo=timezone.utc))
     r = compute_handle_quality(db, "HQADJ", cls["classified_at"], cls)
     assert r is not None and r["fired"] and r["metrics"]["handle_low"] == 82.0
+
+
+def test_right_rim_matches_when_high_equals_pivot(db):
+    """(2026-11-05 "+0.1" 가산 폐지) pivot = 손잡이 고점 그대로 → 고점 당일(high == pivot)이 우측 림 = 핸들 시작으로
+    매칭된다. 구 관례(pivot = 고점+0.1)에서는 이 봉이 `high >= pivot` 에 안 걸려 림 미회복(#175 명세 §7-1, 124행 중 101행)."""
+    start = date(2026, 3, 2)
+    cup_eq = _cup(2000)[:5] + [(100, 96, 99, 2000, False)]      # idx5 high == pivot(100)
+    r_eq = _run(db, "HQEQ1", cup_eq + _handle(5, low=90, vol=2000), start, 20)   # 거래량 안 마름 → 발화해 metrics 노출
+    r_gt = _run(db, "HQEQ2", _cup(2000) + _handle(5, low=90, vol=2000), start, 20)  # 대조: high 101 > 100
+    assert r_eq is not None and r_gt is not None
+    assert r_eq["metrics"]["handle_start"] == r_gt["metrics"]["handle_start"]
+    assert r_eq["metrics"]["handle_high"] == 100.0 and r_eq["metrics"]["handle_low"] == 90.0

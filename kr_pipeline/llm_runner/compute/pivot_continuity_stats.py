@@ -9,6 +9,10 @@ import re
 from collections import Counter, defaultdict
 
 _NONE_PATTERNS = (None, "none")
+# (2026-11-05 "+0.1" 가산 폐지 이행기) 1원 미만의 pivot 하향은 LLM 재판독이 아니라 관례 변경 인공물
+# (직전 23,650.1 → 새 23,650). KRX 가격은 정수 호가라 서브 틱 차이는 하향 재판독으로 세지 않는다.
+# 판독 전용 상수(매매 경로 비소비) — specs/2026-11-05-pivot-offset-removal.md §3.
+_SUB_TICK_KRW = 1.0
 _LOG_RE = re.compile(rb"\[pivot-continuity\] same-base pivot reread (\d+): .*?\(([-+]?\d+\.\d+)%\)")
 
 
@@ -42,6 +46,9 @@ def downward_chains(rows):
             if pc.get("base_continuity") not in ("same", "near") or chg is None or chg >= 0:
                 continue
             old = pc.get("prev_pivot_price")
+            npv0 = r["pivot_price"]
+            if old is not None and npv0 is not None and float(old) - float(npv0) < _SUB_TICK_KRW:
+                continue  # 서브 틱 하향 = 인공물(위 _SUB_TICK_KRW 주석)
             members = [r]
             for nxt in rs[i + 1:]:
                 npv, nchg = nxt["pivot_price"], nxt["pc"].get("pivot_change_pct")
@@ -86,6 +93,10 @@ def stored_events(rows):
     c = Counter()
     for r in rows:
         chg = r["pc"].get("pivot_change_pct")
-        if r["pc"].get("base_continuity") == "same" and chg not in (None, 0):
-            c[(r["symbol"], round(float(chg), 2))] += 1
+        if r["pc"].get("base_continuity") != "same" or chg in (None, 0):
+            continue
+        prev, npv = r["pc"].get("prev_pivot_price"), r["pivot_price"]
+        if prev is not None and npv is not None and 0 < float(prev) - float(npv) < _SUB_TICK_KRW:
+            continue  # 서브 틱 하향 = "+0.1" 폐지 이행기 인공물 (downward_chains 와 동일 기준)
+        c[(r["symbol"], round(float(chg), 2))] += 1
     return c

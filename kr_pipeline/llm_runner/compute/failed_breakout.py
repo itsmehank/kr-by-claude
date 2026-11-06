@@ -22,13 +22,18 @@ def _to_date(d) -> date:
 def compute_failed_breakout(
     conn: Connection, symbol: str, classified_at, pivot_price, base_start_date,
 ) -> Optional[dict]:
-    """pivot 돌파 (close >= pivot) 후 K=5 거래일 내 실패 여부.
+    """pivot 돌파 (close > pivot) 후 K=5 거래일 내 실패 여부.
 
     탐색 범위 = [base_start_date, classified_at) — *이번 base 구간으로 한정*.
     전체 역사에서 D0 를 찾으면 과거의 무관한 돌파를 잡으므로 (버그) base_start 필수.
 
-    (P1) 연속 2일 이상 close < pivot, OR
-    (P2) D1~D5 전체에서 close >= pivot 인 거래일 0회.
+    (P1) 연속 2일 이상 close <= pivot, OR
+    (P2) D1~D5 전체에서 close > pivot 인 거래일 0회.
+
+    비교식 (2026-11-05 "+0.1" 가산 폐지 보정): pivot 이 고점+0.1 이던 시절의 `close >= pivot` 은
+    정수 KRW 가격에서 "close > 고점" 과 같은 뜻이었다. pivot = 고점 그 자체가 되면서 같은 동작을
+    보존하려면 D0·P2 는 strict `>`, P1 은 `<=` 여야 한다(책: 돌파 = "trades above" the pivot).
+    specs/2026-11-05-pivot-offset-removal.md §2.
     Returns dict(fired, K_days, trigger, D0_date, consecutive_below,
                  max_close_in_window, pivot) 또는 None.
     """
@@ -56,10 +61,10 @@ def compute_failed_breakout(
     if not rows:
         return None
 
-    # D0 = close >= pivot 인 최초 거래일.
+    # D0 = close > pivot 인 최초 거래일 (close == pivot 은 돌파 아님).
     d0_idx = None
     for idx, (_, close) in enumerate(rows):
-        if float(close) >= pivot:
+        if float(close) > pivot:
             d0_idx = idx
             break
     if d0_idx is None:
@@ -76,7 +81,7 @@ def compute_failed_breakout(
     max_consecutive = 0
     cur_run = 0
     for c in closes:
-        if c < pivot:
+        if c <= pivot:
             cur_run += 1
             max_consecutive = max(max_consecutive, cur_run)
         else:
@@ -84,7 +89,7 @@ def compute_failed_breakout(
     fired_p1 = max_consecutive >= thresholds.FAILED_BREAKOUT_CONSECUTIVE_BELOW
 
     # (P2) 회복 0회
-    recoveries = sum(1 for c in closes if c >= pivot)
+    recoveries = sum(1 for c in closes if c > pivot)
     fired_p2 = recoveries == 0
 
     if not (fired_p1 or fired_p2):

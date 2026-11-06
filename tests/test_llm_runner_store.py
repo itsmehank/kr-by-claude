@@ -710,7 +710,7 @@ def test_pivot_above_base_high_warns_for_table_basis(db, mocker):
 
 
 def test_pivot_offset_rule_warns_on_wrong_fraction(db, mocker):
-    """§4.7: +0.1 규칙 패턴에서 정수 앵커인데 pivot 소수부 ≠ 0.1 → 경고."""
+    """§4.7: 표 basis 에서 정수 앵커인데 pivot ≠ 앵커(소수부 0.5) → 경고."""
     _gates_identity(mocker)
     as_of = date(2026, 6, 26)
     _seed_close(db, "SANP2", 990, as_of)
@@ -719,14 +719,16 @@ def test_pivot_offset_rule_warns_on_wrong_fraction(db, mocker):
     assert w is not None and "sanity_pivot_offset_rule" in w
 
 
-def test_pivot_offset_rule_clean(db, mocker):
-    """§4.7: pivot = 정수 앵커 + 0.1 → 경고 없음. 비-표 basis 도 비대상."""
+def test_pivot_plus_point_one_now_warns(db, mocker):
+    """§4.7(2026-11-05 가산 폐지): pivot = 앵커 + 0.1 은 더 이상 관례가 아니다 → 오프셋 경고.
+    구 +0.1 관례는 결정론 핸들 검출기 `high ≥ pivot` 과 충돌했다(#175 명세 §7-1)."""
     _gates_identity(mocker)
     as_of = date(2026, 6, 26)
     _seed_close(db, "SANP3", 990, as_of)
     r = _cls_result(pivot_price=1000.1, base_high=1000.0, pivot_basis="range_high")
     w = _insert_and_get_warnings(db, "SANP3", r, as_of)
-    assert w is None or not any("sanity_pivot_" in x for x in w)
+    assert w is not None and "sanity_pivot_offset_rule" in w
+    assert "sanity_pivot_above_base_high" in w  # 고점 초과도 허용 안 함(tick 완화 폐지)
 
 
 def test_pivot_offset_rule_skips_non_range_high_basis(db, mocker):
@@ -741,23 +743,23 @@ def test_pivot_offset_rule_skips_non_range_high_basis(db, mocker):
     assert w is None or "sanity_pivot_offset_rule" not in w
 
 
-# --- (#38 재리뷰) §4.7 사후검증을 §7 KR 관례(+1 tick / 고점 그대로)와 정합 ---
+# --- §4.7·§7 사후검증 = "pivot 은 고점 그 자체" (2026-11-05 가산 폐지; 구 #38 +1 tick 완화 superseded) ---
 
-def test_pivot_one_tick_above_anchor_clean(db, mocker):
-    """§7: 'base high + 1 tick (typically +10 or +100 KRW)' 준수 출력은 무경고.
+def test_pivot_one_tick_above_anchor_warns(db, mocker):
+    """§7(2026-11-05): '+1 tick' 관례도 폐지 — pivot=51,800(고점 51,700 + 1 tick) 은 초과·오프셋 경고.
 
-    51,700 원대의 KRX 호가 단위는 100원 — pivot=51,800 은 §7 관례 그대로인데
-    구 검사(+0.1 만 정답)는 초과+오프셋 경고 2종을 동시 발화시켰다(경고 포화)."""
+    구 #38 완화는 "+0.1 만 정답이면 §7 +1 tick 준수 출력이 경고 포화" 를 막기 위한 것이었고,
+    이제 §7 이 가산 자체를 금지하므로 완화의 전제가 사라졌다."""
     _gates_identity(mocker)
     as_of = date(2026, 6, 26)
     _seed_close(db, "SANT1", 51000, as_of)
     r = _cls_result(pivot_price=51800.0, base_high=51700.0, pivot_basis="range_high")
     w = _insert_and_get_warnings(db, "SANT1", r, as_of)
-    assert w is None or not any("sanity_pivot_" in x for x in w)
+    assert w is not None and "sanity_pivot_above_base_high" in w and "sanity_pivot_offset_rule" in w
 
 
 def test_pivot_equal_to_anchor_clean(db, mocker):
-    """§7: 'base_high alone is acceptable' — pivot == 고점 그대로도 무경고."""
+    """§7: pivot == 고점 그대로 → 무경고(유일한 정답)."""
     _gates_identity(mocker)
     as_of = date(2026, 6, 26)
     _seed_close(db, "SANT2", 51000, as_of)
@@ -767,7 +769,7 @@ def test_pivot_equal_to_anchor_clean(db, mocker):
 
 
 def test_pivot_above_one_tick_still_warns(db, mocker):
-    """+1 tick 을 넘는 초과는 여전히 경고 — 완화는 §7 관례 집합까지만."""
+    """고점을 크게 넘는 pivot 은 초과 경고."""
     _gates_identity(mocker)
     as_of = date(2026, 6, 26)
     _seed_close(db, "SANT3", 51000, as_of)
@@ -777,7 +779,7 @@ def test_pivot_above_one_tick_still_warns(db, mocker):
 
 
 def test_pivot_off_convention_fraction_warns(db, mocker):
-    """관례 집합({고점, 고점+0.1, 고점+1tick}) 밖의 값은 오프셋 경고 유지."""
+    """고점이 아닌 값(51,750 — 호가 단위에도 안 맞음)은 오프셋 경고."""
     _gates_identity(mocker)
     as_of = date(2026, 6, 26)
     _seed_close(db, "SANT4", 51000, as_of)

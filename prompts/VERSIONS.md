@@ -78,6 +78,7 @@ worktree 실행 산출물 해석에는 오히려 쓸모가 있다. 운영 DB 에
 | `fef91af464d5` | 2026-09-08 | addbfe9 | #153 Q-1·Q-2 반영 — stop_distance 경고 임계를 TRADE_STOP_INITIAL_PCT 로, A 프롬프트 §4·§8.5 사이징 감액 언급 … |
 | `f710e5bd5d8f` | 2026-09-09 | 80dd705 | #169 no_transition 주간 anchor 의존 신호 null 전환 — 일간(#157 Q-8)과 일관, #44 D1 부속 superseded |
 | `739c7cc1b5c7` | 2026-09-15 | 0285894 | prompt A: Pre-Check 를 security_group 기준으로 결정적 변경(sector 추론 제거) + payload security_group 입력… |
+| `a76aafa74c1d` | 2026-11-06 | — | §4.7 표·§7 pivot "+0.1 / +1 tick" 가산 폐지 — pivot = 기준 고점 그 자체(HMMS p.118·TLSMW p.223, 전문가 사실 확인 #253 [Q-3]·#175 [Q-1]); SSOT 블록 PIVOT_PRICE_OFFSET 제거; 정수 KRW 가격에서 close > pivot 동일(동작 중립). specs/2026-11-05-pivot-offset-removal.md |
 
 ### calculate_entry_params_v2_0.md
 

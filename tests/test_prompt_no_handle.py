@@ -20,7 +20,7 @@ def test_pattern_enum_contains_cup_without_handle():
 
 def test_pivot_rules_cup_high():
     """§4.7 표 행 + pivot_basis enum + §7 대비 문장."""
-    assert "| cup_without_handle | cup 내 절대 고점 + 0.1" in _ANALYZE
+    assert "| cup_without_handle | cup 내 절대 고점 (#74)" in _ANALYZE  # 2026-11-05 "+0.1" 가산 폐지
     assert "handle_high | cup_high | range_high" in _ANALYZE, "pivot_basis enum 누락"
     assert "pivot_price = high of the cup" in _ANALYZE, "§7 대비 문장 누락"
 
