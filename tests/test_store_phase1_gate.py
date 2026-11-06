@@ -12,7 +12,7 @@ def _seed_ohlcv_deep_handle(db, ticker):
 
     구조: cup(6봉) + handle(5봉, 림 봉 포함 6일 ≥ HANDLE_LEGIT_MIN_DAYS 5).
     컵: 좌측 림→바닥(low 78, idx3)→우측 림(high 101>=100, idx5).
-    핸들: 거래량 2000(base 1000) → ratio_b 2.0 > 0.80 → volume_not_contracting.
+    핸들: 거래량 2000 ≥ 50일 평균 1000(avg_volume_50d) → (B′) volume_not_contracting (#175 2026-11-06).
     classified_at 을 2026-01-20 으로 하면 base_start=2026-01-05 이후 11봉 커버.
 
     [plan 원본 시드 교체 사유]
@@ -51,8 +51,9 @@ def _seed_ohlcv_deep_handle(db, ticker):
                 (ticker, d, c, h, l, c, c, v, v * c),
             )
             cur.execute(
-                "INSERT INTO daily_indicators (ticker,date,adj_close,sma_50,distribution_day_flag) "
-                "VALUES (%s,%s,%s,%s,FALSE) ON CONFLICT DO NOTHING",
+                # (#175) avg_volume_50d 1000 — 손잡이 2000 ≥ 1000 로 (B′) 발화 유지
+                "INSERT INTO daily_indicators (ticker,date,adj_close,sma_50,distribution_day_flag,avg_volume_50d) "
+                "VALUES (%s,%s,%s,%s,FALSE,1000) ON CONFLICT DO NOTHING",
                 (ticker, d, c, c * 0.95),
             )
             d += timedelta(days=1)

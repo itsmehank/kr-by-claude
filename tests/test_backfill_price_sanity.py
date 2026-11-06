@@ -28,7 +28,7 @@ def _gates_identity(mocker):
     """게이트를 identity 로 patch — sanity 로직만 단위 테스트."""
     mocker.patch(
         "kr_pipeline.llm_runner.store.apply_phase1_gates",
-        side_effect=lambda conn, s, t, r: (r, None),
+        side_effect=lambda conn, s, t, r, **kw: (r, None),   # (#175) as_of= 키워드 수용
     )
 
 

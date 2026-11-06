@@ -74,6 +74,15 @@ def _measurements_json(result: dict) -> str | None:
     return json.dumps(blob)
 
 
+def _structural_low_cols(result: dict) -> tuple:
+    """(#175) gates 가 주입한 result["structural_low"] → (handle_low, handle_start, handle_end). 없으면 (None, None, None).
+    start/end 는 검출기가 ISO 문자열로 주므로 date 로 변환해 DATE 열에 넣는다."""
+    sl = result.get("structural_low") or {}
+    def _d(v):
+        return date.fromisoformat(v) if isinstance(v, str) else v
+    return sl.get("price"), _d(sl.get("start")), _d(sl.get("end"))
+
+
 def _watch_reason(result: dict) -> str | None:
     """watch_reason 은 classification=='watch' 일 때만 저장 (그 외 None 강제).
 
@@ -328,7 +337,9 @@ def insert_classification(
         # 아래 INSERT 가 InFailedSqlTransaction 으로 실패해 LLM 비용을 쓴 분류가
         # 통째로 유실된다. 중첩 transaction(=savepoint)으로 fail-soft 를 실질화.
         with conn.transaction():
-            result, triggered_rules = apply_phase1_gates(conn, symbol, classified_at, result)
+            result, triggered_rules = apply_phase1_gates(
+                conn, symbol, classified_at, result, as_of=analyzed_for_date,   # (#175/#261) 검출기 창 끝 = 데이터 날짜 포함
+            )
     except Exception as e:
         log.warning(
             "[phase1-gate] failed symbol=%s — 게이트 미적용 원본 분류 저장 (fail-soft): %s",
@@ -397,7 +408,8 @@ def insert_classification(
                verdict_original,
                prompt_version,
                volume_regime_flag,
-               effective_pivot)
+               effective_pivot,
+               handle_low, handle_start, handle_end)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
@@ -410,7 +422,8 @@ def insert_classification(
                     %s,
                     %s,
                     %s, %s,
-                    %s)
+                    %s,
+                    %s, %s, %s)
             ON CONFLICT (symbol, classified_at) DO NOTHING
             """,
             (
@@ -443,6 +456,7 @@ def insert_classification(
                 llm_meta.get("prompt_version"),
                 classification_flag(conn, symbol, analyzed_for_date, anchor_week=(result.get("climax_topping_gates_echo") or {}).get("anchor_week")),   # (#207 Q-5c 2) 분류 창 = 주간 C3 ∪ 일간 50봉 ∪ 앵커~평가 주
                 effective_pivot,
+                *_structural_low_cols(result),
             ),
         )
         # (#1) same-base 재판독 경고는 행이 실제 저장된 경우에만 — ON CONFLICT 로
@@ -507,7 +521,8 @@ def insert_backfill_classification(
         gate_at = datetime.combine(analyzed_for_date + timedelta(days=1), dt_time.min)
         # SAVEPOINT 격리 — insert_classification 과 동일 (SQL 오류 fail-soft 실질화)
         with conn.transaction():
-            result, triggered_rules = apply_phase1_gates(conn, symbol, gate_at, result)
+            # (#175/#261) 검출기는 as_of=D 포함 창, failed_breakout·§8.5 는 gate_at(D+1 미포함) — 같은 봉 집합
+            result, triggered_rules = apply_phase1_gates(conn, symbol, gate_at, result, as_of=analyzed_for_date)
     except Exception as e:
         log.warning(
             "[phase1-gate] backfill failed symbol=%s — 게이트 미적용 원본 저장 (fail-soft): %s",
@@ -540,7 +555,8 @@ def insert_backfill_classification(
                verdict_original,
                sanity_warnings,
                prompt_version,
-               volume_regime_flag)
+               volume_regime_flag,
+               handle_low, handle_start, handle_end)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s,
@@ -551,7 +567,8 @@ def insert_backfill_classification(
                     %s,
                     %s,
                     %s,
-                    %s, %s)
+                    %s, %s,
+                    %s, %s, %s)
             ON CONFLICT (symbol, analyzed_for_date) DO NOTHING
             """,
             (
@@ -582,6 +599,7 @@ def insert_backfill_classification(
                 json.dumps(sanity_warnings) if sanity_warnings else None,
                 llm_meta.get("prompt_version"),
                 classification_flag(conn, symbol, analyzed_for_date, anchor_week=(result.get("climax_topping_gates_echo") or {}).get("anchor_week")),   # (#207 Q-5c 2) 분류 창 = 주간 C3 ∪ 일간 50봉 ∪ 앵커~평가 주
+                *_structural_low_cols(result),
             ),
         )
 

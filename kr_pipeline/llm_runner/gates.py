@@ -25,18 +25,23 @@ def _most_conservative(a: str, b: str) -> str:
 
 
 def apply_phase1_gates(
-    conn: Connection, symbol: str, classified_at, result: dict,
+    conn: Connection, symbol: str, classified_at, result: dict, *, as_of=None,
 ) -> tuple[dict, Optional[dict]]:
     """result 를 in-place 갱신하고 (mutated_result, triggered_rules) 반환.
 
     triggered_rules 는 발화 룰이 하나도 없으면 None.
     confidence 가 None 이면 강등 시 cap 값 (Tier1 0.60 / Tier2 0.50) 으로 설정된다.
+    as_of (#175/#261): 데이터 날짜(analyzed_for_date) — 핸들 검출기 입력 창 끝(그 봉 포함). None 이면 검출기가
+    classified_at 의 KST 날짜로 폴백. positional classified_at 은 failed_breakout·§8.5 가 계속 소비(동작 불변).
     """
     triggered: dict = {}
     risk_flags = list(result.get("risk_flags", []))
 
     # === handle_quality (관찰 flag 주입 — classification 무관) ===
-    hq = compute_handle_quality(conn, symbol, classified_at, result)
+    hq = compute_handle_quality(conn, symbol, classified_at, result, as_of=as_of)
+    if hq is not None and hq.get("structural_low") is not None:
+        # (#175) 구조 저점 — 발화 여부와 무관하게 저장 경로로 전달(store 가 handle_low·handle_start·handle_end 에 기록)
+        result["structural_low"] = hq["structural_low"]
     if hq and hq.get("fired"):
         if "handle_quality" not in risk_flags:
             risk_flags.append("handle_quality")

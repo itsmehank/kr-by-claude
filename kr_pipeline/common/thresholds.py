@@ -422,9 +422,24 @@ HANDLE_LEGIT_MIN_DAYS: Final[int] = 5
 # HANDLE_DEPTH_BULL_*), 원칙 1-1 4조건 충족. HANDLE_MIN_DAYS 3 [heuristic] 삭제 — 검출기 핸들 하한은
 # HANDLE_LEGIT_MIN_DAYS(5, book-anchor) 로 대체. 정의 원문은 plans/2026-09-10-issue177-handle-quality-book-bounds.md.
 
-HANDLE_VOLUME_NOT_CONTRACTING_RATIO: Final[float] = 0.80
-"""[heuristic] handle/base 평균거래량 비 발화 임계 (수축 안 됨). 개념은 book(HMMS 핸들 중 거래량
-증가 금지), 수치는 design — 별도 판정 대상(#177 미변경)."""
+# (#175 2026-11-06) HANDLE_VOLUME_NOT_CONTRACTING_RATIO 0.80 [heuristic] 삭제 — 손잡이 평균 ÷ 컵 평균 비교는 책에 없는
+# 수치·비교 대상(전문가 사실 확인 2026-11-06 Q-C). 정의 원문 specs/2026-11-05-issue175-handle-detector-spec.md S7(B),
+# 대체 = HANDLE_VOLUME_VS_50D_MAX. 설계 = specs/2026-11-06-issue175-handle-low-design.md §2 D3-B·§5.
+
+HANDLE_VOLUME_VS_50D_MAX: Final[float] = 1.0
+"""[book-anchor] 손잡이(= Minervini 마지막 수축) 일평균 거래량 ÷ 손잡이 시작일 50일 평균 거래량(daily_indicators.avg_volume_50d)
+이 이 값 **이상**이면 "거래량 안 마름" 결함(handle_quality (B′)). TLSMW Ch.10 p.226 "we want to see volume on the final
+contraction that is below the 50-day average, with one or two days when volume is extremely low"; 손잡이 적용 p.198(FSII
+"contracted to just 5 percent in the handle area")·p.245("Like the handle, a valid cheat area should exhibit a contraction
+in volume"). 오닐(HMMS p.116·118)은 "near the lows / few last weeks" 정성 서술만 — 저자 간 차이로 기록. 극저 거래량일
+("extremely low")의 수치는 책에 없어 VOLUME_DRY_UP_MULT(0.5, community standard)로 **기록만**(판정 비관여)."""
+
+HANDLE_SHAKEOUT_CLOSE_POS_MIN: Final[float] = 0.5
+"""[design-judgment] 손잡이 안 분배일(하락 ∧ 거래량 > 50일 평균)을 shakeout(긍정)으로 보는 마감 위치 하한.
+마감 위치 = (close − low) / (high − low), high == low 면 0.5(비결함). 이 값 미만(하단 마감)인 분배일만 결함(handle_quality (D′)).
+개념 근거(2순위 저자) TLOND Ch.3 p.53~54 "saw volume pick up sharply … and closed that day in the upper part of its daily
+trading range, a clear sign of support"; HMMS p.116 은 shakeout 긍정·"should not pick up" 부정을 둘 다 적고 구분 조건은
+없다. 식과 0.5 는 설계(책 수치 아님)."""
 
 BASE_MIN_DAYS: Final[int] = 5
 """[heuristic] handle_quality 의 base 구간 계산 최소 윈도우."""

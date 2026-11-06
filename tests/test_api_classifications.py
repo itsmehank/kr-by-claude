@@ -467,3 +467,17 @@ def test_history_includes_effective_pivot(client, seed_classifications):
     assert r.status_code == 200
     rows = r.json()
     assert any(x.get("effective_pivot") == 1200.0 and x["pivot_price"] == 1000.0 for x in rows)
+
+
+def test_classifications_expose_handle_low_fields(client, seed_classifications, db):
+    """(#175) handle_low·handle_start·handle_end 가 최신 분류·이력 두 엔드포인트에 노출된다."""
+    with db.cursor() as cur:
+        cur.execute("""UPDATE weekly_classification
+                          SET handle_low = 960.0, handle_start = '2026-03-09', handle_end = '2026-03-13'
+                        WHERE symbol = 'CLSTEST01' AND classification = 'watch'""")
+    db.commit()
+    row = next(r for r in client.get("/api/classifications?lookback_days=30").json() if r["symbol"] == "CLSTEST01")
+    assert row["handle_low"] == 960.0 and row["handle_start"] == "2026-03-09" and row["handle_end"] == "2026-03-13"
+    hist = client.get("/api/classifications/history/CLSTEST01?start=2000-01-01").json()
+    latest = max(hist, key=lambda h: h["date"])
+    assert latest["handle_low"] == 960.0 and latest["handle_start"] == "2026-03-09"

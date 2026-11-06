@@ -1,5 +1,6 @@
 # scripts/regression_phase1_2a.py
-"""Phase 1 2-A 회귀 — 005850 → watch (2E_tier2), 037760 → 2F 발화.
+"""(LEGACY 2026-05 앵커 — #177(깊이비 삭제)·#175(거래량 규칙 50일 평균·분배일 마감 위치) 이후 005850/037760 의 기대 결과는 현 규칙·현 데이터로 재확인 후 갱신 필요)
+Phase 1 2-A 회귀 — 005850 → watch (2E_tier2), 037760 → 2F 발화.
 
 실 DB 의 005850·037760 최신 분류 입력을 gate 에 통과시켜 기대 결과 확인.
 FREEZE 인프라로 입력 보존돼 재현 가능.
@@ -33,7 +34,7 @@ def main():
         # 005850 — entry → watch (2E_tier2)
         c1 = _load_cls(conn, "005850")
         print(f"005850 입력: class={c1['classification']} conf={c1['confidence']} flags={c1['risk_flags']}")
-        out1, tr1 = apply_phase1_gates(conn, "005850", c1["classified_at"], dict(c1))
+        out1, tr1 = apply_phase1_gates(conn, "005850", c1["classified_at"], dict(c1))   # (#175) as_of 생략 → 검출기 KST 날짜 폴백
         print(f"005850 게이트 후: class={out1['classification']} conf={out1['confidence']} flags={out1['risk_flags']} tr={tr1}")
         assert out1["classification"] == "watch", "❌ 005850 entry→watch 강등 실패"
         assert out1["confidence"] <= 0.50, "❌ 005850 Tier2 conf cap 실패"

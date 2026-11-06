@@ -114,7 +114,7 @@ def test_backfill_gate_uses_point_in_time_date(db, monkeypatch):
     import kr_pipeline.llm_runner.store as store_mod
     from datetime import datetime, date, timezone
     captured = {}
-    def fake_gate(conn, symbol, classified_at, result):
+    def fake_gate(conn, symbol, classified_at, result, **kw):   # (#175) as_of= 키워드 수용
         captured["at"] = classified_at
         return result, None
     monkeypatch.setattr(store_mod, "apply_phase1_gates", fake_gate)

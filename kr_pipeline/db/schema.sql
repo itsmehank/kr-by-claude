@@ -360,6 +360,15 @@ ALTER TABLE weekly_classification
 ALTER TABLE weekly_classification
   ADD COLUMN IF NOT EXISTS effective_pivot NUMERIC(12, 4);
 
+-- 2026-11-06 (#175): 컵손잡이 구조 저점 — 결정론 검출기(compute/handle_quality.py S6′)가 발화 여부와 무관하게 산출한
+-- 손잡이 구간의 일중 최저가·구간 시작/끝. 저장 = store.insert_classification / insert_backfill_classification
+-- (result["structural_low"], gates.apply_phase1_gates 가 주입). NULL = 비컵손잡이 / 검출기 미평가(림 미회복·하한 미달·
+-- handle_above_pivot) / 열 도입 전 행. 손절 로직은 아직 소비하지 않음(#161). 네 분류 테이블 동일.
+-- 설계: docs/superpowers/specs/2026-11-06-issue175-handle-low-design.md §4
+ALTER TABLE weekly_classification       ADD COLUMN IF NOT EXISTS handle_low   NUMERIC(12, 4);
+ALTER TABLE weekly_classification       ADD COLUMN IF NOT EXISTS handle_start DATE;
+ALTER TABLE weekly_classification       ADD COLUMN IF NOT EXISTS handle_end   DATE;
+
 -- (#44 Task 7) verdict_original — 게이트(apply_phase1_gates) 적용 전 LLM 원본
 -- classification. §6.2 topping shadow backstop 등 후처리 강등 관측용(감사 전용,
 -- 소비처 없음). NULL = 게이트 도입 이전 레코드.
@@ -984,6 +993,17 @@ ALTER TABLE classification_backfill      ADD COLUMN IF NOT EXISTS prompt_version
 ALTER TABLE backtest_classification      ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);
 ALTER TABLE recall_audit_classification  ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);
 ALTER TABLE trigger_evaluation_log       ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(12);
+
+-- (#175 2026-11-06) 구조 저점 3열 — weekly_classification 과 동일 의미(위 주석 참조). 백필·백테스트·리콜 감사 테이블.
+ALTER TABLE classification_backfill      ADD COLUMN IF NOT EXISTS handle_low   NUMERIC(12, 4);
+ALTER TABLE classification_backfill      ADD COLUMN IF NOT EXISTS handle_start DATE;
+ALTER TABLE classification_backfill      ADD COLUMN IF NOT EXISTS handle_end   DATE;
+ALTER TABLE backtest_classification      ADD COLUMN IF NOT EXISTS handle_low   NUMERIC(12, 4);
+ALTER TABLE backtest_classification      ADD COLUMN IF NOT EXISTS handle_start DATE;
+ALTER TABLE backtest_classification      ADD COLUMN IF NOT EXISTS handle_end   DATE;
+ALTER TABLE recall_audit_classification  ADD COLUMN IF NOT EXISTS handle_low   NUMERIC(12, 4);
+ALTER TABLE recall_audit_classification  ADD COLUMN IF NOT EXISTS handle_start DATE;
+ALTER TABLE recall_audit_classification  ADD COLUMN IF NOT EXISTS handle_end   DATE;
 
 -- ── 토스증권 주문 감사로그 (spec 2026-09-14 §5 AuditLog) ────────────────────────
 -- append-only. 전송 직전 INSERT(http_status NULL = pending) → 응답 후 UPDATE.

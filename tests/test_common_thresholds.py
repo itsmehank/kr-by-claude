@@ -90,7 +90,11 @@ def test_phase2i_cup_shape_constants():
 def test_phase2i_handle_heuristic_constants():
     # heuristic (튜닝 가능). (#177) HANDLE_DEEP_RATIO·HANDLE_MIN_DAYS 삭제 — 재도입 가드
     assert not hasattr(thresholds, "HANDLE_DEEP_RATIO") and not hasattr(thresholds, "HANDLE_MIN_DAYS")
-    assert thresholds.HANDLE_VOLUME_NOT_CONTRACTING_RATIO == 0.80
+    # (#175 2026-11-06) 0.80 컵 평균 비교 삭제 → Minervini 50일 평균 규칙(TLSMW p.226) + shakeout 마감 위치(design)
+    assert not hasattr(thresholds, "HANDLE_VOLUME_NOT_CONTRACTING_RATIO")
+    assert thresholds.HANDLE_VOLUME_VS_50D_MAX == 1.0
+    assert thresholds.HANDLE_SHAKEOUT_CLOSE_POS_MIN == 0.5
+    assert thresholds.VOLUME_DRY_UP_MULT == 0.5   # 극저 거래량일 계수(기록용) 재사용
     assert thresholds.BASE_MIN_DAYS == 5
     assert thresholds.HANDLE_POSITION_LOW_RATIO == 0.33
 

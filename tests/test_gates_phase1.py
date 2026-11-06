@@ -2,7 +2,7 @@
 """apply_phase1_gates — handle_quality 주입 + 2-E tier + 2-F (spec §3·§4·§5)."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pytest
 
@@ -160,3 +160,27 @@ def test_monotone_watch_conf_capped_with_extended(monkeypatch, db):
     assert out["classification"] == "watch"
     assert out["confidence"] <= 0.50
     assert "2E_tier2" in tr
+
+
+# ---------- (#175 2026-11-06) structural_low 주입 · as_of 전달 ----------
+
+def test_structural_low_injected_even_when_not_fired(monkeypatch, db):
+    sl = {"kind": "handle_low", "price": 96.0, "start": "2026-03-09", "end": "2026-03-13", "days": 5}
+    monkeypatch.setattr(gates, "compute_handle_quality",
+                        lambda *a, **k: {"fired": False, "reasons": [], "weights": [], "metrics": {}, "structural_low": sl})
+    monkeypatch.setattr(gates, "compute_failed_breakout", lambda *a, **k: None)
+    out, tr = gates.apply_phase1_gates(db, "TSL", datetime(2026, 1, 1, tzinfo=timezone.utc), _base_result(), as_of=date(2026, 3, 13))
+    assert out["structural_low"] == sl and out["classification"] == "entry" and tr is None
+
+
+def test_as_of_is_forwarded_to_detector(monkeypatch, db):
+    seen = {}
+
+    def fake(conn, symbol, classified_at, cls, *, as_of=None):
+        seen["as_of"] = as_of
+        return None
+
+    monkeypatch.setattr(gates, "compute_handle_quality", fake)
+    monkeypatch.setattr(gates, "compute_failed_breakout", lambda *a, **k: None)
+    out, _ = gates.apply_phase1_gates(db, "TAS", datetime(2026, 1, 1, tzinfo=timezone.utc), _base_result(), as_of=date(2026, 3, 13))
+    assert seen["as_of"] == date(2026, 3, 13) and "structural_low" not in out
