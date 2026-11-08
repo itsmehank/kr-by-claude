@@ -79,8 +79,9 @@ PP_DOWN_VOL_LOOKBACK_DAYS: Final[int] = 10
 
 BREAKOUT_VOL_FLOOR: Final[float] = 1.4
 """Breakout 거래량 허용 하한 (50일 평균 배수).
-책: O'Neil HMMS Ch.2 p.117 — '40% to 50% above normal'. 하한 = 40% (=1.4×).
-1.4×~1.5× 구간은 'preferred 미달' 경고 emit."""
+책: 1.4(=+40%) 는 O'Neil HMMS Ch.2 p.117 — '40% to 50% above normal'; **50거래일 창은 HMMS Ch.15 p.349**(IBD Volume Percent
+Change, 최근 50거래일 평균) + TLSMW Ch.10 p.226. (#184 회신 11-07 Q-1b: 출처 분리.) 소비처 2곳: entry_params_calc(돌파일) ·
+climax_topping.find_anchor C3′(앵커 주 상승 마감일, 2026-11). 1.4×~1.5× 구간은 'preferred 미달' 경고 emit."""
 
 BREAKOUT_VOL_PREFERRED: Final[float] = 1.5
 """Breakout 거래량 선호치 (50일 평균 배수).
@@ -90,7 +91,8 @@ TLOND p.134 — 'standard breakout = 50% above average or more'.
 
 VOLUME_AVG_WINDOW_DAYS: Final[int] = 50
 """일간 평균 거래량 창(세션 수) — daily_indicators.avg_volume_50d/volume_ratio_50d 의 분모.
-책: O'Neil HMMS p.117 '50-day average volume', TLOND p.134 (breakout 비교 기준 = 50일 평균).
+책: 50거래일 창 = O'Neil HMMS Ch.15 p.349(IBD Volume Percent Change: 최근 50거래일 평균), TLSMW Ch.10 p.226('50-day average');
+TLOND p.134 는 돌파 비교 기준이 '평균 대비, 선호 +50%' 라는 출처(창 길이 미명시). (#184 회신 11-08 Q-4-3: p.117 은 일수를 말하지 않음 — 출처 정정.)
 2026-10-02 (#207 PR-3, 리뷰 #222): indicators/modes.py·delisted.py 의 리터럴 50 을 SSOT 승격(값 변경 0), data_regimes 의
 거래량 정의 창(VOLUME_WINDOW_DAILY_BARS)도 여기서 import — 창 길이가 한 곳에서만 바뀌게."""
 
@@ -484,9 +486,10 @@ CLIMAX_LATE_MATURITY_WEEKS: Final[int] = 12
 # ===== Climax anchor — §6.1 advance-start 게이트 co-anchor (신설) =====
 # 의존성 맵: docs/superpowers/plans/2026-07-20-issue44-climax-topping-migration.md
 
-CLIMAX_ANCHOR_VOL_AVG_WEEKS: Final[int] = 50
-"""[PRESERVES] climax anchor 거래량 평균 기간(주). advance-start 사전 누적거래량 진단 윈도우.
-근거: prompt §6.1 :359 "50-WEEK average" 문언 승격."""
+ANCHOR_MIN_HISTORY_WEEKS: Final[int] = 50
+"""[design-judgment] 앵커 탐색 최소 주봉 이력(주). 이력 ≤ 이 값 → left_censored, 후보 주 인덱스 하한 i ≥ 이 값(climax_topping.find_anchor).
+책 근거 없음(#184 회신 2026-11-07 Q-2: 구 'CLIMAX_ANCHOR_VOL_AVG_WEEKS' 의 "prompt §6.1 '50-WEEK average' 문언" 근거는 층위 오귀속이라 삭제).
+산술 하한은 45주(C1 4주 + 40주 SMA + C2 기울기 4주) — 45주 재유도는 별건(사전등록 후 threshold-change-checklist). #207 표지 창 길이는 이 상수에서 유도하지 않는다."""
 
 CLIMAX_ANCHOR_FLAT_BAND_PCT: Final[float] = 2.0
 """[EXTENDS] climax anchor flat-band 수평폭 임계(%). advance-start ≤2% 납작한 영역 진입 여부 판정.

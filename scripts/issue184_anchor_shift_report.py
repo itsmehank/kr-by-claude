@@ -24,7 +24,7 @@ from kr_pipeline.common.thresholds import (
     CLIMAX_ANCHOR_FLAT_BAND_PCT,
     CLIMAX_ANCHOR_STAGE1_MIN_WEEKS,
     CLIMAX_ANCHOR_TURNUP_WEEKS,
-    CLIMAX_ANCHOR_VOL_AVG_WEEKS,
+    ANCHOR_MIN_HISTORY_WEEKS,
 )
 from kr_pipeline.db.connection import connect
 from kr_pipeline.llm_runner.compute.climax_topping import _sma, find_anchor
@@ -71,7 +71,7 @@ def find_anchor_c3prime(weekly: list[dict], daily: list[dict]) -> dict:
     """find_anchor 사본 — C3 자리를 c3prime_week 로 교체. 나머지(C1·C2·C5·left_censored·탐색 방향) 동일."""
     closes = [w["close"] for w in weekly]
     n = len(weekly)
-    W = CLIMAX_ANCHOR_VOL_AVG_WEEKS
+    W = ANCHOR_MIN_HISTORY_WEEKS
     if n <= W:
         return {"anchor_week": None, "left_censored": True, "no_transition": False, "weeks_since": None}
     k, s1 = CLIMAX_ANCHOR_TURNUP_WEEKS, CLIMAX_ANCHOR_STAGE1_MIN_WEEKS

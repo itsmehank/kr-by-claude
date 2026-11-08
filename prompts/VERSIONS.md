@@ -79,6 +79,7 @@ worktree 실행 산출물 해석에는 오히려 쓸모가 있다. 운영 DB 에
 | `f710e5bd5d8f` | 2026-09-09 | 80dd705 | #169 no_transition 주간 anchor 의존 신호 null 전환 — 일간(#157 Q-8)과 일관, #44 D1 부속 superseded |
 | `739c7cc1b5c7` | 2026-09-15 | 0285894 | prompt A: Pre-Check 를 security_group 기준으로 결정적 변경(sector 추론 제거) + payload security_group 입력… |
 | `a76aafa74c1d` | 2026-11-06 | — | §4.7 표·§7 pivot "+0.1 / +1 tick" 가산 폐지 — pivot = 기준 고점 그 자체(HMMS p.118·TLSMW p.223, 전문가 사실 확인 #253 [Q-3]·#175 [Q-1]); SSOT 블록 PIVOT_PRICE_OFFSET 제거; 정수 KRW 가격에서 close > pivot 동일(동작 중립). specs/2026-11-05-pivot-offset-removal.md |
+| `f7eb1fb770fb` | 2026-11-08 | — | #184 §6.1 anchor C3→C3′(B) 일봉 상승 마감일 1.4×avg_volume_50d, CLIMAX_ANCHOR_VOL_AVG_WEEKS→ANCHOR_MIN_HISTORY_WEEKS(50 불변); 전문가 [Q-1](B)·[Q-4-1] 승인. specs/2026-11-07-issue184-anchor-c3prime-design.md |
 
 ### calculate_entry_params_v2_0.md
 

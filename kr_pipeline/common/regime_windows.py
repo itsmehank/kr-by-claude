@@ -28,7 +28,7 @@ from kr_pipeline.common.data_regimes import (
     FLAG_MIXED, VOLUME_REGIME_BOUNDARY, VOLUME_WINDOW_WEEKLY_WEEKS, _as_date, regime_for_date, regime_for_week, window_flag,
 )
 from kr_pipeline.common.price_source import NOT_ZERO_BAR_SQL, PriceSource, price_source
-from kr_pipeline.common.thresholds import CLIMAX_ANCHOR_VOL_AVG_WEEKS, PP_RECENT_SESSIONS, VOLUME_AVG_WINDOW_DAYS
+from kr_pipeline.common.thresholds import ANCHOR_MIN_HISTORY_WEEKS, PP_RECENT_SESSIONS, VOLUME_AVG_WINDOW_DAYS
 
 log = logging.getLogger("kr_pipeline.common.regime_windows")
 
@@ -103,7 +103,7 @@ def held_window_flag(week_ends: Iterable, anchor_week) -> str | None:
         return None
     weeks = [d for d in (_as_date(w) for w in week_ends) if d is not None]
     i = bisect_left(weeks, a)
-    return window_flag(regime_for_week(d) for d in weeks[max(0, i - CLIMAX_ANCHOR_VOL_AVG_WEEKS):])
+    return window_flag(regime_for_week(d) for d in weeks[max(0, i - ANCHOR_MIN_HISTORY_WEEKS):])
 
 
 def classification_flag(conn: Connection, ticker: str, as_of, *, anchor_week=None) -> str | None:

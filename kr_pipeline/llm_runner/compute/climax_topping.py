@@ -6,7 +6,7 @@ Stage 1→2 전환 주(anchor)를 뒤에서부터 탐색한다. 확정 D1: "전 
 전환을 anchor 로 채택 — 과거의 오래된 전환은 이후 Stage 4 재하락으로 무효화된 것으로
 간주(test_anchor_resets_after_stage4).
 
-null 규약(보수, governance 4-2): 이력이 CLIMAX_ANCHOR_VOL_AVG_WEEKS(50)주 이하 = 탐색 자체가
+null 규약(보수, governance 4-2): 이력이 ANCHOR_MIN_HISTORY_WEEKS(50)주 이하 = 탐색 자체가
 불가능한 결측 → left_censored=True, 게이트 전부 None. 이력은 충분하나 전환 조건을 만족하는
 주가 없으면(예: 줄곧 Stage 2 상승) no_transition=True — anchor 의존 필드는 left_censored 와
 동일하게 None(#169, 2026-09-09: 책 정의 "since the beginning of the move" 는 식별된 시작점을
@@ -35,7 +35,7 @@ from kr_pipeline.common.thresholds import (
     CLIMAX_ANCHOR_FLAT_BAND_PCT,
     CLIMAX_ANCHOR_STAGE1_MIN_WEEKS,
     CLIMAX_ANCHOR_TURNUP_WEEKS,
-    CLIMAX_ANCHOR_VOL_AVG_WEEKS,
+    ANCHOR_MIN_HISTORY_WEEKS,
     CLIMAX_GAIN_PCT,
     CLIMAX_MATURITY_WEEKS,
     CLIMAX_SCOPE_CORRECTION_PCT,
@@ -70,7 +70,7 @@ def find_anchor(weekly: list[dict]) -> dict:
     closes = [w["close"] for w in weekly]
     vols = [w["volume"] or 0 for w in weekly]
     n = len(weekly)
-    W = CLIMAX_ANCHOR_VOL_AVG_WEEKS
+    W = ANCHOR_MIN_HISTORY_WEEKS
     if n <= W:  # 이력 ≤50주 = 탐색 불가 결측 (실효 경계 문서 일치 — 검토 하 수리)
         return {"anchor_week": None, "left_censored": True,
                 "no_transition": False, "weeks_since": None}

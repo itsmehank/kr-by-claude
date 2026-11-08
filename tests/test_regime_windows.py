@@ -80,7 +80,7 @@ def test_held_window_flag_is_pure():
 def test_held_window_flag_includes_anchor_c3_denominator():
     """회신 22 Q-A·23 Q-D: 창 = 앵커를 적격 판정한 C3 분모(앵커 직전 W주) ~ 평가 주. find_anchor 는 마지막 주부터 거꾸로 각 주의 C3 를
     본 뒤 앵커를 고르므로 앵커 선택 자체가 [앵커 − W, 마지막 주] 거래량에 의존한다."""
-    from kr_pipeline.common.thresholds import CLIMAX_ANCHOR_VOL_AVG_WEEKS as W
+    from kr_pipeline.common.thresholds import ANCHOR_MIN_HISTORY_WEEKS as W
     first = B - timedelta(days=B.weekday()) + timedelta(days=4) - timedelta(weeks=W + 10)   # 경계 주 금요일 − (W+10)주
     fridays = [first + timedelta(weeks=i) for i in range(2 * W + 20)]
     after = [f for f in fridays if f >= B]
