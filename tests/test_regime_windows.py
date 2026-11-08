@@ -1,10 +1,10 @@
-"""#207 회신 21 Q-5c 2 — 판정 창(일봉 50/주봉 W+1/앵커~평가) 날짜로 volume_regime_flag 유도."""
+"""#207 회신 21 Q-5c 2 — 판정 창(일봉 50/앵커~평가/앵커 C3′ 일간 창) 날짜로 volume_regime_flag 유도. (#184 ver 2: 주간 51주 창 삭제.)"""
 from datetime import date, timedelta
 
 from kr_pipeline.common.data_regimes import FLAG_MIXED, VOLUME_REGIME_BOUNDARY as B
 from kr_pipeline.common.regime_windows import (
     DAILY_WINDOW_MAX_CAL_DAYS, WEEKLY_WINDOW_MAX_CAL_DAYS, classification_flag, daily_window_flag, entry_window_flag,
-    held_window_flag, weekly_window_flag,
+    held_window_flag,
 )
 
 
@@ -53,42 +53,29 @@ def test_daily_window_flag_with_fewer_bars_than_window(db):
     assert daily_window_flag(db, "RWD2", days[0]) is None
 
 
-def test_weekly_window_flag_and_zero_bar_weeks_excluded(db):
-    fridays = [date(2025, 10, 3) + timedelta(weeks=i) for i in range(60)]     # 금요일 60주(2025-10 ~ 2026-11)
-    last_before = max(f for f in fridays if f < B)
-    first_after = min(f for f in fridays if f >= B)
-    _seed_weekly(db, "RWW1", fridays)
-    assert weekly_window_flag(db, "RWW1", last_before) is None
-    assert weekly_window_flag(db, "RWW1", first_after) == "mixed"
-    # zero-bar(거래정지) 주는 산술(_fetch_weekly_full)과 같이 제외 — 창 51주가 할트 주로 채워져도 경계 전 실제 주를 본다
-    post = [f for f in fridays if f >= B]
-    _seed_weekly(db, "RWW2", fridays, zero_bar_weeks=set(post[1:]))
-    assert weekly_window_flag(db, "RWW2", post[-1], n=2) == "mixed"            # 비할트 최근 2주 = (경계 전 주, 경계 첫 주)
-    _seed_weekly(db, "RWW3", fridays)
-    assert weekly_window_flag(db, "RWW3", post[-1], n=2) is None               # 할트 없으면 최근 2주 모두 extended
-
-
 def test_held_window_flag_is_pure():
     fridays = [date(2026, 8, 7) + timedelta(weeks=i) for i in range(12)]      # 08-07 ~ 10-23
     after = [f for f in fridays if f >= B]
-    assert held_window_flag(fridays, None) is None                             # 앵커 없음
-    assert held_window_flag([f.isoformat() for f in fridays], "2026-08-21") == "mixed"
-    assert held_window_flag([], "2026-08-21") is None                          # 창 비어 있음
-    assert held_window_flag(after, after[0]) is None                           # 앵커 앞 주봉이 없고 전부 extended
+    assert held_window_flag(fridays, None, []) is None                         # 앵커 없음
+    assert held_window_flag([f.isoformat() for f in fridays], "2026-08-21", []) == "mixed"
+    assert held_window_flag([], "2026-08-21", []) is None                      # 창 비어 있음
+    assert held_window_flag(after, after[0], []) is None                       # 일봉 없음(방어) → 앵커 주 자체: 10-02 주는 월요일 09-28 ≥ 경계라 extended
 
 
-def test_held_window_flag_includes_anchor_c3_denominator():
-    """회신 22 Q-A·23 Q-D: 창 = 앵커를 적격 판정한 C3 분모(앵커 직전 W주) ~ 평가 주. find_anchor 는 마지막 주부터 거꾸로 각 주의 C3 를
-    본 뒤 앵커를 고르므로 앵커 선택 자체가 [앵커 − W, 마지막 주] 거래량에 의존한다."""
-    from kr_pipeline.common.thresholds import CLIMAX_ANCHOR_VOL_AVG_WEEKS as W
-    first = B - timedelta(days=B.weekday()) + timedelta(days=4) - timedelta(weeks=W + 10)   # 경계 주 금요일 − (W+10)주
-    fridays = [first + timedelta(weeks=i) for i in range(2 * W + 20)]
-    after = [f for f in fridays if f >= B]
-    assert held_window_flag(fridays, after[0]) == FLAG_MIXED                   # 경계 후 앵커지만 C3 분모가 경계 전 → mixed(종전 NULL)
-    assert held_window_flag(fridays, after[W - 1]) == FLAG_MIXED               # 분모 W주 중 1주가 경계 전
-    assert held_window_flag(fridays, after[W]) is None                         # 분모 W주 전부 경계 후 → 창 전체 extended
-    off_grid = (after[W] - timedelta(days=1)).isoformat()                      # 목록에 없는 앵커(방어) → 그 이후 첫 주 기준
-    assert held_window_flag(fridays, off_grid) is None
+def test_held_window_flag_uses_anchor_c3prime_daily_window():
+    """(#184 ver 2) 창 시작 = 앵커 주 첫 거래일에서 끝나는 50봉의 첫 날(spec D3). 그 날이 경계 전이면 mixed, 50봉 전부 경계 후면 None."""
+    from kr_pipeline.common.thresholds import VOLUME_AVG_WINDOW_DAYS as N
+    days = _weekdays(B - timedelta(days=200), 300)
+    after = [d for d in days if d >= B]                                                  # B(09-28) 는 월요일
+    fridays = [B + timedelta(days=4) + timedelta(weeks=i) for i in range(60)]          # 10-02 ~ (전부 extended)
+    def anchor_at(k):                                                                    # 경계 후 k번째 거래일 이후 첫 월요일 주의 금요일
+        monday = next(d for d in after[k:] if d.weekday() == 0); return monday + timedelta(days=4)
+    a_early = anchor_at(0)                                                               # 10-02: 첫 거래일 09-28 끝 50봉 → 49봉 전 = 경계 전
+    assert held_window_flag(fridays, a_early, days) == FLAG_MIXED
+    a_late = anchor_at(N + 5)                                                            # 첫 거래일 인덱스 ≥ 55 → 50봉 전부 경계 후
+    assert held_window_flag(fridays, a_late, days) is None
+    assert held_window_flag(fridays, a_late, []) is None                                 # 방어: 일봉 없음 → 앵커 주 자체(extended)
+    assert held_window_flag(fridays, (B - timedelta(days=31)).isoformat(), days) == FLAG_MIXED   # 08-28(금) 경계 전 앵커 + 경계 후 주 → mixed
 
 
 def test_flags_short_circuit_without_db_before_boundary_and_after_cap(db, monkeypatch):
@@ -96,11 +83,10 @@ def test_flags_short_circuit_without_db_before_boundary_and_after_cap(db, monkey
     import kr_pipeline.common.regime_windows as rw
     monkeypatch.setattr(rw, "price_source", lambda *a, **k: (_ for _ in ()).throw(AssertionError("DB 접근 금지")))
     d = B - timedelta(days=1)
-    assert daily_window_flag(db, "ANY", d) is None and weekly_window_flag(db, "ANY", d) is None
+    assert daily_window_flag(db, "ANY", d) is None
     assert classification_flag(db, "ANY", d, anchor_week="2026-08-07") is None and entry_window_flag(db, "ANY", d) is None
     far = B + timedelta(days=WEEKLY_WINDOW_MAX_CAL_DAYS + 1)
     assert daily_window_flag(db, "ANY", B + timedelta(days=DAILY_WINDOW_MAX_CAL_DAYS + 1)) is None
-    assert weekly_window_flag(db, "ANY", far) is None
     assert classification_flag(db, "ANY", far, anchor_week=far.isoformat()) is None   # 앵커 ≥ 경계·앵커 끝 C3 창도 상한 초과 → 조회 불요
     # 앵커 기준 창은 상한 없음(리뷰 #222 3차): 경계 전 앵커면 상한을 아무리 넘겨도 순수 유도로 mixed(DB 0)
     assert classification_flag(db, "ANY", far, anchor_week="2026-08-07") == FLAG_MIXED
@@ -132,7 +118,6 @@ def test_classification_flag_combines_daily_weekly_and_anchor_range(db):
     _seed_weekly(db, "RWJ1", fridays)
     as_of = days[-1]
     assert classification_flag(db, "RWJ1", as_of) == "mixed"
-    assert weekly_window_flag(db, "RWJ1", as_of) is None
     # 앵커 구간: 일간·주간 창이 만료돼도 앵커가 경계 전이면 T2/P2 입력이 혼재 → mixed(리뷰 #222 2차)
     days2 = _weekdays(B - timedelta(days=200), 240)
     _seed_daily(db, "RWJ2", days2)
@@ -140,14 +125,14 @@ def test_classification_flag_combines_daily_weekly_and_anchor_range(db):
     _seed_weekly(db, "RWJ2", fridays2)
     late = max(f for f in fridays2 if f <= B + timedelta(days=200))              # 경계 + ~200일(일간 창 만료, 주간 51주는 아직 걸침)
     assert daily_window_flag(db, "RWJ2", late) is None
-    assert classification_flag(db, "RWJ2", late, anchor_week=None) == "mixed"    # 주간 51주 창은 아직 mixed
-    far = max(f for f in fridays2 if f <= B + timedelta(days=370))               # ~2027-10: 일간·주간 고정 창 모두 만료
-    assert weekly_window_flag(db, "RWJ2", far) is None
+    assert classification_flag(db, "RWJ2", late, anchor_week=None) is None        # (#184 ver 2) 주간 51주 창 없음 → 일간 만료 = NULL
+    far = max(f for f in fridays2 if f <= B + timedelta(days=370))               # ~2027-10: 일간 고정 창 만료
     assert classification_flag(db, "RWJ2", far, anchor_week=None) is None
     assert classification_flag(db, "RWJ2", far, anchor_week="2026-08-07") == "mixed"      # 앵커~평가 주(경계 전 앵커)
-    # 앵커에서 끝나는 C3 창(앵커 적격 판정 분모): 앵커 2026-12-04(extended) 의 51주 창은 2025-12~ → 경계 걸침(리뷰 #222 3차)
+    # 앵커 C3′ 일간 창(앵커 주 첫 거래일 끝 50봉의 첫 날 ~ 앵커 주): 앵커 2026-12-04 → 11-30 끝 50봉 시작 ≈ 09-24 < 경계 → mixed
     assert classification_flag(db, "RWJ2", far, anchor_week="2026-12-04") == "mixed"
-    late_anchor = max(f for f in fridays2 if f <= B + timedelta(days=365))        # 2027-09: 51주 창이 경계 이후로만 → NULL
+    assert classification_flag(db, "RWJ2", far, anchor_week=(B + timedelta(days=4)).isoformat()) == "mixed"   # 경계 첫 주 앵커: 09-28 끝 50봉
+    late_anchor = max(f for f in fridays2 if f <= B + timedelta(days=365))        # 2027-09: C3′ 창이 경계 이후로만 → NULL
     assert classification_flag(db, "RWJ2", far, anchor_week=late_anchor.isoformat()) is None
 
 

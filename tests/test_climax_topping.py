@@ -5,7 +5,13 @@
 close<SMA 엄격 부등호가 항상 성립하도록 구성(정확 상수 평탄 구간은 부동소수/SMA
 경계에서 부등호가 깨질 수 있음).
 """
+from datetime import date
+
+import pytest
+
 from kr_pipeline.llm_runner.compute.climax_topping import (
+    c3prime_week,
+    c3prime_weeks,
     compute_climax_gates,
     compute_topping_gates,
     find_anchor,
@@ -17,6 +23,22 @@ def _mk_weeks(rows: list[tuple[float, int]], start="2018-01-05") -> list[dict]:
     d0 = date.fromisoformat(start)
     return [{"week_end": str(d0 + timedelta(weeks=i)), "open": p, "high": p * 1.02,
              "low": p * 0.98, "close": p, "volume": v} for i, (p, v) in enumerate(rows)]
+
+
+def _mk_daily_from_weeks(weekly: list[dict]) -> list[dict]:
+    """(#184) 주봉 픽스처에서 일봉 합성 — 주 i(week_end=금요일)마다 월~금 5행: 종가 월~목 0.99c·금 c(금요일만 상승 마감),
+    avg_volume_50d = mean(vols[i-50:i])(i ≥ 50) 또는 vols[i], 거래량 월~목 avg·금 vols[i] → 금요일 C3′ 비율 = 구 C3 주간 비율."""
+    from datetime import timedelta
+    vols = [w["volume"] or 0 for w in weekly]
+    out = []
+    for i, w in enumerate(weekly):
+        we = date.fromisoformat(w["week_end"])
+        avg = sum(vols[i - 50:i]) / 50 if i >= 50 else vols[i]
+        for k in range(5):
+            d = we - timedelta(days=4 - k)
+            out.append({"date": d.isoformat(), "close": w["close"] if k == 4 else w["close"] * 0.99,
+                        "volume": vols[i] if k == 4 else avg, "avg_volume_50d": avg})
+    return out
 
 
 def _mk_daily_updays(n: int, up: int, start="2020-01-06") -> list[dict]:
@@ -49,7 +71,7 @@ def _fixture_single_transition():
 
 def test_anchor_finds_transition():
     wk = _fixture_single_transition()
-    r = find_anchor(wk)
+    r = find_anchor(wk, _mk_daily_from_weeks(wk))
     assert r["left_censored"] is False and r["no_transition"] is False
     assert r["anchor_week"] == wk[65]["week_end"]
     assert r["weeks_since"] == 19
@@ -63,19 +85,19 @@ def test_anchor_resets_after_stage4():
             + [(800.0, 300_000)]                                   # 2차 전환 (idx 105)
             + [(800.0 + 20 * i, 110_000) for i in range(1, 6)])
     wk = _mk_weeks(rows)
-    assert find_anchor(wk)["anchor_week"] == wk[105]["week_end"]
+    assert find_anchor(wk, _mk_daily_from_weeks(wk))["anchor_week"] == wk[105]["week_end"]
 
 
 def test_anchor_left_censored_short_history():
     wk = _mk_weeks(_drift(40, 1000.0, 980.0))          # 이력 40주 ≤ 50주
-    assert find_anchor(wk) == {"anchor_week": None, "left_censored": True,
+    assert find_anchor(wk, _mk_daily_from_weeks(wk)) == {"anchor_week": None, "left_censored": True,
                                "no_transition": False, "weeks_since": None}
 
 
 def test_anchor_no_transition_long_stage2():
     # 80주 내내 완만 상승(전환 조건 부재, 이력 충분) → no_transition (P1 간주 모드)
     wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)])
-    r = find_anchor(wk)
+    r = find_anchor(wk, _mk_daily_from_weeks(wk))
     assert r["left_censored"] is False and r["no_transition"] is True
     assert r["anchor_week"] is None
 
@@ -92,7 +114,7 @@ def _fixture_climax_run():
 
 def test_climax_gates_fire_on_vertical_run():
     wk = _fixture_climax_run()
-    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk, _mk_daily_from_weeks(wk)))
     assert g["baseline"] == "anchored" and g["maturity_weeks"] == 22
     assert g["maturity_ok"] is True
     # 3주 롤링: 1950/1385(k=3, idx 87/84) ≈ +40.8% ≥ 25%, 상승 전체 최급
@@ -106,12 +128,12 @@ def test_climax_gates_scope_expires():
          + [(1100.0 + 40 * i, 110_000) for i in range(1, 20)] \
          + [(1850.0, 120_000), (1840.0, 100_000), (1830.0, 100_000)]  # 고점 후 3주 횡보
     wk = _mk_weeks(rows)
-    assert compute_climax_gates(wk, _mk_daily_updays(10, up=5), find_anchor(wk))["scope_active"] is False
+    assert compute_climax_gates(wk, _mk_daily_updays(10, up=5), find_anchor(wk, _mk_daily_from_weeks(wk)))["scope_active"] is False
 
 
 def test_climax_gates_all_none_when_left_censored():
     wk = _mk_weeks(_drift(40, 1000.0, 980.0))
-    g = compute_climax_gates(wk, _mk_daily_updays(10, up=5), find_anchor(wk))
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=5), find_anchor(wk, _mk_daily_from_weeks(wk)))
     assert g["maturity_ok"] is None and g["p2_accel_ok"] is None and g["baseline"] is None
 
 
@@ -122,7 +144,7 @@ _ANCHOR_DEP_CLIMAX = ("maturity_weeks", "maturity_ok", "p2_best_roll_pct", "p2_i
 def test_climax_gates_no_transition_anchor_fields_none():
     # (#169) 시작점 부재 = anchor 의존 필드 전부 None(구 #44 규약 P1 간주·전체 이력 극값 폐기)
     wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)])
-    anchor = find_anchor(wk)
+    anchor = find_anchor(wk, _mk_daily_from_weeks(wk))
     assert anchor["no_transition"] is True
     g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), anchor)
     assert g["baseline"] == "no_transition"  # 모드 기록은 유지
@@ -133,8 +155,8 @@ def test_climax_gates_no_transition_keeps_non_anchor_fields():
     # (#169) anchor 비의존 T3/T4 는 anchored 와 같은 산술로 계산된다(daily 만 입력)
     wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)])
     daily = _mk_daily_updays(10, up=8)
-    g = compute_climax_gates(wk, daily, find_anchor(wk))
-    ref = compute_climax_gates(_fixture_climax_run(), daily, find_anchor(_fixture_climax_run()))
+    g = compute_climax_gates(wk, daily, find_anchor(wk, _mk_daily_from_weeks(wk)))
+    ref = compute_climax_gates(_fixture_climax_run(), daily, find_anchor(_fixture_climax_run(), _mk_daily_from_weeks(_fixture_climax_run())))
     assert g["t4_ok"] is True and g["t4_up_days_pct_max"] == ref["t4_up_days_pct_max"]
     assert g["t3_gap_up_today"] == ref["t3_gap_up_today"]
     assert g["quality_flag"] is False
@@ -145,12 +167,12 @@ def test_climax_gates_no_transition_equals_left_censored_on_anchor_fields():
     nt_wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)])
     lc_wk = _mk_weeks(_drift(40, 1000.0, 980.0))
     daily = _mk_daily_updays(10, up=5)
-    nt = compute_climax_gates(nt_wk, daily, find_anchor(nt_wk))
-    lc = compute_climax_gates(lc_wk, daily, find_anchor(lc_wk))
+    nt = compute_climax_gates(nt_wk, daily, find_anchor(nt_wk, _mk_daily_from_weeks(nt_wk)))
+    lc = compute_climax_gates(lc_wk, daily, find_anchor(lc_wk, _mk_daily_from_weeks(lc_wk)))
     assert {k: nt[k] for k in _ANCHOR_DEP_CLIMAX} == {k: lc[k] for k in _ANCHOR_DEP_CLIMAX}
     # §6.2 anchor 의존 필드도 동일(None); anchor 비의존 G0/T-B/T-C/td_dist 는 계산됨
-    tn = compute_topping_gates(nt_wk, 5, find_anchor(nt_wk))
-    tl = compute_topping_gates(lc_wk, 5, find_anchor(lc_wk))
+    tn = compute_topping_gates(nt_wk, 5, find_anchor(nt_wk, _mk_daily_from_weeks(nt_wk)))
+    tl = compute_topping_gates(lc_wk, 5, find_anchor(lc_wk, _mk_daily_from_weeks(lc_wk)))
     assert tn["ta_max_decline_now"] is None and tn["td_max_down_volume_now"] is None
     assert tn["tc_prolonged_ok"] is None
     assert (tn["ta_max_decline_now"], tn["td_max_down_volume_now"]) == \
@@ -166,7 +188,7 @@ def test_climax_gates_quality_flag_on_bad_weekly():
     # 0.0 은 산술상 안전하고 closes[i]>s30 조건에서 자연 탈락해 anchor(idx65) 탐색에 무영향.
     wk = _fixture_climax_run()
     wk[-1]["close"] = 0.0
-    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk, _mk_daily_from_weeks(wk)))
     assert g["quality_flag"] is True
     assert g["p2_accel_ok"] is None and g["t2_max_volume_now"] is None and g["scope_active"] is None
     assert g["t4_ok"] is True  # daily 기반 게이트는 오염 무관
@@ -182,7 +204,7 @@ def test_topping_g0_tb_fire():
     up = [(1000.0 + 10 * i, 100_000) for i in range(40)]
     down = _drift(12, 1400.0, 1220.0, 100_000)
     wk = _mk_weeks(up + down)
-    anchor = find_anchor(wk)
+    anchor = find_anchor(wk, _mk_daily_from_weeks(wk))
     assert anchor["no_transition"] is True  # 전제 확인
     g = compute_topping_gates(wk, dist_count_25s=1, anchor=anchor)
     assert g["g0_below_10w"] is True
@@ -195,7 +217,7 @@ def test_topping_silent_without_g0():
     # 60주 내내 완만 상승 — 마지막 주 종가가 10주선 위(shakeout 아님) → G0 자체가 거짓
     # (silent): T-B 도 0 연속(직전 주가 10주선 아래가 아니므로 즉시 break).
     wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(60)])
-    anchor = find_anchor(wk)
+    anchor = find_anchor(wk, _mk_daily_from_weeks(wk))
     g = compute_topping_gates(wk, dist_count_25s=5, anchor=anchor)
     assert g["g0_below_10w"] is False
     assert g["tb_weeks_below_10w"] == 0
@@ -206,7 +228,7 @@ def test_topping_dist_none_conservative():
     # dist_count_25s 결측(None) → td_dist_ok 는 null=보수 원칙으로 None(0 이 아님).
     # G0/T-B 는 dist_count_25s 와 무관한 별개 입력이므로 정상 계산 유지(독립성 확인).
     wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(60)])
-    anchor = find_anchor(wk)
+    anchor = find_anchor(wk, _mk_daily_from_weeks(wk))
     g = compute_topping_gates(wk, dist_count_25s=None, anchor=anchor)
     assert g["td_dist_ok"] is None
     assert g["g0_below_10w"] is False  # dist 결측과 무관하게 계산됨(독립성)
@@ -226,7 +248,7 @@ def test_scope_high_tie_uses_most_recent_occurrence():
         + [(1100.0 + 35 * i, 110_000) for i in range(1, 21)] \
         + [(1750.0, 100_000), (1800.0, 100_000), (1790.0, 100_000)]
     wk = _mk_weeks(rows)
-    anchor = find_anchor(wk)
+    anchor = find_anchor(wk, _mk_daily_from_weeks(wk))
     assert anchor["anchor_week"] == wk[65]["week_end"]
     g = compute_climax_gates(wk, _mk_daily_updays(10, up=5), anchor)
     assert g["scope_active"] is True  # 최근 고점(1주 전) 기준 — 동률 최근 채택
@@ -240,7 +262,7 @@ def test_climax_gates_anchor_at_last_week_conservative():
     """
     rows = _drift(65, 1000.0, 980.0) + [(1100.0, 260_000)]
     wk = _mk_weeks(rows)
-    anchor = find_anchor(wk)
+    anchor = find_anchor(wk, _mk_daily_from_weeks(wk))
     assert anchor["weeks_since"] == 0
     g = compute_climax_gates(wk, _mk_daily_updays(10, up=5), anchor)
     assert g["maturity_ok"] is False
@@ -417,7 +439,7 @@ def _fixture_reentry():
 
 def test_anchor_reentry_moves_to_current_cycle():
     wk, old_idx, re_idx = _fixture_reentry()
-    r = find_anchor(wk)
+    r = find_anchor(wk, _mk_daily_from_weeks(wk))
     assert r["anchor_week"] == wk[re_idx]["week_end"]
     assert r["weeks_since"] == len(wk) - 1 - re_idx
     # 재돌파 주에서 C4 는 실제로 불성립(하락 직후 SMA30/40 이 4주 전보다 낮음) — Fix α 로만 잡힘
@@ -429,7 +451,7 @@ def test_anchor_reentry_moves_to_current_cycle():
 def test_anchor_unchanged_without_reentry():
     # 252행 패턴: 옛 돌파 이후 Stage 1 재진입이 없으면 앵커 불변
     wk = _fixture_single_transition()
-    assert find_anchor(wk)["anchor_week"] == wk[65]["week_end"]
+    assert find_anchor(wk, _mk_daily_from_weeks(wk))["anchor_week"] == wk[65]["week_end"]
 
 
 def test_anchor_never_moves_earlier_as_history_extends():
@@ -437,12 +459,12 @@ def test_anchor_never_moves_earlier_as_history_extends():
     wk, old_idx, re_idx = _fixture_reentry()
     last = None
     for cut in range(old_idx + 1, len(wk) + 1):
-        a = find_anchor(wk[:cut])
+        a = find_anchor(wk[:cut], _mk_daily_from_weeks(wk[:cut]))
         if a["anchor_week"] is None:
             continue
         assert last is None or a["anchor_week"] >= last
         last = a["anchor_week"]
-    assert find_anchor(wk[:old_idx + 5])["anchor_week"] == wk[old_idx]["week_end"]
+    assert find_anchor(wk[:old_idx + 5], _mk_daily_from_weeks(wk[:old_idx + 5]))["anchor_week"] == wk[old_idx]["week_end"]
     assert last == wk[re_idx]["week_end"]
 
 
@@ -455,14 +477,16 @@ def test_anchor_catches_breakout_where_c4_fails():
     i = 65
     assert closes[i] > _sma(closes, i, 30) and closes[i] > _sma(closes, i, 40)   # C5
     assert _sma(closes, i, 30) <= _sma(closes, i - 4, 30)                          # C4 불성립
-    r = find_anchor(wk)
+    r = find_anchor(wk, _mk_daily_from_weeks(wk))
     assert r["anchor_week"] == wk[i]["week_end"] and r["no_transition"] is False
 
 
 def test_anchor_three_modes_regression_after_fix_alpha():
-    assert find_anchor(_mk_weeks(_drift(40, 1000.0, 980.0)))["left_censored"] is True
-    assert find_anchor(_mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)]))["no_transition"] is True
-    a = find_anchor(_fixture_single_transition())
+    wk40 = _mk_weeks(_drift(40, 1000.0, 980.0))
+    assert find_anchor(wk40, _mk_daily_from_weeks(wk40))["left_censored"] is True
+    wk80 = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)])
+    assert find_anchor(wk80, _mk_daily_from_weeks(wk80))["no_transition"] is True
+    a = find_anchor(_fixture_single_transition(), _mk_daily_from_weeks(_fixture_single_transition()))
     assert a["left_censored"] is False and a["no_transition"] is False and a["weeks_since"] == 19
 
 
@@ -479,7 +503,7 @@ def test_t1_ratio_silent_where_absolute_fires():
     # 60/1100=5.45% 가 마지막 주 78/1700=4.59% 보다 크므로 비율 정의 → False (후반부 자동 발화 제거).
     wk = _fixture_climax_run()
     wk[66]["high"], wk[66]["low"] = 1145.0, 1085.0
-    a = find_anchor(wk); start_idx = len(wk) - 1 - a["weeks_since"]
+    a = find_anchor(wk, _mk_daily_from_weeks(wk)); start_idx = len(wk) - 1 - a["weeks_since"]
     assert _t1_abs(wk, start_idx) is True
     g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), a)
     assert g["t1_max_spread_now"] is False
@@ -488,24 +512,24 @@ def test_t1_ratio_silent_where_absolute_fires():
 
 def test_t1_ratio_fires_and_tie_gte():
     wk = _fixture_climax_run()  # 마지막 주 4.59% 가 baseline 최대 → True
-    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk, _mk_daily_from_weeks(wk)))
     assert g["t1_max_spread_now"] is True
     # 동률(>=): 66주 비율 275/1100 = 25% (이진 정확), 마지막 주 425/1700 = 25% → 발화
     wk2 = _fixture_climax_run()
     wk2[66]["high"], wk2[66]["low"] = wk2[66]["close"] + 137.5, wk2[66]["close"] - 137.5
     wk2[-1]["high"], wk2[-1]["low"] = wk2[-1]["close"] + 212.5, wk2[-1]["close"] - 212.5
     assert (wk2[66]["high"] - wk2[66]["low"]) / wk2[65]["close"] == (wk2[-1]["high"] - wk2[-1]["low"]) / wk2[-2]["close"]
-    g2 = compute_climax_gates(wk2, _mk_daily_updays(10, up=8), find_anchor(wk2))
+    g2 = compute_climax_gates(wk2, _mk_daily_updays(10, up=8), find_anchor(wk2, _mk_daily_from_weeks(wk2)))
     assert g2["t1_max_spread_now"] is True
     # 마지막 주를 한 틱 좁히면 미발화 (엄격 비교가 아니라 >= 임을 양방향으로 고정)
     wk2[-1]["high"] -= 1.0
-    assert compute_climax_gates(wk2, _mk_daily_updays(10, up=8), find_anchor(wk2))["t1_max_spread_now"] is False
+    assert compute_climax_gates(wk2, _mk_daily_updays(10, up=8), find_anchor(wk2, _mk_daily_from_weeks(wk2)))["t1_max_spread_now"] is False
 
 
 def test_t1_none_when_today_is_resumption_week():
     wk = _fixture_climax_run()
     wk[-1]["gap_before"] = True  # 직전에 zero-bar 주(거래정지) 존재 → prev_close 불연속
-    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk, _mk_daily_from_weeks(wk)))
     assert g["t1_max_spread_now"] is None
     assert g["t2_max_volume_now"] is True and g["p2_accel_ok"] is True  # 다른 게이트 무영향
 
@@ -514,28 +538,94 @@ def test_t1_gap_pair_inside_baseline_excluded():
     # baseline 안의 재개 주(66) 가 거대 비율이어도 쌍 제외 → 마지막 주가 최대로 발화
     wk = _fixture_climax_run()
     wk[66]["high"], wk[66]["low"], wk[66]["gap_before"] = 1300.0, 900.0, True
-    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk, _mk_daily_from_weeks(wk)))
     assert g["t1_max_spread_now"] is True
 
 
 def test_t1_mixed_adjustment_week_excluded():
     wk = _fixture_climax_run()
     wk[66]["high"], wk[66]["low"], wk[66]["adj_hl"] = 1300.0, 900.0, False  # raw 대체 주 → 제외
-    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    g = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk, _mk_daily_from_weeks(wk)))
     assert g["t1_max_spread_now"] is True
     wk[-1]["adj_hl"] = False  # 오늘이 혼합 주 → T1 만 None
-    g2 = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    g2 = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk, _mk_daily_from_weeks(wk)))
     assert g2["t1_max_spread_now"] is None and g2["t2_max_volume_now"] is True
 
 
 def test_t1_three_modes_regression():
     lc = compute_climax_gates(_mk_weeks(_drift(40, 1000.0, 980.0)), _mk_daily_updays(10, up=5),
-                              find_anchor(_mk_weeks(_drift(40, 1000.0, 980.0))))
+                              find_anchor(_mk_weeks(_drift(40, 1000.0, 980.0)), []))
     assert lc["t1_max_spread_now"] is None
     nt_wk = _mk_weeks([(1000.0 + 10 * i, 100_000) for i in range(80)])
-    nt = compute_climax_gates(nt_wk, _mk_daily_updays(10, up=5), find_anchor(nt_wk))
+    nt = compute_climax_gates(nt_wk, _mk_daily_updays(10, up=5), find_anchor(nt_wk, _mk_daily_from_weeks(nt_wk)))
     # (#169) no_transition 은 anchor 의존 → None(구: 전체 이력 기준 bool)
     assert nt["baseline"] == "no_transition" and nt["t1_max_spread_now"] is None
     wk = _fixture_climax_run(); wk[-1]["close"] = 0.0
-    q = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk))
+    q = compute_climax_gates(wk, _mk_daily_updays(10, up=8), find_anchor(wk, _mk_daily_from_weeks(wk)))
     assert q["quality_flag"] is True and q["t1_max_spread_now"] is None
+
+
+# ---------- (#184) C3′(B): 앵커 주 안의 상승 마감일 ≥1일 일봉 거래량 ≥ 1.4×avg_volume_50d ----------
+
+def _mk_ind_daily(rows, start="2020-01-06"):
+    """rows = [(close, volume, avg50)] 연속 거래일(주말 건너뜀). volume/avg50 None 허용(halt)."""
+    from datetime import timedelta
+    out, d = [], date.fromisoformat(start)
+    for c, v, a in rows:
+        while d.weekday() >= 5:
+            d += timedelta(days=1)
+        out.append({"date": d.isoformat(), "close": c, "volume": v, "avg_volume_50d": a})
+        d += timedelta(days=1)
+    return out
+
+
+def test_c3prime_weeks_up_close_day_at_floor():                       # (a)
+    daily = _mk_ind_daily([(100, 1000, 1000), (101, 1400, 1000)])          # 화: 상승 + 1.4×
+    assert c3prime_weeks(daily) == {date(2020, 1, 7).isocalendar()[:2]}
+    assert c3prime_week(daily, "2020-01-10") is True and c3prime_week(daily, "2020-01-17") is False
+
+
+def test_c3prime_down_close_heavy_volume_excluded():                   # (b) 021240 형태
+    daily = _mk_ind_daily([(100, 1000, 1000), (99, 2400, 1000), (99.5, 1310, 1000)])
+    assert c3prime_weeks(daily) == frozenset()
+
+
+def test_c3prime_null_days_unmet_and_halt_resume():                    # (c)(d)(g)
+    daily = _mk_ind_daily([(100, 1000, 1000), (100, None, None), (103, 2000, 1000)])   # 화 halt(carry 100), 수 재개 103>100 + 2.0×
+    assert c3prime_weeks(daily) == {date(2020, 1, 8).isocalendar()[:2]}
+    assert c3prime_weeks(_mk_ind_daily([(100, 1000, None), (105, 3000, None)])) == frozenset()   # avg 전부 NULL
+    assert c3prime_weeks([]) == frozenset()
+
+
+def test_c3prime_iso_week_membership_thursday_week_end():              # (e)
+    daily = _mk_ind_daily([(100, 1000, 1000), (101, 1500, 1000)], start="2020-01-06")   # 월·화
+    assert c3prime_week(daily, "2020-01-09") is True                   # 목요일 week_end 도 같은 ISO 주
+
+
+def test_find_anchor_requires_daily_and_keeps_fixture_anchor():        # 시그니처 + 보존
+    wk = _fixture_single_transition()
+    with pytest.raises(TypeError):
+        find_anchor(wk)
+    r = find_anchor(wk, _mk_daily_from_weeks(wk))
+    assert r["anchor_week"] == wk[65]["week_end"] and r["weeks_since"] == 19
+
+
+def test_find_anchor_c3prime_not_pure_relaxation():                    # (b) 주 단위: 하락일만 대량 → 미충족 → 다음 후보
+    wk = _fixture_single_transition()
+    daily = _mk_daily_from_weeks(wk)
+    we = wk[65]["week_end"]
+    for d in daily:                                                    # 돌파 주 금요일을 하락 마감으로 바꾼다
+        if d["date"] == we:
+            d["close"] = 0.98 * wk[65]["close"]
+    assert find_anchor(wk, daily)["no_transition"] is True
+
+
+def test_find_anchor_empty_daily_is_no_transition_not_error():         # (h)
+    r = find_anchor(_fixture_single_transition(), [])
+    assert r == {"anchor_week": None, "left_censored": False, "no_transition": True, "weeks_since": None}
+
+
+def test_find_anchor_left_censored_boundary_unchanged():               # (f)
+    wk50 = _mk_weeks(_drift(50, 1000.0, 980.0)); wk51 = _mk_weeks(_drift(51, 1000.0, 980.0))
+    assert find_anchor(wk50, _mk_daily_from_weeks(wk50))["left_censored"] is True
+    assert find_anchor(wk51, _mk_daily_from_weeks(wk51))["left_censored"] is False

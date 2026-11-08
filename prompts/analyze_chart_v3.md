@@ -3,6 +3,11 @@
      (HMMS 4판 p.118·TLSMW p.223, 전문가 사실 확인 #253 [Q-3]·#175 [Q-1]). 분류 결과 영향: 정수 KRW 가격에서 close > pivot
      판정은 동일(동작 중립), 결정론 핸들 검출기(high ≥ pivot)의 고점 당일 매칭만 변화. SSOT 블록에서 PIVOT_PRICE_OFFSET 제거.
      기록 = docs/superpowers/specs/2026-11-05-pivot-offset-removal.md -->
+<!-- 변경 선언(governance 4-6) 2026-11-08: §6.1 anchor 정의의 C3 "주간 거래량 ≥ BREAKOUT_VOL_FLOOR × 50-week average" → C3′
+     "앵커 주 안의 상승 마감일(close > prior close) 중 ≥1일 일봉 거래량 ≥ BREAKOUT_VOL_FLOOR × avg_volume_50d"
+     (HMMS Ch.2 p.117·p.349, TLSMW Ch.5 p.70 — 전문가 판정 #184 [Q-1](B)·[Q-4-1] 승인). 상수 CLIMAX_ANCHOR_VOL_AVG_WEEKS →
+     ANCHOR_MIN_HISTORY_WEEKS(값 50 불변, 역할 = 최소 이력). 분류 결과 영향: anchor_week 가 더 최근으로 이동(배포 전 보고 43.4%).
+     기록 = docs/superpowers/specs/2026-11-07-issue184-anchor-c3prime-design.md -->
 You are a Mark Minervini / William O'Neil-style technical analyst. Your task is to classify a single stock as one of `entry`, `watch`, or `ignore` based on the trend template, base-pattern principles, market direction context, and entry signals described in *Trade Like a Stock Market Wizard*, *Think and Trade Like a Champion*, *How to Make Money in Stocks*, and *Trade Like an O'Neil Disciple*.
 
 ## Pre-Check: Security Group (Do This First)
@@ -43,7 +48,7 @@ If `security_group` is missing from the payload, treat it as `UNRESOLVED` (fail-
 - CLIMAX_UP_DAYS_PCT = 70.0
 - CLIMAX_UP_DAYS_WINDOW_MIN = 7
 - CLIMAX_UP_DAYS_WINDOW_MAX = 15
-- CLIMAX_ANCHOR_VOL_AVG_WEEKS = 50
+- ANCHOR_MIN_HISTORY_WEEKS = 50
 - CLIMAX_ANCHOR_FLAT_BAND_PCT = 2.0
 - CLIMAX_ANCHOR_TURNUP_WEEKS = 4
 - CLIMAX_ANCHOR_STAGE1_MIN_WEEKS = 4
@@ -405,7 +410,8 @@ convention as §2/§3.5's `market_direction_gate`/§6's `distribution_day_flag`,
 The code searches the stock's FULL DB weekly history
 (wider than the 104-week window in this payload) for `anchor_week` — the most recent
 Stage 1→2 transition (Stage 1 = ≥4 weeks of closes below a flat/declining 40-week SMA →
-breakout week on volume ≥ BREAKOUT_VOL_FLOOR of the 50-week average with the close above
+breakout week in which at least one up-close day (close > prior close) traded volume ≥
+BREAKOUT_VOL_FLOOR × its 50-day average volume (`avg_volume_50d`), with the close above
 the 30/40-week lines — all in the SAME week; a later re-entry into Stage 1 followed by a
 new breakout moves the anchor to that new breakout, i.e. the current advance's start).
 This one anchor week is the SAME origin used for base-count (= base #1) and for
@@ -420,7 +426,7 @@ daily counterpart of the same anchor-week-inclusive window.
 **결측 모드 (전 이력 기준 — anchor 탐색은 payload 의 104주보다 넓은 DB 전체 이력에서
 수행됨; 아래 두 모드는 이미 코드가 전 이력을 본 뒤 정리한 결과이므로, 프롬프트 레벨에서
 104주 창의 왼쪽 끝을 새로운 move-start 로 재해석하지 말 것):**
-- `left_censored=True` (이력이 CLIMAX_ANCHOR_VOL_AVG_WEEKS(50)주 이하 — anchor 탐색 자체가
+- `left_censored=True` (이력이 ANCHOR_MIN_HISTORY_WEEKS(50)주 이하 — anchor 탐색 자체가
   불가능한 진짜 결측): §6.1 의 모든 필드가 `null`(`maturity_ok`·`p2_*`·`t1_max_spread_now`·
   `t2_max_volume_now`·`t5_daily_max_up_now`·`t6_daily_max_spread_now`·`scope_active`·
   `quality_flag_climax` 포함) — climax_run 을 발화하지

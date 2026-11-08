@@ -9,6 +9,7 @@ import json
 
 from psycopg import Connection
 
+from kr_pipeline.common.data_regimes import VOLUME_REGIME_FLAG_VER
 from kr_pipeline.common.regime_windows import classification_flag, daily_window_flag, entry_window_flag
 from kr_pipeline.common.thresholds import (
     ENTRY_STOP_PCT_FROM_PIVOT_FLOOR,
@@ -407,7 +408,7 @@ def insert_classification(
                pivot_continuity,
                verdict_original,
                prompt_version,
-               volume_regime_flag,
+               volume_regime_flag, volume_regime_flag_ver,
                effective_pivot,
                handle_low, handle_start, handle_end)
             VALUES (%s, %s, %s, %s, %s, %s,
@@ -421,7 +422,7 @@ def insert_classification(
                     %s,
                     %s,
                     %s,
-                    %s, %s,
+                    %s, %s, %s,
                     %s,
                     %s, %s, %s)
             ON CONFLICT (symbol, classified_at) DO NOTHING
@@ -454,7 +455,8 @@ def insert_classification(
                 pivot_continuity,
                 verdict_original,
                 llm_meta.get("prompt_version"),
-                classification_flag(conn, symbol, analyzed_for_date, anchor_week=(result.get("climax_topping_gates_echo") or {}).get("anchor_week")),   # (#207 Q-5c 2) 분류 창 = 주간 C3 ∪ 일간 50봉 ∪ 앵커~평가 주
+                classification_flag(conn, symbol, analyzed_for_date, anchor_week=(result.get("climax_topping_gates_echo") or {}).get("anchor_week")),   # (#207 Q-5c 2, #184 ver 2) 분류 창 = 일간 50봉 ∪ 앵커~마지막 주 ∪ 앵커 C3′ 일간 창
+                VOLUME_REGIME_FLAG_VER,
                 effective_pivot,
                 *_structural_low_cols(result),
             ),
@@ -555,7 +557,7 @@ def insert_backfill_classification(
                verdict_original,
                sanity_warnings,
                prompt_version,
-               volume_regime_flag,
+               volume_regime_flag, volume_regime_flag_ver,
                handle_low, handle_start, handle_end)
             VALUES (%s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
@@ -567,7 +569,7 @@ def insert_backfill_classification(
                     %s,
                     %s,
                     %s,
-                    %s, %s,
+                    %s, %s, %s,
                     %s, %s, %s)
             ON CONFLICT (symbol, analyzed_for_date) DO NOTHING
             """,
@@ -598,7 +600,8 @@ def insert_backfill_classification(
                 verdict_original,
                 json.dumps(sanity_warnings) if sanity_warnings else None,
                 llm_meta.get("prompt_version"),
-                classification_flag(conn, symbol, analyzed_for_date, anchor_week=(result.get("climax_topping_gates_echo") or {}).get("anchor_week")),   # (#207 Q-5c 2) 분류 창 = 주간 C3 ∪ 일간 50봉 ∪ 앵커~평가 주
+                classification_flag(conn, symbol, analyzed_for_date, anchor_week=(result.get("climax_topping_gates_echo") or {}).get("anchor_week")),   # (#207 Q-5c 2, #184 ver 2) 분류 창 = 일간 50봉 ∪ 앵커~마지막 주 ∪ 앵커 C3′ 일간 창
+                VOLUME_REGIME_FLAG_VER,
                 *_structural_low_cols(result),
             ),
         )
@@ -692,14 +695,14 @@ def insert_trigger_log(
                analyzed_for_date,
                prior_classification_at,
                llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model,
-               wait_reason, prompt_version, volume_regime_flag)
+               wait_reason, prompt_version, volume_regime_flag, volume_regime_flag_ver)
             VALUES (%s, %s, %s,
                     %s, %s, %s,
                     %s, %s, %s, %s,
                     %s,
                     %s,
                     %s, %s, %s, %s,
-                    %s, %s, %s)
+                    %s, %s, %s, %s)
             ON CONFLICT (symbol, evaluated_at) DO NOTHING
             """,
             (
@@ -722,6 +725,7 @@ def insert_trigger_log(
                 wait_reason,
                 llm_meta.get("prompt_version"),
                 daily_window_flag(conn, symbol, analyzed_for_date),   # (#207 Q-5c 2) 트리거 창 = 일간 50봉(volume_ratio_50d)
+                VOLUME_REGIME_FLAG_VER,                               # (#184) 창 정의 불변이나 공통 스키마로 동일 기록
             ),
         )
 
@@ -887,7 +891,7 @@ def insert_entry_params(
                known_warnings, other_warnings, notes,
                trigger_evaluation_at, prior_classification_at,
                llm_call_duration_s, llm_input_tokens, llm_output_tokens, llm_model,
-               volume_regime_flag)
+               volume_regime_flag, volume_regime_flag_ver)
             VALUES (%s, %s, %s,
                     %s, %s, %s, %s, %s,
                     %s, %s, %s, %s,
@@ -899,7 +903,7 @@ def insert_entry_params(
                     %s, %s, %s,
                     %s, %s,
                     %s, %s, %s, %s,
-                    %s)
+                    %s, %s)
             ON CONFLICT (symbol, signal_at) DO NOTHING
             """,
             (
@@ -916,5 +920,6 @@ def insert_entry_params(
                 llm_meta.get("duration_s"), llm_meta.get("input_tokens"), llm_meta.get("output_tokens"),
                 llm_meta.get("model"),
                 entry_window_flag(conn, symbol, analyzed_for_date),   # (#207 Q-5c 2) 진입 창 = 일간 50봉 + PP 탐색 4봉(observed_breakout_volume_ratio)
+                VOLUME_REGIME_FLAG_VER,                               # (#184) 창 정의 불변이나 공통 스키마로 동일 기록
             ),
         )

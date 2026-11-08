@@ -9,31 +9,33 @@ regime 은 날짜의 함수(data_regimes.regime_for_date/regime_for_week)라 저
 값은 **보수적으로 'mixed'**(NULL 은 '창이 깨끗함'으로 읽히므로 오류를 깨끗함으로 저장하지 않는다). 프로그래밍 오류(TypeError 등)는
 그대로 전파해 첫 실행에서 드러낸다(리뷰 #222 3차).
 주봉은 zero-bar(거래정지) 주를 제외해 find_anchor/C3/T2 가 쓰는 행 집합(_fetch_weekly_full)과 같은 창을 본다(술어 공유 NOT_ZERO_BAR_SQL).
-창(spec §5·D7, 리뷰 #222 정정): 분류 = 일간 50봉 ∪ 주간 W+1 주(as_of 끝) ∪ 앵커 주~마지막 주봉(T2/P2) ∪ **앵커에서 끝나는 C3 W+1 주**
-(앵커를 적격 판정한 분모) / 트리거 = 일간 50봉 / 진입 = 일간 50봉 + PP 탐색 (N-1)봉 / 보유 climax·decline = 앵커 C3 분모 ~ 평가 주
-(러너가 gates.week_ends 로 DB 0, 회신 22 Q-A·23 Q-D — PR #222 의 'decline 항상 NULL' 번복). 진입은 할트 여유(DAILY_HALT_ALLOWANCE)까지 더 본다.
+창(spec §5·D7, 리뷰 #222 정정 → **#184 ver 2(2026-11) 갱신**): 분류 = 일간 50봉(as_of 끝) ∪ 앵커 주~마지막 주봉(T2/P2) ∪ **앵커 C3′ 일간 창**
+(앵커 주 첫 거래일에서 끝나는 50봉의 첫 날 ~ 앵커 주 — 앵커를 적격 판정한 avg_volume_50d 분모의 합집합) / 트리거 = 일간 50봉 /
+진입 = 일간 50봉 + PP 탐색 (N-1)봉 / 보유 climax·decline = 앵커 C3′ 창 시작 ~ 평가 주(러너가 gates.week_ends·daily_dates 로 DB 0,
+회신 22 Q-A·23 Q-D). 구 주간 51주 창(W+1)·앵커 끝 51주 창은 삭제(소비 규칙이 C3 뿐이었음 — 회신 11-08 Q-4-2); 저장 행의
+volume_regime_flag_ver 가 1(구 창)/2(이 창)을 구분한다. 진입은 할트 여유(DAILY_HALT_ALLOWANCE)까지 더 본다.
 원칙(회신 22): 표지 창 = 판정이 직접·간접 의존하는 모든 계산 창의 합집합.
 """
 from __future__ import annotations
 
 import logging
 from bisect import bisect_left
-from datetime import date
+from datetime import date, timedelta
 from typing import Callable, Iterable
 
 import psycopg
 from psycopg import Connection
 
 from kr_pipeline.common.data_regimes import (
-    FLAG_MIXED, VOLUME_REGIME_BOUNDARY, VOLUME_WINDOW_WEEKLY_WEEKS, _as_date, regime_for_date, regime_for_week, window_flag,
+    FLAG_MIXED, VOLUME_REGIME_BOUNDARY, _as_date, regime_for_date, regime_for_week, window_flag,
 )
 from kr_pipeline.common.price_source import NOT_ZERO_BAR_SQL, PriceSource, price_source
-from kr_pipeline.common.thresholds import CLIMAX_ANCHOR_VOL_AVG_WEEKS, PP_RECENT_SESSIONS, VOLUME_AVG_WINDOW_DAYS
+from kr_pipeline.common.thresholds import PP_RECENT_SESSIONS, VOLUME_AVG_WINDOW_DAYS
 
 log = logging.getLogger("kr_pipeline.common.regime_windows")
 
 DAILY_WINDOW_MAX_CAL_DAYS = 400    # 50 세션 ≈ 70 달력일; 경계 후 이만큼 지나면 고정 창 전체가 extended(거래정지 ≤ ~11개월 허용)
-WEEKLY_WINDOW_MAX_CAL_DAYS = 800   # 51 주 ≈ 357 달력일 + 여유
+WEEKLY_WINDOW_MAX_CAL_DAYS = 800   # (#184 ver 2) 앵커~마지막 주봉 창의 DB-0 단축 상한: as_of 가 경계 + 이만큼 지나면 마지막 주봉은 경계 후로 간주
 # 진입 창의 할트 여유: PP 탐색은 volume IS NOT NULL 세션(payload_lite recent_daily_indicators)을 세지만 일간 창은 원시 행을 세므로
 # 할트 k 행이 끼면 모델 창이 실제보다 짧아진다 → avg_volume_50d 가 허용하는 할트 수(min_periods=40 → 10, indicators/modes.py)만큼 더 본다(보수).
 DAILY_HALT_ALLOWANCE = VOLUME_AVG_WINDOW_DAYS - 40
@@ -84,33 +86,42 @@ def daily_window_flag(conn: Connection, ticker: str, as_of, n: int = VOLUME_AVG_
     return _guarded(conn, ticker, d, lambda src: _edges_flag(*_edges(conn, src, ticker, weekly=False, end=d, n=n), regime_for_date))
 
 
-def weekly_window_flag(conn: Connection, ticker: str, as_of, n: int = VOLUME_WINDOW_WEEKLY_WEEKS) -> str | None:
-    """as_of 이하 최근 n 주봉(zero-bar 주 제외; 주봉 regime = regime_for_week)."""
-    d = _as_date(as_of)
-    if d is None or d < VOLUME_REGIME_BOUNDARY or not _within_cap(d, weekly=True):
-        return None
-    return _guarded(conn, ticker, d, lambda src: _edges_flag(*_edges(conn, src, ticker, weekly=True, end=d, n=n), regime_for_week))
+def _anchor_week_first_day(conn: Connection, src: PriceSource, ticker: str, anchor: date) -> date | None:
+    """앵커 ISO 주(달력 월요일 ~ anchor_week)의 첫 거래일(일봉 MIN(date)). 없으면 None."""
+    monday = anchor - timedelta(days=anchor.weekday())
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT MIN(date) FROM {src.daily} WHERE ticker = %s AND date BETWEEN %s AND %s", (ticker, monday, anchor))
+        return cur.fetchone()[0]
 
 
-def held_window_flag(week_ends: Iterable, anchor_week) -> str | None:
-    """보유 climax·decline 창(순수, DB 0) = 앵커를 적격 판정한 C3 분모(앵커 직전 W주) ~ 마지막 주 — 회신 22 Q-A·23 Q-D
-    ("표지 창 = 판정이 직접·간접 의존하는 모든 계산 창의 합집합"). find_anchor 는 마지막 주부터 거꾸로 각 주의 C3(W주 평균)를 보고
-    앵커를 고르므로 앵커 선택이 [앵커 − W, 마지막 주] 거래량에 의존하고, T2(앵커~평가 주 거래량)·T-A/TA-d(앵커 기준 가격 낙폭)는 그 앵커를
-    시작점으로 쓴다 → climax·decline 같은 창. 입력 = gates.week_ends(산술이 실제로 쓴 주, zero-bar 제외, 오름차순). 앵커가 목록에
-    없으면(방어) 앵커 이후 첫 주를 기준으로 한다. 앵커 없음(no_transition·left_censored) → NULL(판정 신호 자체가 None)."""
+def held_window_flag(week_ends: Iterable, anchor_week, daily_dates: Iterable) -> str | None:
+    """보유 climax·decline 창(순수, DB 0) = 앵커 C3′ 일간 창 시작 ~ 마지막 주 — 회신 22 Q-A·23 Q-D 원칙("표지 창 = 판정이 직접·간접
+    의존하는 모든 계산 창의 합집합")을 #184 ver 2 창에 적용. find_anchor 는 앵커 주 안 일봉의 avg_volume_50d(앵커 주 첫 거래일 끝
+    50봉이 가장 이른 분모)로 앵커를 고르고, T2·T-A/TA-d 는 그 앵커를 시작점으로 쓴다 → climax·decline 같은 창.
+    입력 = gates.week_ends(산술이 쓴 주, zero-bar 제외, 오름차순) + gates.daily_dates(C3′ 가 본 지표 행 날짜, 오름차순).
+    창 시작 = daily_dates 중 앵커 ISO 주 첫 날짜 인덱스 j → daily_dates[max(0, j − 49)](regime_for_date); 앵커 주 일봉이 없으면(방어)
+    앵커 주 자체(regime_for_week). 앵커 없음(no_transition·left_censored) → NULL(판정 신호 자체가 None)."""
     a = _as_date(anchor_week)
     if a is None:
         return None
     weeks = [d for d in (_as_date(w) for w in week_ends) if d is not None]
+    if not weeks:
+        return None
+    days = [d for d in (_as_date(x) for x in daily_dates) if d is not None]
+    iso = a.isocalendar()[:2]
+    j = next((k for k, d in enumerate(days) if d.isocalendar()[:2] == iso), None)
+    start_regime = (regime_for_week(a) if j is None
+                    else regime_for_date(days[max(0, j - (VOLUME_AVG_WINDOW_DAYS - 1))]))
     i = bisect_left(weeks, a)
-    return window_flag(regime_for_week(d) for d in weeks[max(0, i - CLIMAX_ANCHOR_VOL_AVG_WEEKS):])
+    return window_flag([start_regime, *(regime_for_week(d) for d in weeks[i:])])
 
 
 def classification_flag(conn: Connection, ticker: str, as_of, *, anchor_week=None) -> str | None:
-    """분류 = 일간 50봉 ∪ 주간 W+1 주 ∪ 앵커 주~마지막 주봉 ∪ 앵커에서 끝나는 C3 W+1 주 — 하나라도 mixed → mixed(spec §5, 리뷰 #222).
+    """분류(#184 ver 2) = 일간 50봉(as_of 끝) ∪ 앵커 주~마지막 주봉 ∪ 앵커 C3′ 일간 창 — 하나라도 mixed → mixed(spec §5, 리뷰 #222).
     앵커~마지막 주봉의 우측 끝 = 주간 집계의 MAX(week_end_date)(find_anchor/T2 가 실제로 본 마지막 주; as_of 달력 주가 아님 — 4차).
-    앵커 기준 두 창은 상한 없음: C3 창은 앵커 < 경계면 전부 regular(DB 0). 첫 mixed 에서 즉시 반환. 범위 밖: LLM 이 보는 원시 봉
-    (일 60·주 104)은 결정론 창이 아니므로 모델링하지 않는다(spec §9)."""
+    DB-0 분기(regime 단조성): 앵커 ≥ 경계면 앵커~마지막 주 창은 전부 extended(생략); 앵커 < 경계면 C3′ 창은 전부 regular(생략);
+    앵커 < 경계 ∧ as_of 가 주간 상한 밖이면 마지막 주봉은 경계 후 → 순수 유도 mixed. 첫 mixed 에서 즉시 반환. 범위 밖: LLM 이 보는
+    원시 봉(일 60·주 104)은 결정론 창이 아니므로 모델링하지 않는다(spec §9)."""
     d = _as_date(as_of)
     if d is None or d < VOLUME_REGIME_BOUNDARY:
         return None
@@ -119,24 +130,27 @@ def classification_flag(conn: Connection, ticker: str, as_of, *, anchor_week=Non
     except (TypeError, ValueError) as e:            # echo 가 비정상이어도 본 INSERT 를 막지 않는다(관측 전용)
         log.warning("regime_window_flag: %s %s anchor_week 비정상 %r — %s (앵커 창 생략)", ticker, d, anchor_week, e)
         a = None
-    want_daily, want_weekly = _within_cap(d, weekly=False), _within_cap(d, weekly=True)
-    want_c3 = a is not None and a >= VOLUME_REGIME_BOUNDARY and _within_cap(a, weekly=True)
-    if not want_weekly and a is not None and _edges_flag(a, d, regime_for_week) == FLAG_MIXED:
-        return FLAG_MIXED                                # 주간 창이 상한 밖(모든 주봉 extended) + 경계 전 앵커 → 순수 유도, DB 0
-    if not (want_daily or want_weekly or want_c3):
+    want_daily = _within_cap(d, weekly=False)
+    want_range = a is not None and a < VOLUME_REGIME_BOUNDARY                       # 앵커~마지막 주봉
+    want_c3 = a is not None and a >= VOLUME_REGIME_BOUNDARY and _within_cap(a, weekly=False)   # 앵커 C3′ 일간 창
+    if want_range and not _within_cap(d, weekly=True):
+        return FLAG_MIXED                                # 경계 전 앵커 + 마지막 주봉은 경계 후일 수밖에 없음 → 순수 유도, DB 0
+    if not (want_daily or want_range or want_c3):
         return None
 
     def body(src: PriceSource) -> str | None:
         if want_daily and _edges_flag(*_edges(conn, src, ticker, weekly=False, end=d, n=VOLUME_AVG_WINDOW_DAYS), regime_for_date) == FLAG_MIXED:
             return FLAG_MIXED
-        if want_weekly:
-            w_first, w_last = _edges(conn, src, ticker, weekly=True, end=d, n=VOLUME_WINDOW_WEEKLY_WEEKS)
-            if _edges_flag(w_first, w_last, regime_for_week) == FLAG_MIXED:
+        if want_range:
+            _, w_last = _edges(conn, src, ticker, weekly=True, end=d, n=1)
+            if _edges_flag(a, w_last, regime_for_week) == FLAG_MIXED:                 # 앵커 ~ 마지막 주봉
                 return FLAG_MIXED
-            if a is not None and _edges_flag(a, w_last, regime_for_week) == FLAG_MIXED:     # 앵커 ~ 마지막 주봉
-                return FLAG_MIXED
-        if want_c3 and _edges_flag(*_edges(conn, src, ticker, weekly=True, end=a, n=VOLUME_WINDOW_WEEKLY_WEEKS), regime_for_week) == FLAG_MIXED:
-            return FLAG_MIXED
+        if want_c3:
+            first_day = _anchor_week_first_day(conn, src, ticker, a)
+            if first_day is not None:
+                s, _ = _edges(conn, src, ticker, weekly=False, end=first_day, n=VOLUME_AVG_WINDOW_DAYS)
+                if _edges_flag(s, a, regime_for_date) == FLAG_MIXED:
+                    return FLAG_MIXED
         return None
 
     return _guarded(conn, ticker, d, body)

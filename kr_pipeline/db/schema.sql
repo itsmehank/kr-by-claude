@@ -1152,6 +1152,17 @@ ALTER TABLE position_decline_evaluations ADD COLUMN IF NOT EXISTS volume_regime_
 ALTER TABLE classification_backfill      ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
 ALTER TABLE backtest_classification      ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
 ALTER TABLE recall_audit_classification  ADD COLUMN IF NOT EXISTS volume_regime_flag VARCHAR(8);
+-- (#184 2026-11) 표지 창 정의 버전 — 1 = 주간 51주·앵커 끝 51주 창(2026-09-28~#184 배포 전, scripts/sql/issue184_flag_ver_migrate.sql 이 채움),
+-- 2 = 앵커 C3′ 일간 창(writer 가 항상 현재 값 기록, data_regimes.VOLUME_REGIME_FLAG_VER). NULL = 표지 미평가(경계 전·system 행).
+-- 10-05 사전등록(specs/2026-10-05-volume-regime-misread-prereg.md) 본문은 ver 1 행만, ver 2 는 부록(회신 11-07 Q-3 A·11-08 Q-4-4).
+ALTER TABLE weekly_classification        ADD COLUMN IF NOT EXISTS volume_regime_flag_ver SMALLINT;
+ALTER TABLE trigger_evaluation_log       ADD COLUMN IF NOT EXISTS volume_regime_flag_ver SMALLINT;
+ALTER TABLE entry_params                 ADD COLUMN IF NOT EXISTS volume_regime_flag_ver SMALLINT;
+ALTER TABLE position_climax_evaluations  ADD COLUMN IF NOT EXISTS volume_regime_flag_ver SMALLINT;
+ALTER TABLE position_decline_evaluations ADD COLUMN IF NOT EXISTS volume_regime_flag_ver SMALLINT;
+ALTER TABLE classification_backfill      ADD COLUMN IF NOT EXISTS volume_regime_flag_ver SMALLINT;
+ALTER TABLE backtest_classification      ADD COLUMN IF NOT EXISTS volume_regime_flag_ver SMALLINT;
+ALTER TABLE recall_audit_classification  ADD COLUMN IF NOT EXISTS volume_regime_flag_ver SMALLINT;
 
 -- (#242, 2026-11-02) #110 확장 백필 제어 — 웹 스위치는 이 행의 값만 바꾼다(cron/launchd 등록 금지, #86).
 -- cells = 스위치 on 시점에 동결한 대상 셀 스냅샷 [[ticker, saturday, market], …] — 상장·지표가 라이브값이라

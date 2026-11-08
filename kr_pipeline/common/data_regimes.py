@@ -24,7 +24,7 @@ import os
 from datetime import date, datetime, timedelta
 from typing import Final, Iterable
 
-from kr_pipeline.common.thresholds import CLIMAX_ANCHOR_VOL_AVG_WEEKS, VOLUME_AVG_WINDOW_DAYS
+from kr_pipeline.common.thresholds import VOLUME_AVG_WINDOW_DAYS
 
 VOLUME_REGIME_BOUNDARY: Final[date] = date(2026, 9, 28)        # KRX 일별 거래량에 애프터마켓 합산 시작(관측 추정, 회신 21)
 VOLUME_REGIME_UNVERIFIED_FROM: Final[date] = VOLUME_REGIME_BOUNDARY   # PR #217 호환 별칭
@@ -33,6 +33,8 @@ REGIME_REGULAR: Final[str] = "regular"     # 정규장(09:00~15:30) 거래량
 REGIME_EXTENDED: Final[str] = "extended"   # 애프터마켓(16:00~20:00) 합산 거래량(회신 21: 정의로 수용)
 REGIME_MIXED: Final[str] = "mixed"         # 주봉: 구성 일봉 혼재
 FLAG_MIXED: Final[str] = "mixed"           # 판정 행 volume_regime_flag 값(그 외 NULL)
+VOLUME_REGIME_FLAG_VER: Final[int] = 2     # (#184) 표지 창 정의 버전. 1 = 2026-09-28~#184 배포 전(주간 51주·앵커 끝 51주 창, 이관 SQL 이 채움),
+                                           # 2 = C3′ 일간 창. writer 는 항상 현재 값을 쓴다 — as_of 가 경계 전이라 flag 가 NULL 이어도 "정의 2 로 평가했음".
 
 
 def _as_date(v) -> date | None:
@@ -62,7 +64,7 @@ def regime_for_week(week_end: date) -> str:
 
 
 VOLUME_WINDOW_DAILY_BARS: Final[int] = VOLUME_AVG_WINDOW_DAYS   # daily_indicators.volume_ratio_50d / observed_breakout_volume_ratio 창(SSOT import)
-VOLUME_WINDOW_WEEKLY_WEEKS: Final[int] = CLIMAX_ANCHOR_VOL_AVG_WEEKS + 1   # C3 = vols[i] ÷ avg(vols[i-W:i]) → 분자 주 포함 W+1 행(find_anchor, 리뷰 #222)
+# (#184 2026-11) 구 VOLUME_WINDOW_WEEKLY_WEEKS(=W+1, 주간 C3 창)는 삭제 — 소비 규칙이 C3 뿐이었고 C3′ 는 일간 창(VOLUME_WINDOW_DAILY_BARS)을 쓴다.
 
 
 def regime_window_state(regimes: Iterable[str]) -> str:

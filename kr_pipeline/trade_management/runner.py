@@ -21,6 +21,7 @@ from datetime import date
 from psycopg import Connection
 
 from kr_pipeline.common.daily_bars import latest_daily_bar_date
+from kr_pipeline.common.data_regimes import VOLUME_REGIME_FLAG_VER
 from kr_pipeline.common.regime_windows import held_window_flag
 from kr_pipeline.common.thresholds import SELL_HALF_ENABLED
 from kr_pipeline.llm_runner.slack import (
@@ -178,9 +179,9 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
             continue
         hd = evaluate_held_decline(gates, p["entry_date"], as_of)
         hc = evaluate_held_climax(gates, p["entry_date"], as_of)
-        # (#207 Q-5c 2, 회신 22 Q-A·23 Q-D) 거래량 정의 경계 표지 — 창 = 앵커 C3 분모 ~ 평가 주. gates 가 동봉한 week_ends 로 DB 없이
+        # (#207 Q-5c 2, 회신 22 Q-A·23 Q-D; #184 ver 2) 거래량 정의 경계 표지 — 창 = 앵커 C3′ 일간 창 시작 ~ 평가 주. gates 가 동봉한 week_ends·daily_dates 로 DB 없이
         # 1회 계산해 climax·decline 두 행에 같은 값(두 판정 모두 같은 앵커에 의존)
-        vr_flag = held_window_flag(gates.get("week_ends") or [], gates.get("anchor_week"))
+        vr_flag = held_window_flag(gates.get("week_ends") or [], gates.get("anchor_week"), gates.get("daily_dates") or [])
 
         # (#164) 약세 매도 — 스탑 다음 우선. 기록은 항상, 알림은 발화 ∧ 신규 INSERT 시.
         hd_inserted = _insert_decline_eval(
@@ -191,7 +192,8 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
         if hd.fired:
             decline_fired += 1
             if hd_inserted:
-                dm = decline_metrics(*fetch_series(conn, p["symbol"], as_of), gates.get("anchor_week"))
+                wk_, dl_, _ = fetch_series(conn, p["symbol"], as_of)        # (#184) 3-튜플(세 번째 = 일봉 지표, echo 에 불필요)
+                dm = decline_metrics(wk_, dl_, gates.get("anchor_week"))
                 with conn.cursor() as cur:
                     cur.execute("SELECT name FROM stocks WHERE ticker = %s", (p["symbol"],))
                     nrow = cur.fetchone()
@@ -271,12 +273,13 @@ def _insert_decline_eval(conn: Connection, *, position_id: int, as_of: date, fir
             INSERT INTO position_decline_evaluations
               (position_id, eval_date, fired, hold_days, signals, anchor_week, weeks_since,
                maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode,
-               climax_also_fired, volume_regime_flag)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+               climax_also_fired, volume_regime_flag, volume_regime_flag_ver)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (position_id, eval_date) DO NOTHING
             """,
             (position_id, as_of, fired, hold_days, json.dumps(list(signals)), anchor_week, weeks_since,
-             maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode, climax_also_fired, volume_regime_flag),
+             maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode, climax_also_fired, volume_regime_flag,
+             VOLUME_REGIME_FLAG_VER),
         )
         return cur.rowcount == 1
 
@@ -290,11 +293,11 @@ def _insert_climax_eval(conn: Connection, *, position_id: int, as_of: date, fire
             """
             INSERT INTO position_climax_evaluations
               (position_id, eval_date, fired, suppressed, hold_days, triggers, anchor_week,
-               weeks_since, maturity_ok, p2_accel_ok, scope_active, mode, volume_regime_flag)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+               weeks_since, maturity_ok, p2_accel_ok, scope_active, mode, volume_regime_flag, volume_regime_flag_ver)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (position_id, eval_date) DO NOTHING
             """,
             (position_id, as_of, fired, suppressed, hold_days, json.dumps(list(triggers)), anchor_week, weeks_since,
-             maturity_ok, p2_accel_ok, scope_active, mode, volume_regime_flag),
+             maturity_ok, p2_accel_ok, scope_active, mode, volume_regime_flag, VOLUME_REGIME_FLAG_VER),
         )
         return cur.rowcount == 1

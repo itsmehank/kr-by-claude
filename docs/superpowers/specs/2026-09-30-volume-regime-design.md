@@ -55,15 +55,15 @@ weekly_prices 는 재집계 대신 `week_end_date >= '2026-10-02'` → extended,
 
 | 소비처 | 창 | 유도 입력 | flag 기록 위치 |
 |---|---|---|---|
-| 분류(weekly_classification) | 주간 C3 W+1 주(분자 주 포함, W=CLIMAX_ANCHOR_VOL_AVG_WEEKS) + 일간 volume_ratio_50d 50봉 + **앵커 주~평가 주**(T2/P2 는 앵커 기준) + **앵커에서 끝나는 C3 W+1 주**(앵커 적격 판정 분모 — 리뷰 #222 3차; 따라서 경계 전 앵커가 유지되는 한 자연 만료되지 않음) → **하나라도 mixed 면 mixed** | payload 의 weekly/daily 봉 regime | store.insert_classification(+backfill 계열) |
+| 분류(weekly_classification) | 주간 C3 W+1 주(분자 주 포함, W=CLIMAX_ANCHOR_VOL_AVG_WEEKS) + 일간 volume_ratio_50d 50봉 + **앵커 주~평가 주**(T2/P2 는 앵커 기준) + **앵커에서 끝나는 C3 W+1 주**(앵커 적격 판정 분모 — 리뷰 #222 3차; 따라서 경계 전 앵커가 유지되는 한 자연 만료되지 않음) → **하나라도 mixed 면 mixed**. **갱신 2026-11(#184, ver 2)**: 주간 C3 W+1 주·앵커 끝 C3 W+1 주 → **앵커 C3′ 일간 창**(앵커 주 첫 거래일에서 끝나는 50봉의 첫 날 ~ 앵커 주); 창 = 일간 50봉 ∪ 앵커~마지막 주봉 ∪ 앵커 C3′ 창. 구 서술은 `volume_regime_flag_ver = 1` 행 해석용으로 유지 | payload 의 weekly/daily 봉 regime | store.insert_classification(+backfill 계열) |
 | 트리거(trigger_evaluation_log) | 일간 50봉(gate_precompute volume_band 입력 = daily_indicators.volume_ratio_50d) | as_of 기준 최근 50 일봉 regime | store.insert_trigger_log |
 | 진입(entry_params) | 일간 50봉 + PP 탐색 4봉(pocket_pivot 분기의 비율은 최근 5세션 중 PP 일에서 끝나는 창, 리뷰 #222) | 동일 | store.insert_entry_params |
-| 보유 climax(T2) | **앵커 C3 분모(앵커 −W주) ~ 평가 주**(갱신 10-05, 회신 22 Q-A — 종전 '앵커 주~평가 주'는 앵커 선정 분모를 빠뜨림) | gates.week_ends(산술이 쓴 주, zero-bar 제외) → `regime_windows.held_window_flag`, DB 0 | run_daily_eval 1회 계산 → position_climax_evaluations |
-| 보유 decline | **climax 와 같은 창**(갱신 10-05, 회신 23 Q-D: T-A·TA-d 는 가격 낙폭이지만 기준 구간 시작점 = C3 로 고른 앵커 → 간접 의존. 10-02 의 '항상 NULL' 정정을 번복) | 같은 `held_window_flag` 값 | run_daily_eval → position_decline_evaluations(climax 행과 같은 값) |
+| 보유 climax(T2) | **앵커 C3 분모(앵커 −W주) ~ 평가 주**(갱신 10-05, 회신 22 Q-A — 종전 '앵커 주~평가 주'는 앵커 선정 분모를 빠뜨림). **갱신 2026-11(#184, ver 2)**: 앵커 C3′ 일간 창 시작(앵커 주 첫 거래일 끝 50봉의 첫 날) ~ 평가 주 — `held_window_flag(week_ends, anchor_week, daily_dates)` | gates.week_ends(산술이 쓴 주, zero-bar 제외) + gates.daily_dates(C3′ 가 본 지표 행 날짜) → `regime_windows.held_window_flag`, DB 0 | run_daily_eval 1회 계산 → position_climax_evaluations |
+| 보유 decline | **climax 와 같은 창**(갱신 10-05, 회신 23 Q-D: T-A·TA-d 는 가격 낙폭이지만 기준 구간 시작점 = C3 로 고른 앵커 → 간접 의존. 10-02 의 '항상 NULL' 정정을 번복). ver 2 도 동일 | 같은 `held_window_flag` 값 | run_daily_eval → position_decline_evaluations(climax 행과 같은 값) |
 
 유도 함수(순수): `regime_window_state(regimes: Iterable[str]) -> Literal["clean","mixed","new"]` — 빈 입력은 clean. 창 봉 조회는
 각 소비처의 기존 로더가 이미 읽는 프레임에 `volume_regime` 컬럼을 추가해 얻는다(추가 SQL 0 목표). **PR-3 실제(10-02)**: 프레임이 writer(store.insert_*)까지 전달되지 않아 writer 가 `conn·symbol·as_of` 로 창 봉 **날짜**를 읽어 날짜 규칙으로 유도(`common/regime_windows.py`; 경계 전 as_of 는 DB 0, 이후 price_source 1회 + 창당 SELECT 1회, SAVEPOINT fail-soft) — 저장 컬럼 비의존(#220 2차 리뷰 전례).
-**자연 만료**: 일간 창은 경계 후 50 거래일(≈2026-12 중순), 주간 창은 50주(≈2027-09)에 mixed 가 사라진다. 앵커 기준 창(분류·보유)은 앵커가 경계 후 W주(≈2027-09) 이후에 잡혀야 사라진다(경계 전 앵커가 유지되는 한 만료 없음).
+**자연 만료**: 일간 창은 경계 후 50 거래일(≈2026-12 중순), 주간 창은 50주(≈2027-09)에 mixed 가 사라진다. 앵커 기준 창(분류·보유)은 앵커가 경계 후 W주(≈2027-09) 이후에 잡혀야 사라진다(경계 전 앵커가 유지되는 한 만료 없음). **ver 2(#184)**: 주간 창은 없고, 앵커 C3′ 창은 앵커 주 첫 거래일이 경계 + 50봉(≈2026-12 중순) 이후면 만료 — 경계 전 앵커의 앵커~마지막 주봉 창은 그대로 만료 없음.
 
 ## 6. 경계일 비교 무효화(D6)
 

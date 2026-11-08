@@ -70,6 +70,7 @@ class TickerData:
     # 날짜별 절단은 held_climax.slice_upto. 비어 있으면 left_censored → 미발화(합성 테스트 호환).
     weekly_full: list = field(default_factory=list)
     daily_flagged: list = field(default_factory=list)
+    daily_ind: list = field(default_factory=list)       # (#184) 일봉 지표 전 이력 — find_anchor C3′ 입력(slice_upto 로 절단)
     # (#181 B5) 상폐 격리 종목: 마지막 봉(= delisted_at − 1일 = liq_window 끝)에 전량 강제청산.
     delisted: bool = False
     last_bar: date | None = None            # 마지막 거래일(격리 종목만)
@@ -238,8 +239,8 @@ def run_portfolio(data: dict[str, TickerData], cfg: PortfolioConfig) -> dict:
             # 라벨=앞선 것 + also 병기.
             if cfg.decline_sell or cfg.climax_sell:
                 td_ = data[t]
-                wk_, dl_ = slice_upto(td_.weekly_full, td_.daily_flagged, d)
-                gates_ = gates_from_series(wk_, dl_)
+                wk_, dl_, di_ = slice_upto(td_.weekly_full, td_.daily_flagged, td_.daily_ind, d)
+                gates_ = gates_from_series(wk_, dl_, di_)
                 hd = evaluate_held_decline(gates_, pos.t1_date, d) if cfg.decline_sell else None
                 hc = (evaluate_held_climax(gates_, pos.t1_date, d, cfg.hold_min_days)
                       if cfg.climax_sell else None)
@@ -610,11 +611,12 @@ def load_ticker_data(conn, tickers: list[str] | None = None, *,
             for r in rows}
         pilot54_ok = {d: all(f) for d, f in pilot54_flags.items()}
         # (항목 ③) climax 매도용 전 이력(≤ end) — 날짜별 절단은 시뮬 루프에서
-        from api.services.payload_builder import _fetch_weekly_full
+        from api.services.payload_builder import _fetch_daily_anchor_series, _fetch_weekly_full
         weekly_full = _fetch_weekly_full(conn, ticker, end)
         daily_flagged = fetch_daily_flagged(conn, ticker, end)
+        daily_ind = _fetch_daily_anchor_series(conn, ticker, end)      # (#184)
         out[ticker] = TickerData(
-            market=market, bars=bars, weekly_full=weekly_full, daily_flagged=daily_flagged,
+            market=market, bars=bars, weekly_full=weekly_full, daily_flagged=daily_flagged, daily_ind=daily_ind,
             delisted=src.delisted, last_bar=delisted_last_bar,
             liq_start=(delisted_last_bar - timedelta(days=LIQ_WINDOW_DAYS)
                        if delisted_last_bar is not None else None),

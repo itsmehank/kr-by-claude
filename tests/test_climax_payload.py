@@ -1,7 +1,7 @@
 """(#44 Task 5) payload_builder climax/topping 통합 — TDD."""
 from datetime import date, timedelta
 
-from api.services.payload_builder import build_payload, _dist_count_25s
+from api.services.payload_builder import _fetch_daily_anchor_series, build_payload, _dist_count_25s
 from kr_pipeline.llm_runner.compute.climax_topping import find_anchor
 
 
@@ -12,6 +12,20 @@ def _seed_stock(db, ticker):
             "VALUES (%s, 'P', 'KOSPI', '전기·전자') ON CONFLICT DO NOTHING",
             (ticker,),
         )
+    db.commit()
+
+
+def _seed_anchor_week_indicators(db, ticker, week_end: date, close: float, ratio: float = 2.0):
+    """(#184) 앵커 주(ISO 주) 월~금 daily_indicators 만 시드: 금요일만 상승 마감 + volume = ratio × avg_volume_50d(1e6).
+    (daily_prices 는 넣지 않는다 — find_anchor 는 지표 테이블만 읽고, 각 테스트의 가격 시드와 충돌하지 않게.)"""
+    monday = week_end - timedelta(days=week_end.weekday())
+    with db.cursor() as cur:
+        for k in range(5):
+            d, c = monday + timedelta(days=k), (close * 0.99 if k < 4 else close)
+            v = int(1_000_000 * (ratio if k == 4 else 1.0))
+            cur.execute("INSERT INTO daily_indicators (ticker, date, adj_close, volume, avg_volume_50d) VALUES (%s,%s,%s,%s,%s) "
+                        "ON CONFLICT (ticker, date) DO UPDATE SET volume=EXCLUDED.volume, avg_volume_50d=EXCLUDED.avg_volume_50d",
+                        (ticker, d, c, v, 1_000_000))
     db.commit()
 
 
@@ -93,11 +107,12 @@ def test_build_payload_climax_topping_gates_anchor_consistent(db):
         + [(1100.0 + 15 * i, 110_000) for i in range(1, 20)]
     weekly = _weekly_rows(rows, start)
     _seed_weekly(db, ticker, weekly)
+    _seed_anchor_week_indicators(db, ticker, weekly[65]["week_end"], weekly[65]["close"])
 
     on_date = weekly[-1]["week_end"]
     expected = find_anchor([
         {**w, "week_end": w["week_end"].isoformat()} for w in weekly
-    ])
+    ], _fetch_daily_anchor_series(db, ticker, on_date))
     assert expected["left_censored"] is False and expected["no_transition"] is False
 
     # dist 결측 없는 25행(td_dist_ok/sma200 은 별도 테스트에서 검증)
@@ -288,7 +303,9 @@ def test_build_payload_daily_extremes_anchored_matches_direct_compute(db):
     weekly = _weekly_rows(wrows, start)
     _seed_weekly(db, ticker, weekly)
     on_date = weekly[-1]["week_end"]
-    anchor_week = find_anchor([{**w, "week_end": w["week_end"].isoformat()} for w in weekly])
+    _seed_anchor_week_indicators(db, ticker, weekly[65]["week_end"], 1100.0)
+    anchor_week = find_anchor([{**w, "week_end": w["week_end"].isoformat()} for w in weekly],
+                              _fetch_daily_anchor_series(db, ticker, on_date))
     assert anchor_week["anchor_week"] == weekly[65]["week_end"].isoformat()
 
     # anchor 주 월요일 −5일 ~ on_date 까지 연속 일봉(주말 포함 — 날짜 비교만 쓰임).
@@ -381,3 +398,15 @@ def test_fetch_weekly_full_flags_gap_and_adj_hl(db):
     assert [w["week_end"] for w in got] == [r["week_end"].isoformat() for r in rows if r["close"] != 0.0]
     assert [w["gap_before"] for w in got] == [False, False, True, False]
     assert [w["adj_hl"] for w in got] == [True, True, True, False]
+
+
+def test_build_payload_anchor_absent_without_up_close_breakout_day(db):
+    """(#184) 주봉은 구 C3 를 통과해도 앵커 주 일봉에 1.4× 상승 마감일이 없으면 no_transition(새 정의 = 일봉 기준)."""
+    ticker = "CLPD7"
+    _seed_stock(db, ticker)
+    start = date(2018, 1, 5)
+    weekly = _weekly_rows(_drift(65, 1000.0, 980.0) + [(1100.0, 260_000)] + [(1100.0 + 15 * i, 110_000) for i in range(1, 20)], start)
+    _seed_weekly(db, ticker, weekly)
+    _seed_anchor_week_indicators(db, ticker, weekly[65]["week_end"], 1100.0, ratio=1.0)
+    g = build_payload(db, ticker, on_date=weekly[-1]["week_end"])["climax_topping_gates"]
+    assert g["anchor_week"] is None and g["no_transition"] is True
