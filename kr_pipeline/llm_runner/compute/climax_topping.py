@@ -144,7 +144,7 @@ def compute_climax_gates(weekly: list[dict], daily_20d: list[dict], anchor: dict
         zero-bar 주가 있었음, adj_hl(기본 True) = high·low 가 adj 소스(payload_builder
         _fetch_weekly_full 규약). 둘 다 T1 유효성에만 쓰인다(#156).
     daily_20d: [{date, open, high, low, close, volume}, ...] (오름차순, 최근 거래일 꼬리)
-    anchor: find_anchor(weekly) 의 반환 dict.
+    anchor: find_anchor(weekly, daily) 의 반환 dict.
 
     반환 키: maturity_weeks, maturity_ok, p2_best_roll_pct, p2_is_steepest, p2_accel_ok,
     t1_max_spread_now, t2_max_volume_now, t3_gap_up_today, t4_up_days_pct_max, t4_ok,
@@ -288,7 +288,7 @@ def compute_daily_extremes(daily_hist: list[dict] | None, baseline_start: str | 
         _fetch_daily_since 규약). anchored 모드에서는 baseline 첫날의 prev_close 를 공급하기
         위해 baseline_start **직전 1행**(zero-bar 여부 무관, 최신 1행)을 포함해 넘긴다.
     baseline_start: baseline 첫 거래일(ISO) — anchor 주 첫 거래일(W-SUN 그룹 min(date), Q-1 B).
-    anchor: find_anchor(weekly) 반환 dict.
+    anchor: find_anchor(weekly, daily) 반환 dict.
     quality_flag: 주봉 quality_flag(close<=0/None 존재). True 면 anchor 의존 게이트 관례대로
         전부 None(Q-5 판정 A).
 
@@ -365,7 +365,7 @@ def compute_topping_gates(weekly: list[dict], dist_count_25s: int | None, anchor
 
     weekly: find_anchor 와 동일 입력(오름차순, adj 전 이력).
     dist_count_25s: 종목 25세션 분배일 카운트(payload_builder 산출). 결측 시 None.
-    anchor: find_anchor(weekly) 의 반환 dict.
+    anchor: find_anchor(weekly, daily) 의 반환 dict.
 
     반환 키: g0_below_10w, tb_weeks_below_10w, tb_ok, td_max_down_volume_now,
     td_dist_ok, ta_max_decline_now, tc_sma40_turndown, tc_prolonged_ok, quality_flag.
