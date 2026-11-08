@@ -1,6 +1,6 @@
 # #184 앵커 C3 → C3′(B) 설계 — 주간 거래량 조건의 일봉 전환
 
-> 상태: **초안(2026-11-07)** — 사용자 승인 전. 승인 후 plan(superpowers:writing-plans) 작성.
+> 상태: **승인(2026-11-08)** · 구현 plan = docs/superpowers/plans/2026-11-08-issue184-anchor-c3prime.md(브랜치 issue184-c3-daily).
 > 규약 인용: governance 1-1(제거 4조건)·2-3([Q-n])·3-3(관측 라벨)·3-4(사전등록 잠금)·3-5(book-fidelity 예외)·4-2(null 보수)·4-6(SSOT).
 > 전문가 판정: 회신 17(2026-09-27, C3→C3′ 방향)·**회신 2026-11-07(Q-1 B·Q-2 A·Q-3 A, 본문 §2 인용)**. 배포 전 보고 (i)(ii) = §8.
 
