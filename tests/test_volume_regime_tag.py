@@ -129,10 +129,10 @@ def test_entry_params_flag_column_and_clean_known_warnings(db, straddle, flag):
     assert f == flag and "volume_regime_unverified_#207" not in (kw or [])
 
 
-@pytest.mark.parametrize("anchor_offset_weeks,flag", [(-3, FLAG_MIXED), (0, FLAG_MIXED), (None, None)])
+@pytest.mark.parametrize("anchor_offset_weeks,flag", [(-3, FLAG_MIXED), (0, None), (None, None)])
 def test_position_evaluations_flag_from_anchor_window(db, anchor_offset_weeks, flag):
-    """보유 창 = 앵커 C3 분모(앵커 − W주) ~ 평가 주(회신 22 Q-A·23 Q-D, spec D7 갱신): 경계 전 앵커 → mixed, 경계 첫 주 앵커도 분모가
-    경계 전이라 mixed(종전 NULL), 앵커 없음 → NULL. run_daily_eval 이 gates.week_ends 로 1회 계산해 climax·decline 두 행에 같은 값을 쓴다
+    """보유 창(#184 ver 2) = 앵커 C3′ 일간 창 시작 ~ 평가 주. 일봉 날짜 없이([]) 호출하면 앵커 주 자체가 시작: 경계 전 앵커 → mixed,
+    경계 첫 주(10-02, 월요일 09-28 ≥ 경계) 앵커 → extended 만 → NULL, 앵커 없음 → NULL. run_daily_eval 이 gates.week_ends 로 1회 계산해 climax·decline 두 행에 같은 값을 쓴다
     (decline 의 T-A·TA-d 는 가격 낙폭이지만 기준 구간 시작점인 앵커가 C3 거래량으로 선택됨 — 간접 의존, PR #222 의 'decline 항상 NULL' 번복)."""
     from kr_pipeline.common.regime_windows import held_window_flag
     from kr_pipeline.trade_management.runner import _insert_climax_eval, _insert_decline_eval
@@ -144,7 +144,7 @@ def test_position_evaluations_flag_from_anchor_window(db, anchor_offset_weeks, f
         cur.execute("DELETE FROM positions WHERE symbol='VRF4'")
         cur.execute("INSERT INTO positions (symbol, entry_date, entry_price, quantity, status) VALUES ('VRF4', %s, 1000, 1, 'open') RETURNING id", (eval_week,))
         pid = cur.fetchone()[0]
-    vr = held_window_flag([f.isoformat() for f in fridays], anchor)    # 러너는 gates.week_ends 로 DB 없이 유도
+    vr = held_window_flag([f.isoformat() for f in fridays], anchor, [])   # 러너는 gates.week_ends·daily_dates 로 DB 없이 유도
     assert vr == flag
     assert _insert_climax_eval(db, position_id=pid, as_of=eval_week, fired=False, suppressed=False, hold_days=1, triggers=[],
                                anchor_week=anchor, weeks_since=None, maturity_ok=None, p2_accel_ok=None, scope_active=None, mode="quality",

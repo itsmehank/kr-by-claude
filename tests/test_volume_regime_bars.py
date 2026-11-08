@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from kr_pipeline.common.data_regimes import (
     FLAG_MIXED, REGIME_EXTENDED, REGIME_MIXED, REGIME_REGULAR, VOLUME_REGIME_BOUNDARY, VOLUME_REGIME_UNVERIFIED_FROM,
-    VOLUME_WINDOW_DAILY_BARS, VOLUME_WINDOW_WEEKLY_WEEKS, regime_for_date, regime_for_week, regime_window_state, window_flag,
+    VOLUME_WINDOW_DAILY_BARS, regime_for_date, regime_for_week, regime_window_state, window_flag,
 )
 
 B = VOLUME_REGIME_BOUNDARY
@@ -38,14 +38,14 @@ def test_regime_window_state_and_flag():
     assert regime_window_state(["extended", "mixed"]) == "mixed"            # 주봉 mixed 포함
     assert window_flag(["regular"] * 50) is None and window_flag(["extended"] * 50) is None
     assert window_flag(["regular", "extended"]) == "mixed"
-    from kr_pipeline.common.thresholds import ANCHOR_MIN_HISTORY_WEEKS, VOLUME_AVG_WINDOW_DAYS
+    from kr_pipeline.common.thresholds import VOLUME_AVG_WINDOW_DAYS
     assert VOLUME_WINDOW_DAILY_BARS == VOLUME_AVG_WINDOW_DAYS == 50   # SSOT(indicators avg_volume_50d 와 같은 창)
-    assert VOLUME_WINDOW_WEEKLY_WEEKS == ANCHOR_MIN_HISTORY_WEEKS + 1      # C3 = vols[i] ÷ avg(vols[i-W:i]) → 행 W+1 개(리뷰 #222)
 
 
 def test_pr2_interim_rule_is_gone():
     import kr_pipeline.common.data_regimes as m
     assert not hasattr(m, "regime_flag_for_as_of")
+    assert not hasattr(m, "VOLUME_WINDOW_WEEKLY_WEEKS")      # (#184 ver 2) 주간 51주 창 삭제 — 소비 규칙이 C3 뿐이었음
 
 
 def test_schema_columns_exist(db):

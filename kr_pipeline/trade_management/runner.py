@@ -178,9 +178,9 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
             continue
         hd = evaluate_held_decline(gates, p["entry_date"], as_of)
         hc = evaluate_held_climax(gates, p["entry_date"], as_of)
-        # (#207 Q-5c 2, 회신 22 Q-A·23 Q-D) 거래량 정의 경계 표지 — 창 = 앵커 C3 분모 ~ 평가 주. gates 가 동봉한 week_ends 로 DB 없이
+        # (#207 Q-5c 2, 회신 22 Q-A·23 Q-D; #184 ver 2) 거래량 정의 경계 표지 — 창 = 앵커 C3′ 일간 창 시작 ~ 평가 주. gates 가 동봉한 week_ends·daily_dates 로 DB 없이
         # 1회 계산해 climax·decline 두 행에 같은 값(두 판정 모두 같은 앵커에 의존)
-        vr_flag = held_window_flag(gates.get("week_ends") or [], gates.get("anchor_week"))
+        vr_flag = held_window_flag(gates.get("week_ends") or [], gates.get("anchor_week"), gates.get("daily_dates") or [])
 
         # (#164) 약세 매도 — 스탑 다음 우선. 기록은 항상, 알림은 발화 ∧ 신규 INSERT 시.
         hd_inserted = _insert_decline_eval(
