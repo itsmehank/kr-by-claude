@@ -21,7 +21,8 @@ anchor 비의존 게이트(T3·T4·G0·T-B·T-C·td_dist_ok)는 계속 계산된
 anchor 판정(가장 최근 주 w, index i) — 네 조건 동일 주 동시 성립(#158 Fix α, 2026-09-07):
 - C1 Stage1 재형성: 직전 CLIMAX_ANCHOR_STAGE1_MIN_WEEKS(4)주 연속 close < 그 주의 40주 SMA
 - C2 40주 SMA 의 TURNUP_WEEKS(4)주 기울기 ≤ +CLIMAX_ANCHOR_FLAT_BAND_PCT(2.0)% (평탄/하락)
-- C3 w 에서 volume ≥ BREAKOUT_VOL_FLOOR × 50주 평균 거래량 (돌파 거래량)
+- C3′ w 의 ISO 주 안에 상승 마감일(close > 직전 행 close) 중 volume ≥ BREAKOUT_VOL_FLOOR × avg_volume_50d 인 날 ≥1
+  (#184 2026-11, HMMS p.117·p.349; NULL 날 불충족 — governance 4-2). 구 C3(주간 거래량 ≥ 1.4×50주 평균)는 층위 오귀속으로 교체.
 - C5 close > s30 AND close > s40 (Stage 2 = 이평 위)
 구 C4(s30/s40 이 4주 전 대비 상승, [EXTENDS]) 는 #158 에서 제거 — Stage 1 직후 돌파 주에서
 SMA 가 아직 하락 중이라 C1 과 같은 주에 양립 불가, O'Neil 돌파 정의·Minervini 전환 기준에
@@ -29,6 +30,8 @@ SMA 가 아직 하락 중이라 C1 과 같은 주에 양립 불가, O'Neil 돌�
 주로 이동한다(현 사이클의 시작 = 책의 "beginning of the move").
 """
 from __future__ import annotations
+
+from datetime import date
 
 from kr_pipeline.common.thresholds import (
     BREAKOUT_VOL_FLOOR,
@@ -60,15 +63,37 @@ def _sma(vals: list[float], i: int, n: int) -> float | None:
     return sum(vals[i - n + 1 : i + 1]) / n if i + 1 >= n else None
 
 
-def find_anchor(weekly: list[dict]) -> dict:
+def c3prime_weeks(daily: list[dict]) -> frozenset[tuple[int, int]]:
+    """(#184) C3′(B) 를 충족하는 ISO (year, week) 집합. daily = 오름차순 지표 행
+    [{date(ISO str), close(adj, halt 일 carry), volume(adj, halt NULL), avg_volume_50d(min_periods 40, NULL 허용)}].
+    충족일 = 직전 행 대비 상승 마감(close > prev) ∧ volume ≥ BREAKOUT_VOL_FLOOR × avg_volume_50d. volume/avg 가 NULL 이거나
+    avg ≤ 0 인 날은 불충족(4-2). 첫 행은 prev 없음 → 불충족."""
+    ok: set[tuple[int, int]] = set()
+    prev = None
+    for d in daily:
+        c, v, a = d["close"], d["volume"], d["avg_volume_50d"]
+        if (prev is not None and c is not None and v is not None and a is not None and a > 0
+                and c > prev and v >= BREAKOUT_VOL_FLOOR * a):
+            ok.add(date.fromisoformat(d["date"]).isocalendar()[:2])
+        prev = c if c is not None else prev
+    return frozenset(ok)
+
+
+def c3prime_week(daily: list[dict], week_end: str) -> bool:
+    """week_end(ISO str)의 ISO 주가 C3′ 를 충족하는가 — c3prime_weeks 래퍼(테스트·표지 가독용)."""
+    return date.fromisoformat(week_end).isocalendar()[:2] in c3prime_weeks(daily)
+
+
+def find_anchor(weekly: list[dict], daily: list[dict]) -> dict:
     """주봉 이력(오름차순)에서 가장 최근 Stage 1→2 전환 주를 탐색한다.
 
     weekly: [{week_end, open, high, low, close, volume}, ...] (adj 전 이력, zero-bar 제외 입력)
+    daily: (#184) 일봉 지표 전 이력(오름차순, date ≤ as_of) — c3prime_weeks 규약. **필수 인자**(기본값 없음:
+           일봉 없이 주간 규칙으로 조용히 폴백하는 경로를 두지 않는다). 비어 있으면 모든 후보 주가 C3′ 미충족.
     반환: {"anchor_week": str|None, "left_censored": bool, "no_transition": bool,
            "weeks_since": int|None}
     """
     closes = [w["close"] for w in weekly]
-    vols = [w["volume"] or 0 for w in weekly]
     n = len(weekly)
     W = ANCHOR_MIN_HISTORY_WEEKS
     if n <= W:  # 이력 ≤50주 = 탐색 불가 결측 (실효 경계 문서 일치 — 검토 하 수리)
@@ -76,10 +101,10 @@ def find_anchor(weekly: list[dict]) -> dict:
                 "no_transition": False, "weeks_since": None}
     k = CLIMAX_ANCHOR_TURNUP_WEEKS
     s1 = CLIMAX_ANCHOR_STAGE1_MIN_WEEKS
+    ok_weeks = c3prime_weeks(daily)
     for i in range(n - 1, W - 1, -1):  # i=W(=50) 포함 — n=51 폴스루가 no_transition 으로 새는 회귀 방지(라운드 2 N2)
         s30, s40 = _sma(closes, i, 30), _sma(closes, i, 40)
-        v_avg = sum(vols[i - W : i]) / W
-        if None in (s30, s40) or v_avg <= 0:
+        if None in (s30, s40):
             continue
         # C1 Stage1 재형성: 직전 s1(4)주 연속 close < 그 주의 40주 SMA (검토 중6)
         stage1 = all(
@@ -91,8 +116,10 @@ def find_anchor(weekly: list[dict]) -> dict:
                     and (prev_s40 - prev_s40k) / prev_s40k * 100 <= CLIMAX_ANCHOR_FLAT_BAND_PCT)
         # (#158 Fix α) 구 C4 "s30/s40 이 k주 전 대비 상승" 은 제거 — Stage 1 직후 돌파 주와
         # 시간적으로 양립 불가한 [EXTENDS] 조건(책 근거 없음)이라 전환 89.9% 를 차단했다.
-        if (stage1 and slope_ok and vols[i] >= BREAKOUT_VOL_FLOOR * v_avg      # C3
-                and closes[i] > s30 and closes[i] > s40):                        # C5
+        # (#184) C3′: 이 주의 ISO 주 안에 상승 마감 + 1.4×avg_volume_50d 인 일봉이 1일 이상.
+        if (stage1 and slope_ok
+                and date.fromisoformat(weekly[i]["week_end"]).isocalendar()[:2] in ok_weeks   # C3′
+                and closes[i] > s30 and closes[i] > s40):                                      # C5
             return {"anchor_week": weekly[i]["week_end"], "left_censored": False,
                     "no_transition": False, "weeks_since": n - 1 - i}
     return {"anchor_week": None, "left_censored": False,
