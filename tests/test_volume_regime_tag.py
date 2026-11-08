@@ -86,8 +86,8 @@ def test_classification_flag_column_and_clean_sanity(db, straddle, flag):
         cur.execute("DELETE FROM weekly_classification WHERE symbol='VRF1'")
     insert_classification(db, symbol="VRF1", classified_at=datetime.now(timezone.utc), market="KOSPI",
                           result=_cls_result(), source="weekend", llm_meta=_LLM_META, analyzed_for_date=as_of)
-    f, w = _one(db, "SELECT volume_regime_flag, sanity_warnings FROM weekly_classification WHERE symbol='VRF1'")
-    assert f == flag and not (w or [])
+    f, w, ver = _one(db, "SELECT volume_regime_flag, sanity_warnings, volume_regime_flag_ver FROM weekly_classification WHERE symbol='VRF1'")
+    assert f == flag and not (w or []) and ver == 2                    # (#184) writer 는 항상 현재 창 정의 버전(2)
 
 
 @pytest.mark.parametrize("straddle,flag", CASES)
@@ -98,8 +98,8 @@ def test_backfill_classification_flag_column(db, straddle, flag):
         cur.execute("DELETE FROM classification_backfill WHERE symbol='VRF5'")
     insert_backfill_classification(db, symbol="VRF5", classified_at=datetime.now(timezone.utc), market="KOSPI",
                                    result=_cls_result(), source="backfill", llm_meta=_LLM_META, analyzed_for_date=as_of)
-    f = _one(db, "SELECT volume_regime_flag FROM classification_backfill WHERE symbol='VRF5'")[0]
-    assert f == flag
+    f, ver = _one(db, "SELECT volume_regime_flag, volume_regime_flag_ver FROM classification_backfill WHERE symbol='VRF5'")
+    assert f == flag and ver == 2
 
 
 @pytest.mark.parametrize("straddle,flag", CASES)
@@ -112,8 +112,8 @@ def test_trigger_log_flag_column(db, straddle, flag):
     insert_trigger_log(db, symbol="VRF2", evaluated_at=now, trigger_type="breakout", close=1010.0, volume=1, pivot_price=1000.0,
                        result={"decision": "wait", "confidence": 0.5, "reasoning": "t"}, prior_classification_at=now,
                        llm_meta=_LLM_META, analyzed_for_date=as_of)
-    f, w = _one(db, "SELECT volume_regime_flag, sanity_warnings FROM trigger_evaluation_log WHERE symbol='VRF2'")
-    assert f == flag and w is None
+    f, w, ver = _one(db, "SELECT volume_regime_flag, sanity_warnings, volume_regime_flag_ver FROM trigger_evaluation_log WHERE symbol='VRF2'")
+    assert f == flag and w is None and ver == 2
 
 
 @pytest.mark.parametrize("straddle,flag", CASES)
@@ -125,8 +125,8 @@ def test_entry_params_flag_column_and_clean_known_warnings(db, straddle, flag):
         cur.execute("DELETE FROM entry_params WHERE symbol='VRF3'")
     insert_entry_params(db, symbol="VRF3", signal_at=now, result=_s9_result(), trigger_evaluation_at=now,
                         prior_classification_at=now, llm_meta=_LLM_META, analyzed_for_date=as_of)
-    f, kw = _one(db, "SELECT volume_regime_flag, known_warnings FROM entry_params WHERE symbol='VRF3' AND signal_at=%s", now)
-    assert f == flag and "volume_regime_unverified_#207" not in (kw or [])
+    f, kw, ver = _one(db, "SELECT volume_regime_flag, known_warnings, volume_regime_flag_ver FROM entry_params WHERE symbol='VRF3' AND signal_at=%s", now)
+    assert f == flag and "volume_regime_unverified_#207" not in (kw or []) and ver == 2
 
 
 @pytest.mark.parametrize("anchor_offset_weeks,flag", [(-3, FLAG_MIXED), (0, None), (None, None)])
@@ -152,8 +152,8 @@ def test_position_evaluations_flag_from_anchor_window(db, anchor_offset_weeks, f
     assert _insert_decline_eval(db, position_id=pid, as_of=eval_week, fired=False, hold_days=1, signals=[], anchor_week=anchor,
                                 weeks_since=None, maturity_ok=None, ta_max_decline_now=None, ta_d_daily_max_decline_now=None,
                                 mode="quality", climax_also_fired=False, volume_regime_flag=vr)
-    assert _one(db, "SELECT volume_regime_flag FROM position_climax_evaluations WHERE position_id=%s", pid)[0] == flag
-    assert _one(db, "SELECT volume_regime_flag FROM position_decline_evaluations WHERE position_id=%s", pid)[0] == flag
+    assert _one(db, "SELECT volume_regime_flag, volume_regime_flag_ver FROM position_climax_evaluations WHERE position_id=%s", pid) == (flag, 2)
+    assert _one(db, "SELECT volume_regime_flag, volume_regime_flag_ver FROM position_decline_evaluations WHERE position_id=%s", pid) == (flag, 2)
 
 
 def test_run_daily_eval_wires_window_flag_into_both_rows(db, mocker):

@@ -21,6 +21,7 @@ from datetime import date
 from psycopg import Connection
 
 from kr_pipeline.common.daily_bars import latest_daily_bar_date
+from kr_pipeline.common.data_regimes import VOLUME_REGIME_FLAG_VER
 from kr_pipeline.common.regime_windows import held_window_flag
 from kr_pipeline.common.thresholds import SELL_HALF_ENABLED
 from kr_pipeline.llm_runner.slack import (
@@ -272,12 +273,13 @@ def _insert_decline_eval(conn: Connection, *, position_id: int, as_of: date, fir
             INSERT INTO position_decline_evaluations
               (position_id, eval_date, fired, hold_days, signals, anchor_week, weeks_since,
                maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode,
-               climax_also_fired, volume_regime_flag)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+               climax_also_fired, volume_regime_flag, volume_regime_flag_ver)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (position_id, eval_date) DO NOTHING
             """,
             (position_id, as_of, fired, hold_days, json.dumps(list(signals)), anchor_week, weeks_since,
-             maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode, climax_also_fired, volume_regime_flag),
+             maturity_ok, ta_max_decline_now, ta_d_daily_max_decline_now, mode, climax_also_fired, volume_regime_flag,
+             VOLUME_REGIME_FLAG_VER),
         )
         return cur.rowcount == 1
 
@@ -291,11 +293,11 @@ def _insert_climax_eval(conn: Connection, *, position_id: int, as_of: date, fire
             """
             INSERT INTO position_climax_evaluations
               (position_id, eval_date, fired, suppressed, hold_days, triggers, anchor_week,
-               weeks_since, maturity_ok, p2_accel_ok, scope_active, mode, volume_regime_flag)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+               weeks_since, maturity_ok, p2_accel_ok, scope_active, mode, volume_regime_flag, volume_regime_flag_ver)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (position_id, eval_date) DO NOTHING
             """,
             (position_id, as_of, fired, suppressed, hold_days, json.dumps(list(triggers)), anchor_week, weeks_since,
-             maturity_ok, p2_accel_ok, scope_active, mode, volume_regime_flag),
+             maturity_ok, p2_accel_ok, scope_active, mode, volume_regime_flag, VOLUME_REGIME_FLAG_VER),
         )
         return cur.rowcount == 1

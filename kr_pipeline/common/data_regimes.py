@@ -33,6 +33,8 @@ REGIME_REGULAR: Final[str] = "regular"     # 정규장(09:00~15:30) 거래량
 REGIME_EXTENDED: Final[str] = "extended"   # 애프터마켓(16:00~20:00) 합산 거래량(회신 21: 정의로 수용)
 REGIME_MIXED: Final[str] = "mixed"         # 주봉: 구성 일봉 혼재
 FLAG_MIXED: Final[str] = "mixed"           # 판정 행 volume_regime_flag 값(그 외 NULL)
+VOLUME_REGIME_FLAG_VER: Final[int] = 2     # (#184) 표지 창 정의 버전. 1 = 2026-09-28~#184 배포 전(주간 51주·앵커 끝 51주 창, 이관 SQL 이 채움),
+                                           # 2 = C3′ 일간 창. writer 는 항상 현재 값을 쓴다 — as_of 가 경계 전이라 flag 가 NULL 이어도 "정의 2 로 평가했음".
 
 
 def _as_date(v) -> date | None:
