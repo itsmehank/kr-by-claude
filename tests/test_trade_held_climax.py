@@ -81,7 +81,8 @@ def test_no_transition_series_end_to_end_never_fires():
     last = date.fromisoformat(weekly[-1]["week_end"])
     daily = [{"date": str(last - timedelta(days=19 - i)), "open": 1700.0 + i, "high": 1701.0 + i,
               "low": 1699.0 + i, "close": 1700.0 + i, "volume": 100_000} for i in range(20)]
-    g = gates_from_series(weekly, daily)
+    from tests.test_climax_topping import _mk_daily_from_weeks
+    g = gates_from_series(weekly, daily, _mk_daily_from_weeks(weekly))
     assert g["no_transition"] is True and g["anchor_week"] is None
     assert g["maturity_ok"] is None and g["p2_accel_ok"] is None and g["scope_active"] is None
     assert g["t4_ok"] is True  # anchor 비의존 트리거는 계산됨 — 그래도 결합식은 미정의
@@ -149,12 +150,14 @@ def test_gates_from_series_matches_payload_builder_path(db):
         c *= 1.06 if d == on_date else (1.20 if d == monday else 1.002)
         drows.append((d, c))
     _seed_daily(db, ticker, drows)
+    from tests.test_climax_payload import _seed_anchor_week_indicators
+    _seed_anchor_week_indicators(db, ticker, anchor_we, rows[65][0])          # (#184) 앵커 주 C3′ 일봉
 
-    weekly, daily = fetch_series(db, ticker, on_date)
-    prod = gates_from_series(weekly, daily)
+    weekly, daily, daily_ind = fetch_series(db, ticker, on_date)
+    prod = gates_from_series(weekly, daily, daily_ind)
 
     wk = _fetch_weekly_full(db, ticker, on_date)
-    anchor = find_anchor(wk)
+    anchor = find_anchor(wk, daily_ind)
     replay = compute_climax_gates(wk, _fetch_daily_ohlcv(db, ticker, on_date, days=60)[-20:], anchor)
     bl = _anchor_baseline_start(anchor["anchor_week"])
     replay.update(compute_daily_extremes(_fetch_daily_since(db, ticker, bl, on_date), bl.isoformat(), anchor))
@@ -162,12 +165,13 @@ def test_gates_from_series_matches_payload_builder_path(db):
     for k in ("maturity_ok", "p2_accel_ok", "scope_active", *HELD_CLIMAX_TRIGGERS, "quality_flag"):
         assert prod[k] == replay[k], k
     # slice_upto 로 절단한 전 이력도 같은 결과(backtest 경로)
-    wk_all, dl_all = fetch_series(db, ticker, on_date + timedelta(days=30))
-    sl = gates_from_series(*slice_upto(wk_all, dl_all, on_date))
+    wk_all, dl_all, di_all = fetch_series(db, ticker, on_date + timedelta(days=30))
+    sl = gates_from_series(*slice_upto(wk_all, dl_all, di_all, on_date))
     for k in ("anchor_week", "maturity_ok", "p2_accel_ok", *HELD_CLIMAX_TRIGGERS):
         assert sl[k] == prod[k], k
     with db.cursor() as cur:
         cur.execute("DELETE FROM daily_prices WHERE ticker=%s", (ticker,))
+        cur.execute("DELETE FROM daily_indicators WHERE ticker=%s", (ticker,))
         cur.execute("DELETE FROM weekly_prices WHERE ticker=%s", (ticker,))
     db.commit()
 

@@ -129,6 +129,6 @@ def decline_metrics(weekly: list[dict], daily: list[dict], anchor_week: str | No
 def compute_held_decline(conn: Connection, symbol: str, as_of: date, entry_date: date
                          ) -> tuple[HeldDeclineDecision, DeclineMetrics]:
     """production 편의 함수: DB 조회 → 산술 → 결합식 + echo."""
-    weekly, daily = fetch_series(conn, symbol, as_of)
-    gates = gates_from_series(weekly, daily)
+    weekly, daily, daily_ind = fetch_series(conn, symbol, as_of)
+    gates = gates_from_series(weekly, daily, daily_ind)
     return evaluate_held_decline(gates, entry_date, as_of), decline_metrics(weekly, daily, gates["anchor_week"])

@@ -97,10 +97,11 @@ def _anchored_weekly():
 
 def test_gates_from_series_supplies_ta_consistent_with_topping_gates():
     from kr_pipeline.llm_runner.compute.climax_topping import compute_topping_gates, find_anchor
+    from tests.test_climax_topping import _mk_daily_from_weeks
     wk = _anchored_weekly()
-    anchor = find_anchor(wk)
+    anchor = find_anchor(wk, _mk_daily_from_weeks(wk))
     assert anchor["anchor_week"] is not None
-    g = gates_from_series(wk, [])
+    g = gates_from_series(wk, [], _mk_daily_from_weeks(wk))
     assert g["ta_max_decline_now"] == compute_topping_gates(wk, None, anchor)["ta_max_decline_now"] is True
     d = evaluate_held_decline(g, ENTRY, LATE)
     assert d.mode == "anchored" and d.maturity_ok is True and d.fired is True
@@ -109,14 +110,15 @@ def test_gates_from_series_supplies_ta_consistent_with_topping_gates():
 
 def test_gates_from_series_left_censored_ta_none():
     wk = _weekly([(1000.0 - i, 100_000) for i in range(40)])
-    g = gates_from_series(wk, [])
+    g = gates_from_series(wk, [], [])
     assert g["left_censored"] is True and g["ta_max_decline_now"] is None
     assert evaluate_held_decline(g, ENTRY, LATE).fired is None
 
 
 def test_decline_metrics_echo_matches_signals():
+    from tests.test_climax_topping import _mk_daily_from_weeks
     wk = _anchored_weekly()
-    g = gates_from_series(wk, [])
+    g = gates_from_series(wk, [], _mk_daily_from_weeks(wk))
     m = decline_metrics(wk, [], g["anchor_week"])
     # T-A True ↔ 당주 하락률이 baseline 최대(동률 허용)
     assert m.week_decline_pct is not None and m.week_decline_pct >= m.baseline_max_weekly_decline_pct
@@ -140,7 +142,7 @@ def test_runner_decline_fires_notifies_and_records_climax_also(db, mocker):
     from kr_pipeline.trade_management import runner
     pid = _runner_seed(db, "HDCL1")  # entry 2026-05-01 → 7/10 = 70일(climax 비억제)
     mocker.patch.object(runner, "compute_held_gates", return_value=_gates_both())
-    mocker.patch.object(runner, "fetch_series", return_value=([], []))
+    mocker.patch.object(runner, "fetch_series", return_value=([], [], []))   # (#184) 3-튜플(weekly, daily, daily_ind)
     n_weak = mocker.patch.object(runner, "notify_sell_on_weakness")
     n_strong = mocker.patch.object(runner, "notify_sell_into_strength")
     mocker.patch.object(runner, "notify_stop_triggered")

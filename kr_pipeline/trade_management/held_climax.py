@@ -29,6 +29,7 @@ from api.services.payload_builder import (
     _DAILY_OHLCV_COLS,
     _anchor_baseline_start,
     _daily_row,
+    _fetch_daily_anchor_series,
     _fetch_weekly_full,
 )
 from kr_pipeline.common.price_source import ZERO_BAR_SQL, price_source
@@ -79,25 +80,28 @@ def fetch_daily_flagged(conn: Connection, ticker: str, on_date: date) -> list[di
     return [{**_daily_row(r), "zero_bar": bool(r[6]), "adj_hl": bool(r[7])} for r in rows]
 
 
-def fetch_series(conn: Connection, symbol: str, as_of: date) -> tuple[list[dict], list[dict]]:
-    """production 경로: (주봉 전 이력 zero-bar 제외+플래그, 일봉 전 이력 플래그 포함)."""
-    return _fetch_weekly_full(conn, symbol, as_of), fetch_daily_flagged(conn, symbol, as_of)
+def fetch_series(conn: Connection, symbol: str, as_of: date) -> tuple[list[dict], list[dict], list[dict]]:
+    """production 경로: (주봉 전 이력 zero-bar 제외+플래그, 일봉 전 이력 플래그 포함, (#184) 일봉 지표 전 이력 — find_anchor C3′ 입력)."""
+    return (_fetch_weekly_full(conn, symbol, as_of), fetch_daily_flagged(conn, symbol, as_of),
+            _fetch_daily_anchor_series(conn, symbol, as_of))
 
 
-def slice_upto(weekly: list[dict], daily: list[dict], as_of: date) -> tuple[list[dict], list[dict]]:
-    """미리 적재한 전 이력을 as_of 이하로 절단(backtest 용). 두 목록 다 오름차순 가정."""
+def slice_upto(weekly: list[dict], daily: list[dict], daily_ind: list[dict], as_of: date
+               ) -> tuple[list[dict], list[dict], list[dict]]:
+    """미리 적재한 전 이력을 as_of 이하로 절단(backtest 용). 세 목록 다 오름차순 가정."""
     iso = as_of.isoformat()
     wk_keys = [w["week_end"] for w in weekly]
     dl_keys = [d["date"] for d in daily]
-    return weekly[:bisect_right(wk_keys, iso)], daily[:bisect_right(dl_keys, iso)]
+    di_keys = [d["date"] for d in daily_ind]
+    return weekly[:bisect_right(wk_keys, iso)], daily[:bisect_right(dl_keys, iso)], daily_ind[:bisect_right(di_keys, iso)]
 
 
-def gates_from_series(weekly: list[dict], daily: list[dict]) -> dict:
+def gates_from_series(weekly: list[dict], daily: list[dict], daily_ind: list[dict]) -> dict:
     """§6.1 산술 전부(anchor·P1·P2·T1~T6·scope) + (#164) §6.2 주간 T-A `ta_max_decline_now`
     — payload_builder.build_payload 의 climax/topping 부분과 같은 입력 구성으로 재현.
     반환에 anchor 3모드 키 포함. T-A 는 compute_topping_gates 에서 그 키만 가져온다(분배일
     카운트 입력 None — 보유 판정은 anchor 의존 하락 극값만 소비, td_dist_ok 미사용)."""
-    anchor = find_anchor(weekly)
+    anchor = find_anchor(weekly, daily_ind)                      # (#184) C3′ = 일봉 지표(avg_volume_50d) 기준
     daily20 = [d for d in daily if not d.get("zero_bar")][-_DAILY_TAIL:]
     climax = compute_climax_gates(weekly, daily20, anchor)
     if anchor["left_censored"] or anchor["no_transition"] or climax["quality_flag"]:
@@ -114,14 +118,16 @@ def gates_from_series(weekly: list[dict], daily: list[dict]) -> dict:
             "left_censored": anchor["left_censored"], "no_transition": anchor["no_transition"],
             "weeks_since": anchor["weeks_since"],
             # (#207 Q-5c 2) T2 산술이 실제로 쓴 주(zero-bar 제외) — 러너가 거래량 정의 창 flag 를 DB 없이 유도(리뷰 #222)
-            "week_ends": [w["week_end"] for w in weekly]}
+            "week_ends": [w["week_end"] for w in weekly],
+            # (#184) C3′ 가 실제로 본 일봉 지표 행 날짜 — 러너가 보유 표지 창(앵커 C3′ 창 시작)을 DB 없이 유도
+            "daily_dates": [d["date"] for d in daily_ind]}
 
 
 def compute_held_gates(conn: Connection, symbol: str, as_of: date) -> dict:
     """production 편의 함수: DB 조회 → gates_from_series. (#164) 러너가 하루 1회 호출해 climax·
     decline 두 결합식에 같은 gates 를 공급한다(조회 1회)."""
-    weekly, daily = fetch_series(conn, symbol, as_of)
-    return gates_from_series(weekly, daily)
+    weekly, daily, daily_ind = fetch_series(conn, symbol, as_of)
+    return gates_from_series(weekly, daily, daily_ind)
 
 
 def evaluate_held_climax(gates: dict, entry_date: date, as_of: date,
@@ -153,5 +159,5 @@ def evaluate_held_climax(gates: dict, entry_date: date, as_of: date,
 def compute_held_climax(conn: Connection, symbol: str, as_of: date, entry_date: date,
                         hold_min_days: int = TRADE_HOLD_MIN_DAYS) -> HeldClimaxDecision:
     """production 편의 함수: DB 조회 → 산술 → 결합식."""
-    weekly, daily = fetch_series(conn, symbol, as_of)
-    return evaluate_held_climax(gates_from_series(weekly, daily), entry_date, as_of, hold_min_days)
+    weekly, daily, daily_ind = fetch_series(conn, symbol, as_of)
+    return evaluate_held_climax(gates_from_series(weekly, daily, daily_ind), entry_date, as_of, hold_min_days)

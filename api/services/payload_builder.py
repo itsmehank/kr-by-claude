@@ -151,7 +151,7 @@ def build_payload(conn: Connection, ticker: str, on_date: date | None = None) ->
 
     # (#44 Task 5) climax/topping 게이트 통합 — anchor 전 이력 탐색 + §6.1/§6.2 산술
     weekly_full = _fetch_weekly_full(conn, ticker, on_date)
-    anchor = find_anchor(weekly_full)
+    anchor = find_anchor(weekly_full, _fetch_daily_anchor_series(conn, ticker, on_date))   # (#184) C3′ 일봉 입력
     climax = compute_climax_gates(weekly_full, daily_ohlcv[-20:], anchor)
     topping = compute_topping_gates(weekly_full, _dist_count_25s(indicators_60d), anchor)
     # (항목 ① 2026-09-07) 일간 극값 신호 T5·T6·TA-d — anchor 이후 전 일봉 별도 경로.
@@ -427,6 +427,26 @@ def _fetch_weekly_full(conn: Connection, ticker: str, on_date: date) -> list:
         })
         gap = False
     return out
+def _fetch_daily_anchor_series(conn: Connection, ticker: str, on_date: date) -> list[dict]:
+    """(#184) find_anchor C3′ 입력 — 일봉 지표 전 이력(≤ on_date, 오름차순, LIMIT 없음) 1쿼리.
+    행 = {date(ISO), close(adj_close — halt 일 carry, NOT NULL), volume(=adj, halt NULL), avg_volume_50d(min_periods 40, NULL 허용)}.
+    저장 열을 그대로 읽고 재계산하지 않는다(spec 2026-11-07 §5-2). 분류 payload·보유 평가(held_climax.fetch_series)·
+    백테스트(TickerData.daily_ind)·재생 스크립트가 공유하는 유일한 조달 함수."""
+    src = price_source(conn, ticker)  # (#181 B4)
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT date, adj_close, volume, avg_volume_50d
+              FROM {src.indicators}
+             WHERE ticker = %s AND date <= %s
+             ORDER BY date ASC
+        """, (ticker, on_date))
+        rows = cur.fetchall()
+    return [{"date": r[0].isoformat(),
+             "close": float(r[1]) if r[1] is not None else None,
+             "volume": float(r[2]) if r[2] is not None else None,
+             "avg_volume_50d": float(r[3]) if r[3] is not None else None} for r in rows]
+
+
 def _fetch_indicators_recent(conn: Connection, ticker: str, on_date: date, days: int = 60) -> list:
     """daily_prices(가격·거래량) + daily_indicators(지표) JOIN → 최근 N일 series."""
     src = price_source(conn, ticker)  # (#181 B4)

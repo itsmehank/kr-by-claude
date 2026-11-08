@@ -35,6 +35,7 @@ from kr_pipeline.llm_runner.compute.climax_topping import (
 )
 from api.services.payload_builder import (
     _dist_count_25s,
+    _fetch_daily_anchor_series,
     _fetch_daily_ohlcv,
     _fetch_indicators_recent,
     _fetch_weekly_full,
@@ -62,7 +63,7 @@ def _replay_row(conn, symbol: str, on_date) -> tuple[dict, dict, dict, bool | No
     ind60 = _fetch_indicators_recent(conn, symbol, on_date, days=60)
     daily20 = daily60[-20:]
 
-    anchor = find_anchor(weekly_full)
+    anchor = find_anchor(weekly_full, _fetch_daily_anchor_series(conn, symbol, on_date))   # (#184) C3′ 일봉 입력
     climax = compute_climax_gates(weekly_full, daily20, anchor)
     dist_count_25s = _dist_count_25s(ind60)
     topping = compute_topping_gates(weekly_full, dist_count_25s, anchor)
@@ -208,7 +209,7 @@ def main() -> int:
         mismatch = 0
         for row, anchor1 in sample:
             weekly_full_2 = _fetch_weekly_full(conn, row["symbol"], row["date"])
-            anchor2 = find_anchor(weekly_full_2)
+            anchor2 = find_anchor(weekly_full_2, _fetch_daily_anchor_series(conn, row["symbol"], row["date"]))
             if anchor1 != anchor2:
                 mismatch += 1
         log.info("anchor stability sample: n=%d mismatch=%d", len(sample), mismatch)

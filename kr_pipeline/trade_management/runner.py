@@ -191,7 +191,8 @@ def run_daily_eval(conn: Connection, *, as_of: date | None = None) -> dict:
         if hd.fired:
             decline_fired += 1
             if hd_inserted:
-                dm = decline_metrics(*fetch_series(conn, p["symbol"], as_of), gates.get("anchor_week"))
+                wk_, dl_, _ = fetch_series(conn, p["symbol"], as_of)        # (#184) 3-튜플(세 번째 = 일봉 지표, echo 에 불필요)
+                dm = decline_metrics(wk_, dl_, gates.get("anchor_week"))
                 with conn.cursor() as cur:
                     cur.execute("SELECT name FROM stocks WHERE ticker = %s", (p["symbol"],))
                     nrow = cur.fetchone()
