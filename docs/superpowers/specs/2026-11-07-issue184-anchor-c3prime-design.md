@@ -39,8 +39,31 @@ threshold-change-checklist 의존성 맵(§6)을 요구한다(CLAUDE.md 트리�
 - 저장 행에 **창 정의 버전 열** 추가: 1 = 종전(주간 51주·앵커 끝 51주 창), 2 = C3′ 일간 창.
 - 10-05 사전등록 본문 결과는 ver 1 행만으로 산출, ver 2 혼입 구간은 부록에서 버전별 분리(사전등록 문서 자체는 수정하지 않음 — 결과 부록 단계의 규칙).
 
-### D4. 코드 주석 정정 — 회신 11-07 [Q-1b]
-`BREAKOUT_VOL_FLOOR` docstring: 1.4 는 HMMS Ch.2 p.117, **50거래일 창은 HMMS p.349** 로 출처 분리.
+### D4. 코드 주석 정정 — 회신 11-07 [Q-1b] + 회신 11-08 [Q-4-3]
+- `BREAKOUT_VOL_FLOOR` docstring: 1.4 는 HMMS Ch.2 p.117, **50거래일 창은 HMMS p.349** 로 출처 분리.
+- `VOLUME_AVG_WINDOW_DAYS` docstring 도 같은 정정: "50거래일 창" 출처 **HMMS p.117 → HMMS p.349**(IBD Volume Percent Change, 최근 50거래일) + 보조
+  TLSMW Ch.10 p.226("50-day average"). **TLOND p.134 는 유지하되 인용 내용 변경**: "돌파 비교 기준 = 평균 대비, 선호 수준 +50%"(창 길이 미명시) —
+  "50일" 의 출처가 아님. book-mandated.
+- 정정 범위는 **코드 주석 2건만**. 프롬프트의 규칙 서술 문장(예: calculate_entry_params §6.1 "40–50% above the 50-day average",
+  analyze_chart_v3 :311·:575)은 인용이 아니므로 손대지 않는다.
+
+### D5. 프롬프트 §6.1 앵커 문장 — 회신 11-08 [Q-4-1] **승인, 문안 수정 없음**
+5-5 의 교체안을 그대로 쓴다. 책 대조(회신): "≥ BREAKOUT_VOL_FLOOR ×" = HMMS Ch.2 p.117(+40~50%, book-mandated) · "50-day average volume" =
+HMMS p.349 + TLSMW Ch.10 p.226(book-mandated) · "at least one up-close day" = HMMS p.117 문맥 + TLSMW Ch.5 p.70 기준 5·6(book-mandated) ·
+"(close > prior close)" = design-judgment. **앵커 주 자체의 상승 마감 요건은 문장에 넣지 않는다**(별건; 코드에 없는 조건을 §6.1 에 쓰면
+"consume AS-IS" 규약과 충돌). 이름 변경·결측 모드 문구 변경 이의 없음. 회신의 선택 사항(상수 목록에 출처 태그가 있으면 design-judgment 로) —
+코드 실측: 프롬프트 :36-50 상수 목록은 이름=값만 나열하고 태그가 없으므로 **해당 없음**; 태그는 thresholds.py docstring 에만 있고 D2 가 처리.
+
+### D6. 주간 51주 표지 창 — 회신 11-08 [Q-4-2] **접수, 삭제 확정**
+회신 Q-2 의 "T2 등이 51주 창 참조" 전제는 확인 없는 가정이었음(전문가 오류 인정). 51주 주간 창은 C3′ 전환 시 **삭제**, 결과 창은 D3 와 일치.
+파급(판정 아님): ver 1 과 ver 2 는 **창 범위가 다른 표지**(ver 2 가 더 좁아 `mixed` 발생률이 낮아질 가능성) → ver 1 단독 산출(D3) 유지가 더 필요.
+
+### D7. ver 1 한정으로 MIX-1 층 n 감소 — 회신 11-08 [Q-4-4] **감수(인지한 결정)**
+- 기각된 대안: ver 2 행 본문 포함(잠금 후 층 변수 정의 변경) · #184 배포를 2027-01-04 이후로 연기(틀린 태그의 앵커 규칙 7주 더 운용) ·
+  옛 C3 앵커 그림자 계산으로 ver 1 표지 병행 저장(표지가 "그 행의 판정이 의존한 창" 을 설명하지 못함 — 회신 22 원칙 위반).
+- 조건: 사전등록의 "n 부족" 처리 조항을 그대로 따른다. **코드 실측: 10-05 사전등록에는 n 부족 처리 조항이 없다**(§7 :77 "더 이르면 n 부족" 은 R1 선정
+  이유일 뿐) → 판독 보고서에 "ver 1 층 n 이 계획 대비 감소, 원인 = #184 배포(날짜)" 를 **한계로 기재**하고 끝. 판독일 연기·층 재정의 금지(3-4).
+- 등급: design-judgment(실험 무결성).
 
 ## 3. 목표·비목표·실패 조건
 
@@ -58,7 +81,7 @@ threshold-change-checklist 의존성 맵(§6)을 요구한다(CLAUDE.md 트리�
 ## 4. 제약
 - 운영 규칙 1~6(CLAUDE.md): 브랜치 `issue184-c3-daily`(origin/main 기준, 생성 완료) · `git add` 명시 경로 · suite 전 `pgrep -f pytest` · **schema.sql 변경은 kr_pipeline·kr_test 양쪽 psql 수동 적용** · KRX 접촉 0 · 토스 호출 0.
 - 프롬프트 변경은 `prompts/VERSIONS.md` 행 추가와 같은 커밋(tests/test_prompt_versions.py). 4-6 SSOT 선언을 프롬프트 상단에 삽입(#155 Q-2(B) 이행 — 다음 프롬프트 변경 시).
-- 프롬프트 §6.1 문안 교체는 **전문가 확인(Q-4, 책 근거 첨부) 후** 적용. 확인 전까지는 코드·상수·표지만 구현하고 PR 을 열지 않는다(프롬프트와 코드가 다른 상태로 배포 금지).
+- 프롬프트 §6.1 문안 교체는 전문가 확인(Q-4-1, 2026-11-08 승인·책 근거 첨부) 완료 — D5 문안 그대로 적용. 코드와 프롬프트는 **같은 PR** 로 배포(다른 상태로 배포 금지).
 - 임계 export: `scripts/export_thresholds.py` 재실행 → `web/src/data/thresholds.generated.ts`(상수명 변경 반영).
 
 ## 5. 설계 (구현자 결정 포함 — "[CC 결정]" 표시는 사용자 승인 대상)
@@ -87,7 +110,7 @@ threshold-change-checklist 의존성 맵(§6)을 요구한다(CLAUDE.md 트리�
 비용: 분류 종목당 indicators 전 이력 ~2,500행 SELECT 1회 추가(주말 ~100종목) — 허용. 백테스트는 종목당 1회 선적재.
 
 ### 5-3. 상수·데이터 정의
-- thresholds.py: D2 개명·재태그, D4 주석 정정. **[Q-4 동봉]** `VOLUME_AVG_WINDOW_DAYS` docstring 도 "HMMS p.117 '50-day average volume'" 을 인용 — 같은 정정(p.349) 대상인지 전문가 확인 후 반영(확인 전 불변).
+- thresholds.py: D2 개명·재태그, D4 주석 정정 2건(`BREAKOUT_VOL_FLOOR` + `VOLUME_AVG_WINDOW_DAYS` — Q-4-3 확인됨: p.117→p.349(+TLSMW Ch.10 p.226), TLOND p.134 는 "평균 대비 +50% 선호" 출처로 인용 내용 변경).
 - `data_regimes.VOLUME_WINDOW_WEEKLY_WEEKS` **삭제**(소비처 = C3 표지 창뿐 — 코드 실측: weekly_window_flag·classification_flag 2곳, T2 는 앵커~평가 주 창. 회신 Q-2 의 "T2 등의 상수 참조" 전제는 코드와 다름 → Q-4 에 사실 전달). `weekly_window_flag` 함수 삭제(소비처 테스트뿐).
 - `tests/test_volume_regime_bars.py:43` 의 W+1 단언 삭제, `test_prompt_threshold_drift.py:41` 상수명 갱신.
 
@@ -104,11 +127,11 @@ threshold-change-checklist 의존성 맵(§6)을 요구한다(CLAUDE.md 트리�
 - 저장 열: **`volume_regime_flag_ver SMALLINT`** 를 volume_regime_flag 가 있는 8테이블(schema.sql :1146-1154)에 추가. writer(store.insert_classification·backfill 계열·insert_trigger_log·insert_entry_params·runner 2곳)는 **항상 2** 기록(as_of 가 경계 전이라 flag 가 NULL 이어도 "정의 2 로 평가했음"). 이관 SQL: 기존 행 중 `as_of(analyzed_for_date/eval date) ≥ 2026-09-28` → 1, 그 외 NULL(표지 미평가). 트리거·진입 행은 창 정의가 바뀌지 않지만 열은 공통 스키마로 동일 기록(값 2) — 판독 시 테이블별 의미는 spec 2026-09-30 §5 갱신으로 기술.
 - spec 2026-09-30 §5 표의 분류·보유 행을 "갱신 2026-11(#184)" 로 수정(과거 서술은 남기고 대체 표기).
 
-### 5-5. 프롬프트(SSOT, 4-6) — Q-4 확인 후 적용
-- `prompts/analyze_chart_v3.md` §6.1 앵커 문장 교체안(Q-4 로 전문가에 송부, 책 근거 요청):
+### 5-5. 프롬프트(SSOT, 4-6) — Q-4-1 승인(2026-11-08), D5 문안 그대로
+- `prompts/analyze_chart_v3.md` §6.1 앵커 문장(:408) 교체(전문가 승인, 수정 없음):
   "… → breakout week in which **at least one up-close day (close > prior close) traded volume ≥ BREAKOUT_VOL_FLOOR × its 50-day
   average volume (`avg_volume_50d`)**, with the close above the 30/40-week lines — all in the SAME week; …"
-- :46 `CLIMAX_ANCHOR_VOL_AVG_WEEKS = 50` → `ANCHOR_MIN_HISTORY_WEEKS = 50`, :423 결측 모드 문구의 상수명 동일 교체.
+- :46 `CLIMAX_ANCHOR_VOL_AVG_WEEKS = 50` → `ANCHOR_MIN_HISTORY_WEEKS = 50`, :423 결측 모드 문구의 상수명 동일 교체. :311·:575 등 "50-day average" 규칙 서술 문장은 불변(D4 범위 밖).
 - 상단에 4-6 SSOT 선언 1줄 삽입(#155 Q-2(B)). VERSIONS.md 행 추가(같은 커밋).
 
 ### 5-6. 문서·용어집
@@ -134,7 +157,7 @@ threshold-change-checklist 의존성 맵(§6)을 요구한다(CLAUDE.md 트리�
 | 고정 상수 | 축1 환산? | 축2 영향? | 책 정합 | 판정 → 후속 |
 |---|---|---|---|---|
 | `BREAKOUT_VOL_FLOOR`=1.4 (C3′ 배수) | 불요(값 불변, 적용 층위만 일간으로) | **있음** — 같은 1.4 가 주간 합계 대신 일봉에 적용돼 앵커 성립이 늘어남(§8) | PRESERVES(HMMS p.117, 이제 책 층위와 일치) | **B-수치**: 배포 후 1회 집계(anchored/no_transition 분포, 09-27 F-3 기준 1660/60/69 대비) + 4주 후 climax 발화·억제 건수 — 3-3 관측 라벨 |
-| `VOLUME_AVG_WINDOW_DAYS`=50 · `min_periods`=40 (avg_volume_50d 분모) | 불가(세션 수) | **있음** — C3′ 의 분모가 됨(신규 소비). NaN 날 불충족 규칙이 앵커 성립을 막는 방향 | PRESERVES(HMMS p.349·TLSMW p.226 — Q-4 주석 확인) | **모니터링** — 근거: 분모는 B 게이트(entry_params)와 동일 열이라 이미 운영 검증됨, 변경 0; 전부-NULL 주로 no_transition 이 된 건수를 §8 스크립트가 세므로 배포 집계에 포함 |
+| `VOLUME_AVG_WINDOW_DAYS`=50 · `min_periods`=40 (avg_volume_50d 분모) | 불가(세션 수) | **있음** — C3′ 의 분모가 됨(신규 소비). NaN 날 불충족 규칙이 앵커 성립을 막는 방향 | PRESERVES(HMMS p.349·TLSMW Ch.10 p.226 — Q-4-3 확인됨, 주석 정정 D4) | **모니터링** — 근거: 분모는 B 게이트(entry_params)와 동일 열이라 이미 운영 검증됨, 변경 0; 전부-NULL 주로 no_transition 이 된 건수를 §8 스크립트가 세므로 배포 집계에 포함 |
 | `ANCHOR_MIN_HISTORY_WEEKS`=50 (left_censored) | 불가(주수) | **미미** — 값·판정 불변, 역할만 분리 | design-judgment(책 근거 없음, 회신 Q-2) | 모니터링 — 근거: 산술 하한 45 와의 차이(46~50주 종목)는 별건 사전등록 항목 |
 | `CLIMAX_ANCHOR_STAGE1_MIN_WEEKS`=4 · `CLIMAX_ANCHOR_TURNUP_WEEKS`=4 · `CLIMAX_ANCHOR_FLAT_BAND_PCT`=2.0 (C1·C2) | 불가 | **있음(간접)** — C3′ 가 느슨해져 C1∧C2∧C5 가 성립하는 더 최근 후보 주가 앵커로 채택됨(탐색 순서 불변이라 '첫 성립 주' 규칙의 결과) | EXTENDS | B-수치(위 1행과 같은 집계 — 앵커 연령 분포 `weeks_since` 중앙값 전후) |
 | `CLIMAX_MATURITY_WEEKS`=18 · `CLIMAX_LATE_MATURITY_WEEKS`=12 (P1, 앵커 기준 경과 주) | 불가 | **있음** — 앵커가 최근으로 오면 maturity_weeks 가 줄어 P1 미충족이 늘고 climax 발화가 줄 수 있음(보수 방향) | PRESERVES(HMMS p.263) | B-수치(4주 후 §6.1 발화 후보율 — stage3 재생 ①과 같은 정의, 3-3) |
@@ -153,10 +176,13 @@ threshold-change-checklist 의존성 맵(§6)을 요구한다(CLAUDE.md 트리�
 1. 머지 후: schema.sql 양쪽 DB 적용(ver 열 + 이관 UPDATE ver=1) → export_thresholds 재실행 결과 커밋 포함 → 라이브 pull(사용자).
 2. 첫 효과 = 다음 주말 분류·다음 보유 평가 실행(앵커는 매 실행 재계산, §8(i)).
 3. 관측(3-3, 판정 아님): 배포 후 첫 주말 분류의 anchored/no_transition/left_censored 분포 1회 집계 + 4주 후 climax/decline 발화·억제 건수 — readout 부록. 10-05 사전등록은 ver 1 행만 본문.
-4. 알려진 결과: ver 1 한정으로 10-05 사전등록의 MIX-1 층(09-28~12-31)이 배포일에서 끊겨 표본이 줄 수 있다(사전등록 §7-1 의 "n 부족" 우려). 회신 Q-3 (A) 의 명시 지시("ver 1 행만으로 본문, ver 2 혼입 구간은 부록 분리")를 따르되, Q-4 에서 전문가가 이 축소를 인지한 결정인지 확인한다(§9-4).
+   [CC 결정] 회신 11-08 의 선택 항목 채택: 같은 1회 집계에 **`late_stage_base` risk_flag 발화율(배포 전 4주 vs 후 4주)** 을 추가한다 — 앵커 = base #1 원점이라
+   앵커가 1년 이상 최근으로 오면 베이스 카운트가 줄어 late_stage_base 가 감소할 가능성(저장 열 weekly_classification.risk_flags, 읽기 전용).
+   "생김→없음(lost)" 셀이 배포 후에도 0 인지 함께 본다((B) 는 C3 의 순수 완화판이 아니므로 정의상 보장 아님).
+4. 알려진 결과(D7 로 확정): ver 1 한정으로 10-05 사전등록의 MIX-1 층(09-28~12-31)이 배포일에서 끊겨 표본이 준다. 판독 보고서(2027-01-04)에 한계로 기재, 판독일·층 정의 불변.
 
 ## 8. 배포 전 보고 (전문가 요청 (i)(ii)) — 2026-11-07 실측
-- (i) 앵커는 **저장값이 아니라 매 실행 재계산**(payload_builder 분류 시·trade_management 러너 평가 시·백테스트 시). 결과만 echo(분류 행 `climax_topping_gates_echo.anchor_week`, 보유 평가 행 `anchor_week`)로 저장. 배포 직후 첫 실행부터 새 앵커.
+- (i) 앵커는 **저장값이 아니라 매 실행 재계산**(payload_builder 분류 시·trade_management 러너 평가 시·백테스트 시). 결과만 echo(분류 행 `climax_topping_gates_echo.anchor_week`, 보유 평가 행 `anchor_week`)로 저장. 배포 직후 첫 실행부터 새 앵커. 회신 11-08 소견: 보유 0건이라 baseline 이동 문제 없음, 다음 보유 종목부터는 앵커가 이미 C3′ 기준이라 별도 조치 불필요.
 - (ii) `scripts/issue184_anchor_shift_report.py`(읽기 전용, as_of 2026-11-06, `data/verification/issue184_anchor_shift_2026-11-06.json`):
 
 | 모집단 | n | 앵커 변경 | same | later | earlier | gained(no_transition→anchored) | lost | none_both | left_censored |
@@ -168,12 +194,13 @@ threshold-change-checklist 의존성 맵(§6)을 요구한다(CLAUDE.md 트리�
 - 이동 폭(later/earlier 62건, new−old weeks_since): 분류 종목 중앙값 **−64주**(전 상장 829건 −61주) — 새 앵커가 대체로 1년 이상 더 최근. 검산 2건: 000500 (2025-10-24 주 일봉 2.33×·2.41× 상승 마감 vs 주간 0.47×50주) → later; 021240 (2026-05-15 주 1.80× 날이 하락 마감, 다음 후보 1.31×) → earlier.
 - 이 수치는 (B) 정의의 **탐색 기록**(회신: F-3 71.7%/42.6% 는 (A) 상한)이며 판정 근거가 아니다(3-3).
 
-## 9. 전문가 후속 질의 [Q-4] (프롬프트 교체 전 송부 — 책 근거 요청)
-1. §6.1 앵커 문장 교체안(5-5) 승인 여부와 문안 수정.
-2. 사실 전달: 주간 51주 표지 창의 소비 규칙은 C3 뿐(T2 는 앵커~평가 주 창) → 참조 교체가 아니라 삭제. 결과 창 = D3 그대로.
-3. `VOLUME_AVG_WINDOW_DAYS` docstring 의 "HMMS p.117 '50-day average volume'" 도 p.349 로 정정 대상인지.
-4. 배포 전 보고 §8 수치 공유.
-5. ver 1 한정이 10-05 사전등록 MIX-1 층(09-28~12-31)을 배포일까지로 줄이는 결과를 인지한 판정인지 확인(§7-4).
+## 9. 전문가 후속 질의 [Q-4] — 송부 2026-11-07, **회신 2026-11-08 (전부 판정 완료, §2 D4~D7 에 반영)**
+1. §6.1 앵커 문장 교체안(5-5) 승인 여부 → **승인, 수정 없음**(D5).
+2. 사실 전달: 주간 51주 표지 창 소비 규칙은 C3 뿐 → **접수, 삭제 확정**(D6).
+3. `VOLUME_AVG_WINDOW_DAYS` docstring p.117 → **p.349 정정 대상, TLOND p.134 인용 내용 변경, 범위 = 주석 2건**(D4).
+4. 배포 전 보고 §8 → 접수(판정 아님), 소견 3건(§7-3·§8).
+5. ver 1 한정의 MIX-1 층 축소 → **감수**(D7).
+미해결 항목 없음 — 구현 착수 조건(spec 승인) 외 외부 대기 0.
 
 ## 10. 구현자에게 남기는 것(plan 단계에서 정함)
 - 일봉 합성 테스트 헬퍼의 정확한 형태, `_fetch_daily_anchor_series` 의 위치(payload_builder vs common), `TickerData` 절단 구현, 이관 SQL 파일명(scripts/sql/issue184_flag_ver_migrate.sql), 커밋 분할(상수·find_anchor·소비처·표지·스키마·프롬프트·문서).
