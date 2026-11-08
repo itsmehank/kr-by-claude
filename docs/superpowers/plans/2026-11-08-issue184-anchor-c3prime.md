@@ -422,7 +422,7 @@ git commit -m "#184: 문서 — 용어집 §9 C3′(B) 현행화, checklist 적�
 
 ### Task 8: 배포 절차(머지 후, 사용자 수행 — 계획서에 기록만)
 
-1. 라이브 체크아웃 `git pull`(사용자 터미널).
-2. 운영 DB: `psql $DATABASE_URL -f kr_pipeline/db/schema.sql`(ALTER IF NOT EXISTS 8줄) → `psql $DATABASE_URL -1 -f scripts/sql/issue184_flag_ver_migrate.sql`. kr_test 도 같은 두 명령(conftest 는 세션 리셋에서 다시 적용하지만 수동 규칙 4 준수).
+1. **먼저 DB**(pull 전 — writer 6곳이 새 열을 INSERT 하므로 pull 뒤 ALTER 전에 launchd 잡이 돌면 실행 전체가 실패한다; `ADD COLUMN IF NOT EXISTS` 는 구 코드와 호환): 운영 `psql $DATABASE_URL -f kr_pipeline/db/schema.sql`(ALTER IF NOT EXISTS 8줄) → `psql $DATABASE_URL -1 -f scripts/sql/issue184_flag_ver_migrate.sql`. kr_test 도 같은 두 명령(conftest 는 세션 리셋에서 다시 적용하지만 수동 규칙 4 준수). 머지된 main 의 두 파일을 쓴다.
+2. 그 다음 라이브 체크아웃 `git pull`(사용자 터미널).
 3. 첫 효과 = 다음 주말 분류·다음 보유 평가. 관측(spec §7-3): 첫 주말 분류 anchored/no_transition/left_censored 분포 1회 + `late_stage_base` 발화율(배포 전후 4주) + 4주 후 climax/decline 발화·억제 건수 → readout 부록. 10-05 사전등록 본문은 `volume_regime_flag_ver = 1` 행만.
 4. 별건 이슈 2건 등록: 45주 최소 이력 재유도 · 앵커 주 자체의 상승 마감 요건(TLSMW Ch.5 p.70 기준 5·6).

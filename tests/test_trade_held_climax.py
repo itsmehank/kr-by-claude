@@ -162,6 +162,7 @@ def test_gates_from_series_matches_payload_builder_path(db):
     bl = _anchor_baseline_start(anchor["anchor_week"])
     replay.update(compute_daily_extremes(_fetch_daily_since(db, ticker, bl, on_date), bl.isoformat(), anchor))
     assert anchor["anchor_week"] == anchor_we.isoformat() and prod["anchor_week"] == anchor["anchor_week"]
+    assert prod["daily_dates"] == [d["date"] for d in daily_ind] and len(daily_ind) >= 5   # (#184) 러너 표지 창 입력 = C3′ 가 본 지표 행 날짜
     for k in ("maturity_ok", "p2_accel_ok", "scope_active", *HELD_CLIMAX_TRIGGERS, "quality_flag"):
         assert prod[k] == replay[k], k
     # slice_upto 로 절단한 전 이력도 같은 결과(backtest 경로)

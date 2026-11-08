@@ -157,9 +157,11 @@ def test_position_evaluations_flag_from_anchor_window(db, anchor_offset_weeks, f
 
 
 def test_run_daily_eval_wires_window_flag_into_both_rows(db, mocker):
-    """러너 통합(리뷰 #222 2차, 회신 23 Q-D): gates.week_ends+anchor_week → climax·decline 두 행 모두 'mixed'. as_of ≥ 경계."""
+    """러너 통합(리뷰 #222 2차, 회신 23 Q-D; #184 ver 2): gates.week_ends+anchor_week+daily_dates → climax·decline 두 행 모두 'mixed'.
+    앵커 = 경계 첫 주(10-02)라 daily_dates 가 배선되지 않으면([] 경로) 앵커 주 자체(extended)만 보고 NULL 이 된다 — 배선 유무를 구분."""
     from kr_pipeline.trade_management import runner
     from kr_pipeline.trade_management.store import open_position
+    from tests.test_regime_windows import _weekdays
     from tests.test_trade_held_climax import _g, _runner_cleanup, _bar
     sym, as_of = "VRF8", B + timedelta(days=4)                               # 2026-10-02(금)
     _runner_cleanup(db, sym)
@@ -167,7 +169,9 @@ def test_run_daily_eval_wires_window_flag_into_both_rows(db, mocker):
         cur.execute("INSERT INTO stocks (ticker, name, market) VALUES (%s,%s,'KOSPI') ON CONFLICT DO NOTHING", (sym, sym))
     pid = open_position(db, symbol=sym, entry_date=date(2026, 5, 1), entry_price=10000.0, quantity=10); db.commit()
     week_ends = [(as_of - timedelta(weeks=k)).isoformat() for k in range(10, -1, -1)]       # 07-24 ~ 10-02
-    mocker.patch.object(runner, "compute_held_gates", return_value=_g(anchor_week=week_ends[0], week_ends=week_ends))
+    daily_dates = [d.isoformat() for d in _weekdays(B - timedelta(days=100), 80)]           # 09-28 앞 49봉이 경계 전
+    mocker.patch.object(runner, "compute_held_gates",
+                        return_value=_g(anchor_week=as_of.isoformat(), week_ends=week_ends, daily_dates=daily_dates))
     mocker.patch.object(runner, "notify_stop_triggered"); mocker.patch.object(runner, "notify_sell_into_strength")
     mocker.patch.object(runner, "notify_sell_on_weakness")
     _bar(db, sym, as_of, 15000.0)                                              # 스탑 위 → held 경로 진입
