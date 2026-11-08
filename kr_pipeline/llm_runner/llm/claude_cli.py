@@ -6,13 +6,16 @@
 """
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import logging
 import os
 import random
 import re
+import shutil
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -30,6 +33,86 @@ class UsageLimitError(RuntimeError):
     의도적으로 ClaudeCLIError 하위가 아님: weekend 워커의 transient 재시도
     (_TRANSIENT_EXC)에 걸리지 않고 배치 전체를 즉시 중단시켜야 한다.
     """
+
+
+class ClaudeBinaryMissingError(UsageLimitError):
+    """(#269) claude 실행 파일이 BINARY_WAIT_DELAYS 를 다 기다려도 없음(또는 Exec format error 로 실행 불가).
+
+    UsageLimitError 하위인 이유: 의미는 다르지만 제어 흐름이 같다 — 재시도 무의미, 배치 전체 즉시 중단(parallel 워커 abort,
+    weekend/backfill 이 run failed 로 전파, 12개 호출처의 `except UsageLimitError` 가 그대로 멈춤). 발단 run 2380(2026-11-07)·
+    10-24·#201 run 1979(Exec format error) — 자동 업데이트가 npm 전역 패키지를 교체하는 창으로 추정.
+    """
+
+
+# (#269) 실행 파일 해석: KR_CLAUDE_BIN(명시) → PATH(which) → 후보 폴더(launchd PATH 밖으로 설치가 옮겨간 경우). 존재+실행 가능만.
+_BIN_CANDIDATES = [
+    "/opt/homebrew/bin/claude",
+    os.path.expanduser("~/.local/bin/claude"),
+    os.path.expanduser("~/.claude/local/bin/claude"),
+    "/usr/local/bin/claude",
+]
+# (#269) 바이너리 부재 대기 일정(초) — 프로세스 전역 1회 소비(종목마다 반복 안 함). 합계 510s: 자동 업데이트 창(수 분)은 넘기고,
+# 장시간 부재(11-07: 31시간)는 빨리 포기해 다음 체인 슬롯(월 07:00)에 맡긴다.
+BINARY_WAIT_DELAYS = [30, 60, 120, 300]
+_BIN_GATE_LOCK = threading.Lock()
+_bin_gate = {"cursor": 0, "gave_up": False}
+
+
+def _reset_binary_gate() -> None:
+    """테스트·재시작용 — 게이트 상태 초기화."""
+    with _BIN_GATE_LOCK:
+        _bin_gate["cursor"] = 0
+        _bin_gate["gave_up"] = False
+
+
+def resolve_claude_bin() -> str | None:
+    """claude 실행 파일 절대 경로. 없으면 None(호출자가 게이트로 대기)."""
+    explicit = os.environ.get("KR_CLAUDE_BIN")
+    if explicit:
+        return explicit
+    found = shutil.which("claude")
+    if found:
+        return found
+    for cand in _BIN_CANDIDATES:
+        if os.path.isfile(cand) and os.access(cand, os.X_OK):
+            return cand
+    return None
+
+
+def _binary_backoff(reason: str) -> None:
+    """바이너리 부재 1단계 대기. 일정 소진 시 ClaudeBinaryMissingError(이후 호출은 즉시 같은 예외 — gave_up 래치).
+    워커 4개가 공유하므로 벽시계 기준 소진은 합계보다 빠를 수 있다(의도: 어차피 전부 같은 바이너리를 기다림)."""
+    with _BIN_GATE_LOCK:
+        if _bin_gate["gave_up"]:
+            raise ClaudeBinaryMissingError(f"claude CLI 실행 파일 없음(이미 {sum(BINARY_WAIT_DELAYS)}s 대기 후 포기): {reason}")
+        i = _bin_gate["cursor"]
+        if i >= len(BINARY_WAIT_DELAYS):
+            _bin_gate["gave_up"] = True
+            raise ClaudeBinaryMissingError(
+                f"claude CLI 실행 파일 없음 — {sum(BINARY_WAIT_DELAYS)}s 대기 후 포기(자동 업데이트 창 초과?): {reason}. "
+                f"확인: KR_CLAUDE_BIN / PATH / {_BIN_CANDIDATES}")
+        _bin_gate["cursor"] = i + 1
+        delay = BINARY_WAIT_DELAYS[i]
+    log.warning("claude CLI 실행 파일 없음(%s) — %ds 대기 후 재시도 (%d/%d)", reason, delay, i + 1, len(BINARY_WAIT_DELAYS))
+    time.sleep(delay)
+
+
+def _binary_ok() -> None:
+    with _BIN_GATE_LOCK:
+        _bin_gate["cursor"] = 0
+
+
+def _resolve_or_wait() -> str:
+    """해석될 때까지 게이트 일정만큼 대기. 소진 시 ClaudeBinaryMissingError."""
+    while True:
+        path = resolve_claude_bin()
+        if path:
+            return path
+        _binary_backoff("PATH·후보 폴더에 없음")
+
+
+def _is_binary_missing(e: OSError) -> bool:
+    return isinstance(e, FileNotFoundError) or e.errno in (errno.ENOENT, errno.ENOEXEC)
 
 
 # CLI 가 제한 시 내는 메시지 패턴 (rc≠0 stderr 또는 rc=0 텍스트 stdout 양쪽).
@@ -300,7 +383,8 @@ def call_claude(
     # --exclude-dynamic-system-prompt-sections: cwd/git status 등 호출마다 변할 수
     # 있는 섹션을 system prompt 앞부분에서 첫 user 메시지로 밀어낸다 — 이게 없으면
     # append 한 정적 프롬프트 앞의 동적 텍스트가 캐시 프리픽스를 계속 깨뜨린다.
-    cmd = ["claude", "--print", "--permission-mode", "bypassPermissions",
+    claude_bin = _resolve_or_wait()                                   # (#269) 이름이 아니라 절대 경로로 호출
+    cmd = [claude_bin, "--print", "--permission-mode", "bypassPermissions",
            "--tools", tools, "--output-format", "json",
            "--append-system-prompt", prompt_text,
            "--exclude-dynamic-system-prompt-sections"]
@@ -334,13 +418,24 @@ def call_claude(
             log.warning("claude CLI retry attempt %d after %ds", attempt, delay)
             time.sleep(delay)
 
-        result = subprocess.run(
-            cmd,
-            input=user_text,
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-        )
+        while True:
+            try:
+                result = subprocess.run(
+                    cmd,
+                    input=user_text,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout_seconds,
+                )
+            except OSError as e:
+                # (#269) 실행 파일 소실(ENOENT)·교체 중(ENOEXEC): 프로세스 전역 게이트로 대기 후 같은 시도를 다시 — RETRY_DELAYS 와 별개.
+                if not _is_binary_missing(e):
+                    raise
+                _binary_backoff(f"{e} ({cmd[0]})")
+                cmd[0] = _resolve_or_wait()
+                continue
+            break
+        _binary_ok()
         if result.returncode == 0 and result.stdout.strip():
             try:
                 # Claude CLI 출력은 일반 텍스트 + JSON 블록 혼합 가능.

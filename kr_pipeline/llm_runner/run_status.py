@@ -23,7 +23,11 @@ def _judge(result: dict, label: str) -> tuple[str | None, str | None]:
         failures = len(result.get("failed_tickers") or [])
     processed = result.get("processed") or 0
     if processed == 0 and failures and failures > 0:
-        return f"{label}: 성공 행 0 — 실패 {failures}/{failures + processed} (전량 실패)", None
+        msg = f"{label}: 성공 행 0 — 실패 {failures}/{failures + processed} (전량 실패)"
+        first = next((t.get("error") for t in (result.get("failed_tickers") or []) if isinstance(t, dict) and t.get("error")), None)
+        if first:
+            msg += f": 첫 오류 = {str(first)[:160]}"           # (#269) run.error 에서 원인이 바로 보이게(details JSON 밖으로 승격)
+        return msg, None
     if processed == 0 and not failures:
         return None, f"no_targets: {label}"
     return None, None

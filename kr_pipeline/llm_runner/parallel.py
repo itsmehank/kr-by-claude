@@ -67,7 +67,7 @@ def _process_one_worker(dsn, symbol, market, process_fn, *, dry_run, as_of, max_
                         "detail": {"symbol": symbol, "date": e.on_date.isoformat(), "column": e.column,
                                    "p_value": e.p_value, "i_value": e.i_value, "ratio": e.ratio}}
             except UsageLimitError as e:
-                # 5시간 사용량 제한 — 재시도 무의미, 배치 전체 중단 신호. 워커 안에서 abort set:
+                # 5시간 사용량 제한(또는 #269 ClaudeBinaryMissingError — 같은 채널) — 재시도 무의미, 배치 전체 중단 신호. 워커 안에서 abort set:
                 # 메인 스레드가 결과 받기 전 다음 종목이 시작되는 레이스 차단(신규 헛호출 0).
                 wconn.rollback()
                 if abort is not None:
@@ -152,8 +152,8 @@ def run_parallel_batch(*, dsn, candidates, process_fn, concurrency, dry_run, as_
                     elif r["status"] == "usage_limit":
                         usage_limited = True
                         usage_error = r.get("error", "usage limit")
-                        log.warning("usage limit hit at %s — aborting batch (processed=%d/%d)",
-                                    r["symbol"], processed, total)
+                        log.warning("batch abort at %s — %s (processed=%d/%d)",
+                                    r["symbol"], usage_error[:120], processed, total)
                         ex.shutdown(wait=False, cancel_futures=True)
                         break
                     else:

@@ -52,7 +52,7 @@ plist_head() { cat <<EOF
 <plist version="1.0"><dict>
   <key>Label</key><string>com.krbyclaude.$1</string>
   <key>WorkingDirectory</key><string>$REPO</string>
-  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string><key>KR_REPO</key><string>$REPO</string></dict>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string><key>KR_REPO</key><string>$REPO</string><key>DISABLE_AUTOUPDATER</key><string>1</string></dict>
   <key>StandardOutPath</key><string>$LOGD/launchd-$1.log</string>
   <key>StandardErrorPath</key><string>$LOGD/launchd-$1.log</string>
   <key>RunAtLoad</key><true/>
