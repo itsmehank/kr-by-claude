@@ -51,11 +51,11 @@ _BIN_CANDIDATES = [
     os.path.expanduser("~/.claude/local/bin/claude"),
     "/usr/local/bin/claude",
 ]
-# (#269) 바이너리 부재 대기 일정(초) — 프로세스 전역 1회 소비(종목마다 반복 안 함). 합계 510s: 자동 업데이트 창(수 분)은 넘기고,
-# 장시간 부재(11-07: 31시간)는 빨리 포기해 다음 체인 슬롯(월 07:00)에 맡긴다.
+# (#269) 바이너리 부재 대기 일정(초) — 프로세스 전역, **벽시계 라운드**로 소비(워커 4개가 같은 라운드에 합류; 발생 횟수가 아님 —
+# 리뷰 Critical 1). 합계 510s: 자동 업데이트 창(수 분)은 넘기고, 장시간 부재(11-07: 31시간)는 빨리 포기해 다음 체인 슬롯(월 07:00)에 맡긴다.
 BINARY_WAIT_DELAYS = [30, 60, 120, 300]
 _BIN_GATE_LOCK = threading.Lock()
-_bin_gate = {"cursor": 0, "gave_up": False}
+_bin_gate = {"cursor": 0, "gave_up": False, "wait_until": 0.0}
 
 
 def _reset_binary_gate() -> None:
@@ -63,12 +63,16 @@ def _reset_binary_gate() -> None:
     with _BIN_GATE_LOCK:
         _bin_gate["cursor"] = 0
         _bin_gate["gave_up"] = False
+        _bin_gate["wait_until"] = 0.0
 
 
 def resolve_claude_bin() -> str | None:
     """claude 실행 파일 절대 경로. 없으면 None(호출자가 게이트로 대기)."""
     explicit = os.environ.get("KR_CLAUDE_BIN")
     if explicit:
+        if not os.path.isfile(explicit):
+            # 오타·구경로면 510s 를 다 기다린 뒤에야 드러나므로 즉시 경고(동작은 유지 — 업데이트 창엔 명시 경로도 빈다).
+            log.warning("KR_CLAUDE_BIN=%r 이 파일이 아님 — 경로 확인(그래도 이 값으로 호출을 시도한다)", explicit)
         return explicit
     found = shutil.which("claude")
     if found:
@@ -80,26 +84,37 @@ def resolve_claude_bin() -> str | None:
 
 
 def _binary_backoff(reason: str) -> None:
-    """바이너리 부재 1단계 대기. 일정 소진 시 ClaudeBinaryMissingError(이후 호출은 즉시 같은 예외 — gave_up 래치).
-    워커 4개가 공유하므로 벽시계 기준 소진은 합계보다 빠를 수 있다(의도: 어차피 전부 같은 바이너리를 기다림)."""
+    """바이너리 부재 대기 — 벽시계 라운드. 진행 중인 라운드(now < wait_until)가 있으면 커서를 올리지 않고 남은 시간만 합류해
+    잠들고, 라운드가 끝난 뒤 처음 도착한 스레드만 커서를 올려 다음 라운드를 연다 → 워커 수와 무관하게 벽시계 sum(DELAYS) 뒤에만
+    포기. 일정 소진 시 ClaudeBinaryMissingError(이후 호출은 즉시 같은 예외 — gave_up 래치, 성공 spawn 이 해제). 락 안에서 잠들지 않는다."""
     with _BIN_GATE_LOCK:
         if _bin_gate["gave_up"]:
             raise ClaudeBinaryMissingError(f"claude CLI 실행 파일 없음(이미 {sum(BINARY_WAIT_DELAYS)}s 대기 후 포기): {reason}")
-        i = _bin_gate["cursor"]
-        if i >= len(BINARY_WAIT_DELAYS):
-            _bin_gate["gave_up"] = True
-            raise ClaudeBinaryMissingError(
-                f"claude CLI 실행 파일 없음 — {sum(BINARY_WAIT_DELAYS)}s 대기 후 포기(자동 업데이트 창 초과?): {reason}. "
-                f"확인: KR_CLAUDE_BIN / PATH / {_BIN_CANDIDATES}")
-        _bin_gate["cursor"] = i + 1
-        delay = BINARY_WAIT_DELAYS[i]
-    log.warning("claude CLI 실행 파일 없음(%s) — %ds 대기 후 재시도 (%d/%d)", reason, delay, i + 1, len(BINARY_WAIT_DELAYS))
+        now = time.monotonic()
+        if now < _bin_gate["wait_until"]:
+            delay, i, joined = _bin_gate["wait_until"] - now, _bin_gate["cursor"], True
+        else:
+            i = _bin_gate["cursor"]
+            if i >= len(BINARY_WAIT_DELAYS):
+                _bin_gate["gave_up"] = True
+                raise ClaudeBinaryMissingError(
+                    f"claude CLI 실행 파일 없음 — {sum(BINARY_WAIT_DELAYS)}s 대기 후 포기(자동 업데이트 창 초과?): {reason}. "
+                    f"확인: KR_CLAUDE_BIN / PATH / {_BIN_CANDIDATES}")
+            _bin_gate["cursor"] = i + 1
+            delay = BINARY_WAIT_DELAYS[i]
+            _bin_gate["wait_until"] = now + delay
+            joined = False
+    log.warning("claude CLI 실행 파일 없음(%s) — %.0fs 대기 후 재시도 (라운드 %d/%d%s)",
+                reason, delay, i if joined else i + 1, len(BINARY_WAIT_DELAYS), ", 합류" if joined else "")
     time.sleep(delay)
 
 
 def _binary_ok() -> None:
+    """spawn 성공 = 바이너리 복귀 증거 → 커서·포기 래치·라운드 초기화(장수 프로세스에서 다음 사고도 다시 기다린다)."""
     with _BIN_GATE_LOCK:
         _bin_gate["cursor"] = 0
+        _bin_gate["gave_up"] = False
+        _bin_gate["wait_until"] = 0.0
 
 
 def _resolve_or_wait() -> str:

@@ -68,6 +68,11 @@ launchd 는 깨어날 때 만회 발화). 설치/갱신:
 scripts/launchd/install.sh   # crontab 백업·제거 → 구 LLM plist 정리 → 새 plist 5종 로드
 ```
 
+> (#269) plist 는 `DISABLE_AUTOUPDATER=1` 을 싣는다 — 체인이 띄운 `claude --print` 가 실행 도중 자기 바이너리를 갈아치우지 않게.
+> 코드 pull 만으로는 적용되지 않으므로 `install.sh` 재실행(아래 제약 준수) 또는 5개 plist 의 EnvironmentVariables 에 수동 추가 후
+> `launchctl bootout`/`bootstrap`. 이 설정은 **체인 호출분만** 막는다 — 대화형 세션·전역 업데이터가 밤사이 바이너리를 교체하는 창
+> (11-07 형)은 러너의 대기 게이트(최대 510s) + 월 07:00 재시도로 흡수하고, 전역 자동 업데이트를 끌지는 사용자 결정(`claude config set autoUpdates false`).
+
 > ⚠️ **KRX 차단 대응·재개 기간에는 `install.sh` 를 재실행하지 말 것**(#92). 재실행은 crontab 을
 > 다시 건드리고 `RunAtLoad` 즉발로 전 종목 스윕을 발생시킨다. 개별 잡 재개는
 > `launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.krbyclaude.<잡>.plist` 를 쓰고,

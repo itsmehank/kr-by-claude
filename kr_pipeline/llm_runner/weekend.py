@@ -129,7 +129,7 @@ def run(
         # 예외 전파 → run_tracking 이 failed 기록 → 같은 as_of 재실행이 중복 가드에 안 막힘.
         # 기적재분은 각 워커가 이미 commit 했으므로 보존된다.
         raise UsageLimitError(
-            f"usage limit — batch aborted: processed={r['processed']}/{len(candidates)}, "
+            f"batch aborted: processed={r['processed']}/{len(candidates)}, "
             f"reason={r['usage_error']}"
         )
 
