@@ -16,6 +16,7 @@ import type {
 } from "lightweight-charts";
 import { ChartOverlayBands } from "./ChartOverlayBands";
 import type { BandSegment } from "./overlayBands";
+import { baseRangeDates } from "../../lib/baseRange";
 
 // 날짜에 한국어 요일 추가: "2026-05-20" → "2026-05-20 (수)"
 function withWeekday(iso: string): string {
@@ -78,6 +79,8 @@ export interface PriceChartProps {
   triggerEvents?: TriggerOverlayEvent[];
   showClassificationBands?: boolean;
   bandSegments?: BandSegment[];
+  /** 베이스 구간 상·하단 가로선(#275). 기본 null = 그리지 않음 — 기존 화면 영향 없음 */
+  baseRange?: { low: number; high: number; start: string | null } | null;
 }
 
 interface TooltipState {
@@ -126,6 +129,7 @@ export function PriceChart({
   triggerEvents = [],
   showClassificationBands = false,
   bandSegments = [],
+  baseRange = null,
 }: PriceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -243,6 +247,29 @@ export function PriceChart({
       stopSeries.setData(
         data.map((d) => ({ time: d.date as Time, value: stopLoss })),
       );
+    }
+
+    // ── Base range (#275): base_start_date 부터 상·하단 점선 ──
+    if (baseRange && data.length > 0) {
+      const dates = baseRangeDates(
+        data.map((d) => d.date),
+        baseRange.start,
+      );
+      for (const [value, title] of [
+        [baseRange.high, "base 상단"],
+        [baseRange.low, "base 하단"],
+      ] as const) {
+        if (dates.length === 0) break;
+        const s = chart.addSeries(LineSeries, {
+          color: "#7c3aed",
+          lineWidth: 1,
+          lineStyle: 1, // dotted
+          priceLineVisible: false,
+          lastValueVisible: true,
+          title,
+        });
+        s.setData(dates.map((d) => ({ time: d as Time, value })));
+      }
     }
 
     // ── Pane 1: Volume + SMA50V ──
@@ -404,8 +431,12 @@ export function PriceChart({
     };
     resize();
     window.addEventListener("resize", resize);
+    // 창 크기와 무관한 컨테이너 폭 변화(사이드바 접기·펼치기 등)도 따라간다(#275)
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
+    ro?.observe(containerRef.current);
 
     return () => {
+      ro?.disconnect();
       window.removeEventListener("resize", resize);
       setChartApi(null);
       chart.remove();
@@ -429,6 +460,7 @@ export function PriceChart({
     showPivotStop,
     showTriggerMarkers,
     triggerEvents,
+    baseRange,
   ]);
 
   const ohlcDeltaPct =
