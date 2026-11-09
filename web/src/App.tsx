@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer } from "react";
 import { Routes, Route, NavLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -42,6 +42,8 @@ import TradingPage from "./pages/TradingPage";
 import IssuesPage from "./pages/IssuesPage";
 import { GlossaryProvider } from "./components/glossary/GlossaryProvider";
 import { GlossaryPanel } from "./components/glossary/GlossaryPanel";
+import { SidebarContext, type SidebarControl } from "./components/sidebarContext";
+import { initialSidebar, isCollapsed, sidebarReducer } from "./lib/sidebarState";
 import { api } from "./lib/api";
 import type { PipelineRun } from "./lib/types";
 import { relativeTime, stalenessLevel } from "./lib/utils";
@@ -92,15 +94,34 @@ const PIPELINE_LABELS: Record<string, string> = {
 
 const SIDEBAR_COLLAPSED_KEY = "kr-by-claude.sidebar-collapsed";
 
-function useSidebarCollapsed() {
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
+function readSavedCollapsed(): boolean {
+  try {
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
-  });
+  } catch {
+    return false;
+  }
+}
+
+/** 사용자 선호(saved)는 토글로만 바뀌고 저장된다. 페이지 자동 접기(#275)는 화면 상태만 바꾼다. */
+function useSidebar() {
+  const [state, dispatch] = useReducer(sidebarReducer, undefined, () => initialSidebar(readSavedCollapsed()));
   useEffect(() => {
-    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
-  }, [collapsed]);
-  return [collapsed, setCollapsed] as const;
+    try {
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, state.saved ? "1" : "0");
+    } catch {
+      /* 저장 불가 환경 — 무시 */
+    }
+  }, [state.saved]);
+  const control = useMemo<SidebarControl>(
+    () => ({
+      beginVisit: () => dispatch({ type: "beginVisit" }),
+      endVisit: () => dispatch({ type: "endVisit" }),
+      autoCollapse: () => dispatch({ type: "autoCollapse" }),
+    }),
+    [],
+  );
+  const toggle = useCallback(() => dispatch({ type: "userToggle" }), []);
+  return { collapsed: isCollapsed(state), toggle, control };
 }
 
 function SystemStatus() {
@@ -164,9 +185,10 @@ function SystemStatus() {
 }
 
 function App() {
-  const [collapsed, setCollapsed] = useSidebarCollapsed();
+  const { collapsed, toggle, control } = useSidebar();
 
   return (
+    <SidebarContext.Provider value={control}>
     <GlossaryProvider>
     <div className="min-h-screen flex bg-cream">
       <aside
@@ -191,7 +213,7 @@ function App() {
           )}
           <button
             type="button"
-            onClick={() => setCollapsed((c) => !c)}
+            onClick={toggle}
             className="p-1.5 rounded-lg text-faint hover:text-ink hover:bg-paper/60 transition-colors shrink-0"
             aria-label={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
             title={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
@@ -289,6 +311,7 @@ function App() {
       <GlossaryPanel />
     </div>
     </GlossaryProvider>
+    </SidebarContext.Provider>
   );
 }
 

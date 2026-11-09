@@ -16,6 +16,7 @@ import type {
 } from "lightweight-charts";
 import { ChartOverlayBands } from "./ChartOverlayBands";
 import type { BandSegment } from "./overlayBands";
+import { baseRangeDates } from "../../lib/baseRange";
 
 // 날짜에 한국어 요일 추가: "2026-05-20" → "2026-05-20 (수)"
 function withWeekday(iso: string): string {
@@ -78,6 +79,8 @@ export interface PriceChartProps {
   triggerEvents?: TriggerOverlayEvent[];
   showClassificationBands?: boolean;
   bandSegments?: BandSegment[];
+  /** 베이스 구간 상·하단 가로선(#275). 기본 null = 그리지 않음 — 기존 화면 영향 없음 */
+  baseRange?: { low: number; high: number; start: string | null } | null;
 }
 
 interface TooltipState {
@@ -91,6 +94,11 @@ interface TooltipState {
   volume: number | null;
   volumeSMA: number | null;
 }
+
+// 기본값을 렌더마다 새 배열([])로 만들면 effect 의존성이 매번 바뀌어 차트 재생성 → setChartApi →
+// 재렌더의 무한 루프가 된다(#275 에서 triggerEvents 를 넘기지 않는 호출부가 생기며 드러남). 고정 상수로 둔다.
+const NO_TRIGGERS: TriggerOverlayEvent[] = [];
+const NO_BANDS: BandSegment[] = [];
 
 const HIDDEN_TOOLTIP: TooltipState = {
   visible: false,
@@ -123,9 +131,10 @@ export function PriceChart({
   stopLoss = null,
   showPivotStop = true,
   showTriggerMarkers = true,
-  triggerEvents = [],
+  triggerEvents = NO_TRIGGERS,
   showClassificationBands = false,
-  bandSegments = [],
+  bandSegments = NO_BANDS,
+  baseRange = null,
 }: PriceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -243,6 +252,30 @@ export function PriceChart({
       stopSeries.setData(
         data.map((d) => ({ time: d.date as Time, value: stopLoss })),
       );
+    }
+
+    // ── Base range (#275): base_start_date 부터 상·하단 점선 ──
+    if (baseRange && data.length > 0) {
+      const dates = baseRangeDates(
+        data.map((d) => d.date),
+        baseRange.start,
+      );
+      for (const [value, title] of [
+        [baseRange.high, "base 상단"],
+        [baseRange.low, "base 하단"],
+      ] as const) {
+        if (dates.length === 0) break;
+        const s = chart.addSeries(LineSeries, {
+          color: "#7c3aed",
+          lineWidth: 1,
+          lineStyle: 1, // dotted
+          priceLineVisible: false,
+          // 축 라벨은 끈다 — base 상단은 대개 pivot 과 같은 값이라 라벨이 겹친다(값은 범례·상세 영역에 표시)
+          lastValueVisible: false,
+          title,
+        });
+        s.setData(dates.map((d) => ({ time: d as Time, value })));
+      }
     }
 
     // ── Pane 1: Volume + SMA50V ──
@@ -403,9 +436,14 @@ export function PriceChart({
       }
     };
     resize();
-    window.addEventListener("resize", resize);
+    // 컨테이너 폭 변화(창 크기·사이드바 접기 등)를 ResizeObserver 로 따라간다(#275).
+    // 지원하지 않는 환경에서만 window resize 로 대신한다(둘 다 걸면 resize 가 두 번 돈다 — 리뷰 반영).
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
+    if (ro) ro.observe(containerRef.current);
+    else window.addEventListener("resize", resize);
 
     return () => {
+      ro?.disconnect();
       window.removeEventListener("resize", resize);
       setChartApi(null);
       chart.remove();
@@ -429,6 +467,7 @@ export function PriceChart({
     showPivotStop,
     showTriggerMarkers,
     triggerEvents,
+    baseRange,
   ]);
 
   const ohlcDeltaPct =
