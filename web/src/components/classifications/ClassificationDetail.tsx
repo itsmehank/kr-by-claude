@@ -160,7 +160,7 @@ export function ClassificationDetail({ row }: { row: Classification }) {
         <div className="lg:col-span-3 p-3 min-w-0">
           <ClassificationChart row={row} />
         </div>
-        <div className="lg:col-span-2 p-4 border-t lg:border-t-0 lg:border-l border-hairline bg-cream/40 lg:max-h-[460px] overflow-y-auto min-w-0">
+        <div className="lg:col-span-2 p-4 border-t lg:border-t-0 lg:border-l border-hairline bg-cream/40 max-h-[460px] overflow-y-auto min-w-0">
           <DetailInfo row={row} />
         </div>
       </div>

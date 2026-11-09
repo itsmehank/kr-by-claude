@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronRight,
@@ -143,9 +143,16 @@ function ClassificationGroup({
   const [rowHeight, setRowHeight] = useState<number | null>(null);
 
   // 목록 높이 = 첫 행 실제 높이 × N(#275). 행 높이를 재서 폰트·여백이 바뀌어도 N행이 정확히 보이게 한다.
+  // 웹폰트 교체·확대 등으로 행 높이가 나중에 바뀌어도 따라가도록 첫 행을 관찰한다(리뷰 반영).
   useLayoutEffect(() => {
     const first = listRef.current?.firstElementChild as HTMLElement | null | undefined;
-    if (first) setRowHeight(first.offsetHeight);
+    if (!first) return;
+    const measure = () => setRowHeight(first.offsetHeight);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(first);
+    return () => ro.disconnect();
   }, [groupOpen, rows.length]);
 
   if (rows.length === 0) return null;
@@ -260,9 +267,22 @@ export default function ClassificationsPage() {
     return null;
   }, [selectedSymbol, rowsByClassification]);
 
+  // 목록이 확정된 뒤에도 선택 종목이 없으면 선택 자체를 지운다 — 나중에 필터를 되돌려도 예전 선택이
+  // 갑자기 다시 나타나지 않게(리뷰 반영). 로딩 중(새 필터로 재조회)에는 판단을 미룬다.
+  const listSettled = emptySelection || (q.data !== undefined && !q.isFetching);
+  if (selectedSymbol && !selectedRow && listSettled) setSelectedSymbol(null);
+
+  const detailRef = useRef<HTMLDivElement>(null);
+  const [scrollRequest, setScrollRequest] = useState(0);
+  // 아래쪽 그룹에서 골라도 결과가 보이게, 선택이 화면에 반영된 직후 상세 영역을 화면 안으로(이미 보이면 움직이지 않음)
+  useEffect(() => {
+    if (scrollRequest > 0) detailRef.current?.scrollIntoView({ block: "nearest" });
+  }, [scrollRequest]);
+
   const selectRow = (symbol: string) => {
     setSelectedSymbol(symbol);
     autoCollapseSidebar();
+    setScrollRequest((n) => n + 1);
   };
 
   const toggleClassification = (c: string) => {
@@ -451,13 +471,15 @@ export default function ClassificationsPage() {
       )}
       {q.data && totalVisible > 0 && (
         <>
+          <div ref={detailRef} className="scroll-mt-4">
           {selectedRow ? (
-            <ClassificationDetail row={selectedRow} />
+            <ClassificationDetail key={selectedRow.symbol} row={selectedRow} />
           ) : (
             <div className="bento mb-4 px-4 py-6 text-center text-data text-muted">
               목록에서 종목을 선택하면 이 자리에 6개월 일봉 차트와 분석 내용(Reasoning)이 표시됩니다.
             </div>
           )}
+          </div>
           <div className="flex justify-end items-center gap-2 mb-2 text-data-xs text-faint">
             <label htmlFor="cls-page-size">보기</label>
             <select

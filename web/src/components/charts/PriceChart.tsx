@@ -270,7 +270,8 @@ export function PriceChart({
           lineWidth: 1,
           lineStyle: 1, // dotted
           priceLineVisible: false,
-          lastValueVisible: true,
+          // 축 라벨은 끈다 — base 상단은 대개 pivot 과 같은 값이라 라벨이 겹친다(값은 범례·상세 영역에 표시)
+          lastValueVisible: false,
           title,
         });
         s.setData(dates.map((d) => ({ time: d as Time, value })));
@@ -435,10 +436,11 @@ export function PriceChart({
       }
     };
     resize();
-    window.addEventListener("resize", resize);
-    // 창 크기와 무관한 컨테이너 폭 변화(사이드바 접기·펼치기 등)도 따라간다(#275)
+    // 컨테이너 폭 변화(창 크기·사이드바 접기 등)를 ResizeObserver 로 따라간다(#275).
+    // 지원하지 않는 환경에서만 window resize 로 대신한다(둘 다 걸면 resize 가 두 번 돈다 — 리뷰 반영).
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
-    ro?.observe(containerRef.current);
+    if (ro) ro.observe(containerRef.current);
+    else window.addEventListener("resize", resize);
 
     return () => {
       ro?.disconnect();

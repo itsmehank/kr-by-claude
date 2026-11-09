@@ -13,7 +13,8 @@ export function ClassificationChart({ row }: { row: Classification }) {
   const start = nDaysAgoKstISO(CHART_DAYS);
   const end = todayKstISO();
   const q = useQuery<DailyIndicator[]>({
-    queryKey: ["daily-indicators", row.symbol, "6M-classifications", start, end],
+    // 차트 페이지(6개월)와 같은 키·같은 기간 → "전체 보기"로 넘어가면 캐시를 그대로 쓴다(리뷰 반영)
+    queryKey: ["daily-indicators", row.symbol, "6M"],
     queryFn: () => api<DailyIndicator[]>(`/indicators/daily/${row.symbol}?start=${start}&end=${end}`),
     staleTime: 5 * 60 * 1000,
   });
