@@ -78,6 +78,7 @@ export function GlossaryPanel() {
   const [q, setQ] = useState<string>(readQ);
   const [expanded, setExpanded] = useState<string | null>(null);
   const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     try {
@@ -97,9 +98,12 @@ export function GlossaryPanel() {
   }
   useEffect(() => {
     if (!focus) return;
-    const raf = requestAnimationFrame(() =>
-      itemRefs.current[focus.id]?.scrollIntoView({ block: "nearest", behavior: "smooth" }),
-    );
+    // scrollIntoView 는 페이지까지 스크롤하므로 창 내부 목록만 직접 스크롤한다
+    const raf = requestAnimationFrame(() => {
+      const list = listRef.current;
+      const el = itemRefs.current[focus.id];
+      if (list && el) list.scrollTop = el.offsetTop - 32;
+    });
     return () => cancelAnimationFrame(raf);
   }, [focus]);
 
@@ -167,7 +171,7 @@ export function GlossaryPanel() {
               )}
             </label>
           </div>
-          <div className="overflow-y-auto">
+          <div ref={listRef} className="relative overflow-y-auto">
             {filtered.length === 0 ? (
               <p className="px-3 py-4 text-data-xs text-muted">'{q}' 에 해당하는 용어가 없습니다.</p>
             ) : q.trim() ? (

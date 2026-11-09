@@ -54,7 +54,7 @@ export function GlossaryTerm({ id, text, inButton = false }: GlossaryTermProps) 
           onKeyDown={(e) => {
             if (!inButton && (e.key === "Enter" || e.key === " ")) open(e);
           }}
-          className="underline decoration-dotted decoration-faint underline-offset-[3px] cursor-help hover:decoration-accent focus:outline-none focus-visible:decoration-accent"
+          className="underline decoration-dotted decoration-muted decoration-[1.5px] underline-offset-[3px] cursor-help hover:decoration-accent focus:outline-none focus-visible:decoration-accent"
         >
           {text}
         </span>
