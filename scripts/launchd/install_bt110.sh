@@ -74,6 +74,7 @@ cat > "$LA/$LABEL.plist" <<EOF
     <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>BT110_RUN_DIR</key><string>$RUN_DIR</string>
     <key>DATABASE_URL</key><string>$DATABASE_URL</string>
+    <key>DISABLE_AUTOUPDATER</key><string>1</string>
   </dict>
   <key>ProgramArguments</key><array><string>$RUN_DIR/scripts/bt_watchdog_110.sh</string></array>
   <key>StartInterval</key><integer>1800</integer>
