@@ -33,6 +33,9 @@ os.environ["TOSS_DRY_RUN"] = "true"
 os.environ["TOSS_BASE_URL"] = "http://127.0.0.1:1"  # 오버라이드를 잊은 테스트가 실 TossClient 를 만들어도 unroutable 주소로만 감(운영규칙 6, #92 동형)
 os.environ["TOSS_ACCOUNT_SEQ"] = ""  # 테스트가 .env 의 운영 계좌번호에 좌우되지 않게
 os.environ["GUARD_MAX_ORDER_KRW"] = "5000000"
+# (#269) claude 실행 파일 해석 — 가짜 subprocess.run 은 exec 하지 않으므로 존재할 필요가 없다. 바이너리가 없는 환경(또는 업데이트 창)
+# 에서 call_claude 가 게이트로 510s 잠들고 gave_up 래치가 이후 테스트를 연쇄 실패시키는 것을 막는다.
+os.environ.setdefault("KR_CLAUDE_BIN", "/kr-test/claude-stub")
 os.environ["GUARD_MAX_DAILY_KRW"] = "10000000"
 
 SCHEMA_PATH = Path(__file__).parent.parent / "kr_pipeline" / "db" / "schema.sql"
@@ -84,6 +87,15 @@ def _setup_schema(test_db_url):
         ["psql", "-v", "ON_ERROR_STOP=1", test_db_url, "-f", str(SCHEMA_PATH)],
         check=True, capture_output=True,
     )
+
+
+@pytest.fixture(autouse=True)
+def _reset_claude_binary_gate():
+    """(#269) 프로세스 전역 게이트(커서·포기 래치)를 테스트마다 초기화 — 한 테스트의 '포기' 가 다음 테스트로 새지 않게."""
+    from kr_pipeline.llm_runner.llm.claude_cli import _reset_binary_gate
+    _reset_binary_gate()
+    yield
+    _reset_binary_gate()
 
 
 @pytest.fixture(autouse=True)

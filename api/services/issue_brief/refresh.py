@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from kr_pipeline.db.connection import connect
-from kr_pipeline.llm_runner.llm.claude_cli import UsageLimitError
+from kr_pipeline.llm_runner.llm.claude_cli import ClaudeBinaryMissingError, UsageLimitError
 
 from .github import GhUnavailable, RefState, get_ref_states, list_open_issues
 from .hashing import content_hash, extract_refs
@@ -26,6 +26,7 @@ from .summarize import summarize
 log = logging.getLogger(__name__)
 
 USAGE_LIMIT_PREFIX = "usage_limit"
+BINARY_MISSING_PREFIX = "claude_binary_missing"   # (#269) 한도와 같은 중단 채널이지만 사유·우선 재시도 집합은 분리
 _ERR_TEXT_MAX = 300
 
 
@@ -141,6 +142,12 @@ def run_refresh(
                 continue
             try:
                 brief, model = do_summarize(raw, refs)
+            except ClaudeBinaryMissingError as e:          # (#269) UsageLimitError 보다 먼저 — 운영자 메시지·prefix 분리
+                set_brief_error(conn, raw.number, f"{BINARY_MISSING_PREFIX}: {e}"[:_ERR_TEXT_MAX])
+                conn.commit()
+                state.failed += 1
+                state.finish(BINARY_MISSING_PREFIX)
+                return state
             except UsageLimitError as e:
                 set_brief_error(conn, raw.number, f"{USAGE_LIMIT_PREFIX}: {e}"[:_ERR_TEXT_MAX])
                 conn.commit()

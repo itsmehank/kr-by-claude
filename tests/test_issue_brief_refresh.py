@@ -7,7 +7,7 @@ from api.services.issue_brief.github import GhUnavailable, IssueComment, IssueRa
 from api.services.issue_brief.refresh import RefreshState, request_cancel, run_refresh, start_refresh
 from api.services.issue_brief.store import fetch_briefs, fetch_hashes
 from api.services.issue_brief.summarize import Brief, SummarizeFailed
-from kr_pipeline.llm_runner.llm.claude_cli import UsageLimitError
+from kr_pipeline.llm_runner.llm.claude_cli import ClaudeBinaryMissingError, UsageLimitError
 
 N1, N2 = 910001, 910002
 
@@ -140,6 +140,18 @@ def test_usage_limit_stops_round(db):
     st = run_refresh(db, list_issues=lambda: [_raw(N1), _raw(N2)], ref_states=_refs({}),
                      do_summarize=spy, state=RefreshState())
     assert st.stopped_reason == "usage_limit" and len(spy.calls) == 1 and st.running is False
+
+
+def test_claude_binary_missing_stops_round_with_own_reason(db):
+    """(#269) 실행 파일 부재는 UsageLimitError 하위(같은 abort 채널)지만 운영자에게 '한도' 로 보이면 안 된다 — 사유·오류 접두어 분리.
+    usage_limit 접두어는 다음 회차 우선 재시도 대상 선정에 쓰이므로(fetch_numbers_with_error_prefix) 섞이면 안 된다."""
+    from api.services.issue_brief.store import fetch_numbers_with_error_prefix
+    spy = Spy(exc=ClaudeBinaryMissingError("claude CLI 실행 파일 없음"))
+    st = run_refresh(db, list_issues=lambda: [_raw(N1), _raw(N2)], ref_states=_refs({}),
+                     do_summarize=spy, state=RefreshState())
+    assert st.stopped_reason == "claude_binary_missing" and len(spy.calls) == 1 and st.running is False
+    assert fetch_numbers_with_error_prefix(db, "usage_limit") == set()
+    assert fetch_numbers_with_error_prefix(db, "claude_binary_missing") == {N1}
 
 
 def test_gh_unavailable_recorded_not_raised(db):

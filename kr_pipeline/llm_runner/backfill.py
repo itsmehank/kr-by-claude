@@ -98,7 +98,7 @@ def run(conn: Connection, *, start: date, end: date, tickers: list[str] | None =
         if r["usage_limited"]:
             log.warning("backfill usage limit at %s — aborting (processed=%d)", as_of, agg["processed"])
             raise UsageLimitError(
-                f"usage limit — backfill aborted: processed={agg['processed']}, reason={r['usage_error']}"
+                f"backfill aborted: processed={agg['processed']}, reason={r['usage_error']}"
             )
 
     return agg

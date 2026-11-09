@@ -121,7 +121,7 @@ def run_backtest_backfill(conn: Connection, *, start: date, end: date, tickers: 
         if r["usage_limited"]:
             log.warning("bt-backfill usage limit at %s (processed=%d)", as_of, agg["processed"])
             raise UsageLimitError(
-                f"usage limit — bt-backfill aborted: processed={agg['processed']}, reason={r['usage_error']}"
+                f"bt-backfill aborted: processed={agg['processed']}, reason={r['usage_error']}"
             )
         # 서킷브레이커: 한 주 실패율이 임계 이상인 '나쁜 주'가 K연속이면 systemic 실패로
         # 클린 중단. processed==0(하드 한도)뿐 아니라 1건만 성공+대량 실패(만성 부분실패=
