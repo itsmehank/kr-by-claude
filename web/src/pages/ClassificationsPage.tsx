@@ -1,24 +1,21 @@
-import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronRight,
   ChevronDown,
-  LineChart,
   RefreshCw,
-  AlertTriangle,
   Info,
 } from "lucide-react";
 import { api } from "../lib/api";
 import type { Classification } from "../lib/types";
 import { relativeTime, formatKst } from "../lib/utils";
 import { Tooltip } from "../components/ui/Tooltip";
-import {
-  BREAKOUT_VOL_PREFERRED,
-  MARKET_DISTRIBUTION_LOOKBACK_DAYS,
-} from "../data/thresholds.generated";
 import { matchesPresenceFilters } from "../lib/classificationFilters";
-import { GlossaryMarkdown } from "../components/glossary/GlossaryMarkdown";
+import { ClassificationChip } from "../components/classifications/ClassificationChip";
+import { ClassificationDetail } from "../components/classifications/ClassificationDetail";
+import { CLASSIFICATION_LABELS, FIELD_TOOLTIPS, PATTERN_DESCRIPTIONS } from "../components/classifications/meta";
+import { useSidebarAutoCollapse } from "../components/sidebarContext";
+import { DEFAULT_PAGE_SIZE, PAGE_SIZES, parsePageSize, type PageSize } from "../lib/pageSize";
 
 
 type SortOption = "classified_at_desc" | "confidence_desc";
@@ -48,85 +45,7 @@ const DEFAULT_FILTERS: Filters = {
 
 const CLASSIFICATION_ORDER = ["watch", "entry", "ignore", "disqualified", "excluded_by_universe"] as const;
 
-const CLASSIFICATION_LABELS: Record<string, string> = {
-  watch: "Watch",
-  entry: "Entry",
-  ignore: "Ignore",
-  disqualified: "자격 상실",
-  excluded_by_universe: "유니버스 배제",
-};
-
-const CLASSIFICATION_TONES: Record<string, string> = {
-  watch: "bg-tint-blue text-accent",
-  entry: "bg-success-soft text-success",
-  ignore: "bg-tint-stone text-muted",
-  disqualified: "bg-tint-stone text-faint",
-  excluded_by_universe: "bg-tint-stone text-faint",
-};
-
-const PATTERN_DESCRIPTIONS: Record<string, string> = {
-  flat_base:
-    "5~7주 횡보 통합, depth ≤15% — Cup-with-handle 이후 자주 등장하는 2차 base (Box 형태).",
-  cup_with_handle:
-    "U자 컵 (12~33% 조정, 깊으면 50%까지) + cup 상반부에 형성된 짧은 손잡이 (8~12% pullback), 7주~수개월. O'Neil 의 가장 흔한 정통 패턴.",
-  cup_without_handle:
-    "U자 컵 (기준은 cup_with_handle 과 동일) — 손잡이 없이 컵 고점 돌파를 노리는 패턴 (O'Neil 5대 모델). 우측이 고점의 90%까지 회복돼야 인정. 보수 장치: 돌파 거래량 strict 1.5× + 사이징 감액 (#74).",
-  vcp:
-    "Volatility Contraction Pattern — 변동성과 거래량이 단계적으로 줄어드는 통합 (Minervini).",
-  double_bottom:
-    "W 형태 이중 바닥. 두 번째 저점이 첫 저점을 살짝 undercut(shakeout). Buy point 는 W 중앙 peak (top of middle peak, 우측). 두 번째 바닥에서 매수는 너무 이름.",
-  none:
-    "Base 패턴 식별되지 않음.",
-  high_tight_flag:
-    "4~8주에 가격 100~120%+ 상승(깃대) 후 3~6주간 25% 이내 횡보(깃발) — 매우 강한 매수 신호 (드문 패턴, O'Neil HMM 'High Tight Flag' / Minervini Power Play).",
-  "3c_cheat":
-    "Cup이 완성되기 전 중·하반부에서 형성되는 cheat 영역의 early entry pivot (Minervini Trade Like a Stock Market Wizard ch.10 / Think & Trade Like a Champion ch.7).",
-  base_on_base:
-    "1차 base 돌파 후 20~30% 상승 못 하고 위쪽에 2차 base 형성. Bear market 막판 강세 신호 (O'Neil HMM 'Base on Top of a Base').",
-  ascending_base:
-    "3번의 10~20% pullback이 점점 더 높은 저점에서 발생. 시장 약세기에 강한 종목 (O'Neil HMM 'Ascending Base').",
-};
-
-const RISK_FLAG_DESCRIPTIONS: Record<string, string> = {
-  climax_run:
-    "1~3주에 가격 25%+ 상승 + 가장 큰 주봉/거래량 — Minervini Stage 3 climax 경고.",
-  late_stage_base:
-    "현재 Stage 2 advance 의 3번째 이상 base. O'Neil: base 3~4는 경계, Minervini: base 4+ 위험.",
-  extended_from_ma:
-    "50일 이평선 위 15%+ — 추격 진입 위험 (실무 휴리스틱; O'Neil 원전은 pivot 에서 5~10%+ 추격 시 늦은 매수).",
-  faulty_pivot:
-    "Pivot 의 형태적 결함 (wedging handle, handle이 base 하반부, V자 즉시 신고가, 거래량 없는 돌파 등).",
-  low_volume_breakout:
-    `돌파 거래량이 50일 평균의 ${BREAKOUT_VOL_PREFERRED.toFixed(1)}배 미만 (O'Neil: 50% above average 가 최소).`,
-  narrow_base:
-    "패턴별 최소 기간보다 짧은 base.",
-  wide_and_loose:
-    "주봉 변동폭이 erratic / 시장 조정 대비 2.5배 초과 — 거래 어려운 base (O'Neil).",
-  prior_uptrend_insufficient:
-    "직전 base 대비 20% 미만 상승 — flat_base 패턴의 prior uptrend 요건 미달 (prompt §5). C6 (52주 저점 ×1.25) 와 다른 개념.",
-  volume_contraction_on_advance:
-    "상승 중 거래량 감소 — 수요 약화 / 기관 매수 부족 신호 (O'Neil: lost appetite).",
-  reverse_split_distortion:
-    "최근 12주 내 reverse split — 가격 왜곡 가능 (실무 휴리스틱, 책 원전 아님).",
-  unfavorable_market_context:
-    `시장 downtrend/correction 또는 distribution day 5개 이상 (${MARKET_DISTRIBUTION_LOOKBACK_DAYS} sessions). O'Neil HMMS Ch.9 의 표준.`,
-  etf_methodology_mismatch:
-    "ETF/fund — Minervini/O'Neil 개별 leadership 종목 방법론 적용 안 됨.",
-  security_group_not_equity:
-    "증권구분이 주권·외국주권·주식예탁증권이 아님(투자회사·투융자회사·리츠·UNRESOLVED) — 방법론 대상 자산 아님(Pre-Check).",
-  thin_liquidity_us_only:
-    "(US only) 일평균 거래대금 $5M 미만 (실무 변형; O'Neil disciple 원전은 35~50만 주 최소).",
-};
-
-const FIELD_TOOLTIPS = {
-  pivot:
-    "베이스 안에서 거래량 동반으로 이 가격을 돌파하면 buy point (Minervini/O'Neil 진입 기준).",
-  base:
-    "가격 통합 구간 (low~high, 형성 시작일~현재). depth = 고점 대비 저점 하락률. 매물 소화 후 새 추세 시작.",
-  confidence:
-    "LLM 의 분류 자신감 (0~1). 데이터 부족 / 모호한 패턴 / 시장 컨텍스트 불리 시 낮아짐.",
-};
-
+const PAGE_SIZE_KEY = "kr.classifications.pageSize";
 
 function buildQueryString(filters: Filters): string {
   const params = new URLSearchParams();
@@ -139,30 +58,31 @@ function buildQueryString(filters: Filters): string {
 }
 
 
-function ClassificationChip({ classification }: { classification: string }) {
-  const tone = CLASSIFICATION_TONES[classification] ?? "bg-tint-stone text-muted";
-  const label = CLASSIFICATION_LABELS[classification] ?? classification;
-  return <span className={`chip ${tone}`}>{label}</span>;
-}
-
-
 function RowHeader({
   row,
-  expanded,
-  onToggle,
+  selected,
+  onSelect,
 }: {
   row: Classification;
-  expanded: boolean;
-  onToggle: () => void;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   return (
     <div
-      onClick={onToggle}
-      className="flex items-center gap-3 px-4 py-3 hover:bg-cream cursor-pointer"
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className={`flex items-center gap-3 px-4 py-3 cursor-pointer border-l-2 ${
+        selected ? "bg-tint-blue/60 border-accent" : "border-transparent hover:bg-cream"
+      }`}
     >
-      <span className="text-faint shrink-0">
-        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-      </span>
       <span className="num text-data text-ink shrink-0">{row.symbol}</span>
       <span className="text-data text-ink truncate min-w-0">{row.name}</span>
       <span className="text-data-xs text-faint shrink-0 whitespace-nowrap">
@@ -205,129 +125,28 @@ function RowHeader({
 }
 
 
-function RowDetails({ row }: { row: Classification }) {
-  return (
-    <div className="px-10 pb-4 space-y-3 bg-cream/50">
-      <div className="grid grid-cols-2 gap-4 text-data-xs">
-        {row.pivot_price != null && (
-          <div>
-            <div className="caps text-faint flex items-center gap-1">
-              Pivot
-              <Tooltip content={FIELD_TOOLTIPS.pivot}>
-                <span className="cursor-help">
-                  <Info size={10} />
-                </span>
-              </Tooltip>
-            </div>
-            <div className="num text-data text-ink">
-              {row.pivot_price.toLocaleString()}{" "}
-              {row.pivot_basis && (
-                <span className="text-data-xs text-faint">({row.pivot_basis})</span>
-              )}
-            </div>
-          </div>
-        )}
-        {row.base_high != null && row.base_low != null && (
-          <div>
-            <div className="caps text-faint flex items-center gap-1">
-              Base
-              <Tooltip content={FIELD_TOOLTIPS.base}>
-                <span className="cursor-help">
-                  <Info size={10} />
-                </span>
-              </Tooltip>
-            </div>
-            <div className="num text-data text-ink">
-              {row.base_low.toLocaleString()} ~ {row.base_high.toLocaleString()}
-              {row.base_depth_pct != null && (
-                <span className="text-data-xs text-faint"> ({row.base_depth_pct.toFixed(1)}%)</span>
-              )}
-              {row.base_start_date && (
-                <div className="text-data-xs text-faint">{row.base_start_date} 부터</div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {row.risk_flags && row.risk_flags.length > 0 && (
-        <div>
-          <div className="caps text-faint mb-1">Risk Flags</div>
-          <div className="flex flex-wrap gap-1">
-            {row.risk_flags.map((flag) => (
-              <Tooltip key={flag} content={RISK_FLAG_DESCRIPTIONS[flag] ?? flag}>
-                <span className="chip bg-amber-soft text-amber cursor-help">
-                  <AlertTriangle size={11} /> {flag}
-                </span>
-              </Tooltip>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {row.reasoning && (
-        <div>
-          <div className="caps text-faint mb-1">Reasoning</div>
-          <div className="text-data text-ink bg-paper border border-hairline rounded-lg p-3 max-h-96 overflow-auto leading-relaxed">
-            <GlossaryMarkdown
-              components={{
-                p: ({ node: _node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
-                strong: ({ node: _node, ...props }) => (
-                  <strong className="font-semibold text-ink block mt-3 first:mt-0" {...props} />
-                ),
-                ul: ({ node: _node, ...props }) => <ul className="list-disc ml-5 my-1" {...props} />,
-                ol: ({ node: _node, ...props }) => <ol className="list-decimal ml-5 my-1" {...props} />,
-                code: ({ node: _node, ...props }) => (
-                  <code className="font-mono bg-cream px-1 rounded text-data-xs" {...props} />
-                ),
-              }}
-            >
-              {row.reasoning}
-            </GlossaryMarkdown>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-data-xs text-faint num">
-        {row.analyzed_for_date && <span>기준일: {row.analyzed_for_date}</span>}
-        <span>source: {row.source}</span>
-        {row.llm_call_duration_s != null && (
-          <span>duration: {row.llm_call_duration_s.toFixed(1)}s</span>
-        )}
-        {row.llm_input_tokens != null && (
-          <span>in: {row.llm_input_tokens.toLocaleString()} tok</span>
-        )}
-        {row.llm_output_tokens != null && (
-          <span>out: {row.llm_output_tokens.toLocaleString()} tok</span>
-        )}
-      </div>
-
-      <Link
-        to={`/chart/${row.symbol}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-lg text-data-xs font-semibold hover:bg-accent-light"
-      >
-        <LineChart size={11} /> 차트 보기
-      </Link>
-    </div>
-  );
-}
-
-
 function ClassificationGroup({
   classification,
   rows,
-  expandedRows,
-  onToggleRow,
+  selectedSymbol,
+  onSelectRow,
+  pageSize,
 }: {
   classification: string;
   rows: Classification[];
-  expandedRows: Set<string>;
-  onToggleRow: (symbol: string) => void;
+  selectedSymbol: string | null;
+  onSelectRow: (symbol: string) => void;
+  pageSize: number;
 }) {
   const [groupOpen, setGroupOpen] = useState(classification !== "ignore" && classification !== "disqualified");
+  const listRef = useRef<HTMLDivElement>(null);
+  const [rowHeight, setRowHeight] = useState<number | null>(null);
+
+  // 목록 높이 = 첫 행 실제 높이 × N(#275). 행 높이를 재서 폰트·여백이 바뀌어도 N행이 정확히 보이게 한다.
+  useLayoutEffect(() => {
+    const first = listRef.current?.firstElementChild as HTMLElement | null | undefined;
+    if (first) setRowHeight(first.offsetHeight);
+  }, [groupOpen, rows.length]);
 
   if (rows.length === 0) return null;
 
@@ -342,9 +161,16 @@ function ClassificationGroup({
         </span>
         <ClassificationChip classification={classification} />
         <span className="text-data text-muted">{rows.length} 건</span>
+        {groupOpen && rows.length > pageSize && (
+          <span className="text-data-xs text-faint">· 스크롤해서 전체 보기</span>
+        )}
       </div>
       {groupOpen && (
-        <div className="border-t border-hairline">
+        <div
+          ref={listRef}
+          className="border-t border-hairline overflow-y-auto"
+          style={rowHeight ? { maxHeight: rowHeight * pageSize } : undefined}
+        >
           {rows.map((row, idx) => (
             <div
               key={row.symbol}
@@ -352,10 +178,9 @@ function ClassificationGroup({
             >
               <RowHeader
                 row={row}
-                expanded={expandedRows.has(row.symbol)}
-                onToggle={() => onToggleRow(row.symbol)}
+                selected={selectedSymbol === row.symbol}
+                onSelect={() => onSelectRow(row.symbol)}
               />
-              {expandedRows.has(row.symbol) && <RowDetails row={row} />}
             </div>
           ))}
         </div>
@@ -367,7 +192,24 @@ function ClassificationGroup({
 
 export default function ClassificationsPage() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const [pageSize, setPageSizeState] = useState<PageSize>(() => {
+    try {
+      return parsePageSize(window.localStorage.getItem(PAGE_SIZE_KEY));
+    } catch {
+      return DEFAULT_PAGE_SIZE;
+    }
+  });
+  const autoCollapseSidebar = useSidebarAutoCollapse();
+
+  const setPageSize = (n: PageSize) => {
+    setPageSizeState(n);
+    try {
+      window.localStorage.setItem(PAGE_SIZE_KEY, String(n));
+    } catch {
+      /* 저장 불가 환경 — 무시 */
+    }
+  };
 
   const qs = buildQueryString(filters);
   // 체크 0개 = "아무것도 안 보여야". 파라미터를 아예 안 보내면 백엔드가
@@ -408,13 +250,19 @@ export default function ClassificationsPage() {
   const totalVisible = counts.watch + counts.entry + counts.ignore + counts.disqualified;
   const presenceActive = filters.has_pattern || filters.has_pivot;
 
-  const toggleRow = (symbol: string) => {
-    setExpandedRows((prev) => {
-      const next = new Set(prev);
-      if (next.has(symbol)) next.delete(symbol);
-      else next.add(symbol);
-      return next;
-    });
+  // 필터로 목록에서 사라진 종목은 상세 영역에 남기지 않는다(#275)
+  const selectedRow = useMemo(() => {
+    if (!selectedSymbol) return null;
+    for (const c of CLASSIFICATION_ORDER) {
+      const hit = rowsByClassification[c]?.find((r) => r.symbol === selectedSymbol);
+      if (hit) return hit;
+    }
+    return null;
+  }, [selectedSymbol, rowsByClassification]);
+
+  const selectRow = (symbol: string) => {
+    setSelectedSymbol(symbol);
+    autoCollapseSidebar();
   };
 
   const toggleClassification = (c: string) => {
@@ -603,13 +451,34 @@ export default function ClassificationsPage() {
       )}
       {q.data && totalVisible > 0 && (
         <>
+          {selectedRow ? (
+            <ClassificationDetail row={selectedRow} />
+          ) : (
+            <div className="bento mb-4 px-4 py-6 text-center text-data text-muted">
+              목록에서 종목을 선택하면 이 자리에 6개월 일봉 차트와 분석 내용(Reasoning)이 표시됩니다.
+            </div>
+          )}
+          <div className="flex justify-end items-center gap-2 mb-2 text-data-xs text-faint">
+            <label htmlFor="cls-page-size">보기</label>
+            <select
+              id="cls-page-size"
+              value={pageSize}
+              onChange={(e) => setPageSize(parsePageSize(e.target.value))}
+              className="num text-data-xs px-1.5 py-0.5 border border-hairline rounded-md bg-paper"
+            >
+              {PAGE_SIZES.map((n) => (
+                <option key={n} value={n}>{n}개씩</option>
+              ))}
+            </select>
+          </div>
           {CLASSIFICATION_ORDER.map((c) => (
             <ClassificationGroup
               key={c}
               classification={c}
               rows={rowsByClassification[c] ?? []}
-              expandedRows={expandedRows}
-              onToggleRow={toggleRow}
+              selectedSymbol={selectedRow?.symbol ?? null}
+              onSelectRow={selectRow}
+              pageSize={pageSize}
             />
           ))}
         </>
