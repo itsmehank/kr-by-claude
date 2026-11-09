@@ -11,6 +11,7 @@ spec: docs/superpowers/specs/2026-11-09-reasoning-glossary-design.md D2
 from __future__ import annotations
 
 import argparse
+import json
 import re
 from collections import Counter
 from pathlib import Path
@@ -19,14 +20,19 @@ from kr_pipeline.db.connection import connect
 
 TABLES = ("weekly_classification", "trigger_evaluation_log")
 
+# 경계는 ASCII 기준으로 명시한다 — Python 의 \b 는 한글도 단어 문자로 봐서 'downtrend로' 같은
+# 영단어+조사 표기를 놓친다(웹 매칭기 glossaryMatch.ts 와 같은 경계 규칙).
+_L = r"(?<![A-Za-z0-9_])"
+_R = r"(?![A-Za-z0-9_])"
+
 PATTERNS: dict[str, re.Pattern[str]] = {
-    "snake_case 플래그": re.compile(r"\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b"),
-    "key=value": re.compile(r"\b[a-z_][a-z0-9_.]*=[A-Za-z0-9_.]+"),
+    "snake_case 플래그": re.compile(_L + r"[a-z][a-z0-9]*(?:_[a-z0-9]+)+" + _R),
+    "key=value": re.compile(_L + r"[a-z_][a-z0-9_.]*=[A-Za-z0-9_.]+"),
     "절 번호(§)": re.compile(r"§\s?\d+(?:\.\d+)*"),
-    "게이트·조건 번호": re.compile(r"\b(?:Gate\s?\d|G\d|c\d(?:\s?[·,~]\s?c\d)*)\b"),
-    "책·저자": re.compile(r"\b(?:HMMS|TLSMW|TTLC|O'Neil|Minervini|Weinstein|CAN SLIM)\b"),
-    "영문 구(소문자)": re.compile(r"\b[a-z]+(?:[- ][a-z]+){1,3}\b"),
-    "영문 단어(대문자 포함)": re.compile(r"\b[A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+){0,2}\b"),
+    "게이트·조건 번호": re.compile(_L + r"(?:Gate\s?\d|G\d|c\d(?:\s?[·,~]\s?c\d)*)" + _R),
+    "책·저자": re.compile(_L + r"(?:HMMS|TLSMW|TTLC|O'Neil|Minervini|Weinstein|CAN SLIM)" + _R),
+    "영문 구(소문자)": re.compile(_L + r"[a-z]+(?:[- ][a-z]+){1,3}" + _R),
+    "영문 단어(대문자 포함)": re.compile(_L + r"[A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+){0,2}" + _R),
 }
 
 GLOSSARY_TS = Path(__file__).resolve().parent.parent / "web/src/data/reasoningGlossary.ts"
@@ -37,8 +43,15 @@ def glossary_aliases() -> set[str]:
         return set()
     text = GLOSSARY_TS.read_text(encoding="utf-8")
     out: set[str] = set()
-    for block in re.findall(r"aliases:\s*\[(.*?)\]", text, flags=re.S):
-        out.update(a.lower() for a in re.findall(r'"((?:[^"\\]|\\.)*)"', block))
+    # aliases 배열 안의 문자열 리터럴을 직접 훑는다(']' 를 포함한 alias 에도 안전), JSON 규칙으로 이스케이프 해제
+    for m in re.finditer(r"aliases:\s*\[", text):
+        i = m.end()
+        while True:
+            lit = re.compile(r'\s*("(?:[^"\\]|\\.)*")\s*,?').match(text, i)
+            if not lit:
+                break
+            out.add(json.loads(lit.group(1)).lower())
+            i = lit.end()
     return out
 
 

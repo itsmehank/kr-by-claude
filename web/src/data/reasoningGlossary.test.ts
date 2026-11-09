@@ -75,6 +75,12 @@ describe("실제 reasoning 매칭", () => {
     expect(expected.filter((id) => !found.has(id))).toEqual([]);
   });
 
+  it("한국어 복합어 — '추격매수 구간' 은 매수 구간(buy_zone)이 아니라 추격(extended)", () => {
+    const ids = termIds("종가가 50일선 대비 +20.03%로 추격매수 구간, 신규 매수 부적합.");
+    expect(ids).toContain("extended");
+    expect(ids).not.toContain("buy_zone");
+  });
+
   it("표본 매칭 후 이어 붙이면 원문 그대로", () => {
     for (const s of REASONING_SAMPLES) expect(matchGlossary(s).map((x) => x.text).join("")).toBe(s);
   });

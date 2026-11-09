@@ -161,6 +161,13 @@ export function GlossaryPanel() {
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => {
+                  // Esc 는 검색어 지우기 → 창 닫기. 아래 모달(window/document 리스너)까지 전파되지 않게 막는다
+                  if (e.key !== "Escape") return;
+                  e.stopPropagation();
+                  if (q) setQ("");
+                  else g.setOpen(false);
+                }}
                 placeholder="용어 검색 (예: FTD, 분배일, G0)"
                 className="flex-1 bg-transparent text-data outline-none placeholder:text-faint"
               />

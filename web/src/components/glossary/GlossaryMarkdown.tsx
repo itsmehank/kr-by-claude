@@ -16,6 +16,9 @@ export function GlossaryMarkdown({ children, components }: { children: string; c
       span: ({ node: _node, ...props }) => {
         const id = (props as Record<string, unknown>)["data-glossary-id"];
         if (typeof id === "string") return <GlossaryTerm id={id} text={String(props.children ?? "")} />;
+        // 호출자가 span 렌더러를 넘겼다면 사전 용어가 아닌 span 에는 그것을 쓴다
+        const CallerSpan = components?.span;
+        if (CallerSpan && typeof CallerSpan !== "string") return <CallerSpan {...props} />;
         return <span {...props} />;
       },
     }),
