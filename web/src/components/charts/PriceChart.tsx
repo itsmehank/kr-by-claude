@@ -95,6 +95,11 @@ interface TooltipState {
   volumeSMA: number | null;
 }
 
+// 기본값을 렌더마다 새 배열([])로 만들면 effect 의존성이 매번 바뀌어 차트 재생성 → setChartApi →
+// 재렌더의 무한 루프가 된다(#275 에서 triggerEvents 를 넘기지 않는 호출부가 생기며 드러남). 고정 상수로 둔다.
+const NO_TRIGGERS: TriggerOverlayEvent[] = [];
+const NO_BANDS: BandSegment[] = [];
+
 const HIDDEN_TOOLTIP: TooltipState = {
   visible: false,
   x: 0,
@@ -126,9 +131,9 @@ export function PriceChart({
   stopLoss = null,
   showPivotStop = true,
   showTriggerMarkers = true,
-  triggerEvents = [],
+  triggerEvents = NO_TRIGGERS,
   showClassificationBands = false,
-  bandSegments = [],
+  bandSegments = NO_BANDS,
   baseRange = null,
 }: PriceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
