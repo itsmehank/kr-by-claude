@@ -8,6 +8,7 @@ import {
   type TimelineRow,
   type TimelineTriggerEvent,
 } from "../lib/stockTimeline";
+import { GlossaryText } from "./glossary/GlossaryText";
 
 // ReviewPage.tsx 의 DecisionPill 을 로컬 복제 — 이 코드베이스의 확립된 관례
 // (TriggersPage.tsx:261, ReviewPage.tsx 모두 페이지/컴포넌트별 로컬 복제, export 공유 아님).
@@ -100,7 +101,9 @@ function TriggerCard({
             {isOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
           </span>
           {/* min-w-0: 좁은 컬럼(상세 패널 우측)에서도 truncate 가 가로 오버플로우 없이 동작 */}
-          <span className={isOpen ? "whitespace-pre-wrap" : "min-w-0 flex-1 truncate"}>{t.reasoning}</span>
+          <span className={isOpen ? "whitespace-pre-wrap" : "min-w-0 flex-1 truncate"}>
+            {isOpen ? <GlossaryText text={t.reasoning} inButton /> : t.reasoning}
+          </span>
         </button>
       )}
     </div>

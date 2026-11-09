@@ -13,12 +13,12 @@ import { api } from "../lib/api";
 import type { Classification } from "../lib/types";
 import { relativeTime, formatKst } from "../lib/utils";
 import { Tooltip } from "../components/ui/Tooltip";
-import ReactMarkdown from "react-markdown";
 import {
   BREAKOUT_VOL_PREFERRED,
   MARKET_DISTRIBUTION_LOOKBACK_DAYS,
 } from "../data/thresholds.generated";
 import { matchesPresenceFilters } from "../lib/classificationFilters";
+import { GlossaryMarkdown } from "../components/glossary/GlossaryMarkdown";
 
 
 type SortOption = "classified_at_desc" | "confidence_desc";
@@ -269,7 +269,7 @@ function RowDetails({ row }: { row: Classification }) {
         <div>
           <div className="caps text-faint mb-1">Reasoning</div>
           <div className="text-data text-ink bg-paper border border-hairline rounded-lg p-3 max-h-96 overflow-auto leading-relaxed">
-            <ReactMarkdown
+            <GlossaryMarkdown
               components={{
                 p: ({ node: _node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
                 strong: ({ node: _node, ...props }) => (
@@ -283,7 +283,7 @@ function RowDetails({ row }: { row: Classification }) {
               }}
             >
               {row.reasoning}
-            </ReactMarkdown>
+            </GlossaryMarkdown>
           </div>
         </div>
       )}

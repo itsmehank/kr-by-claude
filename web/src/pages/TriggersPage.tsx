@@ -12,6 +12,7 @@ import {
   VOLUME_RATIO_HELP,
   PIVOT_DELTA_HELP,
 } from "../components/InfoTooltip";
+import { GlossaryText } from "../components/glossary/GlossaryText";
 
 const DECISIONS: { value: TriggerDecision | ""; label: string }[] = [
   { value: "", label: "전체" },
@@ -239,7 +240,7 @@ export default function TriggersPage() {
                               {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                             </span>
                             <span className={isOpen ? "whitespace-pre-wrap" : "truncate max-w-md"}>
-                              {t.reasoning}
+                              {isOpen ? <GlossaryText text={t.reasoning} inButton /> : t.reasoning}
                             </span>
                           </button>
                         ) : (

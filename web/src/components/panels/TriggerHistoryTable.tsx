@@ -12,6 +12,7 @@ import {
   VOLUME_RATIO_HELP,
   PIVOT_DELTA_HELP,
 } from "../InfoTooltip";
+import { GlossaryText } from "../glossary/GlossaryText";
 
 interface Props {
   ticker: string;
@@ -127,7 +128,7 @@ export function TriggerHistoryTable({ ticker, limit = 20 }: Props) {
                       <span
                         className={isOpen ? "whitespace-pre-wrap" : "truncate min-w-0"}
                       >
-                        {t.reasoning}
+                        {isOpen ? <GlossaryText text={t.reasoning} inButton /> : t.reasoning}
                       </span>
                     </button>
                   ) : (
