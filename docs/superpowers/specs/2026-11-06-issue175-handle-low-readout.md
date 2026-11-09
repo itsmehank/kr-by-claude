@@ -97,6 +97,23 @@
 - 잔여 림 미회복(weekly 23·backtest 158)에는 "+1 tick" 구 관례 행이 섞여 있을 수 있다(2단 매칭은 −0.1 만 역산) — 소급 시 NULL 로 남음.
 - `--apply` 전 추가 관측 권고(R1 Rec 3): `exact` 매칭 구 행의 "손잡이 시작 봉 high − pivot_eff" 분포. §6-4 관측에 "as_of 봉이 돌파 봉인 행의 (B′) 발화율"(Rec 4).
 
+## §6-4 첫 실전 관측 — 2026-11-08 run 2381 (as_of 2026-11-06, 판정 아님·3-3)
+
+- 발단: 11-07 토 06:34 자동 실행(run 2380)은 claude CLI 실행 파일 미발견으로 37/37 실패(#269) → 11-08 23:49 사용자가 `weekend_chain.sh` 수동 재실행(run 2381, 새 검출기 코드 + #184 C3′, prompt `f7eb1fb770fb`, 37/37 성공).
+- 소급 `--apply` 는 11-06 완료(weekly 193·backfill 10·backtest 946·recall 128, §7 plan 과 동일). Rec 3 분포는 #175 코멘트(11-06) 기록.
+
+| 항목 | 값 |
+|---|---|
+| 후보·행 | 37 (watch 36 · ignore 1) |
+| 패턴 | none 19 · flat_base 11 · cup_without_handle 5 · **cup_with_handle 2** |
+| handle_low non-null | cwh 2 중 1 (50%) — 전체 37행 중 1 |
+| handle_quality 발화 | 1/37 (3%) |
+| 발화 행 metrics | handle 10-29~11-06(7일), pivot_eff 16,960(`pivot_eff_source` exact), handle_low 15,310(깊이 9.73%), (B′) volume_vs_50d 1.401(손잡이 평균 > 50일 평균 = 결함), (D′) distribution_days 4 · lower_close 4, dry_up_days 0 |
+| 비교선 | 10-02 69행(cwh 5·handle_low 3) · 10-08 77행(5·4) · 10-16 60행(5·4) · 10-23 4행·10-30 7행(체인 결손) |
+
+- 해석(관측): 분모(cwh 2)가 작아 커버리지 50% 는 수치로 쓰지 않는다. 발화 1건은 (B′)·(D′) 둘 다 결함 — Rec 4 "as_of 봉이 돌파 봉인 행" 여부는 `handle_end`=as_of(11-06)라 해당(§6-3 start_corrected 유형). 4주 누적(≈12-06) 후 B-수치(발화율 82% 대비)로 재집계.
+- 같은 run 의 교차 관측: #253 pivot 소수부≠0 0건·sanity_pivot_offset_rule 0건·effective_pivot≠pivot 9건(래칫), #184 volume_regime_flag 전부 mixed·ver 2.
+
 ## 다음
 
-- `--apply` 는 사용자 승인 후(테이블 명시, 다른 열 불변). 그 전에 위 Rec 3 분포를 readout 에 추기.
+- 4주 누적(≈12-06) B-수치: 발화율·(B′)/(D′) 분포·handle_low 깊이 분포 — 주말 run 이 결손 없이 4회 쌓여야 함(#269 수리 PR #270 머지·plist 재설치 선행).
