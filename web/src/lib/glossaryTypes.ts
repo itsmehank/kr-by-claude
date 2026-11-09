@@ -48,3 +48,7 @@ export interface GlossaryEntry {
 export type Segment =
   | { kind: "text"; text: string }
   | { kind: "term"; text: string; id: string };
+
+export function formatThreshold(t: GlossaryThreshold): string {
+  return `${t.label}: ${t.value}${t.unit ? ` ${t.unit}` : ""}`;
+}

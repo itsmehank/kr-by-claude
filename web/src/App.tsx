@@ -40,6 +40,8 @@ import PipelinePage from "./pages/PipelinePage";
 import LibraryPage from "./pages/LibraryPage";
 import TradingPage from "./pages/TradingPage";
 import IssuesPage from "./pages/IssuesPage";
+import { GlossaryProvider } from "./components/glossary/GlossaryProvider";
+import { GlossaryPanel } from "./components/glossary/GlossaryPanel";
 import { api } from "./lib/api";
 import type { PipelineRun } from "./lib/types";
 import { relativeTime, stalenessLevel } from "./lib/utils";
@@ -165,6 +167,7 @@ function App() {
   const [collapsed, setCollapsed] = useSidebarCollapsed();
 
   return (
+    <GlossaryProvider>
     <div className="min-h-screen flex bg-cream">
       <aside
         className={`${
@@ -283,7 +286,9 @@ function App() {
           <Route path="/prompt/:ticker" element={<PromptPage />} />
         </Routes>
       </main>
+      <GlossaryPanel />
     </div>
+    </GlossaryProvider>
   );
 }
 

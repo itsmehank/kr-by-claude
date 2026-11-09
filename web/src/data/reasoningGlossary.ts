@@ -71,7 +71,6 @@ import {
 } from "./thresholds.generated";
 
 const P = "prompts/analyze_chart_v3.md";
-const PT = "prompts/evaluate_pivot_trigger_v1.md";
 
 function th(label: string, value: number | string, source: string, unit?: string): GlossaryThreshold {
   return { label, value, source, unit };
