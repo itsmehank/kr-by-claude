@@ -18,6 +18,7 @@ import { InfoTooltip } from "../components/InfoTooltip";
 import StockStreakRow from "../components/StockStreakRow";
 import StockDetailPanel from "../components/StockDetailPanel";
 import { SourceChip } from "../components/SourceChip";
+import { GlossaryText } from "../components/glossary/GlossaryText";
 
 const pct = (v: number | null) =>
   v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
@@ -257,7 +258,7 @@ function TriggerTimeline({ triggers }: { triggers: ReviewTrigger[] }) {
                       {isOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
                     </span>
                     <span className={isOpen ? "whitespace-pre-wrap" : "truncate max-w-md"}>
-                      {t.reasoning}
+                      {isOpen ? <GlossaryText text={t.reasoning} inButton /> : t.reasoning}
                     </span>
                   </button>
                 ) : (

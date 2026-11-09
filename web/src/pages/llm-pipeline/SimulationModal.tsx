@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import type { SimModal } from "../../data/llm-pipeline-simulation";
+import { GlossaryText } from "../../components/glossary/GlossaryText";
 
 interface Props {
   open: boolean;
@@ -72,7 +73,7 @@ export function SimulationModal({ open, modal, onClose }: Props) {
 
         <div className="px-6 pb-5">
           <h4 className="caps text-faint mb-2">Reasoning</h4>
-          <p className="text-data text-ink leading-relaxed">{modal.reasoning}</p>
+          <p className="text-data text-ink leading-relaxed"><GlossaryText text={modal.reasoning} /></p>
         </div>
 
         <div className="px-6 pb-6">

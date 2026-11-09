@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import ReactMarkdown from "react-markdown";
 import { api } from "../../lib/api";
 import type { Classification, ClassificationHistoryRow } from "../../lib/types";
 import { effectivePivotNote } from "../../lib/effectivePivot";
 import { Card } from "./Card";
+import { GlossaryText } from "../glossary/GlossaryText";
+import { GlossaryMarkdown } from "../glossary/GlossaryMarkdown";
 
 interface Props {
   ticker: string;
@@ -67,7 +68,7 @@ export function ClassificationCard({ ticker }: Props) {
               : "실격 — 미너비니 조건 미달 등으로 관찰 자격을 잃은 상태입니다. 조건을 다시 통과해 재분류되면 이 카드가 갱신됩니다."}
           </div>
           {c.reasoning && (
-            <div className="text-data-xs text-muted whitespace-pre-wrap">{c.reasoning}</div>
+            <div className="text-data-xs text-muted whitespace-pre-wrap"><GlossaryText text={c.reasoning} /></div>
           )}
           {prev && (
             <div className="text-data-xs">
@@ -159,7 +160,7 @@ export function ClassificationCard({ ticker }: Props) {
         )}
         {c.reasoning && (
           <div className="prose prose-sm max-w-none text-muted">
-            <ReactMarkdown>{c.reasoning}</ReactMarkdown>
+            <GlossaryMarkdown>{c.reasoning}</GlossaryMarkdown>
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import type { ClassificationLabel, ClassificationHistoryRow } from "../../lib/types";
 import { groupHistorySegments } from "../../lib/historySegments";
 import { Card } from "./Card";
+import { GlossaryText } from "../glossary/GlossaryText";
 
 // 칩 색 — disqualified 는 차트 밴드 "미통과/탈락"(빨강)과 통일 (스펙 §3).
 // Record<ClassificationLabel, ...> 선언: 분류 값이 늘면 컴파일러가 칩 색 누락을 강제(SSOT).
@@ -123,7 +124,7 @@ function FragmentRow({
               <span className="caps text-faint mr-2">
                 사유{s.truncatedStart && " (기간 내 첫 기록 기준)"}
               </span>
-              {s.reasoning ?? "사유 기록 없음"}
+              {s.reasoning ? <GlossaryText text={s.reasoning} /> : "사유 기록 없음"}
             </div>
             <table className="w-full text-data-xs">
               <thead className="text-faint">
