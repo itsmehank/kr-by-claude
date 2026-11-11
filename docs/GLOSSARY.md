@@ -391,9 +391,51 @@ specs/2026-11-07-issue184-anchor-c3prime-design.md, `scripts/issue184_anchor_shi
 용어 창 닫힘)으로 동작한다 — 선택값이 새로고침 후 기억되지 않을 뿐 화면은 정상이다.
 출처: 위 파일들의 try/catch(#275 에서 내비 저장도 try/catch 로 변경).
 
+## 12. 분류 실행 일정 용어 (주말 분류·평일 신규 분석·자격 상실)
+
+`weekly_classification` 의 각 행에는 그 행을 만든 경로가 `source` 컬럼에 적힌다. 아래 세 경로가 있고, 화면·시스템은
+종목마다 **가장 최근 행**(분석 기준일 → 실행 시각 순으로 최신)을 "현재 분류"로 쓴다. 이전 행은 지우지 않고 이력으로 남는다.
+
+### 주말 분류 (source = `weekend`)
+주말에 한 번, **직전 금요일 종가 기준**으로 TT(`minervini_pass`)를 통과한 종목 **전부**를 LLM 이 분석한다. 주중에 이미
+분류된 종목도 빼지 않고 다시 분석한다(아래 7일 가드를 적용하지 않음). 유일한 제외는 같은 분석 기준일(`analyzed_for_date`)의
+주말 행이 이미 있는 종목이다 — 중간에 끊긴 실행을 다시 돌릴 때 이어서 하기 위한 것이다.
+예: 2026-11-08 밤 실행은 `analyzed_for_date = 2026-11-06`(금) 기준으로 37종목을 분석했다. 053800 안랩은 11-06 에 TT 미통과라 대상이 아니었다.
+출처: `kr_pipeline/llm_runner/weekend.py`(`_already_classified`).
+
+### 평일 신규 분석 (source = `daily_delta`)
+평일 장 마감 후, **오늘 TT 를 통과**했고 상장폐지되지 않았으며 **최근 7일 안에 LLM 분류 행(`weekend` 또는 `daily_delta`)이 없는**
+종목만 LLM 이 분석한다. "지난 주말에 분석되지 않은 종목"이 아니라 "최근 7일 안에 LLM 분석을 받지 않은 종목"이 기준이다.
+예: 2026-11-09 에 052460 아이크래프트가 분석됐다. 마지막 LLM 행이 10-29(`daily_delta` watch)라 7일 창(11-02 이후) 밖이었기 때문이다.
+출처: `kr_pipeline/llm_runner/compute/delta.py`(`find_new_tickers`).
+
+### 7일 가드 (RECENT_CLASSIFICATION_WINDOW_DAYS = 7)
+평일 신규 분석에서 같은 종목에 LLM 을 너무 자주 돌리지 않게 하는 조건. 기준일에서 7일을 뺀 날짜(00:00) 이후에
+`weekend`·`daily_delta` 행이 하나라도 있으면 그 종목은 그날 분석하지 않는다. 비교 대상은 분석 기준일이 아니라 **실제 실행 시각**(`classified_at`)이다.
+- 주말 분류 행과 평일 신규 분석 행을 **둘 다** 센다. 평일 분석도 "최근 분석 이력"으로 인정한다.
+- 자격 상실 행(`system_disqualify`)은 LLM 분석이 아니므로 **세지 않는다**(#145). 자격 상실 직후라도 마지막 LLM 행이 7일보다 오래됐으면 바로 재분석된다.
+- 반대로 마지막 LLM 행이 7일 안이면, 자격 상실 뒤 TT 를 다시 통과해도 재분석되지 않는다. 예: 아이크래프트는 10-29 watch → 11-02 자격 상실 뒤, 10-29 로부터 7일이 지난 11-09 에야 재분석됐다.
+출처: `kr_pipeline/common/thresholds.py`(`RECENT_CLASSIFICATION_WINDOW_DAYS`), `kr_pipeline/llm_runner/compute/delta.py`.
+
+### 자격 상실 (classification = `disqualified`, source = `system_disqualify`)
+평일 장 마감 후 매번 실행되는 결정론 점검(LLM 미호출). 현재 분류가 `entry`·`watch`·`ignore` 인 종목이 **오늘 TT 미통과**면,
+`classification = 'disqualified'` 행을 **새로 한 줄 추가**한다. `ignore` 로 바꾸거나 값을 지우는(null) 것이 아니다.
+Reasoning 에는 고정 문구 "minervini_pass=false — 미너비니 자격 상실(시스템 강등)"이 들어간다. 이미 `disqualified` 인 종목은 대상이
+아니라 여러 번 실행해도 행이 늘지 않는다(멱등).
+예: 2026-11-09 20:31 에 7종목(004100·021240·044450·086450·091340·138040·351320)에 이 행이 추가됐다. 11-06 주말 분류 때는 TT 통과였지만 11-09 에 미통과였다.
+유니버스 배제(증권구분 필터로 아예 판정 대상이 아님)와는 다른 값이다.
+출처: `kr_pipeline/llm_runner/disqualify.py`, `kr_pipeline/llm_runner/store.py`, `kr_pipeline/llm_runner/load.py`(`get_classified_losing_minervini`).
+
+### 트리거 감시 대상
+평일에 돌파·이탈 트리거를 확인하는 종목은 현재 분류가 **`entry`·`watch` 인 종목만**이다. `ignore`·`disqualified` 는 감시하지 않는다.
+그래서 `ignore` 종목은 주중에 TT 를 계속 통과해도 다시 평가되지 않고(주말 분류가 7일 안이라 평일 신규 분석에서도 빠짐),
+다음 주말 분류에서 금요일에도 TT 를 통과하면 그때 다시 분석된다. 주중에 TT 미통과가 되면 그날 자격 상실 행이 추가된다.
+출처: `kr_pipeline/llm_runner/load.py`(`get_active_monitoring`).
+
 ---
 
 ## 변경 이력
+- 2026-11-11: §12 주말 분류·평일 신규 분석·7일 가드·자격 상실·트리거 감시 대상 추가(11-09 평일 분류 시점 질문 계기).
 - 2026-11-09: §11 localStorage·막힌 환경 추가(#275 PR 보고 중 질문 계기).
 - 2026-11-08: §9 C3′ 를 (B) 구현 정의로 갱신, 표지 버전 열 추가(#184 구현).
 - 2026-11-06: §10 SEPA 2단계·dart_fin_raw/dart_financials 추가(#186 설명 중 질문 계기).
