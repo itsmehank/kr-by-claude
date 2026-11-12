@@ -38,6 +38,9 @@ web/dist/
 # Runtime artifacts (LLM 분석 입력 freeze ZIP — api/services/freeze_store.py 가 생성)
 data/freezes/
 
+# (#281) AI 분석 전문가 채팅 대화 저장(7일 보관) — kr_pipeline/chat/store.py 가 생성
+data/chats/
+
 # Claude Code 로컬 (worktrees, settings.local.json)
 .claude/
 

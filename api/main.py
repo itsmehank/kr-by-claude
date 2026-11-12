@@ -8,6 +8,7 @@ from api.deps import init_pool, close_pool
 from api.routers import stocks, indicators, heatmap, render, prompts, runs, market_context, signals, performance, runner, pipelines, classifications, triggers, index, positions, review, issues
 from api.routers import cron as cron_router
 from api.routers import backfill as backfill_router
+from api.routers import chat as chat_router
 
 
 @asynccontextmanager
@@ -48,6 +49,7 @@ app.include_router(positions.router)
 app.include_router(review.router)
 app.include_router(issues.router)
 app.include_router(backfill_router.router)
+app.include_router(chat_router.router)
 
 
 @app.get("/api/health")
