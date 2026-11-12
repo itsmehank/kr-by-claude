@@ -24,7 +24,7 @@
 - `daily_indicators`(ticker, date, adj_close, sma_50/150/200, w52_high, w52_low, rs_rating, minervini_c1~c8, minervini_pass, volume, avg_volume_50d, volume_ratio_50d, distribution_day_flag …): 일봉 지표. minervini_pass 가 Trend Template 8조건 통과 여부.
 - `weekly_indicators`(ticker, week_end_date, adj_close, sma_10w/30w/40w, rs_rating, minervini_pass, volume_ratio_10w …): 주봉 지표. 날짜 열이 `week_end_date` 입니다.
 - `daily_prices`·`weekly_prices`: 원본·수정 주가(OHLCV).
-- `market_context_daily`(date, index_code, current_status, distribution_day_count_last_25, last_follow_through_day, days_since_follow_through, pct_stocks_above_200d_ma): 날짜·지수별 시장 상태. 트리거의 시장 게이트 근거.
+- `market_context_daily`(date, index_code, current_status, distribution_day_count_last_25, last_follow_through_day, days_since_follow_through, pct_stocks_above_200d_ma): 날짜·지수별 시장 상태. 트리거의 시장 게이트 근거. `index_code` 는 `1001` = KOSPI, `2001` = KOSDAQ 이다(다른 지수 테이블도 같다). 답에 지수 이름을 쓸 때 이 대응을 그대로 따른다.
 - `index_daily`·`weekly_index`: 지수 시세.
 - `positions`(symbol, entry_date, entry_price, quantity, status …)와 `position_*_evaluations`: 보유 포지션과 매도 규칙 평가. `toss_order_audit`: 주문 기록.
 - `pipeline_runs`(pipeline, mode, started_at, finished_at, status, details): 자동 작업 실행 기록(llm_weekend·llm_daily_delta 등).
