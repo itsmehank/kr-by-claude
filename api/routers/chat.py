@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import threading
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import asdict
 from pathlib import Path
 
@@ -24,7 +24,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import ClientDisconnect
 
 from api.deps import get_conn
-from kr_pipeline.chat.prompt import build_ticker_context
+from kr_pipeline.chat.prompt import TickerContext, build_ticker_context
 from kr_pipeline.chat.runner import REPO_ROOT, ClaudeChatRunner
 from kr_pipeline.chat.service import BUSY_TEXT, ChatBusy, ChatService, ConversationNotFound
 from kr_pipeline.chat.store import ChatStore
@@ -131,8 +131,14 @@ class _ChatResponse(StreamingResponse):
             await self._chat_stream.finish()
 
 
+def _ticker_context(conn_provider: Callable[[], Iterator[Connection]], ticker: str) -> TickerContext | None:
+    # 종목 요약을 읽는 동안만 연결을 쓴다. 답이 도는 수 분 동안 풀 연결을 붙잡지 않는다.
+    with contextlib.contextmanager(conn_provider)() as conn:
+        return build_ticker_context(conn, ticker)
+
+
 @router.post("/api/chat")
-async def chat(request: Request, conn: Connection = Depends(get_conn)):
+async def chat(request: Request):
     try:
         body = await request.json()
     except Exception:  # noqa: BLE001
@@ -153,12 +159,15 @@ async def chat(request: Request, conn: Connection = Depends(get_conn)):
         return _bad_request("ticker 형식이 틀렸어요.")
 
     service = get_service()
-    try:
-        # 없는 종목·읽기 실패는 조용히 맥락 없이 답한다.
-        context = await run_in_threadpool(build_ticker_context, conn, ticker)
-    except Exception as e:  # noqa: BLE001
-        log.warning("chat context failed: %s", type(e).__name__)
-        context = None
+    context = None
+    if ticker:
+        # Depends 로 받지 않는다(받으면 스트림이 끝날 때까지 연결을 쥔다). 테스트의 get_conn 바꿔 끼우기는 그대로 따른다.
+        provider = request.app.dependency_overrides.get(get_conn, get_conn)
+        try:
+            # 없는 종목·읽기 실패는 조용히 맥락 없이 답한다.
+            context = await run_in_threadpool(_ticker_context, provider, ticker)
+        except Exception as e:  # noqa: BLE001
+            log.warning("chat context failed: %s", type(e).__name__)
     stream = _ChatStream(service, service.ask(question, conversation_id=conv_id, context=context))
     # 409·404는 스트림을 열기 전에 판정한다: 첫 이벤트(start)를 미리 꺼낸다.
     try:

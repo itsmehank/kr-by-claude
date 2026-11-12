@@ -8,9 +8,7 @@ from __future__ import annotations
 from mcp.server.mcpserver import MCPServer
 
 from kr_pipeline.chat import dbtool
-
-SERVER_NAME = "krdb"
-TOOL_NAMES = ("describe", "query")
+from kr_pipeline.chat.dbtool import SERVER_NAME, TOOL_NAMES  # noqa: F401  (정의는 dbtool)
 
 server = MCPServer(SERVER_NAME)
 

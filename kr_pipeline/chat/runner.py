@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Literal, Protocol
 
 from kr_pipeline.chat import dbtool
-from kr_pipeline.chat.mcp_server import SERVER_NAME, TOOL_NAMES
+from kr_pipeline.chat.dbtool import SERVER_NAME, TOOL_NAMES
 from kr_pipeline.llm_runner.llm.claude_cli import resolve_claude_bin
 
 log = logging.getLogger(__name__)

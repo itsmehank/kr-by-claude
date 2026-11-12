@@ -133,3 +133,60 @@ def test_abort_before_start_raises_aborted(tmp_path, monkeypatch):
 
 def test_classify_is_error_default():
     assert chat_runner.classify_is_error({"result": "weird"})[0] == "is_error"
+
+
+def _alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _spawning_claude(tmp_path):
+    """뒤에서 손자 프로세스를 띄우고, 글 한 조각을 낸 뒤 오래 멈춰 있는 가짜 claude."""
+    pids = tmp_path / "pids"
+    script = tmp_path / "claude"
+    script.write_text(
+        "#!/bin/sh\ncat > /dev/null\n"
+        f'sleep 300 &\necho $! > "{pids}"\necho $$ >> "{pids}"\n'
+        f"echo '{json.dumps(_delta('부분'))}'\n"
+        "sleep 300\n")
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    return str(script), pids
+
+
+def _wait_gone(pids, seconds=5.0):
+    deadline = time.monotonic() + seconds
+    while any(_alive(p) for p in pids) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    return [p for p in pids if _alive(p)]
+
+
+def test_abort_midstream_kills_process_and_grandchild(tmp_path, monkeypatch):
+    binary, pidfile = _spawning_claude(tmp_path)
+    monkeypatch.setenv("KR_CLAUDE_BIN", binary)
+    r = ClaudeChatRunner(database_url="u")
+    stream = r.stream("q")
+    assert next(stream) == Delta("부분")  # 프로세스가 떠서 글을 내는 중
+    pids = [int(x) for x in pidfile.read_text().split()]
+    assert len(pids) == 2 and all(_alive(p) for p in pids)
+    t0 = time.monotonic()
+    r.abort()  # 서비스의 cancel() 이 다른 스레드에서 부르는 것과 같다
+    with pytest.raises(ChatRunError) as e:
+        next(stream)
+    assert e.value.kind == "aborted" and time.monotonic() - t0 < 5
+    assert _wait_gone(pids) == []  # 뒤에서 띄운 손자까지 사라진다
+    assert r._active is None
+
+
+def test_close_midstream_kills_process_and_grandchild(tmp_path, monkeypatch):
+    binary, pidfile = _spawning_claude(tmp_path)
+    monkeypatch.setenv("KR_CLAUDE_BIN", binary)
+    stream = ClaudeChatRunner(database_url="u").stream("q")
+    assert next(stream) == Delta("부분")
+    pids = [int(x) for x in pidfile.read_text().split()]
+    stream.close()  # 이터레이터를 중간에 닫는 경로(연결 끊김)
+    assert _wait_gone(pids) == []

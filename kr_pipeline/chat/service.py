@@ -28,6 +28,7 @@ BUSY_TEXT = "전문가가 답하는 중이에요"
 STATUS_GENERIC = "DB 확인 중"
 STATUS_TABLES = "DB 조회 중: {tables}"
 STATUS_DESCRIBE = "테이블 구조 확인 중: {table}"
+PART_SEP = "\n\n"  # 도구 호출 앞의 말과 그 뒤의 말 사이(없으면 "확인해 볼게요.결론은…"처럼 붙는다)
 KST = ZoneInfo("Asia/Seoul")
 
 ERROR_TEXT: dict[str, str] = {
@@ -185,6 +186,7 @@ class ChatService:
 
         parts: list[str] = []
         queries: list[str] = []
+        after_tool = False  # 글이 나온 뒤 도구 호출이 있었다 → 다음 글 앞에 PART_SEP
         stream: Iterator | None = None
         try:
             # start도 try 안에서 낸다: 첫 이벤트 직후 연결이 끊겨도(GeneratorExit) aborted를 저장한다.
@@ -201,9 +203,14 @@ class ChatService:
                 if self._cancel.is_set():
                     break
                 if isinstance(ev, Delta):
-                    parts.append(ev.text)
-                    yield {"type": "delta", "text": ev.text}
+                    chunk = ev.text
+                    if after_tool:
+                        after_tool = False
+                        chunk = PART_SEP + chunk.lstrip("\n")
+                    parts.append(chunk)
+                    yield {"type": "delta", "text": chunk}
                 elif isinstance(ev, ToolUse):
+                    after_tool = bool(parts)
                     if ev.path and ev.tool.endswith("__query") and len(queries) < QUERIES_MAX:
                         queries.append(ev.path[:QUERY_CHARS])
                     yield {"type": "status", "text": status_text(ev)}
