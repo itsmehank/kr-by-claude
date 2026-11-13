@@ -39,6 +39,7 @@ os.environ.setdefault("KR_CLAUDE_BIN", "/kr-test/claude-stub")
 os.environ["GUARD_MAX_DAILY_KRW"] = "10000000"
 
 SCHEMA_PATH = Path(__file__).parent.parent / "kr_pipeline" / "db" / "schema.sql"
+CHAT_RO_ROLE_PATH = SCHEMA_PATH.with_name("chat_ro_role.sql")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -85,6 +86,11 @@ def _setup_schema(test_db_url):
         conn.execute("CREATE SCHEMA public")
     subprocess.run(
         ["psql", "-v", "ON_ERROR_STOP=1", test_db_url, "-f", str(SCHEMA_PATH)],
+        check=True, capture_output=True,
+    )
+    # (#281) 채팅 조회 전용 계정 — DROP SCHEMA 로 권한이 사라지므로 재생성 직후 다시 준다.
+    subprocess.run(
+        ["psql", "-v", "ON_ERROR_STOP=1", test_db_url, "-f", str(CHAT_RO_ROLE_PATH)],
         check=True, capture_output=True,
     )
 
