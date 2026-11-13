@@ -798,7 +798,7 @@ def test_monthly_chain_done_month_exits_before_lock_and_sweep():
     text = _monthly_code()
     done = text.index('if [ "$UNIVERSE_DONE" = 1 ] && mapping_done; then')
     assert re.match(r"\s*exit 0\s*$", text[done:].splitlines()[1])
-    for later in ("acquire_lock data", "send_exclusion_report\n", "kr_pipeline.universe"):
+    for later in ("acquire_lock data", "report_due && send_exclusion_report", "kr_pipeline.universe"):
         assert done < text.index(later, done), f"{later!r} 가 완료 판정보다 앞에 있다"
 
 
@@ -816,13 +816,17 @@ def test_monthly_chain_hold_gates_precede_lock_and_halt(gate):
     assert any(re.match(r"\s*exit 0\s*$", ln) for ln in lines[idx + 1:idx + 4]), "\n".join(lines[idx:idx + 4])
 
 
-def test_monthly_chain_hold_resends_report_only_when_unsent():
-    """보류가 며칠 이어져도 같은 보고가 매일 Slack 에 올라가지 않는다 — 한 번도 못 보낸 경우에만 다시 시도(리뷰 #285)."""
-    lines = _monthly_code().splitlines()
-    idx = next(i for i, ln in enumerate(lines) if 'needs_human_since universe "$MONTH_START"' in ln)
-    branch = lines[idx + 1:idx + 4]
-    assert any(ln.strip() == "report_unsent && send_exclusion_report" for ln in branch), "\n".join(branch)
-    assert not any(ln.strip() == "send_exclusion_report" for ln in branch)
+def test_monthly_chain_report_step_is_conditional():
+    """보류가 며칠 이어져도 같은 보고가 매일 Slack 에 올라가지 않는다(리뷰 #285) — 사전 보고서는 report_due 일 때만.
+    무조건 전송은 universe 실행이 방금 실패한 경로 하나뿐이다."""
+    lines = [ln.strip() for ln in _monthly_code().splitlines()]
+    assert lines.count("report_due && send_exclusion_report") == 1
+    assert lines.count("send_exclusion_report") == 1
+    i = lines.index("send_exclusion_report")
+    assert lines[i - 1] == "release_lock data" and lines[i + 1] == "exit 1"
+    text = (LAUNCHD / "monthly_chain.sh").read_text()
+    assert "NOT (r.details ? 'report_sent_at')" in text and "r.details->>'report_kind' = 'facts_only'" in text
+    assert 'REPORT_RETRY_DAYS="${REPORT_RETRY_DAYS:-3}"' in text
 
 
 def test_monthly_chain_mapping_is_capped_by_mode():

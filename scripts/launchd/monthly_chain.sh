@@ -22,10 +22,16 @@ mapping_allowed() {
     && attempts_below corporate_actions "$DAY_START" 1 refresh-mapping
 }
 
-# 가장 최근 가드 실패 run 의 잔여 조사 보고서가 아직 한 번도 전송되지 않았는가(웹훅 일시 장애 등).
-report_unsent() {
+# 가장 최근 가드 실패 run 의 잔여 조사 보고서를 (다시) 보낼 때인가. 아래 둘 중 하나:
+#   - 아직 한 번도 전송되지 않았다(웹훅 일시 장애 등)
+#   - LLM 조사 없이 사실만 전송됐고(facts_only) 실패 후 REPORT_RETRY_DAYS 일이 안 지났다 — 다음 날 LLM 조사를 다시 시도(#221)
+# 매월 1일만 발화하던 때에는 "매 발화마다 전송 시도" 였지만, 매일 발화에서 그대로 두면 보류가 이어지는 동안
+# 같은 사실만 보고가 매일 Slack 에 다시 올라간다(리뷰 #285). 같은 날 중복은 보고서 쪽(report.py)이 막는다.
+REPORT_RETRY_DAYS="${REPORT_RETRY_DAYS:-3}"
+report_due() {
   local n
-  n=$(db_query "SELECT COUNT(*) FROM (SELECT details FROM pipeline_runs WHERE pipeline='universe' AND status='failed' AND started_at >= $MONTH_START AND details ? 'report_key' AND details->'report_key' <> '[]'::jsonb ORDER BY started_at DESC, id DESC LIMIT 1) r WHERE NOT (r.details ? 'report_sent_at')") \
+  _uint_arg universe report_retry_days "$REPORT_RETRY_DAYS" || return 1
+  n=$(db_query "SELECT COUNT(*) FROM (SELECT started_at, details FROM pipeline_runs WHERE pipeline='universe' AND status='failed' AND started_at >= $MONTH_START AND details ? 'report_key' AND details->'report_key' <> '[]'::jsonb ORDER BY started_at DESC, id DESC LIMIT 1) r WHERE NOT (r.details ? 'report_sent_at') OR (r.details->>'report_kind' = 'facts_only' AND r.started_at > now() - interval '$REPORT_RETRY_DAYS days')") \
     || { log "보고서 전송 여부 조회 실패 — fail-closed 중단"; exit 1; }
   [ "${n##*$'\n'}" = "1" ]
 }
@@ -45,11 +51,12 @@ fi
 log "monthly_chain 시작"
 
 if [ "$UNIVERSE_DONE" = 0 ]; then
+  # (#221) 직전 실패 run 의 잔여 조사 보고서 — 아래 보류·상한 판정보다 **앞**(시도 상한에 걸린 날에도 미전송 보고서는 간다),
+  # data 락 획득보다 **앞**(LLM 대기 최대 ~8분 동안 락을 쥐면 morning_corp 등 다른 체인을 막는다 — 리뷰 #223 5차). KRX 접촉 0.
+  report_due && send_exclusion_report
   if needs_human_since universe "$MONTH_START"; then
     # 사람이 원인을 보고 universe 를 --accept-exclusion-diff 로 직접 실행해 성공하면 다음 발화가 매핑을 잇는다.
-    # 보고서는 아직 한 번도 못 보낸 경우에만 다시 시도한다 — 보류가 며칠 이어져도 같은 보고가 매일 Slack 에 올라가지 않게.
     log "universe 가드 실패(사람 확인 필요) — 자동 재시도 안 함, 매핑 단계 포함 전체 보류"
-    report_unsent && send_exclusion_report
     exit 0
   elif ! attempts_below universe "$MONTH_START" "$MONTH_ATTEMPT_MAX"; then
     log "universe 이번 달 시도 상한 — 매핑 단계 포함 전체 보류(순서 보전)"
@@ -60,9 +67,6 @@ if [ "$UNIVERSE_DONE" = 0 ]; then
     log "universe 미완료이나 하루 시도 상한/간격 — 매핑 단계 포함 전체 보류(순서 보전)"
     exit 0
   fi
-  # (#221) 재시도 전에, 직전 실패 run 의 잔여 조사 보고서가 미전송이면 보낸다(KRX 접촉 0·이미 전송됐으면 즉시 no-op).
-  # data 락 **획득 전**에 돌린다 — LLM 대기(최대 ~8분) 동안 락을 쥐면 morning_corp 등 다른 체인을 막는다(리뷰 #223 5차).
-  send_exclusion_report
 elif ! mapping_allowed; then
   log "corp_code 매핑 미완료이나 시도 상한 — 보류"
   exit 0
