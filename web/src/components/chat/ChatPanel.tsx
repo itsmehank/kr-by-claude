@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -62,7 +62,8 @@ function Queries({ queries }: { queries: string[] }) {
   );
 }
 
-function Message({ m }: { m: ChatMsg }) {
+// 답이 한 조각 올 때마다 패널이 다시 그려진다. 끝난 메시지는 그대로이므로 마크다운을 다시 해석하지 않게 한다.
+const Message = memo(function Message({ m }: { m: ChatMsg }) {
   if (m.role === "user") {
     return (
       <div className="flex justify-end">
@@ -80,7 +81,7 @@ function Message({ m }: { m: ChatMsg }) {
       <Queries queries={m.queries} />
     </div>
   );
-}
+});
 
 function HistoryList({ onPick, disabled }: { onPick: (id: string) => void; disabled: boolean }) {
   const q = useQuery<ChatSummary[]>({ queryKey: CHATS_QUERY_KEY, queryFn: getChats, staleTime: 0 });
@@ -136,8 +137,13 @@ export function ChatPanel() {
     if (el && stick.current) el.scrollTop = el.scrollHeight;
   }, [msgCount, liveText, liveStatus, open, view]);
 
+  // 창을 열거나 대화 화면으로 돌아올 때만 입력창에 커서를 둔다.
+  // 새로고침으로 "열림"이 복원된 첫 화면에서는 페이지의 커서를 가져가지 않는다.
+  const shown = useRef({ open, view });
   useEffect(() => {
-    if (open && view === "chat") inputRef.current?.focus();
+    const changed = shown.current.open !== open || shown.current.view !== view;
+    shown.current = { open, view };
+    if (changed && open && view === "chat") inputRef.current?.focus();
   }, [open, view]);
 
   if (!chat) return null;

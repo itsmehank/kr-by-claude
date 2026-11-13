@@ -1,4 +1,5 @@
 /** (#281) AI 분석 전문가 채팅 — 서버(`/api/chat`, SSE)와 주고받는 부분. ai-library chat.ts 를 옮긴 것. */
+import { api, apiUrl } from "./api";
 
 export interface ChatTurn {
   role: "user" | "assistant";
@@ -52,6 +53,12 @@ export class ChatHttpError extends Error {
     super(message);
     this.status = status;
   }
+}
+
+/** 실패한 요청의 HTTP 상태 코드(ChatHttpError·api() 의 오류 모두). 네트워크 오류처럼 응답이 없었으면 undefined */
+export function httpStatus(err: unknown): number | undefined {
+  const status = err instanceof Error ? (err as { status?: unknown }).status : undefined;
+  return typeof status === "number" ? status : undefined;
 }
 
 export const SEND_FALLBACK = "전문가에게 질문하지 못했어요.";
@@ -113,7 +120,7 @@ export function createSseParser(): { push: (chunk: string) => ChatEvent[]; end: 
 }
 
 export async function streamChat(body: ChatBody, onEvent: (e: ChatEvent) => void, signal: AbortSignal): Promise<void> {
-  const res = await fetch("/api/chat", {
+  const res = await fetch(apiUrl("/chat"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -151,12 +158,6 @@ export async function streamChat(body: ChatBody, onEvent: (e: ChatEvent) => void
   }
 }
 
-async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(path);
-  if (!res.ok) throw new ChatHttpError(res.status, `${path} ${res.status}`);
-  return (await res.json()) as T;
-}
-
-export const getChats = () => getJson<{ items: ChatSummary[] }>("/api/chats").then((r) => r.items);
-export const getChat = (id: string) => getJson<ChatConversation>(`/api/chats/${encodeURIComponent(id)}`);
-export const getChatStatus = () => getJson<ChatStatus>("/api/chat/status");
+export const getChats = () => api<{ items: ChatSummary[] }>("/chats").then((r) => r.items);
+export const getChat = (id: string) => api<ChatConversation>(`/chats/${encodeURIComponent(id)}`);
+export const getChatStatus = () => api<ChatStatus>("/chat/status");

@@ -104,6 +104,14 @@ export function chatReducer(s: ChatState, a: ChatAction): ChatState {
   }
 }
 
+/**
+ * 마지막이 질문이고 답이 아직 저장되지 않았다. 답하던 중 끊긴 직후에 생긴다 —
+ * 서버가 끊김을 알아채 그 턴을 "중단됨"으로 저장하기까지 잠깐(1초 안쪽) 걸린다.
+ */
+export function awaitingAnswer(c: ChatConversation): boolean {
+  return c.turns.length > 0 && c.turns[c.turns.length - 1].role === "user";
+}
+
 /** 서버의 종목 코드 형식(prompt.py TICKER_RE)과 같다. 형식이 틀린 값은 맥락으로 보내지 않는다. */
 export const TICKER_RE = /^[0-9A-Z]{6}$/;
 
@@ -112,10 +120,16 @@ export interface ChatStock {
   name: string | null;
 }
 
+/** 맥락으로 쓸 수 있는 종목만 남긴다. 화면의 "현재 맥락" 표시와 실제로 보내는 값이 같은 기준을 쓰게 한다. */
+export function validStock(stock: ChatStock | null): ChatStock | null {
+  return stock && TICKER_RE.test(stock.ticker) ? stock : null;
+}
+
 /** 질문과 함께 보낼 종목 코드. 맥락을 껐거나(그 종목에 한해) 형식이 틀리면 보내지 않는다. */
 export function contextTicker(stock: ChatStock | null, offTicker: string | null): string | undefined {
-  if (!stock || !TICKER_RE.test(stock.ticker) || stock.ticker === offTicker) return undefined;
-  return stock.ticker;
+  const valid = validStock(stock);
+  if (!valid || valid.ticker === offTicker) return undefined;
+  return valid.ticker;
 }
 
 /** 지난 대화 목록의 시각 표시: 11/13 09:05 */

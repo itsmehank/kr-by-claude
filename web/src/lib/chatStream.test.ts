@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createSseParser, errorText } from "./chatStream";
+import { ChatHttpError, createSseParser, errorText, httpStatus } from "./chatStream";
 
 const sse = (o: unknown) => `data: ${JSON.stringify(o)}\n\n`;
 
@@ -42,5 +42,14 @@ describe("errorText", () => {
     expect(errorText("internal")).toBe("전문가가 답하지 못했어요(internal)");
     expect(errorText(null)).toBe("답하는 중 문제가 생겼어요.");
     expect(errorText("constructor")).toBe("전문가가 답하지 못했어요(constructor)");
+  });
+});
+
+describe("httpStatus", () => {
+  it("응답이 있었던 실패만 상태 코드를 준다", () => {
+    expect(httpStatus(new ChatHttpError(409, "바쁨"))).toBe(409);
+    expect(httpStatus(Object.assign(new Error("API /chats/x failed: 404"), { status: 404 }))).toBe(404);
+    expect(httpStatus(new TypeError("Failed to fetch"))).toBeUndefined();
+    expect(httpStatus("문자열")).toBeUndefined();
   });
 });

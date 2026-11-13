@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { chatReducer, contextTicker, initialChat, shortTime, DISCONNECTED_TEXT, type ChatAction, type ChatState } from "./chatState";
-import type { ChatEvent, ChatTurn } from "./chatStream";
+import { awaitingAnswer, chatReducer, contextTicker, validStock, initialChat, shortTime, DISCONNECTED_TEXT, type ChatAction, type ChatState } from "./chatState";
+import type { ChatConversation, ChatEvent, ChatTurn } from "./chatStream";
 
 const run = (s: ChatState, ...actions: ChatAction[]) => actions.reduce(chatReducer, s);
 const ev = (event: ChatEvent): ChatAction => ({ type: "event", event });
@@ -107,5 +107,27 @@ describe("shortTime", () => {
     const d = new Date(2026, 10, 13, 9, 5);
     expect(shortTime(d.toISOString())).toBe("11/13 09:05");
     expect(shortTime("이상한 값")).toBe("");
+  });
+});
+
+describe("validStock", () => {
+  it("종목 코드 형식일 때만 맥락으로 보인다 — 보내는 기준(contextTicker)과 같다", () => {
+    expect(validStock({ ticker: "093320", name: "케이아이엔엑스" })).toEqual({ ticker: "093320", name: "케이아이엔엑스" });
+    for (const bad of ["abc123", "12345", "1234567", ""]) {
+      expect(validStock({ ticker: bad, name: null })).toBeNull();
+      expect(contextTicker({ ticker: bad, name: null }, null)).toBeUndefined();
+    }
+    expect(validStock(null)).toBeNull();
+  });
+});
+
+describe("awaitingAnswer", () => {
+  const conv = (...turns: ChatTurn[]): ChatConversation => ({
+    id: "caaaaaaaaaaa", created_at: "2026-11-13T00:00:00+00:00", updated_at: "2026-11-13T00:00:00+00:00", context: null, turns,
+  });
+  it("마지막이 답 없는 질문일 때만 참 — 끊긴 답이 아직 저장되기 전", () => {
+    expect(awaitingAnswer(conv(turn({ role: "user", text: "q" })))).toBe(true);
+    expect(awaitingAnswer(conv(turn({ role: "user", text: "q" }), turn({ status: "aborted" })))).toBe(false);
+    expect(awaitingAnswer(conv())).toBe(false);
   });
 });
