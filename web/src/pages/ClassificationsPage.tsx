@@ -12,6 +12,7 @@ import { relativeTime, formatKst } from "../lib/utils";
 import { Tooltip } from "../components/ui/Tooltip";
 import { matchesPresenceFilters } from "../lib/classificationFilters";
 import { ClassificationChip } from "../components/classifications/ClassificationChip";
+import { useChatStock } from "../components/chat/chatContext";
 import { ClassificationDetail } from "../components/classifications/ClassificationDetail";
 import { CLASSIFICATION_LABELS, FIELD_TOOLTIPS, PATTERN_DESCRIPTIONS } from "../components/classifications/meta";
 import { useSidebarAutoCollapse } from "../components/sidebarContext";
@@ -271,6 +272,7 @@ export default function ClassificationsPage() {
   // 갑자기 다시 나타나지 않게(리뷰 반영). 로딩 중(새 필터로 재조회)에는 판단을 미룬다.
   const listSettled = emptySelection || (q.data !== undefined && !q.isFetching);
   if (selectedSymbol && !selectedRow && listSettled) setSelectedSymbol(null);
+  useChatStock(selectedRow?.symbol, selectedRow?.name); // (#281) 채팅 위젯의 "현재 맥락"
 
   const detailRef = useRef<HTMLDivElement>(null);
   const [scrollRequest, setScrollRequest] = useState(0);

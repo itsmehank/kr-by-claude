@@ -36,6 +36,7 @@ import { PerformanceCard } from "../components/panels/PerformanceCard";
 import { TriggerHistoryTable } from "../components/panels/TriggerHistoryTable";
 import { ClassificationHistoryTable } from "../components/panels/ClassificationHistoryTable";
 import { StockSearch } from "../components/StockSearch";
+import { useChatStock } from "../components/chat/chatContext";
 
 const PERIODS = [
   { id: "1W", label: "1주", days: 7 },
@@ -120,6 +121,7 @@ export default function ChartPage() {
     queryFn: () => api<Stock>(`/stocks/${ticker}`),
     enabled: !!ticker,
   });
+  useChatStock(ticker, stockMeta?.name); // (#281) 채팅 위젯의 "현재 맥락"
 
   // Daily query
   const dailyQ = useQuery<DailyIndicator[]>({

@@ -53,6 +53,16 @@
 }
 
 @layer components {
+  /* (#281) 채팅 창이 버튼 위로 올라오며 열린다 */
+  .chat-slide-up {
+    animation: chat-slide-up 160ms ease-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-slide-up {
+      animation: none;
+    }
+  }
+
   .caps {
     @apply uppercase tracking-caps text-caption font-medium text-muted;
   }
@@ -117,5 +127,16 @@
   input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
+  }
+}
+
+@keyframes chat-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
