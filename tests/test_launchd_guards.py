@@ -2,6 +2,7 @@
 
 #92: KRX 접촉 빈도 제한이 회귀하지 않도록 고정한다. pykrx 는 호출하지 않는다.
 """
+import json
 import os
 import re
 import subprocess
@@ -714,34 +715,69 @@ def test_attempts_below_db_failure_exits_nonzero(runs_conn):
     assert "BEFORE" in r.stdout and "RC=" not in r.stdout, f"{r.stdout!r} {r.stderr!r}"
 
 
-def _failed_with(prefix: str = "guard(") -> str:
-    return f"last_run_failed_with guardtest \"{_MONTH}\" '{prefix}' && echo YES || echo NO"
+def test_attempts_below_mode_filter(runs_conn):
+    """mode 를 주면 그 mode 만 센다 — corporate_actions 는 아침 증분과 월간 매핑이 같은 pipeline 이름이다."""
+    for i in range(3):
+        _insert_run(runs_conn, f"{_MONTH} + interval '{i} minute'", "success")       # mode=incremental
+    runs_conn.execute(f"INSERT INTO pipeline_runs (pipeline, mode, started_at, status) VALUES ('guardtest','refresh-mapping', {_MONTH}, 'failed')")
+    runs_conn.commit()
+    cmd = f"attempts_below guardtest \"{_MONTH}\" 2 refresh-mapping && echo ALLOW || echo BLOCK"
+    assert "ALLOW" in run_guard(cmd, _kr_db()).stdout
+    runs_conn.execute(f"INSERT INTO pipeline_runs (pipeline, mode, started_at, status) VALUES ('guardtest','refresh-mapping', {_MONTH} + interval '1 minute', 'failed')")
+    runs_conn.commit()
+    assert "BLOCK" in run_guard(cmd, _kr_db()).stdout
 
 
-def test_last_run_failed_with_matches_latest_guard_failure(runs_conn):
-    """가장 최근 실패가 가드면 참 — 다시 돌려도 같은 결과라 자동 재시도에서 뺀다(10-01 유형)."""
-    _insert_run(runs_conn, f"{_MONTH} + interval '1 minute'", "failed", "guard(snapshot) 배제 집합 변동 미설명")
-    assert "YES" in run_guard(_failed_with(), _kr_db()).stdout
+_HOLD = f"needs_human_since guardtest \"{_MONTH}\" && echo HOLD || echo GO"
 
 
-def test_last_run_failed_with_false_for_transient_failure(runs_conn):
-    """접속 실패(11-01 유형)는 가드가 아니다 → 재시도 대상."""
+def _insert_guard_fail(conn, started_sql: str, systemic: list[str] | None):
+    details = None if systemic is None else json.dumps({"exclusion_systemic": systemic, "report_key": ["+000001"]})
+    conn.execute(
+        "INSERT INTO pipeline_runs (pipeline, mode, started_at, status, error, details) "
+        f"VALUES ('guardtest','incremental', {started_sql}, 'failed', 'guard(snapshot) 배제 집합 변동 미설명', %s::jsonb)",
+        (details,),
+    )
+    conn.commit()
+
+
+def test_needs_human_for_guard_failure(runs_conn):
+    """가드 실패(10-01 유형)는 사람이 수용해야 풀린다 → 보류. details 가 없는 가드 실패(guard(a)/(b))도 보류."""
+    _insert_guard_fail(runs_conn, f"{_MONTH} + interval '1 minute'", [])
+    assert "HOLD" in run_guard(_HOLD, _kr_db()).stdout
+    runs_conn.execute("DELETE FROM pipeline_runs WHERE pipeline='guardtest'")
+    _insert_guard_fail(runs_conn, f"{_MONTH} + interval '1 minute'", None)
+    assert "HOLD" in run_guard(_HOLD, _kr_db()).stdout
+
+
+def test_needs_human_excludes_security_group_outage(runs_conn):
+    """증권구분 조회 실패로 생긴 가드 실패는 일시 장애다 — 보류하면 다시 돌리면 풀릴 실패가 그 달 내내 방치된다(리뷰 #285)."""
+    _insert_guard_fail(runs_conn, f"{_MONTH} + interval '1 minute'", ["security_group_unavailable"])
+    assert "GO" in run_guard(_HOLD, _kr_db()).stdout
+
+
+def test_needs_human_marker_matches_python_constant():
+    from kr_pipeline.universe.__main__ import SYSTEMIC_SECURITY_GROUP_UNAVAILABLE
+    assert f"? '{SYSTEMIC_SECURITY_GROUP_UNAVAILABLE}'" in GUARDS.read_text()
+
+
+def test_needs_human_false_for_transient_and_past_month(runs_conn):
+    """접속 실패(11-01 유형)·이력 없음·지난달 가드 실패는 보류가 아니다."""
+    assert "GO" in run_guard(_HOLD, _kr_db()).stdout
     _insert_run(runs_conn, f"{_MONTH} + interval '1 minute'", "failed", "HTTPSConnectionPool(host='data.krx.co.kr')")
-    assert "NO" in run_guard(_failed_with(), _kr_db()).stdout
+    _insert_guard_fail(runs_conn, f"{_MONTH} - interval '1 day'", [])
+    assert "GO" in run_guard(_HOLD, _kr_db()).stdout
 
 
-def test_last_run_failed_with_looks_only_at_latest_run(runs_conn):
-    """가드 실패 뒤에 다른 사유의 실패가 왔으면 최근 것이 기준이다. error 가 NULL 인 실패·이력 없음·지난달 가드 실패도 거짓."""
-    assert "NO" in run_guard(_failed_with(), _kr_db()).stdout  # 이력 없음
-    _insert_run(runs_conn, f"{_MONTH} - interval '1 day'", "failed", "guard(snapshot) 지난달")
-    assert "NO" in run_guard(_failed_with(), _kr_db()).stdout  # 지난달 것은 보지 않는다
-    _insert_run(runs_conn, f"{_MONTH} + interval '1 minute'", "failed", "guard(snapshot) x")
-    _insert_run(runs_conn, f"{_MONTH} + interval '2 minute'", "failed", None)
-    assert "NO" in run_guard(_failed_with(), _kr_db()).stdout
+def test_needs_human_survives_later_transient_failure(runs_conn):
+    """가드 실패 뒤 사람의 수용 실행이 접속 실패로 끝나도 보류는 유지된다 — 풀리면 수용 없이 자동 재시도해 같은 가드에 다시 걸린다(리뷰 #285)."""
+    _insert_guard_fail(runs_conn, f"{_MONTH} + interval '1 minute'", [])
+    _insert_run(runs_conn, f"{_MONTH} + interval '2 minute'", "failed", "HTTPSConnectionPool")
+    assert "HOLD" in run_guard(_HOLD, _kr_db()).stdout
 
 
-def test_last_run_failed_with_db_failure_exits_nonzero(runs_conn):
-    r = run_guard(f"echo BEFORE; {_failed_with()}; echo AFTER", {"KR_DB": "kr_definitely_no_such_db"})
+def test_needs_human_db_failure_exits_nonzero(runs_conn):
+    r = run_guard(f"echo BEFORE; {_HOLD}; echo AFTER", {"KR_DB": "kr_definitely_no_such_db"})
     assert "BEFORE" in r.stdout and "AFTER" not in r.stdout, f"{r.stdout!r} {r.stderr!r}"
 
 
@@ -753,28 +789,68 @@ def test_monthly_chain_fires_daily():
     assert "<key>Day</key>" not in block and "<key>Weekday</key>" not in block
 
 
+def _monthly_code() -> str:
+    return "\n".join(ln for _, ln in _code_lines(LAUNCHD / "monthly_chain.sh"))
+
+
 def test_monthly_chain_done_month_exits_before_lock_and_sweep():
     """매일 발화의 평상시 경로: 그 달 몫이 끝났으면 락·보고서·universe 실행보다 먼저 끝난다(KRX 접촉 0)."""
-    code = [ln for _, ln in _code_lines(LAUNCHD / "monthly_chain.sh")]
-    text = "\n".join(code)
-    done = text.index('if has_success_since universe "$MONTH_START" && mapping_done; then')
+    text = _monthly_code()
+    done = text.index('if [ "$UNIVERSE_DONE" = 1 ] && mapping_done; then')
     assert re.match(r"\s*exit 0\s*$", text[done:].splitlines()[1])
-    for later in ("acquire_lock data", "universe_exclusion_report.py", "kr_pipeline.universe"):
-        assert done < text.index(later), f"{later} 가 완료 판정보다 앞에 있다"
+    for later in ("acquire_lock data", "send_exclusion_report\n", "kr_pipeline.universe"):
+        assert done < text.index(later, done), f"{later!r} 가 완료 판정보다 앞에 있다"
 
 
-@pytest.mark.parametrize("gate", ['last_run_failed_with universe "$MONTH_START" "guard("',
-                                  'attempts_below universe "$MONTH_START" "$MONTH_ATTEMPT_MAX"'])
-def test_monthly_chain_retry_gates_halt_before_sweep(gate):
-    """가드 실패·월 상한 분기는 universe 실행보다 앞에 있고, 매핑으로 fall-through 하지 않는다(순서 보전)."""
-    lines = (LAUNCHD / "monthly_chain.sh").read_text().splitlines()
-    idx = next(i for i, ln in enumerate(lines) if gate in ln)
-    assert lines[idx].lstrip().startswith("elif ")
-    code = [ln for ln in lines[idx:idx + 8] if not ln.lstrip().startswith("#")]
-    assert any(re.match(r"\s*exit 0\s*$", ln) for ln in code[:4]), "\n".join(code)
-    run_line = next(i for i, ln in enumerate(lines) if "uv run python -m kr_pipeline.universe" in ln)
-    assert idx < run_line
+@pytest.mark.parametrize("gate", ['needs_human_since universe "$MONTH_START"',
+                                  'attempts_below universe "$MONTH_START" "$MONTH_ATTEMPT_MAX"',
+                                  "attempt_allowed universe 1",
+                                  "elif ! mapping_allowed; then"])
+def test_monthly_chain_hold_gates_precede_lock_and_halt(gate):
+    """보류·상한 판정은 읽기 전용이라 data 락보다 앞에서 끝난다(아무 일도 안 할 발화가 락을 최대 2시간 기다리지 않게 — 리뷰 #285).
+    각 분기는 exit 0 으로 끝나 매핑으로 fall-through 하지 않는다(순서 보전)."""
+    lines = _monthly_code().splitlines()
+    idx = next(i for i, ln in enumerate(lines) if gate in ln and ln.lstrip().startswith(("if ", "elif ")))
+    lock = next(i for i, ln in enumerate(lines) if "acquire_lock data" in ln)
+    assert idx < lock, f"{gate} 판정이 락 획득보다 뒤에 있다"
+    assert any(re.match(r"\s*exit 0\s*$", ln) for ln in lines[idx + 1:idx + 4]), "\n".join(lines[idx:idx + 4])
 
 
-def test_monthly_attempt_cap_default_pinned():
-    assert 'MONTH_ATTEMPT_MAX="${MONTH_ATTEMPT_MAX:-5}"' in (LAUNCHD / "monthly_chain.sh").read_text()
+def test_monthly_chain_hold_resends_report_only_when_unsent():
+    """보류가 며칠 이어져도 같은 보고가 매일 Slack 에 올라가지 않는다 — 한 번도 못 보낸 경우에만 다시 시도(리뷰 #285)."""
+    lines = _monthly_code().splitlines()
+    idx = next(i for i, ln in enumerate(lines) if 'needs_human_since universe "$MONTH_START"' in ln)
+    branch = lines[idx + 1:idx + 4]
+    assert any(ln.strip() == "report_unsent && send_exclusion_report" for ln in branch), "\n".join(branch)
+    assert not any(ln.strip() == "send_exclusion_report" for ln in branch)
+
+
+def test_monthly_chain_mapping_is_capped_by_mode():
+    """매핑도 한 달 상한·하루 1회 — 계속 실패하는 매핑이 매일 외부 API·실패 알림을 반복하지 않게(리뷰 #285). 아침 증분은 세지 않는다."""
+    text = _monthly_code()
+    assert 'attempts_below corporate_actions "$MONTH_START" "$MONTH_ATTEMPT_MAX" refresh-mapping' in text
+    assert 'attempts_below corporate_actions "$DAY_START" 1 refresh-mapping' in text
+    run = text.index("--mode=refresh-mapping")
+    assert text.rindex("mapping_allowed", 0, run) > text.index("acquire_lock data"), "락 뒤 매핑 실행 직전에도 상한을 본다"
+
+
+def test_monthly_chain_rechecks_universe_after_lock():
+    """락을 기다리는 동안 사람이 직접 끝냈으면 다시 실행하지 않는다."""
+    text = _monthly_code()
+    lock = text.index("acquire_lock data")
+    assert lock < text.index('if has_success_since universe "$MONTH_START"; then', lock) < text.index("uv run python -m kr_pipeline.universe")
+
+
+def test_month_attempt_cap_default_pinned_in_lib():
+    assert 'MONTH_ATTEMPT_MAX="${MONTH_ATTEMPT_MAX:-5}"' in GUARDS.read_text()
+    assert "MONTH_ATTEMPT_MAX=" not in (LAUNCHD / "monthly_chain.sh").read_text()
+
+
+def test_watch_alerts_on_monthly_hold_and_cap():
+    """보류·상한은 발화가 로그만 남기고 끝나므로 감시가 알린다 — 아니면 그 달을 건너뛴 채 아무도 모른다(리뷰 #285).
+    판정은 체인과 같은 함수(기준이 갈리지 않게), dedupe 키는 달·상태별."""
+    text = (LAUNCHD / "watch_pipelines.sh").read_text()
+    for needle in ('needs_human_since universe "$MONTH_START"', 'attempts_below universe "$MONTH_START" "$MONTH_ATTEMPT_MAX"',
+                   'attempts_below corporate_actions "$MONTH_START" "$MONTH_ATTEMPT_MAX" refresh-mapping',
+                   'alert "miss.universe.$YM.hold"', 'alert "miss.universe.$YM.cap"', 'alert "miss.mapping.$YM.cap"'):
+        assert needle in text, needle

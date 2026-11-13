@@ -1,6 +1,6 @@
 """#204 — universe fetch: 업종 조회 빈 응답 가드 + 종목명 1회 조회(종목별 루프 제거). KRX 접촉 0(전부 mock).
 
-배경: 월간 체인(매월 1일 06:30)이 '오늘' 날짜로 업종분류현황을 조회 → 장 전이라 종가 전부 0 → pykrx 가 빈 DataFrame 반환 →
+배경: 월간 체인(06:30 발화 — 당시 매월 1일, #284 부터 매일)이 '오늘' 날짜로 업종분류현황을 조회 → 장 전이라 종가 전부 0 → pykrx 가 빈 DataFrame 반환 →
 reset_index/rename 후 ticker·sector 컬럼이 없어 KeyError("None of [Index(['ticker','sector'])] are in the [columns]").
 06-28·07-17·09-01·10-01 전부 비거래 시점 실측. 종목명은 pykrx StockTicker(상장종목검색 1회) 캐시라 실제 요청은 이미 1회 —
 (a) 같은 출처의 표를 한 번 받아 매핑(이름 값 100% 동일, 스팩 축 영향 0).
