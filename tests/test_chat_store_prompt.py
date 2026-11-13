@@ -40,6 +40,37 @@ def test_store_expires_after_retention_and_purges(tmp_path):
     assert store.purge() == 1 and not list(tmp_path.glob("*.json"))
 
 
+def test_store_purge_if_due_runs_at_most_once_per_interval(tmp_path):
+    from kr_pipeline.chat.store import PURGE_INTERVAL
+
+    clock = Clock()
+    store = ChatStore(tmp_path, clock=clock)
+    assert store.purge_if_due() == 0  # 첫 호출은 훑는다(지울 것 없음)
+    a = store.create(None)
+    clock.t += RETENTION_DAYS * 86400 + 1
+    assert store.purge_if_due() == 1 and not (tmp_path / f"{a.id}.json").exists()  # 간격이 지났다 → 지운다
+    # 방금 훑은 뒤 기한 지난 파일이 생겨도(오래된 파일을 흉내 낸다) 간격 안에는 다시 훑지 않는다
+    b = store.create(None)
+    path = tmp_path / f"{b.id}.json"
+    path.write_text(path.read_text().replace(b.updated_at, "2020-01-01T00:00:00+00:00"), encoding="utf-8")
+    clock.t += PURGE_INTERVAL / 2
+    assert store.purge_if_due() == 0 and path.exists()
+    with pytest.raises(KeyError):
+        store.get(b.id)  # 지우지 않았어도 기한 지난 대화는 읽히지 않는다
+    clock.t += PURGE_INTERVAL
+    assert store.purge_if_due() == 1 and not path.exists()
+
+
+def test_store_list_with_purge_deletes_expired_in_same_scan(tmp_path):
+    clock = Clock()
+    store = ChatStore(tmp_path, clock=clock)
+    old = store.create(None)
+    clock.t += RETENTION_DAYS * 86400 + 1
+    new = store.create(None)
+    assert [c.id for c in store.list()] == [new.id] and (tmp_path / f"{old.id}.json").exists()
+    assert [c.id for c in store.list(purge=True)] == [new.id] and not (tmp_path / f"{old.id}.json").exists()
+
+
 @pytest.mark.parametrize("bad", ["../etc/passwd", "c123", "", "cAAAAAAAAAAA", None])
 def test_store_rejects_bad_ids(tmp_path, bad):
     with pytest.raises(KeyError):
@@ -116,6 +147,29 @@ def test_ticker_context_summarizes_latest_classification_and_triggers(db):
     assert "2026-11-11 promotion → wait" in ctx.summary and "시장 게이트 미충족" in ctx.summary
     p = build_chat_prompt("왜 wait?", context=ctx, history=[], today="2026-11-12")
     assert p.count("</context>") == 1  # 근거 글 안의 닫는 태그는 중화된다
+
+
+def test_ticker_context_latest_is_by_analyzed_date_like_the_stock_page(db):
+    """과거 기준일 행이 나중에 기록돼도(백필·재실행) 현재 분류는 기준일이 최신인 행이다 — 화면 API 와 같은 기준."""
+    _seed(db)
+    with db.cursor() as cur:
+        cur.execute(
+            """INSERT INTO weekly_classification
+                 (symbol, classified_at, market, classification, pattern, confidence, reasoning, source,
+                  analyzed_for_date)
+               VALUES ('9CHT01', NOW(), 'KOSDAQ', 'ignore', 'none', 0.5, '백필로 나중에 기록된 과거 근거',
+                       'weekend', '2026-10-30')""")
+        cur.execute(
+            "SELECT classification FROM weekly_classification WHERE symbol = '9CHT01' "
+            "ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC LIMIT 1")
+        assert cur.fetchone()[0] == "watch"
+    ctx = build_ticker_context(db, "9CHT01")
+    assert "최신 분류: watch (기준일 2026-11-10" in ctx.summary and "백필로" not in ctx.summary
+
+
+def test_prompt_teaches_the_same_latest_classification_rule():
+    text = build_chat_prompt("q", context=None, history=[], today="2026-11-12")
+    assert "ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC" in text
 
 
 def test_ticker_context_without_rows(db):

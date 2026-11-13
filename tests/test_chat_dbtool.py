@@ -36,15 +36,31 @@ def _ro_conn(ro_url, *, read_only: bool):
 
 
 def test_with_ro_user_swaps_only_the_user():
-    assert dbtool.with_ro_user("postgresql://localhost/kr_test") == "postgresql://kr_chat_ro@localhost/kr_test"
-    assert (dbtool.with_ro_user("postgresql://me:pw@db.local:5433/kr_pipeline?sslmode=disable")
-            == "postgresql://kr_chat_ro@db.local:5433/kr_pipeline?sslmode=disable")
+    from psycopg.conninfo import conninfo_to_dict as d
+
+    assert d(dbtool.with_ro_user("postgresql://localhost/kr_test")) == {
+        "user": "kr_chat_ro", "host": "localhost", "dbname": "kr_test"}
+    # 비밀번호는 빼고, 호스트·포트·옵션은 그대로
+    assert d(dbtool.with_ro_user("postgresql://me:pw@db.local:5433/kr_pipeline?sslmode=disable")) == {
+        "user": "kr_chat_ro", "host": "db.local", "port": "5433", "dbname": "kr_pipeline", "sslmode": "disable"}
+
+
+def test_with_ro_user_keeps_socket_ipv6_and_keyword_forms():
+    from psycopg.conninfo import conninfo_to_dict as d
+
+    # 호스트가 없으면(유닉스 소켓) 없는 채로 둔다 — localhost(TCP)로 바꾸지 않는다
+    assert d(dbtool.with_ro_user("postgresql:///kr_pipeline")) == {"user": "kr_chat_ro", "dbname": "kr_pipeline"}
+    assert d(dbtool.with_ro_user("postgresql://me@[::1]:5432/kr_pipeline")) == {
+        "user": "kr_chat_ro", "host": "::1", "port": "5432", "dbname": "kr_pipeline"}
+    assert d(dbtool.with_ro_user("dbname=kr_pipeline host=/tmp user=me password='p w'")) == {
+        "user": "kr_chat_ro", "host": "/tmp", "dbname": "kr_pipeline"}
 
 
 def test_chat_database_url_prefers_explicit(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://localhost/kr_pipeline")
     monkeypatch.delenv("CHAT_DATABASE_URL", raising=False)
-    assert dbtool.chat_database_url() == "postgresql://kr_chat_ro@localhost/kr_pipeline"
+    assert dbtool.chat_database_url() == dbtool.with_ro_user("postgresql://localhost/kr_pipeline")
+    assert "kr_chat_ro" in dbtool.chat_database_url()
     monkeypatch.setenv("CHAT_DATABASE_URL", "postgresql://x@h/d")
     assert dbtool.chat_database_url() == "postgresql://x@h/d"
 
@@ -259,3 +275,35 @@ def test_mcp_server_exposes_only_two_tools():
 
     tools = asyncio.run(mcp_server.server.list_tools())
     assert sorted(t.name for t in tools) == sorted(mcp_server.TOOL_NAMES) == ["describe", "query"]
+
+
+def test_describe_marks_tables_the_role_cannot_read(ro_url, probe, test_db_url):
+    with psycopg.connect(test_db_url, autocommit=True) as conn:
+        conn.execute(f"REVOKE SELECT ON {probe} FROM kr_chat_ro")
+    lines = dbtool.describe(url=ro_url).splitlines()
+    mine = next(x for x in lines if x.startswith(probe))
+    assert mine.endswith(dbtool.NO_PRIVILEGE)
+    assert not any(x.endswith(dbtool.NO_PRIVILEGE) for x in lines if not x.startswith(probe))
+    assert "permission denied" in dbtool.run_query(f"SELECT * FROM {probe}", url=ro_url)
+
+
+def test_role_script_does_not_reset_settings_of_existing_role(test_db_url, ro_url):
+    """계정은 운영 DB 와 공용이다. 스크립트를 다시 적용해도(테스트 세션마다 일어난다) 이미 있는 계정의 설정은 건드리지 않는다."""
+    import subprocess
+
+    from tests.conftest import CHAT_RO_ROLE_PATH
+
+    sql = CHAT_RO_ROLE_PATH.read_text(encoding="utf-8")
+    block = sql[sql.index("DO $$"):sql.index("$$;")]
+    assert block.count("ALTER ROLE kr_chat_ro SET") == 2 and "ALTER ROLE" not in sql[sql.index("$$;"):]
+    assert "IF NOT EXISTS" in block
+    with psycopg.connect(test_db_url, autocommit=True) as conn:
+        before = conn.execute("SELECT rolconfig FROM pg_roles WHERE rolname = 'kr_chat_ro'").fetchone()[0]
+        xmin = conn.execute("SELECT xmin::text FROM pg_authid WHERE rolname = 'kr_chat_ro'").fetchone() \
+            if conn.execute("SELECT has_table_privilege('pg_authid', 'SELECT')").fetchone()[0] else None
+    subprocess.run(["psql", "-v", "ON_ERROR_STOP=1", test_db_url, "-f", str(CHAT_RO_ROLE_PATH)],
+                   check=True, capture_output=True)
+    with psycopg.connect(test_db_url, autocommit=True) as conn:
+        assert conn.execute("SELECT rolconfig FROM pg_roles WHERE rolname = 'kr_chat_ro'").fetchone()[0] == before
+        if xmin is not None:  # 계정 행 자체가 다시 쓰이지 않았다
+            assert conn.execute("SELECT xmin::text FROM pg_authid WHERE rolname = 'kr_chat_ro'").fetchone() == xmin

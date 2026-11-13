@@ -12,12 +12,12 @@ import time
 import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import asdict
-from datetime import UTC, datetime
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from .prompt import TickerContext, build_chat_prompt
 from .runner import ChatRunError, ChatRunner, Delta, Done, ToolUse
-from .store import ChatStore, Conversation, Turn, TurnStatus
+from .store import ChatStore, Conversation, Turn, TurnStatus, _iso
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +39,28 @@ ERROR_TEXT: dict[str, str] = {
 }
 
 _TABLE_RE = re.compile(r"\b(?:from|join)\s+(?:public\.)?([a-z_][a-z0-9_]*)", re.IGNORECASE)
+# 테이블 이름이 아닌데 from 뒤에 오는 것들을 미리 지운다: 문자열, 주석, EXTRACT(year FROM d) 같은 함수 안의 from.
+_NOISE_RE = re.compile(
+    r"'(?:[^']|'')*'|--[^\n]*|/\*.*?\*/|\b(?:extract|substring|trim|overlay|position)\s*\([^()]*\)",
+    re.IGNORECASE | re.DOTALL,
+)
+# WITH x AS ( … ), y (a, b) AS MATERIALIZED ( … ) 의 x·y — 테이블이 아니라 이 조회 안에서 붙인 이름
+_CTE_RE = re.compile(
+    r"(?:\bwith(?:\s+recursive)?|,)\s+([a-z_][a-z0-9_]*)\s*(?:\([^()]*\)\s*)?as\s+(?:(?:not\s+)?materialized\s*)?\(",
+    re.IGNORECASE,
+)
+
+
+def query_tables(sql: str) -> list[str]:
+    """조회문이 읽는 테이블 이름(나온 순서, 중복 없이). 화면 진행 문구용 어림이다."""
+    text = _NOISE_RE.sub(" ", sql)
+    ctes = {c.lower() for c in _CTE_RE.findall(text)}
+    out: list[str] = []
+    for t in _TABLE_RE.findall(text):
+        t = t.lower()
+        if t not in ctes and t not in out and t not in ("select", "lateral", "unnest", "generate_series"):
+            out.append(t)
+    return out
 
 
 def error_text(kind: str) -> str:
@@ -51,10 +73,7 @@ def status_text(ev: ToolUse) -> str:
         return STATUS_GENERIC
     if ev.tool.endswith("__describe"):
         return STATUS_DESCRIBE.format(table=ev.path[:63])
-    tables: list[str] = []
-    for t in _TABLE_RE.findall(ev.path):
-        if t.lower() not in tables:
-            tables.append(t.lower())
+    tables = query_tables(ev.path)
     return STATUS_TABLES.format(tables=", ".join(tables[:4])) if tables else STATUS_GENERIC
 
 
@@ -65,10 +84,6 @@ class ConversationNotFound(KeyError):
 class ChatBusy(Exception):
     def __init__(self) -> None:
         super().__init__(BUSY_TEXT)
-
-
-def _iso(ts: float) -> str:
-    return datetime.fromtimestamp(ts, UTC).isoformat(timespec="seconds")
 
 
 def _history(turns: list[Turn]) -> list[tuple[str, str]]:
@@ -163,7 +178,7 @@ class ChatService:
         release: Callable[[], None],
     ) -> Iterator[dict]:
         try:
-            self.chats.purge()
+            self.chats.purge_if_due()
         except Exception as e:  # noqa: BLE001  오래된 대화 삭제 실패가 질문을 막지 않게
             log.warning("chat purge failed: %s", type(e).__name__)
         conv: Conversation
@@ -223,7 +238,9 @@ class ChatService:
                 return
             if done is None:
                 raise ChatRunError("exit", "stream ended without result")
-            text = done.text or "".join(parts)
+            # 화면에 흘려보낸 글 그대로 저장한다(도구 호출 앞의 말 포함). claude 의 최종 결과(done.text)는
+            # 마지막 메시지뿐이라, 그것을 저장하면 done 순간·다시 열 때 글이 바뀌고 중단된 턴과도 달라진다.
+            text = "".join(parts) or done.text
             turn = Turn("assistant", text, _iso(self._clock()), "done", queries=queries,
                         id=Turn.new_id())  # fmt: skip
             self.chats.append(conv.id, turn)

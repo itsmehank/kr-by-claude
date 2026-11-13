@@ -73,7 +73,6 @@ class ToolUse:
 @dataclass
 class Done:
     text: str
-    denied_paths: list[str]
 
 
 ChatEvent = Delta | ToolUse | Done
@@ -104,16 +103,6 @@ def _tool_path(inp: object) -> str | None:
         if isinstance(v, str) and v:
             return v
     return None
-
-
-def _denied_paths(data: dict) -> list[str]:
-    out: list[str] = []
-    for d in data.get("permission_denials") or []:
-        if isinstance(d, dict):
-            p = _tool_path(d.get("tool_input"))
-            if p:
-                out.append(p)
-    return out
 
 
 def _kill_group(pid: int) -> None:
@@ -381,7 +370,7 @@ class ClaudeChatRunner:
                 if data.get("is_error"):
                     kind, detail = classify_is_error(data)
                     raise ChatRunError(kind, detail)
-                done = Done(str(data.get("result") or ""), _denied_paths(data))
+                done = Done(str(data.get("result") or ""))
         if done is not None:
             rc = _settle(run)
             if rc != 0 and not (run.aborted or run.timed_out):
@@ -403,42 +392,3 @@ class ClaudeChatRunner:
         errf.seek(0)
         stderr = errf.read(300).decode("utf-8", "replace").strip()
         raise ChatRunError("exit", f"exit {rc}: no result. {stderr}"[:500])
-
-
-class FakeChatRunner:
-    def __init__(self, scripts: list[list[ChatEvent | ChatRunError]]) -> None:
-        self._scripts = [list(s) for s in scripts]
-        self.prompts: list[str] = []
-        self.closed = 0
-        self.aborted = 0
-        self._abort_flag = threading.Event()
-        self._active = False  # like the real runner: abort only affects a stream mid-flight
-
-    def abort(self) -> None:
-        self.aborted += 1
-        if self._active:
-            self._abort_flag.set()
-
-    def stream(self, prompt: str, *, timeout: int = 300) -> Iterator[ChatEvent]:
-        self.prompts.append(prompt)
-        if not self._scripts:
-            raise AssertionError("FakeChatRunner: no scripts left")
-        self._abort_flag.clear()
-        self._active = True  # slot registered by stream(), like the real runner
-        return self._run(self._scripts.pop(0))
-
-    def _run(self, script: list[ChatEvent | ChatRunError]) -> Iterator[ChatEvent]:
-        try:
-            for item in script:
-                if self._abort_flag.is_set():
-                    self._abort_flag.clear()
-                    raise ChatRunError("aborted", "aborted by caller")
-                if isinstance(item, ChatRunError):
-                    raise item
-                yield item
-        except GeneratorExit:
-            self.closed += 1
-            raise
-        finally:
-            self._active = False
-            self._abort_flag.clear()

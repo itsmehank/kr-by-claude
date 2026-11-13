@@ -40,6 +40,7 @@ def atomic_write_text(path: Path, text: str) -> None:
 log = logging.getLogger(__name__)
 
 RETENTION_DAYS = 7
+PURGE_INTERVAL = 3600.0  # 질문마다 전체를 훑지 않는다(보관 기한은 일 단위)
 TurnStatus = Literal["done", "aborted", "error"]
 CHAT_ID_RE = re.compile(r"^c[a-z2-7]{11}$")
 FIRST_QUESTION_MAX = 80
@@ -148,6 +149,7 @@ class ChatStore:
         self._clock = clock
         self._lock = threading.Lock()
         self._warned: set[str] = set()  # 이미 경고한 읽을 수 없는 파일 이름(_lock 아래에서만)
+        self._purged_at: float | None = None  # 마지막으로 전체를 훑어 지운 시각(_lock 아래에서만)
 
     def _now(self) -> str:
         return _iso(self._clock())
@@ -225,20 +227,38 @@ class ChatStore:
                 self._warn(p.name)
         return out
 
-    def list(self) -> list[Conversation]:
+    def _sweep(self, *, delete: bool) -> tuple[list[Conversation], int]:
+        """잠금 아래에서 호출. 한 번 훑어 (살아 있는 대화, 지운 수)를 돌려준다."""
+        live: list[Conversation] = []
+        n = 0
+        for p, c in self._scan():
+            if not self._expired(c):
+                live.append(c)
+            elif delete:
+                try:
+                    p.unlink()
+                    n += 1
+                except OSError as e:  # 하나를 못 지워도 나머지는 계속
+                    if not isinstance(e, FileNotFoundError):
+                        self._warn(p.name)
+        if delete:
+            self._purged_at = self._clock()
+        return live, n
+
+    def list(self, *, purge: bool = False) -> list[Conversation]:
+        """최근 순 대화 목록. purge=True 면 같은 훑기에서 보관 기한이 지난 파일도 지운다."""
         with self._lock:
-            convs = [c for _, c in self._scan() if not self._expired(c)]
+            convs, _ = self._sweep(delete=purge)
         convs.sort(key=lambda c: (c.updated_at, c.created_at), reverse=True)
         return convs
 
     def purge(self) -> int:
-        n = 0
         with self._lock:
-            for p, c in self._scan():
-                if self._expired(c):
-                    try:
-                        p.unlink()
-                        n += 1
-                    except FileNotFoundError:
-                        pass
-        return n
+            return self._sweep(delete=True)[1]
+
+    def purge_if_due(self) -> int:
+        """마지막 정리로부터 PURGE_INTERVAL 이 지났을 때만 정리한다(기한 지난 대화는 그 전에도 읽히지 않는다)."""
+        with self._lock:
+            if self._purged_at is not None and self._clock() - self._purged_at < PURGE_INTERVAL:
+                return 0
+            return self._sweep(delete=True)[1]

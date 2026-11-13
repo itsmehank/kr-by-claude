@@ -10,9 +10,8 @@ import os
 import re
 from datetime import date, datetime
 from decimal import Decimal
-from urllib.parse import urlsplit, urlunsplit
-
 import psycopg
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 RO_ROLE = "kr_chat_ro"
 # MCP 서버 이름·도구 이름. 여기 두어 API(실행기)가 mcp 패키지를 import 하지 않게 한다.
@@ -22,6 +21,7 @@ STATEMENT_TIMEOUT_MS = 5000
 MAX_ROWS = 200
 MAX_CHARS = 20_000
 CELL_CHARS = 2000  # 한 칸 상한(reasoning 같은 긴 글 열)
+NO_PRIVILEGE = " | 조회 권한 없음(데이터가 없는 것이 아니라 이 도구가 읽지 못하는 테이블)"
 TRUNCATED_ROWS = "…(결과가 {n}행을 넘어 잘랐습니다. 조건을 좁히거나 LIMIT·집계를 쓰세요.)"
 TRUNCATED_CHARS = "…(결과가 {n}자를 넘어 잘랐습니다. 열을 줄이거나 조건을 좁히세요.)"
 
@@ -42,11 +42,20 @@ def chat_database_url() -> str:
     return with_ro_user(os.environ["DATABASE_URL"])
 
 
-def with_ro_user(url: str) -> str:
-    parts = urlsplit(url)
-    host = parts.hostname or "localhost"
-    netloc = f"{RO_ROLE}@{host}" + (f":{parts.port}" if parts.port else "")
-    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+def with_ro_user(conninfo: str) -> str:
+    """접속 정보에서 계정만 kr_chat_ro 로 바꾼다(비밀번호는 뺀다). 나머지(호스트·소켓·포트·옵션)는 그대로.
+
+    libpq 가 받는 모든 형식(URL, `dbname=… host=…`, 유닉스 소켓, IPv6)을 libpq 의 해석기로 읽는다.
+    """
+    params = conninfo_to_dict(conninfo)
+    params.pop("password", None)
+    params["user"] = RO_ROLE
+    return make_conninfo("", **params)
+
+
+def _pg_error_text(e: psycopg.Error) -> str:
+    msg = (e.diag.message_primary if e.diag and e.diag.message_primary else str(e)).strip()
+    return f"오류: {msg[:500]}"
 
 
 def _is_word(ch: str) -> bool:
@@ -174,8 +183,7 @@ def run_query(sql: str, *, url: str | None = None) -> str:
             cols = [d.name for d in cur.description]
             rows = cur.fetchmany(MAX_ROWS + 1)
     except psycopg.Error as e:
-        msg = (e.diag.message_primary if e.diag and e.diag.message_primary else str(e)).strip()
-        return f"오류: {msg[:500]}"
+        return _pg_error_text(e)
     more = len(rows) > MAX_ROWS
     lines = [json.dumps(cols, ensure_ascii=False)]
     total = len(lines[0])
@@ -206,12 +214,14 @@ def describe(table: str | None = None, *, url: str | None = None) -> str:
         with _connect(url or chat_database_url()) as conn, conn.cursor() as cur:
             if table is None:
                 cur.execute(
-                    "SELECT c.relname, c.reltuples::bigint FROM pg_class c "
+                    "SELECT c.relname, c.reltuples::bigint, has_table_privilege(c.oid, 'SELECT') FROM pg_class c "
                     "JOIN pg_namespace n ON n.oid = c.relnamespace "
                     "WHERE n.nspname = 'public' AND c.relkind IN ('r','v','m','p') ORDER BY 1"
                 )
                 rows = cur.fetchall()
-                return "\n".join(["테이블 | 대략 행 수"] + [f"{n} | {max(k, 0)}" for n, k in rows])
+                # 조회 권한이 없는 테이블(다른 계정이 만든 뒤 chat_ro_role.sql 을 다시 적용하지 않은 경우)은 표시해 둔다.
+                return "\n".join(["테이블 | 대략 행 수"] + [
+                    f"{n} | {max(k, 0)}" + ("" if ok else NO_PRIVILEGE) for n, k, ok in rows])
             cur.execute(
                 "SELECT column_name, data_type, is_nullable FROM information_schema.columns "
                 "WHERE table_schema = 'public' AND table_name = %s ORDER BY ordinal_position",
@@ -228,8 +238,7 @@ def describe(table: str | None = None, *, url: str | None = None) -> str:
             )
             pk = [r[0] for r in cur.fetchall()]
     except psycopg.Error as e:
-        msg = (e.diag.message_primary if e.diag and e.diag.message_primary else str(e)).strip()
-        return f"오류: {msg[:500]}"
+        return _pg_error_text(e)
     out = [f"{table} — 기본 키: {', '.join(pk) if pk else '없음'}", "열 | 형태 | NULL 허용"]
     out += [f"{c} | {t} | {n}" for c, t, n in cols]
     return "\n".join(out)

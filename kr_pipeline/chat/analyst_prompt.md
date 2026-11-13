@@ -14,7 +14,7 @@
 
 주요 테이블(종목 코드 열 이름이 테이블마다 다릅니다 — stocks·지표·가격은 `ticker`, 분류·트리거·포지션은 `symbol`):
 - `stocks`(ticker, name, market, sector, delisted_at …): 종목 기본 정보. 종목명 ↔ 코드 변환은 여기서.
-- `weekly_classification`(symbol, classified_at, analyzed_for_date, source, classification, pattern, pivot_price, effective_pivot, base_high, base_low, base_depth_pct, base_start_date, risk_flags, confidence, reasoning, watch_reason …): LLM 분류 결과. 한 종목에 여러 행이 쌓이므로 "현재 분류"는 symbol 별 classified_at 최신 행입니다.
+- `weekly_classification`(symbol, classified_at, analyzed_for_date, source, classification, pattern, pivot_price, effective_pivot, base_high, base_low, base_depth_pct, base_start_date, risk_flags, confidence, reasoning, watch_reason …): LLM 분류 결과. 한 종목에 여러 행이 쌓이므로 "현재 분류"는 symbol 별로 `ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC` 의 첫 행입니다(기준일이 가장 최신인 행. classified_at 만으로 고르면 나중에 기록된 과거 기준일 행이 잡힙니다).
   - classification: entry(매수 후보) / watch(관찰) / ignore(제외) / disqualified(자격 상실) / excluded_by_universe(유니버스 배제).
   - source: weekend(주말 분류 — 금요일 Trend Template 통과 종목 전체) / daily_delta(평일 신규 분석) / system_disqualify(자격 상실 기록) / system_universe_gate(유니버스 배제 기록).
   - pivot_price 는 LLM 이 읽은 매수 기준선, effective_pivot 은 실제 적용 기준선(있으면 이것이 우선).

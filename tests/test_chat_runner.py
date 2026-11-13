@@ -47,7 +47,7 @@ def test_mcp_config_has_single_db_server_with_ro_url(monkeypatch):
     assert list(cfg["mcpServers"]) == ["krdb"]
     srv = cfg["mcpServers"]["krdb"]
     assert srv["command"] == sys.executable and srv["args"] == ["-m", "kr_pipeline.chat.mcp_server"]
-    assert srv["env"]["CHAT_DATABASE_URL"] == "postgresql://kr_chat_ro@localhost/kr_pipeline"
+    assert srv["env"]["CHAT_DATABASE_URL"] == chat_runner.dbtool.with_ro_user("postgresql://localhost/kr_pipeline")
     assert os.path.isdir(os.path.join(srv["env"]["PYTHONPATH"], "kr_pipeline"))
 
 
@@ -82,11 +82,12 @@ def test_stream_parses_delta_tooluse_done_and_passes_env(tmp_path, monkeypatch):
         {"type": "assistant", "message": {"content": [
             {"type": "tool_use", "name": "mcp__krdb__query", "input": {"sql": "select 1 from stocks"}}]}},
         _delta("안녕"), _delta("하세요"),
-        {"type": "result", "is_error": False, "result": "안녕하세요"},
+        {"type": "result", "is_error": False, "result": "안녕하세요",
+         "permission_denials": [{"tool_name": "Bash", "tool_input": {"command": "ls"}}]},
     ], record=record))
     events = list(ClaudeChatRunner(database_url="postgresql://kr_chat_ro@h/d").stream("질문"))
     assert events == [ToolUse("mcp__krdb__query", "select 1 from stocks"), Delta("안녕"), Delta("하세요"),
-                      Done("안녕하세요", [])]
+                      Done("안녕하세요")]
     assert "DISABLE_AUTOUPDATER=1" in (tmp_path / "argv.env").read_text()
     mcp = json.loads((tmp_path / "argv.mcp").read_text())
     assert mcp["mcpServers"]["krdb"]["env"]["CHAT_DATABASE_URL"] == "postgresql://kr_chat_ro@h/d"
@@ -190,3 +191,7 @@ def test_close_midstream_kills_process_and_grandchild(tmp_path, monkeypatch):
     pids = [int(x) for x in pidfile.read_text().split()]
     stream.close()  # 이터레이터를 중간에 닫는 경로(연결 끊김)
     assert _wait_gone(pids) == []
+
+
+def test_runner_module_has_no_test_double():
+    assert not hasattr(chat_runner, "FakeChatRunner") and Done("x") == Done(text="x")

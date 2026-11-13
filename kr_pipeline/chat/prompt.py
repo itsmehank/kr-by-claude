@@ -59,7 +59,9 @@ def build_ticker_context(conn: Connection, ticker: str | None) -> TickerContext 
         cur.execute(
             "SELECT analyzed_for_date, source, classification, pattern, pivot_price, effective_pivot, "
             "base_low, base_high, confidence, watch_reason, reasoning "
-            "FROM weekly_classification WHERE symbol = %s ORDER BY classified_at DESC LIMIT 1",
+            # "최신"의 기준은 화면(api/routers/classifications.py)과 같다: 기준일 최신 → 같은 기준일이면 기록 시각 최신.
+            "FROM weekly_classification WHERE symbol = %s "
+            "ORDER BY COALESCE(analyzed_for_date, classified_at::date) DESC, classified_at DESC LIMIT 1",
             (ticker,),
         )
         c = cur.fetchone()

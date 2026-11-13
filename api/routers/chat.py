@@ -35,7 +35,9 @@ router = APIRouter(tags=["chat"])
 
 QUESTION_MAX = 2000
 DISCONNECT_POLL = 0.5
-CHAIN_STALE_HOURS = 12  # 이보다 오래된 running 행은 죽은 실행의 잔재로 본다
+# 마지막 생존 신호(heartbeat, 없으면 시작 시각)가 이보다 오래된 running 행은 죽은 실행의 잔재로 본다.
+# 정상 실행 최장: heartbeat 없는 daily_delta·backfill 약 13시간, weekend 는 33시간이지만 heartbeat 를 남긴다.
+CHAIN_STALE_HOURS = 24
 NOT_FOUND_TEXT = "대화를 찾을 수 없어요"
 INTERNAL_TEXT = "전문가에게 질문하지 못했어요."
 SSE_HEADERS = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
@@ -216,12 +218,8 @@ async def chat(request: Request):
 
 @router.get("/api/chats")
 def list_chats():
-    chats = get_service().chats
-    try:
-        chats.purge()
-    except Exception as e:  # noqa: BLE001  삭제 실패가 목록을 막지 않게
-        log.warning("chat purge failed: %s", type(e).__name__)
-    return {"items": [c.summary() for c in chats.list()]}
+    # 목록을 만들며 훑는 김에 기한 지난 대화를 지운다(파일을 두 번 읽지 않는다).
+    return {"items": [c.summary() for c in get_service().chats.list(purge=True)]}
 
 
 @router.get("/api/chats/{conv_id}")
@@ -240,7 +238,8 @@ def chat_status(conn: Connection = Depends(get_conn)):
         cur.execute(
             "SELECT DISTINCT pipeline FROM pipeline_runs "
             "WHERE status = 'running' AND pipeline LIKE 'llm\\_%%' "
-            "AND started_at > now() - make_interval(hours => %s) ORDER BY 1",
+            "AND COALESCE((details ->> 'heartbeat_at')::timestamptz, started_at) "
+            "> now() - make_interval(hours => %s) ORDER BY 1",
             (CHAIN_STALE_HOURS,),
         )
         running = [r[0] for r in cur.fetchall()]
