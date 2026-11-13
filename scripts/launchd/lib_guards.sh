@@ -233,6 +233,11 @@ has_running_recent() {
 }
 
 # 대량 외부 호출 파이프라인의 시도 허용 판정 — #92 재탐지 방지.
+# 인자·조회 결과의 숫자 검증(attempt_allowed·attempts_below 공용).
+# _uint_arg: 호출 인자가 비숫자면 rc=1(차단). _uint_out: DB 출력이 비숫자면 exit 1(오염 = DB 실패와 같은 취급).
+_uint_arg() { case "$3" in ''|*[!0-9]*) log "$1 시도 상한 인자 비정상($2=$3) — fail-closed 차단"; return 1;; esac; }
+_uint_out() { case "$3" in ''|*[!0-9]*) log "$1 시도 이력 파싱 실패($2=$3) — fail-closed 중단"; exit 1;; esac; }
+
 # 사용: attempt_allowed <pipeline> [max_per_day] [min_gap_sec]
 # 이력은 pipeline_runs(성공·실패 모두 기록. run_tracking 이 start_run+commit 을 yield 앞에서
 # 수행하므로 스윕 시작 전에 행이 열린다 → 진행 중 실행도 보인다).
@@ -242,8 +247,8 @@ attempt_allowed() {
   local pl="$1" mx="${2:-$ATTEMPT_MAX_DEFAULT}" gp="${3:-$ATTEMPT_GAP_DEFAULT}" row n age
   # 인자 검증 — 비숫자면 `[ x -ge y ]` 가 오류로 false 가 되어 **fail-open** 한다.
   # 재차단을 막는 가드가 오타 하나로 조용히 무력화되면 안 되므로 fail-closed 로 차단한다.
-  case "$mx" in ''|*[!0-9]*) log "$pl 시도 상한 인자 비정상(max=$mx) — fail-closed 차단"; return 1;; esac
-  case "$gp" in ''|*[!0-9]*) log "$pl 시도 상한 인자 비정상(gap=$gp) — fail-closed 차단"; return 1;; esac
+  _uint_arg "$pl" max "$mx" || return 1
+  _uint_arg "$pl" gap "$gp" || return 1
   # count 는 당일 창(하루 상한), age 는 **전역 최근 시도**(PR#93 리뷰 M-2) —
   # 둘 다 당일 필터면 자정에 간격이 리셋돼 어제 23:30 + 오늘 00:05(35분)가 통과한다.
   # 수면→기상 catch-up 이 자정을 걸치는 것이 이 리포의 실측 패턴이라 실제로 밟힌다.
@@ -254,8 +259,8 @@ attempt_allowed() {
   row=${row##*$'\n'}
   n=${row%% *}; age=${row##* }
   # 파싱 결과가 비숫자 = 출력 오염 — DB 실패와 동일하게 fail-closed 중단
-  case "$n" in ''|*[!0-9]*) log "$pl 시도 이력 파싱 실패(n=$n) — fail-closed 중단"; exit 1;; esac
-  case "$age" in ''|*[!0-9]*) log "$pl 시도 이력 파싱 실패(age=$age) — fail-closed 중단"; exit 1;; esac
+  _uint_out "$pl" n "$n"
+  _uint_out "$pl" age "$age"
   if [ "$n" -ge "$mx" ]; then
     log "$pl 일일 시도 상한 도달($n/$mx) — skip"; return 1
   fi
@@ -265,6 +270,43 @@ attempt_allowed() {
     log "$pl 직전 시도 후 ${age}s < ${gp}s — skip(백오프)"; return 1
   fi
   return 0
+}
+
+# ── #284: 월간 체인 매일 발화용 가드 ─────────────────────────────────
+# 한 달 시도 상한(universe·매핑 공통). 장애·차단이 길어질 때 매일 발화가 외부 접촉을 무한히 반복하지 않게 한다.
+# 감시(watch_pipelines)도 같은 값으로 "상한 도달" 을 알린다.
+MONTH_ATTEMPT_MAX="${MONTH_ATTEMPT_MAX:-5}"
+
+# attempts_below <pipeline> <since_sql> <max> [mode] — since 이후 시도 수(성공·실패·진행 중 모두)가 max 미만이면 rc=0.
+# mode 를 주면 그 mode 만 센다(corporate_actions 는 아침 증분과 월간 매핑이 같은 pipeline 이름을 쓴다).
+# DB 실패·비숫자 = fail-closed(attempt_allowed 와 같은 관례·같은 검증 함수).
+attempts_below() {
+  local pl="$1" since="$2" mx="$3" mode_clause="" n
+  [ $# -ge 4 ] && mode_clause="AND mode='$4'"
+  _uint_arg "$pl" max "$mx" || return 1
+  n=$(db_query "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='$pl' $mode_clause AND started_at >= $since") \
+    || { log "시도 이력 조회 불가(DB) — fail-closed 중단"; exit 1; }
+  n=${n##*$'\n'}
+  _uint_out "$pl" n "$n"
+  if [ "$n" -ge "$mx" ]; then
+    log "$pl${4:+/$4} 기간 시도 상한 도달($n/$mx) — skip"; return 1
+  fi
+  return 0
+}
+
+# needs_human_since <pipeline> <since_sql> — since 이후 "사람이 확인해야 풀리는 실패" 가 있으면 rc=0.
+# = error 가 guard( 로 시작하는 실패. 다시 돌려도 외부만 접촉하고 같은 결과다(universe 배제 집합 가드, 10-01 유형).
+# 단 증권구분 조회 실패로 생긴 가드 실패(details.exclusion_systemic 에 security_group_unavailable —
+# universe/__main__.py SYSTEMIC_SECURITY_GROUP_UNAVAILABLE)는 일시 장애라 제외한다(다시 돌리면 풀린다).
+# "직전 run" 이 아니라 기간 전체를 본다 — 사람의 수용 실행이 접속 실패로 끝나도 보류가 풀려 수용 없이 자동 재시도되지 않게.
+# 성공하면 호출부의 몫 완료 판정이 먼저 걸리므로 보류는 성공으로만 풀린다.
+needs_human_since() {
+  local pl="$1" since="$2" n
+  n=$(db_query "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='$pl' AND status='failed' AND started_at >= $since AND left(COALESCE(error,''), 6) = 'guard(' AND NOT COALESCE(details->'exclusion_systemic' ? 'security_group_unavailable', false)") \
+    || { log "실패 사유 조회 불가(DB) — fail-closed 중단"; exit 1; }
+  n=${n##*$'\n'}
+  _uint_out "$pl" n "$n"
+  [ "$n" -gt 0 ]
 }
 
 last_saturday_expr() {

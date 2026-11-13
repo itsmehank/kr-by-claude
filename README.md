@@ -83,7 +83,7 @@ scripts/launchd/install.sh   # crontab 백업·제거 → 구 LLM plist 정리 �
 | evening-chain | 평일 20:30 | 데이터 체인 → 포지션 평가 → 시장 지표 → LLM full-daily(performance 내장) |
 | weekend-chain | 토 03:00 (+월 07:00 catch-up) | 주봉 체인 → LLM 주말 분류 → freeze 정리 |
 | morning-corp | 평일 08:00 | 공시 증분(7일 창) |
-| monthly-chain | 매월 1일 06:30 | universe → corp_code 매핑 (순서 고정) |
+| monthly-chain | 매일 06:30 (월 1회 몫 — 그 달 몫이 끝나면 즉시 종료, 실패한 달만 하루 1회·월 5회까지 재시도) | universe → corp_code 매핑 (순서 고정) |
 | pipeline-watch | 1시간마다 | 결측·failed·좌초 감시 → Slack 알림 |
 
 공통 가드: 시간 자물쇠(09:00~20:25 실행 금지 — 정규장 부분봉 + 애프터마켓 20분 지연 잠정값 오염 방지, schedule.env INTRADAY_LOCK_END) ·

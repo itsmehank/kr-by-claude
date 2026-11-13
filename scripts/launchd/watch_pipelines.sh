@@ -128,4 +128,19 @@ if [ "$DOW" = "1" ] && { [ "$HOUR" -gt 9 ] || { [ "$HOUR" -eq 9 ] && [ "$(date +
   [ "${N:-0}" -gt 0 ] || alert "miss.wclassify.$WK" "주말 분류 주차($WK) 미완료"
 fi
 
+# ── 6. 월간 몫 (#284) — 월간 체인은 매일 06:30 에 재시도하지만, 아래 두 상태에서는 로그만 남기고 조용히 보류한다.
+#    그대로 두면 그 달 universe·매핑을 건너뛴 채 아무도 모른다(11-01 실패 → 8일 방치와 같은 결과). 상태별로 한 달에 1번 알린다.
+#    판정 함수는 monthly_chain.sh 와 같은 것(lib_guards)이라 기준이 갈리지 않는다. 함수의 log 는 감시 로그에 남는다.
+MONTH_START="date_trunc('month', now())"; YM=$(date +%Y%m)
+if ! has_success_since universe "$MONTH_START"; then
+  if needs_human_since universe "$MONTH_START"; then
+    alert "miss.universe.$YM.hold" "월간 종목 갱신($YM) 보류 중 - 가드 실패라 자동 재시도하지 않음. 원인 확인 후 universe 를 --accept-exclusion-diff 로 직접 실행 필요"
+  elif ! attempts_below universe "$MONTH_START" "$MONTH_ATTEMPT_MAX"; then
+    alert "miss.universe.$YM.cap" "월간 종목 갱신($YM) 미완료 - 이번 달 시도 상한(${MONTH_ATTEMPT_MAX}회) 도달, 자동 재시도 중단. 복구 후 직접 실행 필요"
+  fi
+elif ! has_success_since corporate_actions "$MONTH_START" refresh-mapping \
+     && ! attempts_below corporate_actions "$MONTH_START" "$MONTH_ATTEMPT_MAX" refresh-mapping; then
+  alert "miss.mapping.$YM.cap" "corp_code 매핑 갱신($YM) 미완료 - 이번 달 시도 상한(${MONTH_ATTEMPT_MAX}회) 도달, 자동 재시도 중단"
+fi
+
 log "watch 완료"

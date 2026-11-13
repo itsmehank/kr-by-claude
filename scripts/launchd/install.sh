@@ -85,10 +85,10 @@ echo "== ④ 새 plist 생성·로드"
   echo "</dict></plist>"
 } > "$LA/com.krbyclaude.weekend-chain.plist"
 
-# monthly-chain: 매월 1일 06:30
+# monthly-chain: 매일 06:30 (#284 — 그 달 몫이 끝났으면 DB 조회만 하고 끝난다. 1일 실행이 실패한 달의 재시도 계기)
 { plist_head monthly-chain
   echo "  <key>ProgramArguments</key><array><string>/usr/bin/caffeinate</string><string>-s</string><string>$SCRIPTS/monthly_chain.sh</string></array>"
-  echo "  <key>StartCalendarInterval</key><dict><key>Day</key><integer>1</integer><key>Hour</key><integer>6</integer><key>Minute</key><integer>30</integer></dict>"
+  echo "  <key>StartCalendarInterval</key><dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>30</integer></dict>"
   echo "</dict></plist>"
 } > "$LA/com.krbyclaude.monthly-chain.plist"
 
