@@ -267,6 +267,33 @@ attempt_allowed() {
   return 0
 }
 
+# ── #284: 월간 체인 매일 발화용 가드 ─────────────────────────────────
+# attempts_below <pipeline> <since_sql> <max> — since 이후 시도 수(성공·실패·진행 중 모두)가 max 미만이면 rc=0.
+# 장애·차단이 길어질 때 매일 발화가 KRX 접촉을 무한히 반복하지 않게 하는 월 상한. DB 실패·비숫자 = fail-closed(attempt_allowed 와 같은 관례).
+attempts_below() {
+  local pl="$1" since="$2" mx="$3" n
+  case "$mx" in ''|*[!0-9]*) log "$pl 시도 상한 인자 비정상(max=$mx) — fail-closed 차단"; return 1;; esac
+  n=$(db_query "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline='$pl' AND started_at >= $since") \
+    || { log "시도 이력 조회 불가(DB) — fail-closed 중단"; exit 1; }
+  n=${n##*$'\n'}
+  case "$n" in ''|*[!0-9]*) log "$pl 시도 이력 파싱 실패(n=$n) — fail-closed 중단"; exit 1;; esac
+  if [ "$n" -ge "$mx" ]; then
+    log "$pl 기간 시도 상한 도달($n/$mx) — skip"; return 1
+  fi
+  return 0
+}
+
+# last_run_failed_with <pipeline> <since_sql> <error_prefix> — since 이후 **가장 최근** run 이 failed 이고 error 가 prefix 로 시작하면 rc=0.
+# 용도: 사람이 확인해야 풀리는 실패(universe 의 guard(...))는 다시 돌려도 같은 결과라 자동 재시도에서 뺀다.
+# prefix 는 호출부 리터럴만 넘긴다(SQL 에 그대로 들어간다).
+last_run_failed_with() {
+  local pl="$1" since="$2" prefix="$3" n
+  n=$(db_query "SELECT COUNT(*) FROM (SELECT status, error FROM pipeline_runs WHERE pipeline='$pl' AND started_at >= $since ORDER BY started_at DESC, id DESC LIMIT 1) r WHERE r.status='failed' AND left(COALESCE(r.error,''), length('$prefix')) = '$prefix'") \
+    || { log "직전 실패 사유 조회 불가(DB) — fail-closed 중단"; exit 1; }
+  n=${n##*$'\n'}
+  [ "$n" = "1" ]
+}
+
 last_saturday_expr() {
   echo "date_trunc('day', now()) - ((extract(dow from now())::int + 1) % 7) * interval '1 day'"
 }

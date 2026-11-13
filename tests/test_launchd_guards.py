@@ -668,3 +668,113 @@ def test_bt_loop_alive_detects_either_pidfile(which, tmp_path):
     target.unlink()
     r = run_guard("bt_loop_alive && echo ALIVE || echo DEAD", env)
     assert r.stdout.strip() == "DEAD"
+
+
+# ─── #284: 월간 체인 매일 발화 — 실패한 달의 재시도 계기 ───────────────
+
+_MONTH = "date_trunc('month', now())"
+
+
+def _insert_run(conn, started_sql: str, status: str, error: str | None = None):
+    conn.execute(
+        "INSERT INTO pipeline_runs (pipeline, mode, started_at, status, error) "
+        f"VALUES ('guardtest','incremental', {started_sql}, %s, %s)",
+        (status, error),
+    )
+    conn.commit()
+
+
+def test_attempts_below_counts_all_runs_since(runs_conn):
+    """기간 상한: since 이후 시도(성공·실패 무관)가 상한 미만일 때만 허용 — 장애가 길어져도 접촉이 무한 반복되지 않는다."""
+    for i in range(2):
+        _insert_run(runs_conn, f"{_MONTH} + interval '{i} minute'", "failed", "HTTPSConnectionPool")
+    r = run_guard(f"attempts_below guardtest \"{_MONTH}\" 3 && echo ALLOW || echo BLOCK", _kr_db())
+    assert "ALLOW" in r.stdout, f"{r.stdout!r} {r.stderr!r}"
+    _insert_run(runs_conn, f"{_MONTH} + interval '2 minute'", "failed", "HTTPSConnectionPool")
+    r = run_guard(f"attempts_below guardtest \"{_MONTH}\" 3 && echo ALLOW || echo BLOCK", _kr_db())
+    assert "BLOCK" in r.stdout, f"{r.stdout!r} {r.stderr!r}"
+
+
+def test_attempts_below_ignores_runs_before_since(runs_conn):
+    """지난달 시도는 이번 달 상한에 세지 않는다."""
+    for i in range(5):
+        _insert_run(runs_conn, f"{_MONTH} - interval '{i + 1} day'", "failed", "x")
+    r = run_guard(f"attempts_below guardtest \"{_MONTH}\" 1 && echo ALLOW || echo BLOCK", _kr_db())
+    assert "ALLOW" in r.stdout, f"{r.stdout!r} {r.stderr!r}"
+
+
+@pytest.mark.parametrize("bad", ["", "abc", "-1"])
+def test_attempts_below_fails_closed_on_bad_max(runs_conn, bad):
+    r = run_guard(f"attempts_below guardtest \"{_MONTH}\" '{bad}' && echo ALLOW || echo BLOCK", _kr_db())
+    assert "BLOCK" in r.stdout, f"{r.stdout!r} {r.stderr!r}"
+
+
+def test_attempts_below_db_failure_exits_nonzero(runs_conn):
+    r = run_guard(f"echo BEFORE; attempts_below guardtest \"{_MONTH}\" 5; echo RC=$?", {"KR_DB": "kr_definitely_no_such_db"})
+    assert "BEFORE" in r.stdout and "RC=" not in r.stdout, f"{r.stdout!r} {r.stderr!r}"
+
+
+def _failed_with(prefix: str = "guard(") -> str:
+    return f"last_run_failed_with guardtest \"{_MONTH}\" '{prefix}' && echo YES || echo NO"
+
+
+def test_last_run_failed_with_matches_latest_guard_failure(runs_conn):
+    """가장 최근 실패가 가드면 참 — 다시 돌려도 같은 결과라 자동 재시도에서 뺀다(10-01 유형)."""
+    _insert_run(runs_conn, f"{_MONTH} + interval '1 minute'", "failed", "guard(snapshot) 배제 집합 변동 미설명")
+    assert "YES" in run_guard(_failed_with(), _kr_db()).stdout
+
+
+def test_last_run_failed_with_false_for_transient_failure(runs_conn):
+    """접속 실패(11-01 유형)는 가드가 아니다 → 재시도 대상."""
+    _insert_run(runs_conn, f"{_MONTH} + interval '1 minute'", "failed", "HTTPSConnectionPool(host='data.krx.co.kr')")
+    assert "NO" in run_guard(_failed_with(), _kr_db()).stdout
+
+
+def test_last_run_failed_with_looks_only_at_latest_run(runs_conn):
+    """가드 실패 뒤에 다른 사유의 실패가 왔으면 최근 것이 기준이다. error 가 NULL 인 실패·이력 없음·지난달 가드 실패도 거짓."""
+    assert "NO" in run_guard(_failed_with(), _kr_db()).stdout  # 이력 없음
+    _insert_run(runs_conn, f"{_MONTH} - interval '1 day'", "failed", "guard(snapshot) 지난달")
+    assert "NO" in run_guard(_failed_with(), _kr_db()).stdout  # 지난달 것은 보지 않는다
+    _insert_run(runs_conn, f"{_MONTH} + interval '1 minute'", "failed", "guard(snapshot) x")
+    _insert_run(runs_conn, f"{_MONTH} + interval '2 minute'", "failed", None)
+    assert "NO" in run_guard(_failed_with(), _kr_db()).stdout
+
+
+def test_last_run_failed_with_db_failure_exits_nonzero(runs_conn):
+    r = run_guard(f"echo BEFORE; {_failed_with()}; echo AFTER", {"KR_DB": "kr_definitely_no_such_db"})
+    assert "BEFORE" in r.stdout and "AFTER" not in r.stdout, f"{r.stdout!r} {r.stderr!r}"
+
+
+def test_monthly_chain_fires_daily():
+    """매월 1일만 발화하면 1일 실패 뒤 재시도 로직이 깨어날 계기가 없다(11-01 실패 → 8일 방치)."""
+    text = (LAUNCHD / "install.sh").read_text()
+    block = text[text.index("plist_head monthly-chain"):text.index('com.krbyclaude.monthly-chain.plist"')]
+    assert "<key>Hour</key><integer>6</integer><key>Minute</key><integer>30</integer>" in block
+    assert "<key>Day</key>" not in block and "<key>Weekday</key>" not in block
+
+
+def test_monthly_chain_done_month_exits_before_lock_and_sweep():
+    """매일 발화의 평상시 경로: 그 달 몫이 끝났으면 락·보고서·universe 실행보다 먼저 끝난다(KRX 접촉 0)."""
+    code = [ln for _, ln in _code_lines(LAUNCHD / "monthly_chain.sh")]
+    text = "\n".join(code)
+    done = text.index('if has_success_since universe "$MONTH_START" && mapping_done; then')
+    assert re.match(r"\s*exit 0\s*$", text[done:].splitlines()[1])
+    for later in ("acquire_lock data", "universe_exclusion_report.py", "kr_pipeline.universe"):
+        assert done < text.index(later), f"{later} 가 완료 판정보다 앞에 있다"
+
+
+@pytest.mark.parametrize("gate", ['last_run_failed_with universe "$MONTH_START" "guard("',
+                                  'attempts_below universe "$MONTH_START" "$MONTH_ATTEMPT_MAX"'])
+def test_monthly_chain_retry_gates_halt_before_sweep(gate):
+    """가드 실패·월 상한 분기는 universe 실행보다 앞에 있고, 매핑으로 fall-through 하지 않는다(순서 보전)."""
+    lines = (LAUNCHD / "monthly_chain.sh").read_text().splitlines()
+    idx = next(i for i, ln in enumerate(lines) if gate in ln)
+    assert lines[idx].lstrip().startswith("elif ")
+    code = [ln for ln in lines[idx:idx + 8] if not ln.lstrip().startswith("#")]
+    assert any(re.match(r"\s*exit 0\s*$", ln) for ln in code[:4]), "\n".join(code)
+    run_line = next(i for i, ln in enumerate(lines) if "uv run python -m kr_pipeline.universe" in ln)
+    assert idx < run_line
+
+
+def test_monthly_attempt_cap_default_pinned():
+    assert 'MONTH_ATTEMPT_MAX="${MONTH_ATTEMPT_MAX:-5}"' in (LAUNCHD / "monthly_chain.sh").read_text()
