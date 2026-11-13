@@ -18,6 +18,7 @@ import { InfoTooltip } from "../components/InfoTooltip";
 import StockStreakRow from "../components/StockStreakRow";
 import StockDetailPanel from "../components/StockDetailPanel";
 import { SourceChip } from "../components/SourceChip";
+import { useChatStock } from "../components/chat/chatContext";
 import { GlossaryText } from "../components/glossary/GlossaryText";
 
 const pct = (v: number | null) =>
@@ -356,6 +357,8 @@ export default function ReviewPage() {
   const selectedRow =
     stockRows.find((r) => r.symbol === selectedSymbol) ?? stockRows[0] ?? null;
   const handleSelect = useCallback((symbol: string) => setSelectedSymbol(symbol), []);
+  // (#281) 채팅 위젯의 "현재 맥락" — 상세 패널에 띄운 종목
+  useChatStock(isAnalysisView ? null : selectedRow?.symbol, selectedRow?.name);
   const activeQuery = isAnalysisView ? analysisQuery : stockQuery;
   const orphanCount = isAnalysisView
     ? analysisQuery.data?.orphan_trigger_count

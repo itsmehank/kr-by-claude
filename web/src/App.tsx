@@ -42,6 +42,8 @@ import TradingPage from "./pages/TradingPage";
 import IssuesPage from "./pages/IssuesPage";
 import { GlossaryProvider } from "./components/glossary/GlossaryProvider";
 import { GlossaryPanel } from "./components/glossary/GlossaryPanel";
+import { ChatProvider } from "./components/chat/ChatProvider";
+import { ChatPanel } from "./components/chat/ChatPanel";
 import { SidebarContext, type SidebarControl } from "./components/sidebarContext";
 import { initialSidebar, isCollapsed, sidebarReducer } from "./lib/sidebarState";
 import { api } from "./lib/api";
@@ -190,6 +192,7 @@ function App() {
   return (
     <SidebarContext.Provider value={control}>
     <GlossaryProvider>
+    <ChatProvider>
     <div className="min-h-screen flex bg-cream">
       <aside
         className={`${
@@ -308,8 +311,11 @@ function App() {
           <Route path="/prompt/:ticker" element={<PromptPage />} />
         </Routes>
       </main>
+      {/* (#281) <Routes> 바깥에 한 번만 둔다 — 페이지를 옮겨도 대화·입력 중인 글·흘러나오는 답이 유지된다 */}
+      <ChatPanel />
       <GlossaryPanel />
     </div>
+    </ChatProvider>
     </GlossaryProvider>
     </SidebarContext.Provider>
   );

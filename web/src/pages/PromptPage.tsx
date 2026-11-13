@@ -16,6 +16,7 @@ import {
   Archive,
 } from "lucide-react";
 import { api, apiUrl } from "../lib/api";
+import { useChatStock } from "../components/chat/chatContext";
 import type { Stock, MinerviniPassed, MarketContext } from "../lib/types";
 
 const ZIP_FILES = [
@@ -332,6 +333,7 @@ function PreviewCard({ ticker }: PreviewCardProps) {
   });
 
   const stock = stockQ.data;
+  useChatStock(ticker, stock?.name); // (#281) 채팅 위젯의 "현재 맥락"
   const minerviniEntry = minerviniQ.data?.find((m) => m.ticker === ticker);
   const marketEntry = stock
     ? marketQ.data?.find((m) =>
